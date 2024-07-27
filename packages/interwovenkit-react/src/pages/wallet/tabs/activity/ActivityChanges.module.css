@@ -1,0 +1,16 @@
+.change {
+  font-family: var(--monospace);
+  font-size: 12px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.positive {
+  color: var(--success-light);
+}
+
+.negative {
+  color: var(--gray-1);
+}

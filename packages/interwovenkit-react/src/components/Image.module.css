@@ -1,0 +1,9 @@
+.placeholder {
+  background-color: var(--gray-6);
+}
+
+.logo {
+  background-color: var(--logo-border);
+  border-radius: 50%;
+  padding: 1px;
+}

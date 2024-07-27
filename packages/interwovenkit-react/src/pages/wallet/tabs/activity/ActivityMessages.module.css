@@ -1,0 +1,11 @@
+.message {
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.more {
+  color: var(--dimmed);
+  font-size: 12px;
+}

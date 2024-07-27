@@ -1,0 +1,18 @@
+.button {
+  gap: 2px;
+  color: var(--dimmed);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 12px;
+  width: 100%;
+
+  transition: color var(--transition) ease;
+
+  &:hover {
+    color: var(--gray-1);
+  }
+
+  &:disabled {
+    color: var(--gray-6);
+  }
+}

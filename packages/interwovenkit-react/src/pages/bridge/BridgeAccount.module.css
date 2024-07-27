@@ -1,0 +1,53 @@
+.wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  background-color: var(--gray-7);
+  border-radius: 16px;
+  color: var(--gray-2);
+  font-size: 12px;
+  font-weight: 500;
+  height: 32px;
+  padding: 0 12px;
+
+  transition: background-color var(--transition) ease;
+
+  button&:hover {
+    background-color: var(--gray-6);
+  }
+
+  .clear {
+    padding: 12px;
+    margin: -12px;
+
+    transition: color var(--transition) ease;
+  }
+
+  .clear:hover {
+    color: var(--gray-1);
+  }
+
+  &.white {
+    gap: 4px;
+    background-color: var(--gray-0);
+    color: var(--gray-8);
+    font-weight: 600;
+  }
+
+  &.white:hover {
+    background-color: var(--gray-1);
+  }
+}
+
+.warning {
+  margin-top: 0;
+  margin-bottom: 20px;
+}

@@ -1,0 +1,12 @@
+.container {
+  position: relative;
+}
+
+.badge {
+  position: absolute;
+
+  background-color: var(--error);
+  border-radius: 4px;
+  width: 8px;
+  height: 8px;
+}

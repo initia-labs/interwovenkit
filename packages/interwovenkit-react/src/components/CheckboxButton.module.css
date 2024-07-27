@@ -1,0 +1,30 @@
+.button {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.checkbox {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  background-color: var(--gray-6);
+  border-radius: 2px;
+  color: var(--gray-9);
+  width: 14px;
+  height: 14px;
+
+  transition: background-color var(--transition) ease;
+
+  .button:hover &:not(.checked) {
+    background-color: var(--gray-4);
+  }
+
+  &.checked {
+    background-color: var(--gray-0);
+  }
+}

@@ -1,0 +1,46 @@
+.root {
+  display: flex;
+  gap: 8px;
+  position: relative;
+}
+
+.label {
+  position: absolute;
+  left: var(--search-input-padding);
+  top: 50%;
+  transform: translateY(-50%);
+
+  display: flex;
+  align-items: center;
+  color: var(--gray-2);
+  margin: 0;
+}
+
+.input {
+  border: 0;
+  background-color: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 0;
+  padding-left: calc(var(--search-input-icon-size) + var(--search-input-padding) + 8px);
+  padding-right: var(--search-input-padding);
+}
+
+.hasValue .input {
+  padding-right: calc(var(--search-input-icon-size) + 2 * var(--search-input-padding));
+}
+
+.clear {
+  position: absolute;
+  right: var(--search-input-padding);
+  top: 50%;
+  transform: translateY(-50%);
+
+  color: var(--gray-4);
+
+  transition: color var(--transition) ease;
+
+  &:hover {
+    color: var(--gray-1);
+  }
+}

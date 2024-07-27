@@ -1,0 +1,23 @@
+.container {
+  position: relative;
+}
+
+.toggle {
+  position: absolute;
+  top: -28px;
+  right: 0;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+}
+
+.arg {
+  display: grid;
+  gap: 2px;
+}
+
+.type {
+  color: var(--dimmed);
+}

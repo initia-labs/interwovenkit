@@ -1,0 +1,27 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 120px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+
+  color: var(--gray-1);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.dt {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.asset {
+  font-family: var(--monospace);
+}

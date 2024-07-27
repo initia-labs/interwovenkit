@@ -1,0 +1,32 @@
+.stack {
+  display: grid;
+  gap: 8px;
+}
+
+.help {
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 8px;
+  margin-top: 0;
+  padding: 12px;
+}
+
+.info {
+  background-color: var(--info-bg);
+  border-color: var(--info-dark);
+}
+
+.warning {
+  background-color: var(--warning-bg);
+  border-color: var(--warning-dark);
+}
+
+.error {
+  background-color: var(--error-bg);
+  border-color: var(--error-dark);
+}
+
+.success {
+  background-color: var(--success-bg);
+  border-color: var(--success-dark);
+}

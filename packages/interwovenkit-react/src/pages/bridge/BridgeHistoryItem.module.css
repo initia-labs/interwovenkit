@@ -1,0 +1,119 @@
+.link {
+  width: 100%;
+
+  display: flex;
+  flex-direction: column;
+  align-items: unset;
+  gap: 20px;
+
+  color: inherit;
+  padding: var(--padding);
+  padding-top: 16px;
+  text-decoration: none;
+
+  transition: background-color var(--transition) ease;
+
+  &:hover {
+    background-color: var(--gray-8);
+    color: inherit;
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  font-size: 12px;
+  font-weight: 500;
+
+  .title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .date {
+    color: var(--gray-2);
+  }
+
+  .explorer {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+
+    color: var(--gray-3);
+  }
+
+  .divider {
+    background-color: var(--gray-5);
+    width: 1px;
+    height: 8px;
+  }
+}
+
+.fees {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  font-size: 12px;
+  font-weight: 500;
+
+  .label {
+    color: var(--gray-2);
+  }
+
+  .content {
+    color: var(--gray-1);
+    font-family: var(--monospace);
+  }
+}
+
+.route {
+  display: grid;
+  gap: 4px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.asset {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  font-size: 16px;
+  font-weight: 500;
+
+  .amount {
+    font-family: var(--monospace);
+  }
+}
+
+.chain {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  color: var(--gray-3);
+  font-size: 12px;
+  font-weight: 500;
+
+  .account {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+}
+
+.arrow {
+  display: flex;
+  justify-content: center;
+
+  color: var(--dimmed);
+  width: 32px;
+}

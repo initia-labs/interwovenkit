@@ -1,0 +1,93 @@
+.header {
+  --header-size: 52px;
+
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  height: var(--header-size);
+
+  background-color: var(--gray-8);
+  border-bottom: 1px solid var(--border);
+
+  /* Prevent UI overlapping issues with absolute positioned menus (AssetActions)
+     when parent Scrollable container has overflow-y that's not hidden */
+  z-index: 1;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+
+  color: var(--gray-0);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 0 20px;
+
+  .name {
+    display: block;
+  }
+
+  .address {
+    display: none;
+  }
+
+  .icon {
+    color: var(--dimmed);
+
+    transition: color var(--transition) ease;
+  }
+
+  &:hover,
+  &.copied {
+    .name {
+      display: none;
+    }
+
+    .address {
+      display: block;
+    }
+
+    .icon {
+      color: var(--gray-1);
+    }
+  }
+}
+
+.button {
+  border-left: 1px solid var(--border);
+  color: var(--gray-4);
+
+  transition: color var(--transition) ease;
+
+  &:hover {
+    color: var(--gray-1);
+  }
+}
+
+.qr {
+  width: var(--header-size);
+}
+
+.disconnect {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+
+  min-width: var(--header-size);
+  overflow: hidden;
+  padding-left: calc((var(--header-size) - 16px) / 2);
+
+  .label {
+    font-size: 12px;
+    font-weight: 500;
+    opacity: 0;
+
+    transition: opacity var(--transition) ease;
+  }
+
+  &.expanded .label {
+    opacity: 1;
+  }
+}

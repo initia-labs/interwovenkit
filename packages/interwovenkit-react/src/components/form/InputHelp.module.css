@@ -1,0 +1,33 @@
+.help {
+  display: flex;
+  gap: 4px;
+
+  color: var(--gray-1);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.icon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: calc(12px * 1.5);
+}
+
+.info {
+  color: var(--info);
+}
+
+.warning {
+  color: var(--warning);
+}
+
+.error {
+  color: var(--error);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.success {
+  color: var(--success);
+}

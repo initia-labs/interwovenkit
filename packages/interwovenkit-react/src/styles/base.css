@@ -1,0 +1,19 @@
+.body {
+  /* body */
+  color-scheme: dark;
+  background-color: var(--bg);
+  color: var(--gray-0);
+  font-family: var(--font-family);
+  font-size: 14px;
+  letter-spacing: -0.01em;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+
+  /* layout */
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  position: relative;
+}

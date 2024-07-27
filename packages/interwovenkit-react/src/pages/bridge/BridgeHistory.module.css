@@ -1,0 +1,15 @@
+.list {
+  margin: calc(-1 * var(--padding));
+}
+
+.header {
+  border-bottom: 1px solid var(--border);
+}
+
+.checkbox {
+  padding: 12px var(--padding);
+}
+
+.item {
+  border-bottom: 1px solid var(--border);
+}

@@ -1,0 +1,68 @@
+.container {
+  display: grid;
+  overflow: hidden;
+}
+
+.search {
+  border-bottom: 1px solid var(--border);
+}
+
+.list {
+  overflow-y: auto;
+}
+
+.item {
+  gap: 8px;
+
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  padding: 12px var(--padding);
+  width: 100%;
+
+  transition: background-color var(--transition) ease;
+
+  &:hover {
+    background-color: var(--border);
+  }
+
+  &:last-of-type {
+    border-bottom: 0;
+  }
+}
+
+.logo {
+  flex: none;
+}
+
+.info {
+  flex: 1;
+  display: grid;
+}
+
+.symbol {
+  font-weight: 600;
+  width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.balance {
+  font-family: var(--monospace);
+  text-align: right;
+  word-break: break-all;
+}
+
+.name,
+.value {
+  color: var(--dimmed);
+  font-size: 12px;
+}

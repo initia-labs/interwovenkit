@@ -1,0 +1,71 @@
+.totalValue {
+  text-align: center;
+  padding: 8px 0;
+  margin-bottom: 4px;
+}
+
+.totalLabel {
+  color: var(--dimmed);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.totalAmount {
+  color: var(--gray-0);
+  font-size: 32px;
+  font-weight: 600;
+
+  &.loading {
+    opacity: 0.5;
+  }
+}
+
+.nav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 32px;
+
+  .item {
+    flex: 1;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+
+    background-color: var(--home-button-bg);
+    border-radius: 8px;
+    color: var(--info);
+    font-size: 14px;
+    font-weight: 600;
+    height: 56px;
+
+    transition: background-color var(--transition) ease;
+
+    &:hover {
+      background-color: var(--home-button-bg-hover);
+    }
+  }
+}
+
+.tabs {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.tab {
+  color: var(--gray-4);
+  font-size: 16px;
+  font-weight: 600;
+
+  transition: color var(--transition) ease;
+
+  &:hover {
+    color: var(--gray-2);
+  }
+
+  &[data-selected] {
+    color: var(--gray-0);
+  }
+}

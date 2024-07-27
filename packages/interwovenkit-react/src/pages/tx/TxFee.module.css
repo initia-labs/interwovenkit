@@ -1,0 +1,49 @@
+.trigger {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+
+  cursor: pointer;
+  font-family: var(--monospace);
+
+  .icon {
+    color: var(--dimmed);
+
+    transition: color var(--transition) ease;
+  }
+
+  &:hover .icon {
+    color: var(--gray-1);
+  }
+}
+
+.content {
+  background-color: var(--gray-8);
+  border: 1px solid var(--gray-6);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: var(--z-index);
+}
+
+.item {
+  border-radius: 4px;
+  color: var(--gray-2);
+  cursor: pointer;
+  font-family: var(--monospace);
+  font-size: 12px;
+  font-weight: 500;
+  text-align: right;
+  padding: 4px 12px;
+  width: 152px;
+
+  transition: background-color var(--transition) ease;
+
+  &:hover {
+    background-color: var(--gray-7);
+  }
+
+  &[data-state="checked"] {
+    color: var(--gray-1);
+  }
+}

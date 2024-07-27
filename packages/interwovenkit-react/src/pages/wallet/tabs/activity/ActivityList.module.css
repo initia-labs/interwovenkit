@@ -1,0 +1,30 @@
+.list {
+  display: flex; /* Prevents overflow when displaying very long denom strings in Activity changes */
+  flex-direction: column;
+  gap: 24px;
+}
+
+.dateGroup {
+  display: grid;
+  gap: 10px;
+}
+
+.dateHeader {
+  color: var(--gray-1);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.more {
+  color: var(--gray-2);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 12px;
+  width: 100%;
+
+  transition: color var(--transition) ease;
+
+  &:hover {
+    color: var(--gray-1);
+  }
+}

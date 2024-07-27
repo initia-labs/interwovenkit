@@ -1,0 +1,10 @@
+{
+  "extends": "../../packages/interwovenkit-react/tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@initia/interwovenkit-react": ["../../packages/interwovenkit-react/src"],
+      "@/*": ["../../packages/interwovenkit-react/src/*"]
+    }
+  }
+}

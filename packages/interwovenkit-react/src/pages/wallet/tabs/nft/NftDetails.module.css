@@ -1,0 +1,56 @@
+.header {
+  display: grid;
+  gap: 16px;
+}
+
+.collectionName {
+  color: var(--gray-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.name {
+  font-size: 24px;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.chainInfo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  color: var(--dimmed);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.attributes {
+  margin-top: 28px;
+
+  .title {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .count {
+    color: var(--gray-2);
+  }
+
+  .item {
+    border-bottom: 1px solid var(--border);
+    margin: 0 calc(-1 * var(--padding));
+    padding: 16px var(--padding);
+  }
+
+  .type {
+    color: var(--gray-4);
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .value {
+    font-size: 14px;
+    font-weight: 600;
+  }
+}

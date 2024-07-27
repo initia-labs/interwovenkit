@@ -1,0 +1,15 @@
+.fields {
+  /* Do not use a grid here. */
+  /* It conflicts with the Divider’s negative margin and causes layout error. */
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+
+  margin-top: calc(-1 * var(--padding));
+}
+
+.divider {
+  border-top: 1px solid var(--border);
+  margin: 0 calc(-1 * var(--padding));
+  margin-top: -20px;
+}

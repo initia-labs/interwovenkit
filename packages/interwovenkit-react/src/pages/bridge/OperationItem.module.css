@@ -1,0 +1,84 @@
+.content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  .info {
+    flex: 1;
+  }
+}
+
+.arrow {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+
+  margin: 12px 0;
+
+  .divider {
+    flex: 1;
+
+    border-top: 1px solid var(--border);
+    height: 1px;
+  }
+
+  .type {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    border-radius: 4px;
+    color: var(--dimmed);
+    cursor: default;
+    width: 24px;
+    height: 24px;
+    z-index: 1;
+  }
+
+  button.type {
+    background-color: var(--border);
+  }
+}
+
+.asset {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  font-size: 14px;
+  font-weight: 500;
+
+  .amount {
+    font-family: var(--monospace);
+  }
+}
+
+.lower {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chain {
+  color: var(--gray-2);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.address {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+
+  color: var(--gray-2);
+  font-size: 11px;
+  font-weight: 500;
+
+  transition: color var(--transition) ease;
+
+  &:hover {
+    color: var(--gray-1);
+  }
+}

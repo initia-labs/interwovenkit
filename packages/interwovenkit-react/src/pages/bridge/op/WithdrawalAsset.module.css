@@ -1,0 +1,15 @@
+.asset {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.info {
+  display: grid;
+}
+
+.symbol {
+  color: var(--dimmed);
+  font-size: 12px;
+  font-weight: 600;
+}

@@ -1,0 +1,295 @@
+{
+  "height": "6246065",
+  "txhash": "CD0CCE68335CD04CAD5D412CC213106B7E9EB421B8CEE81D5B0F2883CA807DB2",
+  "codespace": "",
+  "code": 0,
+  "data": "12260A242F636F736D6F732E62616E6B2E763162657461312E4D736753656E64526573706F6E7365",
+  "raw_log": "",
+  "logs": [],
+  "info": "",
+  "gas_wanted": "207423",
+  "gas_used": "135029",
+  "tx": {
+    "@type": "/cosmos.tx.v1beta1.Tx",
+    "body": {
+      "messages": [
+        {
+          "@type": "/cosmos.bank.v1beta1.MsgSend",
+          "from_address": "init1veaum7vy45fzw5x4mflskgx5lnmwmxx5wm3x8p",
+          "to_address": "init1yh03a2wr9f5sr9ln0nlpgpwah7gqurccy33y0h",
+          "amount": [
+            {
+              "denom": "l2/c88b68df2060ba982a80d3001afcb2d354031f6901df2391acb4f0e2f545c770",
+              "amount": "1000000"
+            }
+          ]
+        }
+      ],
+      "memo": "",
+      "timeout_height": "0",
+      "extension_options": [],
+      "non_critical_extension_options": []
+    },
+    "auth_info": {
+      "signer_infos": [
+        {
+          "public_key": {
+            "@type": "/initia.crypto.v1beta1.ethsecp256k1.PubKey",
+
+            "key": "A9S54WqY2OCVdOXXAISCG2SindFKiZ1Itwkq1WvvzRxh"
+          },
+          "mode_info": { "single": { "mode": "SIGN_MODE_EIP_191" } },
+          "sequence": "1"
+        }
+      ],
+      "fee": {
+        "amount": [
+          {
+            "denom": "l2/c88b68df2060ba982a80d3001afcb2d354031f6901df2391acb4f0e2f545c770",
+            "amount": "3112"
+          }
+        ],
+        "gas_limit": "207423",
+        "payer": "",
+        "granter": ""
+      },
+      "tip": null
+    },
+    "signatures": [
+      "TMAVBswB2ywkApiAmf9KVXNXZkd7ggPJPTEUBS1mbNwgfsq3Z2jrnDccPxqugSXww02jidI7NEOx8WTF0D1GLw=="
+    ]
+  },
+  "timestamp": "2025-07-19T13:58:47Z",
+  "events": [
+    {
+      "type": "coin_spent",
+      "attributes": [
+        {
+          "key": "spender",
+          "value": "init1veaum7vy45fzw5x4mflskgx5lnmwmxx5wm3x8p",
+          "index": true
+        },
+        {
+          "key": "amount",
+          "value": "3112l2/c88b68df2060ba982a80d3001afcb2d354031f6901df2391acb4f0e2f545c770",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "coin_received",
+      "attributes": [
+        {
+          "key": "receiver",
+          "value": "init17xpfvakm2amg962yls6f84z3kell8c5l70rnql",
+          "index": true
+        },
+        {
+          "key": "amount",
+          "value": "3112l2/c88b68df2060ba982a80d3001afcb2d354031f6901df2391acb4f0e2f545c770",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "transfer",
+      "attributes": [
+        {
+          "key": "recipient",
+          "value": "init17xpfvakm2amg962yls6f84z3kell8c5l70rnql",
+          "index": true
+        },
+        {
+          "key": "sender",
+          "value": "init1veaum7vy45fzw5x4mflskgx5lnmwmxx5wm3x8p",
+          "index": true
+        },
+        {
+          "key": "amount",
+          "value": "3112l2/c88b68df2060ba982a80d3001afcb2d354031f6901df2391acb4f0e2f545c770",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "attributes": [
+        {
+          "key": "sender",
+          "value": "init1veaum7vy45fzw5x4mflskgx5lnmwmxx5wm3x8p",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "tx",
+      "attributes": [
+        {
+          "key": "fee",
+          "value": "3112l2/c88b68df2060ba982a80d3001afcb2d354031f6901df2391acb4f0e2f545c770",
+          "index": true
+        },
+        {
+          "key": "fee_payer",
+          "value": "init1veaum7vy45fzw5x4mflskgx5lnmwmxx5wm3x8p",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "tx",
+      "attributes": [
+        {
+          "key": "acc_seq",
+          "value": "init1veaum7vy45fzw5x4mflskgx5lnmwmxx5wm3x8p/1",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "tx",
+      "attributes": [
+        {
+          "key": "signature",
+          "value": "TMAVBswB2ywkApiAmf9KVXNXZkd7ggPJPTEUBS1mbNwgfsq3Z2jrnDccPxqugSXww02jidI7NEOx8WTF0D1GLw==",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "attributes": [
+        {
+          "key": "action",
+          "value": "/cosmos.bank.v1beta1.MsgSend",
+          "index": true
+        },
+        {
+          "key": "sender",
+          "value": "init1veaum7vy45fzw5x4mflskgx5lnmwmxx5wm3x8p",
+          "index": true
+        },
+        {
+          "key": "module",
+          "value": "bank",
+          "index": true
+        },
+        {
+          "key": "msg_index",
+          "value": "0",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "create_account",
+      "attributes": [
+        {
+          "key": "account_created_id",
+          "value": "4145",
+          "index": true
+        },
+        {
+          "key": "msg_index",
+          "value": "0",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "create_account",
+      "attributes": [
+        {
+          "key": "account",
+          "value": "4145",
+          "index": true
+        },
+        {
+          "key": "msg_index",
+          "value": "0",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "coin_spent",
+      "attributes": [
+        {
+          "key": "spender",
+          "value": "init1veaum7vy45fzw5x4mflskgx5lnmwmxx5wm3x8p",
+          "index": true
+        },
+        {
+          "key": "amount",
+          "value": "1000000l2/c88b68df2060ba982a80d3001afcb2d354031f6901df2391acb4f0e2f545c770",
+          "index": true
+        },
+        {
+          "key": "msg_index",
+          "value": "0",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "coin_received",
+      "attributes": [
+        {
+          "key": "receiver",
+          "value": "init1yh03a2wr9f5sr9ln0nlpgpwah7gqurccy33y0h",
+          "index": true
+        },
+        {
+          "key": "amount",
+          "value": "1000000l2/c88b68df2060ba982a80d3001afcb2d354031f6901df2391acb4f0e2f545c770",
+          "index": true
+        },
+        {
+          "key": "msg_index",
+          "value": "0",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "transfer",
+      "attributes": [
+        {
+          "key": "recipient",
+          "value": "init1yh03a2wr9f5sr9ln0nlpgpwah7gqurccy33y0h",
+          "index": true
+        },
+        {
+          "key": "sender",
+          "value": "init1veaum7vy45fzw5x4mflskgx5lnmwmxx5wm3x8p",
+          "index": true
+        },
+        {
+          "key": "amount",
+          "value": "1000000l2/c88b68df2060ba982a80d3001afcb2d354031f6901df2391acb4f0e2f545c770",
+          "index": true
+        },
+        {
+          "key": "msg_index",
+          "value": "0",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "attributes": [
+        {
+          "key": "sender",
+          "value": "init1veaum7vy45fzw5x4mflskgx5lnmwmxx5wm3x8p",
+          "index": true
+        },
+        {
+          "key": "msg_index",
+          "value": "0",
+          "index": true
+        }
+      ]
+    }
+  ]
+}

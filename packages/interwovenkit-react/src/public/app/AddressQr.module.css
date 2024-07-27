@@ -1,0 +1,103 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  padding: var(--padding);
+}
+
+.address {
+  font-family: var(--monospace);
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 10px;
+  margin-top: 8px;
+  text-align: center;
+  word-break: break-all;
+}
+
+.copy {
+  gap: 6px;
+
+  background-color: var(--gray-6);
+  border-radius: 9999px;
+  margin-bottom: 24px;
+  padding: 6px 14px;
+
+  transition: background-color var(--transition) ease;
+
+  &:hover {
+    background-color: var(--gray-5);
+  }
+
+  .labelWrapper {
+    flex: 1;
+
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+
+    position: relative;
+  }
+
+  .labelCopy {
+    visibility: visible;
+  }
+
+  .labelCopied {
+    position: absolute;
+    left: 0;
+    right: 0;
+
+    visibility: hidden;
+  }
+
+  &.copied .labelCopy {
+    visibility: hidden;
+  }
+
+  &.copied .labelCopied {
+    visibility: visible;
+  }
+}
+
+/* Derived from */
+.derived {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  background: var(--gray-8);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 16px;
+  width: 100%;
+}
+
+.derivedLabel {
+  color: var(--gray-2);
+}
+
+.derivedAddress {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hexAddress {
+  color: var(--gray-0);
+  font-family: var(--monospace);
+}
+
+.derivedCopy {
+  color: var(--gray-2);
+  transition: color var(--transition) ease;
+}
+
+.derived:hover,
+.copied {
+  .derivedCopy {
+    color: var(--gray-0);
+  }
+}

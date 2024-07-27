@@ -1,0 +1,70 @@
+.link {
+  display: block;
+  background-color: var(--gray-8);
+  border-radius: 8px;
+  color: inherit;
+  padding: 12px 16px;
+
+  transition: background-color var(--transition) ease;
+
+  &:hover {
+    background-color: var(--gray-7);
+  }
+}
+
+.inner {
+  display: grid;
+  gap: 8px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  color: var(--dimmed);
+  font-size: 12px;
+}
+
+.time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.error {
+  color: var(--error);
+}
+
+.timestamp {
+  color: var(--gray-3);
+  font-weight: 500;
+}
+
+.chainInfo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  font-weight: 600;
+}
+
+.content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden; /* Prevents overflow when displaying very long denom strings in Activity changes */
+}
+
+.messages {
+  flex: 1;
+  width: calc(60% - 8px);
+}
+
+.changes {
+  flex: none;
+  width: 40%;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 500;
+}

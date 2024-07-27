@@ -1,0 +1,190 @@
+:root[data-theme="dark"],
+:host([data-theme="dark"]) {
+  --gray-0: #f5f5f5;
+  --gray-1: #d1d9e0;
+  --gray-2: #a1a6aa;
+  --gray-3: #757c82;
+  --gray-4: #585f67;
+  --gray-5: #383d42;
+  --gray-6: #2f3337;
+  --gray-7: #242629;
+  --gray-8: #1b1c1d;
+  --gray-9: #101010;
+
+  --success-light: #77f893;
+  --success: #55f678;
+  --success-dark: #2b7b3c;
+  --success-bg: #172a1b;
+  --error-light: #f97676;
+  --error: #f85454;
+  --error-dark: #7c2a2a;
+  --error-bg: #2a1515;
+  --warning-light: #f9cf72;
+  --warning: #f8c24f;
+  --warning-dark: #7c6128;
+  --warning-bg: #2b2416;
+  --info-light: #74e3fc;
+  --info: #51dcfb;
+  --info-dark: #296e7e;
+  --info-bg: #122327;
+
+  --drawer-shadow: 0px 0px 10px 0px rgba(255, 255, 255, 0.15);
+  --component-shadow: 0px 0px 10px 0px rgba(0, 0, 0, 0.2);
+  --border: var(--gray-7);
+  --button-bg: var(--gray-0);
+  --button-bg-hover: var(--gray-1);
+  --button-bg-disabled: var(--gray-4);
+  --button-text: var(--gray-8);
+  --button-text-disabled: var(--gray-8);
+  --button-small-border: var(--gray-6);
+  --button-small-border-hover: var(--gray-4);
+  --input-border: var(--gray-5);
+  --input-border-focus: var(--gray-3);
+  --home-button-bg: rgba(81, 220, 251, 0.1);
+  --home-button-bg-hover: rgba(81, 220, 251, 0.15);
+  --home-border: var(--gray-6);
+  --home-border-hover: var(--gray-4);
+  --dropdown-menu-bg: var(--gray-8);
+  --dropdown-menu-hover: var(--gray-7);
+  --logo-border: var(--border);
+  --bridge-meta-bg: var(--gray-7);
+  --bridge-meta-button-bg: var(--gray-6);
+}
+
+:root[data-theme="light"],
+:host([data-theme="light"]) {
+  --gray-0: #0f0f0f;
+  --gray-1: #242628;
+  --gray-2: #56595c;
+  --gray-3: #797d81;
+  --gray-4: #9ea0a2;
+  --gray-5: #dfe1e3;
+  --gray-6: #e9ebed;
+  --gray-7: #f1f3f5;
+  --gray-8: #f8f9fa;
+  --gray-9: #ffffff;
+
+  --success-light: #00832a;
+  --success: #109435;
+  --success-dark: #afdebc;
+  --success-bg: #eefbf2;
+  --error-light: #b50a1c;
+  --error: #d1242f;
+  --error-dark: #f6c3c4;
+  --error-bg: #ffeceb;
+  --warning-light: #c66f00;
+  --warning: #d18800;
+  --warning-dark: #eed888;
+  --warning-bg: #fff9e0;
+  --info-light: #008499;
+  --info: #0098b2;
+  --info-dark: #abe6f3;
+  --info-bg: #e4f9ff;
+
+  --drawer-shadow: 0 0 15px 0 rgba(0, 0, 0, 0.1);
+  --component-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.07);
+  --border: var(--gray-6);
+  --button-bg: var(--gray-0);
+  --button-bg-hover: var(--gray-1);
+  --button-bg-disabled: var(--gray-6);
+  --button-text: var(--gray-9);
+  --button-text-disabled: var(--gray-3);
+  --button-small-border: var(--gray-6);
+  --button-small-border-hover: var(--gray-3);
+  --input-border: var(--gray-4);
+  --input-border-focus: var(--gray-3);
+  --home-button-bg: rgba(81, 220, 251, 0.15);
+  --home-button-bg-hover: rgba(81, 220, 251, 0.2);
+  --home-border: var(--gray-5);
+  --home-border-hover: var(--gray-4);
+  --dropdown-menu-bg: var(--gray-9);
+  --dropdown-menu-hover: var(--gray-8);
+  --logo-border: var(--gray-5);
+  --bridge-meta-bg: var(--gray-8);
+  --bridge-meta-button-bg: var(--gray-5);
+}
+
+:root,
+:host {
+  --bg: var(--gray-9);
+  --dimmed: var(--gray-3);
+
+  --border-radius: 24px;
+  --drawer-width: 420px;
+  --drawer-offset: 12px;
+  --padding: 20px;
+
+  --font-family: "Pilat Wide", sans-serif;
+  --monospace: "Roboto Mono", monospace;
+
+  --transition: 150ms;
+  --z-index: 9999;
+}
+
+:where(svg) {
+  flex: none;
+}
+
+:where(a) {
+  color: var(--info);
+
+  transition: color var(--transition) ease;
+
+  &:hover {
+    color: var(--info-light);
+  }
+}
+
+:where(label, .label) {
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+:where(input, .input) {
+  background-color: var(--gray-7);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  height: 50px;
+  padding: 0 16px;
+  width: 100%;
+
+  &::placeholder {
+    color: var(--gray-4);
+  }
+
+  transition: border-color var(--transition) ease;
+
+  &:hover {
+    border-color: var(--input-border);
+  }
+}
+
+:where(input) {
+  &:focus {
+    border-color: var(--input-border-focus);
+    outline: none;
+  }
+}
+
+:where(.success) {
+  color: var(--success);
+}
+
+:where(.error) {
+  color: var(--error);
+}
+
+:where(.warning) {
+  color: var(--warning);
+}
+
+:where(.info) {
+  color: var(--info);
+}
+
+:where(.monospace) {
+  font-family: var(--monospace);
+}

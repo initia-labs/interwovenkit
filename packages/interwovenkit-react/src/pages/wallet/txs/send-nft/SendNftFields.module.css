@@ -1,0 +1,32 @@
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.name {
+  display: grid;
+  gap: 8px;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.collection {
+  color: var(--gray-1);
+  font-size: 12px;
+}
+
+.nft {
+  font-size: 20px;
+}
+
+.fields {
+  display: grid;
+  gap: 20px;
+}
+
+.chain {
+  justify-content: flex-start;
+  gap: 4px;
+}

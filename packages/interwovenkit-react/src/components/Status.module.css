@@ -1,0 +1,11 @@
+.status {
+  color: var(--gray-4);
+  font-weight: 600;
+  padding: 20px;
+  text-align: center;
+  word-break: break-all;
+}
+
+.error {
+  color: var(--error);
+}

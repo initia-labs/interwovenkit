@@ -1,0 +1,49 @@
+.root {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+
+  width: 156px;
+}
+
+.content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.details {
+  flex: 1;
+  overflow: hidden;
+}
+
+.symbol {
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chain {
+  color: var(--dimmed);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chevron {
+  flex: none;
+  color: var(--gray-4);
+
+  transition: color var(--transition) ease;
+
+  .root:hover & {
+    color: var(--gray-1);
+  }
+}

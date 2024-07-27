@@ -1,0 +1,84 @@
+.container {
+  position: absolute;
+  top: calc(var(--drawer-offset) + var(--padding) + 12px);
+  left: 0;
+  right: 0;
+  padding: var(--padding);
+  z-index: var(--z-index);
+}
+
+.toast {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+
+  background: var(--gray-8);
+  border-radius: 8px;
+  border: 1px solid var(--gray-6);
+  box-shadow: var(--component-shadow);
+  padding: 16px;
+}
+
+.info {
+  color: var(--gray-0);
+}
+
+.success {
+  color: var(--success);
+}
+
+.error {
+  color: var(--error);
+  word-break: break-all;
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 21px;
+}
+
+.content {
+  flex: 1;
+
+  .title {
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .description {
+    color: var(--gray-2);
+    font-size: 12px;
+    font-weight: 500;
+    margin-top: 4px;
+  }
+}
+
+.description a,
+.description button {
+  display: inline-flex;
+  text-decoration: underline;
+  color: inherit;
+
+  transition: color var(--transition) ease;
+
+  &:hover {
+    color: var(--gray-1);
+  }
+}
+
+.close {
+  color: var(--gray-4);
+  padding: 16px;
+  margin: -16px;
+
+  height: calc(21px + 2 * 16px);
+
+  transition: color var(--transition) ease;
+
+  &:hover {
+    color: var(--gray-1);
+  }
+}

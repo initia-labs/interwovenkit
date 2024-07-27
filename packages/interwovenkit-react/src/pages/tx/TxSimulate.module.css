@@ -1,0 +1,50 @@
+.root {
+  display: grid;
+  gap: 6px;
+  margin-bottom: var(--padding);
+}
+
+.title {
+  color: var(--dimmed);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.changes {
+  display: grid;
+  gap: 8px;
+
+  background-color: var(--gray-8);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.change {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+
+  font-family: var(--monospace);
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+}
+
+.amount {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+
+  .text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.value {
+  color: var(--dimmed);
+  font-size: 12px;
+}

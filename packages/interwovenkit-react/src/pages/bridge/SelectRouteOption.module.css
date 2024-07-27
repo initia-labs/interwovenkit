@@ -1,0 +1,74 @@
+.stack {
+  display: grid;
+  gap: 8px;
+}
+
+.button {
+  gap: 16px;
+
+  background-color: var(--gray-8);
+  border: 1px solid var(--gray-5);
+  border-radius: 8px;
+  padding: 12px 16px;
+
+  &.checked {
+    background-color: var(--gray-7);
+    border-color: var(--gray-1);
+  }
+}
+
+.checkmark {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  border: 1px solid var(--gray-4);
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+
+  .inner {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--gray-1);
+  }
+
+  .checked & {
+    border-color: var(--gray-1);
+  }
+}
+
+.info {
+  flex: 1;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  display: grid;
+  gap: 4px;
+
+  .duration {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    color: var(--gray-2);
+    font-size: 11px;
+  }
+}
+
+.amount {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 2px;
+
+  font-family: var(--monospace);
+  font-size: 12px;
+  font-weight: 500;
+
+  .symbol {
+    color: var(--gray-2);
+  }
+}

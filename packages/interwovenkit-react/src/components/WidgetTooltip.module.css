@@ -1,0 +1,45 @@
+.tooltip {
+  background-color: var(--gray-5);
+  border-radius: 4px;
+  color: var(--gray-0);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 500;
+  max-width: 280px;
+  padding: 8px;
+  z-index: var(--z-index);
+}
+
+.small {
+  max-width: 200px;
+}
+
+.tooltip[data-state="open"] {
+  animation: fadeIn var(--transition) ease-out;
+}
+
+.tooltip[data-state="closed"] {
+  animation: fadeOut var(--transition) ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.arrow {
+  fill: var(--gray-5);
+}

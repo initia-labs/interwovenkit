@@ -1,0 +1,22 @@
+.item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 12px 0;
+}
+
+.more {
+  color: var(--gray-2);
+  font-size: 12px;
+  padding: 14px;
+
+  transition: color var(--transition) ease;
+
+  &:hover {
+    color: var(--gray-0);
+  }
+}

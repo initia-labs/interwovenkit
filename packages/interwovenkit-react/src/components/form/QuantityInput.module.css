@@ -1,0 +1,25 @@
+.input {
+  /* unset */
+  height: 52px;
+  padding: 0;
+
+  background-color: transparent;
+  border: 0;
+  border-radius: 0;
+  font-family: var(--monospace);
+  font-size: 38px;
+  font-weight: 700;
+  text-align: right;
+
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  &::placeholder,
+  &.placeholder {
+    color: var(--gray-4);
+  }
+
+  &:focus {
+    outline: none;
+  }
+}

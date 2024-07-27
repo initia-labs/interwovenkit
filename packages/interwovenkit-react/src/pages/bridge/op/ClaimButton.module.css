@@ -1,0 +1,28 @@
+.button {
+  background-color: var(--gray-8);
+  border-radius: 9999px;
+  border: 1px solid var(--gray-5);
+  color: var(--gray-1);
+  font-size: 12px;
+  font-weight: 600;
+  height: 30px;
+  padding: 0 24px;
+
+  transition: border-color var(--transition) ease;
+
+  &:hover:not(:disabled) {
+    border: 1px solid var(--gray-3);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.claimed {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--gray-4);
+}
