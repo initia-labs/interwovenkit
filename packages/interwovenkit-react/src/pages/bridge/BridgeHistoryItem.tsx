@@ -5,9 +5,9 @@ import type { StatusResponseJson } from "@skip-go/client"
 import {
   IconArrowDown,
   IconCheckCircleFilled,
+  IconCloseCircleFilled,
   IconExternalLink,
   IconWallet,
-  IconWarningFilled,
 } from "@initia/icons-react"
 import { AddressUtils, formatAmount, truncate } from "@/public/utils"
 import Loader from "@/components/Loader"
@@ -63,7 +63,7 @@ const BridgeHistoryItem = ({ tx }: { tx: TxIdentifier }) => {
       case "error":
         return (
           <div className={styles.error}>
-            <IconWarningFilled size={14} />
+            <IconCloseCircleFilled size={14} />
           </div>
         )
 
