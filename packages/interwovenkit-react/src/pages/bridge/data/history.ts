@@ -21,6 +21,7 @@ const detailKeyOf = ({ chainId, txHash }: TxIdentifier) =>
   `${LocalStorageKey.BRIDGE_HISTORY}:${chainId}:${txHash}`
 
 export const BRIDGE_HISTORY_LIMIT = 100
+export const BRIDGE_HISTORY_ITEMS_PER_PAGE = 10
 
 export function useBridgeHistoryList() {
   const [list = [], setList] = useLocalStorage<TxIdentifier[]>(LocalStorageKey.BRIDGE_HISTORY, [])

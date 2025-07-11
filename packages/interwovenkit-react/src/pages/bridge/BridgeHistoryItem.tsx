@@ -33,8 +33,8 @@ const BridgeHistoryItem = ({ tx }: { tx: TxIdentifier }) => {
   if (!details) throw new Error("Bridge history details not found")
   const { chainId, txHash, route, values, timestamp } = details
 
-  const { data: trackedTxHash = "" } = useTrackTxQuery(details)
-  const { data: txStatus } = useTxStatusQuery({ ...details, txHash: trackedTxHash })
+  const { data: trackedTxHash = "" } = useTrackTxQuery(details, details.tracked)
+  const { data: txStatus } = useTxStatusQuery(details, !details.tracked || !!details.state)
   const state = details.state ?? getState(txStatus)
 
   const { address: connectedAddress = "", connector } = useAccount()
