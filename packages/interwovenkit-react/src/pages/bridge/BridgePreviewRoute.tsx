@@ -15,7 +15,7 @@ import styles from "./BridgePreviewRoute.module.css"
 
 function normalizeOperation(operation: OperationJson) {
   if ("transfer" in operation) {
-    return { label: "Bridge", ...operation, ...operation.transfer }
+    return { label: "IBC", ...operation, ...operation.transfer }
   }
   if ("bank_send" in operation) {
     return { label: "Send", ...operation, ...operation.bank_send }
