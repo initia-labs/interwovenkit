@@ -89,8 +89,8 @@ const Drawer = ({ children }: PropsWithChildren) => {
 
       {drawerTransition((style, item) =>
         item ? (
-          <animated.div style={style} className={clsx(styles.content, "body")}>
-            <div ref={setContainer}>
+          <animated.div style={style} className={clsx(styles.drawer)}>
+            <div className={clsx(styles.content, "body")} ref={setContainer}>
               <TxWatcher />
               <WidgetHeader />
               <AsyncBoundary errorBoundaryProps={errorBoundaryProps}>{children}</AsyncBoundary>
