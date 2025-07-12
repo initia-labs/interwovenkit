@@ -21,6 +21,17 @@ const ModalProvider = ({ children }: PropsWithChildren) => {
     setIsOpen(false)
   }, [])
 
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        txRequest?.reject(new Error("User rejected"))
+        setOptions({})
+      }
+      setIsOpen(open)
+    },
+    [txRequest],
+  )
+
   return (
     <ModalContext.Provider value={{ openModal, closeModal }}>
       {children}
@@ -28,12 +39,11 @@ const ModalProvider = ({ children }: PropsWithChildren) => {
       <Modal
         title={title}
         open={isOpen}
-        onOpenChange={setIsOpen}
         // FIXME: React StrictMode causes a problem by unmounting the component once on purpose.
         // Should reject on unmount, but didn't work as expected.
         // Currently handled via drawer/modal close instead.
         // Would be nice to fix this properly later.
-        onInteractOutside={() => txRequest?.reject(new Error("User rejected"))}
+        onOpenChange={handleOpenChange}
       >
         {path === "/tx" ? <TxRequest /> : content}
       </Modal>

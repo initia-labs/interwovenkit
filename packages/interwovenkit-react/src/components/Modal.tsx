@@ -13,10 +13,9 @@ interface Props {
   trigger?: ReactNode
   open: boolean
   onOpenChange: (open: boolean) => void
-  onInteractOutside?: () => void
 }
 
-const Modal = ({ title, children, trigger, open, onOpenChange, onInteractOutside }: Props) => {
+const Modal = ({ title, children, trigger, open, onOpenChange }: Props) => {
   const fullscreen = useContext(fullscreenContext)
 
   return (
@@ -27,10 +26,7 @@ const Modal = ({ title, children, trigger, open, onOpenChange, onInteractOutside
         {/* Overlay is not used because it breaks scrolling behavior in production */}
         <div className={clsx(styles.overlay, { [styles.fullscreen]: fullscreen })} />
 
-        <Dialog.Content
-          className={clsx(styles.content, { [styles.fullscreen]: fullscreen })}
-          onInteractOutside={onInteractOutside}
-        >
+        <Dialog.Content className={clsx(styles.content, { [styles.fullscreen]: fullscreen })}>
           {title && (
             <header className={styles.header}>
               <Dialog.Title className={styles.title}>{title}</Dialog.Title>
