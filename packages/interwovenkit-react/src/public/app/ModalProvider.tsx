@@ -1,8 +1,8 @@
 import { useCallback, useState, type PropsWithChildren } from "react"
 import { useAtomValue } from "jotai"
+import { txRequestHandlerAtom } from "@/data/tx"
 import Modal from "@/components/Modal"
 import TxRequest from "@/pages/tx/TxRequest"
-import { txRequestHandlerAtom } from "@/data/tx"
 import type { ModalOptions } from "./ModalContext"
 import { ModalContext } from "./ModalContext"
 
