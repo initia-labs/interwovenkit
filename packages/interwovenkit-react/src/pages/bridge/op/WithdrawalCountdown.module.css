@@ -1,9 +1,10 @@
 .container {
   display: flex;
-  align-items: center;
-  gap: 4px;
+  flex-direction: column;
+  align-items: flex-end;
 }
 
-.icon {
-  color: var(--gray-2);
+.title {
+  color: var(--gray-3);
+  font-size: 11px;
 }
