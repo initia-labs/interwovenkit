@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 
-export function useIsMounted() {
-  const [isMounted, setIsMounted] = useState(false)
+export function useIsClient() {
+  const [isClient, setIsClient] = useState(false)
+
   useEffect(() => {
-    setIsMounted(true)
+    setIsClient(true)
   }, [])
 
-  return isMounted
+  return isClient
 }

@@ -9,12 +9,12 @@ import AsyncBoundary from "@/components/AsyncBoundary"
 import { useSkipChains } from "@/pages/bridge/data/chains"
 import { useSkipAssets } from "@/pages/bridge/data/assets"
 import { MAINNET } from "../data/constants"
+import { useIsClient } from "../ssr"
 import PortalProvider from "./PortalProvider"
 import NotificationProvider from "./NotificationProvider"
 import ModalProvider from "./ModalProvider"
 import Drawer from "./Drawer"
 import Routes from "./Routes"
-import { useIsMounted } from "../ssr"
 
 const ROBOTO_MONO =
   "https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@100..700&display=swap"
@@ -45,7 +45,7 @@ const Prefetch = () => {
 }
 
 const InterwovenKitProvider = ({ children, ...config }: PropsWithChildren<Partial<Config>>) => {
-  if (!useIsMounted()) {
+  if (!useIsClient()) {
     return null
   }
 
