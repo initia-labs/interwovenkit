@@ -1,4 +1,5 @@
 const NAMESPACE = "interwovenkit"
+const LEGACY_NAMESPACE = "initia-wallet-widget"
 
 export const LocalStorageKey = {
   // ui
@@ -7,7 +8,7 @@ export const LocalStorageKey = {
 
   // wallet
   PUBLIC_KEY: `${NAMESPACE}:public-key`,
-  LATEST_CONNECTOR_ID: `${NAMESPACE}:latest-connector-id`,
+  WAGMI_RECENT_CONNECTOR_ID: `wagmi.recentConnectorId`,
 
   // tx fee
   FEE_DENOM: `${NAMESPACE}:fee-denom`,
@@ -24,4 +25,17 @@ export const LocalStorageKey = {
 
   // op
   OP_REMINDER: `${NAMESPACE}:op:reminder`,
+}
+
+// items from old widget that can be mapped 1:1
+export const LegacyLocalStorageKey = {
+  [`${LEGACY_NAMESPACE}:chain-ids`]: LocalStorageKey.ADDED_CHAIN_IDS,
+  [`${LEGACY_NAMESPACE}:opened-layers-assets`]: `${LocalStorageKey.OPENED_CHAIN_IDS}:assets`,
+  [`${LEGACY_NAMESPACE}:opened-layers-nft`]: `${LocalStorageKey.OPENED_CHAIN_IDS}:nft`,
+}
+
+// items from old widget that need parsing
+export const LegacyLocalStorageObject = {
+  [`${LEGACY_NAMESPACE}:fee-denoms`]: LocalStorageKey.FEE_DENOM,
+  [`${LEGACY_NAMESPACE}:ethereum-public-keys`]: LocalStorageKey.PUBLIC_KEY,
 }
