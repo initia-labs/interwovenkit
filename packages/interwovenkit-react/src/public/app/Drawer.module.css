@@ -47,8 +47,6 @@
 }
 
 .content {
-  box-shadow: 0px 0px 10px 0px rgba(255, 255, 255, 0.15);
-
   position: fixed;
   top: var(--offset);
   right: var(--offset);
@@ -65,6 +63,14 @@
     width: 100%;
     height: calc(100vh - 54px); /* fallback */
     height: calc(100dvh - 54px);
+  }
+}
+
+.inner {
+  box-shadow: 0px 0px 10px 0px rgba(255, 255, 255, 0.15);
+  height: 100%;
+
+  @media (max-width: 576px) {
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
   }
