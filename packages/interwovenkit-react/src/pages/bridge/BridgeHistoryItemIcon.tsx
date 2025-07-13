@@ -1,11 +1,11 @@
 import { useEffect } from "react"
 import type { StatusResponseJson } from "@skip-go/client"
-import { IconCheckCircleFilled, IconWarningFilled } from "@initia/icons-react"
+import { IconCheckCircleFilled, IconCloseCircleFilled } from "@initia/icons-react"
 import Loader from "@/components/Loader"
 import { useTxStatusQuery } from "./data/tx"
 import type { TxIdentifier } from "./data/history"
 import { useBridgeHistoryDetails } from "./data/history"
-import styles from "./BridgeHistoryItem.module.css"
+import styles from "./BridgeHistoryItemIcon.module.css"
 
 // it should be mounted only after the transaction is tracked
 
@@ -29,7 +29,7 @@ const BridgeHistoryItemIcon = ({ tx }: { tx: TxIdentifier }) => {
     case "error":
       return (
         <div className={styles.error}>
-          <IconWarningFilled size={14} />
+          <IconCloseCircleFilled size={14} />
         </div>
       )
 
