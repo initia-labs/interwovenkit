@@ -260,8 +260,8 @@ export function useSignOpHook() {
   })
 }
 
-export function useTrackTxQuery(details: HistoryDetails, disabled = false) {
-  const { chainId, txHash } = details
+export function useTrackTxQuery(details: HistoryDetails) {
+  const { chainId, txHash, tracked } = details
   const skip = useSkip()
   return useQuery({
     queryKey: skipQueryKeys.txTrack(chainId, txHash).queryKey,
@@ -276,14 +276,14 @@ export function useTrackTxQuery(details: HistoryDetails, disabled = false) {
     },
     select: ({ tx_hash }) => tx_hash,
     retry: 6,
-    retryDelay: 10_000,
+    retryDelay: 5000,
     staleTime: STALE_TIMES.INFINITY,
-    enabled: !disabled,
+    enabled: !tracked,
   })
 }
 
-export function useTxStatusQuery(details: HistoryDetails, disabled = false) {
-  const { timestamp, chainId, txHash, state } = details
+export function useTxStatusQuery(details: HistoryDetails) {
+  const { timestamp, chainId, txHash, tracked, state } = details
   const skip = useSkip()
 
   return useQuery({
@@ -292,7 +292,7 @@ export function useTxStatusQuery(details: HistoryDetails, disabled = false) {
       skip
         .get("v2/tx/status", { searchParams: { tx_hash: txHash, chain_id: chainId } })
         .json<StatusResponseJson>(),
-    enabled: !!txHash && !state && !disabled,
+    enabled: !!txHash && tracked && !state,
     refetchInterval: ({ state: { data } }) => {
       if (!data) return false
       const { status } = data

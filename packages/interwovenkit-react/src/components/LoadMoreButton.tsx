@@ -3,7 +3,7 @@ import { useInView } from "react-intersection-observer"
 import { IconChevronDown } from "@initia/icons-react"
 import styles from "./LoadMoreButton.module.css"
 
-const LoadMoreButton = ({ onClick, disabled }: { onClick: () => void; disabled: boolean }) => {
+const LoadMoreButton = ({ onClick, disabled }: { onClick: () => void; disabled?: boolean }) => {
   const { ref, inView } = useInView()
 
   useEffect(() => {
