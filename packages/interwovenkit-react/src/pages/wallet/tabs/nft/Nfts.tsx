@@ -10,7 +10,7 @@ const Nfts = () => {
           <CollectionList chain={chain} />
         </AsyncBoundary>
       )}
-      storageKey="nft"
+      storageKey="nfts"
     />
   )
 }

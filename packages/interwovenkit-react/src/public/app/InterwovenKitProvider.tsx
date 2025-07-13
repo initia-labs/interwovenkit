@@ -1,7 +1,9 @@
 import type { PropsWithChildren } from "react"
+import { useEffect } from "react"
 import { Tooltip } from "radix-ui"
 import { MemoryRouter } from "@/lib/router"
 import { LocalStorageKey } from "@/data/constants"
+import { migrateLocalStorage } from "@/data/migration"
 import type { Config } from "@/data/config"
 import { ConfigContext } from "@/data/config"
 import { useInitiaRegistry, useLayer1 } from "@/data/chains"
@@ -45,6 +47,10 @@ const Prefetch = () => {
 }
 
 const InterwovenKitProvider = ({ children, ...config }: PropsWithChildren<Partial<Config>>) => {
+  useEffect(() => {
+    migrateLocalStorage()
+  }, [])
+
   if (!useIsClient()) {
     return null
   }

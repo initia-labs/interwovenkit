@@ -6,7 +6,6 @@ import { useState } from "react"
 import { useLocalStorage } from "react-use"
 import { useMutation } from "@tanstack/react-query"
 import { IconExternalLink } from "@initia/icons-react"
-import { LocalStorageKey } from "@/data/constants"
 import { normalizeError } from "@/data/http"
 import { useDrawer } from "@/data/ui"
 import Scrollable from "@/components/Scrollable"
@@ -25,16 +24,13 @@ const recommendedWallets = [
 const Connect = () => {
   const { closeDrawer } = useDrawer()
   const { connectors, connectAsync } = useConnect()
-  const [latestConnectorId, setLatestConnectorId] = useLocalStorage<string | null>(
-    LocalStorageKey.LATEST_CONNECTOR_ID,
-  )
+  const [recentConnectorId] = useLocalStorage<string>("wagmi.recentConnectorId")
   const [pendingConnectorId, setPendingConnectorId] = useState<string | null>(null)
   const { mutate, isPending } = useMutation({
     mutationFn: async (connector: Connector) => {
       setPendingConnectorId(connector.id)
       try {
         await connectAsync({ connector })
-        return connector
       } catch (error) {
         throw new Error(await normalizeError(error))
       }
@@ -42,8 +38,7 @@ const Connect = () => {
     onSettled: () => {
       setPendingConnectorId(null)
     },
-    onSuccess: (connector) => {
-      setLatestConnectorId(connector.id)
+    onSuccess: () => {
       closeDrawer()
     },
   })
@@ -55,7 +50,7 @@ const Connect = () => {
       <Scrollable className={styles.scrollable}>
         <div className={styles.list}>
           {connectors
-            .toSorted(descend((connector) => connector.id === latestConnectorId))
+            .toSorted(descend((connector) => connector.id === recentConnectorId))
             .map((connector) => {
               const { name, icon, id } = connector
               return (
@@ -69,7 +64,7 @@ const Connect = () => {
                   <span className={styles.name}>{name}</span>
                   {pendingConnectorId === id ? (
                     <Loader size={16} />
-                  ) : latestConnectorId === id ? (
+                  ) : recentConnectorId === id ? (
                     <span className={styles.recent}>Recent</span>
                   ) : (
                     <span className={styles.installed}>Installed</span>
