@@ -1,14 +1,7 @@
 import { useAccount } from "wagmi"
 import { intlFormatDistance } from "date-fns"
 import { useEffect, useMemo, type ReactNode } from "react"
-import type { StatusResponseJson } from "@skip-go/client"
-import {
-  IconArrowDown,
-  IconCheckCircleFilled,
-  IconExternalLink,
-  IconWallet,
-  IconWarningFilled,
-} from "@initia/icons-react"
+import { IconArrowDown, IconExternalLink, IconWallet } from "@initia/icons-react"
 import { AddressUtils, formatAmount, truncate } from "@/public/utils"
 import Loader from "@/components/Loader"
 import Image from "@/components/Image"
@@ -19,10 +12,11 @@ import type { RouterChainJson } from "./data/chains"
 import { useSkipChain } from "./data/chains"
 import type { RouterAsset } from "./data/assets"
 import { useSkipAsset } from "./data/assets"
-import { BridgeType, getBridgeType, useTrackTxQuery, useTxStatusQuery } from "./data/tx"
+import { BridgeType, getBridgeType, useTrackTxQuery } from "./data/tx"
 import type { TxIdentifier } from "./data/history"
 import { useBridgeHistoryDetails } from "./data/history"
 import { useCosmosWallets } from "./data/cosmos"
+import BridgeHistoryItemIcon from "./BridgeHistoryItemIcon"
 import styles from "./BridgeHistoryItem.module.css"
 
 const BridgeHistoryItem = ({ tx }: { tx: TxIdentifier }) => {
@@ -31,11 +25,9 @@ const BridgeHistoryItem = ({ tx }: { tx: TxIdentifier }) => {
   // Managing from a parent causes hooks to re-run on state changes.
   const [details, setDetails] = useBridgeHistoryDetails(tx)
   if (!details) throw new Error("Bridge history details not found")
-  const { chainId, txHash, route, values, timestamp } = details
+  const { chainId, txHash, route, values, timestamp, tracked } = details
 
-  const { data: trackedTxHash = "" } = useTrackTxQuery(details)
-  const { data: txStatus } = useTxStatusQuery({ ...details, txHash: trackedTxHash })
-  const state = details.state ?? getState(txStatus)
+  const { data: trackedTxHash } = useTrackTxQuery(details)
 
   const { address: connectedAddress = "", connector } = useAccount()
   const { find } = useCosmosWallets()
@@ -48,36 +40,6 @@ const BridgeHistoryItem = ({ tx }: { tx: TxIdentifier }) => {
       })
     }
   }, [setDetails, trackedTxHash])
-
-  useEffect(() => {
-    if (state !== "loading") {
-      setDetails((prev) => {
-        if (!prev) throw new Error("Bridge history details not found")
-        return { ...prev, tracked: true, state }
-      })
-    }
-  }, [setDetails, state, txHash])
-
-  const renderIcon = () => {
-    switch (state) {
-      case "error":
-        return (
-          <div className={styles.error}>
-            <IconWarningFilled size={14} />
-          </div>
-        )
-
-      case "success":
-        return (
-          <div className={styles.success}>
-            <IconCheckCircleFilled size={14} />
-          </div>
-        )
-
-      default:
-        return <Loader size={14} />
-    }
-  }
 
   const {
     amount_in,
@@ -147,7 +109,7 @@ const BridgeHistoryItem = ({ tx }: { tx: TxIdentifier }) => {
     <>
       <header className={styles.header}>
         <div className={styles.title}>
-          {renderIcon()}
+          {!tracked ? <Loader size={14} /> : <BridgeHistoryItemIcon tx={tx} />}
           <div className={styles.date}>
             {intlFormatDistance(new Date(timestamp), new Date(), { locale: "en-US" })}
           </div>
@@ -208,20 +170,3 @@ const BridgeHistoryItem = ({ tx }: { tx: TxIdentifier }) => {
 }
 
 export default BridgeHistoryItem
-
-function getState(data?: StatusResponseJson | null) {
-  if (!data) return "loading"
-
-  switch (data.state) {
-    case "STATE_ABANDONED":
-    case "STATE_COMPLETED_ERROR":
-    case "STATE_PENDING_ERROR":
-      return "error"
-
-    case "STATE_COMPLETED_SUCCESS":
-      return "success"
-
-    default:
-      return "loading"
-  }
-}

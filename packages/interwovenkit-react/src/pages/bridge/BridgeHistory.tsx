@@ -1,10 +1,16 @@
+import { useState } from "react"
 import { useToggle } from "react-use"
 import { useInterwovenKit } from "@/public/data/hooks"
 import Page from "@/components/Page"
 import Status from "@/components/Status"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import CheckboxButton from "@/components/CheckboxButton"
-import { BRIDGE_HISTORY_LIMIT, useBridgeHistoryList } from "./data/history"
+import LoadMoreButton from "@/components/LoadMoreButton"
+import {
+  BRIDGE_HISTORY_LIMIT_PER_PAGE,
+  BRIDGE_HISTORY_LIMIT,
+  useBridgeHistoryList,
+} from "./data/history"
 import BridgeHistoryItem from "./BridgeHistoryItem"
 import styles from "./BridgeHistory.module.css"
 
@@ -20,8 +26,10 @@ const BridgeHistory = () => {
     return [sender, recipient].some((address) => [initiaAddress, hexAddress].includes(address))
   })
 
+  const [page, setPage] = useState(1)
   const [showAll, toggleShowAll] = useToggle(!myHistory.length)
   const filteredHistory = showAll ? allHistory : myHistory
+  const paginatedHistory = filteredHistory.slice(0, page * BRIDGE_HISTORY_LIMIT_PER_PAGE)
 
   return (
     <Page title="Bridge/Swap activity">
@@ -40,7 +48,7 @@ const BridgeHistory = () => {
         {filteredHistory.length === 0 ? (
           <Status>No bridge/swap activity</Status>
         ) : (
-          filteredHistory.map((tx, index) => (
+          paginatedHistory.map((tx, index) => (
             <div className={styles.item} key={index}>
               <AsyncBoundary>
                 <BridgeHistoryItem tx={tx} />
@@ -49,11 +57,15 @@ const BridgeHistory = () => {
           ))
         )}
 
-        {history.length >= BRIDGE_HISTORY_LIMIT && (
-          <Status>
-            Only the latest {BRIDGE_HISTORY_LIMIT} items are stored. Older entries will be removed
-            automatically.
-          </Status>
+        {filteredHistory.length > page * BRIDGE_HISTORY_LIMIT_PER_PAGE ? (
+          <LoadMoreButton onClick={() => setPage((page) => page + 1)} />
+        ) : (
+          history.length >= BRIDGE_HISTORY_LIMIT && (
+            <Status>
+              Only the latest {BRIDGE_HISTORY_LIMIT} items are stored. Older entries will be removed
+              automatically.
+            </Status>
+          )
         )}
       </div>
     </Page>
