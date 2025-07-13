@@ -9,6 +9,7 @@ import AsyncBoundary from "@/components/AsyncBoundary"
 import { useSkipChains } from "@/pages/bridge/data/chains"
 import { useSkipAssets } from "@/pages/bridge/data/assets"
 import { MAINNET } from "../data/constants"
+import { useIsClient } from "../ssr"
 import PortalProvider from "./PortalProvider"
 import NotificationProvider from "./NotificationProvider"
 import ModalProvider from "./ModalProvider"
@@ -44,11 +45,7 @@ const Prefetch = () => {
 }
 
 const InterwovenKitProvider = ({ children, ...config }: PropsWithChildren<Partial<Config>>) => {
-  if (typeof document === "undefined") {
-    return null
-  }
-
-  if (typeof window === "undefined") {
+  if (!useIsClient()) {
     return null
   }
 

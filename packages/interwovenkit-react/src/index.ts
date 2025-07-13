@@ -1,4 +1,3 @@
-import "./console"
 import "./index.css"
 
 // utils
