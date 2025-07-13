@@ -3,9 +3,9 @@ import { descend } from "ramda"
 import type { Connector } from "wagmi"
 import { useConnect } from "wagmi"
 import { useState } from "react"
+import { useLocalStorage } from "react-use"
 import { useMutation } from "@tanstack/react-query"
 import { IconExternalLink } from "@initia/icons-react"
-import { LocalStorageKey } from "@/data/constants"
 import { normalizeError } from "@/data/http"
 import { useDrawer } from "@/data/ui"
 import Scrollable from "@/components/Scrollable"
@@ -24,16 +24,13 @@ const recommendedWallets = [
 const Connect = () => {
   const { closeDrawer } = useDrawer()
   const { connectors, connectAsync } = useConnect()
+  const [recentConnectorId] = useLocalStorage<string>("wagmi.recentConnectorId")
   const [pendingConnectorId, setPendingConnectorId] = useState<string | null>(null)
-  const recentConnectorId = JSON.parse(
-    localStorage.getItem(LocalStorageKey.WAGMI_RECENT_CONNECTOR_ID) || '""',
-  )
   const { mutate, isPending } = useMutation({
     mutationFn: async (connector: Connector) => {
       setPendingConnectorId(connector.id)
       try {
         await connectAsync({ connector })
-        return connector
       } catch (error) {
         throw new Error(await normalizeError(error))
       }
