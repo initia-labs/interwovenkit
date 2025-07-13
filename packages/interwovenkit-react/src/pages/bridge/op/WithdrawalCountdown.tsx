@@ -4,7 +4,7 @@ import styles from "./WithdrawalCountdown.module.css"
 const WithdrawalCountdown = ({ date }: { date: Date }) => {
   return (
     <div className={styles.container}>
-      <span className={styles.title}>Claimable in</span>
+      <div className={styles.title}>Claimable in</div>
       <Countdown date={date} />
     </div>
   )
