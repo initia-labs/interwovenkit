@@ -33,14 +33,6 @@
     gap: 8px;
   }
 
-  .success {
-    color: var(--success);
-  }
-
-  .error {
-    color: var(--error);
-  }
-
   .date {
     color: var(--gray-2);
   }
@@ -94,7 +86,7 @@
   align-items: center;
   gap: 4px;
 
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
 
   .amount {
@@ -107,7 +99,7 @@
   align-items: center;
   gap: 8px;
 
-  color: var(--gray-2);
+  color: var(--gray-3);
   font-size: 12px;
   font-weight: 500;
 

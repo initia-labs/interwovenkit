@@ -1,0 +1,7 @@
+.success {
+  color: var(--success);
+}
+
+.error {
+  color: var(--error);
+}
