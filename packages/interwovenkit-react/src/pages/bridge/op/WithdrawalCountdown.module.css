@@ -1,9 +1,8 @@
 .container {
-  display: flex;
-  align-items: center;
-  gap: 4px;
+  text-align: right;
 }
 
-.icon {
-  color: var(--gray-2);
+.title {
+  color: var(--gray-3);
+  font-size: 11px;
 }

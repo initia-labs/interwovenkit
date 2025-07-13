@@ -1,7 +1,7 @@
 import { isFuture } from "date-fns"
 import WithIsSubmitted from "./WithIsSubmitted"
 import WithdrawalSubmitted from "./WithdrawalSubmitted"
-import WithdrawalCountdown from "./WithdrawalCountDown"
+import WithdrawalCountdown from "./WithdrawalCountdown"
 import WithClaimableDate from "./WithClaimableDate"
 import WithUpdateReminder from "./WithUpdateReminder"
 import ClaimButton from "./ClaimButton"
