@@ -1,7 +1,7 @@
 import type { NormalizedChain } from "@/data/chains"
 import { parsePaginatedResponse } from "@/data/pagination"
 import Status from "@/components/Status"
-import LoadMoreButton from "../../components/LoadMoreButton"
+import LoadMoreButton from "@/components/LoadMoreButton"
 import { useTxs } from "./data"
 import ActivityItem from "./ActivityItem"
 import styles from "./ActivityList.module.css"

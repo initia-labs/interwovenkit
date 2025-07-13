@@ -1,9 +1,8 @@
 import { useEffect, useMemo } from "react"
-import { IconChevronDown } from "@initia/icons-react"
 import type { NormalizedChain } from "@/data/chains"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import Status from "@/components/Status"
-import Loader from "@/components/Loader"
+import LoadMoreButton from "@/components/LoadMoreButton"
 import { useWithdrawals } from "./data"
 import { OpWithdrawalContext } from "./context"
 import { useClaimableReminders } from "./reminder"
@@ -15,7 +14,7 @@ const WithdrawalList = ({ chain }: { chain: NormalizedChain }) => {
   const executorUrl = chain.metadata?.executor_uri
   if (!executorUrl) throw new Error("Executor URL is not defined")
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useWithdrawals(executorUrl)
+  const { data, fetchNextPage, hasNextPage, isFetching } = useWithdrawals(executorUrl)
   const list = useMemo(() => data?.pages.flat() ?? [], [data])
 
   const { syncReminders } = useClaimableReminders()
@@ -48,22 +47,7 @@ const WithdrawalList = ({ chain }: { chain: NormalizedChain }) => {
         )
       })}
 
-      {hasNextPage && (
-        <button
-          className={styles.more}
-          onClick={() => fetchNextPage()}
-          disabled={isFetchingNextPage}
-        >
-          {isFetchingNextPage ? (
-            <Loader size={14} />
-          ) : (
-            <>
-              <span>Load more</span>
-              <IconChevronDown size={14} />
-            </>
-          )}
-        </button>
-      )}
+      {hasNextPage && <LoadMoreButton onClick={() => fetchNextPage()} disabled={isFetching} />}
     </>
   )
 }

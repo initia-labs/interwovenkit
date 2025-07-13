@@ -4,7 +4,7 @@ import BigNumber from "bignumber.js"
 import { sentenceCase } from "change-case"
 import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import { calculateFee, GasPrice } from "@cosmjs/stargate"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { DEFAULT_GAS_PRICE_MULTIPLIER } from "@/public/data/constants"
@@ -103,12 +103,6 @@ const TxRequest = () => {
       reject(new Error(await normalizeError(error)))
     },
   })
-
-  useEffect(() => {
-    return () => {
-      reject(new Error("User rejected"))
-    }
-  }, [reject])
 
   const isInsufficient = !canPayFee(feeDenom)
 

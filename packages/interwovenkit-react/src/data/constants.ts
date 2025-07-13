@@ -7,7 +7,6 @@ export const LocalStorageKey = {
 
   // wallet
   PUBLIC_KEY: `${NAMESPACE}:public-key`,
-  LATEST_CONNECTOR_ID: `${NAMESPACE}:latest-connector-id`,
 
   // tx fee
   FEE_DENOM: `${NAMESPACE}:fee-denom`,

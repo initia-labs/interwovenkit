@@ -1,7 +1,9 @@
 import type { PropsWithChildren } from "react"
+import { useEffect } from "react"
 import { Tooltip } from "radix-ui"
 import { MemoryRouter } from "@/lib/router"
 import { LocalStorageKey } from "@/data/constants"
+import { migrateLocalStorage } from "@/data/migration"
 import type { Config } from "@/data/config"
 import { ConfigContext } from "@/data/config"
 import { useInitiaRegistry, useLayer1 } from "@/data/chains"
@@ -9,6 +11,7 @@ import AsyncBoundary from "@/components/AsyncBoundary"
 import { useSkipChains } from "@/pages/bridge/data/chains"
 import { useSkipAssets } from "@/pages/bridge/data/assets"
 import { MAINNET } from "../data/constants"
+import { useIsClient } from "../ssr"
 import PortalProvider from "./PortalProvider"
 import NotificationProvider from "./NotificationProvider"
 import ModalProvider from "./ModalProvider"
@@ -44,11 +47,11 @@ const Prefetch = () => {
 }
 
 const InterwovenKitProvider = ({ children, ...config }: PropsWithChildren<Partial<Config>>) => {
-  if (typeof document === "undefined") {
-    return null
-  }
+  useEffect(() => {
+    migrateLocalStorage()
+  }, [])
 
-  if (typeof window === "undefined") {
+  if (!useIsClient()) {
     return null
   }
 
