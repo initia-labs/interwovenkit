@@ -131,5 +131,9 @@
     "wagmi": "^2",
     "xss": "^1",
     "zod": "^3"
+  },
+  "dependencies": {
+    "@amplitude/analytics-browser": "^2.18.2",
+    "@amplitude/plugin-autocapture-browser": "^1.0.0"
   }
 }

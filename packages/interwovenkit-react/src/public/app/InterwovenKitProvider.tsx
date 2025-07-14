@@ -17,6 +17,7 @@ import NotificationProvider from "./NotificationProvider"
 import ModalProvider from "./ModalProvider"
 import Drawer from "./Drawer"
 import Routes from "./Routes"
+import Amplitude from "@/lib/amplitude"
 
 const ROBOTO_MONO =
   "https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@100..700&display=swap"
@@ -49,6 +50,7 @@ const Prefetch = () => {
 const InterwovenKitProvider = ({ children, ...config }: PropsWithChildren<Partial<Config>>) => {
   useEffect(() => {
     migrateLocalStorage()
+    Amplitude.start()
   }, [])
 
   if (!useIsClient()) {
