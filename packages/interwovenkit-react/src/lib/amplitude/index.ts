@@ -15,16 +15,8 @@ class Amplitude {
         formInteractions: false,
         fileDownloads: false,
         elementInteractions: {
-          cssSelectorAllowlist: [
-            `#${Amplitude.AMPLITUDE_CONTAINER_ID} button`,
-            `#${Amplitude.AMPLITUDE_CONTAINER_ID} a`,
-            `#${Amplitude.AMPLITUDE_CONTAINER_ID} input`,
-          ],
-          actionClickAllowlist: [
-            `#${Amplitude.AMPLITUDE_CONTAINER_ID} button`,
-            `#${Amplitude.AMPLITUDE_CONTAINER_ID} a`,
-            `#${Amplitude.AMPLITUDE_CONTAINER_ID} input`,
-          ],
+          cssSelectorAllowlist: [`#${Amplitude.AMPLITUDE_CONTAINER_ID} [data-amp-track-name]`],
+          actionClickAllowlist: [`#${Amplitude.AMPLITUDE_CONTAINER_ID} [data-amp-track-name]`],
         },
       },
       serverZone: "EU",

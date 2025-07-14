@@ -17,12 +17,16 @@ const Home = () => {
   return (
     <Scrollable>
       <div className={styles.nav}>
-        <Link to="/send" className={styles.item}>
+        <Link to="/send" className={styles.item} data-amp-track-name="Send">
           <IconArrowRight size={16} />
           <span>Send</span>
         </Link>
 
-        <button className={styles.item} onClick={() => navigate("/bridge")}>
+        <button
+          className={styles.item}
+          onClick={() => navigate("/bridge")}
+          data-amp-track-name="Bridge/Swap"
+        >
           <IconSwap size={16} />
           <span>Bridge/Swap</span>
         </button>
@@ -30,15 +34,15 @@ const Home = () => {
 
       <Tabs.Root value={path} onValueChange={navigate}>
         <Tabs.List className={styles.tabs}>
-          <Tabs.Trigger className={styles.tab} value="/">
+          <Tabs.Trigger className={styles.tab} value="/" data-amp-track-name="Assets tab">
             Assets
           </Tabs.Trigger>
 
-          <Tabs.Trigger className={styles.tab} value="/nfts">
+          <Tabs.Trigger className={styles.tab} value="/nfts" data-amp-track-name="NFTs tab">
             NFTs
           </Tabs.Trigger>
 
-          <Tabs.Trigger className={styles.tab} value="/activity">
+          <Tabs.Trigger className={styles.tab} value="/activity" data-amp-track-name="Activity tab">
             Activity
           </Tabs.Trigger>
         </Tabs.List>
