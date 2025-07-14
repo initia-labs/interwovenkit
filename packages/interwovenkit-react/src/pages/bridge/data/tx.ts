@@ -220,7 +220,7 @@ export function useSignOpHook() {
               source_address: initiaAddress,
               source_asset_chain_id: route.source_asset_chain_id,
               source_asset_denom: route.source_asset_denom,
-              dest_address: values.recipient,
+              dest_address: AddressUtils.toBech32(values.recipient),
               dest_asset_chain_id: route.dest_asset_chain_id,
               dest_asset_denom: route.dest_asset_denom,
             },
