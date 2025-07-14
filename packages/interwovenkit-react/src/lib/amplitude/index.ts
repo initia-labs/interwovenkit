@@ -5,6 +5,7 @@ const API_KEY = "3c75a073050e0510f6f5a303490a899f"
 
 class Amplitude {
   private static instance: BrowserClient | null = null
+  public static currentPath: string | null = null
   public static AMPLITUDE_CONTAINER_ID = "interwovenkit-container"
 
   public static start() {
@@ -27,6 +28,15 @@ class Amplitude {
         },
       },
       serverZone: "EU",
+    })
+    Amplitude.instance.add({
+      execute: async (event) => {
+        event.event_properties = {
+          path: Amplitude.currentPath,
+          ...event.event_properties,
+        }
+        return event
+      },
     })
   }
 

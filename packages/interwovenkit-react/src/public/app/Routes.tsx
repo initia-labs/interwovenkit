@@ -14,6 +14,7 @@ import BridgeHistory from "@/pages/bridge/BridgeHistory"
 import TxRequest from "@/pages/tx/TxRequest"
 import { useAddress } from "../data/hooks"
 import { useModal } from "./ModalContext"
+import Amplitude from "@/lib/amplitude"
 
 const Routes = () => {
   const navigate = useNavigate()
@@ -36,6 +37,11 @@ const Routes = () => {
     // Run only on address changes, preventing navigation from triggering on path updates.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address])
+
+  useEffect(() => {
+    Amplitude.currentPath = path
+    // Amplitude.logEvent("route_change", { path })
+  }, [path])
 
   if (path === "/connect") {
     if (address) return null
