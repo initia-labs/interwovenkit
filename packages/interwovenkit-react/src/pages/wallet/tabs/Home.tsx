@@ -17,36 +17,36 @@ const Home = () => {
   return (
     <Scrollable>
       <div className={styles.nav}>
-        <Link
-          to="/send"
-          className={styles.item}
-          data-amp-track-name="Bridge_swap_top_button_clicked"
-        >
+        <Link to="/send" className={styles.item} data-amp-track-name="Send_top_button_clicked">
           <IconArrowRight size={16} />
           <span>Send</span>
         </Link>
 
-        <button
+        <Link
+          to="/bridge"
           className={styles.item}
-          onClick={() => navigate("/bridge")}
-          data-amp-track-name="Another tab"
+          data-amp-track-name="Bridge_swap_top_button_clicked"
         >
           <IconSwap size={16} />
           <span>Bridge/Swap</span>
-        </button>
+        </Link>
       </div>
 
       <Tabs.Root value={path} onValueChange={navigate}>
         <Tabs.List className={styles.tabs}>
-          <Tabs.Trigger className={styles.tab} value="/" data-amp-track-name="Assets tab">
+          <Tabs.Trigger className={styles.tab} value="/">
             Assets
           </Tabs.Trigger>
 
-          <Tabs.Trigger className={styles.tab} value="/nfts" data-amp-track-name="NFTs tab">
+          <Tabs.Trigger className={styles.tab} value="/nfts">
             NFTs
           </Tabs.Trigger>
 
-          <Tabs.Trigger className={styles.tab} value="/activity" data-amp-track-name="Activity tab">
+          <Tabs.Trigger
+            className={styles.tab}
+            value="/activity"
+            data-amp-track-name="Activity_view_opened"
+          >
             Activity
           </Tabs.Trigger>
         </Tabs.List>

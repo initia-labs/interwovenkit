@@ -8,6 +8,7 @@ import { useDefaultChain, type NormalizedChain } from "@/data/chains"
 import { useAsset } from "@/data/assets"
 import Image from "@/components/Image"
 import styles from "./AssetActions.module.css"
+import Amplitude from "@/lib/amplitude"
 
 const AssetActions = ({ denom, chain }: { denom: string; chain: NormalizedChain }) => {
   const navigate = useNavigate()
@@ -20,10 +21,12 @@ const AssetActions = ({ denom, chain }: { denom: string; chain: NormalizedChain 
   const { chainId } = chain
 
   const send = () => {
+    Amplitude.logEvent("Send_asset_button_clicked", { denom, chain: chainId, type: "click" })
     navigate("/send", { denom, chain })
   }
 
   const bridge = () => {
+    Amplitude.logEvent("Bridge_swap_asset_button_clicked", { denom, chain: chainId, type: "click" })
     navigate("/bridge", { srcChainId: chainId, srcDenom: denom })
   }
 
@@ -36,23 +39,11 @@ const AssetActions = ({ denom, chain }: { denom: string; chain: NormalizedChain 
 
   return (
     <nav className={styles.actions}>
-      <button
-        className={styles.button}
-        onClick={send}
-        data-amp-track-name="Send_asset_button_clicked"
-        data-amp-track-denom={denom}
-        data-amp-track-chainid={chain.chainId}
-      >
+      <button className={styles.button} onClick={send}>
         Send
       </button>
 
-      <button
-        className={styles.button}
-        onClick={bridge}
-        data-amp-track-name="Bridge_swap_asset_button_clicked"
-        data-amp-track-denom={denom}
-        data-amp-track-chainid={chain.chainId}
-      >
+      <button className={styles.button} onClick={bridge}>
         Bridge/Swap
       </button>
 
