@@ -31,6 +31,7 @@
   },
   "peerDependencies": {
     "@cosmjs/amino": "^0",
+    "@cosmjs/cosmwasm-stargate": "^0",
     "@cosmjs/crypto": "^0",
     "@cosmjs/encoding": "^0",
     "@cosmjs/math": "^0",
@@ -75,6 +76,7 @@
   },
   "devDependencies": {
     "@cosmjs/amino": "^0",
+    "@cosmjs/cosmwasm-stargate": "^0",
     "@cosmjs/crypto": "^0",
     "@cosmjs/encoding": "^0",
     "@cosmjs/math": "^0",

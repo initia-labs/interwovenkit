@@ -127,6 +127,9 @@ importers:
       '@cosmjs/amino':
         specifier: ^0
         version: 0.33.1
+      '@cosmjs/cosmwasm-stargate':
+        specifier: ^0
+        version: 0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       '@cosmjs/crypto':
         specifier: ^0
         version: 0.33.1
