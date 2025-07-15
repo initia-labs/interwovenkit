@@ -9,7 +9,7 @@ export function useDrawer() {
   const [isOpen, setIsOpen] = useAtom(isDrawerOpenAtom)
 
   const open = (path: string, state?: object) => {
-    Amplitude.logEvent("drawer_open", { path, state })
+    Amplitude.logEvent("Widget_opened", { path, state })
     if (path) {
       reset(path, state)
     }
@@ -17,7 +17,7 @@ export function useDrawer() {
   }
 
   const close = () => {
-    Amplitude.logEvent("drawer_close")
+    Amplitude.logEvent("Widget_minimized")
     setIsOpen(false)
   }
 

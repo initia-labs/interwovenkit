@@ -36,11 +36,23 @@ const AssetActions = ({ denom, chain }: { denom: string; chain: NormalizedChain 
 
   return (
     <nav className={styles.actions}>
-      <button className={styles.button} onClick={send}>
+      <button
+        className={styles.button}
+        onClick={send}
+        data-amp-track-name="Send_asset_button_clicked"
+        data-amp-track-denom={denom}
+        data-amp-track-chainid={chain.chainId}
+      >
         Send
       </button>
 
-      <button className={styles.button} onClick={bridge}>
+      <button
+        className={styles.button}
+        onClick={bridge}
+        data-amp-track-name="Bridge_swap_asset_button_clicked"
+        data-amp-track-denom={denom}
+        data-amp-track-chainid={chain.chainId}
+      >
         Bridge/Swap
       </button>
 

@@ -17,7 +17,11 @@ const Home = () => {
   return (
     <Scrollable>
       <div className={styles.nav}>
-        <Link to="/send" className={styles.item} data-amp-track-name="Send">
+        <Link
+          to="/send"
+          className={styles.item}
+          data-amp-track-name="Bridge_swap_top_button_clicked"
+        >
           <IconArrowRight size={16} />
           <span>Send</span>
         </Link>
@@ -25,7 +29,7 @@ const Home = () => {
         <button
           className={styles.item}
           onClick={() => navigate("/bridge")}
-          data-amp-track-name="Bridge/Swap"
+          data-amp-track-name="Another tab"
         >
           <IconSwap size={16} />
           <span>Bridge/Swap</span>

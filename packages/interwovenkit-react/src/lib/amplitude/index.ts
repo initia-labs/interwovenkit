@@ -1,4 +1,4 @@
-import { createInstance } from "@amplitude/analytics-browser"
+import { createInstance, Identify } from "@amplitude/analytics-browser"
 import type { BrowserClient } from "@amplitude/analytics-browser/lib/esm/types"
 
 const API_KEY = "3c75a073050e0510f6f5a303490a899f"
@@ -9,6 +9,8 @@ class Amplitude {
   public static AMPLITUDE_CONTAINER_ID = "interwovenkit-container"
 
   public static start() {
+    if (Amplitude.instance) return
+
     Amplitude.instance = createInstance()
     Amplitude.instance.init(API_KEY, {
       autocapture: {
@@ -22,7 +24,21 @@ class Amplitude {
       serverZone: "EU",
     })
     Amplitude.instance.add({
+      name: "interwovenkit",
       execute: async (event) => {
+        if (event.event_type === "[Amplitude] Element Clicked") {
+          const { name, ...attributes } = event.event_properties!["[Amplitude] Element Attributes"]
+          return {
+            ...event,
+            event_type: `[Initia] ${name}`,
+            event_properties: {
+              ...attributes,
+              path: Amplitude.currentPath,
+              type: "click",
+            },
+          }
+        }
+
         event.event_properties = {
           path: Amplitude.currentPath,
           ...event.event_properties,
@@ -32,10 +48,15 @@ class Amplitude {
     })
   }
 
+  public static setUserWallet(walletName: string) {
+    const identify = new Identify().set("walletName", walletName)
+    Amplitude.instance?.identify(identify)
+  }
+
   public static logEvent(event: string, properties?: Record<string, unknown>) {
     if (!Amplitude.instance) return
 
-    Amplitude.instance.logEvent(`[Initia InterwovenKit] ${event}`, properties)
+    Amplitude.instance.logEvent(`[Initia] ${event}`, properties)
   }
 }
 

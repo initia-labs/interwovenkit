@@ -78,7 +78,14 @@ const Connect = () => {
             .map(({ name, url }) => {
               const imageUrl = `https://assets.initia.xyz/images/wallets/${name}.webp`
               return (
-                <a href={url} className={styles.item} target="_blank" key={name}>
+                <a
+                  href={url}
+                  className={styles.item}
+                  target="_blank"
+                  key={name}
+                  data-amp-track-name="Suggested_wallet_clicked"
+                  data-amp-track-walletname={name}
+                >
                   <Image src={imageUrl} width={24} height={24} />
                   <span className={clsx(styles.name, styles.dimmed)}>{name}</span>
                   <IconExternalLink size={10} />
@@ -89,7 +96,12 @@ const Connect = () => {
       </Scrollable>
 
       <Footer>
-        <a href="https://docs.initia.xyz" target="_blank" className={styles.docs}>
+        <a
+          href="https://docs.initia.xyz"
+          target="_blank"
+          className={styles.docs}
+          data-amp-track-name="Learn_more_clicked"
+        >
           <span>Learn more</span>
           <IconExternalLink size={14} />
         </a>
