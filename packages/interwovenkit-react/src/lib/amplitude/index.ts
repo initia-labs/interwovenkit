@@ -34,6 +34,7 @@ class Amplitude {
             event_properties: {
               ...attributes,
               path: Amplitude.currentPath,
+              origin: window.location.host,
               type: "click",
             },
           }
@@ -41,6 +42,7 @@ class Amplitude {
 
         event.event_properties = {
           path: Amplitude.currentPath,
+          origin: window.location.host,
           ...event.event_properties,
         }
         return event
