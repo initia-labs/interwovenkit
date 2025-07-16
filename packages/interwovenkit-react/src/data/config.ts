@@ -14,6 +14,7 @@ export interface Config {
   usernamesModuleAddress: string
 
   theme: "light" | "dark"
+  container?: HTMLElement
 }
 
 export const ConfigContext = createContext<Config>(null!)

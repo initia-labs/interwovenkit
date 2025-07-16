@@ -10,21 +10,18 @@ injectStyles(css)
 const wagmiConfig = createConfig({ chains: [mainnet], transports: { [mainnet.id]: http() } })
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-const WithInterwovenKit = ({ children }: PropsWithChildren) => {
-  const theme = useTheme()
-
-  return (
-    <InterwovenKitProvider {...(isTestnet ? TESTNET : {})} theme={theme}>
-      {children}
-    </InterwovenKitProvider>
-  )
-}
-
 const Providers = ({ children }: PropsWithChildren) => {
+  const theme = useTheme()
   return (
     <QueryClientProvider client={queryClient}>
       <WagmiProvider config={wagmiConfig}>
-        <WithInterwovenKit>{children}</WithInterwovenKit>
+        <InterwovenKitProvider
+          {...(isTestnet ? TESTNET : {})}
+          theme={theme}
+          container={document.body}
+        >
+          {children}
+        </InterwovenKitProvider>
       </WagmiProvider>
     </QueryClientProvider>
   )

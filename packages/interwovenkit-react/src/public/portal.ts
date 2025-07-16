@@ -16,23 +16,16 @@ function getShadowRoot() {
 }
 
 // Portal container for rendering Drawer components.
-// In local development, elements are injected directly into the body.
-// In production, they are injected into a shadow root.
+// If container is provided, use it instead of the shadow root.
 export function usePortalContainer() {
-  const { theme } = useConfig()
+  const { theme, container } = useConfig()
 
   useEffect(() => {
     const host = document.querySelector<HTMLElement>(ELEMENT_TAG)
     host?.setAttribute("data-theme", theme)
   }, [theme])
 
-  // During development we skip the Shadow DOM so hot module replacement works
-  // seamlessly with the host page.
-  if (import.meta.env.DEV) {
-    return document.body
-  }
-
-  return getShadowRoot()
+  return container ?? getShadowRoot()
 }
 
 // Utility to let users manually append the provided stylesheet to the shadow root.
