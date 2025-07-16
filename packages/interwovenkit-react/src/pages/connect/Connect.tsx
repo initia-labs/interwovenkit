@@ -13,6 +13,7 @@ import Image from "@/components/Image"
 import Loader from "@/components/Loader"
 import Footer from "@/components/Footer"
 import styles from "./Connect.module.css"
+import Amplitude from "@/lib/amplitude"
 
 const recommendedWallets = [
   { name: "Rabby", url: "https://rabby.io" },
@@ -31,6 +32,7 @@ const Connect = () => {
       setPendingConnectorId(connector.id)
       try {
         await connectAsync({ connector })
+        Amplitude.logEvent("Wallet_extension_used", { walletname: connector.name })
       } catch (error) {
         throw new Error(await normalizeError(error))
       }

@@ -126,6 +126,10 @@ const TxRequest = () => {
           renderHeader={({ typeUrl }) =>
             sentenceCase(typeUrl.split(".").pop()!.replace(/^Msg/, ""))
           }
+          amplitudeOpenEventName="Tx_detail_clicked"
+          getAmplitudeDetails={({ typeUrl }) => ({
+            "data-amp-track-msg": typeUrl,
+          })}
           renderContent={(message) => <TxMessage message={message} chainId={chainId} />}
         />
       </Scrollable>

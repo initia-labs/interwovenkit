@@ -142,7 +142,7 @@ const BridgeForm = () => {
         <>
           <Button.Small
             onClick={() => {
-              Amplitude.logEvent("Bridge_activity_opened")
+              Amplitude.logEvent("Bridge_activity_opened", { type: "click" })
               navigate("/bridge/history")
             }}
             unpadded
@@ -153,7 +153,16 @@ const BridgeForm = () => {
             </svg>
           </Button.Small>
           <Indicator offset={0} disabled={reminders.length === 0}>
-            <Button.Small onClick={() => navigate("/op/withdrawals")} disabled={!address}>
+            <Button.Small
+              onClick={() => {
+                Amplitude.logEvent("Withdrawal_status_clicked", {
+                  type: "click",
+                  notification: !!reminders.length,
+                })
+                navigate("/op/withdrawals")
+              }}
+              disabled={!address}
+            >
               <span>Withdrawal status</span>
             </Button.Small>
           </Indicator>

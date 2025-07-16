@@ -163,7 +163,12 @@ const BridgeHistoryItem = ({ tx }: { tx: TxIdentifier }) => {
   const skipExplorerUrl = new URL(`?${searchParams.toString()}`, "https://explorer.skip.build")
 
   return (
-    <a href={skipExplorerUrl.toString()} className={styles.link} target="_blank">
+    <a
+      href={skipExplorerUrl.toString()}
+      className={styles.link}
+      target="_blank"
+      data-amp-track-name="Explorer_opened"
+    >
       {content}
     </a>
   )

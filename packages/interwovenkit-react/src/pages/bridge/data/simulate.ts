@@ -9,6 +9,7 @@ import { useBridgeForm } from "./form"
 import { useChainType, useFindChainType, useFindSkipChain, useSkipChain } from "./chains"
 import type { RouterAsset } from "./assets"
 import { useSkipAsset } from "./assets"
+import Amplitude from "@/lib/amplitude"
 
 export interface RouterRouteResponseJson extends RouteResponseJson {
   operations: OperationJson[]
@@ -51,6 +52,14 @@ export function useRouteQuery(
         go_fast: srcSymbol === "USDC" && findChainType(findChain(srcChainId)) === "evm",
         is_op_withdraw: opWithdrawal?.isOpWithdraw,
       }
+
+      Amplitude.logEvent("Simulation_performed", {
+        quantity,
+        srcChainId,
+        srcDenom,
+        dstChainId,
+        dstDenom,
+      })
 
       return skip.post("v2/fungible/route", { json: params }).json<RouterRouteResponseJson>()
     },
