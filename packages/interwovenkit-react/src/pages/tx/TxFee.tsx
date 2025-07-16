@@ -8,6 +8,7 @@ import { useChain } from "@/data/chains"
 import { useFindAsset } from "@/data/assets"
 import { useTxRequestHandler } from "@/data/tx"
 import styles from "./TxFee.module.css"
+import Amplitude from "@/lib/amplitude"
 
 interface Props {
   options: StdFee[]
@@ -32,7 +33,11 @@ const TxFee = ({ options, value, onChange }: Props) => {
   }
 
   return (
-    <Select.Root value={value} onValueChange={onChange}>
+    <Select.Root
+      value={value}
+      onValueChange={onChange}
+      onOpenChange={(open) => open && Amplitude.logEvent("Tx_fee_clicked")}
+    >
       <Select.Trigger className={styles.trigger}>
         <Select.Value />
         <Select.Icon className={styles.icon}>
