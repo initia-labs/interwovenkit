@@ -26,7 +26,10 @@ const OperationItemComponent = (props: ComponentProps) => {
         <div className={styles.arrow}>
           <div className={styles.divider} />
           {label ? (
-            <WidgetTooltip label={label}>
+            <WidgetTooltip
+              label={label}
+              amplitudeEvent={{ name: "Detail_route_hovered", details: { operation: label } }}
+            >
               <button className={styles.type}>
                 <IconArrowDown size={12} />
               </button>

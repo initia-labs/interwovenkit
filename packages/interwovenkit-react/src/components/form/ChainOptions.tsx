@@ -12,9 +12,17 @@ interface Props {
   value: string
   onSelect: (chainId: string) => void
   getShowIndicator?: (chainId: string) => boolean
+  getAmplitudeEvent?: (chainId: string) => { name: string; details?: Record<string, unknown> }
 }
 
-const ChainOptions = ({ label, chains, value, onSelect, getShowIndicator }: Props) => {
+const ChainOptions = ({
+  label,
+  chains,
+  value,
+  onSelect,
+  getShowIndicator,
+  getAmplitudeEvent,
+}: Props) => {
   return (
     <div>
       {label && <h2 className={styles.title}>{label}</h2>}
@@ -26,7 +34,11 @@ const ChainOptions = ({ label, chains, value, onSelect, getShowIndicator }: Prop
             className={styles.item}
             key={chainId}
           >
-            <WidgetTooltip label={name} disableHoverableContent>
+            <WidgetTooltip
+              label={name}
+              disableHoverableContent
+              amplitudeEvent={getAmplitudeEvent?.(chainId)}
+            >
               <button
                 type="button"
                 className={clsx(styles.button, { [styles.active]: chainId === value })}

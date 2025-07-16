@@ -5,7 +5,7 @@ const WithdrawalCountdown = ({ date }: { date: Date }) => {
   return (
     <div className={styles.container}>
       <div className={styles.title}>Claimable in</div>
-      <Countdown date={date} />
+      <Countdown date={date} amplitudeEvent={{ name: "Withdrawal_time_hovered" }} />
     </div>
   )
 }
