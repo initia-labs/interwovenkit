@@ -53,6 +53,23 @@ describe("resolveBcsType", () => {
     expect(parse("Af8=")).toBe(255)
   })
 
+  it("parses 0x1::option::Option<u8> correctly", () => {
+    const parse = (input: string) =>
+      resolveBcsType("0x1::option::Option<u8>").parse(fromBase64(input))
+
+    expect(parse("AA==")).toBeNull()
+    expect(parse("Af8=")).toBe(255)
+  })
+
+  it("parses 0x1::object::Object<0x1::dex::Config> correctly", () => {
+    const parse = (input: string) =>
+      resolveBcsType("0x1::object::Object<0x1::dex::Config>").parse(fromBase64(input))
+
+    expect(parse("VDs1o5z62tPaPCMknEdEVdFe/S+U+ElHMibe6KPHqeE=")).toBe(
+      "0x543b35a39cfadad3da3c23249c474455d15efd2f94f849473226dee8a3c7a9e1",
+    )
+  })
+
   it("parses bigdecimal values correctly", () => {
     const parse = (input: string) => resolveBcsType("bigdecimal").parse(fromBase64(input))
 
