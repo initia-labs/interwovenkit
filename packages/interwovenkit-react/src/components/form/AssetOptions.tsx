@@ -12,10 +12,11 @@ interface Props {
   assets: BaseAsset[]
   onSelect: (denom: string) => void
   renderAsset?: (asset: BaseAsset, children: (asset: BaseAsset) => ReactNode) => ReactNode
+  isLoading?: boolean
 }
 
 const AssetOptions = (props: Props) => {
-  const { assets, onSelect, renderAsset = (asset, children) => children(asset) } = props
+  const { assets, onSelect, renderAsset = (asset, children) => children(asset), isLoading } = props
   const [search, setSearch] = useState("")
   const filteredAssets = filterBySearch(["symbol"], search, assets)
 
@@ -23,7 +24,9 @@ const AssetOptions = (props: Props) => {
     <div className={styles.container}>
       <SearchInput value={search} onChange={setSearch} placeholder="Search by symbol" />
 
-      {filteredAssets.length === 0 ? (
+      {isLoading ? (
+        <Status>Loading...</Status>
+      ) : filteredAssets.length === 0 ? (
         <Status>No assets</Status>
       ) : (
         <div className={styles.list}>

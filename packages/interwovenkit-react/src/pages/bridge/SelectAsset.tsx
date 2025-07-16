@@ -3,7 +3,7 @@ import BigNumber from "bignumber.js"
 import type { ChainJson } from "@skip-go/client"
 import { truncate } from "@/public/utils"
 import AssetOptions from "@/components/form/AssetOptions"
-import { useSkipAssets } from "./data/assets"
+import { useSkipAssetsQuery } from "./data/assets"
 import { useSkipBalancesQuery } from "./data/balance"
 
 interface Props {
@@ -13,7 +13,7 @@ interface Props {
 }
 
 const SelectAsset = ({ address, chain, onSelect }: Props) => {
-  const assets = useSkipAssets(chain.chain_id)
+  const { data: assets = [], isLoading } = useSkipAssetsQuery(chain.chain_id)
   const { data: balances = {} } = useSkipBalancesQuery(address, chain.chain_id)
 
   return (
@@ -42,6 +42,7 @@ const SelectAsset = ({ address, chain, onSelect }: Props) => {
           }),
       )}
       onSelect={onSelect}
+      isLoading={isLoading}
     />
   )
 }
