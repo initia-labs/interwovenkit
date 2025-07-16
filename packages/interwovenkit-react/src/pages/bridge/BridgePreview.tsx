@@ -8,7 +8,7 @@ import BridgePreviewFooter from "./BridgePreviewFooter"
 
 const BridgePreview = () => {
   return (
-    <Page title="Route preview">
+    <Page title="Route preview" backButtonAmplitudeEvent="Route_preview_backbutton_clicked">
       <FooterWithAddressList>
         {(addressList) => (
           <>

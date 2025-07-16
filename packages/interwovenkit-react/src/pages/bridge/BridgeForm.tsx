@@ -138,6 +138,7 @@ const BridgeForm = () => {
       // The previous page may not be the intended destination.
       // To avoid unexpected behavior, it explicitly returns to the wallet page.
       returnTo={isBridge ? false : "/"}
+      backButtonAmplitudeEvent="Bridge_backbutton_clicked"
       extra={
         <>
           <Button.Small
