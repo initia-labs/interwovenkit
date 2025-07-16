@@ -2,7 +2,6 @@ import { partition } from "ramda"
 import { useState } from "react"
 import { useAddress } from "@/public/data/hooks"
 import ChainOptions from "@/components/form/ChainOptions"
-import AsyncBoundary from "@/components/AsyncBoundary"
 import { useBridgeForm } from "./data/form"
 import { useGetIsInitiaChain, useSkipChain, useSkipChains } from "./data/chains"
 import { useGetAddressForBalance } from "./data/address"
@@ -64,18 +63,16 @@ const SelectChainAsset = ({ type, afterSelect }: Props) => {
         />
       </ChainOptions.Stack>
 
-      <AsyncBoundary key={chainId}>
-        <SelectAsset
-          address={getAddressForBalance({
-            initialAddress,
-            initialChainId,
-            chainId,
-            fallbackAddress: type === "src" ? connectedAddress : undefined,
-          })}
-          chain={chain}
-          onSelect={handleSelect}
-        />
-      </AsyncBoundary>
+      <SelectAsset
+        address={getAddressForBalance({
+          initialAddress,
+          initialChainId,
+          chainId,
+          fallbackAddress: type === "src" ? connectedAddress : undefined,
+        })}
+        chain={chain}
+        onSelect={handleSelect}
+      />
     </>
   )
 }
