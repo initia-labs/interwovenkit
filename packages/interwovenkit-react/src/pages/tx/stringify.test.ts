@@ -70,6 +70,13 @@ describe("resolveBcsType", () => {
     )
   })
 
+  it("parses vector<0x1::option::Option<u64>> correctly", () => {
+    const parse = (input: string) =>
+      resolveBcsType("vector<0x1::option::Option<u64>>").parse(fromBase64(input))
+
+    expect(parse("AgGLkgAAAAAAAAGQ9wAAAAAAAA==")).toEqual(["37515", "63376"])
+  })
+
   it("parses bigdecimal values correctly", () => {
     const parse = (input: string) => resolveBcsType("bigdecimal").parse(fromBase64(input))
 
