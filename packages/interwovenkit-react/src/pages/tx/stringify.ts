@@ -1,4 +1,3 @@
-import { last } from "ramda"
 import { BigNumber } from "bignumber.js"
 import { toBase64, toHex } from "@cosmjs/encoding"
 import type { BcsType, BcsTypeOptions } from "@mysten/bcs"
@@ -39,20 +38,16 @@ const bcs = {
 
 /** Recursively resolves a Move-style type string into a bcs.*() call */
 export function resolveBcsType(typeStr: string): BcsType<unknown, unknown> {
-  // Normalize the type string by removing 0x1:: prefix and converting to lowercase
-  const normalizedType = typeStr
-    .trim()
-    .replace(/^0x1::/, "")
-    .toLowerCase()
+  const type = typeStr.replaceAll(/0x1::(\w+)::(\w+)/g, "$2").toLowerCase()
 
-  // Handle object<T> or Object<T> - treat as just "object"
-  if (normalizedType.startsWith("object<") || normalizedType.startsWith("object::object<")) {
-    // @ts-expect-error // object serializer returns a different type
+  // object<T> - treat as just "object"
+  if (type.startsWith("object")) {
+    // @ts-expect-error // guaranteed to be a valid bcs.*() function
     return bcs.object()
   }
 
-  // Try to match a generic like Foo<InnerType>
-  const genericMatch = normalizedType.match(/^(\w+)<(.+)>$/)
+  // generic - like option<InnerType>
+  const genericMatch = type.match(/(\w+)<(.+)>$/)
   if (genericMatch) {
     const [, container, inner] = genericMatch
     // recurse for the inner type
@@ -62,26 +57,9 @@ export function resolveBcsType(typeStr: string): BcsType<unknown, unknown> {
     return bcs[container](innerBcs)
   }
 
-  // Try to match a generic in the last segment like option::option<InnerType>
-  const segmentsForGeneric = normalizedType.split("::")
-  const lastSegment = last(segmentsForGeneric)!
-  const lastSegmentGenericMatch = lastSegment.match(/^(\w+)<(.+)>$/)
-  if (lastSegmentGenericMatch) {
-    const [, container, inner] = lastSegmentGenericMatch
-    // recurse for the inner type
-    const innerBcs = resolveBcsType(inner)
-    // invoke the container function on the result
-    // @ts-expect-error // guaranteed to be a valid bcs.*() function
-    return bcs[container](innerBcs)
-  }
-
-  // Not a generic: split on "::" and take last segment, handle case variations
-  const segments = normalizedType.split("::")
-  const baseName = last(segments)!.toLowerCase()
-
   // call the corresponding bcs.*()
   // @ts-expect-error // guaranteed to be a valid bcs.*() function
-  return bcs[baseName]()
+  return bcs[type]()
 }
 
 function addressSerializer(options?: BcsTypeOptions<Uint8Array, Iterable<number>>) {

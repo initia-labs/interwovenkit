@@ -70,9 +70,9 @@ describe("resolveBcsType", () => {
     )
   })
 
-  it("parses vector<0x1::option::Option<u64>> correctly", () => {
+  it("parses 0x1::vector::Vector<0x1::option::Option<u64>> correctly", () => {
     const parse = (input: string) =>
-      resolveBcsType("vector<0x1::option::Option<u64>>").parse(fromBase64(input))
+      resolveBcsType("0x1::vector::Vector<0x1::option::Option<u64>>").parse(fromBase64(input))
 
     expect(parse("AgGLkgAAAAAAAAGQ9wAAAAAAAA==")).toEqual(["37515", "63376"])
   })
