@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useTx } from "@/data/tx"
 import { useDrawer } from "@/data/ui"
 import { useDefaultChain } from "@/data/chains"
+import { useOfflineSigner } from "@/data/signer"
 import { accountQueryKeys, useUsernameClient } from "@/data/account"
 import type { FormValues } from "@/pages/bridge/data/form"
 import { STALE_TIMES } from "@/data/http"
@@ -46,6 +47,7 @@ export function useInterwovenKit() {
   const initiaAddress = useInitiaAddress()
   const hexAddress = useHexAddress()
   const { data: username } = useUsernameQuery()
+  const offlineSigner = useOfflineSigner()
 
   const { openDrawer } = useDrawer()
 
@@ -68,6 +70,7 @@ export function useInterwovenKit() {
     initiaAddress,
     hexAddress,
     username,
+    offlineSigner,
     openConnect,
     openWallet,
     openBridge,
