@@ -1,15 +1,17 @@
 .button {
   border-radius: calc(infinity * 1px);
-  border: 1px solid var(--gray-3);
+  border: 1px solid var(--gray-5);
+  background-color: var(--gray-8);
   color: var(--gray-1);
   font-size: 12px;
   font-weight: 600;
-  padding: 6px 24px;
+  padding: 0 24px;
+  height: 30px;
 
-  transition: background-color var(--transition) ease;
+  transition: border-color var(--transition) ease;
 
   &:hover {
-    background-color: var(--gray-8);
+    border: 1px solid var(--gray-3);
   }
 }
 
@@ -17,5 +19,5 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  color: var(--success);
+  color: var(--gray-4);
 }
