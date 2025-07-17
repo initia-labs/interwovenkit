@@ -33,7 +33,7 @@ export function useRouteQuery(
   const queryClient = useQueryClient()
   return useQuery({
     queryKey: skipQueryKeys.route(debouncedValues, opWithdrawal?.isOpWithdraw).queryKey,
-    queryFn: () => {
+    queryFn: async () => {
       // This query may produce specific errors that need separate handling.
       // Therefore, we do not use try-catch or normalizeError here.
 
@@ -53,15 +53,21 @@ export function useRouteQuery(
         is_op_withdraw: opWithdrawal?.isOpWithdraw,
       }
 
+      const result = await skip
+        .post("v2/fungible/route", { json: params })
+        .json<RouterRouteResponseJson>()
+
       Amplitude.logEvent("Simulation_performed", {
         quantity,
         srcChainId,
         srcDenom,
         dstChainId,
         dstDenom,
+        estimatedFees: result.estimated_fees,
+        isOpWithdraw: opWithdrawal?.isOpWithdraw,
       })
 
-      return skip.post("v2/fungible/route", { json: params }).json<RouterRouteResponseJson>()
+      return result
     },
     enabled: !!Number(debouncedValues.quantity) && !opWithdrawal?.disabled,
     staleTime: STALE_TIMES.MINUTE,

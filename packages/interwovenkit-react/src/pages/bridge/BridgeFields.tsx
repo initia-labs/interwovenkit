@@ -117,7 +117,10 @@ const BridgeFields = () => {
   // submit
   const { openModal, closeModal } = useModal()
   const submit = handleSubmit((values: FormValues) => {
-    Amplitude.logEvent("Preview_route_clicked", { type: "click" })
+    Amplitude.logEvent("Preview_route_clicked", {
+      type: "click",
+      method: isOpWithdrawable ? selectedType : undefined,
+    })
 
     if (route?.warning) {
       const { type = "", message } = route.warning ?? {}
