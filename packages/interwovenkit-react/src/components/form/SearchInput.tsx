@@ -4,13 +4,13 @@ import { useAutoFocus } from "./hooks"
 import styles from "./SearchInput.module.css"
 
 interface Props {
-  value: string
+  value?: string
   onChange?: (value: string) => void
   placeholder?: string
   className?: string
 }
 
-const SearchInput = ({ value, onChange, placeholder = "Search", className }: Props) => {
+const SearchInput = ({ value = "", onChange, placeholder = "Search", className }: Props) => {
   return (
     <div className={clsx(styles.root, className)}>
       <label htmlFor="search" className={styles.label}>
@@ -22,14 +22,14 @@ const SearchInput = ({ value, onChange, placeholder = "Search", className }: Pro
         type="text"
         className={styles.input}
         value={value}
-        readOnly={!onChange}
         onChange={(e) => onChange?.(e.target.value)}
         placeholder={placeholder}
+        readOnly={!onChange}
         ref={useAutoFocus()}
       />
 
-      {value && onChange && (
-        <button className={styles.clear} onClick={() => onChange("")}>
+      {value && (
+        <button className={styles.clear} onClick={() => onChange?.("")}>
           <IconCloseCircleFilled size={20} />
         </button>
       )}

@@ -29,7 +29,7 @@ const SelectChainAsset = ({ afterSelect }: { afterSelect: () => void }) => {
         </ChainOptions.Stack>
       )}
 
-      <AsyncBoundary key={chainId} suspenseFallback={<AssetOptions.Loading />}>
+      <AsyncBoundary suspenseFallback={<AssetOptions.Placeholder />} key={chainId}>
         <SelectAsset chain={chain} onSelect={handleSelect} />
       </AsyncBoundary>
     </>
