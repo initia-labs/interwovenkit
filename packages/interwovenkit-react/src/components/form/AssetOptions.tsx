@@ -55,4 +55,15 @@ const AssetOptions = (props: Props) => {
   )
 }
 
+const AssetOptionsPlaceholder = () => {
+  return (
+    <div className={styles.container}>
+      <SearchInput placeholder="Search by symbol" />
+      <Status>Loading...</Status>
+    </div>
+  )
+}
+
+AssetOptions.Placeholder = AssetOptionsPlaceholder
+
 export default AssetOptions
