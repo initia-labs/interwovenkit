@@ -28,6 +28,7 @@ export interface TxRequest {
   gasAdjustment?: number
   gas?: number
   fee?: StdFee | null
+  feeOptions?: StdFee[] | null
 
   /** Internal use only */
   internal?: boolean | string | number // number for disabling notification
@@ -91,6 +92,7 @@ export function useTx() {
       gas: rawTxRequest.gas || (await estimateGas(rawTxRequest)),
       gasAdjustment: DEFAULT_GAS_ADJUSTMENT,
       fee: null,
+      feeOptions: null,
       internal: false,
     }
 

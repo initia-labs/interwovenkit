@@ -22,7 +22,15 @@ import styles from "./TxRequest.module.css"
 
 const TxRequest = () => {
   const { txRequest, resolve, reject } = useTxRequestHandler()
-  const { messages, memo, chainId, gas, gasAdjustment, fee } = txRequest
+  const {
+    messages,
+    memo,
+    chainId,
+    gas,
+    gasAdjustment,
+    fee,
+    feeOptions: providedFeeOptions,
+  } = txRequest
 
   const address = useInitiaAddress()
   const signer = useOfflineSigner()
@@ -31,9 +39,11 @@ const TxRequest = () => {
   const balances = useBalances(chain)
   const gasPrices = useGasPrices(chain)
 
-  const feeOptions = fee
-    ? [fee]
-    : gasPrices.map((gasPrice) => calculateFee(Math.ceil(gas * gasAdjustment), gasPrice))
+  const feeOptions =
+    providedFeeOptions ||
+    (fee
+      ? [fee]
+      : gasPrices.map((gasPrice) => calculateFee(Math.ceil(gas * gasAdjustment), gasPrice)))
 
   const feeCoins = feeOptions.map((fee) => fee.amount[0])
 

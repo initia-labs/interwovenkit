@@ -48,15 +48,16 @@ export const SendFields = () => {
       const balance = balances.find((balance) => balance.denom === denom)?.amount ?? 0
       return BigNumber(balance).gte(amount)
     })
-  const fee =
-    feeOptions.find(
-      (fee) =>
-        fee.amount[0].denom === localStorage.getItem(`${LocalStorageKey.FEE_DENOM}:${chainId}`),
-    ) || feeOptions.find((fee) => fee.amount[0].denom === denom)
 
-  const isFeeToken = fee?.amount[0].denom === denom
-  const maxAmount = isFeeToken
-    ? BigNumber(balance).minus(fee?.amount[0].amount)
+  const currentFeeToken = feeOptions.find((fee) => fee.amount[0].denom === denom)
+  const defaultFeeToken = feeOptions.find(
+    (fee) =>
+      fee.amount[0].denom !== denom &&
+      fee.amount[0].denom === localStorage.getItem(`${LocalStorageKey.FEE_DENOM}:${chainId}`),
+  )
+
+  const maxAmount = currentFeeToken
+    ? BigNumber(balance).minus(currentFeeToken.amount[0].amount)
     : BigNumber(balance)
 
   const { mutate, isPending } = useMutation({
@@ -72,7 +73,19 @@ export const SendFields = () => {
           }),
         },
       ]
-      return requestTxSync({ messages, memo, chainId, fee, internal: "/" })
+      return requestTxSync({
+        messages,
+        memo,
+        chainId,
+        feeOptions: feeOptions.filter(
+          (fee) =>
+            fee.amount[0].denom !== denom ||
+            BigNumber(amount).lte(maxAmount) ||
+            // don't exclude if it's the only fee option
+            feeOptions.length === 1,
+        ),
+        internal: "/",
+      })
     },
   })
 
@@ -93,10 +106,14 @@ export const SendFields = () => {
             balanceButton={
               <BalanceButton
                 onClick={() =>
-                  setValue("quantity", toQuantity(maxAmount, decimals), { shouldValidate: true })
+                  setValue(
+                    "quantity",
+                    toQuantity(!defaultFeeToken ? maxAmount : balance, decimals),
+                    { shouldValidate: true },
+                  )
                 }
               >
-                {formatAmount(maxAmount, { decimals })}
+                {formatAmount(balance, { decimals })}
               </BalanceButton>
             }
             value={!quantity ? "0" : !price ? "-" : formatNumber(BigNumber(quantity).times(price))}
