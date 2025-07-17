@@ -111,6 +111,7 @@ const RecipientInput = ({ mode = "onChange", myAddress, ...props }: Props) => {
           onChange={(e) => setInputValue(e.target.value.trim())}
           placeholder={chainType === "initia" ? "Address or username" : "Enter address"}
           autoComplete="off"
+          data-has-value={inputValue ? "true" : undefined}
           ref={mode === "onSubmit" ? mergeRefs([ref, autoFocusRef]) : ref}
         />
 
