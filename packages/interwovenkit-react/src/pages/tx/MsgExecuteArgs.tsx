@@ -1,7 +1,7 @@
 import ky from "ky"
 import { useQuery } from "@tanstack/react-query"
 import { ErrorBoundary } from "react-error-boundary"
-import { useToggle } from "react-use"
+import { useToggle } from "usehooks-ts"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import type { MsgExecute } from "@initia/initia.proto/initia/move/v1/tx"
 import { STALE_TIMES } from "@/data/http"

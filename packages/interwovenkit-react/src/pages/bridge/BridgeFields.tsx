@@ -2,7 +2,7 @@ import BigNumber from "bignumber.js"
 import { isAddress } from "ethers"
 import { sentenceCase } from "change-case"
 import { useEffect, useMemo, useState } from "react"
-import { useDebounce, useLocalStorage } from "react-use"
+import { useLocalStorage, useDebounceValue } from "usehooks-ts"
 import type { FeeJson } from "@skip-go/client"
 import {
   IconChevronDown,
@@ -50,7 +50,6 @@ const BridgeFields = () => {
   const [selectedType, setSelectedType] = useLocalStorage<RouteType>(
     LocalStorageKey.BRIDGE_ROUTE_TYPE,
     "default",
-    { raw: true },
   )
 
   // form
@@ -73,10 +72,9 @@ const BridgeFields = () => {
   }, [srcBalance, quantity, trigger])
 
   // simulation
-  const [debouncedQuantity, setDebouncedQuantity] = useState(quantity)
   // Avoid hitting the simulation API on every keystroke.  Wait a short period
   // after the user stops typing before updating the debounced value.
-  useDebounce(() => setDebouncedQuantity(quantity), 300, [quantity])
+  const [debouncedQuantity] = useDebounceValue(quantity, 300)
 
   const isExternalRoute = srcChainType !== "initia" && dstChainType !== "initia"
   const isOpWithdrawable = useIsOpWithdrawable()

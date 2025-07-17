@@ -2,7 +2,7 @@ import clsx from "clsx"
 import { useAtomValue } from "jotai"
 import { useContext, useLayoutEffect, type PropsWithChildren } from "react"
 import { createPortal } from "react-dom"
-import { useMedia } from "react-use"
+import { useMediaQuery } from "usehooks-ts"
 import type { FallbackProps } from "react-error-boundary"
 import { useTransition, animated } from "@react-spring/web"
 import { useIsMutating, useQueryClient } from "@tanstack/react-query"
@@ -23,7 +23,7 @@ import styles from "./Drawer.module.css"
 const Drawer = ({ children }: PropsWithChildren) => {
   const { isDrawerOpen, closeDrawer } = useDrawer()
   const { setContainer } = useContext(PortalContext)
-  const isSmall = useMedia("(max-width: 576px)")
+  const isSmall = useMediaQuery("(max-width: 576px)")
 
   // Lock body scroll when the drawer is open on small screens
   useLockBodyScroll(isDrawerOpen && isSmall)

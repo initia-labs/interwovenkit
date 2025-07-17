@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react"
-import { useMedia } from "react-use"
+import { useMediaQuery } from "usehooks-ts"
 
 export function useAutoFocus<T extends HTMLInputElement>() {
   const ref = useRef<T>(null)
-  const isSmall = useMedia("(max-width: 576px)")
+  const isSmall = useMediaQuery("(max-width: 576px)")
 
   useEffect(() => {
     if (isSmall) return

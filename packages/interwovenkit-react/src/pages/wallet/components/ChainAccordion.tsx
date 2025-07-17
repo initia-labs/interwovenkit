@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { useLocalStorage } from "react-use"
+import { useLocalStorage } from "usehooks-ts"
 import { IconChevronUp, IconChevronDown, IconSettingFilled } from "@initia/icons-react"
 import { Link } from "@/lib/router"
 import { version } from "@/../package.json"
@@ -22,7 +22,7 @@ const ChainAccordion = ({ renderContent, storageKey }: Props) => {
   const { defaultChainId } = useConfig()
   const { addedChains } = useManageChains()
 
-  const [openedChains = [], setOpenedChains] = useLocalStorage<string[]>(
+  const [openedChains, setOpenedChains] = useLocalStorage<string[]>(
     `${LocalStorageKey.OPENED_CHAIN_IDS}:${storageKey}`,
     [defaultChainId],
   )

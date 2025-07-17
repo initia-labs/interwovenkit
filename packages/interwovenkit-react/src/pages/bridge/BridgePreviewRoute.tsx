@@ -1,5 +1,5 @@
 import { zipObj } from "ramda"
-import { useToggle } from "react-use"
+import { useToggle } from "usehooks-ts"
 import { Collapsible } from "radix-ui"
 import { useAccount } from "wagmi"
 import type { OperationJson } from "@skip-go/client"

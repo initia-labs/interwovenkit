@@ -1,5 +1,5 @@
 import { useCallback } from "react"
-import { useLocalStorage } from "react-use"
+import { useLocalStorage } from "usehooks-ts"
 import type { RouteResponseJson } from "@skip-go/client"
 import { LocalStorageKey } from "@/data/constants"
 import type { FormValues } from "./form"
@@ -24,7 +24,7 @@ export const BRIDGE_HISTORY_LIMIT = 100
 export const BRIDGE_HISTORY_LIMIT_PER_PAGE = 10
 
 export function useBridgeHistoryList() {
-  const [list = [], setList] = useLocalStorage<TxIdentifier[]>(LocalStorageKey.BRIDGE_HISTORY, [])
+  const [list, setList] = useLocalStorage<TxIdentifier[]>(LocalStorageKey.BRIDGE_HISTORY, [])
 
   const addHistoryItem = useCallback(
     (tx: TxIdentifier, details: HistoryDetails) => {
@@ -50,5 +50,5 @@ export function useBridgeHistoryList() {
 }
 
 export function useBridgeHistoryDetails(tx: TxIdentifier) {
-  return useLocalStorage<HistoryDetails>(detailKeyOf(tx))
+  return useLocalStorage<HistoryDetails | null>(detailKeyOf(tx), null)
 }

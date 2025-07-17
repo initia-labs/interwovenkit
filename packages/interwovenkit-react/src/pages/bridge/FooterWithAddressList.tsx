@@ -1,7 +1,7 @@
 import { encodeSecp256k1Pubkey, pubkeyToAddress } from "@cosmjs/amino"
 import { fromBech32, toBech32 } from "@cosmjs/encoding"
 import type { ReactNode } from "react"
-import { useAsync } from "react-use"
+import { useState, useEffect } from "react"
 import { AddressUtils } from "@/public/utils"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { normalizeError } from "@/data/http"
@@ -37,20 +37,28 @@ const FooterWithAddressList = ({ children }: Props) => {
       return chainType === "cosmos"
     }) && srcChainType !== "cosmos"
 
-  const {
-    value: pubkey,
-    loading,
-    error,
-  } = useAsync(async () => {
-    try {
-      if (!isPubkeyRequired) return
-      if (!signer) throw new Error("Wallet not connected")
-      const [{ pubkey }] = await signer.getAccounts()
-      return pubkey
-    } catch (error) {
-      throw new Error(await normalizeError(error))
+  const [pubkey, setPubkey] = useState<Uint8Array | undefined>(undefined)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<Error | null>(null)
+
+  useEffect(() => {
+    const fetchPubkey = async () => {
+      try {
+        if (!isPubkeyRequired) return
+        if (!signer) throw new Error("Wallet not connected")
+        setLoading(true)
+        setError(null)
+        const [{ pubkey }] = await signer.getAccounts()
+        setPubkey(pubkey)
+      } catch (error) {
+        setError(new Error(await normalizeError(error)))
+      } finally {
+        setLoading(false)
+      }
     }
-  })
+
+    fetchPubkey()
+  }, [isPubkeyRequired, signer])
 
   if (error) {
     return <FooterWithError error={error} />
