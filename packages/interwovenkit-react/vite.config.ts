@@ -31,9 +31,31 @@ function emitCssAsJsString(): Plugin {
   }
 }
 
+function appendJsExtension(): Plugin {
+  return {
+    name: "append-js-extension",
+    apply: "build",
+    renderChunk(code) {
+      const targetPackages = ["cosmjs-types", "@cosmjs/amino", "@initia/opinit.proto"]
+
+      return targetPackages.reduce((currentCode, pkg) => {
+        const regex = new RegExp(`from\\s+['"](${pkg}/[^'"]*?)['"]`, "g")
+        return currentCode.replace(regex, (match, importPath) => {
+          return match.replace(importPath, importPath + ".js")
+        })
+      }, code)
+    },
+  }
+}
+
 export default defineConfig(({ mode }) => {
   return {
-    plugins: [dts({ rollupTypes: mode !== "fast" }), react(), emitCssAsJsString()],
+    plugins: [
+      dts({ rollupTypes: mode !== "fast" }),
+      react(),
+      emitCssAsJsString(),
+      appendJsExtension(),
+    ],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "src"),
