@@ -86,6 +86,8 @@ const Routes = () => {
         const route = routes.find((r) => r.path === animatedPath)
         if (!route) return null
         if (!address && !route.renderWithoutAddress) return null
+        // prevent weird behavior when changing routes quickly
+        if (![path, prevPath].includes(animatedPath)) return null
 
         const { Component, rerender } = route
 
