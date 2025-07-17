@@ -5,6 +5,7 @@ import type { Plugin } from "vite"
 import { defineConfig } from "vite"
 import react from "@vitejs/plugin-react-swc"
 import dts from "vite-plugin-dts"
+import pkg from "./package.json"
 
 function emitCssAsJsString(): Plugin {
   return {
@@ -31,9 +32,40 @@ function emitCssAsJsString(): Plugin {
   }
 }
 
+function patchPeerDepsImportsPlugin(): Plugin {
+  const prefixesToFix = [
+    "cosmjs-types",
+    "@cosmjs/amino/build/signdoc",
+    "@initia/opinit.proto/opinit/ophost/v1/tx",
+  ]
+
+  return {
+    name: "patch-peer-deps-imports",
+    renderChunk(code) {
+      const importRegex = /(from\s+["'])([^"']+)(["'])/g
+
+      const fixedCode = code.replaceAll(importRegex, (match, p1, p2, p3) => {
+        if (prefixesToFix.some((prefix) => p2.startsWith(prefix)) && !path.extname(p2)) {
+          return `${p1}${p2}.js${p3}`
+        }
+        return match
+      })
+
+      return {
+        code: fixedCode,
+      }
+    },
+  }
+}
+
 export default defineConfig(({ mode }) => {
   return {
-    plugins: [dts({ rollupTypes: mode !== "fast" }), react(), emitCssAsJsString()],
+    plugins: [
+      dts({ rollupTypes: mode !== "fast" }),
+      react(),
+      patchPeerDepsImportsPlugin(),
+      emitCssAsJsString(),
+    ],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "src"),
@@ -47,7 +79,10 @@ export default defineConfig(({ mode }) => {
         cssFileName: "styles",
       },
       rollupOptions: {
-        external: (id) => !(id.startsWith(".") || id.startsWith("/") || id.startsWith("@/")),
+        external: (id) => {
+          const peerDeps = Object.keys(pkg.peerDependencies || {})
+          return peerDeps.some((dep) => id === dep || id.startsWith(`${dep}/`))
+        },
       },
     },
   }
