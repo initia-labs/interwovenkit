@@ -7,6 +7,7 @@ export interface HistoryEntry {
 
 interface RouterContextProps {
   location: HistoryEntry
+  previousLocation: HistoryEntry | null
   history: HistoryEntry[]
   navigate: (to: string | number, state?: object) => void
   reset: (to: string, state?: object) => void
@@ -21,6 +22,11 @@ export function useRouterContext() {
 export function useLocation() {
   const { location } = useRouterContext()
   return location
+}
+
+export function usePreviousPath() {
+  const { previousLocation } = useRouterContext()
+  return previousLocation?.path
 }
 
 export function usePath() {
