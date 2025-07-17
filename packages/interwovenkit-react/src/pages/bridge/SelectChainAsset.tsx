@@ -3,6 +3,7 @@ import { useState } from "react"
 import { useAddress } from "@/public/data/hooks"
 import ChainOptions from "@/components/form/ChainOptions"
 import AsyncBoundary from "@/components/AsyncBoundary"
+import AssetOptions from "@/components/form/AssetOptions"
 import { useBridgeForm } from "./data/form"
 import { useGetIsInitiaChain, useSkipChain, useSkipChains } from "./data/chains"
 import { useGetAddressForBalance } from "./data/address"
@@ -64,7 +65,7 @@ const SelectChainAsset = ({ type, afterSelect }: Props) => {
         />
       </ChainOptions.Stack>
 
-      <AsyncBoundary key={chainId}>
+      <AsyncBoundary key={chainId} suspenseFallback={<AssetOptions.Loading />}>
         <SelectAsset
           address={getAddressForBalance({
             initialAddress,

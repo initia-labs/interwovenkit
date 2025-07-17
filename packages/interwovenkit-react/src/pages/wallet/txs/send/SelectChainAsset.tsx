@@ -3,6 +3,7 @@ import { useFormContext } from "react-hook-form"
 import { useChain, useManageChains } from "@/data/chains"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import ChainOptions from "@/components/form/ChainOptions"
+import AssetOptions from "@/components/form/AssetOptions"
 import type { FormValues } from "./Send"
 import SelectAsset from "./SelectAsset"
 
@@ -28,7 +29,7 @@ const SelectChainAsset = ({ afterSelect }: { afterSelect: () => void }) => {
         </ChainOptions.Stack>
       )}
 
-      <AsyncBoundary key={chainId}>
+      <AsyncBoundary key={chainId} suspenseFallback={<AssetOptions.Loading />}>
         <SelectAsset chain={chain} onSelect={handleSelect} />
       </AsyncBoundary>
     </>

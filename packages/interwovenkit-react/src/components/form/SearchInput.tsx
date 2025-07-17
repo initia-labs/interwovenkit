@@ -5,7 +5,7 @@ import styles from "./SearchInput.module.css"
 
 interface Props {
   value: string
-  onChange: (value: string) => void
+  onChange?: (value: string) => void
   placeholder?: string
   className?: string
 }
@@ -22,12 +22,13 @@ const SearchInput = ({ value, onChange, placeholder = "Search", className }: Pro
         type="text"
         className={styles.input}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        readOnly={!onChange}
+        onChange={(e) => onChange?.(e.target.value)}
         placeholder={placeholder}
         ref={useAutoFocus()}
       />
 
-      {value && (
+      {value && onChange && (
         <button className={styles.clear} onClick={() => onChange("")}>
           <IconCloseCircleFilled size={20} />
         </button>
