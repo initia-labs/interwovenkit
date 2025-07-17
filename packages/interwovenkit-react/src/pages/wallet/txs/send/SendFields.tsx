@@ -1,5 +1,6 @@
 import BigNumber from "bignumber.js"
 import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
+import { calculateFee } from "@cosmjs/stargate"
 import { useMutation } from "@tanstack/react-query"
 import { useFormContext } from "react-hook-form"
 import { useChain, useManageChains, usePricesQuery } from "@/data/chains"
@@ -7,6 +8,8 @@ import { AddressUtils, formatAmount, formatNumber, toAmount, toQuantity } from "
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useAsset } from "@/data/assets"
 import { useBalances } from "@/data/account"
+import { useGasPrices } from "@/data/tx"
+import { LocalStorageKey, SEND_GAS_AMOUNT } from "@/data/constants"
 import Page from "@/components/Page"
 import Footer from "@/components/Footer"
 import Button from "@/components/Button"
@@ -31,15 +34,30 @@ export const SendFields = () => {
   const { addedChains } = useManageChains()
   const chain = useChain(chainId)
   const balances = useBalances(chain)
+  const gasPrices = useGasPrices(chain)
   const asset = useAsset(denom, chain)
   const { data: prices } = usePricesQuery(chain.chainId)
   const { decimals } = asset
   const balance = balances.find((coin) => coin.denom === denom)?.amount ?? "0"
   const price = prices?.find(({ id }) => id === denom)?.price
 
-  const isMaxAmount =
-    BigNumber(quantity).gt(0) && BigNumber(quantity).isEqualTo(toQuantity(balance, decimals))
-  const isFeeToken = chain.fees.fee_tokens.some((token) => token.denom === denom)
+  const feeOptions = gasPrices
+    .map((gasPrice) => calculateFee(Math.ceil(SEND_GAS_AMOUNT), gasPrice))
+    .filter((fee) => {
+      const { denom, amount } = fee.amount[0]
+      const balance = balances.find((balance) => balance.denom === denom)?.amount ?? 0
+      return BigNumber(balance).gte(amount)
+    })
+  const fee =
+    feeOptions.find(
+      (fee) =>
+        fee.amount[0].denom === localStorage.getItem(`${LocalStorageKey.FEE_DENOM}:${chainId}`),
+    ) || feeOptions.find((fee) => fee.amount[0].denom === denom)
+
+  const isFeeToken = fee?.amount[0].denom === denom
+  const maxAmount = isFeeToken
+    ? BigNumber(balance).minus(fee?.amount[0].amount)
+    : BigNumber(balance)
 
   const { mutate, isPending } = useMutation({
     mutationFn: ({ chainId, denom, quantity, recipient, memo }: FormValues) => {
@@ -54,7 +72,7 @@ export const SendFields = () => {
           }),
         },
       ]
-      return requestTxSync({ messages, memo, chainId, internal: "/" })
+      return requestTxSync({ messages, memo, chainId, fee, internal: "/" })
     },
   })
 
@@ -75,10 +93,10 @@ export const SendFields = () => {
             balanceButton={
               <BalanceButton
                 onClick={() =>
-                  setValue("quantity", toQuantity(balance, decimals), { shouldValidate: true })
+                  setValue("quantity", toQuantity(maxAmount, decimals), { shouldValidate: true })
                 }
               >
-                {formatAmount(balance, { decimals })}
+                {formatAmount(maxAmount, { decimals })}
               </BalanceButton>
             }
             value={!quantity ? "0" : !price ? "-" : formatNumber(BigNumber(quantity).times(price))}
@@ -96,10 +114,6 @@ export const SendFields = () => {
           </div>
 
           <FormHelp.Stack>
-            {isMaxAmount && isFeeToken && (
-              <FormHelp level="warning">Make sure to leave enough for transaction fee</FormHelp>
-            )}
-
             {!memo && (
               <FormHelp level="warning">Check if the above transaction requires a memo</FormHelp>
             )}
