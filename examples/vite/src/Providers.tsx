@@ -18,7 +18,7 @@ const Providers = ({ children }: PropsWithChildren) => {
         <InterwovenKitProvider
           {...(isTestnet ? TESTNET : {})}
           theme={theme}
-          container={document.body}
+          container={import.meta.env.DEV ? document.body : undefined}
         >
           {children}
         </InterwovenKitProvider>
