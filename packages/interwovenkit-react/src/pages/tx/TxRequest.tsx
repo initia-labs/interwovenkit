@@ -39,11 +39,11 @@ const TxRequest = () => {
   const balances = useBalances(chain)
   const gasPrices = useGasPrices(chain)
 
-  const feeOptions =
-    providedFeeOptions ||
-    (fee
+  const feeOptions = providedFeeOptions?.length
+    ? providedFeeOptions
+    : fee
       ? [fee]
-      : gasPrices.map((gasPrice) => calculateFee(Math.ceil(gas * gasAdjustment), gasPrice)))
+      : gasPrices.map((gasPrice) => calculateFee(Math.ceil(gas * gasAdjustment), gasPrice))
 
   const feeCoins = feeOptions.map((fee) => fee.amount[0])
 

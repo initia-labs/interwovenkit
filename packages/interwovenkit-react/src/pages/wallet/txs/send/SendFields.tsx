@@ -41,6 +41,7 @@ export const SendFields = () => {
   const balance = balances.find((coin) => coin.denom === denom)?.amount ?? "0"
   const price = prices?.find(({ id }) => id === denom)?.price
 
+  // calculate all the tokens that can be used to pay the fee and the realative fee amount
   const feeOptions = gasPrices
     .map((gasPrice) => calculateFee(Math.ceil(SEND_GAS_AMOUNT), gasPrice))
     .filter((fee) => {
@@ -50,14 +51,14 @@ export const SendFields = () => {
     })
 
   const currentFeeToken = feeOptions.find((fee) => fee.amount[0].denom === denom)
+  const lastUsedFeeDenom = localStorage.getItem(`${LocalStorageKey.FEE_DENOM}:${chainId}`)
   const defaultFeeToken = feeOptions.find(
-    (fee) =>
-      fee.amount[0].denom !== denom &&
-      fee.amount[0].denom === localStorage.getItem(`${LocalStorageKey.FEE_DENOM}:${chainId}`),
+    (fee) => fee.amount[0].denom !== denom && fee.amount[0].denom === lastUsedFeeDenom,
   )
 
+  // max amount that can be sent if the token is used to pay the fee
   const maxAmount = currentFeeToken
-    ? BigNumber(balance).minus(currentFeeToken.amount[0].amount)
+    ? BigNumber.max(0, BigNumber(balance).minus(currentFeeToken.amount[0].amount))
     : BigNumber(balance)
 
   const { mutate, isPending } = useMutation({
