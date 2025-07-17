@@ -30,9 +30,11 @@ const Home = () => {
     return currentIndex > prevIndex ? 1 : -1
   }, [path, prevPath])
 
-  const skipAnimation = !tabs.find((t) => t.value === prevPath)
+  const isHomePage = (path: string = "") => !!tabs.find(({ value }) => value === path)
 
-  const transitions = useTransition(path, {
+  const skipAnimation = !isHomePage(path) || !isHomePage(prevPath)
+
+  const transitions = useTransition(isHomePage(path) ? path : prevPath, {
     from: { opacity: 0, transform: `translateX(${direction * 100}%)` },
     enter: { opacity: 1, transform: "translateX(0%)" },
     leave: { opacity: 0, transform: `translateX(${direction * -100}%)` },
@@ -41,7 +43,7 @@ const Home = () => {
   })
 
   return (
-    <Scrollable>
+    <Scrollable className={styles.container}>
       <div className={styles.nav}>
         <Link to="/send" className={styles.item}>
           <IconArrowRight size={16} />
@@ -67,7 +69,7 @@ const Home = () => {
           {transitions((style, item) => {
             const tab = tabs.find((t) => t.value === item)
             return (
-              <Tabs.Content forceMount key={item} value={item} asChild>
+              <Tabs.Content forceMount key={item} value={item || ""} asChild>
                 <animated.div style={{ ...style, position: "absolute", width: "100%" }}>
                   {tab?.component}
                 </animated.div>
