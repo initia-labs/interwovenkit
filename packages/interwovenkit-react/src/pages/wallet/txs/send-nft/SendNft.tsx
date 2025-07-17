@@ -15,7 +15,7 @@ const FormValuesSchema = z.object({
 export type FormValues = z.infer<typeof FormValuesSchema>
 
 const SendNft = () => {
-  const { chain: srcChain } = useLocationState<ChainCollectionNftCollectionState>()
+  const { chain: srcChain } = useLocationState<ChainCollectionNftCollectionState>("/nft/send")
 
   const form = useForm<FormValues>({
     defaultValues: { dstChainId: srcChain.chainId },

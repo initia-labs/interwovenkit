@@ -8,8 +8,9 @@ import styles from "./NftDetails.module.css"
 
 const NftDetails = () => {
   const navigate = useNavigate()
-  const state = useLocationState<ChainCollectionNftCollectionState>()
+  const state = useLocationState<ChainCollectionNftCollectionState>("/nft")
   const { collection, nft, chain } = state
+  if (!nft) return null
   const { image, name, attributes } = nft
 
   return (

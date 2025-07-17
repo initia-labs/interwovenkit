@@ -14,7 +14,7 @@ const CollectionDetails = () => {
   const { collection, chain } = useLocationState<{
     collection: NormalizedCollection
     chain: NormalizedChain
-  }>()
+  }>("/collection")
 
   const { data, hasNextPage, isFetching, fetchNextPage } = useNfts({ chain, collection })
   const { list } = parsePaginatedResponse("tokens", data)

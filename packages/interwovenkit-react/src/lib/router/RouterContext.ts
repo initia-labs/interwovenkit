@@ -24,9 +24,9 @@ export function useLocation() {
   return location
 }
 
-export function usePreviousPath() {
+export function usePreviousLocation() {
   const { previousLocation } = useRouterContext()
-  return previousLocation?.path
+  return previousLocation
 }
 
 export function usePath() {
@@ -34,8 +34,18 @@ export function usePath() {
   return path
 }
 
-export function useLocationState<T extends object>() {
-  const { state = {} } = useLocation()
+export function usePreviousPath() {
+  const previousLocation = usePreviousLocation()
+  return previousLocation?.path
+}
+
+export function useLocationState<T extends object>(expectedPath?: string) {
+  const previousLocation = usePreviousLocation()
+  const { state = {}, path } = useLocation()
+
+  if (expectedPath && path !== expectedPath && previousLocation?.path === expectedPath) {
+    return (previousLocation.state ?? {}) as T
+  }
   return state as T
 }
 
