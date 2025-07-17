@@ -23,6 +23,7 @@ import type { EncodeObject, TxBodyEncodeObject } from "@cosmjs/proto-signing"
 import { makeAuthInfoBytes, Registry } from "@cosmjs/proto-signing"
 import { AminoTypes, SigningStargateClient } from "@cosmjs/stargate"
 import { Comet38Client, HttpClient } from "@cosmjs/tendermint-rpc"
+import { useMemo } from "react"
 import { aminoConverters, protoRegistry } from "@initia/amino-converter"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { parseAccount } from "./patches/accounts"
@@ -172,7 +173,10 @@ export function useSignWithEthSecp256k1() {
 export function useOfflineSigner() {
   const address = useInitiaAddress()
   const { signMessageAsync } = useSignMessage()
-  return new OfflineSigner(address, (message) => signMessageAsync({ message }))
+  return useMemo(
+    () => new OfflineSigner(address, (message) => signMessageAsync({ message })),
+    [address, signMessageAsync],
+  )
 }
 
 // Keep one client per chain to avoid repeatedly establishing RPC connections.
