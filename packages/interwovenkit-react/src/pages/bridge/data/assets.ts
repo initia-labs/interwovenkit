@@ -11,11 +11,11 @@ export interface RouterAsset extends AssetJson {
   hidden?: boolean
 }
 
-interface SkipAssetsQueryResponse {
+interface RouterAssetsResponse {
   chain_to_assets_map: Partial<Record<string, { assets: RouterAsset[] }>>
 }
 
-function useGenerateAssetsQuery(chainId: string) {
+function useSkipAssetsQueryOptions(chainId: string) {
   const skip = useSkip()
   const queryClient = useQueryClient()
 
@@ -24,8 +24,8 @@ function useGenerateAssetsQuery(chainId: string) {
     queryFn: () =>
       skip
         .get("v2/fungible/assets", { searchParams: { chain_ids: chainId } })
-        .json<SkipAssetsQueryResponse>(),
-    select: ({ chain_to_assets_map }: SkipAssetsQueryResponse) => {
+        .json<RouterAssetsResponse>(),
+    select: ({ chain_to_assets_map }: RouterAssetsResponse) => {
       const { assets } = chain_to_assets_map[chainId] ?? { assets: [] }
       for (const asset of assets) {
         queryClient.setQueryData(skipQueryKeys.asset(chainId, asset.denom).queryKey, asset)
@@ -37,12 +37,12 @@ function useGenerateAssetsQuery(chainId: string) {
 }
 
 export function useSkipAssets(chainId: string) {
-  const { data } = useSuspenseQuery(useGenerateAssetsQuery(chainId))
+  const { data } = useSuspenseQuery(useSkipAssetsQueryOptions(chainId))
   return data
 }
 
 export function useSkipAssetsQuery(chainId: string) {
-  return useQuery(useGenerateAssetsQuery(chainId))
+  return useQuery(useSkipAssetsQueryOptions(chainId))
 }
 
 export function useFindSkipAsset(chainId: string) {
