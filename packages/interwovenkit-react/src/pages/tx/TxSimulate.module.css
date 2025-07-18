@@ -1,0 +1,11 @@
+.change {
+  font-family: var(--monospace);
+}
+
+.positive {
+  color: var(--info-light);
+}
+
+.negative {
+  color: var(--error-light);
+}

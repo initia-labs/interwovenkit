@@ -20,6 +20,7 @@ import FormHelp from "@/components/form/FormHelp"
 import Footer from "@/components/Footer"
 import Button from "@/components/Button"
 import TxMetaItem from "./TxMetaItem"
+import TxSimulate from "./TxSimulate"
 import TxFee from "./TxFee"
 import TxMessage from "./TxMessage"
 import styles from "./TxRequest.module.css"
@@ -120,6 +121,8 @@ const TxRequest = () => {
           {memo && <TxMetaItem title="Memo" content={memo} />}
           {isInsufficient && <FormHelp level="error">Insufficient balance for fee</FormHelp>}
         </div>
+
+        <TxSimulate messages={messages} memo={memo} chainId={chainId} />
 
         <WidgetAccordion
           list={messages}
