@@ -25,6 +25,13 @@ const NotificationProvider = ({ children }: PropsWithChildren) => {
     }
   }
 
+  const createTimer = () => {
+    clearTimer()
+    if (notification?.autoHide) {
+      timerRef.current = setTimeout(() => hideNotification(), duration)
+    }
+  }
+
   const hideNotification = useCallback(() => {
     clearTimer()
     setNotification(null)
@@ -63,7 +70,15 @@ const NotificationProvider = ({ children }: PropsWithChildren) => {
     >
       {children}
       {portal &&
-        createPortal(<Toast notification={notification} onClose={hideNotification} />, portal)}
+        createPortal(
+          <Toast
+            notification={notification}
+            onClose={hideNotification}
+            onMouseEnter={clearTimer}
+            onMouseLeave={createTimer}
+          />,
+          portal,
+        )}
     </NotificationContext.Provider>
   )
 }

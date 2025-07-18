@@ -9,9 +9,11 @@ import styles from "./Toast.module.css"
 interface Props {
   notification: InternalNotification | null
   onClose: () => void
+  onMouseEnter?: () => void
+  onMouseLeave?: () => void
 }
 
-const Toast = ({ notification, onClose }: Props) => {
+const Toast = ({ notification, onClose, ...props }: Props) => {
   const transition = useTransition(notification, {
     keys: (notification) => notification?.id || "empty",
     from: { transform: "translateY(-52px)", opacity: 0 },
@@ -40,7 +42,7 @@ const Toast = ({ notification, onClose }: Props) => {
     const icon = getIcon(type)
     return (
       <animated.div style={style} className={styles.container}>
-        <div className={clsx(styles.toast, type && styles[type])}>
+        <div className={clsx(styles.toast, type && styles[type])} {...props}>
           {icon && <div className={styles.icon}>{icon}</div>}
 
           <div className={styles.content}>
