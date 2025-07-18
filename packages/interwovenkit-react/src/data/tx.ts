@@ -22,8 +22,7 @@ import { normalizeError, STALE_TIMES } from "./http"
 import { useCreateSigningStargateClient } from "./signer"
 import { useDrawer } from "./ui"
 import { chainQueryKeys, type NormalizedChain } from "./chains"
-import { type TxItem } from "@/pages/wallet/tabs/activity/data"
-import type { Paginated } from "./pagination"
+import { useTxs } from "@/pages/wallet/tabs/activity/data"
 
 export interface TxRequest {
   messages: EncodeObject[]
@@ -237,36 +236,20 @@ export function useGasPrices(chain: NormalizedChain) {
 
 export function useLastFeeDenom(chain: NormalizedChain) {
   const address = useInitiaAddress()
+  const onlyOneFeeToken = chain.fees.fee_tokens.length === 1
+  const { data } = useTxs(chain, !!onlyOneFeeToken)
 
-  const { data } = useSuspenseQuery({
-    queryKey: chainQueryKeys.lastTx(chain, address).queryKey,
-    queryFn: async () => {
-      if (chain.fees.fee_tokens.length === 1) {
-        return chain.fees.fee_tokens[0].denom
-      }
+  if (onlyOneFeeToken) {
+    return chain.fees.fee_tokens[0].denom
+  }
 
-      const result = await ky
-        .create({ prefixUrl: chain.indexerUrl })
-        .get(`indexer/tx/v1/txs/by_account/${address}`, {
-          searchParams: {
-            "pagination.key": "",
-            "pagination.reverse": true,
-          },
-        })
-        .json<Paginated<"txs", TxItem>>()
+  const lastSignedTx = data.pages[0].txs.find(({ tx }) =>
+    tx.auth_info.signer_infos.some(
+      (info) => AddressUtils.fromPublicKey(fromBase64(info.public_key.key)) === address,
+    ),
+  )
 
-      const lastSignedTx = result.txs.find(({ tx }) =>
-        tx.auth_info.signer_infos.some(
-          (info) => AddressUtils.fromPublicKey(fromBase64(info.public_key.key)) === address,
-        ),
-      )
-
-      return lastSignedTx?.tx.auth_info.fee.amount[0]?.denom || null
-    },
-    staleTime: STALE_TIMES.MINUTE,
-  })
-
-  return data
+  return lastSignedTx?.tx.auth_info.fee.amount[0]?.denom || null
 }
 
 export async function waitForTxConfirmationWithClient({
