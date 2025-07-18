@@ -1,8 +1,8 @@
 import clsx from "clsx"
 import { useAtomValue } from "jotai"
-import { useContext, useEffect, type PropsWithChildren } from "react"
+import { useContext, type PropsWithChildren } from "react"
 import { createPortal } from "react-dom"
-import { useMediaQuery, useScrollLock } from "usehooks-ts"
+import { useMediaQuery } from "usehooks-ts"
 import type { FallbackProps } from "react-error-boundary"
 import { useTransition, animated } from "@react-spring/web"
 import { useIsMutating, useQueryClient } from "@tanstack/react-query"
@@ -19,25 +19,12 @@ import { PortalContext } from "./PortalContext"
 import WidgetHeader from "./WidgetHeader"
 import TxWatcher from "./TxWatcher"
 import styles from "./Drawer.module.css"
+import ScrollLock from "./ScrollLock"
 
 const Drawer = ({ children }: PropsWithChildren) => {
   const { isDrawerOpen, closeDrawer } = useDrawer()
   const { setContainer } = useContext(PortalContext)
   const isSmall = useMediaQuery("(max-width: 576px)")
-
-  /* handle scroll lock */
-  const { lock, unlock } = useScrollLock({
-    autoLock: false,
-    lockTarget: document.body,
-  })
-  const shouldLockScroll = isDrawerOpen && isSmall
-  useEffect(() => {
-    if (shouldLockScroll) {
-      lock()
-    } else {
-      unlock()
-    }
-  }, [shouldLockScroll, lock, unlock])
 
   // FIXME: React StrictMode causes a problem by unmounting the component once on purpose.
   // Should reject on unmount, but didn't work as expected.
@@ -87,6 +74,7 @@ const Drawer = ({ children }: PropsWithChildren) => {
 
   return createPortal(
     <>
+      {isDrawerOpen && isSmall && <ScrollLock />}
       {drawerTransition((style, item) =>
         item ? (
           <animated.button style={style} className={styles.overlay} onClick={handleOverlayClick}>
