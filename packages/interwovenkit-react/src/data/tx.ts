@@ -1,15 +1,18 @@
-import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
+import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
+import { encodeSecp256k1Pubkey } from "@cosmjs/amino"
 import type { EncodeObject } from "@cosmjs/proto-signing"
 import type { DeliverTxResponse, SigningStargateClient, StdFee } from "@cosmjs/stargate"
+import { QueryClient, setupTxExtension } from "@cosmjs/stargate"
 import { atom, useAtomValue, useSetAtom } from "jotai"
+import { registry } from "@initia/amino-converter"
 import { useNavigate } from "@/lib/router"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useModal } from "@/public/app/ModalContext"
 import { useConfig } from "./config"
 import { normalizeError } from "./http"
-import { useCreateSigningStargateClient } from "./signer"
+import { useCreateComet38Client, useCreateSigningStargateClient, useOfflineSigner } from "./signer"
 import { useDrawer } from "./ui"
 
 export interface TxRequest {
@@ -57,7 +60,9 @@ export function useTx() {
   const { openModal, closeModal } = useModal()
   const setTxRequestHandler = useSetAtom(txRequestHandlerAtom)
   const setTxStatus = useSetAtom(txStatusAtom)
+  const createComet38Client = useCreateComet38Client()
   const createSigningStargateClient = useCreateSigningStargateClient()
+  const offlineSigner = useOfflineSigner()
 
   const estimateGas = async ({ messages, memo, chainId = defaultChainId }: TxRequest) => {
     try {
@@ -66,6 +71,17 @@ export function useTx() {
     } catch (error) {
       throw new Error(await normalizeError(error))
     }
+  }
+
+  const simulateTx = async ({ messages, memo, chainId = defaultChainId }: TxRequest) => {
+    const cometClient = await createComet38Client(chainId)
+    const queryClient = QueryClient.withExtensions(cometClient, setupTxExtension)
+    const anyMsgs = messages.map((msg) => registry.encodeAsAny(msg))
+    const [account] = await offlineSigner.getAccounts()
+    const pubkey = encodeSecp256k1Pubkey(account.pubkey)
+    const client = await createSigningStargateClient(chainId)
+    const { sequence } = await client.getSequence(address)
+    return queryClient.tx.simulate(anyMsgs, memo, pubkey, sequence)
   }
 
   type Broadcaster<T> = (client: SigningStargateClient, signedTxBytes: Uint8Array) => Promise<T>
@@ -194,7 +210,7 @@ export function useTx() {
     return waitForTxConfirmationWithClient({ ...params, client })
   }
 
-  return { estimateGas, requestTxSync, requestTxBlock, waitForTxConfirmation }
+  return { estimateGas, simulateTx, requestTxSync, requestTxBlock, waitForTxConfirmation }
 }
 
 export async function waitForTxConfirmationWithClient({
