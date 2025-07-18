@@ -1,8 +1,8 @@
 import clsx from "clsx"
 import { useAtomValue } from "jotai"
-import { useContext, useLayoutEffect, type PropsWithChildren } from "react"
+import { useContext, useEffect, type PropsWithChildren } from "react"
 import { createPortal } from "react-dom"
-import { useMediaQuery } from "usehooks-ts"
+import { useMediaQuery, useScrollLock } from "usehooks-ts"
 import type { FallbackProps } from "react-error-boundary"
 import { useTransition, animated } from "@react-spring/web"
 import { useIsMutating, useQueryClient } from "@tanstack/react-query"
@@ -25,8 +25,19 @@ const Drawer = ({ children }: PropsWithChildren) => {
   const { setContainer } = useContext(PortalContext)
   const isSmall = useMediaQuery("(max-width: 576px)")
 
-  // Lock body scroll when the drawer is open on small screens
-  useLockBodyScroll(isDrawerOpen && isSmall)
+  /* handle scroll lock */
+  const { lock, unlock } = useScrollLock({
+    autoLock: false,
+    lockTarget: document.body,
+  })
+  const shouldLockScroll = isDrawerOpen && isSmall
+  useEffect(() => {
+    if (shouldLockScroll) {
+      lock()
+    } else {
+      unlock()
+    }
+  }, [shouldLockScroll, lock, unlock])
 
   // FIXME: React StrictMode causes a problem by unmounting the component once on purpose.
   // Should reject on unmount, but didn't work as expected.
@@ -104,17 +115,3 @@ const Drawer = ({ children }: PropsWithChildren) => {
 }
 
 export default Drawer
-
-function useLockBodyScroll(lock: boolean) {
-  useLayoutEffect(() => {
-    const originalOverflow = document.body.style.overflow
-    if (lock) {
-      document.body.style.overflow = "hidden" // disable scroll
-    } else {
-      document.body.style.overflow = originalOverflow // reset
-    }
-    return () => {
-      document.body.style.overflow = originalOverflow
-    }
-  }, [lock])
-}
