@@ -1,3 +1,4 @@
+import type { HTMLAttributes } from "react"
 import clsx from "clsx"
 import { useTransition, animated, config } from "@react-spring/web"
 import { IconCheckCircleFilled, IconClose, IconCloseCircleFilled } from "@initia/icons-react"
@@ -6,12 +7,12 @@ import type { NotificationType } from "@/public/app/NotificationContext"
 import Loader from "./Loader"
 import styles from "./Toast.module.css"
 
-interface Props {
+interface Props extends HTMLAttributes<HTMLDivElement> {
   notification: InternalNotification | null
   onClose: () => void
 }
 
-const Toast = ({ notification, onClose }: Props) => {
+const Toast = ({ notification, onClose, ...props }: Props) => {
   const transition = useTransition(notification, {
     keys: (notification) => notification?.id || "empty",
     from: { transform: "translateY(-52px)", opacity: 0 },
@@ -40,7 +41,7 @@ const Toast = ({ notification, onClose }: Props) => {
     const icon = getIcon(type)
     return (
       <animated.div style={style} className={styles.container}>
-        <div className={clsx(styles.toast, type && styles[type])}>
+        <div className={clsx(styles.toast, type && styles[type])} {...props}>
           {icon && <div className={styles.icon}>{icon}</div>}
 
           <div className={styles.content}>
