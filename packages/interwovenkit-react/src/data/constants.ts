@@ -8,9 +8,6 @@ export const LocalStorageKey = {
   // wallet
   PUBLIC_KEY: `${NAMESPACE}:public-key`,
 
-  // tx fee
-  FEE_DENOM: `${NAMESPACE}:fee-denom`,
-
   // bridge
   BRIDGE_SRC_CHAIN_ID: `${NAMESPACE}:bridge:src-chain-id`,
   BRIDGE_SRC_DENOM: `${NAMESPACE}:bridge:src-denom`,
@@ -24,3 +21,5 @@ export const LocalStorageKey = {
   // op
   OP_REMINDER: `${NAMESPACE}:op:reminder`,
 }
+
+export const SEND_GAS_AMOUNT = 200_000

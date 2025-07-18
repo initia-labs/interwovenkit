@@ -31,12 +31,22 @@ export interface TxItemMessage {
   [key: string]: unknown
 }
 
-export function useTxs({ indexerUrl }: NormalizedChain) {
+export function useTxs({ indexerUrl }: NormalizedChain, disabled = false) {
   const address = useInitiaAddress()
 
   return useSuspenseInfiniteQuery({
-    queryKey: accountQueryKeys.txs(indexerUrl, address).queryKey,
+    queryKey: accountQueryKeys.txs(indexerUrl, address, disabled).queryKey,
     queryFn: async ({ pageParam: key = "" }) => {
+      if (disabled) {
+        return {
+          txs: [],
+          pagination: {
+            next_key: null,
+            total: "0",
+          },
+        }
+      }
+
       const searchParams = { "pagination.key": key || "", "pagination.reverse": true }
       return ky
         .create({ prefixUrl: indexerUrl })

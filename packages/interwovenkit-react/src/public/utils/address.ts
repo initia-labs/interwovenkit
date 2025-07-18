@@ -1,5 +1,6 @@
-import { getAddress, isAddress } from "ethers"
+import { computeAddress, getAddress, isAddress } from "ethers"
 import { fromBech32, fromHex, toBech32, toHex } from "@cosmjs/encoding"
+import { Secp256k1 } from "@cosmjs/crypto"
 
 export const AddressUtils = {
   toBytes(address: string, byteLength: number = 20) {
@@ -49,5 +50,11 @@ export const AddressUtils = {
 
   equals(address1: string, address2: string) {
     return AddressUtils.toBech32(address1) === AddressUtils.toBech32(address2)
+  },
+
+  fromPublicKey(publicKey: Uint8Array) {
+    return AddressUtils.toBech32(
+      computeAddress("0x" + toHex(Secp256k1.uncompressPubkey(publicKey))),
+    )
   },
 }
