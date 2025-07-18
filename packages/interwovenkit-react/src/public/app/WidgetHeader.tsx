@@ -1,3 +1,4 @@
+import { useEffect } from "react"
 import clsx from "clsx"
 import { useAccount, useDisconnect } from "wagmi"
 import { IconCopy, IconSignOut } from "@initia/icons-react"
@@ -14,6 +15,26 @@ const WidgetHeader = () => {
   const { address, username } = useInterwovenKit()
   const { closeDrawer } = useDrawer()
   const name = username ?? address
+
+  // wagmi cannot detect when wallet gets locked while the window is open
+  useEffect(() => {
+    if (connector) {
+      ;(async () => {
+        try {
+          // every time the drawer is opened, check if the wallet is still connected
+          // not ideal, but since no event is emitted when the wallet is locked there is no much we can do
+          const isAuthorized = await connector.isAuthorized?.()
+          if (!isAuthorized) {
+            closeDrawer()
+            disconnect()
+          }
+        } catch {
+          closeDrawer()
+          disconnect()
+        }
+      })()
+    }
+  }, [connector]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!connector) {
     return null
