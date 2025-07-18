@@ -1,10 +1,10 @@
 import clsx from "clsx"
 import BigNumber from "bignumber.js"
+import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import { formatAmount, truncate } from "@/public/utils"
-import { useHexAddress, useInitiaAddress } from "@/public/data/hooks"
+import { useInterwovenKit } from "@/public/data/hooks"
 import { useFindAsset } from "@/data/assets"
 import type { NormalizedChain } from "@/data/chains"
-import AsyncBoundary from "@/components/AsyncBoundary"
 import type { BaseAsset } from "@/components/form/types"
 import WithMoveResource from "../assets/WithMoveResource"
 import { getCoinChanges, getMoveChanges } from "./changes/changes"
@@ -12,11 +12,7 @@ import type { TxItem } from "./data"
 import WithDenom from "./WithDenom"
 import styles from "./ActivityChanges.module.css"
 
-interface Props extends TxItem {
-  chain: NormalizedChain
-}
-
-const ActivityChange = ({ amount, asset }: { amount: string; asset: BaseAsset }) => {
+const Change = ({ amount, asset }: { amount: string; asset: BaseAsset }) => {
   const { denom, symbol, decimals } = asset
   const isPositive = new BigNumber(amount).isPositive()
   const absAmount = new BigNumber(amount).abs().toString()
@@ -29,49 +25,50 @@ const ActivityChange = ({ amount, asset }: { amount: string; asset: BaseAsset })
   )
 }
 
-const ActivityChangesWithMetadata = ({ events, chain }: Props) => {
-  const hexAddress = useHexAddress()
+interface ChangesProps<T> {
+  changes: T[]
+  chain: NormalizedChain
+}
+
+const ChangesWithDenom = ({ changes, chain }: ChangesProps<Coin>) => {
   const findAsset = useFindAsset(chain)
 
-  const changes = getMoveChanges(events, hexAddress)
+  return changes.map(({ amount, denom }, index) => (
+    <Change amount={amount} asset={findAsset(denom)} key={index} />
+  ))
+}
+
+const ChangesWithMetadata = ({
+  changes,
+  chain,
+}: ChangesProps<{ amount: string; metadata: string }>) => {
+  const findAsset = useFindAsset(chain)
 
   return changes.map(({ amount, metadata }, index) => {
     return (
-      <AsyncBoundary suspenseFallback={null} errorBoundaryProps={{ fallback: null }} key={index}>
-        <WithDenom metadata={metadata} chain={chain}>
-          {(denom) => (
-            <WithMoveResource asset={findAsset(denom)} chain={chain}>
-              {(asset) => <ActivityChange amount={amount} asset={asset} />}
-            </WithMoveResource>
-          )}
-        </WithDenom>
-      </AsyncBoundary>
+      <WithDenom metadata={metadata} chain={chain} key={index}>
+        {(denom) => (
+          <WithMoveResource asset={findAsset(denom)} chain={chain}>
+            {(asset) => <Change amount={amount} asset={asset} />}
+          </WithMoveResource>
+        )}
+      </WithDenom>
     )
   })
 }
 
-const ActivityChangesWithDenom = ({ events, chain }: Props) => {
-  const address = useInitiaAddress()
-  const changes = getCoinChanges(events, address)
-  const findAsset = useFindAsset(chain)
-
-  return changes.map(({ amount, denom }, index) => {
-    return (
-      <div key={index}>
-        <ActivityChange amount={amount} asset={findAsset(denom)} />
-      </div>
-    )
-  })
+interface Props extends TxItem {
+  chain: NormalizedChain
 }
 
-const ActivityChanges = (props: Props) => {
-  const { chain } = props
+const ActivityChanges = ({ events, chain }: Props) => {
+  const { initiaAddress, hexAddress } = useInterwovenKit()
 
   if (chain.metadata?.is_l1 || chain.metadata?.minitia?.type === "minimove") {
-    return <ActivityChangesWithMetadata {...props} />
+    return <ChangesWithMetadata changes={getMoveChanges(events, hexAddress)} chain={chain} />
   }
 
-  return <ActivityChangesWithDenom {...props} />
+  return <ChangesWithDenom changes={getCoinChanges(events, initiaAddress)} chain={chain} />
 }
 
 export default ActivityChanges

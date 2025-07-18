@@ -2,6 +2,7 @@ import { intlFormatDistance } from "date-fns"
 import { sentenceCase } from "change-case"
 import { IconWarningFilled } from "@initia/icons-react"
 import type { NormalizedChain } from "@/data/chains"
+import AsyncBoundary from "@/components/AsyncBoundary"
 import ExplorerLink from "@/components/ExplorerLink"
 import type { TxItem } from "./data"
 import ActivityMessages from "./ActivityMessages"
@@ -29,7 +30,9 @@ const ActivityItem = ({ txItem, chain }: Props) => {
           </div>
 
           <div className={styles.changes}>
-            <ActivityChanges {...txItem} chain={chain} />
+            <AsyncBoundary suspenseFallback={null} errorBoundaryProps={{ fallback: null }}>
+              <ActivityChanges {...txItem} chain={chain} />
+            </AsyncBoundary>
           </div>
         </div>
 

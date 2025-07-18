@@ -1,0 +1,40 @@
+.changes {
+  background-color: var(--gray-8);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: var(--padding);
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.section {
+  display: flex;
+  justify-content: space-between;
+
+  .label {
+    color: var(--gray-2);
+    font-size: 12px;
+    font-weight: 500;
+    line-height: calc(14px * 1.5);
+  }
+}
+
+.divider {
+  height: 1px;
+  background-color: var(--gray-6);
+  margin: 12px 0;
+}
+
+.change {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  font-family: var(--monospace);
+  font-size: 14px;
+  font-weight: 500;
+}
