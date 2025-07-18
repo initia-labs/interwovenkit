@@ -1,3 +1,4 @@
+import type { HTMLAttributes } from "react"
 import clsx from "clsx"
 import { useTransition, animated, config } from "@react-spring/web"
 import { IconCheckCircleFilled, IconClose, IconCloseCircleFilled } from "@initia/icons-react"
@@ -6,11 +7,9 @@ import type { NotificationType } from "@/public/app/NotificationContext"
 import Loader from "./Loader"
 import styles from "./Toast.module.css"
 
-interface Props {
+interface Props extends HTMLAttributes<HTMLDivElement> {
   notification: InternalNotification | null
   onClose: () => void
-  onMouseEnter?: () => void
-  onMouseLeave?: () => void
 }
 
 const Toast = ({ notification, onClose, ...props }: Props) => {
