@@ -12,7 +12,11 @@ const BridgePreviewFooter = ({ tx }: Props) => {
 
   return (
     <Footer>
-      <Button.White onClick={() => mutate()} loading={isPending && "Signing transaction..."}>
+      <Button.White
+        onClick={() => mutate()}
+        loading={isPending && "Signing transaction..."}
+        data-amp-track-name="Bridge_Confirm_clicked"
+      >
         Confirm
       </Button.White>
     </Footer>

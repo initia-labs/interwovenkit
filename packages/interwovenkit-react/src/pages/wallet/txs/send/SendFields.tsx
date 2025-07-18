@@ -59,7 +59,7 @@ export const SendFields = () => {
   })
 
   return (
-    <Page title="Send">
+    <Page title="Send" backButtonAmplitudeEvent="Send_backbutton_clicked">
       <form onSubmit={handleSubmit((values) => mutate(values))}>
         <div className={styles.fields}>
           <ChainAssetQuantityLayout

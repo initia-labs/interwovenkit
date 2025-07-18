@@ -27,6 +27,13 @@ const Withdrawals = () => {
         value={chainId}
         onSelect={setChainId}
         getShowIndicator={(chainId) => reminders.some((reminder) => reminder.chainId === chainId)}
+        getAmplitudeEvent={(chainid) => ({
+          name: "Withdrawal_chain_hovered",
+          details: {
+            chainid,
+            indicator: reminders.some((reminder) => reminder.chainId === chainid),
+          },
+        })}
       />
 
       <div className={styles.content}>

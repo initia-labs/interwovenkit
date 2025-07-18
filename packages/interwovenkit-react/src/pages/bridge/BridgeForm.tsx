@@ -24,6 +24,7 @@ import { useSkipAssets } from "./data/assets"
 import { skipQueryKeys } from "./data/skip"
 import { useClaimableModal, useClaimableReminders } from "./op/reminder"
 import BridgeFields from "./BridgeFields"
+import Amplitude from "@/lib/amplitude"
 
 const BridgeForm = () => {
   useClaimableModal()
@@ -137,16 +138,32 @@ const BridgeForm = () => {
       // The previous page may not be the intended destination.
       // To avoid unexpected behavior, it explicitly returns to the wallet page.
       returnTo={isBridge ? false : "/"}
+      backButtonAmplitudeEvent="Bridge_backbutton_clicked"
       extra={
         <>
-          <Button.Small onClick={() => navigate("/bridge/history")} unpadded>
+          <Button.Small
+            onClick={() => {
+              Amplitude.logEvent("Bridge_activity_opened", { type: "click" })
+              navigate("/bridge/history")
+            }}
+            unpadded
+          >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="12" height="12">
               <path d="m0 9.818 1.414-1.414 L2 8.99 V8 a7 7 0 1 1 7 7 v-2 a5 5 0 1 0-5-5 v1.354 l.95-.95 1.414 1.414 L3.182 13 0 9.818 Z" />
               <path d="M9 5.5 H7.5 v3.75 h3.75 v-1.5 H9 V5.5 Z" />
             </svg>
           </Button.Small>
           <Indicator offset={0} disabled={reminders.length === 0}>
-            <Button.Small onClick={() => navigate("/op/withdrawals")} disabled={!address}>
+            <Button.Small
+              onClick={() => {
+                Amplitude.logEvent("Withdrawal_status_clicked", {
+                  type: "click",
+                  notification: !!reminders.length,
+                })
+                navigate("/op/withdrawals")
+              }}
+              disabled={!address}
+            >
               <span>Withdrawal status</span>
             </Button.Small>
           </Indicator>

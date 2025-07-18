@@ -113,7 +113,12 @@ const BridgePreviewRoute = ({ addressList }: Props) => {
       {canToggleShowAll && (
         <Collapsible.Trigger asChild>
           <FlexEnd>
-            <button className={styles.toggle} onClick={toggleShowAll}>
+            <button
+              className={styles.toggle}
+              onClick={toggleShowAll}
+              data-amp-track-name="Detailed_view_clicked"
+              data-amp-track-toopen={!showAll}
+            >
               {showAll ? (
                 <>
                   <IconMinus size={12} />

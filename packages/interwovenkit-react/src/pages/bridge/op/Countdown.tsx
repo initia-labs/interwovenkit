@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import WidgetTooltip from "@/components/WidgetTooltip"
+import type { AmplitudeEvent } from "@/lib/amplitude/types"
 
 const MILLISECONDS_IN_SECOND = 1000
 const SECONDS_IN_MINUTE = 60
@@ -12,9 +13,10 @@ const MILLISECONDS_IN_DAY = MILLISECONDS_IN_HOUR * HOURS_IN_DAY
 
 interface Props {
   date: Date
+  amplitudeEvent?: AmplitudeEvent
 }
 
-const Countdown = ({ date }: Props) => {
+const Countdown = ({ date, amplitudeEvent }: Props) => {
   const calculateTimeLeft = useCallback(() => {
     const now = new Date().getTime()
     const targetTime = date.getTime()
@@ -47,7 +49,7 @@ const Countdown = ({ date }: Props) => {
   const { days, hours, minutes, seconds } = timeLeft
 
   return (
-    <WidgetTooltip label={date.toLocaleString()}>
+    <WidgetTooltip label={date.toLocaleString()} amplitudeEvent={amplitudeEvent}>
       <span className="monospace">
         {days}d {formatTime(hours)}h {formatTime(minutes)}m {formatTime(seconds)}s
       </span>

@@ -39,7 +39,12 @@ const ChainAccordion = ({ renderContent, storageKey }: Props) => {
   return (
     <>
       <FlexEnd mb={6}>
-        <Button.Small className={styles.toggle} onClick={handleToggleAll}>
+        <Button.Small
+          className={styles.toggle}
+          onClick={handleToggleAll}
+          data-amp-track-name="Collapse_all_button_clicked"
+          data-amp-track-open={!isAllCollapsed}
+        >
           <span>{isAllCollapsed ? "Expand all" : "Collapse all"}</span>
           {isAllCollapsed ? <IconChevronDown size={10} /> : <IconChevronUp size={10} />}
         </Button.Small>
@@ -58,7 +63,7 @@ const ChainAccordion = ({ renderContent, storageKey }: Props) => {
         value={openedChains}
         onValueChange={setOpenedChains}
         footer={
-          <Link className={styles.rollups} to="/rollups">
+          <Link className={styles.rollups} to="/rollups" data-amp-track-name="Rollups_menu_opened">
             <IconSettingFilled size={12} />
             <span>Manage rollup list</span>
           </Link>

@@ -5,6 +5,7 @@ import type { NormalizedChain } from "@/data/chains"
 import { useManageChains } from "@/data/chains"
 import Image from "@/components/Image"
 import styles from "./ManageChainsItem.module.css"
+import Amplitude from "@/lib/amplitude"
 
 const ManageChainsItem = (chain: NormalizedChain) => {
   const { chainId, name, logoUrl, website, metadata } = chain
@@ -20,14 +21,26 @@ const ManageChainsItem = (chain: NormalizedChain) => {
 
     if (!isAdded) {
       return (
-        <button className={styles.button} onClick={() => addChain(chainId)}>
+        <button
+          className={styles.button}
+          onClick={() => {
+            Amplitude.logEvent("Rollup_added", { chain: chainId })
+            addChain(chainId)
+          }}
+        >
           <IconPlus size={14} />
         </button>
       )
     }
 
     return (
-      <button className={styles.button} onClick={() => removeChain(chainId)}>
+      <button
+        className={styles.button}
+        onClick={() => {
+          Amplitude.logEvent("Rollup_hidden", { chain: chainId })
+          removeChain(chainId)
+        }}
+      >
         <IconMinus size={14} />
       </button>
     )
@@ -41,7 +54,11 @@ const ManageChainsItem = (chain: NormalizedChain) => {
         <h3 className={styles.name}>{name}</h3>
         {website && (
           <a className={styles.link} href={xss(website)} target="_blank">
-            <IconExternalLink size={12} />
+            <IconExternalLink
+              size={12}
+              data-amp-track-name="Manage_rollup_link_clicked"
+              data-amp-track-chain={chainId}
+            />
           </a>
         )}
       </header>
