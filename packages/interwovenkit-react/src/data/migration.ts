@@ -21,7 +21,9 @@ export function migrateLocalStorage() {
   }
 
   // Delete keys
-  deleteKeys.map((key) => localStorage.removeItem(key))
+  for (const key of deleteKeys) {
+    localStorage.removeItem(key)
+  }
 
   // Rename keys
   for (const [oldKey, newKey] of Object.entries(renameMap)) {
