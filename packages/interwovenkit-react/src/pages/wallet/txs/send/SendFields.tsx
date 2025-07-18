@@ -8,8 +8,8 @@ import { AddressUtils, formatAmount, formatNumber, toAmount, toQuantity } from "
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useAsset } from "@/data/assets"
 import { useBalances } from "@/data/account"
-import { useGasPrices } from "@/data/tx"
-import { LocalStorageKey, SEND_GAS_AMOUNT } from "@/data/constants"
+import { useGasPrices, useLastFeeDenom } from "@/data/tx"
+import { SEND_GAS_AMOUNT } from "@/data/constants"
 import Page from "@/components/Page"
 import Footer from "@/components/Footer"
 import Button from "@/components/Button"
@@ -35,6 +35,7 @@ export const SendFields = () => {
   const chain = useChain(chainId)
   const balances = useBalances(chain)
   const gasPrices = useGasPrices(chain)
+  const lastUsedFeeDenom = useLastFeeDenom(chain)
   const asset = useAsset(denom, chain)
   const { data: prices } = usePricesQuery(chain.chainId)
   const { decimals } = asset
@@ -51,7 +52,6 @@ export const SendFields = () => {
     })
 
   const currentFeeToken = feeOptions.find((fee) => fee.amount[0].denom === denom)
-  const lastUsedFeeDenom = localStorage.getItem(`${LocalStorageKey.FEE_DENOM}:${chainId}`)
   const defaultFeeToken = feeOptions.find(
     (fee) => fee.amount[0].denom !== denom && fee.amount[0].denom === lastUsedFeeDenom,
   )

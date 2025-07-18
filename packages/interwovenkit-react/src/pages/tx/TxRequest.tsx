@@ -4,12 +4,16 @@ import { calculateFee } from "@cosmjs/stargate"
 import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { LocalStorageKey } from "@/data/constants"
 import { useBalances } from "@/data/account"
 import { useChain } from "@/data/chains"
 import { useSignWithEthSecp256k1, useOfflineSigner } from "@/data/signer"
 import { normalizeError } from "@/data/http"
-import { TX_APPROVAL_MUTATION_KEY, useGasPrices, useTxRequestHandler } from "@/data/tx"
+import {
+  TX_APPROVAL_MUTATION_KEY,
+  useGasPrices,
+  useLastFeeDenom,
+  useTxRequestHandler,
+} from "@/data/tx"
 import WidgetAccordion from "@/components/WidgetAccordion"
 import Scrollable from "@/components/Scrollable"
 import FormHelp from "@/components/form/FormHelp"
@@ -38,6 +42,7 @@ const TxRequest = () => {
   const chain = useChain(chainId)
   const balances = useBalances(chain)
   const gasPrices = useGasPrices(chain)
+  const lastUsedFeeDenom = useLastFeeDenom(chain)
 
   const feeOptions = providedFeeOptions?.length
     ? providedFeeOptions
@@ -53,11 +58,9 @@ const TxRequest = () => {
     return BigNumber(balance).gte(feeOption)
   }
 
-  const localStorageKey = `${LocalStorageKey.FEE_DENOM}:${chainId}`
   const getInitialFeeDenom = () => {
-    const savedFeeDenom = localStorage.getItem(localStorageKey)
-    if (savedFeeDenom && canPayFee(savedFeeDenom)) {
-      return savedFeeDenom
+    if (lastUsedFeeDenom && canPayFee(lastUsedFeeDenom)) {
+      return lastUsedFeeDenom
     }
 
     for (const { denom: feeDenom } of feeCoins) {
@@ -79,9 +82,6 @@ const TxRequest = () => {
       if (!signer) throw new Error("Signer not initialized")
       const signedTx = await signWithEthSecp256k1(chainId, address, messages, fee, memo)
       await resolve(signedTx)
-    },
-    onMutate: () => {
-      localStorage.setItem(localStorageKey, feeDenom)
     },
     onError: async (error: Error) => {
       reject(new Error(await normalizeError(error)))

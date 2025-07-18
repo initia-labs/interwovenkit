@@ -2,7 +2,10 @@ import { AddressUtils } from "@/public/utils"
 import { LocalStorageKey } from "./constants"
 
 export function migrateLocalStorage() {
-  const deleteKey = "initia-wallet-widget:last-connected-wallet"
+  const deleteKeys = [
+    "initia-wallet-widget:last-connected-wallet",
+    "initia-wallet-widget:fee-denoms",
+  ]
 
   const renameMap = {
     "initia-wallet-widget:chain-ids": LocalStorageKey.ADDED_CHAIN_IDS,
@@ -11,10 +14,6 @@ export function migrateLocalStorage() {
   }
 
   const parseMap = {
-    "initia-wallet-widget:fee-denoms": {
-      prefix: LocalStorageKey.FEE_DENOM,
-      getSuffix: (chainId: string) => chainId,
-    },
     "initia-wallet-widget:ethereum-public-keys": {
       prefix: LocalStorageKey.PUBLIC_KEY,
       getSuffix: AddressUtils.toBech32,
@@ -22,7 +21,7 @@ export function migrateLocalStorage() {
   }
 
   // Delete keys
-  localStorage.removeItem(deleteKey)
+  deleteKeys.map((key) => localStorage.removeItem(key))
 
   // Rename keys
   for (const [oldKey, newKey] of Object.entries(renameMap)) {

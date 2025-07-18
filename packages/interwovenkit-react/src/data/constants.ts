@@ -8,9 +8,6 @@ export const LocalStorageKey = {
   // wallet
   PUBLIC_KEY: `${NAMESPACE}:public-key`,
 
-  // tx fee
-  FEE_DENOM: `${NAMESPACE}:fee-denom`,
-
   // bridge
   BRIDGE_SRC_CHAIN_ID: `${NAMESPACE}:bridge:src-chain-id`,
   BRIDGE_SRC_DENOM: `${NAMESPACE}:bridge:src-denom`,

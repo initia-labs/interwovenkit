@@ -3,6 +3,7 @@ import { descend } from "ramda"
 import BigNumber from "bignumber.js"
 import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import { useSuspenseQuery } from "@tanstack/react-query"
+import { fromBase64 } from "@cosmjs/encoding"
 import type { Coin, EncodeObject } from "@cosmjs/proto-signing"
 import {
   GasPrice,
@@ -15,11 +16,14 @@ import { useNavigate } from "@/lib/router"
 import { DEFAULT_GAS_ADJUSTMENT, DEFAULT_GAS_PRICE_MULTIPLIER } from "@/public/data/constants"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useModal } from "@/public/app/ModalContext"
+import { AddressUtils } from "@/public/utils"
 import { useConfig } from "./config"
 import { normalizeError, STALE_TIMES } from "./http"
 import { useCreateSigningStargateClient } from "./signer"
 import { useDrawer } from "./ui"
 import { chainQueryKeys, type NormalizedChain } from "./chains"
+import { type TxItem } from "@/pages/wallet/tabs/activity/data"
+import type { Paginated } from "./pagination"
 
 export interface TxRequest {
   messages: EncodeObject[]
@@ -224,6 +228,40 @@ export function useGasPrices(chain: NormalizedChain) {
       return chain.fees.fee_tokens.map(({ denom, fixed_min_gas_price }) =>
         GasPrice.fromString(fixed_min_gas_price + denom),
       )
+    },
+    staleTime: STALE_TIMES.MINUTE,
+  })
+
+  return data
+}
+
+export function useLastFeeDenom(chain: NormalizedChain) {
+  const address = useInitiaAddress()
+
+  const { data } = useSuspenseQuery({
+    queryKey: chainQueryKeys.lastTx(chain, address).queryKey,
+    queryFn: async () => {
+      if (chain.fees.fee_tokens.length === 1) {
+        return chain.fees.fee_tokens[0].denom
+      }
+
+      const result = await ky
+        .create({ prefixUrl: chain.indexerUrl })
+        .get(`indexer/tx/v1/txs/by_account/${address}`, {
+          searchParams: {
+            "pagination.key": "",
+            "pagination.reverse": true,
+          },
+        })
+        .json<Paginated<"txs", TxItem>>()
+
+      const lastSignedTx = result.txs.find(({ tx }) =>
+        tx.auth_info.signer_infos.some(
+          (info) => AddressUtils.fromPublicKey(fromBase64(info.public_key.key)) === address,
+        ),
+      )
+
+      return lastSignedTx?.tx.auth_info.fee.amount[0]?.denom || null
     },
     staleTime: STALE_TIMES.MINUTE,
   })
