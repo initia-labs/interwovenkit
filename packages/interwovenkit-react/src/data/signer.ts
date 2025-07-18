@@ -180,25 +180,41 @@ export function useOfflineSigner() {
 }
 
 // Keep one client per chain to avoid repeatedly establishing RPC connections.
-const clientCache = new Map<string, SigningStargateClient>()
+const comet38ClientCache = new Map<string, Comet38Client>()
+const signingStargateClientCache = new Map<string, SigningStargateClient>()
+
+export function useCreateComet38Client() {
+  const findChain = useFindChain()
+
+  return async (chainId: string) => {
+    if (comet38ClientCache.has(chainId)) {
+      return comet38ClientCache.get(chainId)!
+    }
+
+    const { rpcUrl } = findChain(chainId)
+    const cometClient = await Comet38Client.create(new HttpClient(rpcUrl))
+
+    comet38ClientCache.set(chainId, cometClient)
+    return cometClient
+  }
+}
 
 export function useCreateSigningStargateClient() {
-  const findChain = useFindChain()
   const registry = useRegistry()
   const aminoTypes = useAminoTypes()
   const offlineSigner = useOfflineSigner()
   const address = useInitiaAddress()
+  const createComet38Client = useCreateComet38Client()
 
   return async (chainId: string) => {
     const cacheKey = `${address}:${chainId}`
-    if (clientCache.has(cacheKey)) {
-      return clientCache.get(cacheKey)!
+    if (signingStargateClientCache.has(cacheKey)) {
+      return signingStargateClientCache.get(cacheKey)!
     }
 
     if (!offlineSigner) throw new Error("Signer not initialized")
-    const { rpcUrl } = findChain(chainId)
 
-    const cometClient = await Comet38Client.create(new HttpClient(rpcUrl))
+    const cometClient = await createComet38Client(chainId)
     const client = await SigningStargateClient.createWithSigner(cometClient, offlineSigner, {
       registry,
       aminoTypes,
@@ -206,7 +222,7 @@ export function useCreateSigningStargateClient() {
       broadcastPollIntervalMs: 1000,
     })
 
-    clientCache.set(cacheKey, client)
+    signingStargateClientCache.set(cacheKey, client)
     return client
   }
 }
