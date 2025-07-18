@@ -2,7 +2,7 @@ import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
 import { useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { useMutation } from "@tanstack/react-query"
-import { useInterwovenKit } from "@initia/interwovenkit-react"
+import { AddressUtils, useInterwovenKit } from "@initia/interwovenkit-react"
 import styles from "./Send.module.css"
 
 interface FormValues {
@@ -30,7 +30,7 @@ const Send = () => {
           typeUrl: "/cosmos.bank.v1beta1.MsgSend",
           value: MsgSend.fromPartial({
             fromAddress: initiaAddress,
-            toAddress: recipient,
+            toAddress: AddressUtils.toBech32(recipient),
             amount: [{ amount, denom }],
           }),
         },
