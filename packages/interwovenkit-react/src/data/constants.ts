@@ -4,6 +4,7 @@ export const LocalStorageKey = {
   // ui
   ADDED_CHAIN_IDS: `${NAMESPACE}:chain-ids:added`,
   OPENED_CHAIN_IDS: `${NAMESPACE}:chain-ids:opened`,
+  ACTIVITY_CHAIN_ID: `${NAMESPACE}:activity:chain-id`,
 
   // wallet
   PUBLIC_KEY: `${NAMESPACE}:public-key`,

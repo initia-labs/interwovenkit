@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { useLocalStorage } from "usehooks-ts"
+import { LocalStorageKey } from "@/data/constants"
 import { useChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import AsyncBoundary from "@/components/AsyncBoundary"
@@ -7,7 +8,10 @@ import ActivityList from "./ActivityList"
 
 const Activity = () => {
   const { defaultChainId } = useConfig()
-  const [selectedChainId, setSelectedChainId] = useState(defaultChainId)
+  const [selectedChainId, setSelectedChainId] = useLocalStorage(
+    LocalStorageKey.ACTIVITY_CHAIN_ID,
+    defaultChainId,
+  )
   const selectedChain = useChain(selectedChainId)
 
   return (
