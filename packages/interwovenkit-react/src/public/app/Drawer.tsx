@@ -1,6 +1,6 @@
 import clsx from "clsx"
 import { useAtomValue } from "jotai"
-import { useContext, useLayoutEffect, type PropsWithChildren } from "react"
+import { useContext, type PropsWithChildren } from "react"
 import { createPortal } from "react-dom"
 import { useMediaQuery } from "usehooks-ts"
 import type { FallbackProps } from "react-error-boundary"
@@ -18,15 +18,13 @@ import { usePortalContainer } from "../portal"
 import { PortalContext } from "./PortalContext"
 import WidgetHeader from "./WidgetHeader"
 import TxWatcher from "./TxWatcher"
+import ScrollLock from "./ScrollLock"
 import styles from "./Drawer.module.css"
 
 const Drawer = ({ children }: PropsWithChildren) => {
   const { isDrawerOpen, closeDrawer } = useDrawer()
   const { setContainer } = useContext(PortalContext)
   const isSmall = useMediaQuery("(max-width: 576px)")
-
-  // Lock body scroll when the drawer is open on small screens
-  useLockBodyScroll(isDrawerOpen && isSmall)
 
   // FIXME: React StrictMode causes a problem by unmounting the component once on purpose.
   // Should reject on unmount, but didn't work as expected.
@@ -91,6 +89,7 @@ const Drawer = ({ children }: PropsWithChildren) => {
         item ? (
           <animated.div style={style} className={clsx(styles.content)}>
             <div className={clsx(styles.inner, "body")} ref={setContainer}>
+              {isSmall && <ScrollLock />}
               <TxWatcher />
               <WidgetHeader />
               <AsyncBoundary errorBoundaryProps={errorBoundaryProps}>{children}</AsyncBoundary>
@@ -104,17 +103,3 @@ const Drawer = ({ children }: PropsWithChildren) => {
 }
 
 export default Drawer
-
-function useLockBodyScroll(lock: boolean) {
-  useLayoutEffect(() => {
-    const originalOverflow = document.body.style.overflow
-    if (lock) {
-      document.body.style.overflow = "hidden" // disable scroll
-    } else {
-      document.body.style.overflow = originalOverflow // reset
-    }
-    return () => {
-      document.body.style.overflow = originalOverflow
-    }
-  }, [lock])
-}
