@@ -170,6 +170,7 @@ export function useBridgeTx(tx: TxJson) {
               ),
               " for transaction status",
             ),
+            autoHide: true,
           })
           if (isOpWithdraw) {
             addReminder(tx, {

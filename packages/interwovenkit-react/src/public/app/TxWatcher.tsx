@@ -41,6 +41,7 @@ const TxWatcher = () => {
           type: "success",
           title: "Transaction is successful!",
           description,
+          autoHide: true,
         })
         setTxStatus(null)
         break
