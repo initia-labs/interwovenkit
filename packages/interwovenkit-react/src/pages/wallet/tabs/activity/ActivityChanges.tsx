@@ -1,16 +1,13 @@
 import clsx from "clsx"
 import BigNumber from "bignumber.js"
-import { computeAddress } from "ethers"
-import { fromBase64, toHex } from "@cosmjs/encoding"
 import { formatAmount, truncate } from "@/public/utils"
 import { useHexAddress, useInitiaAddress } from "@/public/data/hooks"
-import { denomToMetadata, useFindAsset } from "@/data/assets"
+import { useFindAsset } from "@/data/assets"
 import type { NormalizedChain } from "@/data/chains"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import type { BaseAsset } from "@/components/form/types"
 import WithMoveResource from "../assets/WithMoveResource"
-import { getCoinChanges } from "./changes/changes"
-import { calcChangesFromEvents } from "./calc"
+import { getCoinChanges, getMoveChanges } from "./changes/changes"
 import type { TxItem } from "./data"
 import WithDenom from "./WithDenom"
 import styles from "./ActivityChanges.module.css"
@@ -32,21 +29,11 @@ const ActivityChange = ({ amount, asset }: { amount: string; asset: BaseAsset })
   )
 }
 
-const ActivityChangesWithMetadata = ({ tx, events, chain }: Props) => {
+const ActivityChangesWithMetadata = ({ events, chain }: Props) => {
   const hexAddress = useHexAddress()
   const findAsset = useFindAsset(chain)
 
-  const signerHexAddress = computeAddress(
-    `0x${toHex(fromBase64(tx.auth_info.signer_infos[0].public_key.key))}`,
-  )
-
-  const payer = tx.auth_info.fee?.payer
-  const fee = tx.auth_info.fee?.amount[0] ?? { amount: "0", denom: "" }
-  const isPaidByMe = signerHexAddress === hexAddress && !payer
-
-  const feeMetadata = denomToMetadata(fee.denom)
-  const feeWithMetadata = { amount: isPaidByMe ? fee.amount : "0", metadata: feeMetadata }
-  const changes = calcChangesFromEvents(events, feeWithMetadata, hexAddress)
+  const changes = getMoveChanges(events, hexAddress)
 
   return changes.map(({ amount, metadata }, index) => {
     return (

@@ -1,0 +1,441 @@
+{
+  "tx": {
+    "body": {
+      "memo": "",
+      "messages": [
+        {
+          "args": [
+            "WsMYw0edUY97m6+AqclTNHVDS2RTFtJmoS5mo0mp8q4=",
+            "AqCGAQAAAAAA55MCAAAAAAA=",
+            "Ad0GBAAAAAAA"
+          ],
+          "@type": "/initia.move.v1.MsgExecute",
+          "sender": "init1veaum7vy45fzw5x4mflskgx5lnmwmxx5wm3x8p",
+          "type_args": [],
+          "module_name": "stableswap",
+          "function_name": "provide_liquidity_script",
+          "module_address": "0x1"
+        }
+      ],
+      "timeout_height": "0",
+      "extension_options": [],
+      "non_critical_extension_options": []
+    },
+    "auth_info": {
+      "fee": {
+        "payer": "",
+        "amount": [{ "denom": "uinit", "amount": "6162" }],
+        "granter": "",
+        "gas_limit": "398818"
+      },
+      "tip": null,
+      "signer_infos": [
+        {
+          "sequence": "465",
+          "mode_info": { "single": { "mode": "SIGN_MODE_EIP_191" } },
+          "public_key": {
+            "key": "A9S54WqY2OCVdOXXAISCG2SindFKiZ1Itwkq1WvvzRxh",
+            "@type": "/initia.crypto.v1beta1.ethsecp256k1.PubKey"
+          }
+        }
+      ]
+    },
+    "signatures": [
+      "1Du0ganYluanTiWsuE8rtkqgPN5ewTLpU21ZHW0fX/xYSdJQRV07AEtWSGRO+7woFMl492+IW9CyfPT1sGK+og=="
+    ]
+  },
+  "code": 0,
+  "events": [
+    {
+      "type": "execute",
+      "attributes": [
+        {
+          "key": "sender",
+          "index": true,
+          "value": "0x1,0x667bcdf984ad122750d5da7f0b20d4fcf6ed98d4"
+        },
+        {
+          "key": "module_addr",
+          "index": true,
+          "value": "0x1"
+        },
+        {
+          "key": "module_name",
+          "index": true,
+          "value": "coin"
+        },
+        {
+          "key": "function_name",
+          "index": true,
+          "value": "sudo_transfer"
+        }
+      ]
+    },
+    {
+      "type": "move",
+      "attributes": [
+        {
+          "key": "type_tag",
+          "index": true,
+          "value": "0x1::fungible_asset::WithdrawEvent"
+        },
+        {
+          "key": "data",
+          "index": true,
+          "value": "{\"store_addr\":\"0x18f23f32bb28cf0625ce16df05ce516e0084aaa89c4fa9fa2da86a1aa8ec09fb\",\"metadata_addr\":\"0x8e4733bdabcf7d4afc3d14f0dd46c9bf52fb0fce9e4b996c939e195b8bc891d9\",\"amount\":\"6162\"}"
+        }
+      ]
+    },
+    {
+      "type": "move",
+      "attributes": [
+        {
+          "key": "type_tag",
+          "index": true,
+          "value": "0x1::fungible_asset::DepositEvent"
+        },
+        {
+          "key": "data",
+          "index": true,
+          "value": "{\"store_addr\":\"0x66a8cb0bfb991610dcffb8a6543ac0887c7c5405b8f985ebed6d628fe50c4686\",\"metadata_addr\":\"0x8e4733bdabcf7d4afc3d14f0dd46c9bf52fb0fce9e4b996c939e195b8bc891d9\",\"amount\":\"6162\"}"
+        }
+      ]
+    },
+    {
+      "type": "coin_spent",
+      "attributes": [
+        {
+          "key": "spender",
+          "index": true,
+          "value": "init1veaum7vy45fzw5x4mflskgx5lnmwmxx5wm3x8p"
+        },
+        {
+          "key": "amount",
+          "index": true,
+          "value": "6162uinit"
+        }
+      ]
+    },
+    {
+      "type": "coin_received",
+      "attributes": [
+        {
+          "key": "receiver",
+          "index": true,
+          "value": "init17xpfvakm2amg962yls6f84z3kell8c5l70rnql"
+        },
+        {
+          "key": "amount",
+          "index": true,
+          "value": "6162uinit"
+        }
+      ]
+    },
+    {
+      "type": "transfer",
+      "attributes": [
+        {
+          "key": "recipient",
+          "index": true,
+          "value": "init17xpfvakm2amg962yls6f84z3kell8c5l70rnql"
+        },
+        {
+          "key": "sender",
+          "index": true,
+          "value": "init1veaum7vy45fzw5x4mflskgx5lnmwmxx5wm3x8p"
+        },
+        {
+          "key": "amount",
+          "index": true,
+          "value": "6162uinit"
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "attributes": [
+        {
+          "key": "sender",
+          "index": true,
+          "value": "init1veaum7vy45fzw5x4mflskgx5lnmwmxx5wm3x8p"
+        }
+      ]
+    },
+    {
+      "type": "tx",
+      "attributes": [
+        {
+          "key": "fee",
+          "index": true,
+          "value": "6162uinit"
+        },
+        {
+          "key": "fee_payer",
+          "index": true,
+          "value": "init1veaum7vy45fzw5x4mflskgx5lnmwmxx5wm3x8p"
+        }
+      ]
+    },
+    {
+      "type": "tx",
+      "attributes": [
+        {
+          "key": "acc_seq",
+          "index": true,
+          "value": "init1veaum7vy45fzw5x4mflskgx5lnmwmxx5wm3x8p/465"
+        }
+      ]
+    },
+    {
+      "type": "tx",
+      "attributes": [
+        {
+          "key": "signature",
+          "index": true,
+          "value": "1Du0ganYluanTiWsuE8rtkqgPN5ewTLpU21ZHW0fX/xYSdJQRV07AEtWSGRO+7woFMl492+IW9CyfPT1sGK+og=="
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "attributes": [
+        {
+          "key": "action",
+          "index": true,
+          "value": "/initia.move.v1.MsgExecute"
+        },
+        {
+          "key": "sender",
+          "index": true,
+          "value": "init1veaum7vy45fzw5x4mflskgx5lnmwmxx5wm3x8p"
+        },
+        {
+          "key": "module",
+          "index": true,
+          "value": "move"
+        },
+        {
+          "key": "msg_index",
+          "index": true,
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "type": "execute",
+      "attributes": [
+        {
+          "key": "sender",
+          "index": true,
+          "value": "0x667bcdf984ad122750d5da7f0b20d4fcf6ed98d4"
+        },
+        {
+          "key": "module_addr",
+          "index": true,
+          "value": "0x1"
+        },
+        {
+          "key": "module_name",
+          "index": true,
+          "value": "stableswap"
+        },
+        {
+          "key": "function_name",
+          "index": true,
+          "value": "provide_liquidity_script"
+        },
+        {
+          "key": "msg_index",
+          "index": true,
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "type": "move",
+      "attributes": [
+        {
+          "key": "type_tag",
+          "index": true,
+          "value": "0x1::fungible_asset::WithdrawEvent"
+        },
+        {
+          "key": "data",
+          "index": true,
+          "value": "{\"store_addr\":\"0xf90a1ba98ecd9dda550d4de6296dfa7a2ebd7408ff5757b38a0b03704c8bd198\",\"metadata_addr\":\"0x47111f2a0a2e58e3ec0837938fe97b5cae5cf4872505d9c03e077422fea4b162\",\"amount\":\"100000\"}"
+        },
+        {
+          "key": "msg_index",
+          "index": true,
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "type": "move",
+      "attributes": [
+        {
+          "key": "type_tag",
+          "index": true,
+          "value": "0x1::fungible_asset::WithdrawEvent"
+        },
+        {
+          "key": "data",
+          "index": true,
+          "value": "{\"store_addr\":\"0x18f23f32bb28cf0625ce16df05ce516e0084aaa89c4fa9fa2da86a1aa8ec09fb\",\"metadata_addr\":\"0x8e4733bdabcf7d4afc3d14f0dd46c9bf52fb0fce9e4b996c939e195b8bc891d9\",\"amount\":\"168935\"}"
+        },
+        {
+          "key": "msg_index",
+          "index": true,
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "type": "move",
+      "attributes": [
+        {
+          "key": "type_tag",
+          "index": true,
+          "value": "0x1::fungible_asset::DepositEvent"
+        },
+        {
+          "key": "data",
+          "index": true,
+          "value": "{\"store_addr\":\"0x1a7b036ef7b20a137c7029e879b775ead4a65d935506808cc654a7987233e495\",\"metadata_addr\":\"0x8e4733bdabcf7d4afc3d14f0dd46c9bf52fb0fce9e4b996c939e195b8bc891d9\",\"amount\":\"168935\"}"
+        },
+        {
+          "key": "msg_index",
+          "index": true,
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "type": "move",
+      "attributes": [
+        {
+          "key": "type_tag",
+          "index": true,
+          "value": "0x1::fungible_asset::DepositEvent"
+        },
+        {
+          "key": "data",
+          "index": true,
+          "value": "{\"store_addr\":\"0x88ca3d6a30433857b7709b1201c6c665f62e3b96701ed555adcaa631b976e364\",\"metadata_addr\":\"0x47111f2a0a2e58e3ec0837938fe97b5cae5cf4872505d9c03e077422fea4b162\",\"amount\":\"100000\"}"
+        },
+        {
+          "key": "msg_index",
+          "index": true,
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "type": "move",
+      "attributes": [
+        {
+          "key": "type_tag",
+          "index": true,
+          "value": "0x1::fungible_asset::MintEvent"
+        },
+        {
+          "key": "data",
+          "index": true,
+          "value": "{\"metadata_addr\":\"0x5ac318c3479d518f7b9baf80a9c9533475434b645316d266a12e66a349a9f2ae\",\"amount\":\"265227\"}"
+        },
+        {
+          "key": "msg_index",
+          "index": true,
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "type": "move",
+      "attributes": [
+        {
+          "key": "type_tag",
+          "index": true,
+          "value": "0x1::stableswap::ProvideEvent"
+        },
+        {
+          "key": "data",
+          "index": true,
+          "value": "{\"coins\":[\"0x47111f2a0a2e58e3ec0837938fe97b5cae5cf4872505d9c03e077422fea4b162\",\"0x8e4733bdabcf7d4afc3d14f0dd46c9bf52fb0fce9e4b996c939e195b8bc891d9\"],\"coin_amounts\":[\"100000\",\"168935\"],\"fee_amounts\":[\"0\",\"1\"],\"liquidity_token\":\"0x5ac318c3479d518f7b9baf80a9c9533475434b645316d266a12e66a349a9f2ae\",\"liquidity\":\"265227\"}"
+        },
+        {
+          "key": "msg_index",
+          "index": true,
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "type": "move",
+      "attributes": [
+        {
+          "key": "type_tag",
+          "index": true,
+          "value": "0x1::object::CreateEvent"
+        },
+        {
+          "key": "data",
+          "index": true,
+          "value": "{\"object\":\"0xdebefa5a249412a1ba4adfddbbca469e4d77875db6d889dc570194222459035e\",\"owner\":\"0x667bcdf984ad122750d5da7f0b20d4fcf6ed98d4\",\"version\":\"1\"}"
+        },
+        {
+          "key": "msg_index",
+          "index": true,
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "type": "move",
+      "attributes": [
+        {
+          "key": "type_tag",
+          "index": true,
+          "value": "0x1::primary_fungible_store::PrimaryStoreCreatedEvent"
+        },
+        {
+          "key": "data",
+          "index": true,
+          "value": "{\"owner_addr\":\"0x667bcdf984ad122750d5da7f0b20d4fcf6ed98d4\",\"store_addr\":\"0xdebefa5a249412a1ba4adfddbbca469e4d77875db6d889dc570194222459035e\",\"metadata_addr\":\"0x5ac318c3479d518f7b9baf80a9c9533475434b645316d266a12e66a349a9f2ae\"}"
+        },
+        {
+          "key": "msg_index",
+          "index": true,
+          "value": "0"
+        }
+      ]
+    },
+    {
+      "type": "move",
+      "attributes": [
+        {
+          "key": "type_tag",
+          "index": true,
+          "value": "0x1::fungible_asset::DepositEvent"
+        },
+        {
+          "key": "data",
+          "index": true,
+          "value": "{\"store_addr\":\"0xdebefa5a249412a1ba4adfddbbca469e4d77875db6d889dc570194222459035e\",\"metadata_addr\":\"0x5ac318c3479d518f7b9baf80a9c9533475434b645316d266a12e66a349a9f2ae\",\"amount\":\"265227\"}"
+        },
+        {
+          "key": "msg_index",
+          "index": true,
+          "value": "0"
+        }
+      ]
+    }
+  ],
+  "height": "5068220",
+  "txhash": "47BF9B7CB61960FA212A8B5F26C30B959E4C77FE71303F2282C0CB35DEDEFCB8",
+  "gas_used": "279889",
+  "codespace": "",
+  "timestamp": "2025-07-16T14:59:08.990169318Z",
+  "gas_wanted": "398818"
+}
