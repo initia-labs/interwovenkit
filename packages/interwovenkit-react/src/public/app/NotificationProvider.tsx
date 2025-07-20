@@ -26,19 +26,6 @@ const NotificationProvider = ({ children }: PropsWithChildren) => {
     }
   }
 
-  const onMouseLeave = () => {
-    clearTimer()
-    hoverRef.current = false
-    if (notification?.autoHide) {
-      timerRef.current = setTimeout(() => hideNotification(), duration)
-    }
-  }
-
-  const onMouseEnter = () => {
-    clearTimer()
-    hoverRef.current = true
-  }
-
   const hideNotification = useCallback(() => {
     clearTimer()
     setNotification(null)
@@ -68,6 +55,19 @@ const NotificationProvider = ({ children }: PropsWithChildren) => {
     },
     [hideNotification],
   )
+
+  const onMouseEnter = () => {
+    clearTimer()
+    hoverRef.current = true
+  }
+
+  const onMouseLeave = () => {
+    clearTimer()
+    hoverRef.current = false
+    if (notification?.autoHide) {
+      timerRef.current = setTimeout(() => hideNotification(), duration)
+    }
+  }
 
   useEffect(() => () => clearTimer(), [])
 
