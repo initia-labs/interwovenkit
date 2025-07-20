@@ -7,6 +7,7 @@ import { AddressUtils, formatAmount, formatNumber, toAmount, toQuantity } from "
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useAsset } from "@/data/assets"
 import { useBalances } from "@/data/account"
+import { useGasPrices, useLastFeeDenom } from "@/data/fee"
 import Page from "@/components/Page"
 import Footer from "@/components/Footer"
 import Button from "@/components/Button"
@@ -18,6 +19,7 @@ import QuantityInput from "@/components/form/QuantityInput"
 import RecipientInput from "@/components/form/RecipientInput"
 import InputHelp from "@/components/form/InputHelp"
 import FormHelp from "@/components/form/FormHelp"
+import { FIXED_GAS, getMaxAmount } from "./max"
 import type { FormValues } from "./Send"
 import SelectChainAsset from "./SelectChainAsset"
 import styles from "./SendFields.module.css"
@@ -31,15 +33,15 @@ export const SendFields = () => {
   const { addedChains } = useManageChains()
   const chain = useChain(chainId)
   const balances = useBalances(chain)
+  const gasPrices = useGasPrices(chain)
+  const lastFeeDenom = useLastFeeDenom(chain)
   const asset = useAsset(denom, chain)
   const { data: prices } = usePricesQuery(chain.chainId)
   const { decimals } = asset
   const balance = balances.find((coin) => coin.denom === denom)?.amount ?? "0"
   const price = prices?.find(({ id }) => id === denom)?.price
 
-  const isMaxAmount =
-    BigNumber(quantity).gt(0) && BigNumber(quantity).isEqualTo(toQuantity(balance, decimals))
-  const isFeeToken = chain.fees.fee_tokens.some((token) => token.denom === denom)
+  const maxAmount = getMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
 
   const { mutate, isPending } = useMutation({
     mutationFn: ({ chainId, denom, quantity, recipient, memo }: FormValues) => {
@@ -54,7 +56,16 @@ export const SendFields = () => {
           }),
         },
       ]
-      return requestTxSync({ messages, memo, chainId, internal: "/" })
+      return requestTxSync({
+        messages,
+        memo,
+        chainId,
+        gas: FIXED_GAS,
+        gasAdjustment: 1,
+        gasPrices: gasPrices,
+        spend: { denom, amount },
+        internal: "/",
+      })
     },
   })
 
@@ -75,7 +86,7 @@ export const SendFields = () => {
             balanceButton={
               <BalanceButton
                 onClick={() =>
-                  setValue("quantity", toQuantity(balance, decimals), { shouldValidate: true })
+                  setValue("quantity", toQuantity(maxAmount, decimals), { shouldValidate: true })
                 }
               >
                 {formatAmount(balance, { decimals })}
@@ -96,10 +107,6 @@ export const SendFields = () => {
           </div>
 
           <FormHelp.Stack>
-            {isMaxAmount && isFeeToken && (
-              <FormHelp level="warning">Make sure to leave enough for transaction fee</FormHelp>
-            )}
-
             {!memo && (
               <FormHelp level="warning">Check if the above transaction requires a memo</FormHelp>
             )}

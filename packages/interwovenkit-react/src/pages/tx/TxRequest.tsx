@@ -1,19 +1,15 @@
-import ky from "ky"
-import { descend } from "ramda"
 import BigNumber from "bignumber.js"
 import { sentenceCase } from "change-case"
-import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import { calculateFee, GasPrice } from "@cosmjs/stargate"
 import { useState } from "react"
-import { useMutation, useSuspenseQuery } from "@tanstack/react-query"
+import { useMutation } from "@tanstack/react-query"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { DEFAULT_GAS_PRICE_MULTIPLIER } from "@/public/data/constants"
-import { LocalStorageKey } from "@/data/constants"
 import { useBalances } from "@/data/account"
-import { chainQueryKeys, useChain } from "@/data/chains"
+import { useChain } from "@/data/chains"
 import { useSignWithEthSecp256k1, useOfflineSigner } from "@/data/signer"
-import { normalizeError, STALE_TIMES } from "@/data/http"
+import { normalizeError } from "@/data/http"
 import { TX_APPROVAL_MUTATION_KEY, useTxRequestHandler } from "@/data/tx"
+import { useGasPrices, useLastFeeDenom } from "@/data/fee"
 import WidgetAccordion from "@/components/WidgetAccordion"
 import Scrollable from "@/components/Scrollable"
 import FormHelp from "@/components/form/FormHelp"
@@ -26,54 +22,37 @@ import styles from "./TxRequest.module.css"
 
 const TxRequest = () => {
   const { txRequest, resolve, reject } = useTxRequestHandler()
-  const { messages, memo, chainId, gas, gasAdjustment } = txRequest
+  const { messages, memo, chainId, gas, gasAdjustment, spend } = txRequest
 
   const address = useInitiaAddress()
   const signer = useOfflineSigner()
   const signWithEthSecp256k1 = useSignWithEthSecp256k1()
   const chain = useChain(chainId)
   const balances = useBalances(chain)
+  const gasPrices = useGasPrices(chain)
+  const lastUsedFeeDenom = useLastFeeDenom(chain)
 
-  const { data: gasPrices } = useSuspenseQuery({
-    queryKey: chainQueryKeys.gasPrices(chain).queryKey,
-    queryFn: async () => {
-      if (chain.metadata?.is_l1) {
-        const { restUrl } = chain
-        const { gas_prices } = await ky
-          .create({ prefixUrl: restUrl })
-          .get("initia/tx/v1/gas_prices")
-          .json<{ gas_prices: Coin[] }>()
-        return gas_prices
-          .toSorted(descend(({ denom }) => denom === "uinit"))
-          .map(({ denom, amount }) => {
-            const price = BigNumber(amount).times(DEFAULT_GAS_PRICE_MULTIPLIER).toFixed(18)
-            return GasPrice.fromString(price + denom)
-          })
-      }
-      return chain.fees.fee_tokens.map(({ denom, fixed_min_gas_price }) =>
-        GasPrice.fromString(fixed_min_gas_price + denom),
-      )
-    },
-    staleTime: STALE_TIMES.SECOND,
-  })
-
-  const feeOptions = gasPrices.map((gasPrice) =>
-    calculateFee(Math.ceil(gas * gasAdjustment), gasPrice),
+  const feeOptions = (txRequest.gasPrices ?? gasPrices).map(({ amount, denom }) =>
+    calculateFee(Math.ceil(gas * gasAdjustment), GasPrice.fromString(amount + denom)),
   )
 
   const feeCoins = feeOptions.map((fee) => fee.amount[0])
 
   const canPayFee = (feeDenom: string) => {
     const balance = balances.find((balance) => balance.denom === feeDenom)?.amount ?? 0
-    const feeOption = feeCoins.find((coin) => coin.denom === feeDenom)?.amount ?? 0
-    return BigNumber(balance).gte(feeOption)
+    const feeAmount = feeCoins.find((coin) => coin.denom === feeDenom)?.amount ?? 0
+
+    if (spend && spend.denom === feeDenom) {
+      const totalRequired = BigNumber(feeAmount).plus(txRequest.spend.amount)
+      return BigNumber(balance).gte(totalRequired)
+    }
+
+    return BigNumber(balance).gte(feeAmount)
   }
 
-  const localStorageKey = `${LocalStorageKey.FEE_DENOM}:${chainId}`
   const getInitialFeeDenom = () => {
-    const savedFeeDenom = localStorage.getItem(localStorageKey)
-    if (savedFeeDenom && canPayFee(savedFeeDenom)) {
-      return savedFeeDenom
+    if (lastUsedFeeDenom && canPayFee(lastUsedFeeDenom)) {
+      return lastUsedFeeDenom
     }
 
     for (const { denom: feeDenom } of feeCoins) {
@@ -82,7 +61,7 @@ const TxRequest = () => {
       }
     }
 
-    return feeCoins[0].denom
+    return feeCoins[0]?.denom
   }
 
   const [feeDenom, setFeeDenom] = useState(getInitialFeeDenom)
@@ -95,9 +74,6 @@ const TxRequest = () => {
       if (!signer) throw new Error("Signer not initialized")
       const signedTx = await signWithEthSecp256k1(chainId, address, messages, fee, memo)
       await resolve(signedTx)
-    },
-    onMutate: () => {
-      localStorage.setItem(localStorageKey, feeDenom)
     },
     onError: async (error: Error) => {
       reject(new Error(await normalizeError(error)))

@@ -1,4 +1,5 @@
 import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
+import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import type { EncodeObject } from "@cosmjs/proto-signing"
 import type { DeliverTxResponse, SigningStargateClient, StdFee } from "@cosmjs/stargate"
 import { atom, useAtomValue, useSetAtom } from "jotai"
@@ -15,9 +16,11 @@ export interface TxRequest {
   messages: EncodeObject[]
   memo?: string
   chainId?: string
-  gasAdjustment?: number
   gas?: number
+  gasAdjustment?: number
+  gasPrices?: Coin[] | null
   fee?: StdFee | null
+  spend?: Coin
 
   /** Internal use only */
   internal?: boolean | string | number // number for disabling notification
@@ -80,7 +83,9 @@ export function useTx() {
       chainId: defaultChainId,
       gas: rawTxRequest.gas || (await estimateGas(rawTxRequest)),
       gasAdjustment: DEFAULT_GAS_ADJUSTMENT,
+      gasPrices: null,
       fee: null,
+      spend: { denom: "", amount: "0" },
       internal: false,
     }
 
