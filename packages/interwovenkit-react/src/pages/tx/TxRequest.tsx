@@ -1,6 +1,6 @@
 import BigNumber from "bignumber.js"
 import { sentenceCase } from "change-case"
-import { calculateFee } from "@cosmjs/stargate"
+import { calculateFee, GasPrice } from "@cosmjs/stargate"
 import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { useInitiaAddress } from "@/public/data/hooks"
@@ -8,12 +8,8 @@ import { useBalances } from "@/data/account"
 import { useChain } from "@/data/chains"
 import { useSignWithEthSecp256k1, useOfflineSigner } from "@/data/signer"
 import { normalizeError } from "@/data/http"
-import {
-  TX_APPROVAL_MUTATION_KEY,
-  useGasPrices,
-  useLastFeeDenom,
-  useTxRequestHandler,
-} from "@/data/tx"
+import { TX_APPROVAL_MUTATION_KEY, useTxRequestHandler } from "@/data/tx"
+import { useGasPrices, useLastFeeDenom } from "@/data/fee"
 import WidgetAccordion from "@/components/WidgetAccordion"
 import Scrollable from "@/components/Scrollable"
 import FormHelp from "@/components/form/FormHelp"
@@ -26,15 +22,7 @@ import styles from "./TxRequest.module.css"
 
 const TxRequest = () => {
   const { txRequest, resolve, reject } = useTxRequestHandler()
-  const {
-    messages,
-    memo,
-    chainId,
-    gas,
-    gasAdjustment,
-    fee,
-    feeOptions: providedFeeOptions,
-  } = txRequest
+  const { messages, memo, chainId, gas, gasAdjustment, spend } = txRequest
 
   const address = useInitiaAddress()
   const signer = useOfflineSigner()
@@ -44,18 +32,22 @@ const TxRequest = () => {
   const gasPrices = useGasPrices(chain)
   const lastUsedFeeDenom = useLastFeeDenom(chain)
 
-  const feeOptions = providedFeeOptions?.length
-    ? providedFeeOptions
-    : fee
-      ? [fee]
-      : gasPrices.map((gasPrice) => calculateFee(Math.ceil(gas * gasAdjustment), gasPrice))
+  const feeOptions = (txRequest.gasPrices ?? gasPrices).map(({ amount, denom }) =>
+    calculateFee(Math.ceil(gas * gasAdjustment), GasPrice.fromString(amount + denom)),
+  )
 
   const feeCoins = feeOptions.map((fee) => fee.amount[0])
 
   const canPayFee = (feeDenom: string) => {
     const balance = balances.find((balance) => balance.denom === feeDenom)?.amount ?? 0
-    const feeOption = feeCoins.find((coin) => coin.denom === feeDenom)?.amount ?? 0
-    return BigNumber(balance).gte(feeOption)
+    const feeAmount = feeCoins.find((coin) => coin.denom === feeDenom)?.amount ?? 0
+
+    if (spend && spend.denom === feeDenom) {
+      const totalRequired = BigNumber(feeAmount).plus(txRequest.spend.amount)
+      return BigNumber(balance).gte(totalRequired)
+    }
+
+    return BigNumber(balance).gte(feeAmount)
   }
 
   const getInitialFeeDenom = () => {
@@ -69,7 +61,7 @@ const TxRequest = () => {
       }
     }
 
-    return feeCoins[0].denom
+    return feeCoins[0]?.denom
   }
 
   const [feeDenom, setFeeDenom] = useState(getInitialFeeDenom)

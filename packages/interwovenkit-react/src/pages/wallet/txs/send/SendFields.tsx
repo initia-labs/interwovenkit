@@ -1,6 +1,5 @@
 import BigNumber from "bignumber.js"
 import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
-import { calculateFee } from "@cosmjs/stargate"
 import { useMutation } from "@tanstack/react-query"
 import { useFormContext } from "react-hook-form"
 import { useChain, useManageChains, usePricesQuery } from "@/data/chains"
@@ -8,8 +7,7 @@ import { AddressUtils, formatAmount, formatNumber, toAmount, toQuantity } from "
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useAsset } from "@/data/assets"
 import { useBalances } from "@/data/account"
-import { useGasPrices, useLastFeeDenom } from "@/data/tx"
-import { SEND_GAS_AMOUNT } from "@/data/constants"
+import { useGasPrices, useLastFeeDenom } from "@/data/fee"
 import Page from "@/components/Page"
 import Footer from "@/components/Footer"
 import Button from "@/components/Button"
@@ -21,6 +19,7 @@ import QuantityInput from "@/components/form/QuantityInput"
 import RecipientInput from "@/components/form/RecipientInput"
 import InputHelp from "@/components/form/InputHelp"
 import FormHelp from "@/components/form/FormHelp"
+import { FIXED_GAS, getMaxAmount } from "./max"
 import type { FormValues } from "./Send"
 import SelectChainAsset from "./SelectChainAsset"
 import styles from "./SendFields.module.css"
@@ -35,31 +34,14 @@ export const SendFields = () => {
   const chain = useChain(chainId)
   const balances = useBalances(chain)
   const gasPrices = useGasPrices(chain)
-  const lastUsedFeeDenom = useLastFeeDenom(chain)
+  const lastFeeDenom = useLastFeeDenom(chain)
   const asset = useAsset(denom, chain)
   const { data: prices } = usePricesQuery(chain.chainId)
   const { decimals } = asset
   const balance = balances.find((coin) => coin.denom === denom)?.amount ?? "0"
   const price = prices?.find(({ id }) => id === denom)?.price
 
-  // calculate all the tokens that can be used to pay the fee and the realative fee amount
-  const feeOptions = gasPrices
-    .map((gasPrice) => calculateFee(Math.ceil(SEND_GAS_AMOUNT), gasPrice))
-    .filter((fee) => {
-      const { denom, amount } = fee.amount[0]
-      const balance = balances.find((balance) => balance.denom === denom)?.amount ?? 0
-      return BigNumber(balance).gte(amount)
-    })
-
-  const currentFeeToken = feeOptions.find((fee) => fee.amount[0].denom === denom)
-  const defaultFeeToken = feeOptions.find(
-    (fee) => fee.amount[0].denom !== denom && fee.amount[0].denom === lastUsedFeeDenom,
-  )
-
-  // max amount that can be sent if the token is used to pay the fee
-  const maxAmount = currentFeeToken
-    ? BigNumber.max(0, BigNumber(balance).minus(currentFeeToken.amount[0].amount))
-    : BigNumber(balance)
+  const maxAmount = getMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
 
   const { mutate, isPending } = useMutation({
     mutationFn: ({ chainId, denom, quantity, recipient, memo }: FormValues) => {
@@ -78,13 +60,10 @@ export const SendFields = () => {
         messages,
         memo,
         chainId,
-        feeOptions: feeOptions.filter(
-          (fee) =>
-            fee.amount[0].denom !== denom ||
-            BigNumber(amount).lte(maxAmount) ||
-            // don't exclude if it's the only fee option
-            feeOptions.length === 1,
-        ),
+        gas: FIXED_GAS,
+        gasAdjustment: 1,
+        gasPrices: gasPrices,
+        spend: { denom, amount },
         internal: "/",
       })
     },
@@ -107,11 +86,7 @@ export const SendFields = () => {
             balanceButton={
               <BalanceButton
                 onClick={() =>
-                  setValue(
-                    "quantity",
-                    toQuantity(!defaultFeeToken ? maxAmount : balance, decimals),
-                    { shouldValidate: true },
-                  )
+                  setValue("quantity", toQuantity(maxAmount, decimals), { shouldValidate: true })
                 }
               >
                 {formatAmount(balance, { decimals })}

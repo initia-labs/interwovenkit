@@ -21,5 +21,3 @@ export const LocalStorageKey = {
   // op
   OP_REMINDER: `${NAMESPACE}:op:reminder`,
 }
-
-export const SEND_GAS_AMOUNT = 200_000

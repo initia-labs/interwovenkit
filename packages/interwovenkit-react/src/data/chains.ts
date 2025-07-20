@@ -13,7 +13,6 @@ export const chainQueryKeys = createQueryKeys("interwovenkit:chain", {
   list: (registryUrl: string) => [registryUrl],
   prices: (chainId: string) => [chainId],
   gasPrices: (chain: NormalizedChain) => [chain],
-  lastTx: (chain: NormalizedChain, address: string) => [chain, address],
 })
 
 const addedChainIdsAtom = atomWithStorage<string[]>(LocalStorageKey.ADDED_CHAIN_IDS, [])

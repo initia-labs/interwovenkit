@@ -1,37 +1,26 @@
-import ky from "ky"
-import { descend } from "ramda"
-import BigNumber from "bignumber.js"
 import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
-import { useSuspenseQuery } from "@tanstack/react-query"
-import { fromBase64 } from "@cosmjs/encoding"
-import type { Coin, EncodeObject } from "@cosmjs/proto-signing"
-import {
-  GasPrice,
-  type DeliverTxResponse,
-  type SigningStargateClient,
-  type StdFee,
-} from "@cosmjs/stargate"
+import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
+import type { EncodeObject } from "@cosmjs/proto-signing"
+import type { DeliverTxResponse, SigningStargateClient, StdFee } from "@cosmjs/stargate"
 import { atom, useAtomValue, useSetAtom } from "jotai"
 import { useNavigate } from "@/lib/router"
-import { DEFAULT_GAS_ADJUSTMENT, DEFAULT_GAS_PRICE_MULTIPLIER } from "@/public/data/constants"
+import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useModal } from "@/public/app/ModalContext"
-import { AddressUtils } from "@/public/utils"
 import { useConfig } from "./config"
-import { normalizeError, STALE_TIMES } from "./http"
+import { normalizeError } from "./http"
 import { useCreateSigningStargateClient } from "./signer"
 import { useDrawer } from "./ui"
-import { chainQueryKeys, type NormalizedChain } from "./chains"
-import { useTxs } from "@/pages/wallet/tabs/activity/data"
 
 export interface TxRequest {
   messages: EncodeObject[]
   memo?: string
   chainId?: string
-  gasAdjustment?: number
   gas?: number
+  gasAdjustment?: number
+  gasPrices?: Coin[] | null
   fee?: StdFee | null
-  feeOptions?: StdFee[] | null
+  spend?: Coin
 
   /** Internal use only */
   internal?: boolean | string | number // number for disabling notification
@@ -94,8 +83,9 @@ export function useTx() {
       chainId: defaultChainId,
       gas: rawTxRequest.gas || (await estimateGas(rawTxRequest)),
       gasAdjustment: DEFAULT_GAS_ADJUSTMENT,
+      gasPrices: null,
       fee: null,
-      feeOptions: null,
+      spend: { denom: "", amount: "0" },
       internal: false,
     }
 
@@ -205,51 +195,6 @@ export function useTx() {
   }
 
   return { estimateGas, requestTxSync, requestTxBlock, waitForTxConfirmation }
-}
-
-export function useGasPrices(chain: NormalizedChain) {
-  const { data } = useSuspenseQuery({
-    queryKey: chainQueryKeys.gasPrices(chain).queryKey,
-    queryFn: async () => {
-      if (chain.metadata?.is_l1) {
-        const { restUrl } = chain
-        const { gas_prices } = await ky
-          .create({ prefixUrl: restUrl })
-          .get("initia/tx/v1/gas_prices")
-          .json<{ gas_prices: Coin[] }>()
-        return gas_prices
-          .toSorted(descend(({ denom }) => denom === "uinit"))
-          .map(({ denom, amount }) => {
-            const price = BigNumber(amount).times(DEFAULT_GAS_PRICE_MULTIPLIER).toFixed(18)
-            return GasPrice.fromString(price + denom)
-          })
-      }
-      return chain.fees.fee_tokens.map(({ denom, fixed_min_gas_price }) =>
-        GasPrice.fromString(fixed_min_gas_price + denom),
-      )
-    },
-    staleTime: STALE_TIMES.MINUTE,
-  })
-
-  return data
-}
-
-export function useLastFeeDenom(chain: NormalizedChain) {
-  const address = useInitiaAddress()
-  const onlyOneFeeToken = chain.fees.fee_tokens.length === 1
-  const { data } = useTxs(chain, !!onlyOneFeeToken)
-
-  if (onlyOneFeeToken) {
-    return chain.fees.fee_tokens[0].denom
-  }
-
-  const lastSignedTx = data.pages[0].txs.find(({ tx }) =>
-    tx.auth_info.signer_infos.some(
-      (info) => AddressUtils.fromPublicKey(fromBase64(info.public_key.key)) === address,
-    ),
-  )
-
-  return lastSignedTx?.tx.auth_info.fee.amount[0]?.denom || null
 }
 
 export async function waitForTxConfirmationWithClient({
