@@ -36,15 +36,17 @@ export function getMaxAmount({
 
   if (denom === lastFeeDenom && lastFeeOption) {
     const amount = BigNumber(balance).minus(lastFeeOption.amount)
-    if (amount.gt(0)) return amount.toString()
-    // If amount is not greater than 0, continue to the next logic to handle insufficient balance
+    return BigNumber.max(amount, 0).toString()
   }
 
   const currentFeeOption = availableFeeOptions.find((option) => option.denom === denom)
   if (!lastFeeOption && currentFeeOption) {
     const amount = BigNumber(balance).minus(currentFeeOption.amount)
-    if (amount.gt(0)) return amount.toString()
-    // If amount is not greater than 0, continue to the next logic to handle insufficient balance
+    return BigNumber.max(amount, 0).toString()
+  }
+
+  if (availableFeeOptions.length === 0) {
+    return "0"
   }
 
   return BigNumber(balance).toString()
