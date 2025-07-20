@@ -18,8 +18,8 @@ import { usePortalContainer } from "../portal"
 import { PortalContext } from "./PortalContext"
 import WidgetHeader from "./WidgetHeader"
 import TxWatcher from "./TxWatcher"
-import styles from "./Drawer.module.css"
 import ScrollLock from "./ScrollLock"
+import styles from "./Drawer.module.css"
 
 const Drawer = ({ children }: PropsWithChildren) => {
   const { isDrawerOpen, closeDrawer } = useDrawer()
@@ -74,7 +74,6 @@ const Drawer = ({ children }: PropsWithChildren) => {
 
   return createPortal(
     <>
-      {isDrawerOpen && isSmall && <ScrollLock />}
       {drawerTransition((style, item) =>
         item ? (
           <animated.button style={style} className={styles.overlay} onClick={handleOverlayClick}>
@@ -90,6 +89,7 @@ const Drawer = ({ children }: PropsWithChildren) => {
         item ? (
           <animated.div style={style} className={clsx(styles.content)}>
             <div className={clsx(styles.inner, "body")} ref={setContainer}>
+              {isSmall && <ScrollLock />}
               <TxWatcher />
               <WidgetHeader />
               <AsyncBoundary errorBoundaryProps={errorBoundaryProps}>{children}</AsyncBoundary>
