@@ -3,7 +3,7 @@ import BigNumber from "bignumber.js"
 
 export const FIXED_GAS = 200000
 
-export function createAvailableFeeOptions({
+function createAvailableFeeOptions({
   balances,
   gasPrices,
 }: {
@@ -34,19 +34,19 @@ export function getMaxAmount({
   const availableFeeOptions = createAvailableFeeOptions({ balances, gasPrices })
   const lastFeeOption = availableFeeOptions.find((option) => option.denom === lastFeeDenom)
 
+  if (availableFeeOptions.length === 0) {
+    return "0"
+  }
+
   if (denom === lastFeeDenom && lastFeeOption) {
     const amount = BigNumber(balance).minus(lastFeeOption.amount)
     return BigNumber.max(amount, 0).toString()
   }
 
-  const currentFeeOption = availableFeeOptions.find((option) => option.denom === denom)
-  if (!lastFeeOption && currentFeeOption) {
-    const amount = BigNumber(balance).minus(currentFeeOption.amount)
+  const [preferredFeeOption] = availableFeeOptions
+  if (!lastFeeOption && denom === preferredFeeOption.denom) {
+    const amount = BigNumber(balance).minus(preferredFeeOption.amount)
     return BigNumber.max(amount, 0).toString()
-  }
-
-  if (availableFeeOptions.length === 0) {
-    return "0"
   }
 
   return BigNumber(balance).toString()
