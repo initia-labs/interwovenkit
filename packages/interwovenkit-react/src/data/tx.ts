@@ -2,7 +2,7 @@ import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import { encodeSecp256k1Pubkey } from "@cosmjs/amino"
 import type { EncodeObject } from "@cosmjs/proto-signing"
-import type { DeliverTxResponse, SigningStargateClient, StdFee } from "@cosmjs/stargate"
+import type { DeliverTxResponse, SigningStargateClient } from "@cosmjs/stargate"
 import { QueryClient, setupTxExtension } from "@cosmjs/stargate"
 import { atom, useAtomValue, useSetAtom } from "jotai"
 import { registry } from "@initia/amino-converter"
@@ -22,7 +22,6 @@ export interface TxRequest {
   gas?: number
   gasAdjustment?: number
   gasPrices?: Coin[] | null
-  fee?: StdFee | null
   spendCoins?: Coin[]
 
   /** Internal use only */
@@ -100,7 +99,6 @@ export function useTx() {
       gas: rawTxRequest.gas || (await estimateGas(rawTxRequest)),
       gasAdjustment: DEFAULT_GAS_ADJUSTMENT,
       gasPrices: null,
-      fee: null,
       spendCoins: [],
       internal: false,
     }
