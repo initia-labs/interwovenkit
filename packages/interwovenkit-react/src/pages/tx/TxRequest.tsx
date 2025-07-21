@@ -23,7 +23,7 @@ import styles from "./TxRequest.module.css"
 
 const TxRequest = () => {
   const { txRequest, resolve, reject } = useTxRequestHandler()
-  const { messages, memo, chainId, gas, gasAdjustment, spend } = txRequest
+  const { messages, memo, chainId, gas, gasAdjustment, spendCoins } = txRequest
 
   const address = useInitiaAddress()
   const signer = useOfflineSigner()
@@ -43,8 +43,12 @@ const TxRequest = () => {
     const balance = balances.find((balance) => balance.denom === feeDenom)?.amount ?? 0
     const feeAmount = feeCoins.find((coin) => coin.denom === feeDenom)?.amount ?? 0
 
-    if (spend && spend.denom === feeDenom) {
-      const totalRequired = BigNumber(feeAmount).plus(txRequest.spend.amount)
+    const spendAmount = spendCoins
+      .filter((coin) => coin.denom === feeDenom)
+      .reduce((total, coin) => BigNumber(total).plus(coin.amount), BigNumber(0))
+
+    if (spendAmount.gt(0)) {
+      const totalRequired = BigNumber(feeAmount).plus(spendAmount)
       return BigNumber(balance).gte(totalRequired)
     }
 

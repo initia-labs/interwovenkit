@@ -23,7 +23,7 @@ export interface TxRequest {
   gasAdjustment?: number
   gasPrices?: Coin[] | null
   fee?: StdFee | null
-  spend?: Coin
+  spendCoins?: Coin[]
 
   /** Internal use only */
   internal?: boolean | string | number // number for disabling notification
@@ -101,7 +101,7 @@ export function useTx() {
       gasAdjustment: DEFAULT_GAS_ADJUSTMENT,
       gasPrices: null,
       fee: null,
-      spend: { denom: "", amount: "0" },
+      spendCoins: [],
       internal: false,
     }
 

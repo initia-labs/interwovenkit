@@ -63,7 +63,7 @@ export const SendFields = () => {
         gas: FIXED_GAS,
         gasAdjustment: 1,
         gasPrices: gasPrices,
-        spend: { denom, amount },
+        spendCoins: [{ denom, amount }],
         internal: "/",
       })
     },
