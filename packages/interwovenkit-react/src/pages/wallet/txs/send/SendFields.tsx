@@ -19,7 +19,7 @@ import QuantityInput from "@/components/form/QuantityInput"
 import RecipientInput from "@/components/form/RecipientInput"
 import InputHelp from "@/components/form/InputHelp"
 import FormHelp from "@/components/form/FormHelp"
-import { FIXED_GAS, getMaxAmount } from "./max"
+import { FIXED_GAS, calcMaxAmount } from "./max"
 import type { FormValues } from "./Send"
 import SelectChainAsset from "./SelectChainAsset"
 import styles from "./SendFields.module.css"
@@ -41,7 +41,7 @@ export const SendFields = () => {
   const balance = balances.find((coin) => coin.denom === denom)?.amount ?? "0"
   const price = prices?.find(({ id }) => id === denom)?.price
 
-  const maxAmount = getMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
+  const maxAmount = calcMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
 
   const { mutate, isPending } = useMutation({
     mutationFn: ({ chainId, denom, quantity, recipient, memo }: FormValues) => {

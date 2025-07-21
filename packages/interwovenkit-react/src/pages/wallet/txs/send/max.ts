@@ -19,7 +19,7 @@ function createAvailableFeeOptions({
     .filter(({ amount, balance }) => BigNumber(balance).gte(amount))
 }
 
-export function getMaxAmount({
+export function calcMaxAmount({
   denom,
   balances,
   gasPrices,

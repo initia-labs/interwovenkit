@@ -1,5 +1,5 @@
 import { toAmount } from "@/public/utils"
-import { getMaxAmount } from "./max"
+import { calcMaxAmount } from "./max"
 
 describe("getMaxAmount", () => {
   const gasPrices = [
@@ -16,7 +16,7 @@ describe("getMaxAmount", () => {
     const lastFeeDenom = "INIT"
     const denom = "INIT"
 
-    const maxAmount = getMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
+    const maxAmount = calcMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
 
     expect(maxAmount).toBe(toAmount("99.997"))
   })
@@ -30,7 +30,7 @@ describe("getMaxAmount", () => {
     const lastFeeDenom = "INIT"
     const denom = "USDC"
 
-    const maxAmount = getMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
+    const maxAmount = calcMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
 
     expect(maxAmount).toBe(toAmount("100"))
   })
@@ -41,7 +41,7 @@ describe("getMaxAmount", () => {
     const lastFeeDenom = "INIT"
     const denom = "USDC"
 
-    const maxAmount = getMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
+    const maxAmount = calcMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
 
     expect(maxAmount).toBe(toAmount("99.994"))
   })
@@ -55,7 +55,7 @@ describe("getMaxAmount", () => {
     const lastFeeDenom = "INIT"
     const denom = "USDC"
 
-    const maxAmount = getMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
+    const maxAmount = calcMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
 
     expect(maxAmount).toBe(toAmount("99.994"))
   })
@@ -70,7 +70,7 @@ describe("getMaxAmount", () => {
     const lastFeeDenom = "INIT"
     const denom = "TOKEN"
 
-    const maxAmount = getMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
+    const maxAmount = calcMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
 
     expect(maxAmount).toBe(toAmount("50"))
   })
@@ -83,7 +83,7 @@ describe("getMaxAmount", () => {
     const lastFeeDenom = "INIT"
     const denom = "INIT"
 
-    const maxAmount = getMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
+    const maxAmount = calcMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
 
     expect(maxAmount).toBe("0")
   })
@@ -97,7 +97,7 @@ describe("getMaxAmount", () => {
     const lastFeeDenom = "INIT"
     const denom = "USDC"
 
-    const maxAmount = getMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
+    const maxAmount = calcMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
 
     expect(maxAmount).toBe("0")
   })
@@ -111,7 +111,7 @@ describe("getMaxAmount", () => {
     const lastFeeDenom = null
     const denom = "INIT"
 
-    const maxAmount = getMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
+    const maxAmount = calcMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
 
     expect(maxAmount).toBe(toAmount("99.997"))
   })
@@ -125,7 +125,7 @@ describe("getMaxAmount", () => {
     const lastFeeDenom = null
     const denom = "USDC"
 
-    const maxAmount = getMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
+    const maxAmount = calcMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
 
     expect(maxAmount).toBe(toAmount("100"))
   })
@@ -134,7 +134,7 @@ describe("getMaxAmount", () => {
     const balances = [{ denom: "INIT", amount: String(100 * 1e6) }]
     const lastFeeDenom = null
 
-    const maxAmount = getMaxAmount({ denom: "INIT", balances, gasPrices, lastFeeDenom })
+    const maxAmount = calcMaxAmount({ denom: "INIT", balances, gasPrices, lastFeeDenom })
     expect(maxAmount).toBe(toAmount("99.997"))
   })
 })
