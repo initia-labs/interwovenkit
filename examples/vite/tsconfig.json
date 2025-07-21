@@ -1,5 +1,5 @@
 {
-  "extends": "@tsconfig/vite-react/tsconfig.json",
+  "extends": "../../packages/interwovenkit-react/tsconfig.json",
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
