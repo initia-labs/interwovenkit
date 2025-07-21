@@ -1,22 +1,21 @@
 .header {
-  display: flex;
-  align-items: stretch;
+  display: grid;
+  grid-template-columns: 1fr 52px 52px;
   height: 52px;
 
   background-color: var(--gray-8);
   border-bottom: 1px solid var(--border);
 }
 
-.logo {
+.addressContainer {
   display: flex;
   align-items: center;
-
-  border-right: 1px solid var(--border);
-  padding: 0 16px;
+  justify-content: flex-start;
+  gap: 6px;
+  padding-left: 20px;
 }
 
 .copy {
-  flex: 1;
   gap: 4px;
 
   color: var(--gray-1);
@@ -53,7 +52,8 @@
   }
 }
 
-.disconnect {
+.disconnect,
+.qrcode {
   border-left: 1px solid var(--border);
   padding: 0 16px;
   color: var(--gray-4);
