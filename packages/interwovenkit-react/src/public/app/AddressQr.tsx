@@ -12,6 +12,7 @@ const AddressQr = ({ address }: { address: string }) => {
         value={address}
         className={styles.qr}
         size={200}
+        level="H"
         imageSettings={{
           src: "https://registry.initia.xyz/images/INIT.png",
           height: 36,
