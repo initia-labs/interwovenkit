@@ -1,6 +1,6 @@
 {
   "name": "@initia/interwovenkit-react",
-  "version": "2.0.0-rc.2",
+  "version": "2.0.0-rc.3",
   "repository": "github:initia-labs/interwovenkit",
   "type": "module",
   "main": "./dist/index.cjs",
