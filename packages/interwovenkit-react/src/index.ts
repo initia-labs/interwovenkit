@@ -7,6 +7,9 @@ export { injectStyles } from "./public/portal"
 // constants
 export * from "./public/data/constants"
 
+// connectors
+export * from "./public/data/connectors"
+
 // useInterwovenKit()
 export * from "./public/data/hooks"
 
