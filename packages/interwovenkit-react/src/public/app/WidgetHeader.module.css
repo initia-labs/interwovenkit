@@ -1,27 +1,22 @@
 .header {
-  display: flex;
-  align-items: stretch;
+  display: grid;
+  grid-template-columns: 1fr 52px 52px;
   height: 52px;
 
   background-color: var(--gray-8);
   border-bottom: 1px solid var(--border);
 }
 
-.logo {
+.account {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
 
-  border-right: 1px solid var(--border);
-  padding: 0 16px;
-}
-
-.copy {
-  flex: 1;
-  gap: 4px;
-
-  color: var(--gray-1);
+  color: var(--gray-0);
   font-size: 12px;
   font-weight: 500;
+  padding: 0 20px;
 
   .name {
     display: block;
@@ -53,7 +48,7 @@
   }
 }
 
-.disconnect {
+.button {
   border-left: 1px solid var(--border);
   padding: 0 16px;
   color: var(--gray-4);
