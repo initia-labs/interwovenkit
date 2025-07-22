@@ -7,20 +7,16 @@
   border-bottom: 1px solid var(--border);
 }
 
-.addressContainer {
+.account {
   display: flex;
   align-items: center;
   justify-content: flex-start;
   gap: 6px;
-  padding-left: 20px;
-}
 
-.copy {
-  gap: 4px;
-
-  color: var(--gray-1);
+  color: var(--gray-0);
   font-size: 12px;
   font-weight: 500;
+  padding: 0 20px;
 
   .name {
     display: block;
@@ -52,8 +48,7 @@
   }
 }
 
-.disconnect,
-.qrcode {
+.button {
   border-left: 1px solid var(--border);
   padding: 0 16px;
   color: var(--gray-4);
