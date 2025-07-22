@@ -40,8 +40,6 @@ interface ChangesProps<T> {
 const ChangesWithDenom = ({ changes, chain }: ChangesProps<Coin>) => {
   const findAsset = useFindAsset(chain)
 
-  if (changes.length === 0) return null
-
   return changes.map(({ amount, denom }, index) => (
     <Change amount={amount} asset={findAsset(denom)} key={index} />
   ))
@@ -52,8 +50,6 @@ const ChangesWithMetadata = ({
   chain,
 }: ChangesProps<{ amount: string; metadata: string }>) => {
   const findAsset = useFindAsset(chain)
-
-  if (changes.length === 0) return null
 
   return changes.map(({ amount, metadata }, index) => {
     return (
@@ -127,8 +123,10 @@ const TxSimulate = ({ messages, memo, chainId }: Props) => {
     const [negativeChanges, positiveChanges] = splitChanges(changes)
 
     return render(
-      <ChangesWithMetadata changes={negativeChanges} chain={chain} />,
-      <ChangesWithMetadata changes={positiveChanges} chain={chain} />,
+      // Only render Send section if there are outgoing changes (negative amounts)
+      negativeChanges.length > 0 && <ChangesWithMetadata changes={negativeChanges} chain={chain} />,
+      // Only render Receive section if there are incoming changes (positive amounts)
+      positiveChanges.length > 0 && <ChangesWithMetadata changes={positiveChanges} chain={chain} />,
     )
   }
 
@@ -138,8 +136,10 @@ const TxSimulate = ({ messages, memo, chainId }: Props) => {
   const [negativeChanges, positiveChanges] = splitChanges(changes)
 
   return render(
-    <ChangesWithDenom changes={negativeChanges} chain={chain} />,
-    <ChangesWithDenom changes={positiveChanges} chain={chain} />,
+    // Only render Send section if there are outgoing changes (negative amounts)
+    negativeChanges.length > 0 && <ChangesWithDenom changes={negativeChanges} chain={chain} />,
+    // Only render Receive section if there are incoming changes (positive amounts)
+    positiveChanges.length > 0 && <ChangesWithDenom changes={positiveChanges} chain={chain} />,
   )
 }
 
