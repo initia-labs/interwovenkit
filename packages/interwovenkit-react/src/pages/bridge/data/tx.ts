@@ -12,6 +12,7 @@ import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { AddressUtils } from "@/public/utils"
 import { useNotification } from "@/public/app/NotificationContext"
 import { useInitiaAddress, useInterwovenKit } from "@/public/data/hooks"
+import { LocalStorageKey } from "@/data/constants"
 import { normalizeError, STALE_TIMES } from "@/data/http"
 import { useAminoTypes, useGetProvider, useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
 import { waitForTxConfirmationWithClient } from "@/data/tx"
@@ -181,6 +182,8 @@ export function useBridgeTx(tx: TxJson) {
               denom: route.dest_asset_denom,
             })
           }
+          // Reset amount after successful transaction
+          localStorage.setItem(LocalStorageKey.BRIDGE_QUANTITY, "")
         })
         .catch((error) => {
           updateNotification({

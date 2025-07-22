@@ -4,6 +4,7 @@ import { IconCopy, IconQrCode, IconSignOut } from "@initia/icons-react"
 import { truncate } from "@/public/utils"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useDrawer } from "@/data/ui"
+import { LocalStorageKey } from "@/data/constants"
 import { useModal } from "./ModalContext"
 import CopyButton from "@/components/CopyButton"
 import Image from "@/components/Image"
@@ -48,6 +49,14 @@ const WidgetHeader = () => {
         onClick={() => {
           closeDrawer()
           disconnect()
+
+          // Clear bridge form values on disconnect
+          localStorage.removeItem(LocalStorageKey.BRIDGE_SRC_CHAIN_ID)
+          localStorage.removeItem(LocalStorageKey.BRIDGE_SRC_DENOM)
+          localStorage.removeItem(LocalStorageKey.BRIDGE_DST_CHAIN_ID)
+          localStorage.removeItem(LocalStorageKey.BRIDGE_DST_DENOM)
+          localStorage.removeItem(LocalStorageKey.BRIDGE_QUANTITY)
+          localStorage.removeItem(LocalStorageKey.BRIDGE_SLIPPAGE_PERCENT)
         }}
       >
         <IconSignOut size={16} />
