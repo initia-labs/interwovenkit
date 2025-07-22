@@ -12,6 +12,8 @@ import { useInitiaAddress } from "@/public/data/hooks"
 import { useModal } from "@/public/app/ModalContext"
 import { useConfig } from "./config"
 import { normalizeError } from "./http"
+import { formatMoveError } from "./errors"
+import { useFindChain } from "./chains"
 import { useCreateComet38Client, useCreateSigningStargateClient, useOfflineSigner } from "./signer"
 import { useDrawer } from "./ui"
 
@@ -54,7 +56,8 @@ export function useTxRequestHandler() {
 export function useTx() {
   const navigate = useNavigate()
   const address = useInitiaAddress()
-  const { defaultChainId } = useConfig()
+  const { defaultChainId, registryUrl } = useConfig()
+  const findChain = useFindChain()
   const { openDrawer, closeDrawer } = useDrawer()
   const { openModal, closeModal } = useModal()
   const setTxRequestHandler = useSetAtom(txRequestHandlerAtom)
@@ -118,7 +121,7 @@ export function useTx() {
               navigate(txRequest.internal)
             }
           } catch (error) {
-            reject(error)
+            reject(await formatMoveError(error as Error, findChain(txRequest.chainId), registryUrl))
           } finally {
             finalize()
           }
@@ -204,8 +207,12 @@ export function useTx() {
     timeoutSeconds?: number
     intervalSeconds?: number
   }) => {
-    const client = await createSigningStargateClient(chainId)
-    return waitForTxConfirmationWithClient({ ...params, client })
+    try {
+      const client = await createSigningStargateClient(chainId)
+      return await waitForTxConfirmationWithClient({ ...params, client })
+    } catch (error) {
+      throw await formatMoveError(error as Error, findChain(chainId), registryUrl)
+    }
   }
 
   return { estimateGas, simulateTx, requestTxSync, requestTxBlock, waitForTxConfirmation }
