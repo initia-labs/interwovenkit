@@ -1,4 +1,4 @@
-.changes {
+.root {
   background-color: var(--gray-8);
   border-radius: 8px;
   padding: 16px;
@@ -20,6 +20,13 @@
     font-size: 12px;
     font-weight: 500;
     line-height: calc(14px * 1.5);
+  }
+
+  .changes {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
   }
 }
 

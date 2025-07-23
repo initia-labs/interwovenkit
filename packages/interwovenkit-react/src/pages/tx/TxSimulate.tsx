@@ -91,20 +91,20 @@ const TxSimulate = ({ messages, memo, chainId }: Props) => {
 
   const render = (negative: ReactNode, positive: ReactNode) => {
     return (
-      <div className={styles.changes}>
+      <div className={styles.root}>
         <h2 className={styles.title}>Estimated changes</h2>
         <div>
           {negative && (
             <div className={styles.section}>
               <h3 className={styles.label}>Send</h3>
-              {negative}
+              <div className={styles.changes}>{negative}</div>
             </div>
           )}
           {negative && positive && <div className={styles.divider} />}
           {positive && (
             <div className={styles.section}>
               <h3 className={styles.label}>Receive</h3>
-              {positive}
+              <div className={styles.changes}>{positive}</div>
             </div>
           )}
         </div>
