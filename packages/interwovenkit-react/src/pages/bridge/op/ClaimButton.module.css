@@ -10,8 +10,13 @@
 
   transition: border-color var(--transition) ease;
 
-  &:hover {
+  &:hover:not(:disabled) {
     border: 1px solid var(--gray-3);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 }
 
