@@ -13,7 +13,10 @@ import { AddressUtils } from "@/public/utils"
 import { useNotification } from "@/public/app/NotificationContext"
 import { useInitiaAddress, useInterwovenKit } from "@/public/data/hooks"
 import { LocalStorageKey } from "@/data/constants"
+import { useConfig } from "@/data/config"
 import { normalizeError, STALE_TIMES } from "@/data/http"
+import { formatMoveError } from "@/data/errors"
+import { useFindChain } from "@/data/chains"
 import { useAminoTypes, useGetProvider, useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
 import { waitForTxConfirmationWithClient } from "@/data/tx"
 import { useClaimableReminders } from "../op/reminder"
@@ -67,6 +70,9 @@ export function useBridgeTx(tx: TxJson) {
   const srcChainType = useChainType(srcChain)
   const findAsset = useFindSkipAsset(srcChainId)
   const queryClient = useQueryClient()
+
+  const { registryUrl } = useConfig()
+  const findChain = useFindChain()
 
   const { addReminder } = useClaimableReminders()
   return useMutation({
@@ -197,11 +203,15 @@ export function useBridgeTx(tx: TxJson) {
           })
         })
     },
-    onError: (error) => {
+    onError: async (error) => {
+      const formattedError =
+        srcChainType === "initia"
+          ? await formatMoveError(error, findChain(srcChainId), registryUrl)
+          : error
       showNotification({
         type: "error",
         title: "Transaction failed",
-        description: error.message,
+        description: formattedError.message,
       })
     },
   })
