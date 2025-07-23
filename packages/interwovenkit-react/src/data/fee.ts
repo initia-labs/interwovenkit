@@ -1,5 +1,5 @@
 import ky from "ky"
-import { descend } from "ramda"
+import { descend, isNil } from "ramda"
 import BigNumber from "bignumber.js"
 import { computeAddress } from "ethers"
 import { Secp256k1 } from "@cosmjs/crypto"
@@ -34,7 +34,7 @@ export function useGasPrices(chain: NormalizedChain) {
           })
       }
       return chain.fees.fee_tokens.map(({ denom, fixed_min_gas_price: price }) => {
-        if (!price) throw new Error(`${denom} has no price`)
+        if (isNil(price)) throw new Error(`${denom} has no price`)
         return { amount: String(price), denom }
       })
     },

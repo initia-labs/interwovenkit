@@ -2,6 +2,7 @@ import { useCallback, useState, type PropsWithChildren } from "react"
 import { useAtomValue } from "jotai"
 import { txRequestHandlerAtom } from "@/data/tx"
 import Modal from "@/components/Modal"
+import AsyncBoundary from "@/components/AsyncBoundary"
 import TxRequest from "@/pages/tx/TxRequest"
 import type { ModalOptions } from "./ModalContext"
 import { ModalContext } from "./ModalContext"
@@ -45,7 +46,7 @@ const ModalProvider = ({ children }: PropsWithChildren) => {
         // Would be nice to fix this properly later.
         onOpenChange={handleOpenChange}
       >
-        {path === "/tx" ? <TxRequest /> : content}
+        <AsyncBoundary>{path === "/tx" ? <TxRequest /> : content}</AsyncBoundary>
       </Modal>
     </ModalContext.Provider>
   )
