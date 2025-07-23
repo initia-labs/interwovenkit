@@ -140,7 +140,8 @@ export function useBridgeTx(tx: TxJson) {
       }
     },
     onSuccess: ({ txHash, wait }) => {
-      navigate(-1)
+      localStorage.removeItem(LocalStorageKey.BRIDGE_QUANTITY)
+      navigate("/bridge", { quantity: "" })
       showNotification({
         type: "loading",
         title: "Transaction is pending...",
@@ -182,8 +183,6 @@ export function useBridgeTx(tx: TxJson) {
               denom: route.dest_asset_denom,
             })
           }
-          // Reset amount after successful transaction
-          localStorage.setItem(LocalStorageKey.BRIDGE_QUANTITY, "")
         })
         .catch((error) => {
           updateNotification({
