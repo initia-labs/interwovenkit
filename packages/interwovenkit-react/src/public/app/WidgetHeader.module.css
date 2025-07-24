@@ -1,5 +1,6 @@
 .header {
   display: grid;
+  grid-template-columns: 1fr 52px auto;
   height: 52px;
 
   background-color: var(--gray-8);
@@ -48,19 +49,35 @@
 }
 
 .button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
   border-left: 1px solid var(--border);
-  padding: 0 16px;
   color: var(--gray-4);
-  font-size: 12px;
-  font-weight: 500;
 
   transition: color var(--transition) ease;
 
   &:hover {
     color: var(--gray-1);
+  }
+}
+
+.disconnect {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+
+  min-width: 52px;
+  overflow: hidden;
+  padding-left: calc((52px - 16px) / 2);
+
+  .label {
+    font-size: 12px;
+    font-weight: 500;
+    opacity: 0;
+
+    transition: opacity var(--transition) ease;
+  }
+
+  &.expanded .label {
+    opacity: 1;
   }
 }

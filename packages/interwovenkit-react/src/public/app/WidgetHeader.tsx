@@ -1,17 +1,17 @@
-import { useRef, useState } from "react"
 import clsx from "clsx"
 import { useAccount, useDisconnect } from "wagmi"
+import { useState, useRef, useEffect } from "react"
+import { useSpring, animated } from "@react-spring/web"
 import { IconCopy, IconQrCode, IconSignOut } from "@initia/icons-react"
 import { truncate } from "@/public/utils"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useDrawer } from "@/data/ui"
 import { LocalStorageKey } from "@/data/constants"
-import { useModal } from "./ModalContext"
 import CopyButton from "@/components/CopyButton"
 import Image from "@/components/Image"
+import { useModal } from "./ModalContext"
 import AddressQrList from "./AddressQrList"
 import styles from "./WidgetHeader.module.css"
-import { animated, config, useSpring } from "@react-spring/web"
 
 const WidgetHeader = () => {
   const { connector } = useAccount()
@@ -21,16 +21,18 @@ const WidgetHeader = () => {
   const { openModal } = useModal()
   const name = username ?? address
 
-  const [disconnecting, setDisconnecting] = useState(false)
-  const timerRef = useRef<NodeJS.Timeout>(null!)
+  const [isExpanded, setIsExpanded] = useState(false)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  const style = useSpring({
-    column: disconnecting ? 128 : 52,
-    config: { ...config.stiff, clamp: true },
+  const springProps = useSpring({
+    width: isExpanded ? 140 : 52,
+    config: { tension: 300, friction: 30, clamp: true },
   })
 
-  function handleDisconnect() {
-    if (disconnecting) {
+  const handleDisconnectClick = () => {
+    if (!isExpanded) {
+      setIsExpanded(true)
+    } else {
       closeDrawer()
       disconnect()
 
@@ -41,20 +43,38 @@ const WidgetHeader = () => {
       localStorage.removeItem(LocalStorageKey.BRIDGE_DST_DENOM)
       localStorage.removeItem(LocalStorageKey.BRIDGE_QUANTITY)
       localStorage.removeItem(LocalStorageKey.BRIDGE_SLIPPAGE_PERCENT)
-    } else {
-      setDisconnecting(true)
     }
   }
+
+  const handleMouseLeave = () => {
+    if (isExpanded) {
+      timeoutRef.current = setTimeout(() => {
+        setIsExpanded(false)
+      }, 500)
+    }
+  }
+
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [])
 
   if (!connector) {
     return null
   }
 
   return (
-    <animated.div
-      className={clsx(styles.header)}
-      style={{ gridTemplateColumns: style.column.to((v) => `1fr 52px ${v}px`) }}
-    >
+    <header className={styles.header}>
       <CopyButton value={address}>
         {({ copy, copied }) => (
           <button className={clsx(styles.account, { [styles.copied]: copied })} onClick={copy}>
@@ -74,16 +94,17 @@ const WidgetHeader = () => {
         <IconQrCode size={16} />
       </button>
 
-      <button
-        className={styles.button}
-        onClick={handleDisconnect}
-        onMouseLeave={() => (timerRef.current = setTimeout(() => setDisconnecting(false), 1000))}
-        onMouseEnter={() => clearTimeout(timerRef.current)}
+      <animated.button
+        className={clsx(styles.button, styles.disconnect, { [styles.expanded]: isExpanded })}
+        style={springProps}
+        onClick={handleDisconnectClick}
+        onMouseLeave={handleMouseLeave}
+        onMouseEnter={handleMouseEnter}
       >
         <IconSignOut size={16} />
-        {disconnecting && "Disconnect"}
-      </button>
-    </animated.div>
+        <span className={styles.label}>Disconnect</span>
+      </animated.button>
+    </header>
   )
 }
 
