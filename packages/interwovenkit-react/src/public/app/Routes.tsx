@@ -47,10 +47,12 @@ const Routes = () => {
       return <BridgeForm key={address} />
     case "/bridge/history":
       return <BridgeHistory />
+    case "/blank":
+      return null
   }
 
   if (!address) {
-    return null
+    return <Connect />
   }
 
   switch (path) {
@@ -74,8 +76,6 @@ const Routes = () => {
       return <Withdrawals />
     case "/tx":
       return <TxRequest />
-    case "/blank":
-      return null
   }
 }
 

@@ -3,6 +3,7 @@ import { useAccount, useDisconnect } from "wagmi"
 import { useState, useRef, useEffect } from "react"
 import { useSpring, animated } from "@react-spring/web"
 import { IconCopy, IconQrCode, IconSignOut } from "@initia/icons-react"
+import { useNavigate } from "@/lib/router"
 import { truncate } from "@/public/utils"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useDrawer } from "@/data/ui"
@@ -14,6 +15,7 @@ import AddressQrList from "./AddressQrList"
 import styles from "./WidgetHeader.module.css"
 
 const WidgetHeader = () => {
+  const navigate = useNavigate()
   const { connector } = useAccount()
   const { disconnect } = useDisconnect()
   const { address, username } = useInterwovenKit()
@@ -33,6 +35,7 @@ const WidgetHeader = () => {
     if (!isExpanded) {
       setIsExpanded(true)
     } else {
+      navigate("/blank")
       closeDrawer()
       disconnect()
 
