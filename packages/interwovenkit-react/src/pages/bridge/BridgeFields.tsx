@@ -100,7 +100,14 @@ const BridgeFields = () => {
     // So, it is okay to keep showing the old simulation result for a short time.
     setPreviousData({ ...data, amount_out: "0", usd_amount_in: "0", usd_amount_out: "0" })
   }, [data])
-  const route = isFetched ? data : debouncedQuantity ? previousData : undefined
+
+  // Clear previous data when chain or asset changes to avoid showing stale fees/duration
+  useEffect(() => {
+    setPreviousData(undefined)
+  }, [srcChainId, srcDenom, dstChainId, dstDenom])
+
+  // Only use previous data if we haven't fetched yet and there's no error
+  const route = isFetched ? data : debouncedQuantity && !error ? previousData : undefined
   const isSimulating = debouncedQuantity && (isLoading || isFetching)
 
   const flip = () => {
