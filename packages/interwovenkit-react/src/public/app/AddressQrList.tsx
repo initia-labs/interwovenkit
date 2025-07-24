@@ -18,14 +18,14 @@ const AddressQrList = () => {
           onClick={() => setActiveTab("bech32")}
           data-state={activeTab === "bech32" ? "active" : undefined}
         >
-          Bech32
+          init
         </button>
         <button
           className={styles.trigger}
           onClick={() => setActiveTab("hex")}
           data-state={activeTab === "hex" ? "active" : undefined}
         >
-          Hex
+          0x
         </button>
       </div>
       {activeTab === "bech32" && <AddressQr address={initiaAddress} />}
