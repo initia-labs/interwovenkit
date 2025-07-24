@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from "react"
-import { useHover } from "usehooks-ts"
+import { useRef, useState } from "react"
 import clsx from "clsx"
 import { useAccount, useDisconnect } from "wagmi"
 import { IconCopy, IconQrCode, IconSignOut } from "@initia/icons-react"
@@ -12,6 +11,7 @@ import CopyButton from "@/components/CopyButton"
 import Image from "@/components/Image"
 import AddressQrList from "./AddressQrList"
 import styles from "./WidgetHeader.module.css"
+import { animated, config, useSpring } from "@react-spring/web"
 
 const WidgetHeader = () => {
   const { connector } = useAccount()
@@ -22,15 +22,12 @@ const WidgetHeader = () => {
   const name = username ?? address
 
   const [disconnecting, setDisconnecting] = useState(false)
-  const disconnectRef = useRef<HTMLButtonElement>(null!)
-  const isHover = useHover(disconnectRef)
+  const timerRef = useRef<NodeJS.Timeout>(null!)
 
-  useEffect(() => {
-    if (disconnecting && !isHover) {
-      const timeout = setTimeout(() => setDisconnecting(false), 1000)
-      return () => clearTimeout(timeout)
-    }
-  }, [isHover, disconnecting, setDisconnecting])
+  const style = useSpring({
+    column: disconnecting ? 128 : 52,
+    config: { ...config.stiff, clamp: true },
+  })
 
   function handleDisconnect() {
     if (disconnecting) {
@@ -54,7 +51,10 @@ const WidgetHeader = () => {
   }
 
   return (
-    <header className={clsx(styles.header, { [styles.disconnecting]: disconnecting })}>
+    <animated.div
+      className={clsx(styles.header)}
+      style={{ gridTemplateColumns: style.column.to((v) => `1fr 52px ${v}px`) }}
+    >
       <CopyButton value={address}>
         {({ copy, copied }) => (
           <button className={clsx(styles.account, { [styles.copied]: copied })} onClick={copy}>
@@ -67,20 +67,23 @@ const WidgetHeader = () => {
         )}
       </CopyButton>
 
-      {!disconnecting && (
-        <button
-          className={styles.button}
-          onClick={() => openModal({ title: "Address", content: <AddressQrList /> })}
-        >
-          <IconQrCode size={16} />
-        </button>
-      )}
+      <button
+        className={styles.button}
+        onClick={() => openModal({ title: "Address", content: <AddressQrList /> })}
+      >
+        <IconQrCode size={16} />
+      </button>
 
-      <button className={styles.button} onClick={handleDisconnect} ref={disconnectRef}>
+      <button
+        className={styles.button}
+        onClick={handleDisconnect}
+        onMouseLeave={() => (timerRef.current = setTimeout(() => setDisconnecting(false), 1000))}
+        onMouseEnter={() => clearTimeout(timerRef.current)}
+      >
         <IconSignOut size={16} />
         {disconnecting && "Disconnect"}
       </button>
-    </header>
+    </animated.div>
   )
 }
 

@@ -1,14 +1,9 @@
 .header {
   display: grid;
-  grid-template-columns: 1fr 52px 52px;
   height: 52px;
 
   background-color: var(--gray-8);
   border-bottom: 1px solid var(--border);
-}
-
-.disconnecting {
-  grid-template-columns: 1fr 128px;
 }
 
 .account {
