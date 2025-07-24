@@ -3,3 +3,17 @@
   padding-top: 24px;
   overflow: hidden;
 }
+
+.more {
+  color: var(--gray-2);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 12px;
+  width: 100%;
+
+  transition: color var(--transition) ease;
+
+  &:hover {
+    color: var(--gray-1);
+  }
+}

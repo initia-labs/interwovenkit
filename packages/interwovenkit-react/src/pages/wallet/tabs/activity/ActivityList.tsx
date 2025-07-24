@@ -1,14 +1,14 @@
+import { useInitiaAddress } from "@/public/data/hooks"
 import type { NormalizedChain } from "@/data/chains"
-import { parsePaginatedResponse } from "@/data/pagination"
 import Status from "@/components/Status"
-import LoadMoreButton from "@/components/LoadMoreButton"
+import ExplorerLink from "@/components/ExplorerLink"
 import { useTxs } from "./data"
 import ActivityItem from "./ActivityItem"
 import styles from "./ActivityList.module.css"
 
 const ActivityList = ({ chain }: { chain: NormalizedChain }) => {
-  const { data: activity, hasNextPage, isFetching, fetchNextPage } = useTxs(chain)
-  const { list } = parsePaginatedResponse("txs", activity)
+  const address = useInitiaAddress()
+  const { data: list } = useTxs(chain)
 
   if (!list.length) {
     return <Status>No activity yet</Status>
@@ -22,7 +22,15 @@ const ActivityList = ({ chain }: { chain: NormalizedChain }) => {
         ))}
       </div>
 
-      {hasNextPage && <LoadMoreButton onClick={() => fetchNextPage()} disabled={isFetching} />}
+      <ExplorerLink
+        chainId={chain.chainId}
+        accountAddress={address}
+        pathSuffix="/txs"
+        className={styles.more}
+        showIcon
+      >
+        View more on Initia Scan
+      </ExplorerLink>
     </>
   )
 }
