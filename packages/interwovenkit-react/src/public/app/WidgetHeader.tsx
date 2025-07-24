@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { useHover } from "usehooks-ts"
 import clsx from "clsx"
 import { useAccount, useDisconnect } from "wagmi"
 import { IconCopy, IconQrCode, IconSignOut } from "@initia/icons-react"
@@ -21,13 +22,15 @@ const WidgetHeader = () => {
   const name = username ?? address
 
   const [disconnecting, setDisconnecting] = useState(false)
+  const disconnectRef = useRef<HTMLButtonElement>(null!)
+  const isHover = useHover(disconnectRef)
 
   useEffect(() => {
-    if (disconnecting) {
-      const timeout = setTimeout(() => setDisconnecting(false), 3000)
+    if (disconnecting && !isHover) {
+      const timeout = setTimeout(() => setDisconnecting(false), 1000)
       return () => clearTimeout(timeout)
     }
-  }, [disconnecting, setDisconnecting])
+  }, [isHover, disconnecting, setDisconnecting])
 
   function handleDisconnect() {
     if (disconnecting) {
@@ -73,7 +76,7 @@ const WidgetHeader = () => {
         </button>
       )}
 
-      <button className={styles.button} onClick={handleDisconnect}>
+      <button className={styles.button} onClick={handleDisconnect} ref={disconnectRef}>
         <IconSignOut size={16} />
         {disconnecting && "Disconnect"}
       </button>
