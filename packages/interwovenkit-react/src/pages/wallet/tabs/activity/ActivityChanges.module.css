@@ -7,7 +7,7 @@
 }
 
 .positive {
-  color: var(--info-light);
+  color: var(--success-light);
 }
 
 .negative {
