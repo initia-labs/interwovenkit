@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import clsx from "clsx"
 import { useAccount, useDisconnect } from "wagmi"
 import { IconCopy, IconQrCode, IconSignOut } from "@initia/icons-react"
@@ -19,12 +20,48 @@ const WidgetHeader = () => {
   const { openModal } = useModal()
   const name = username ?? address
 
+  const [disconnecting, setDisconnecting] = useState(false)
+
+  useEffect(() => {
+    // Reset disconnecting state when something else is clicked
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as Element | null
+      if (!target?.closest(`.${styles.button}`)) {
+        setDisconnecting(false)
+      }
+    }
+
+    if (disconnecting) {
+      document.addEventListener("click", handleClick)
+      return () => {
+        document.removeEventListener("click", handleClick)
+      }
+    }
+  }, [disconnecting, setDisconnecting])
+
+  function handleDisconnect() {
+    if (disconnecting) {
+      closeDrawer()
+      disconnect()
+
+      // Clear bridge form values on disconnect
+      localStorage.removeItem(LocalStorageKey.BRIDGE_SRC_CHAIN_ID)
+      localStorage.removeItem(LocalStorageKey.BRIDGE_SRC_DENOM)
+      localStorage.removeItem(LocalStorageKey.BRIDGE_DST_CHAIN_ID)
+      localStorage.removeItem(LocalStorageKey.BRIDGE_DST_DENOM)
+      localStorage.removeItem(LocalStorageKey.BRIDGE_QUANTITY)
+      localStorage.removeItem(LocalStorageKey.BRIDGE_SLIPPAGE_PERCENT)
+    } else {
+      setDisconnecting(true)
+    }
+  }
+
   if (!connector) {
     return null
   }
 
   return (
-    <header className={styles.header}>
+    <header className={clsx(styles.header, { [styles.disconnecting]: disconnecting })}>
       <CopyButton value={address}>
         {({ copy, copied }) => (
           <button className={clsx(styles.account, { [styles.copied]: copied })} onClick={copy}>
@@ -37,29 +74,18 @@ const WidgetHeader = () => {
         )}
       </CopyButton>
 
-      <button
-        className={styles.button}
-        onClick={() => openModal({ title: "Address", content: <AddressQrList /> })}
-      >
-        <IconQrCode size={16} />
-      </button>
+      {!disconnecting && (
+        <button
+          className={styles.button}
+          onClick={() => openModal({ title: "Address", content: <AddressQrList /> })}
+        >
+          <IconQrCode size={16} />
+        </button>
+      )}
 
-      <button
-        className={styles.button}
-        onClick={() => {
-          closeDrawer()
-          disconnect()
-
-          // Clear bridge form values on disconnect
-          localStorage.removeItem(LocalStorageKey.BRIDGE_SRC_CHAIN_ID)
-          localStorage.removeItem(LocalStorageKey.BRIDGE_SRC_DENOM)
-          localStorage.removeItem(LocalStorageKey.BRIDGE_DST_CHAIN_ID)
-          localStorage.removeItem(LocalStorageKey.BRIDGE_DST_DENOM)
-          localStorage.removeItem(LocalStorageKey.BRIDGE_QUANTITY)
-          localStorage.removeItem(LocalStorageKey.BRIDGE_SLIPPAGE_PERCENT)
-        }}
-      >
+      <button className={styles.button} onClick={handleDisconnect}>
         <IconSignOut size={16} />
+        {disconnecting && "Disconnect"}
       </button>
     </header>
   )
