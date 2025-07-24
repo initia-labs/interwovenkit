@@ -9,25 +9,55 @@ import styles from "./ExplorerLink.module.css"
 
 interface Props extends AnchorHTMLAttributes<HTMLAnchorElement> {
   chainId: string
-  txHash: string
+  txHash?: string
+  accountAddress?: string
+  suffixPath?: string
   showIcon?: boolean
   onClick?: () => void
 }
 
 const ExplorerLink = (props: Props) => {
-  const { chainId, txHash, showIcon, className, children, onClick, ...attrs } = props
+  const {
+    chainId,
+    txHash,
+    accountAddress,
+    suffixPath,
+    showIcon,
+    className,
+    children,
+    onClick,
+    ...attrs
+  } = props
   const chain = useChain(chainId)
-  const txPage = path<string>(["explorers", 0, "tx_page"], chain)
-  const text = children ?? truncate(txHash)
 
-  if (!txPage) {
+  let url: string | undefined
+  let defaultText: string
+
+  if (txHash) {
+    const txPage = path<string>(["explorers", 0, "tx_page"], chain)
+    url = txPage?.replace(/\$\{txHash\}/g, txHash)
+    defaultText = truncate(txHash)
+  } else if (accountAddress) {
+    const accountPage = path<string>(["explorers", 0, "account_page"], chain)
+    url = accountPage?.replace(/\$\{accountAddress\}/g, accountAddress)
+    if (url && suffixPath) {
+      url = url + suffixPath
+    }
+    defaultText = truncate(accountAddress)
+  } else {
+    defaultText = ""
+  }
+
+  const text = children ?? defaultText
+
+  if (!url) {
     return <span {...attrs}>{text}</span>
   }
 
   return (
     <a
       {...attrs}
-      href={xss(sanitizeLink(txPage.replace(/\$\{txHash\}/g, txHash)))}
+      href={xss(sanitizeLink(url))}
       className={clsx(styles.link, className)}
       onClick={onClick}
       target="_blank"

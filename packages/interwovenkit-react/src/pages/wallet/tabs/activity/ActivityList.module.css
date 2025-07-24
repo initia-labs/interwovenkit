@@ -3,3 +3,25 @@
   padding-top: 24px;
   overflow: hidden;
 }
+
+.viewMoreButton {
+  gap: 2px;
+  color: var(--dimmed);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 12px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  transition: color var(--transition) ease;
+
+  &:hover {
+    color: var(--gray-1);
+  }
+
+  &:disabled {
+    color: var(--gray-6);
+  }
+}
