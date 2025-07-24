@@ -23,19 +23,9 @@ const WidgetHeader = () => {
   const [disconnecting, setDisconnecting] = useState(false)
 
   useEffect(() => {
-    // Reset disconnecting state when something else is clicked
-    const handleClick = (event: MouseEvent) => {
-      const target = event.target as Element | null
-      if (!target?.closest(`.${styles.button}`)) {
-        setDisconnecting(false)
-      }
-    }
-
     if (disconnecting) {
-      document.addEventListener("click", handleClick)
-      return () => {
-        document.removeEventListener("click", handleClick)
-      }
+      const timeout = setTimeout(() => setDisconnecting(false), 3000)
+      return () => clearTimeout(timeout)
     }
   }, [disconnecting, setDisconnecting])
 
