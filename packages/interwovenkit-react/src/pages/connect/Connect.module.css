@@ -44,8 +44,13 @@
 
   transition: background-color var(--transition) ease;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background-color: var(--gray-8);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .name {
