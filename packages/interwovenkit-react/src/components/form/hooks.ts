@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react"
-import { useMediaQuery } from "usehooks-ts"
+import { useIsMobile } from "@/hooks/useIsMobile"
 
 export function useAutoFocus<T extends HTMLInputElement>() {
   const ref = useRef<T>(null)
-  const isSmall = useMediaQuery("(max-width: 576px)")
+  const isSmall = useIsMobile()
 
   useEffect(() => {
     if (isSmall) return

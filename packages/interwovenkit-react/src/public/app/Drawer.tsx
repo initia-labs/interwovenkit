@@ -2,7 +2,7 @@ import clsx from "clsx"
 import { useAtomValue } from "jotai"
 import { useContext, type PropsWithChildren } from "react"
 import { createPortal } from "react-dom"
-import { useMediaQuery } from "usehooks-ts"
+import { useIsMobile } from "@/hooks/useIsMobile"
 import type { FallbackProps } from "react-error-boundary"
 import { useTransition, animated } from "@react-spring/web"
 import { useIsMutating, useQueryClient } from "@tanstack/react-query"
@@ -24,7 +24,7 @@ import styles from "./Drawer.module.css"
 const Drawer = ({ children }: PropsWithChildren) => {
   const { isDrawerOpen, closeDrawer } = useDrawer()
   const { setContainer } = useContext(PortalContext)
-  const isSmall = useMediaQuery("(max-width: 576px)")
+  const isSmall = useIsMobile()
 
   // FIXME: React StrictMode causes a problem by unmounting the component once on purpose.
   // Should reject on unmount, but didn't work as expected.

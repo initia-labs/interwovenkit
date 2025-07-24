@@ -15,6 +15,7 @@ import { formatAmount, formatNumber, toQuantity } from "@/public/utils"
 import { useModal } from "@/public/app/ModalContext"
 import { LocalStorageKey } from "@/data/constants"
 import { useFindChain } from "@/data/chains"
+import { useIsMobile } from "@/hooks/useIsMobile"
 import Button from "@/components/Button"
 import ChainAssetQuantityLayout from "@/components/form/ChainAssetQuantityLayout"
 import BalanceButton from "@/components/form/BalanceButton"
@@ -46,6 +47,7 @@ import styles from "./BridgeFields.module.css"
 
 const BridgeFields = () => {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
 
   const [selectedType, setSelectedType] = useLocalStorage<RouteType>(
     LocalStorageKey.BRIDGE_ROUTE_TYPE,
@@ -214,11 +216,13 @@ const BridgeFields = () => {
     return (
       <div className={styles.description}>
         {formatFees(fees)}
-        <WidgetTooltip label={tooltip}>
-          <span className={styles.icon}>
-            <IconInfoFilled size={12} />
-          </span>
-        </WidgetTooltip>
+        {!isMobile && (
+          <WidgetTooltip label={tooltip}>
+            <span className={styles.icon}>
+              <IconInfoFilled size={12} />
+            </span>
+          </WidgetTooltip>
+        )}
       </div>
     )
   }
