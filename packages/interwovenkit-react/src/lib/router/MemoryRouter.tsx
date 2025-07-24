@@ -14,10 +14,14 @@ interface MemoryRouterProps {
 
 const MemoryRouter = ({ children, initialEntry }: PropsWithChildren<MemoryRouterProps>) => {
   const [history, setHistory] = useState<HistoryEntry[]>([initialEntry ?? { path: "/" }])
+  // we cannot use history to track prevLocation since navigate(-1) will remove the current entry
+  const [previousLocation, setPreviousLocation] = useState<HistoryEntry | null>(null)
   const location = history[history.length - 1]
 
   const navigate = useCallback((to: string | number, state?: object) => {
     setHistory((prev) => {
+      setPreviousLocation(prev[prev.length - 1])
+
       if (typeof to === "string") {
         return [...prev, { path: to, state }]
       }
@@ -45,7 +49,7 @@ const MemoryRouter = ({ children, initialEntry }: PropsWithChildren<MemoryRouter
   }, [])
 
   return (
-    <RouterContext.Provider value={{ location, history, navigate, reset }}>
+    <RouterContext.Provider value={{ location, previousLocation, history, navigate, reset }}>
       {children}
     </RouterContext.Provider>
   )

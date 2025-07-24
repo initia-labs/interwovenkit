@@ -27,7 +27,7 @@ const FormValuesSchema = z.object({
 export type FormValues = z.infer<typeof FormValuesSchema>
 
 export const Send = () => {
-  const state = useLocationState<{ denom: string; chain: NormalizedChain }>()
+  const state = useLocationState<{ denom: string; chain: NormalizedChain }>("/send")
 
   const defaultChain = useDefaultChain()
   const defaultAssets = useAssets(defaultChain)

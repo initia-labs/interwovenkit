@@ -29,7 +29,11 @@ const queryKeys = createQueryKeys("interwovenkit:send-nft", {
 })
 
 const SendNftFields = () => {
-  const { chain: srcChain, collection, nft } = useLocationState<ChainCollectionNftCollectionState>()
+  const {
+    chain: srcChain,
+    collection,
+    nft,
+  } = useLocationState<ChainCollectionNftCollectionState>("/nft/send")
 
   const { routerApiUrl } = useConfig()
   const aminoTypes = useAminoTypes()

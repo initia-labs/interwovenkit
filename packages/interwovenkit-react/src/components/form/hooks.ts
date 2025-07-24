@@ -7,7 +7,9 @@ export function useAutoFocus<T extends HTMLInputElement>() {
 
   useEffect(() => {
     if (isSmall) return
-    ref.current?.focus()
+    // wait 250ms to allow transition to complete
+    const timeout = setTimeout(() => ref.current?.focus(), 250)
+    return () => clearTimeout(timeout)
   }, [isSmall])
 
   return ref
