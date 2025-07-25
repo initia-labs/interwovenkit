@@ -1,8 +1,9 @@
-import { zipObj } from "ramda"
+import { head, zipObj } from "ramda"
+import { capitalCase } from "change-case"
 import { useToggle } from "usehooks-ts"
 import { Collapsible } from "radix-ui"
 import { useAccount } from "wagmi"
-import type { OperationJson } from "@skip-go/client"
+import type { OperationJson, SwapVenueJson } from "@skip-go/client"
 import { IconList, IconMinus, IconWallet } from "@initia/icons-react"
 import { AddressUtils } from "@/public/utils"
 import AsyncBoundary from "@/components/AsyncBoundary"
@@ -14,41 +15,48 @@ import OperationItem from "./OperationItem"
 import styles from "./BridgePreviewRoute.module.css"
 
 function normalizeOperation(operation: OperationJson) {
+  const getVenueName = ({ name }: SwapVenueJson) => {
+    if (name === "initia-dex") return "Initia DEX"
+    return capitalCase(head(name?.split("-") ?? []) ?? "")
+  }
+
   if ("transfer" in operation) {
-    return { label: "IBC", ...operation, ...operation.transfer }
+    return { label: "Bridge via IBC", ...operation, ...operation.transfer }
   }
   if ("bank_send" in operation) {
     return { label: "Send", ...operation, ...operation.bank_send }
   }
   if ("swap" in operation) {
-    return { label: "Swap", ...operation, ...operation.swap }
+    const venue = operation.swap?.swap_venues?.map(getVenueName).join(", ")
+    return { label: venue ? `Swap on ${venue}` : "Swap", ...operation, ...operation.swap }
   }
   if ("axelar_transfer" in operation) {
-    return { label: "Axelar", ...operation, ...operation.axelar_transfer }
+    return { label: "Bridge via Axelar", ...operation, ...operation.axelar_transfer }
   }
   if ("cctp_transfer" in operation) {
-    return { label: "CCTP", ...operation, ...operation.cctp_transfer }
+    return { label: "Bridge via CCTP", ...operation, ...operation.cctp_transfer }
   }
   if ("hyperlane_transfer" in operation) {
-    return { label: "Hyperlane", ...operation, ...operation.hyperlane_transfer }
+    return { label: "Bridge via Hyperlane", ...operation, ...operation.hyperlane_transfer }
   }
   if ("evm_swap" in operation) {
-    return { label: "Swap", ...operation, ...operation.evm_swap }
+    const venue = operation.evm_swap?.swap_venues?.map(getVenueName).join(", ")
+    return { label: venue ? `Swap on ${venue}` : "Swap", ...operation, ...operation.evm_swap }
   }
   if ("op_init_transfer" in operation) {
-    return { label: "Op bridge", ...operation, ...operation.op_init_transfer }
+    return { label: "Bridge via OP Bridge", ...operation, ...operation.op_init_transfer }
   }
   if ("go_fast_transfer" in operation) {
-    return { label: "Go Fast", ...operation, ...operation.go_fast_transfer }
+    return { label: "Bridge via Go Fast", ...operation, ...operation.go_fast_transfer }
   }
   if ("eureka_transfer" in operation) {
-    return { label: "Eureka", ...operation, ...operation.eureka_transfer }
+    return { label: "Bridge via Eureka", ...operation, ...operation.eureka_transfer }
   }
   if ("stargate_transfer" in operation) {
-    return { label: "Stargate", ...operation, ...operation.stargate_transfer }
+    return { label: "Bridge via Stargate", ...operation, ...operation.stargate_transfer }
   }
   if ("layer_zero_transfer" in operation) {
-    return { label: "LayerZero", ...operation, ...operation.layer_zero_transfer }
+    return { label: "Bridge via LayerZero", ...operation, ...operation.layer_zero_transfer }
   }
   throw new Error("Unknown operation type")
 }
