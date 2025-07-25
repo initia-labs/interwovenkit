@@ -21,7 +21,7 @@ const Withdrawals = () => {
   const chain = chainId ? findChain(chainId) : undefined
 
   return (
-    <Page title="Optimistic bridge withdrawals">
+    <Page title="OP Bridge withdrawals">
       <ChainOptions
         chains={chains.filter(({ metadata }) => !metadata?.is_l1 && metadata?.op_denoms?.length)}
         value={chainId}
@@ -31,9 +31,7 @@ const Withdrawals = () => {
 
       <div className={styles.content}>
         {!chain ? (
-          <FormHelp level="info">
-            Select a chain to display your optimistic bridge withdrawals
-          </FormHelp>
+          <FormHelp level="info">Select a chain to display your OP Bridge withdrawals</FormHelp>
         ) : (
           <>
             <h2 className={styles.title}>{chain.name}</h2>

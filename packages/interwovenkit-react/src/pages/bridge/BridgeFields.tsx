@@ -275,7 +275,7 @@ const BridgeFields = () => {
                     checked={selectedType === "default"}
                   />
                   <SelectRouteOption
-                    label="Optimistic bridge"
+                    label="OP Bridge"
                     query={routeQueryOpWithdrawal}
                     value="op"
                     onSelect={setSelectedType}

@@ -324,7 +324,7 @@ export function useTxStatusQuery(details: HistoryDetails) {
 }
 
 export enum BridgeType {
-  OP_WITHDRAW = "Optimistic bridge withdrawal",
+  OP_WITHDRAW = "OP Bridge withdrawal",
   SKIP = "Skip",
 }
 
