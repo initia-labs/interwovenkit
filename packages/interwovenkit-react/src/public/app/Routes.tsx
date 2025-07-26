@@ -1,5 +1,6 @@
 import { useEffect } from "react"
 import { useNavigate, usePath } from "@/lib/router"
+import { useDrawer } from "@/data/ui"
 import Connect from "@/pages/connect/Connect"
 import Home from "@/pages/wallet/tabs/Home"
 import Send from "@/pages/wallet/txs/send/Send"
@@ -19,6 +20,7 @@ const Routes = () => {
   const navigate = useNavigate()
   const path = usePath()
   const address = useAddress()
+  const { closeDrawer } = useDrawer()
   const { closeModal } = useModal()
 
   // whenever address changes, navigate to the appropriate path
@@ -39,16 +41,11 @@ const Routes = () => {
 
   if (path === "/connect") {
     if (address) return null
-    return <Connect />
+    return <Connect onSuccess={closeDrawer} />
   }
 
-  switch (path) {
-    case "/bridge":
-      return <BridgeForm key={address} />
-    case "/bridge/history":
-      return <BridgeHistory />
-    case "/blank":
-      return null
+  if (path === "/blank") {
+    return null
   }
 
   if (!address) {
@@ -70,8 +67,12 @@ const Routes = () => {
       return <SendNft key={address} />
     case "/rollups":
       return <ManageChains />
+    case "/bridge":
+      return <BridgeForm key={address} />
     case "/bridge/preview":
       return <BridgePreview />
+    case "/bridge/history":
+      return <BridgeHistory />
     case "/op/withdrawals":
       return <Withdrawals />
     case "/tx":

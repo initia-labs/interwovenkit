@@ -7,7 +7,6 @@ import { useReadLocalStorage } from "usehooks-ts"
 import { useMutation } from "@tanstack/react-query"
 import { IconExternalLink } from "@initia/icons-react"
 import { normalizeError } from "@/data/http"
-import { useDrawer } from "@/data/ui"
 import Scrollable from "@/components/Scrollable"
 import Image from "@/components/Image"
 import Loader from "@/components/Loader"
@@ -21,8 +20,7 @@ const recommendedWallets = [
   { name: "Leap", url: "https://leapwallet.io" },
 ]
 
-const Connect = () => {
-  const { closeDrawer } = useDrawer()
+const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
   const { connectors, connectAsync } = useConnect()
   const recentConnectorId = useReadLocalStorage<string>("wagmi.recentConnectorId")
   const [pendingConnectorId, setPendingConnectorId] = useState<string | null>(null)
@@ -39,7 +37,7 @@ const Connect = () => {
       setPendingConnectorId(null)
     },
     onSuccess: () => {
-      closeDrawer()
+      onSuccess?.()
     },
   })
 
