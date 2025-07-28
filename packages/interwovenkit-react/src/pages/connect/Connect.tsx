@@ -10,7 +10,6 @@ import { normalizeError } from "@/data/http"
 import Scrollable from "@/components/Scrollable"
 import Image from "@/components/Image"
 import Loader from "@/components/Loader"
-import Footer from "@/components/Footer"
 import styles from "./Connect.module.css"
 
 const recommendedWallets = [
@@ -85,13 +84,6 @@ const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
             })}
         </div>
       </Scrollable>
-
-      <Footer>
-        <a href="https://docs.initia.xyz" target="_blank" className={styles.docs}>
-          <span>Learn more</span>
-          <IconExternalLink size={14} />
-        </a>
-      </Footer>
     </div>
   )
 }
