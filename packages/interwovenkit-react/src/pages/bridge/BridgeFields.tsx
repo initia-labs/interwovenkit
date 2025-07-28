@@ -11,7 +11,7 @@ import {
   IconWarningFilled,
 } from "@initia/icons-react"
 import { useNavigate } from "@/lib/router"
-import { formatAmount, formatNumber, toQuantity } from "@/public/utils"
+import { formatAmount, formatNumber, fromBaseUnit } from "@initia/utils"
 import { useModal } from "@/public/app/ModalContext"
 import { LocalStorageKey } from "@/data/constants"
 import { useFindChain } from "@/data/chains"
@@ -194,7 +194,9 @@ const BridgeFields = () => {
 
   const isMaxAmount =
     BigNumber(quantity).gt(0) &&
-    BigNumber(quantity).isEqualTo(toQuantity(srcBalance?.amount, srcBalance?.decimals ?? 0))
+    BigNumber(quantity).isEqualTo(
+      fromBaseUnit(srcBalance?.amount, { decimals: srcBalance?.decimals ?? 0 }),
+    )
 
   const getIsFeeToken = () => {
     switch (srcChainType) {
@@ -236,9 +238,11 @@ const BridgeFields = () => {
         balanceButton={
           <BalanceButton
             onClick={() =>
-              setValue("quantity", toQuantity(srcBalance?.amount, srcAsset?.decimals), {
-                shouldValidate: true,
-              })
+              setValue(
+                "quantity",
+                fromBaseUnit(srcBalance?.amount, { decimals: srcAsset?.decimals ?? 0 }),
+                { shouldValidate: true },
+              )
             }
           >
             {formatAmount(srcBalance?.amount, { decimals: srcAsset.decimals })}

@@ -2,8 +2,8 @@ import clsx from "clsx"
 import QRCodeStyling from "qr-code-styling"
 import { useEffect, useRef } from "react"
 import { IconCopy } from "@initia/icons-react"
+import { truncate } from "@initia/utils"
 import CopyButton from "@/components/CopyButton"
-import { truncate } from "../utils"
 import styles from "./AddressQr.module.css"
 
 const AddressQr = ({ address }: { address: string }) => {

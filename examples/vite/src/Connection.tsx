@@ -1,4 +1,5 @@
-import { truncate, useInterwovenKit } from "@initia/interwovenkit-react"
+import { truncate } from "@initia/utils"
+import { useInterwovenKit } from "@initia/interwovenkit-react"
 import styles from "./Connection.module.css"
 
 const Connection = () => {

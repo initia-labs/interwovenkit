@@ -29,6 +29,9 @@ importers:
       '@initia/interwovenkit-react':
         specifier: workspace:^
         version: link:../../packages/interwovenkit-react
+      '@initia/utils':
+        specifier: 2.0.0-alpha.0
+        version: 2.0.0-alpha.0(bignumber.js@9.3.1)
       '@tanstack/react-query':
         specifier: ^5
         version: 5.83.0(react@19.1.0)
@@ -123,6 +126,9 @@ importers:
       '@initia/opinit.proto':
         specifier: ^1
         version: 1.0.2(google-protobuf@3.21.4)
+      '@initia/utils':
+        specifier: 2.0.0-alpha.0
+        version: 2.0.0-alpha.0(bignumber.js@9.3.1)
       '@keplr-wallet/types':
         specifier: ^0
         version: 0.12.252(starknet@7.6.4)
@@ -807,6 +813,11 @@ packages:
 
   '@initia/opinit.proto@1.0.2':
     resolution: {integrity: sha512-iKnM52NT4J3unzj2IytCbBiwZX9iSfvUnZNJTdl77VDqzHtTuACXO+rM6LWIBgQRz+RyOsCBN/d3r2xZ42GFfg==}
+
+  '@initia/utils@2.0.0-alpha.0':
+    resolution: {integrity: sha512-61hxGQrYOAXETsnjMBhU6iFN6JiQfxHHVBNRqOCjgmLKl39UeiEVVN579hS5zgqOSHEZE1fRWaidYFfqBU9Yng==}
+    peerDependencies:
+      bignumber.js: ^9
 
   '@isaacs/ttlcache@1.4.1':
     resolution: {integrity: sha512-RQgQ4uQ+pLbqXfOmieB91ejmLwvSgv9nLx6sT6sD83s7umBypgg+OIBOBbEUiJXrfpnp9j0mRhYYdzp9uqq3lA==}
@@ -7034,6 +7045,10 @@ snapshots:
       browser-headers: 0.4.1
     transitivePeerDependencies:
       - google-protobuf
+
+  '@initia/utils@2.0.0-alpha.0(bignumber.js@9.3.1)':
+    dependencies:
+      bignumber.js: 9.3.1
 
   '@isaacs/ttlcache@1.4.1': {}
 

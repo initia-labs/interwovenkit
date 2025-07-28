@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { useState } from "react"
-import { formatAmount, formatNumber } from "@/public/utils"
+import { formatAmount, formatNumber } from "@initia/utils"
 import Image from "../Image"
 import Status from "../Status"
 import type { BaseAsset } from "./types"

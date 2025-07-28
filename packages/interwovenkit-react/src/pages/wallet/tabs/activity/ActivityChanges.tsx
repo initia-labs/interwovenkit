@@ -1,7 +1,7 @@
 import clsx from "clsx"
 import BigNumber from "bignumber.js"
 import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
-import { formatAmount, truncate } from "@/public/utils"
+import { formatAmount, truncate } from "@initia/utils"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useFindAsset } from "@/data/assets"
 import type { NormalizedChain } from "@/data/chains"

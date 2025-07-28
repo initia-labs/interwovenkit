@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { IconArrowDown } from "@initia/icons-react"
-import { formatAmount, truncate } from "@/public/utils"
+import { formatAmount, truncate } from "@initia/utils"
 import placeholder from "@/data/placeholder"
 import Images from "@/components/Images"
 import WidgetTooltip from "@/components/WidgetTooltip"

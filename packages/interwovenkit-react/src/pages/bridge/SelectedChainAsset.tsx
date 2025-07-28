@@ -1,4 +1,4 @@
-import { truncate } from "@/public/utils"
+import { truncate } from "@initia/utils"
 import ModalTrigger from "@/components/ModalTrigger"
 import AssetOnChainButton from "@/components/form/AssetOnChainButton"
 import { useBridgeForm } from "./data/form"

@@ -1,7 +1,7 @@
 import { HTTPError } from "ky"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { OperationJson, RouteResponseJson } from "@skip-go/client"
-import { toAmount } from "@/public/utils"
+import { toBaseUnit } from "@initia/utils"
 import { STALE_TIMES } from "@/data/http"
 import { useInitiaRegistry, useLayer1 } from "@/data/chains"
 import { skipQueryKeys, useSkip } from "./skip"
@@ -41,7 +41,7 @@ export function useRouteQuery(
       ) ?? { decimals: 0 }
 
       const params = {
-        amount_in: toAmount(quantity, srcDecimals),
+        amount_in: toBaseUnit(quantity, { decimals: srcDecimals }),
         source_asset_chain_id: srcChainId,
         source_asset_denom: srcDenom,
         dest_asset_chain_id: dstChainId,

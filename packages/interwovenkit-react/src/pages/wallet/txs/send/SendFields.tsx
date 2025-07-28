@@ -3,7 +3,8 @@ import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
 import { useMutation } from "@tanstack/react-query"
 import { useFormContext } from "react-hook-form"
 import { useChain, useManageChains, usePricesQuery } from "@/data/chains"
-import { AddressUtils, formatAmount, formatNumber, toAmount, toQuantity } from "@/public/utils"
+import { formatAmount, formatNumber, toBaseUnit, fromBaseUnit } from "@initia/utils"
+import { AddressUtils } from "@/public/utils"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useAsset } from "@/data/assets"
 import { useBalances } from "@/data/account"
@@ -45,7 +46,7 @@ export const SendFields = () => {
 
   const { mutate, isPending } = useMutation({
     mutationFn: ({ chainId, denom, quantity, recipient, memo }: FormValues) => {
-      const amount = toAmount(quantity, decimals)
+      const amount = toBaseUnit(quantity, { decimals })
       const messages = [
         {
           typeUrl: "/cosmos.bank.v1beta1.MsgSend",
@@ -86,7 +87,9 @@ export const SendFields = () => {
             balanceButton={
               <BalanceButton
                 onClick={() =>
-                  setValue("quantity", toQuantity(maxAmount, decimals), { shouldValidate: true })
+                  setValue("quantity", fromBaseUnit(maxAmount, { decimals }), {
+                    shouldValidate: true,
+                  })
                 }
               >
                 {formatAmount(balance, { decimals })}

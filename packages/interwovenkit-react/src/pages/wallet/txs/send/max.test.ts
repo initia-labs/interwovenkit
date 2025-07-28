@@ -1,4 +1,4 @@
-import { toAmount } from "@/public/utils"
+import { toBaseUnit } from "@initia/utils"
 import { calcMaxAmount } from "./max"
 
 describe("getMaxAmount", () => {
@@ -18,7 +18,7 @@ describe("getMaxAmount", () => {
 
     const maxAmount = calcMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
 
-    expect(maxAmount).toBe(toAmount("99.997"))
+    expect(maxAmount).toBe(toBaseUnit("99.997"))
   })
 
   it("should return full balance when lastFeeDenom differs from denom and lastFeeDenom has enough balance", () => {
@@ -32,7 +32,7 @@ describe("getMaxAmount", () => {
 
     const maxAmount = calcMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
 
-    expect(maxAmount).toBe(toAmount("100"))
+    expect(maxAmount).toBe(toBaseUnit("100"))
   })
 
   it("should return full balance when lastFeeDenom differs from denom", () => {
@@ -43,7 +43,7 @@ describe("getMaxAmount", () => {
 
     const maxAmount = calcMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
 
-    expect(maxAmount).toBe(toAmount("99.994"))
+    expect(maxAmount).toBe(toBaseUnit("99.994"))
   })
 
   it("should deduct fee from current token when lastFeeDenom has insufficient balance", () => {
@@ -57,7 +57,7 @@ describe("getMaxAmount", () => {
 
     const maxAmount = calcMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
 
-    expect(maxAmount).toBe(toAmount("99.994"))
+    expect(maxAmount).toBe(toBaseUnit("99.994"))
   })
 
   it("should return full balance when token cannot be used for gas", () => {
@@ -72,7 +72,7 @@ describe("getMaxAmount", () => {
 
     const maxAmount = calcMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
 
-    expect(maxAmount).toBe(toAmount("50"))
+    expect(maxAmount).toBe(toBaseUnit("50"))
   })
 
   it("should return 0 when same token has insufficient balance for gas fee", () => {
@@ -113,7 +113,7 @@ describe("getMaxAmount", () => {
 
     const maxAmount = calcMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
 
-    expect(maxAmount).toBe(toAmount("99.997"))
+    expect(maxAmount).toBe(toBaseUnit("99.997"))
   })
 
   it("should return full balance for USDC when lastFeeDenom is null and both have enough for gas", () => {
@@ -127,7 +127,7 @@ describe("getMaxAmount", () => {
 
     const maxAmount = calcMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
 
-    expect(maxAmount).toBe(toAmount("100"))
+    expect(maxAmount).toBe(toBaseUnit("100"))
   })
 
   it("should deduct fee from self when lastFeeDenom is null and only one fee token exists", () => {
@@ -135,6 +135,6 @@ describe("getMaxAmount", () => {
     const lastFeeDenom = null
 
     const maxAmount = calcMaxAmount({ denom: "INIT", balances, gasPrices, lastFeeDenom })
-    expect(maxAmount).toBe(toAmount("99.997"))
+    expect(maxAmount).toBe(toBaseUnit("99.997"))
   })
 })

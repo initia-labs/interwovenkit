@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { BigNumber } from "bignumber.js"
-import { toAmount } from "@/public/utils"
+import { toBaseUnit } from "@initia/utils"
 
 export function quantitySuperRefine(
   {
@@ -23,7 +23,7 @@ export function quantitySuperRefine(
     return
   }
 
-  if (!balance || BigNumber(toAmount(quantity, decimals)).gt(balance)) {
+  if (!balance || BigNumber(toBaseUnit(quantity, { decimals })).gt(balance)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: "Insufficient balance",

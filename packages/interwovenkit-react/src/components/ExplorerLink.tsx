@@ -1,7 +1,7 @@
 import xss from "xss"
 import clsx from "clsx"
 import type { AnchorHTMLAttributes } from "react"
-import { truncate } from "@/public/utils"
+import { truncate } from "@initia/utils"
 import { useChain } from "@/data/chains"
 import { IconExternalLink } from "@initia/icons-react"
 import { buildExplorerUrl, sanitizeLink } from "./explorer"

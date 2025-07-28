@@ -1,7 +1,7 @@
 import clsx from "clsx"
 import type { PropsWithChildren } from "react"
 import { IconClockFilled } from "@initia/icons-react"
-import { formatAmount } from "@/public/utils"
+import { formatAmount } from "@initia/utils"
 import Loader from "@/components/Loader"
 import { formatDuration } from "./data/format"
 import { useBridgeForm } from "./data/form"

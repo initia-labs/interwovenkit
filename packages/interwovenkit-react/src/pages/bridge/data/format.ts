@@ -1,5 +1,5 @@
 import type { FeeJson } from "@skip-go/client"
-import { formatAmount } from "@/public/utils"
+import { formatAmount } from "@initia/utils"
 
 const TIME_UNIT_DEFINITIONS = [
   ["d", 24 * 60 * 60], // day

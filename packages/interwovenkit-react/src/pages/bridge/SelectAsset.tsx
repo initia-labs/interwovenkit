@@ -1,7 +1,7 @@
 import { ascend, descend, sortWith } from "ramda"
 import BigNumber from "bignumber.js"
 import type { ChainJson } from "@skip-go/client"
-import { truncate } from "@/public/utils"
+import { truncate } from "@initia/utils"
 import AssetOptions from "@/components/form/AssetOptions"
 import { useSkipAssets } from "./data/assets"
 import { useSkipBalancesQuery } from "./data/balance"

@@ -1,5 +1,5 @@
 import BigNumber from "bignumber.js"
-import { formatAmount, formatNumber, truncate } from "@/public/utils"
+import { formatAmount, formatNumber, truncate } from "@initia/utils"
 import type { BaseAsset } from "@/components/form/types"
 import Image from "@/components/Image"
 import styles from "./AssetItem.module.css"

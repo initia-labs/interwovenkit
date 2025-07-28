@@ -2,7 +2,6 @@ import "./index.css"
 
 // utils
 export * from "./public/utils"
-export { injectStyles } from "./public/portal"
 
 // constants
 export * from "./public/data/constants"
@@ -15,6 +14,7 @@ export * from "./public/data/hooks"
 
 // <InterwovenKitProvider />
 export { default as InterwovenKitProvider } from "./public/app/InterwovenKitProvider"
+export { injectStyles } from "./public/portal"
 
 // <InterwovenKit />
 export { default as InterwovenKit } from "./public/app/InterwovenKit"

@@ -1,4 +1,4 @@
-import { formatAmount } from "@/public/utils"
+import { formatAmount } from "@initia/utils"
 import { useFindChain, useLayer1 } from "@/data/chains"
 import { useFindAsset } from "@/data/assets"
 import Image from "@/components/Image"

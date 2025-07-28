@@ -1,5 +1,5 @@
 import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
-import { formatAmount } from "@/public/utils"
+import { formatAmount } from "@initia/utils"
 import { useLayer1 } from "@/data/chains"
 import { useAsset } from "@/data/assets"
 import Image from "@/components/Image"
