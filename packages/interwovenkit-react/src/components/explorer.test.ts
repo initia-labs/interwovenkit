@@ -1,4 +1,3 @@
-import { describe, it, expect } from "vitest"
 import type { NormalizedChain } from "@/data/chains"
 import { buildExplorerUrl, isValidTxHash } from "./explorer"
 
