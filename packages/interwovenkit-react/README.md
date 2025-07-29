@@ -1,22 +1,100 @@
 # @initia/interwovenkit-react
 
-`@initia/interwovenkit-react` is a React SDK that provides hooks and components to integrate Initia blockchain wallet connection, bridge functionality, and transaction signing into your React applications.
+## What is Initia Wallet?
 
-## Simple Example
+Initia Wallet is a React library that provides components and hooks to connect dApps to Initia and Interwoven Rollups.
 
-Below is a minimal example to demonstrate core capabilities: connecting a wallet, opening the wallet drawer, opening the bridge drawer, and sending a transaction.
+## Getting Started
+
+### Installation
+
+Install `@initia/interwovenkit-react` along with its peer dependencies:
+
+```bash
+pnpm add @initia/interwovenkit-react wagmi viem @tanstack/react-query
+```
+
+### Configure Providers
+
+Wrap your app with providers:
 
 ```tsx
+// providers.tsx
+"use client"
+
+import { PropsWithChildren, useEffect } from "react"
+import { createConfig, http, WagmiProvider } from "wagmi"
+import { mainnet } from "wagmi/chains"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import {
+  initiaPrivyWalletConnector,
+  injectStyles,
+  InterwovenKitProvider,
+} from "@initia/interwovenkit-react"
+import InterwovenKitStyles from "@initia/interwovenkit-react/styles.js"
+
+const wagmiConfig = createConfig({
+  connectors: [initiaPrivyWalletConnector],
+  chains: [mainnet],
+  transports: { [mainnet.id]: http() },
+})
+const queryClient = new QueryClient()
+
+export default function Providers({ children }: PropsWithChildren) {
+  useEffect(() => {
+    // Inject styles into the shadow DOM used by Initia Wallet
+    injectStyles(InterwovenKitStyles)
+  }, [])
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <WagmiProvider config={wagmiConfig}>
+        <InterwovenKitProvider defaultChainId="interwoven-1">{children}</InterwovenKitProvider>
+      </WagmiProvider>
+    </QueryClientProvider>
+  )
+}
+```
+
+Then wrap your application root:
+
+```tsx
+// layout.tsx
+import Providers from "./providers"
+
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
+    </html>
+  )
+}
+```
+
+### Basic Example
+
+Connect the wallet, check the balance, and send a transaction:
+
+```tsx
+// page.tsx
+"use client"
+
 import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
-import { truncate, useAddress, useInterwovenKit } from "@initia/interwovenkit-react"
+import { truncate } from "@initia/utils"
+import { useInterwovenKit } from "@initia/interwovenkit-react"
 
-const Example = () => {
-  const address = useAddress()
-  const { username, openConnect, openWallet, openBridge, requestTxBlock } = useInterwovenKit()
-
-  if (!address) {
-    return <button onClick={openConnect}>Connect</button>
-  }
+export default function Home() {
+  const {
+    address,
+    username,
+    openConnect,
+    openWallet,
+    openBridge,
+    requestTxSync,
+    waitForTxConfirmation,
+  } = useInterwovenKit()
 
   const send = async () => {
     const messages = [
@@ -30,188 +108,45 @@ const Example = () => {
       },
     ]
 
-    const { transactionHash } = await requestTxBlock({ messages })
-    console.log(transactionHash)
+    const transactionHash = await requestTxSync({ messages })
+    console.log("Transaction sent:", transactionHash)
+
+    await waitForTxConfirmation({ txHash: transactionHash })
+    console.log("Transaction confirmed:", transactionHash)
+  }
+
+  const ETH = "move/edfcddacac79ab86737a1e9e65805066d8be286a37cb94f4884b892b0e39f954"
+  const USDC = "ibc/6490A7EAB61059BFC1CDDEB05917DD70BDF3A611654162A1A47DB930D40D8AF4"
+
+  const bridgeTransferDetails = {
+    srcChainId: "interwoven-1",
+    srcDenom: ETH,
+    dstChainId: "interwoven-1",
+    dstDenom: USDC,
+  }
+
+  if (!address) {
+    return <button onClick={openConnect}>Connect</button>
   }
 
   return (
     <>
-      <header>
-        <button
-          onClick={() =>
-            openBridge({
-              srcChainId: "interwoven-1",
-              srcDenom: "ibc/6490A7EAB61059BFC1CDDEB05917DD70BDF3A611654162A1A47DB930D40D8AF4",
-              dstChainId: "interwoven-1",
-              dstDenom: "uinit",
-            })
-          }
-        >
-          Bridge
-        </button>
-
-        <button onClick={openWallet}>{truncate(username ?? address)}</button>
-      </header>
-
-      <main>
-        <button onClick={send}>Send</button>
-      </main>
+      <button onClick={send}>Send</button>
+      <button onClick={() => openBridge(bridgeTransferDetails)}>Bridge</button>
+      <button onClick={openWallet}>{truncate(username ?? address)}</button>
     </>
   )
-}
-```
-
-## Getting Started
-
-### Install Dependencies
-
-Install the core package and required peer dependencies:
-
-```bash
-pnpm add @initia/interwovenkit-react
-```
-
-### Provider Setup
-
-You must install a wallet connector to inject a wallet into the app.
-
-```bash
-pnpm add @tanstack/react-query wagmi
-```
-
-⚠️ Refer to the examples below.
-
-- **Vite**: [examples/vite/src/Providers.tsx](https://github.com/initia-labs/interwovenkit/blob/main/examples/vite/src/Providers.tsx)
-- **Next.js**: [examples/nextjs/src/app/providers.tsx](https://github.com/initia-labs/interwovenkit/blob/main/examples/nextjs/src/app/providers.tsx)
-
-```tsx
-import { InterwovenKit } from "@initia/interwovenkit-react"
-
-const App = () => {
-  return <InterwovenKit defaultChainId="YOUR_CHAIN_ID">{/* YOUR APP HERE */}</InterwovenKit>
-}
-```
-
-**Using a custom chain configuration:**
-
-```tsx
-import { ChainSchema } from "@initia/initia-registry-types/zod"
-import { InterwovenKit } from "@initia/interwovenkit-react"
-
-const customChain = ChainSchema.parse({
-  chain_id: "YOUR_CHAIN_ID",
-  chain_name: "YOUR_CHAIN_NAME",
-  apis: {
-    rpc: [{ address: "YOUR_RPC_URL" }],
-    rest: [{ address: "YOUR_LCD_URL" }],
-  },
-  fees: {
-    fee_tokens: [{ denom: "YOUR_FEE_DENOM", fixed_min_gas_price: 0.015 }],
-  },
-  bech32_prefix: "init",
-  network_type: "mainnet",
-})
-
-const App = () => {
-  return (
-    <InterwovenKit defaultChainId="YOUR_CHAIN_ID" customChain={customChain}>
-      {/* YOUR APP HERE */}
-    </InterwovenKit>
-  )
-}
-```
-
-## Configuration Interface
-
-```ts
-interface Config {
-  /** Wallet integration interface. */
-  wallet?: {
-    meta: { icon?: string; name: string }
-    address: string
-    getEthereumProvider: () => Promise<Eip1193Provider>
-    sign: (message: string) => Promise<string>
-    disconnect: () => void
-  }
-
-  /** The default chain ID for wallet connection (registered in initia-registry). Defaults to "interwoven-1". */
-  defaultChainId?: string
-
-  /** Custom chain configuration when your chain is not registered in initia-registry. */
-  customChain?: Chain
-
-  /** Protobuf message types for custom transaction signing. */
-  protoTypes?: Iterable<[string, GeneratedType]>
-
-  /** Amino converters for encoding/decoding custom messages. */
-  aminoConverters?: AminoConverters
-
-  /** UI theme preference: "light" or "dark". */
-  theme?: "light" | "dark"
-}
-```
-
-## React Hooks API
-
-### `useInterwovenKit()`
-
-Provides core package state and actions:
-
-```ts
-interface UseInterwovenKitResult {
-  /** Resolves to either the bech32 or hex address based on the current `minitia` type. */
-  address: string
-
-  /** Bech32-formatted Initia wallet address of the connected account. */
-  initiaAddress: string
-
-  /** Hex-encoded Ethereum-compatible address of the connected account. */
-  hexAddress: string
-
-  /** Optional username associated with the account. */
-  username?: string | null
-
-  /** Opens the wallet drawer UI. */
-  openWallet(): void
-
-  /** Opens the bridge drawer UI. */
-  openBridge(defaultValues: Partial<FormValues>): void
-
-  /** Estimates gas required for a transaction. */
-  estimateGas(txRequest: TxRequest): Promise<number>
-
-  /** Signs and broadcasts a transaction, waits for block inclusion, and returns the full transaction response. */
-  requestTxBlock(txRequest: TxRequest): Promise<DeliverTxResponse>
-
-  /** Signs and broadcasts a transaction and returns the transaction hash immediately. */
-  requestTxSync(txRequest: TxRequest): Promise<string>
-
-  /** Waits for a transaction to be confirmed on-chain. */
-  waitForTxConfirmation(params: {
-    txHash: string
-    chainId?: string
-    timeoutSeconds?: number
-    intervalSeconds?: number
-  }): Promise<IndexedTx>
-}
-
-interface TxRequest {
-  messages: EncodeObject[]
-  memo?: string
-  chainId?: string
-  gasAdjustment?: number
-  gas?: number
-  fee?: StdFee | null
 }
 ```
 
 ## Usage on Testnet
 
 ```tsx
-import { InterwovenKit, TESTNET } from "@initia/interwovenkit-react"
+import type { PropsWithChildren } from "react"
+import { InterwovenKitProvider, TESTNET } from "@initia/interwovenkit-react"
 
-const App = () => {
-  return <InterwovenKit {...TESTNET}>{/* YOUR APP HERE */}</InterwovenKit>
+export default function Providers({ children }: PropsWithChildren) {
+  return <InterwovenKitProvider {...TESTNET}>{children}</InterwovenKitProvider>
 }
 ```
 
