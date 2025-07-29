@@ -2,6 +2,7 @@ import BigNumber from "bignumber.js"
 import { partition } from "ramda"
 import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import type { EncodeObject } from "@cosmjs/proto-signing"
+import type { ReactNode } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { formatAmount, truncate } from "@initia/utils"
@@ -99,30 +100,30 @@ const TxSimulate = ({ messages, memo, chainId }: Props) => {
     staleTime: STALE_TIMES.SECOND,
   })
 
-  const render = () => {
-    if (!simulated) return null
-    const events = simulated.result?.events ?? []
-    if (events.length === 0) return null
-
-    if (chain.metadata?.is_l1 || chain.metadata?.minitia?.type === "minimove") {
-      const changes = getMoveChanges(events, hexAddress)
-      const [negativeChanges] = splitChanges(changes)
-      if (negativeChanges.length === 0) return null
-      return <ChangesWithMetadata changes={negativeChanges} chain={chain} />
-    }
-
-    const changes = getCoinChanges(events, initiaAddress)
-    const [negativeChanges] = splitChanges(changes)
-    if (negativeChanges.length === 0) return null
-    return <ChangesWithDenom changes={negativeChanges} chain={chain} />
+  const render = (element: ReactNode) => {
+    return (
+      <div className={styles.root}>
+        <h2 className={styles.title}>Estimated changes</h2>
+        <div className={styles.changes}>{element}</div>
+      </div>
+    )
   }
 
-  return (
-    <div className={styles.root}>
-      <h2 className={styles.title}>Estimated changes</h2>
-      <div className={styles.changes}>{render()}</div>
-    </div>
-  )
+  if (!simulated) return null
+  const events = simulated.result?.events ?? []
+  if (events.length === 0) return null
+
+  if (chain.metadata?.is_l1 || chain.metadata?.minitia?.type === "minimove") {
+    const changes = getMoveChanges(events, hexAddress)
+    const [negativeChanges] = splitChanges(changes)
+    if (negativeChanges.length === 0) return null
+    return render(<ChangesWithMetadata changes={negativeChanges} chain={chain} />)
+  }
+
+  const changes = getCoinChanges(events, initiaAddress)
+  const [negativeChanges] = splitChanges(changes)
+  if (negativeChanges.length === 0) return null
+  return render(<ChangesWithDenom changes={negativeChanges} chain={chain} />)
 }
 
 export default TxSimulate
