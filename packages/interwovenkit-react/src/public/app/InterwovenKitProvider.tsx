@@ -66,17 +66,17 @@ const InterwovenKitProvider = ({ children, ...config }: PropsWithChildren<Partia
 
         <MemoryRouter>
           <PortalProvider>
-            <NotificationProvider>
-              <ModalProvider>
-                <Tooltip.Provider delayDuration={0} skipDelayDuration={0}>
+            <Tooltip.Provider delayDuration={0} skipDelayDuration={0}>
+              <NotificationProvider>
+                <ModalProvider>
                   {children}
 
                   <Drawer>
                     <Routes />
                   </Drawer>
-                </Tooltip.Provider>
-              </ModalProvider>
-            </NotificationProvider>
+                </ModalProvider>
+              </NotificationProvider>
+            </Tooltip.Provider>
           </PortalProvider>
         </MemoryRouter>
       </ConfigContext.Provider>

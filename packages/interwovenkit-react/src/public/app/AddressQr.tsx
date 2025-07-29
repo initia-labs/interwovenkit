@@ -3,12 +3,16 @@ import QRCodeStyling from "qr-code-styling"
 import { useEffect, useRef } from "react"
 import { IconCopy } from "@initia/icons-react"
 import { truncate } from "@initia/utils"
+import WidgetTooltip from "@/components/WidgetTooltip"
 import CopyButton from "@/components/CopyButton"
+import { useInterwovenKit } from "../data/hooks"
 import styles from "./AddressQr.module.css"
 
-const AddressQr = ({ address }: { address: string }) => {
+const AddressQr = () => {
   const ref = useRef<HTMLDivElement>(null)
   const qrCode = useRef<QRCodeStyling | null>(null)
+
+  const { initiaAddress, hexAddress } = useInterwovenKit()
 
   useEffect(() => {
     if (!ref.current) return
@@ -19,10 +23,10 @@ const AddressQr = ({ address }: { address: string }) => {
     if (!qrCode.current) {
       qrCode.current = new QRCodeStyling({
         type: "canvas",
-        width: 360,
-        height: 360,
+        width: 400,
+        height: 400,
         margin: 0,
-        data: address,
+        data: initiaAddress,
         image: "https://registry.initia.xyz/images/INIT.png",
         qrOptions: { mode: "Byte", errorCorrectionLevel: "H" },
         imageOptions: { crossOrigin: "anonymous", margin: 12 },
@@ -35,23 +39,27 @@ const AddressQr = ({ address }: { address: string }) => {
       qrCode.current.append(ref.current)
     } else {
       qrCode.current.update({
-        data: address,
+        data: initiaAddress,
       })
     }
-  }, [address])
+  }, [initiaAddress])
 
   return (
     <div className={styles.root}>
-      <div ref={ref} style={{ width: 180, height: 180 }} />
+      <div ref={ref} style={{ width: 200, height: 200 }} />
 
-      <CopyButton value={address}>
+      <WidgetTooltip label={`Derived from ${truncate(hexAddress)}`}>
+        <span className={styles.address}>{initiaAddress}</span>
+      </WidgetTooltip>
+
+      <CopyButton value={initiaAddress}>
         {({ copy, copied }) => (
-          <button className={clsx(styles.address, { [styles.copied]: copied })} onClick={copy}>
-            <span className="monospace">{truncate(address)}</span>
-            <span className={styles.icon}>
-              <IconCopy size={16} />
-              {copied ? "Copied!" : ""}
-            </span>
+          <button className={clsx(styles.copy, { [styles.copied]: copied })} onClick={copy}>
+            <IconCopy size={12} />
+            <div className={styles.labelWrapper}>
+              <span className={styles.labelCopy}>Copy address</span>
+              <span className={styles.labelCopied}>Copied!</span>
+            </div>
           </button>
         )}
       </CopyButton>

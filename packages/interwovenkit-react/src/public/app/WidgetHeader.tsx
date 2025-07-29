@@ -8,14 +8,16 @@ import { useNavigate } from "@/lib/router"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useDrawer } from "@/data/ui"
 import { LocalStorageKey } from "@/data/constants"
+import { useDefaultChain } from "@/data/chains"
 import CopyButton from "@/components/CopyButton"
 import Image from "@/components/Image"
 import { useModal } from "./ModalContext"
-import AddressQrList from "./AddressQrList"
+import AddressQr from "./AddressQr"
 import styles from "./WidgetHeader.module.css"
 
 const WidgetHeader = () => {
   const navigate = useNavigate()
+  const deafultChain = useDefaultChain()
   const { connector } = useAccount()
   const { disconnect } = useDisconnect()
   const { address, username } = useInterwovenKit()
@@ -90,12 +92,14 @@ const WidgetHeader = () => {
         )}
       </CopyButton>
 
-      <button
-        className={styles.button}
-        onClick={() => openModal({ title: "Address", content: <AddressQrList /> })}
-      >
-        <IconQrCode size={16} />
-      </button>
+      {deafultChain.metadata?.is_l1 && (
+        <button
+          className={styles.button}
+          onClick={() => openModal({ title: "Address", content: <AddressQr /> })}
+        >
+          <IconQrCode size={16} />
+        </button>
+      )}
 
       <animated.button
         className={clsx(styles.button, styles.disconnect, { [styles.expanded]: isExpanded })}

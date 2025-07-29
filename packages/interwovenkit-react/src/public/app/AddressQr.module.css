@@ -2,28 +2,60 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
 
-  padding: var(--padding);
+  padding: var(--padding) 0;
 }
 
 .address {
-  font-size: 16px;
+  font-family: var(--monospace);
+  font-size: 12px;
   font-weight: 500;
-  gap: 8px;
 
-  .icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
+  margin-top: 8px;
+  margin-bottom: 10px;
+}
 
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--dimmed);
+.copy {
+  gap: 6px;
+
+  background-color: var(--gray-6);
+  border-radius: 9999px;
+  margin-bottom: 12px;
+  padding: 6px 14px;
+
+  transition: background-color var(--transition) ease;
+
+  &:hover {
+    background-color: var(--gray-5);
   }
 
-  &:hover:not(.copied) .icon {
-    color: var(--gray-0);
+  .labelWrapper {
+    flex: 1;
+
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+
+    position: relative;
+  }
+
+  .labelCopy {
+    visibility: visible;
+  }
+
+  .labelCopied {
+    position: absolute;
+    left: 0;
+    right: 0;
+
+    visibility: hidden;
+  }
+
+  &.copied .labelCopy {
+    visibility: hidden;
+  }
+
+  &.copied .labelCopied {
+    visibility: visible;
   }
 }
