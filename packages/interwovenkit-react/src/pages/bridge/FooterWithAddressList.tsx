@@ -106,7 +106,7 @@ const FooterWithAddressList = ({ children }: Props) => {
     return children(addressList)
   }
 
-  return <FooterWithError error={new Error("Failed to generate intermediary addresses")} />
+  return null
 }
 
 export default FooterWithAddressList
