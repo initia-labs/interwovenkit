@@ -15,7 +15,8 @@ const ModalTrigger = ({ title, content, children: trigger, className }: Props) =
   return (
     <Modal
       title={title}
-      trigger={<button className={className}>{trigger}</button>}
+      trigger={trigger}
+      className={className}
       open={isOpen}
       onOpenChange={setIsOpen}
     >
