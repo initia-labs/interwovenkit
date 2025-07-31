@@ -37,6 +37,12 @@ const AddressQr = () => {
       })
 
       qrCode.current.append(ref.current)
+
+      // Workaround for mobile
+      // This helps ensure the center image renders properly on mobile devices
+      setTimeout(() => {
+        qrCode.current?.update()
+      })
     } else {
       qrCode.current.update({
         data: initiaAddress,
