@@ -147,7 +147,7 @@ export function useBridgeTx(tx: TxJson) {
     },
     onSuccess: ({ txHash, wait }) => {
       localStorage.removeItem(LocalStorageKey.BRIDGE_QUANTITY)
-      navigate(-1, { quantity: "" })
+      navigate(-1)
       showNotification({
         type: "loading",
         title: "Transaction is pending...",
