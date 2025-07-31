@@ -69,7 +69,7 @@ const Drawer = ({ children }: PropsWithChildren) => {
     from: { transform: isSmall ? "translateY(100%)" : "translateX(100%)" },
     enter: { transform: isSmall ? "translateY(0%)" : "translateX(0%)" },
     leave: { transform: isSmall ? "translateY(100%)" : "translateX(100%)" },
-    config: { tension: 500, friction: 35, clamp: true },
+    config: { tension: 500, friction: 30, clamp: true },
   })
 
   return createPortal(

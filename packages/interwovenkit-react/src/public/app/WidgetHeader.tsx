@@ -30,7 +30,7 @@ const WidgetHeader = () => {
 
   const springProps = useSpring({
     width: isExpanded ? 140 : 52,
-    config: { tension: 300, friction: 30, clamp: true },
+    config: { tension: 500, friction: 30, clamp: true },
   })
 
   const handleDisconnectClick = () => {
