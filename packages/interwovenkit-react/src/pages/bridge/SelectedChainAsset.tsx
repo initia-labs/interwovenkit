@@ -1,4 +1,3 @@
-import { truncate } from "@initia/utils"
 import ModalTrigger from "@/components/ModalTrigger"
 import AssetOnChainButton from "@/components/form/AssetOnChainButton"
 import { useBridgeForm } from "./data/form"
@@ -28,7 +27,7 @@ const SelectedChainAsset = ({ type }: { type: "src" | "dst" }) => {
         asset={{
           denom: asset.denom,
           decimals: asset.decimals ?? 0,
-          symbol: asset.symbol ?? truncate(asset.denom),
+          symbol: asset.symbol,
           logoUrl: asset.logo_uri ?? "",
         }}
         chain={{

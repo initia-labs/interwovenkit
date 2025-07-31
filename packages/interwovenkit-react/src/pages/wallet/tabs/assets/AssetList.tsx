@@ -2,7 +2,6 @@ import { Accordion } from "radix-ui"
 import type { NormalizedChain } from "@/data/chains"
 import { useSortedBalancesWithValue } from "@/data/account"
 import Status from "@/components/Status"
-import WithMoveResource from "./WithMoveResource"
 import AssetItem from "./AssetItem"
 import AssetActions from "./AssetActions"
 import styles from "./AssetList.module.css"
@@ -20,9 +19,7 @@ const AssetList = (chain: NormalizedChain) => {
         <Accordion.Item className={styles.item} value={asset.denom} key={asset.denom}>
           <Accordion.Header>
             <Accordion.Trigger className={styles.trigger}>
-              <WithMoveResource asset={asset} chain={chain}>
-                {(resource) => <AssetItem {...resource} />}
-              </WithMoveResource>
+              <AssetItem {...asset} />
             </Accordion.Trigger>
           </Accordion.Header>
 

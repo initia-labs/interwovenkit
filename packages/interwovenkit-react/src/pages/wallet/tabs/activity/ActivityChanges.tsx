@@ -1,12 +1,11 @@
 import clsx from "clsx"
 import BigNumber from "bignumber.js"
 import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
-import { formatAmount, truncate } from "@initia/utils"
+import { formatAmount } from "@initia/utils"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useFindAsset } from "@/data/assets"
 import type { NormalizedChain } from "@/data/chains"
 import type { BaseAsset } from "@/components/form/types"
-import WithMoveResource from "../assets/WithMoveResource"
 import { getCoinChanges, getMoveChanges } from "./changes/changes"
 import type { TxItem } from "./data"
 import WithDenom from "./WithDenom"
@@ -20,7 +19,7 @@ const Change = ({ amount, asset }: { amount: string; asset: BaseAsset }) => {
   return (
     <div className={clsx(styles.change, isPositive ? styles.positive : styles.negative)}>
       {isPositive ? "+" : "-"}
-      {formatAmount(absAmount, { decimals })} {symbol ?? truncate(denom)}
+      {formatAmount(absAmount, { decimals })} {symbol || denom}
     </div>
   )
 }
@@ -47,11 +46,7 @@ const ChangesWithMetadata = ({
   return changes.map(({ amount, metadata }, index) => {
     return (
       <WithDenom metadata={metadata} chain={chain} key={index}>
-        {(denom) => (
-          <WithMoveResource asset={findAsset(denom)} chain={chain}>
-            {(asset) => <Change amount={amount} asset={asset} />}
-          </WithMoveResource>
-        )}
+        {(denom) => <Change amount={amount} asset={findAsset(denom)} />}
       </WithDenom>
     )
   })

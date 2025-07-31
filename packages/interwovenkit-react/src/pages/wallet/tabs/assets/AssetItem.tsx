@@ -1,5 +1,5 @@
 import BigNumber from "bignumber.js"
-import { formatAmount, formatNumber, truncate } from "@initia/utils"
+import { formatAmount, formatNumber } from "@initia/utils"
 import type { BaseAsset } from "@/components/form/types"
 import Image from "@/components/Image"
 import styles from "./AssetItem.module.css"
@@ -12,7 +12,7 @@ const AssetItem = (props: BaseAsset) => {
       <Image src={logoUrl} width={24} height={24} />
 
       <div className={styles.token}>
-        <div className={styles.symbol}>{symbol ?? truncate(denom)}</div>
+        <div className={styles.symbol}>{symbol || denom}</div>
         {name && <div className={styles.name}>{name}</div>}
       </div>
 

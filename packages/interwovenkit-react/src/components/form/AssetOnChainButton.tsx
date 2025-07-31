@@ -15,7 +15,7 @@ const AssetOnChainButton = ({ asset, chain, readOnly }: Props) => {
       <Images assetLogoUrl={asset.logoUrl} chainLogoUrl={chain.logoUrl} />
 
       <div className={styles.details}>
-        <div className={styles.symbol}>{asset.symbol}</div>
+        <div className={styles.symbol}>{asset.symbol || asset.denom}</div>
         <div className={styles.chain}>on {chain.name}</div>
       </div>
     </div>

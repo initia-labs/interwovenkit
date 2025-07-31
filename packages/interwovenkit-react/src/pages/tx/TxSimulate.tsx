@@ -5,7 +5,7 @@ import type { EncodeObject } from "@cosmjs/proto-signing"
 import type { ReactNode } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
-import { formatAmount, truncate } from "@initia/utils"
+import { formatAmount } from "@initia/utils"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { STALE_TIMES } from "@/data/http"
 import { useTx } from "@/data/tx"
@@ -15,7 +15,6 @@ import type { BaseAsset } from "@/components/form/types"
 import Image from "@/components/Image"
 import { getCoinChanges, getMoveChanges } from "../wallet/tabs/activity/changes/changes"
 import WithDenom from "../wallet/tabs/activity/WithDenom"
-import WithMoveResource from "../wallet/tabs/assets/WithMoveResource"
 import styles from "./TxSimulate.module.css"
 
 const Change = ({ amount, asset, price }: { amount: string; asset: BaseAsset; price?: number }) => {
@@ -28,7 +27,7 @@ const Change = ({ amount, asset, price }: { amount: string; asset: BaseAsset; pr
       <div className={styles.amount}>
         <Image src={logoUrl} width={14} height={14} />
         <span className={styles.text}>
-          {formattedAmount} {symbol ?? truncate(denom)}
+          {formattedAmount} {symbol || denom}
         </span>
       </div>
       {value && <div className={styles.value}>${formatAmount(value, { decimals, dp: 2 })}</div>}
@@ -64,11 +63,7 @@ const ChangesWithMetadata = ({
       <WithDenom metadata={metadata} chain={chain} key={index}>
         {(denom) => {
           const price = prices?.find(({ id }) => id === denom)?.price
-          return (
-            <WithMoveResource asset={findAsset(denom)} chain={chain}>
-              {(asset) => <Change amount={amount} asset={asset} price={price} />}
-            </WithMoveResource>
-          )
+          return <Change amount={amount} asset={findAsset(denom)} price={price} />
         }}
       </WithDenom>
     )

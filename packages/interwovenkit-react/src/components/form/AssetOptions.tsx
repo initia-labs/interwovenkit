@@ -34,19 +34,22 @@ const AssetOptions = (props: Props) => {
               onClick={() => onSelect(asset.denom)}
               key={asset.denom}
             >
-              {renderAsset(asset, ({ logoUrl, symbol, name, balance, decimals, value = 0 }) => (
-                <>
-                  <Image src={logoUrl} width={32} height={32} className={styles.logo} />
-                  <div className={styles.info}>
-                    <div className={styles.symbol}>{symbol}</div>
-                    <div className={styles.name}>{name}</div>
-                  </div>
-                  <div className={styles.balance}>
-                    {balance && <div>{formatAmount(balance, { decimals })}</div>}
-                    {value > 0 && <div className={styles.value}>${formatNumber(value)}</div>}
-                  </div>
-                </>
-              ))}
+              {renderAsset(asset, (asset) => {
+                const { denom, logoUrl, symbol, name, balance, decimals, value = 0 } = asset
+                return (
+                  <>
+                    <Image src={logoUrl} width={32} height={32} className={styles.logo} />
+                    <div className={styles.info}>
+                      <div className={styles.symbol}>{symbol || denom}</div>
+                      <div className={styles.name}>{name}</div>
+                    </div>
+                    <div className={styles.balance}>
+                      {balance && <div>{formatAmount(balance, { decimals })}</div>}
+                      {value > 0 && <div className={styles.value}>${formatNumber(value)}</div>}
+                    </div>
+                  </>
+                )
+              })}
             </button>
           ))}
         </div>
