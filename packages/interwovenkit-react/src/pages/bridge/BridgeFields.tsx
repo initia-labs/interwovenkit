@@ -44,6 +44,7 @@ import SlippageControl from "./SlippageControl"
 import type { RouteType } from "./SelectRouteOption"
 import SelectRouteOption from "./SelectRouteOption"
 import styles from "./BridgeFields.module.css"
+import Amplitude from "@/lib/amplitude"
 
 const BridgeFields = () => {
   const navigate = useNavigate()
@@ -123,6 +124,11 @@ const BridgeFields = () => {
   // submit
   const { openModal, closeModal } = useModal()
   const submit = handleSubmit((values: FormValues) => {
+    Amplitude.logEvent("Preview_route_clicked", {
+      type: "click",
+      method: isOpWithdrawable ? selectedType : undefined,
+    })
+
     if (route?.warning) {
       const { type = "", message } = route.warning ?? {}
       openModal({
@@ -146,7 +152,6 @@ const BridgeFields = () => {
       })
       return
     }
-
     navigate("/bridge/preview", { route, values })
   })
 
@@ -342,6 +347,7 @@ const BridgeFields = () => {
                           title="Slippage tolerance"
                           content={(close) => <SlippageControl afterConfirm={close} />}
                           className={styles.edit}
+                          amplitudeOpenEventName="Slippage_setting_clicked"
                         >
                           <IconSettingFilled size={12} />
                         </ModalTrigger>

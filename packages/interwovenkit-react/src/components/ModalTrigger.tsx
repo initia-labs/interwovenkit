@@ -6,9 +6,16 @@ interface Props {
   content: (close: () => void) => ReactNode
   children: ReactNode
   className?: string
+  amplitudeOpenEventName?: string
 }
 
-const ModalTrigger = ({ title, content, children: trigger, className }: Props) => {
+const ModalTrigger = ({
+  title,
+  content,
+  children: trigger,
+  className,
+  amplitudeOpenEventName,
+}: Props) => {
   const [isOpen, setIsOpen] = useState(false)
   const close = () => setIsOpen(false)
 
@@ -17,6 +24,7 @@ const ModalTrigger = ({ title, content, children: trigger, className }: Props) =
       title={title}
       trigger={trigger}
       className={className}
+      amplitudeOpenEventName={amplitudeOpenEventName}
       open={isOpen}
       onOpenChange={setIsOpen}
     >

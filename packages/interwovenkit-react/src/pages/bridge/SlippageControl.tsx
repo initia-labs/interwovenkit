@@ -8,6 +8,7 @@ import NumericInput from "@/components/form/NumericInput"
 import FormHelp from "@/components/form/FormHelp"
 import { useBridgeForm } from "./data/form"
 import styles from "./SlippageControl.module.css"
+import Amplitude from "@/lib/amplitude"
 
 const PRESETS = ["0.1", "0.5", "1.0"]
 
@@ -60,6 +61,10 @@ const SlippageControl = ({ afterConfirm }: { afterConfirm: () => void }) => {
   const isError = message?.type === "error"
 
   const onConfirm = ({ value }: FormValues) => {
+    Amplitude.logEvent("Slippage_setting_adjusted", {
+      value,
+      custom: activePreset === null,
+    })
     bridgeForm.setValue("slippagePercent", value)
     afterConfirm()
   }

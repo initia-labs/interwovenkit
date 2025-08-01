@@ -15,9 +15,18 @@ interface Props {
   className?: string
   open: boolean
   onOpenChange: (open: boolean) => void
+  amplitudeOpenEventName?: string
 }
 
-const Modal = ({ title, children, trigger, className, open, onOpenChange }: Props) => {
+const Modal = ({
+  title,
+  children,
+  trigger,
+  className,
+  open,
+  onOpenChange,
+  amplitudeOpenEventName,
+}: Props) => {
   const portal = usePortal()
   const fullscreen = useContext(fullscreenContext)
 
@@ -55,7 +64,12 @@ const Modal = ({ title, children, trigger, className, open, onOpenChange }: Prop
   return (
     <>
       {trigger && (
-        <button type="button" className={className} onClick={() => onOpenChange(true)}>
+        <button
+          type="button"
+          className={className}
+          onClick={() => onOpenChange(true)}
+          data-amp-track-name={amplitudeOpenEventName}
+        >
           {trigger}
         </button>
       )}

@@ -20,6 +20,7 @@ import WidgetHeader from "./WidgetHeader"
 import TxWatcher from "./TxWatcher"
 import ScrollLock from "./ScrollLock"
 import styles from "./Drawer.module.css"
+import Amplitude from "@/lib/amplitude"
 
 const Drawer = ({ children }: PropsWithChildren) => {
   const { isDrawerOpen, closeDrawer } = useDrawer()
@@ -88,7 +89,11 @@ const Drawer = ({ children }: PropsWithChildren) => {
       {drawerTransition((style, item) =>
         item ? (
           <animated.div style={style} className={clsx(styles.content)}>
-            <div className={clsx(styles.inner, "body")} ref={setContainer}>
+            <div
+              className={clsx(styles.inner, "body")}
+              id={Amplitude.AMPLITUDE_CONTAINER_ID}
+              ref={setContainer}
+            >
               {isSmall && <ScrollLock />}
               <TxWatcher />
               <WidgetHeader />

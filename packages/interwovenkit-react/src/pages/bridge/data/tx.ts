@@ -30,6 +30,7 @@ import type { RouterRouteResponseJson } from "./simulate"
 import type { HistoryDetails } from "./history"
 import { useBridgeHistoryList } from "./history"
 import { switchEthereumChain } from "./evm"
+import Amplitude from "@/lib/amplitude"
 
 export interface BridgePreviewState {
   route: RouterRouteResponseJson
@@ -189,12 +190,24 @@ export function useBridgeTx(tx: TxJson) {
               denom: route.dest_asset_denom,
             })
           }
+          Amplitude.logEvent("Bridge_tx_succeeded", {
+            srcdenom: route.source_asset_denom,
+            dstdenom: route.dest_asset_denom,
+            srcchain: route.source_asset_chain_id,
+            dstchain: route.dest_asset_chain_id,
+          })
         })
         .catch((error) => {
           updateNotification({
             type: "error",
             title: "Transaction failed",
             description: error.message,
+          })
+          Amplitude.logEvent("Bridge_tx_failed", {
+            srcdenom: route.source_asset_denom,
+            dstdenom: route.dest_asset_denom,
+            srcchain: route.source_asset_chain_id,
+            dstchain: route.dest_asset_chain_id,
           })
         })
         .finally(() => {
@@ -212,6 +225,12 @@ export function useBridgeTx(tx: TxJson) {
         type: "error",
         title: "Transaction failed",
         description: formattedError.message,
+      })
+      Amplitude.logEvent("Bridge_tx_failed", {
+        srcdenom: route.source_asset_denom,
+        dstdenom: route.dest_asset_denom,
+        srcchain: route.source_asset_chain_id,
+        dstchain: route.dest_asset_chain_id,
       })
     },
   })

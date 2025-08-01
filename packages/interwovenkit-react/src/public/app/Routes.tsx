@@ -15,6 +15,7 @@ import BridgeHistory from "@/pages/bridge/BridgeHistory"
 import TxRequest from "@/pages/tx/TxRequest"
 import { useAddress } from "../data/hooks"
 import { useModal } from "./ModalContext"
+import { useUpdateAmplitude } from "@/lib/amplitude/hooks"
 
 const Routes = () => {
   const navigate = useNavigate()
@@ -22,6 +23,8 @@ const Routes = () => {
   const address = useAddress()
   const { closeDrawer } = useDrawer()
   const { closeModal } = useModal()
+
+  useUpdateAmplitude()
 
   // whenever address changes, navigate to the appropriate path
   useEffect(() => {

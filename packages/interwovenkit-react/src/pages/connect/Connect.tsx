@@ -11,6 +11,7 @@ import Scrollable from "@/components/Scrollable"
 import Image from "@/components/Image"
 import Loader from "@/components/Loader"
 import styles from "./Connect.module.css"
+import Amplitude from "@/lib/amplitude"
 
 const recommendedWallets = [
   { name: "Rabby", url: "https://rabby.io" },
@@ -28,6 +29,7 @@ const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
       setPendingConnectorId(connector.id)
       try {
         await connectAsync({ connector })
+        Amplitude.logEvent("Wallet_extension_used", { walletname: connector.name })
       } catch (error) {
         throw new Error(await normalizeError(error))
       }
@@ -75,7 +77,14 @@ const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
             .map(({ name, url }) => {
               const imageUrl = `https://assets.initia.xyz/images/wallets/${name}.webp`
               return (
-                <a href={url} className={styles.item} target="_blank" key={name}>
+                <a
+                  href={url}
+                  className={styles.item}
+                  target="_blank"
+                  key={name}
+                  data-amp-track-name="Suggested_wallet_clicked"
+                  data-amp-track-walletname={name}
+                >
                   <Image src={imageUrl} width={24} height={24} />
                   <span className={clsx(styles.name, styles.dimmed)}>{name}</span>
                   <IconExternalLink size={10} />
