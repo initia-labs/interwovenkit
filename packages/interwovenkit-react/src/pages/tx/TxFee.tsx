@@ -3,6 +3,7 @@ import BigNumber from "bignumber.js"
 import type { StdFee } from "@cosmjs/amino"
 import { IconChevronDown } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
+import Amplitude from "@/lib/amplitude"
 import { usePortal } from "@/public/app/PortalContext"
 import { useChain } from "@/data/chains"
 import { useFindAsset } from "@/data/assets"
@@ -32,7 +33,11 @@ const TxFee = ({ options, value, onChange }: Props) => {
   }
 
   return (
-    <Select.Root value={value} onValueChange={onChange}>
+    <Select.Root
+      value={value}
+      onValueChange={onChange}
+      onOpenChange={(open) => open && Amplitude.logEvent("Tx_fee_clicked")}
+    >
       <Select.Trigger className={styles.trigger}>
         <Select.Value />
         <Select.Icon className={styles.icon}>

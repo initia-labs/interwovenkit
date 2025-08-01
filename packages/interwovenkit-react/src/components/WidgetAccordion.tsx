@@ -12,10 +12,21 @@ interface Props<T> {
 
   value?: string[]
   onValueChange?: (value: string[]) => void
+  amplitudeOpenEventName?: string
+  getAmplitudeDetails?: (item: T) => Record<string, unknown>
 }
 
 function WidgetAccordion<T>(props: Props<T>) {
-  const { list, getKey, renderHeader, renderContent, footer, ...attrs } = props
+  const {
+    list,
+    getKey,
+    renderHeader,
+    renderContent,
+    footer,
+    amplitudeOpenEventName,
+    getAmplitudeDetails,
+    ...attrs
+  } = props
   return (
     <Accordion.Root className={styles.root} type="multiple" {...attrs}>
       {list.map((item, index) => (
@@ -25,7 +36,11 @@ function WidgetAccordion<T>(props: Props<T>) {
           key={getKey?.(item) ?? index}
         >
           <Accordion.Header>
-            <Accordion.Trigger className={styles.trigger}>
+            <Accordion.Trigger
+              className={styles.trigger}
+              data-amp-track-name={amplitudeOpenEventName}
+              {...getAmplitudeDetails?.(item)}
+            >
               {renderHeader(item)}
               <IconChevronDown className={styles.chevron} size={16} />
             </Accordion.Trigger>

@@ -35,6 +35,8 @@ const ExplorerLink = ({ chainId, txHash, accountAddress, pathSuffix, ...props }:
       className={clsx(styles.link, className)}
       onClick={onClick}
       target="_blank"
+      data-amp-track-name="Scan_opened"
+      data-amp-track-chain-id={chainId}
     >
       {text}
       {showIcon && <IconExternalLink size={12} />}

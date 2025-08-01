@@ -2,6 +2,7 @@ import type { PropsWithChildren } from "react"
 import { useEffect } from "react"
 import { Tooltip } from "radix-ui"
 import { useIsClient } from "usehooks-ts"
+import { useStartAmplitude } from "@/lib/amplitude/hooks"
 import { MemoryRouter } from "@/lib/router"
 import { LocalStorageKey } from "@/data/constants"
 import { migrateLocalStorage } from "@/data/migration"
@@ -50,6 +51,8 @@ const InterwovenKitProvider = ({ children, ...config }: PropsWithChildren<Partia
   useEffect(() => {
     migrateLocalStorage()
   }, [])
+
+  useStartAmplitude()
 
   if (!useIsClient()) {
     return null
