@@ -6,6 +6,7 @@ import { useIsMobile } from "@/hooks/useIsMobile"
 import type { FallbackProps } from "react-error-boundary"
 import { useTransition, animated } from "@react-spring/web"
 import { useIsMutating, useQueryClient } from "@tanstack/react-query"
+import Amplitude from "@/lib/amplitude"
 import { useNavigate } from "@/lib/router"
 import { useDrawer } from "@/data/ui"
 import { TX_APPROVAL_MUTATION_KEY, txRequestHandlerAtom } from "@/data/tx"
@@ -88,7 +89,11 @@ const Drawer = ({ children }: PropsWithChildren) => {
       {drawerTransition((style, item) =>
         item ? (
           <animated.div style={style} className={clsx(styles.content)}>
-            <div className={clsx(styles.inner, "body")} ref={setContainer}>
+            <div
+              className={clsx(styles.inner, "body")}
+              ref={setContainer}
+              id={Amplitude.AMPLITUDE_CONTAINER_ID}
+            >
               {isSmall && <ScrollLock />}
               <TxWatcher />
               <WidgetHeader />

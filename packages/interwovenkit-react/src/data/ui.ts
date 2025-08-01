@@ -1,4 +1,5 @@
 import { atom, useAtom } from "jotai"
+import Amplitude from "@/lib/amplitude"
 import { useReset } from "@/lib/router"
 
 const isDrawerOpenAtom = atom<boolean>(false)
@@ -8,6 +9,7 @@ export function useDrawer() {
   const [isOpen, setIsOpen] = useAtom(isDrawerOpenAtom)
 
   const open = (path: string, state?: object) => {
+    Amplitude.logEvent("Widget_opened", { path, state })
     if (path) {
       reset(path, state)
     }
@@ -15,6 +17,7 @@ export function useDrawer() {
   }
 
   const close = () => {
+    Amplitude.logEvent("Widget_minimized")
     setIsOpen(false)
   }
 
