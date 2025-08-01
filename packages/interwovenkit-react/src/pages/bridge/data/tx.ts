@@ -7,6 +7,7 @@ import { createElement, Fragment } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { StatusResponseJson, TrackResponseJson, TxJson } from "@skip-go/client"
 import { aminoConverters, aminoTypes } from "@initia/amino-converter"
+import Amplitude from "@/lib/amplitude"
 import { Link, useLocationState, useNavigate } from "@/lib/router"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { AddressUtils } from "@/public/utils"
@@ -189,12 +190,26 @@ export function useBridgeTx(tx: TxJson) {
               denom: route.dest_asset_denom,
             })
           }
+
+          Amplitude.logEvent("Bridge_tx_succeeded", {
+            srcdenom: route.source_asset_denom,
+            dstdenom: route.dest_asset_denom,
+            srcchain: route.source_asset_chain_id,
+            dstchain: route.dest_asset_chain_id,
+          })
         })
         .catch((error) => {
           updateNotification({
             type: "error",
             title: "Transaction failed",
             description: error.message,
+          })
+
+          Amplitude.logEvent("Bridge_tx_failed", {
+            srcdenom: route.source_asset_denom,
+            dstdenom: route.dest_asset_denom,
+            srcchain: route.source_asset_chain_id,
+            dstchain: route.dest_asset_chain_id,
           })
         })
         .finally(() => {

@@ -1,5 +1,6 @@
 import { useEffect } from "react"
 import { useNavigate, usePath } from "@/lib/router"
+import { useUpdateAmplitude } from "@/lib/amplitude/hooks"
 import { useDrawer } from "@/data/ui"
 import Connect from "@/pages/connect/Connect"
 import Home from "@/pages/wallet/tabs/Home"
@@ -23,6 +24,7 @@ const Routes = () => {
   const { closeDrawer } = useDrawer()
   const { closeModal } = useModal()
 
+  useUpdateAmplitude()
   // whenever address changes, navigate to the appropriate path
   useEffect(() => {
     closeModal()

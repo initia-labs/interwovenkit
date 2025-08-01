@@ -30,6 +30,7 @@
     "release": "standard-version"
   },
   "peerDependencies": {
+    "@amplitude/analytics-browser": "^2",
     "@cosmjs/amino": "^0",
     "@cosmjs/crypto": "^0",
     "@cosmjs/encoding": "^0",
@@ -75,6 +76,7 @@
     "zod": "^3"
   },
   "devDependencies": {
+    "@amplitude/analytics-browser": "^2",
     "@cosmjs/amino": "^0",
     "@cosmjs/crypto": "^0",
     "@cosmjs/encoding": "^0",

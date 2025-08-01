@@ -2,6 +2,7 @@ import { HTTPError } from "ky"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { OperationJson, RouteResponseJson } from "@skip-go/client"
 import { toBaseUnit } from "@initia/utils"
+import Amplitude from "@/lib/amplitude"
 import { STALE_TIMES } from "@/data/http"
 import { useInitiaRegistry, useLayer1 } from "@/data/chains"
 import { skipQueryKeys, useSkip } from "./skip"
@@ -30,7 +31,7 @@ export function useRouteQuery(
   const queryClient = useQueryClient()
   return useQuery({
     queryKey: skipQueryKeys.route(debouncedValues, opWithdrawal?.isOpWithdraw).queryKey,
-    queryFn: () => {
+    queryFn: async () => {
       // This query may produce specific errors that need separate handling.
       // Therefore, we do not use try-catch or normalizeError here.
 
@@ -49,7 +50,21 @@ export function useRouteQuery(
         is_op_withdraw: opWithdrawal?.isOpWithdraw,
       }
 
-      return skip.post("v2/fungible/route", { json: params }).json<RouterRouteResponseJson>()
+      const result = await skip
+        .post("v2/fungible/route", { json: params })
+        .json<RouterRouteResponseJson>()
+
+      Amplitude.logEvent("Simulation_performed", {
+        quantity,
+        srcChainId,
+        srcDenom,
+        dstChainId,
+        dstDenom,
+        estimatedFees: result.estimated_fees,
+        isOpWithdraw: opWithdrawal?.isOpWithdraw,
+      })
+
+      return result
     },
     enabled: !!Number(debouncedValues.quantity) && !opWithdrawal?.disabled,
     staleTime: STALE_TIMES.MINUTE,
