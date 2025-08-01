@@ -40,12 +40,14 @@ class Amplitude {
           }
         }
 
-        event.event_properties = {
-          path: Amplitude.currentPath,
-          origin: window.location.host,
-          ...event.event_properties,
+        return {
+          ...event,
+          event_properties: {
+            path: Amplitude.currentPath,
+            origin: window.location.host,
+            ...event.event_properties,
+          },
         }
-        return event
       },
     })
   }
