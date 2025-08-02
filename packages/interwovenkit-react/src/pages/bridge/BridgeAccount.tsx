@@ -1,8 +1,7 @@
 import clsx from "clsx"
 import type { ReactNode } from "react"
 import { IconChevronRight, IconCloseCircleFilled, IconEdit, IconWallet } from "@initia/icons-react"
-import { truncate } from "@initia/utils"
-import { AddressUtils } from "@/public/utils"
+import { InitiaAddress, truncate } from "@initia/utils"
 import Image from "@/components/Image"
 import ModalTrigger from "@/components/ModalTrigger"
 import Scrollable from "@/components/Scrollable"
@@ -31,7 +30,7 @@ const BridgeAccount = ({ type }: Props) => {
   const validateRecipientAddress = useValidateAddress()
 
   const myDstAddress = getDefaultRecipientAddress(dstChainId)
-  const isMyDstAddress = AddressUtils.equals(address, myDstAddress)
+  const isMyDstAddress = InitiaAddress.equals(address, myDstAddress)
 
   const renderSrcAccount = () => {
     return (

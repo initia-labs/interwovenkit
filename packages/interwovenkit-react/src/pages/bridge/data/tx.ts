@@ -7,9 +7,9 @@ import { createElement, Fragment } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { StatusResponseJson, TrackResponseJson, TxJson } from "@skip-go/client"
 import { aminoConverters, aminoTypes } from "@initia/amino-converter"
+import { InitiaAddress } from "@initia/utils"
 import { Link, useLocationState, useNavigate } from "@/lib/router"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
-import { AddressUtils } from "@/public/utils"
 import { useNotification } from "@/public/app/NotificationContext"
 import { useInitiaAddress, useInterwovenKit } from "@/public/data/hooks"
 import { LocalStorageKey } from "@/data/constants"
@@ -183,7 +183,7 @@ export function useBridgeTx(tx: TxJson) {
           if (isOpWithdraw) {
             addReminder(tx, {
               ...tx,
-              recipient: AddressUtils.toBech32(recipient),
+              recipient: InitiaAddress(recipient).bech32,
               claimableAt: Date.now() + route.estimated_route_duration_seconds * 1000,
               amount: route.amount_out,
               denom: route.dest_asset_denom,
@@ -233,7 +233,7 @@ export function useSignOpHook() {
               source_address: initiaAddress,
               source_asset_chain_id: route.source_asset_chain_id,
               source_asset_denom: route.source_asset_denom,
-              dest_address: AddressUtils.toBech32(values.recipient),
+              dest_address: InitiaAddress(values.recipient).bech32,
               dest_asset_chain_id: route.dest_asset_chain_id,
               dest_asset_denom: route.dest_asset_denom,
             },

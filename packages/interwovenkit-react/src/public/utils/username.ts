@@ -1,7 +1,7 @@
 import ky from "ky"
 import { bcs } from "@mysten/bcs"
 import { toBase64 } from "@cosmjs/encoding"
-import { AddressUtils } from "./address"
+import { InitiaAddress } from "@initia/utils"
 
 interface Params {
   restUrl: string
@@ -35,13 +35,13 @@ export function createUsernameClient({ restUrl, moduleAddress }: Params) {
   }
 
   async function getUsername(address: string) {
-    if (!AddressUtils.validate(address)) return null
+    if (!InitiaAddress.validate(address)) return null
     const name = await view<string>({
       moduleAddress,
       moduleName,
       functionName: "get_name_from_address",
       typeArgs: [],
-      args: [toBase64(AddressUtils.toBytes(address, 32))],
+      args: [toBase64(InitiaAddress(address, 32).bytes)],
     })
     if (!name) return null
     return name + ".init"
@@ -61,7 +61,7 @@ export function createUsernameClient({ restUrl, moduleAddress }: Params) {
       args: [bcs.string().serialize(username.toLowerCase().replace(".init", "")).toBase64()],
     })
     if (!address) return null
-    return AddressUtils.toBech32(address)
+    return InitiaAddress(address).bech32
   }
 
   return { restUrl, getUsername, getAddress, validateUsername }

@@ -4,10 +4,11 @@ import { ErrorBoundary } from "react-error-boundary"
 import { useToggle } from "usehooks-ts"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import type { MsgExecute } from "@initia/initia.proto/initia/move/v1/tx"
+import { resolveBcsType } from "@initia/utils"
 import { STALE_TIMES } from "@/data/http"
 import { useChain } from "@/data/chains"
 import Button from "@/components/Button"
-import { resolveBcsType, stringifyValue } from "./stringify"
+import { stringifyValue } from "./stringify"
 import styles from "./MsgExecuteArgs.module.css"
 
 interface MoveContractAbi {

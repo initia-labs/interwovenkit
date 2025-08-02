@@ -1,6 +1,6 @@
 import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import type { Event } from "@cosmjs/stargate"
-import { generateDerivedAddress } from "@/data/assets"
+import { createUserDerivedObjectAddress } from "@initia/utils"
 
 interface MoveEventData {
   store_addr: string
@@ -84,7 +84,7 @@ export function getMoveChanges(
 
         if (store_addr && amount && metadata) {
           const hexAddress = address.startsWith("0x") ? address.slice(2) : address
-          const derivedAddr = `0x${generateDerivedAddress(hexAddress, metadata)}`
+          const derivedAddr = createUserDerivedObjectAddress(`0x${hexAddress}`, metadata)
           if (derivedAddr === store_addr) {
             const current = changes[metadata] || BigInt(0)
             changes[metadata] = current - BigInt(amount)
@@ -99,7 +99,7 @@ export function getMoveChanges(
 
         if (store_addr && amount && metadata) {
           const hexAddress = address.startsWith("0x") ? address.slice(2) : address
-          const derivedAddr = `0x${generateDerivedAddress(hexAddress, metadata)}`
+          const derivedAddr = createUserDerivedObjectAddress(`0x${hexAddress}`, metadata)
           if (derivedAddr === store_addr) {
             const current = changes[metadata] || BigInt(0)
             changes[metadata] = current + BigInt(amount)
