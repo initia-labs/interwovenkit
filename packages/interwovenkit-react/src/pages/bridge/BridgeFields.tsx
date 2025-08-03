@@ -245,7 +245,7 @@ const BridgeFields = () => {
               )
             }
           >
-            {formatAmount(srcBalance?.amount, { decimals: srcAsset.decimals })}
+            {formatAmount(srcBalance?.amount ?? "0", { decimals: srcAsset.decimals })}
           </BalanceButton>
         }
         value={!route ? "0" : route.usd_amount_in ? formatNumber(route.usd_amount_in) : "-"}

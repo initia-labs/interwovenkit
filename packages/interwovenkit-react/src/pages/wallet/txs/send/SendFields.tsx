@@ -91,7 +91,7 @@ export const SendFields = () => {
                   })
                 }
               >
-                {formatAmount(balance, { decimals })}
+                {formatAmount(balance ?? "0", { decimals })}
               </BalanceButton>
             }
             value={!quantity ? "0" : !price ? "-" : formatNumber(BigNumber(quantity).times(price))}
