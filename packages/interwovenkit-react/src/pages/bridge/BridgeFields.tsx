@@ -151,21 +151,15 @@ const BridgeFields = () => {
   })
 
   // fees
-  const deductedFees = useMemo(() => {
-    return (
-      route?.estimated_fees?.filter(
-        ({ fee_behavior }) => fee_behavior === FeeBehaviorJson.FEE_BEHAVIOR_DEDUCTED,
-      ) ?? []
-    )
-  }, [route])
+  const deductedFees =
+    route?.estimated_fees?.filter(
+      ({ fee_behavior }) => fee_behavior === FeeBehaviorJson.FEE_BEHAVIOR_DEDUCTED,
+    ) ?? []
 
-  const additionalFees = useMemo(() => {
-    return (
-      route?.estimated_fees?.filter(
-        ({ fee_behavior }) => fee_behavior === FeeBehaviorJson.FEE_BEHAVIOR_ADDITIONAL,
-      ) ?? []
-    )
-  }, [route])
+  const additionalFees =
+    route?.estimated_fees?.filter(
+      ({ fee_behavior }) => fee_behavior === FeeBehaviorJson.FEE_BEHAVIOR_ADDITIONAL,
+    ) ?? []
 
   const feeErrorMessage = useMemo(() => {
     for (const fee of additionalFees) {

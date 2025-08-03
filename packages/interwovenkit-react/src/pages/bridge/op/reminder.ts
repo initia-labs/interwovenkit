@@ -1,5 +1,5 @@
 import { isPast } from "date-fns"
-import { useEffect, useCallback, useMemo, createElement } from "react"
+import { useEffect, createElement } from "react"
 import { useAtom } from "jotai"
 import { atomWithStorage } from "jotai/utils"
 import { useNavigate } from "@/lib/router"
@@ -30,55 +30,41 @@ export function useClaimableReminders() {
   const initiaAddress = useInitiaAddress()
   const [list = [], setList] = useAtom(opRemindersAtom)
 
-  const reminders = useMemo(() => {
-    return list
-      .map((tx) => {
-        const raw = localStorage.getItem(detailKeyOf(tx))
-        if (!raw) return null
-        return JSON.parse(raw)
-      })
-      .filter((item): item is ReminderDetails => {
-        if (!item) return false
-        const { recipient, claimableAt } = item
-        if (recipient !== initiaAddress) return false
-        return isPast(claimableAt)
-      })
-  }, [initiaAddress, list])
+  const reminders = list
+    .map((tx) => {
+      const raw = localStorage.getItem(detailKeyOf(tx))
+      if (!raw) return null
+      return JSON.parse(raw)
+    })
+    .filter((item): item is ReminderDetails => {
+      if (!item) return false
+      const { recipient, claimableAt } = item
+      if (recipient !== initiaAddress) return false
+      return isPast(claimableAt)
+    })
 
-  const addReminder = useCallback(
-    (tx: TxIdentifier, details: ReminderDetails) => {
-      // Avoid duplicates
-      if (list.some((item) => isSameTx(item, tx))) return
-      setList((prev = []) => [...prev, tx])
-      localStorage.setItem(detailKeyOf(tx), JSON.stringify(details))
-    },
-    [list, setList],
-  )
+  const addReminder = (tx: TxIdentifier, details: ReminderDetails) => {
+    // Avoid duplicates
+    if (list.some((item) => isSameTx(item, tx))) return
+    setList((prev = []) => [...prev, tx])
+    localStorage.setItem(detailKeyOf(tx), JSON.stringify(details))
+  }
 
-  const removeReminder = useCallback(
-    (tx: TxIdentifier) => {
-      setList((prev = []) => prev.filter((item) => !isSameTx(item, tx)))
-      localStorage.removeItem(detailKeyOf(tx))
-    },
-    [setList],
-  )
+  const removeReminder = (tx: TxIdentifier) => {
+    setList((prev = []) => prev.filter((item) => !isSameTx(item, tx)))
+    localStorage.removeItem(detailKeyOf(tx))
+  }
 
-  const syncReminders = useCallback(
-    (txs: TxIdentifier[]) => {
-      const newOnes = txs.filter((tx) => !list.some((item) => isSameTx(item, tx)))
-      if (newOnes.length === 0) return
-      setList((prev = []) => [...prev, ...newOnes])
-    },
-    [list, setList],
-  )
+  const syncReminders = (txs: TxIdentifier[]) => {
+    const newOnes = txs.filter((tx) => !list.some((item) => isSameTx(item, tx)))
+    if (newOnes.length === 0) return
+    setList((prev = []) => [...prev, ...newOnes])
+  }
 
-  const setReminder = useCallback(
-    (tx: TxIdentifier, details: ReminderDetails) => {
-      localStorage.setItem(detailKeyOf(tx), JSON.stringify(details))
-      setList((prev = []) => [...prev]) // to trigger re-render
-    },
-    [setList],
-  )
+  const setReminder = (tx: TxIdentifier, details: ReminderDetails) => {
+    localStorage.setItem(detailKeyOf(tx), JSON.stringify(details))
+    setList((prev = []) => [...prev]) // to trigger re-render
+  }
 
   return { reminders, addReminder, removeReminder, syncReminders, setReminder }
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import WidgetTooltip from "@/components/WidgetTooltip"
 
 const MILLISECONDS_IN_SECOND = 1000
@@ -15,7 +15,7 @@ interface Props {
 }
 
 const Countdown = ({ date }: Props) => {
-  const calculateTimeLeft = useCallback(() => {
+  const calculateTimeLeft = () => {
     const now = new Date().getTime()
     const targetTime = date.getTime()
     const difference = targetTime - now
@@ -30,7 +30,7 @@ const Countdown = ({ date }: Props) => {
     const seconds = Math.floor((difference % MILLISECONDS_IN_MINUTE) / MILLISECONDS_IN_SECOND)
 
     return { days, hours, minutes, seconds }
-  }, [date])
+  }
 
   const [timeLeft, setTimeLeft] = useState(calculateTimeLeft())
 
@@ -40,7 +40,7 @@ const Countdown = ({ date }: Props) => {
     }, 1000)
 
     return () => window.clearInterval(timer)
-  }, [calculateTimeLeft, date])
+  }, [date])
 
   const formatTime = (time: number) => time.toString().padStart(2, "0")
 

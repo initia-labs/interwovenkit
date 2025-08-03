@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react"
+import { useEffect } from "react"
 import type { NormalizedChain } from "@/data/chains"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import Status from "@/components/Status"
@@ -15,7 +15,7 @@ const WithdrawalList = ({ chain }: { chain: NormalizedChain }) => {
   if (!executorUrl) throw new Error("Executor URL is not defined")
 
   const { data, fetchNextPage, hasNextPage, isFetching } = useWithdrawals(executorUrl)
-  const list = useMemo(() => data?.pages.flat() ?? [], [data])
+  const list = data?.pages.flat() ?? []
 
   const { syncReminders } = useClaimableReminders()
   useEffect(() => {

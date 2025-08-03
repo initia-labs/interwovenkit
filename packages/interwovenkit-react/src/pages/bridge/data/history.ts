@@ -1,4 +1,3 @@
-import { useCallback } from "react"
 import { useLocalStorage } from "usehooks-ts"
 import type { RouteResponseJson } from "@skip-go/client"
 import { LocalStorageKey } from "@/data/constants"
@@ -26,25 +25,22 @@ export const BRIDGE_HISTORY_LIMIT_PER_PAGE = 10
 export function useBridgeHistoryList() {
   const [list, setList] = useLocalStorage<TxIdentifier[]>(LocalStorageKey.BRIDGE_HISTORY, [])
 
-  const addHistoryItem = useCallback(
-    (tx: TxIdentifier, details: HistoryDetails) => {
-      localStorage.setItem(detailKeyOf(tx), JSON.stringify(details))
+  const addHistoryItem = (tx: TxIdentifier, details: HistoryDetails) => {
+    localStorage.setItem(detailKeyOf(tx), JSON.stringify(details))
 
-      // Remove the oldest item if we exceed the limit
-      for (const item of list.slice(BRIDGE_HISTORY_LIMIT - 1)) {
-        localStorage.removeItem(detailKeyOf(item))
-      }
+    // Remove the oldest item if we exceed the limit
+    for (const item of list.slice(BRIDGE_HISTORY_LIMIT - 1)) {
+      localStorage.removeItem(detailKeyOf(item))
+    }
 
-      setList((prev = []) => [tx, ...prev.slice(0, BRIDGE_HISTORY_LIMIT - 1)])
-    },
-    [list, setList],
-  )
+    setList((prev = []) => [tx, ...prev.slice(0, BRIDGE_HISTORY_LIMIT - 1)])
+  }
 
-  const getHistoryDetails = useCallback((tx: TxIdentifier) => {
+  const getHistoryDetails = (tx: TxIdentifier) => {
     const item = localStorage.getItem(detailKeyOf(tx))
     if (!item) return null
     return JSON.parse(item) as HistoryDetails
-  }, [])
+  }
 
   return { history: list, addHistoryItem, getHistoryDetails }
 }

@@ -1,4 +1,4 @@
-import { useCallback, useState, type PropsWithChildren } from "react"
+import { useState, type PropsWithChildren } from "react"
 import { useAtomValue } from "jotai"
 import { txRequestHandlerAtom } from "@/data/tx"
 import Modal from "@/components/Modal"
@@ -12,26 +12,23 @@ const ModalProvider = ({ children }: PropsWithChildren) => {
   const [isOpen, setIsOpen] = useState(false)
   const txRequest = useAtomValue(txRequestHandlerAtom)
 
-  const openModal = useCallback((options: ModalOptions) => {
+  const openModal = (options: ModalOptions) => {
     setOptions(options)
     setIsOpen(true)
-  }, [])
+  }
 
-  const closeModal = useCallback(() => {
+  const closeModal = () => {
     setOptions({})
     setIsOpen(false)
-  }, [])
+  }
 
-  const handleOpenChange = useCallback(
-    (open: boolean) => {
-      if (!open) {
-        txRequest?.reject(new Error("User rejected"))
-        setOptions({})
-      }
-      setIsOpen(open)
-    },
-    [txRequest],
-  )
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      txRequest?.reject(new Error("User rejected"))
+      setOptions({})
+    }
+    setIsOpen(open)
+  }
 
   return (
     <ModalContext.Provider value={{ openModal, closeModal }}>

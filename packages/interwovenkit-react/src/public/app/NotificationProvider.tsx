@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid"
 import type { PropsWithChildren } from "react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import Toast from "@/components/Toast"
 import { usePortal } from "./PortalContext"
@@ -26,35 +26,29 @@ const NotificationProvider = ({ children }: PropsWithChildren) => {
     }
   }
 
-  const hideNotification = useCallback(() => {
+  const hideNotification = () => {
     clearTimer()
     setNotification(null)
-  }, [])
+  }
 
-  const showNotification = useCallback(
-    (notification: Notification) => {
-      clearTimer()
-      setNotification({ ...notification, id: nanoid() })
-      if (notification.autoHide && !hoverRef.current) {
-        timerRef.current = setTimeout(() => hideNotification(), duration)
-      }
-    },
-    [hideNotification],
-  )
+  const showNotification = (notification: Notification) => {
+    clearTimer()
+    setNotification({ ...notification, id: nanoid() })
+    if (notification.autoHide && !hoverRef.current) {
+      timerRef.current = setTimeout(() => hideNotification(), duration)
+    }
+  }
 
-  const updateNotification = useCallback(
-    (notification: Notification) => {
-      clearTimer()
-      setNotification((prev) => {
-        if (prev) return { ...prev, ...notification }
-        return { ...notification, id: nanoid() }
-      })
-      if (notification.autoHide && !hoverRef.current) {
-        timerRef.current = setTimeout(() => hideNotification(), duration)
-      }
-    },
-    [hideNotification],
-  )
+  const updateNotification = (notification: Notification) => {
+    clearTimer()
+    setNotification((prev) => {
+      if (prev) return { ...prev, ...notification }
+      return { ...notification, id: nanoid() }
+    })
+    if (notification.autoHide && !hoverRef.current) {
+      timerRef.current = setTimeout(() => hideNotification(), duration)
+    }
+  }
 
   const onMouseEnter = () => {
     clearTimer()
