@@ -3,7 +3,7 @@ import fs from "fs"
 import path from "path"
 import type { Plugin } from "vite"
 import { defineConfig } from "vite"
-import react from "@vitejs/plugin-react-swc"
+import react from "@vitejs/plugin-react"
 import dts from "vite-plugin-dts"
 
 function emitCssAsJsString(): Plugin {
@@ -52,7 +52,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       dts({ rollupTypes: mode !== "fast" }),
-      react(),
+      react({ babel: { plugins: [["babel-plugin-react-compiler", {}]] } }),
       emitCssAsJsString(),
       appendJsExtension(),
     ],

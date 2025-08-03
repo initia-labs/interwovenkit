@@ -26,8 +26,10 @@
     "@tsconfig/vite-react": "^6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@vitejs/plugin-react-swc": "^3",
+    "@vitejs/plugin-react": "^4",
+    "babel-plugin-react-compiler": "19.1.0-rc.2",
     "eslint": "^9",
+    "eslint-plugin-react-hooks": "6.0.0-rc1",
     "typescript": "^5",
     "vite": "^6"
   }
