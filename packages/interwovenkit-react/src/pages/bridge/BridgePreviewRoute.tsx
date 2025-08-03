@@ -5,7 +5,7 @@ import { Collapsible } from "radix-ui"
 import { useAccount } from "wagmi"
 import type { OperationJson, SwapVenueJson } from "@skip-go/client"
 import { IconList, IconMinus, IconWallet } from "@initia/icons-react"
-import { AddressUtils } from "@/public/utils"
+import { InitiaAddress } from "@initia/utils"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import Image from "@/components/Image"
 import FlexEnd from "@/components/FlexEnd"
@@ -93,7 +93,7 @@ const BridgePreviewRoute = ({ addressList }: Props) => {
   }
 
   const getWalletIcon = (address: string) => {
-    if (AddressUtils.equals(address, connectedAddress)) return connectedWalletIcon
+    if (InitiaAddress.equals(address, connectedAddress)) return connectedWalletIcon
     return <IconWallet size={11} />
   }
 

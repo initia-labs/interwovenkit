@@ -1,4 +1,4 @@
-import { AddressUtils } from "@/public/utils"
+import { InitiaAddress } from "@initia/utils"
 import { LocalStorageKey } from "./constants"
 
 export function migrateLocalStorage() {
@@ -16,7 +16,7 @@ export function migrateLocalStorage() {
   const parseMap = {
     "initia-wallet-widget:ethereum-public-keys": {
       prefix: LocalStorageKey.PUBLIC_KEY,
-      getSuffix: AddressUtils.toBech32,
+      getSuffix: (address: string) => InitiaAddress(address).bech32,
     },
   }
 

@@ -2,9 +2,8 @@ import ky from "ky"
 import { Interface } from "ethers"
 import { toBytes, utf8ToBytes } from "@noble/hashes/utils"
 import { toBase64 } from "@cosmjs/encoding"
-import { AddressUtils } from "@/public/utils"
+import { InitiaAddress, createObjectAddress } from "@initia/utils"
 import type { NormalizedChain } from "@/data/chains"
-import { generateSeededAddress } from "@/data/assets"
 import type { NormalizedCollection, NormalizedNft } from "../../tabs/nft/queries"
 
 async function handleMinimove(
@@ -22,7 +21,7 @@ async function handleMinimove(
   }
 
   // Root creator: return IBC class ID and trace
-  if (generateSeededAddress("0x1", name) === objectAddr.replace("0x", "").padStart(64, "0")) {
+  if (InitiaAddress.equals(createObjectAddress("0x1", name), objectAddr)) {
     return {
       class_id: name,
       class_trace: await fetchIbcClassTrace(name, restUrl),
@@ -61,7 +60,7 @@ async function handleMinievm(
   // Non-IBC: hex-based EVM class ID
   if (!name.startsWith("ibc/")) {
     return {
-      class_id: `evm/${AddressUtils.toHex(objectAddr)}`,
+      class_id: `evm/${InitiaAddress(objectAddr).rawHex}`,
       class_trace: null,
     }
   }
@@ -77,7 +76,7 @@ async function handleMinievm(
   }
 
   return {
-    class_id: `evm/${AddressUtils.toHex(objectAddr)}`,
+    class_id: `evm/${InitiaAddress(objectAddr).rawHex}`,
     class_trace: null,
   }
 }
@@ -97,8 +96,8 @@ async function fetchCollectionNameMinievm(objectAddr: string, restUrl: string) {
     .create({ prefixUrl: restUrl })
     .post("minievm/evm/v1/call", {
       json: {
-        sender: AddressUtils.toBech32("0x1"),
-        contract_addr: AddressUtils.toPrefixedHex(objectAddr),
+        sender: InitiaAddress("0x1").bech32,
+        contract_addr: InitiaAddress(objectAddr).hex,
         input: abi.encodeFunctionData("name"),
       },
     })
