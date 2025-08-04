@@ -7,6 +7,7 @@ import { useChain, useManageChains, usePricesQuery } from "@/data/chains"
 import { InitiaAddress, formatAmount, formatNumber, toBaseUnit, fromBaseUnit } from "@initia/utils"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useInterwovenKit } from "@/public/data/hooks"
+import { STALE_TIMES } from "@/data/http"
 import { useAsset } from "@/data/assets"
 import { useBalances } from "@/data/account"
 import { useGasPrices, useLastFeeDenom } from "@/data/fee"
@@ -47,7 +48,7 @@ export const SendFields = () => {
   const balance = balances.find((coin) => coin.denom === denom)?.amount ?? "0"
   const price = prices?.find(({ id }) => id === denom)?.price
 
-  const { data: estimatedGas = 0, isLoading } = useQuery({
+  const { data: estimatedGas = 200000, isLoading } = useQuery({
     queryKey: queryKeys.gas({ chainId, denom, initiaAddress }).queryKey,
     queryFn: () => {
       const messages = [
@@ -62,6 +63,7 @@ export const SendFields = () => {
       ]
       return estimateGas({ messages, chainId })
     },
+    staleTime: STALE_TIMES.INFINITY,
   })
 
   const gas = Math.ceil(estimatedGas * DEFAULT_GAS_ADJUSTMENT)
