@@ -23,5 +23,6 @@
 
   &:disabled {
     color: var(--dimmed);
+    cursor: not-allowed;
   }
 }

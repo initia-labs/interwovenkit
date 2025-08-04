@@ -116,7 +116,7 @@ export const SendFields = () => {
                     shouldValidate: true,
                   })
                 }
-                disabled={isLoading}
+                disabled={gasPrices.some(({ denom: feeDenom }) => feeDenom === denom) && isLoading}
               >
                 {formatAmount(balance ?? "0", { decimals })}
               </BalanceButton>
