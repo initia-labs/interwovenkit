@@ -45,7 +45,8 @@ export function calcMaxAmount({
     return BigNumber.max(amount, 0).toString()
   }
 
-  const [preferredFeeOption] = availableFeeOptions
+  const preferredFeeOption =
+    availableFeeOptions.find((option) => option.denom !== denom) || availableFeeOptions[0]
   if (!lastFeeOption && denom === preferredFeeOption.denom) {
     const amount = BigNumber(balance).minus(preferredFeeOption.amount)
     return BigNumber.max(amount, 0).toString()
