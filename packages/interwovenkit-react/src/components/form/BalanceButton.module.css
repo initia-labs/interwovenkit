@@ -20,4 +20,8 @@
   &:hover {
     color: var(--gray-0);
   }
+
+  &:disabled {
+    color: var(--dimmed);
+  }
 }
