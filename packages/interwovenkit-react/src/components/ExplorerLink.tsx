@@ -25,7 +25,11 @@ const ExplorerLink = ({ chainId, txHash, accountAddress, pathSuffix, ...props }:
   const text = children ?? defaultText
 
   if (!url) {
-    return <span {...attrs}>{text}</span>
+    return (
+      <span {...attrs} className={clsx(styles.link, className)}>
+        {text}
+      </span>
+    )
   }
 
   return (
