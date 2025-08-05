@@ -6,8 +6,8 @@ import { Secp256k1 } from "@cosmjs/crypto"
 import { fromBase64, toHex } from "@cosmjs/encoding"
 import type { Coin } from "@cosmjs/proto-signing"
 import { useSuspenseQuery } from "@tanstack/react-query"
+import { InitiaAddress } from "@initia/utils"
 import { DEFAULT_GAS_PRICE_MULTIPLIER } from "@/public/data/constants"
-import { AddressUtils } from "@/public/utils"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useTxs } from "@/pages/wallet/tabs/activity/data"
 import { STALE_TIMES } from "./http"
@@ -59,7 +59,7 @@ export function useLastFeeDenom(chain: NormalizedChain) {
   try {
     const lastTx = txs.find(({ tx }) =>
       tx.auth_info.signer_infos.some((info) => {
-        return AddressUtils.equals(
+        return InitiaAddress.equals(
           address,
           computeAddress(`0x${toHex(Secp256k1.uncompressPubkey(fromBase64(info.public_key.key)))}`),
         )

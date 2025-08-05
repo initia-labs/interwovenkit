@@ -48,12 +48,12 @@ const SelectRouteOption = ({ label, query, value, onSelect, checked }: Props) =>
       <div className={styles.amount}>
         {isLoading ? (
           <Loader size={14} />
-        ) : (
+        ) : data ? (
           <>
-            <span>{formatAmount(data?.amount_out, { decimals: dstAsset.decimals })}</span>
+            <span>{formatAmount(data.amount_out, { decimals: dstAsset.decimals })}</span>
             <span className={styles.symbol}>{dstAsset.symbol}</span>
           </>
-        )}
+        ) : null}
       </div>
     </button>
   )

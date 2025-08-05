@@ -2,8 +2,7 @@ import { useAccount } from "wagmi"
 import { intlFormatDistance } from "date-fns"
 import { useEffect, useMemo, type ReactNode } from "react"
 import { IconArrowDown, IconExternalLink, IconWallet } from "@initia/icons-react"
-import { formatAmount, truncate } from "@initia/utils"
-import { AddressUtils } from "@/public/utils"
+import { InitiaAddress, formatAmount, truncate } from "@initia/utils"
 import Loader from "@/components/Loader"
 import Image from "@/components/Image"
 import Images from "@/components/Images"
@@ -62,7 +61,7 @@ const BridgeHistoryItem = ({ tx }: { tx: TxIdentifier }) => {
       return <Image src={image} width={12} height={12} />
     }
 
-    if (AddressUtils.equals(address, connectedAddress)) {
+    if (InitiaAddress.equals(address, connectedAddress)) {
       return <Image src={connector?.icon} width={12} height={12} />
     }
 

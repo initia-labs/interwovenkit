@@ -1,5 +1,6 @@
 import { useAccount } from "wagmi"
 import { useQuery } from "@tanstack/react-query"
+import { InitiaAddress } from "@initia/utils"
 import { useTx } from "@/data/tx"
 import { useDrawer } from "@/data/ui"
 import { useDefaultChain } from "@/data/chains"
@@ -7,18 +8,17 @@ import { useOfflineSigner } from "@/data/signer"
 import { accountQueryKeys, useUsernameClient } from "@/data/account"
 import type { FormValues } from "@/pages/bridge/data/form"
 import { STALE_TIMES } from "@/data/http"
-import { AddressUtils } from "../utils"
 
 export function useInitiaAddress() {
   const hexAddress = useHexAddress()
   if (!hexAddress) return ""
-  return AddressUtils.toBech32(hexAddress)
+  return InitiaAddress(hexAddress).bech32
 }
 
 export function useHexAddress() {
   const { address } = useAccount()
   if (!address) return ""
-  return AddressUtils.toPrefixedHex(address)
+  return InitiaAddress(address).hex
 }
 
 export function useAddress() {

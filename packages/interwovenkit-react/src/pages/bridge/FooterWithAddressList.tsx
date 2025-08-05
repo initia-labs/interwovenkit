@@ -2,7 +2,7 @@ import { encodeSecp256k1Pubkey, pubkeyToAddress } from "@cosmjs/amino"
 import { fromBech32, toBech32 } from "@cosmjs/encoding"
 import type { ReactNode } from "react"
 import { useState, useEffect } from "react"
-import { AddressUtils } from "@/public/utils"
+import { InitiaAddress } from "@initia/utils"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { normalizeError } from "@/data/http"
 import { useOfflineSigner } from "@/data/signer"
@@ -77,7 +77,7 @@ const FooterWithAddressList = ({ children }: Props) => {
       if (index === required_chain_addresses.length - 1) {
         const dstChain = findSkipChain(dstChainId)
         const findSkipChainType = findChainType(dstChain)
-        if (findSkipChainType === "initia") return AddressUtils.toBech32(recipient)
+        if (findSkipChainType === "initia") return InitiaAddress(recipient).bech32
         return recipient
       }
 

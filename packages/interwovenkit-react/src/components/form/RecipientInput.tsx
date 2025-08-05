@@ -6,7 +6,7 @@ import { useFormContext } from "react-hook-form"
 import { useQuery } from "@tanstack/react-query"
 import type { ChainTypeJson } from "@skip-go/client"
 import { IconCloseCircleFilled } from "@initia/icons-react"
-import { AddressUtils } from "@/public/utils"
+import { InitiaAddress } from "@initia/utils"
 import { STALE_TIMES } from "@/data/http"
 import { accountQueryKeys, useUsernameClient } from "@/data/account"
 import Footer from "../Footer"
@@ -26,7 +26,7 @@ interface Props {
 }
 
 const RecipientInput = ({ mode = "onChange", myAddress, ...props }: Props) => {
-  const { validate = AddressUtils.validate, chainType = "initia", onApply, ref } = props
+  const { validate = InitiaAddress.validate, chainType = "initia", onApply, ref } = props
   const autoFocusRef = useAutoFocus()
 
   const { getValues, setValue, formState } = useFormContext<{ recipient: string }>()
@@ -46,7 +46,7 @@ const RecipientInput = ({ mode = "onChange", myAddress, ...props }: Props) => {
   })
 
   const resolvedAddress = usernameAddress ?? (validate(inputValue) ? inputValue : "")
-  const isMyAddress = myAddress && AddressUtils.equals(resolvedAddress, myAddress)
+  const isMyAddress = myAddress && InitiaAddress.equals(resolvedAddress, myAddress)
 
   const handlePaste = async () => {
     try {

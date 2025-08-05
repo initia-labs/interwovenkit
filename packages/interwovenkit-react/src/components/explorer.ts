@@ -1,5 +1,5 @@
 import { path } from "ramda"
-import { AddressUtils } from "@/public/utils"
+import { InitiaAddress } from "@initia/utils"
 import type { NormalizedChain } from "@/data/chains"
 
 export function isValidTxHash(txHash: string): boolean {
@@ -21,7 +21,7 @@ export function buildExplorerUrl(
   }
 
   if (accountAddress) {
-    if (!AddressUtils.validate(accountAddress)) return undefined
+    if (!InitiaAddress.validate(accountAddress)) return undefined
     const accountPage = path<string>(["explorers", 0, "account_page"], chain)
     const baseUrl = accountPage?.replace(/\$\{accountAddress\}/g, accountAddress)
     return baseUrl && pathSuffix ? baseUrl + pathSuffix : baseUrl
