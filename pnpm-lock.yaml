@@ -30,8 +30,8 @@ importers:
         specifier: workspace:^
         version: link:../../packages/interwovenkit-react
       '@initia/utils':
-        specifier: 2.0.0-alpha.2
-        version: 2.0.0-alpha.2(@cosmjs/encoding@0.34.0)(@mysten/bcs@1.6.4)(@noble/hashes@1.8.0)(bignumber.js@9.3.1)(viem@2.33.1(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.76))
+        specifier: 2.0.0-alpha.3
+        version: 2.0.0-alpha.3(@cosmjs/encoding@0.34.0)(@mysten/bcs@1.6.4)(@noble/hashes@1.8.0)(bignumber.js@9.3.1)(viem@2.33.1(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.76))
       '@tanstack/react-query':
         specifier: ^5
         version: 5.83.0(react@19.1.1)
@@ -127,8 +127,8 @@ importers:
         specifier: ^1
         version: 1.0.2(google-protobuf@3.21.4)
       '@initia/utils':
-        specifier: 2.0.0-alpha.2
-        version: 2.0.0-alpha.2(@cosmjs/encoding@0.34.0)(@mysten/bcs@1.6.4)(@noble/hashes@1.8.0)(bignumber.js@9.3.1)(viem@2.33.1(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.76))
+        specifier: 2.0.0-alpha.3
+        version: 2.0.0-alpha.3(@cosmjs/encoding@0.34.0)(@mysten/bcs@1.6.4)(@noble/hashes@1.8.0)(bignumber.js@9.3.1)(viem@2.33.1(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.76))
       '@keplr-wallet/types':
         specifier: ^0
         version: 0.12.254(starknet@7.6.4)
@@ -814,8 +814,8 @@ packages:
   '@initia/opinit.proto@1.0.2':
     resolution: {integrity: sha512-iKnM52NT4J3unzj2IytCbBiwZX9iSfvUnZNJTdl77VDqzHtTuACXO+rM6LWIBgQRz+RyOsCBN/d3r2xZ42GFfg==}
 
-  '@initia/utils@2.0.0-alpha.2':
-    resolution: {integrity: sha512-IsulOJ8W4OfMrF0WJDXtoRKo6XckjLsT+sAvorHZutd9DHkCRGefjcZFcoFfmPPZX/DKW1DXocjkOlmbYtqOXQ==}
+  '@initia/utils@2.0.0-alpha.3':
+    resolution: {integrity: sha512-q0M8oaOez5hPHEYotQJXOvNK8L2z6NqnY8j9rsSrm8EMinIqKn0jQO7pXZqbpAWqzDZzfB7Hyf2t03lWM53VrA==}
     peerDependencies:
       '@cosmjs/encoding': ^0
       '@mysten/bcs': ^1
@@ -7050,7 +7050,7 @@ snapshots:
     transitivePeerDependencies:
       - google-protobuf
 
-  '@initia/utils@2.0.0-alpha.2(@cosmjs/encoding@0.34.0)(@mysten/bcs@1.6.4)(@noble/hashes@1.8.0)(bignumber.js@9.3.1)(viem@2.33.1(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.76))':
+  '@initia/utils@2.0.0-alpha.3(@cosmjs/encoding@0.34.0)(@mysten/bcs@1.6.4)(@noble/hashes@1.8.0)(bignumber.js@9.3.1)(viem@2.33.1(bufferutil@4.0.9)(typescript@5.8.3)(utf-8-validate@5.0.10)(zod@3.25.76))':
     dependencies:
       '@cosmjs/encoding': 0.34.0
       '@mysten/bcs': 1.6.4
