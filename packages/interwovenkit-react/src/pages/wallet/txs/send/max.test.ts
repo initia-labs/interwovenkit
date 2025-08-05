@@ -17,12 +17,12 @@ describe("calcMaxAmount", () => {
 
     test.each`
       denom     | lastFeeDenom | expected
-      ${"INIT"} | ${null}      | ${toBaseUnit("0", { decimals: 6 })}
-      ${"INIT"} | ${"INIT"}    | ${toBaseUnit("0", { decimals: 6 })}
-      ${"INIT"} | ${"USDC"}    | ${toBaseUnit("0", { decimals: 6 })}
-      ${"USDC"} | ${null}      | ${toBaseUnit("0", { decimals: 6 })}
-      ${"USDC"} | ${"INIT"}    | ${toBaseUnit("0", { decimals: 6 })}
-      ${"USDC"} | ${"USDC"}    | ${toBaseUnit("0", { decimals: 6 })}
+      ${"INIT"} | ${null}      | ${toBaseUnit("0.01", { decimals: 6 })}
+      ${"INIT"} | ${"INIT"}    | ${toBaseUnit("0.01", { decimals: 6 })}
+      ${"INIT"} | ${"USDC"}    | ${toBaseUnit("0.01", { decimals: 6 })}
+      ${"USDC"} | ${null}      | ${toBaseUnit("0.01", { decimals: 6 })}
+      ${"USDC"} | ${"INIT"}    | ${toBaseUnit("0.01", { decimals: 6 })}
+      ${"USDC"} | ${"USDC"}    | ${toBaseUnit("0.01", { decimals: 6 })}
     `(
       "returns $expected when sending $denom with lastFeeDenom=$lastFeeDenom",
       ({ denom, lastFeeDenom, expected }) => {
