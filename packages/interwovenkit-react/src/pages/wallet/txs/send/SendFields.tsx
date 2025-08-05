@@ -1,10 +1,13 @@
 import BigNumber from "bignumber.js"
 import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQuery } from "@tanstack/react-query"
+import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { useFormContext } from "react-hook-form"
 import { useChain, useManageChains, usePricesQuery } from "@/data/chains"
 import { InitiaAddress, formatAmount, formatNumber, toBaseUnit, fromBaseUnit } from "@initia/utils"
+import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useInterwovenKit } from "@/public/data/hooks"
+import { STALE_TIMES } from "@/data/http"
 import { useAsset } from "@/data/assets"
 import { useBalances } from "@/data/account"
 import { useGasPrices, useLastFeeDenom } from "@/data/fee"
@@ -19,13 +22,17 @@ import QuantityInput from "@/components/form/QuantityInput"
 import RecipientInput from "@/components/form/RecipientInput"
 import InputHelp from "@/components/form/InputHelp"
 import FormHelp from "@/components/form/FormHelp"
-import { FIXED_GAS, calcMaxAmount } from "./max"
+import { calcMaxAmount } from "./max"
 import type { FormValues } from "./Send"
 import SelectChainAsset from "./SelectChainAsset"
 import styles from "./SendFields.module.css"
 
+const queryKeys = createQueryKeys("interwovenkit:send", {
+  gas: (params) => [params],
+})
+
 export const SendFields = () => {
-  const { address, initiaAddress, requestTxSync } = useInterwovenKit()
+  const { address, initiaAddress, estimateGas, requestTxSync } = useInterwovenKit()
 
   const { register, watch, setValue, handleSubmit, formState } = useFormContext<FormValues>()
   const { chainId, denom, quantity, memo } = watch()
@@ -41,7 +48,26 @@ export const SendFields = () => {
   const balance = balances.find((coin) => coin.denom === denom)?.amount ?? "0"
   const price = prices?.find(({ id }) => id === denom)?.price
 
-  const maxAmount = calcMaxAmount({ denom, balances, gasPrices, lastFeeDenom })
+  const { data: estimatedGas = 200000, isLoading } = useQuery({
+    queryKey: queryKeys.gas({ chainId, denom, initiaAddress }).queryKey,
+    queryFn: () => {
+      const messages = [
+        {
+          typeUrl: "/cosmos.bank.v1beta1.MsgSend",
+          value: MsgSend.fromPartial({
+            fromAddress: initiaAddress,
+            toAddress: InitiaAddress(initiaAddress).bech32,
+            amount: [{ denom, amount: "1" }],
+          }),
+        },
+      ]
+      return estimateGas({ messages, chainId })
+    },
+    staleTime: STALE_TIMES.INFINITY,
+  })
+
+  const gas = Math.ceil(estimatedGas * DEFAULT_GAS_ADJUSTMENT)
+  const maxAmount = calcMaxAmount({ denom, balances, gasPrices, lastFeeDenom, gas })
 
   const { mutate, isPending } = useMutation({
     mutationFn: ({ chainId, denom, quantity, recipient, memo }: FormValues) => {
@@ -60,8 +86,8 @@ export const SendFields = () => {
         messages,
         memo,
         chainId,
-        gas: FIXED_GAS,
-        gasAdjustment: 1,
+        gas: estimatedGas,
+        gasAdjustment: DEFAULT_GAS_ADJUSTMENT,
         gasPrices: gasPrices,
         spendCoins: [{ denom, amount }],
         internal: "/",
@@ -90,6 +116,7 @@ export const SendFields = () => {
                     shouldValidate: true,
                   })
                 }
+                disabled={gasPrices.some(({ denom: feeDenom }) => feeDenom === denom) && isLoading}
               >
                 {formatAmount(balance ?? "0", { decimals })}
               </BalanceButton>

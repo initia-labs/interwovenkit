@@ -1,18 +1,18 @@
 import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import BigNumber from "bignumber.js"
 
-export const FIXED_GAS = 200000
-
 function createAvailableFeeOptions({
   balances,
   gasPrices,
+  gas,
 }: {
   balances: Coin[]
   gasPrices: Coin[]
+  gas: number
 }) {
   return gasPrices
     .map(({ denom, amount: price }) => {
-      const amount = BigNumber(price).times(FIXED_GAS).toFixed(0, BigNumber.ROUND_CEIL)
+      const amount = BigNumber(price).times(gas).toFixed(0, BigNumber.ROUND_CEIL)
       const balance = balances.find((coin) => coin.denom === denom)?.amount ?? "0"
       return { amount, denom, balance }
     })
@@ -24,14 +24,16 @@ export function calcMaxAmount({
   balances,
   gasPrices,
   lastFeeDenom,
+  gas,
 }: {
   denom: string
   balances: Coin[]
   gasPrices: Coin[]
   lastFeeDenom: string | null
+  gas: number
 }) {
   const balance = balances.find((coin) => coin.denom === denom)?.amount ?? "0"
-  const availableFeeOptions = createAvailableFeeOptions({ balances, gasPrices })
+  const availableFeeOptions = createAvailableFeeOptions({ balances, gasPrices, gas })
   const lastFeeOption = availableFeeOptions.find((option) => option.denom === lastFeeDenom)
 
   if (availableFeeOptions.length === 0) {
@@ -43,7 +45,8 @@ export function calcMaxAmount({
     return BigNumber.max(amount, 0).toString()
   }
 
-  const [preferredFeeOption] = availableFeeOptions
+  const preferredFeeOption =
+    availableFeeOptions.find((option) => option.denom !== denom) || availableFeeOptions[0]
   if (!lastFeeOption && denom === preferredFeeOption.denom) {
     const amount = BigNumber(balance).minus(preferredFeeOption.amount)
     return BigNumber.max(amount, 0).toString()

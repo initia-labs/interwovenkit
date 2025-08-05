@@ -7,7 +7,7 @@ import { createElement, Fragment } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { StatusResponseJson, TrackResponseJson, TxJson } from "@skip-go/client"
 import { aminoConverters, aminoTypes } from "@initia/amino-converter"
-import { InitiaAddress } from "@initia/utils"
+import { InitiaAddress, toBaseUnit } from "@initia/utils"
 import { Link, useLocationState, useNavigate } from "@/lib/router"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useNotification } from "@/public/app/NotificationContext"
@@ -91,7 +91,14 @@ export function useBridgeTx(tx: TxJson) {
           })
 
           if (srcChainType === "initia") {
-            const txHash = await requestTxSync({ messages, chainId: srcChainId, internal: 1 })
+            const { srcDenom, quantity } = values
+            const { decimals } = findAsset(srcDenom)
+            const txHash = await requestTxSync({
+              messages,
+              chainId: srcChainId,
+              internal: 1,
+              spendCoins: [{ denom: srcDenom, amount: toBaseUnit(quantity, { decimals }) }],
+            })
             const wait = waitForTxConfirmation({ txHash, chainId: srcChainId })
             return { txHash, wait }
           }
