@@ -1,8 +1,5 @@
 import "./index.css"
 
-// utils
-export * from "./public/utils"
-
 // constants
 export * from "./public/data/constants"
 

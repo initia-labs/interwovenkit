@@ -4,12 +4,12 @@ import BigNumber from "bignumber.js"
 import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
-import { createUsernameClient } from "@/public/utils"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useConfig } from "./config"
 import { STALE_TIMES } from "./http"
 import { useLayer1, usePricesQuery, type NormalizedChain } from "./chains"
 import { useAssets, useFindAsset, useGetLayer1Denom } from "./assets"
+import { createUsernameClient } from "./username"
 
 export const accountQueryKeys = createQueryKeys("interwovenkit:account", {
   username: (restUrl: string, address: string) => [restUrl, address],
