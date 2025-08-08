@@ -18,17 +18,16 @@
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-hook-form": "^7.62.0",
-    "react-router": "^7.7.1",
-    "viem": "^2.33.2",
+    "viem": "^2.33.3",
     "wagmi": "^2.16.1"
   },
   "devDependencies": {
     "@tsconfig/vite-react": "^7.0.0",
     "@types/react": "^19.1.9",
     "@types/react-dom": "^19.1.7",
-    "@vitejs/plugin-react-swc": "^3.11.0",
+    "@vitejs/plugin-react-swc": "^4.0.0",
     "eslint": "^9.32.0",
     "typescript": "^5.9.2",
-    "vite": "^7.0.6"
+    "vite": "^7.1.1"
   }
 }
