@@ -7,7 +7,7 @@ import { useFindAsset } from "@/data/assets"
 import type { NormalizedChain } from "@/data/chains"
 import type { BaseAsset } from "@/components/form/types"
 import { getCoinChanges, getMoveChanges } from "./changes/changes"
-import type { TxItem } from "./data"
+import type { TxItem } from "./queries"
 import WithDenom from "./WithDenom"
 import styles from "./ActivityChanges.module.css"
 

@@ -1,7 +1,17 @@
 .list {
-  margin: 0 calc(-1 * var(--padding));
-  padding-top: 24px;
-  overflow: hidden;
+  display: grid;
+  gap: 24px;
+}
+
+.dateGroup {
+  display: grid;
+  gap: 10px;
+}
+
+.dateHeader {
+  color: var(--gray-1);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .more {

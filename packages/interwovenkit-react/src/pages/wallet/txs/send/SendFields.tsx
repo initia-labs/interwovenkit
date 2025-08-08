@@ -3,7 +3,7 @@ import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { useFormContext } from "react-hook-form"
-import { useChain, useManageChains, usePricesQuery } from "@/data/chains"
+import { useChain, usePricesQuery } from "@/data/chains"
 import { InitiaAddress, formatAmount, formatNumber, toBaseUnit, fromBaseUnit } from "@initia/utils"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useInterwovenKit } from "@/public/data/hooks"
@@ -37,13 +37,12 @@ export const SendFields = () => {
   const { register, watch, setValue, handleSubmit, formState } = useFormContext<FormValues>()
   const { chainId, denom, quantity, memo } = watch()
 
-  const { addedChains } = useManageChains()
   const chain = useChain(chainId)
   const balances = useBalances(chain)
   const gasPrices = useGasPrices(chain)
   const lastFeeDenom = useLastFeeDenom(chain)
   const asset = useAsset(denom, chain)
-  const { data: prices } = usePricesQuery(chain.chainId)
+  const { data: prices } = usePricesQuery(chain)
   const { decimals } = asset
   const balance = balances.find((coin) => coin.denom === denom)?.amount ?? "0"
   const price = prices?.find(({ id }) => id === denom)?.price
@@ -102,7 +101,7 @@ export const SendFields = () => {
           <ChainAssetQuantityLayout
             selectButton={
               <ModalTrigger
-                title={addedChains.length > 1 ? "Select chain and asset" : "Select asset"}
+                title="Select chain and asset"
                 content={(close) => <SelectChainAsset afterSelect={close} />}
               >
                 <AssetOnChainButton asset={asset} chain={chain} />

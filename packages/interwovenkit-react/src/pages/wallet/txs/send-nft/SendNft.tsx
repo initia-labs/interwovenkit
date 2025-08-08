@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useLocationState } from "@/lib/router"
 import { RecipientSchema } from "@/components/form/types"
 import Page from "@/components/Page"
-import type { ChainCollectionNftCollectionState } from "../../tabs/nft/queries"
+import type { NormalizedNft } from "../../tabs/nft/queries"
 import SendNftFields from "./SendNftFields"
 
 const FormValuesSchema = z.object({
@@ -15,7 +15,7 @@ const FormValuesSchema = z.object({
 export type FormValues = z.infer<typeof FormValuesSchema>
 
 const SendNft = () => {
-  const { chain: srcChain } = useLocationState<ChainCollectionNftCollectionState>()
+  const { chain: srcChain } = useLocationState<NormalizedNft>()
 
   const form = useForm<FormValues>({
     defaultValues: { dstChainId: srcChain.chainId },

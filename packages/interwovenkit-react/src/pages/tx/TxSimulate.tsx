@@ -42,7 +42,7 @@ interface ChangesProps<T> {
 
 const ChangesWithDenom = ({ changes, chain }: ChangesProps<Coin>) => {
   const findAsset = useFindAsset(chain)
-  const { data: prices } = usePricesQuery(chain.chainId)
+  const { data: prices } = usePricesQuery(chain)
 
   return changes.map(({ amount, denom }, index) => {
     const asset = findAsset(denom)
@@ -56,7 +56,7 @@ const ChangesWithMetadata = ({
   chain,
 }: ChangesProps<{ amount: string; metadata: string }>) => {
   const findAsset = useFindAsset(chain)
-  const { data: prices } = usePricesQuery(chain.chainId)
+  const { data: prices } = usePricesQuery(chain)
 
   return changes.map(({ amount, metadata }, index) => {
     return (

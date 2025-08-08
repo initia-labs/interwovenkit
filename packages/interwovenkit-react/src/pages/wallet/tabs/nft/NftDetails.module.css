@@ -9,6 +9,16 @@
   word-break: break-all;
 }
 
+.chainInfo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  color: var(--dimmed);
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .attributes {
   margin-top: 28px;
 

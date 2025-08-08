@@ -1,15 +1,15 @@
 import type { ReactNode } from "react"
-import type { NftResponse, NormalizedNft } from "./queries"
+import type { NftInfo, NormalizedNft } from "./queries"
 import { normalizeNft, useNftMetataQuery } from "./queries"
 
 interface Props {
-  nftResponse: NftResponse
+  nftInfo: NftInfo
   children: (nft: NormalizedNft) => ReactNode
 }
 
-const WithNormalizedNft = ({ nftResponse, children }: Props) => {
-  const { data: metadata = {} } = useNftMetataQuery(nftResponse.nft.uri)
-  const nft = normalizeNft(nftResponse, metadata)
+const WithNormalizedNft = ({ nftInfo, children }: Props) => {
+  const { data: metadata = {} } = useNftMetataQuery(nftInfo.nft.uri)
+  const nft = normalizeNft(nftInfo, metadata)
   return children(nft)
 }
 

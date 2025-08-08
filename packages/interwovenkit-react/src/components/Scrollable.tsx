@@ -1,9 +1,18 @@
 import clsx from "clsx"
-import type { PropsWithChildren } from "react"
+import type { PropsWithChildren, RefObject } from "react"
 import styles from "./Scrollable.module.css"
 
-const Scrollable = ({ className, children }: PropsWithChildren<{ className?: string }>) => {
-  return <div className={clsx(styles.scrollable, className)}>{children}</div>
+interface Props {
+  className?: string
+  ref?: RefObject<HTMLDivElement | null>
+}
+
+const Scrollable = ({ className, children, ref }: PropsWithChildren<Props>) => {
+  return (
+    <div ref={ref} className={clsx(styles.scrollable, className)}>
+      {children}
+    </div>
+  )
 }
 
 export default Scrollable

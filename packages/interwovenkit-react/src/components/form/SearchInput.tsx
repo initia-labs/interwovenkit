@@ -1,36 +1,30 @@
 import clsx from "clsx"
+import type { ChangeEvent, InputHTMLAttributes, RefObject } from "react"
 import { IconCloseCircleFilled, IconSearch } from "@initia/icons-react"
-import { useAutoFocus } from "./hooks"
 import styles from "./SearchInput.module.css"
 
-interface Props {
-  value?: string
-  onChange?: (value: string) => void
-  placeholder?: string
-  className?: string
+export interface Props extends InputHTMLAttributes<HTMLInputElement> {
+  ref?: RefObject<HTMLInputElement | null>
+  rootClassName?: string
 }
 
-const SearchInput = ({ value = "", onChange, placeholder = "Search", className }: Props) => {
+const SearchInput = ({ ref, rootClassName, ...attrs }: Props) => {
   return (
-    <div className={clsx(styles.root, className)}>
+    <div className={clsx(styles.root, rootClassName)}>
       <label htmlFor="search" className={styles.label}>
         <IconSearch size={16} />
       </label>
 
-      <input
-        id="search"
-        type="text"
-        className={styles.input}
-        value={value}
-        onChange={(e) => onChange?.(e.target.value)}
-        placeholder={placeholder}
-        readOnly={!onChange}
-        ref={useAutoFocus()}
-      />
+      <input id="search" type="text" className={styles.input} ref={ref} {...attrs} />
 
-      {value && (
-        <button className={styles.clear} onClick={() => onChange?.("")}>
-          <IconCloseCircleFilled size={20} />
+      {attrs.value && (
+        <button
+          className={styles.clear}
+          onClick={() =>
+            attrs.onChange?.({ target: { value: "" } } as ChangeEvent<HTMLInputElement>)
+          }
+        >
+          <IconCloseCircleFilled size={16} />
         </button>
       )}
     </div>

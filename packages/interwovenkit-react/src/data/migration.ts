@@ -5,13 +5,10 @@ export function migrateLocalStorage() {
   const deleteKeys = [
     "initia-wallet-widget:last-connected-wallet",
     "initia-wallet-widget:fee-denoms",
+    "initia-wallet-widget:chain-ids",
+    "initia-wallet-widget:opened-layers-assets",
+    "initia-wallet-widget:opened-layers-nft",
   ]
-
-  const renameMap = {
-    "initia-wallet-widget:chain-ids": LocalStorageKey.ADDED_CHAIN_IDS,
-    "initia-wallet-widget:opened-layers-assets": `${LocalStorageKey.OPENED_CHAIN_IDS}:assets`,
-    "initia-wallet-widget:opened-layers-nft": `${LocalStorageKey.OPENED_CHAIN_IDS}:nfts`,
-  }
 
   const parseMap = {
     "initia-wallet-widget:ethereum-public-keys": {
@@ -23,14 +20,6 @@ export function migrateLocalStorage() {
   // Delete keys
   for (const key of deleteKeys) {
     localStorage.removeItem(key)
-  }
-
-  // Rename keys
-  for (const [oldKey, newKey] of Object.entries(renameMap)) {
-    const raw = localStorage.getItem(oldKey)
-    if (!raw) continue
-    localStorage.setItem(newKey, raw)
-    localStorage.removeItem(oldKey)
   }
 
   // Parse keys

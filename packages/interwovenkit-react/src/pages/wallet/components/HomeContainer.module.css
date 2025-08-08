@@ -1,0 +1,28 @@
+.container {
+  display: grid;
+  gap: 16px;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search {
+  flex: 1;
+  border: 1px solid var(--gray-6);
+  border-radius: 8px;
+  height: 44px;
+  padding: 0 16px;
+
+  transition: border-color var(--transition) ease;
+
+  input {
+    height: 100%;
+  }
+
+  &:focus-within {
+    border-color: var(--gray-3);
+  }
+}

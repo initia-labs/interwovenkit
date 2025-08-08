@@ -4,12 +4,9 @@ import { toBytes, utf8ToBytes } from "@noble/hashes/utils"
 import { toBase64 } from "@cosmjs/encoding"
 import { InitiaAddress, createObjectAddress } from "@initia/utils"
 import type { NormalizedChain } from "@/data/chains"
-import type { NormalizedCollection, NormalizedNft } from "../../tabs/nft/queries"
+import type { NormalizedNft } from "../../tabs/nft/queries"
 
-async function handleMinimove(
-  { object_addr: objectAddr }: NormalizedCollection,
-  { restUrl }: NormalizedChain,
-) {
+async function handleMinimove(objectAddr: string, { restUrl }: NormalizedChain) {
   const name = await fetchCollectionNameMinimove(objectAddr, restUrl)
 
   // Non-IBC: padded move class ID
@@ -51,10 +48,7 @@ async function fetchCollectionNameMinimove(objectAddr: string, restUrl: string) 
   return JSON.parse(data)
 }
 
-async function handleMinievm(
-  { object_addr: objectAddr }: NormalizedCollection,
-  { restUrl }: NormalizedChain,
-) {
+async function handleMinievm(objectAddr: string, { restUrl }: NormalizedChain) {
   const name = await fetchCollectionNameMinievm(objectAddr, restUrl)
 
   // Non-IBC: hex-based EVM class ID
@@ -107,10 +101,11 @@ async function fetchCollectionNameMinievm(objectAddr: string, restUrl: string) {
 }
 
 async function handleMiniwasm(
-  { creator_addr: creatorAddr, object_addr: objectAddr }: NormalizedCollection,
+  objectAddr: string,
   srcChain: NormalizedChain,
   intermediaryChain: NormalizedChain,
 ) {
+  const creatorAddr = await fetchCreatorAddressMiniwasm(objectAddr, srcChain.restUrl)
   const name = await fetchCollectionNameMiniwasm(objectAddr, srcChain.restUrl)
 
   // Find IBC channel to intermediary
@@ -149,6 +144,14 @@ async function handleMiniwasm(
   }
 }
 
+async function fetchCreatorAddressMiniwasm(objectAddr: string, restUrl: string) {
+  const { collection } = await ky
+    .create({ prefixUrl: restUrl })
+    .get(`indexer/nft/v1/collections/${objectAddr}`)
+    .json<{ collection: { collection: { creator: string } } }>()
+  return collection.collection.creator
+}
+
 async function fetchCollectionNameMiniwasm(objectAddr: string, restUrl: string) {
   const queryData = toBase64(utf8ToBytes(JSON.stringify({ contract_info: {} })))
   const { name } = await ky
@@ -165,23 +168,20 @@ const transferHandlers = {
 }
 
 export async function createNftTransferParams({
-  collection,
-  nft,
-  srcChain,
+  normalizedNft,
   intermediaryChain,
 }: {
-  collection: NormalizedCollection
-  nft: NormalizedNft
-  srcChain: NormalizedChain
+  normalizedNft: NormalizedNft
   intermediaryChain: NormalizedChain
 }) {
+  const { object_addr, token_id, chain: srcChain } = normalizedNft
   const minitiaType = srcChain.metadata?.is_l1 ? "minimove" : srcChain.metadata?.minitia?.type
   if (!(minitiaType === "minimove" || minitiaType === "minievm" || minitiaType === "miniwasm")) {
     throw new Error(`Unsupported minitia type: ${minitiaType}`)
   }
 
   const nftTransferParams = await transferHandlers[minitiaType](
-    collection,
+    object_addr,
     srcChain,
     intermediaryChain,
   )
@@ -190,7 +190,7 @@ export async function createNftTransferParams({
     nftTransferParams,
     minitiaType === "minievm" && {
       token_ids: await fetchOriginTokenIds(
-        [nft.token_id],
+        [token_id],
         nftTransferParams.class_id,
         srcChain.restUrl,
       ),

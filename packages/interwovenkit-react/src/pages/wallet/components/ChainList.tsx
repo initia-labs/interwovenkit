@@ -1,16 +1,16 @@
-import { useManageChains } from "@/data/chains"
+import { useInitiaRegistry } from "@/data/chains"
 import List from "@/components/List"
 
 interface Props {
   onSelect: (chainId: string) => void
 }
 
-const AddedChainList = ({ onSelect }: Props) => {
-  const { addedChains } = useManageChains()
+const ChainList = ({ onSelect }: Props) => {
+  const chains = useInitiaRegistry()
   return (
     <List
       onSelect={(item) => onSelect(item.chainId)}
-      list={addedChains}
+      list={chains}
       getImage={(item) => item.logoUrl}
       getName={(item) => item.name}
       getKey={(item) => item.chainId}
@@ -18,4 +18,4 @@ const AddedChainList = ({ onSelect }: Props) => {
   )
 }
 
-export default AddedChainList
+export default ChainList

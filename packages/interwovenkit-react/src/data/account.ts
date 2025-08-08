@@ -1,13 +1,13 @@
-import ky from "ky"
 import { descend, sortWith } from "ramda"
 import BigNumber from "bignumber.js"
 import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
-import { useSuspenseQuery } from "@tanstack/react-query"
+import { queryOptions, useQueries, useSuspenseQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useConfig } from "./config"
 import { STALE_TIMES } from "./http"
-import { useLayer1, usePricesQuery, type NormalizedChain } from "./chains"
+import { fetchAllPages } from "./pagination"
+import { useInitiaRegistry, useLayer1, usePricesQuery, type NormalizedChain } from "./chains"
 import { useAssets, useFindAsset, useGetLayer1Denom } from "./assets"
 import { createUsernameClient } from "./username"
 
@@ -24,20 +24,34 @@ export function useUsernameClient() {
   return createUsernameClient({ restUrl, moduleAddress: usernamesModuleAddress })
 }
 
-export function useBalances(chain: NormalizedChain) {
+function useCreateBalanceQuery() {
   const address = useInitiaAddress()
-  const { restUrl } = chain
-  const { data } = useSuspenseQuery({
-    queryKey: accountQueryKeys.balances(restUrl, address).queryKey,
-    queryFn: () =>
-      ky
-        .create({ prefixUrl: restUrl })
-        .get(`cosmos/bank/v1beta1/balances/${address}`)
-        .json<{ balances: Coin[] }>(),
-    select: ({ balances }) => balances,
-    staleTime: STALE_TIMES.SECOND,
-  })
+  return (chain: NormalizedChain) => {
+    return queryOptions({
+      queryKey: accountQueryKeys.balances(chain.restUrl, address).queryKey,
+      queryFn: () =>
+        fetchAllPages<"balances", Coin>(
+          `cosmos/bank/v1beta1/balances/${address}`,
+          { prefixUrl: chain.restUrl },
+          "balances",
+        ),
+      staleTime: STALE_TIMES.SECOND,
+    })
+  }
+}
+
+export function useBalances(chain: NormalizedChain) {
+  const createBalanceQuery = useCreateBalanceQuery()
+  const { data } = useSuspenseQuery(createBalanceQuery(chain))
   return data
+}
+
+export function useAllChainBalanceQueries() {
+  const chains = useInitiaRegistry()
+  const createBalanceQuery = useCreateBalanceQuery()
+  return useQueries({
+    queries: chains.map((chain) => createBalanceQuery(chain)),
+  })
 }
 
 export function useSortedBalancesWithValue(chain: NormalizedChain) {
@@ -46,7 +60,7 @@ export function useSortedBalancesWithValue(chain: NormalizedChain) {
   const findAsset = useFindAsset(chain)
   const getLayer1Denom = useGetLayer1Denom(chain)
 
-  const { data: prices } = usePricesQuery(chain.chainId)
+  const { data: prices } = usePricesQuery(chain)
 
   const isFeeToken = (denom: string) => {
     return chain.fees.fee_tokens.some((token) => token.denom === denom)

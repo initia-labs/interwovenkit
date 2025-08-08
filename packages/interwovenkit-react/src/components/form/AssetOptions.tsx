@@ -5,6 +5,7 @@ import Image from "../Image"
 import Status from "../Status"
 import type { BaseAsset } from "./types"
 import { filterBySearch } from "./search"
+import { useAutoFocus } from "./hooks"
 import SearchInput from "./SearchInput"
 import styles from "./AssetOptions.module.css"
 
@@ -21,7 +22,13 @@ const AssetOptions = (props: Props) => {
 
   return (
     <div className={styles.container}>
-      <SearchInput value={search} onChange={setSearch} placeholder="Search by symbol" />
+      <SearchInput
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search by symbol"
+        rootClassName={styles.search}
+        ref={useAutoFocus()}
+      />
 
       {filteredAssets.length === 0 ? (
         <Status>No assets</Status>
@@ -61,7 +68,7 @@ const AssetOptions = (props: Props) => {
 const AssetOptionsPlaceholder = () => {
   return (
     <div className={styles.container}>
-      <SearchInput placeholder="Search by symbol" />
+      <SearchInput rootClassName={styles.search} placeholder="Search by symbol" readOnly />
       <Status>Loading...</Status>
     </div>
   )

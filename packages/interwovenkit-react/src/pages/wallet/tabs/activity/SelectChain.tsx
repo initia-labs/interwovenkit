@@ -3,7 +3,7 @@ import { IconChevronDown } from "@initia/icons-react"
 import { useChain } from "@/data/chains"
 import ModalTrigger from "@/components/ModalTrigger"
 import Image from "@/components/Image"
-import AddedChainList from "../../components/AddedChainList"
+import ChainList from "../../components/ChainList"
 import styles from "./SelectChain.module.css"
 
 interface Props {
@@ -18,7 +18,7 @@ const SelectChain = ({ value, onSelect }: Props) => {
     <ModalTrigger
       title="Select rollup"
       content={(close) => (
-        <AddedChainList
+        <ChainList
           onSelect={(chainId) => {
             onSelect(chainId)
             close()

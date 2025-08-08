@@ -1,0 +1,51 @@
+.list,
+.unsupportedList {
+  display: grid;
+  gap: 10px;
+}
+
+.unsupportedCollapsible {
+  display: grid;
+}
+
+.unsupportedTrigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  color: var(--gray-4);
+  padding: 6px 0;
+
+  transition: color var(--transition) ease;
+
+  &:hover {
+    color: var(--gray-2);
+  }
+}
+
+.divider {
+  flex: 1;
+  height: 1px;
+  background-color: var(--border);
+}
+
+.unsupportedLabel {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.chevron {
+  transition: transform var(--transition);
+
+  &[data-state="open"] {
+    transform: rotate(180deg);
+  }
+}
+
+.unsupportedContent {
+  overflow: hidden;
+}
+
+.unsupportedList {
+  padding-top: 10px;
+}

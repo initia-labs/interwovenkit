@@ -1,0 +1,27 @@
+.nftItem {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nftName {
+  color: var(--gray-0);
+  font-size: 12px;
+  font-weight: 600;
+
+  display: -webkit-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.chainInfo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  color: var(--dimmed);
+  font-size: 12px;
+  font-weight: 600;
+}

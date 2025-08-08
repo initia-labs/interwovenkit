@@ -1,6 +1,10 @@
+import clsx from "clsx"
+import { useRef } from "react"
 import { Tabs } from "radix-ui"
 import { IconArrowRight, IconSwap } from "@initia/icons-react"
+import { formatNumber } from "@initia/utils"
 import { Link, useNavigate, usePath } from "@/lib/router"
+import { usePortfolio } from "@/data/portfolio"
 import { useClaimableModal } from "@/pages/bridge/op/reminder"
 import Scrollable from "@/components/Scrollable"
 import Assets from "./assets/Assets"
@@ -13,9 +17,18 @@ const Home = () => {
 
   const navigate = useNavigate()
   const path = usePath()
+  const { totalValue, isLoading } = usePortfolio()
+  const scrollableRef = useRef<HTMLDivElement>(null)
 
   return (
-    <Scrollable>
+    <Scrollable ref={scrollableRef}>
+      <div className={styles.totalValue}>
+        <div className={styles.totalLabel}>Total value</div>
+        <div className={clsx(styles.totalAmount, { [styles.loading]: isLoading })}>
+          ${formatNumber(totalValue)}
+        </div>
+      </div>
+
       <div className={styles.nav}>
         <Link to="/send" className={styles.item}>
           <IconArrowRight size={16} />
@@ -44,7 +57,7 @@ const Home = () => {
         </Tabs.List>
 
         <Tabs.Content value="/">
-          <Assets />
+          <Assets scrollableRef={scrollableRef} />
         </Tabs.Content>
 
         <Tabs.Content value="/nfts">
