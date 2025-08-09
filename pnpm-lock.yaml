@@ -32,6 +32,12 @@ importers:
       '@initia/utils':
         specifier: 2.0.0-alpha.3
         version: 2.0.0-alpha.3(@cosmjs/encoding@0.34.0)(@mysten/bcs@1.7.0)(@noble/hashes@1.8.0)(bignumber.js@9.3.1)(viem@2.33.3(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76))
+      '@scure/bip32':
+        specifier: ^1.6.0
+        version: 1.7.0
+      '@scure/bip39':
+        specifier: ^1.5.0
+        version: 1.6.0
       '@tanstack/react-query':
         specifier: ^5.84.1
         version: 5.84.1(react@19.1.1)
@@ -8735,7 +8741,7 @@ snapshots:
 
   '@scure/bip32@1.7.0':
     dependencies:
-      '@noble/curves': 1.9.2
+      '@noble/curves': 1.9.6
       '@noble/hashes': 1.8.0
       '@scure/base': 1.2.6
 
@@ -8959,7 +8965,7 @@ snapshots:
 
   '@types/connect@3.4.38':
     dependencies:
-      '@types/node': 12.20.55
+      '@types/node': 24.2.0
 
   '@types/debug@4.1.12':
     dependencies:
@@ -9021,7 +9027,7 @@ snapshots:
 
   '@types/ws@7.4.7':
     dependencies:
-      '@types/node': 12.20.55
+      '@types/node': 24.2.0
 
   '@types/ws@8.18.1':
     dependencies:
@@ -12427,8 +12433,8 @@ snapshots:
       '@adraffy/ens-normalize': 1.11.0
       '@noble/curves': 1.8.1
       '@noble/hashes': 1.8.0
-      '@scure/bip32': 1.6.2
-      '@scure/bip39': 1.5.4
+      '@scure/bip32': 1.7.0
+      '@scure/bip39': 1.6.0
       abitype: 1.0.8(typescript@5.9.2)(zod@3.25.76)
       eventemitter3: 5.0.1
     optionalDependencies:

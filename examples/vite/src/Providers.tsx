@@ -10,10 +10,13 @@ import {
 } from "@initia/interwovenkit-react"
 import css from "@initia/interwovenkit-react/styles.css?inline"
 import { isTestnet, useTheme } from "./data"
+import { mnemonicWalletConnector } from "./mnemonicConnector"
 
 injectStyles(css)
 const wagmiConfig = createConfig({
-  connectors: [initiaPrivyWalletConnector],
+  connectors: import.meta.env.INITIA_TEST_MNEMONIC
+    ? [mnemonicWalletConnector, initiaPrivyWalletConnector]
+    : [initiaPrivyWalletConnector],
   chains: [mainnet],
   transports: { [mainnet.id]: http() },
 })
