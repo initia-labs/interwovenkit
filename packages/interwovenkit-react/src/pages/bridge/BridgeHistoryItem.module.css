@@ -26,30 +26,30 @@
 
   font-size: 12px;
   font-weight: 500;
+}
 
-  .title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+.title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
-  .date {
-    color: var(--gray-2);
-  }
+.date {
+  color: var(--gray-2);
+}
 
-  .explorer {
-    display: flex;
-    align-items: center;
-    gap: 2px;
+.explorer {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 
-    color: var(--gray-3);
-  }
+  color: var(--gray-3);
+}
 
-  .divider {
-    background-color: var(--gray-5);
-    width: 1px;
-    height: 8px;
-  }
+.divider {
+  background-color: var(--gray-5);
+  width: 1px;
+  height: 8px;
 }
 
 .fees {
@@ -59,15 +59,15 @@
 
   font-size: 12px;
   font-weight: 500;
+}
 
-  .label {
-    color: var(--gray-2);
-  }
+.label {
+  color: var(--gray-2);
+}
 
-  .content {
-    color: var(--gray-1);
-    font-family: var(--monospace);
-  }
+.content {
+  color: var(--gray-1);
+  font-family: var(--monospace);
 }
 
 .route {
@@ -88,10 +88,10 @@
 
   font-size: 16px;
   font-weight: 500;
+}
 
-  .amount {
-    font-family: var(--monospace);
-  }
+.amount {
+  font-family: var(--monospace);
 }
 
 .chain {
@@ -102,12 +102,12 @@
   color: var(--gray-3);
   font-size: 12px;
   font-weight: 500;
+}
 
-  .account {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
+.account {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .arrow {

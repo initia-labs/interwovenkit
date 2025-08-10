@@ -11,34 +11,34 @@
 
 .attributes {
   margin-top: 28px;
+}
 
-  .title {
-    font-size: 14px;
-    font-weight: 600;
-    margin-bottom: 8px;
-  }
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
 
-  .list {
-    margin-top: 8px;
-  }
+.list {
+  margin-top: 8px;
+}
 
-  .item {
-    display: grid;
-    gap: 2px;
+.item {
+  display: grid;
+  gap: 2px;
 
-    border-bottom: 1px solid var(--border);
-    margin: 0 calc(-1 * var(--padding));
-    padding: 16px var(--padding);
-  }
+  border-bottom: 1px solid var(--border);
+  margin: 0 calc(-1 * var(--padding));
+  padding: 16px var(--padding);
+}
 
-  .type {
-    color: var(--gray-4);
-    font-size: 12px;
-    font-weight: 500;
-  }
+.type {
+  color: var(--gray-4);
+  font-size: 12px;
+  font-weight: 500;
+}
 
-  .value {
-    font-size: 14px;
-    font-weight: 600;
-  }
+.value {
+  font-size: 14px;
+  font-weight: 600;
 }

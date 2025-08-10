@@ -24,17 +24,6 @@
     background-color: var(--gray-6);
   }
 
-  .clear {
-    padding: 12px;
-    margin: -12px;
-
-    transition: color var(--transition) ease;
-  }
-
-  .clear:hover {
-    color: var(--gray-1);
-  }
-
   &.white {
     gap: 4px;
     background-color: var(--gray-0);
@@ -44,6 +33,17 @@
 
   &.white:hover {
     background-color: var(--gray-1);
+  }
+}
+
+.clear {
+  padding: 12px;
+  margin: -12px;
+
+  transition: color var(--transition) ease;
+
+  &:hover {
+    color: var(--gray-1);
   }
 }
 

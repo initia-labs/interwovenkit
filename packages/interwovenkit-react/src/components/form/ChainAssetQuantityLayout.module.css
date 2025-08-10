@@ -10,52 +10,50 @@
   display: flex;
   justify-content: space-between;
   gap: 28px;
-
-  .select {
-    flex: 1;
-    overflow: hidden;
-  }
-
-  .account {
-    flex: none;
-  }
 }
 
-.lower {
-  .wrapper {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 2px;
-  }
+.select {
+  flex: 1;
+  overflow: hidden;
+}
 
-  .balance {
-    flex: none;
-  }
+.account {
+  flex: none;
+}
 
-  .value {
-    flex: 1;
+.wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2px;
+}
 
-    color: var(--gray-2);
-    font-family: var(--monospace);
-    font-size: 13px;
-    font-weight: 600;
-    text-align: right;
+.balance {
+  flex: none;
+}
 
-    overflow-x: auto;
-    overflow-y: hidden;
-  }
+.value {
+  flex: 1;
 
-  .error {
-    margin-top: 8px;
+  color: var(--gray-2);
+  font-family: var(--monospace);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
 
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
 
-    color: var(--error);
-    font-size: 12px;
-    font-weight: 500;
-  }
+.error {
+  margin-top: 8px;
+
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+
+  color: var(--error);
+  font-size: 12px;
+  font-weight: 500;
 }

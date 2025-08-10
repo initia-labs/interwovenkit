@@ -6,29 +6,31 @@
 
 .wrapper {
   position: relative;
+}
 
-  .input[data-has-value] {
+.input {
+  &[data-has-value] {
     padding-right: calc(6px + 2 * 10px + 16px);
   }
 
-  .input::placeholder {
+  &::placeholder {
     font-family: var(--font-family);
   }
+}
 
-  .clear {
-    position: absolute;
-    right: 6px;
-    top: 50%;
-    transform: translateY(-50%);
+.clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
 
-    color: var(--gray-3);
-    background-color: var(--gray-7);
-    padding: 10px;
+  color: var(--gray-3);
+  background-color: var(--gray-7);
+  padding: 10px;
 
-    transition: color var(--transition) ease;
+  transition: color var(--transition) ease;
 
-    &:hover {
-      color: var(--gray-1);
-    }
+  &:hover {
+    color: var(--gray-1);
   }
 }

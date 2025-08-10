@@ -1,14 +1,14 @@
 .trigger {
   gap: 4px;
   font-family: var(--monospace);
+}
 
-  .icon {
-    color: var(--dimmed);
+.icon {
+  color: var(--dimmed);
 
-    transition: color var(--transition) ease;
-  }
+  transition: color var(--transition) ease;
 
-  &:hover .icon {
+  .trigger:hover & {
     color: var(--gray-1);
   }
 }

@@ -36,12 +36,12 @@
   align-items: center;
   gap: 4px;
   overflow: hidden;
+}
 
-  .text {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+.text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .value {

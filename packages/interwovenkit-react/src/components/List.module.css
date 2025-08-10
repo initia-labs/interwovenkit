@@ -10,10 +10,6 @@
   flex: 1;
   gap: 10px;
 
-  .name {
-    flex: 1;
-  }
-
   border-bottom: 1px solid var(--border);
   font-weight: 600;
   height: 56px;
@@ -28,4 +24,8 @@
   &:disabled {
     cursor: not-allowed;
   }
+}
+
+.name {
+  flex: 1;
 }

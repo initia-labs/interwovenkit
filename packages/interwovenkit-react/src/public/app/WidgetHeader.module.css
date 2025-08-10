@@ -68,16 +68,16 @@
   min-width: 52px;
   overflow: hidden;
   padding-left: calc((52px - 16px) / 2);
+}
 
-  .label {
-    font-size: 12px;
-    font-weight: 500;
-    opacity: 0;
+.label {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0;
 
-    transition: opacity var(--transition) ease;
-  }
+  transition: opacity var(--transition) ease;
 
-  &.expanded .label {
+  .expanded & {
     opacity: 1;
   }
 }

@@ -27,16 +27,16 @@
   height: 16px;
   border-radius: 50%;
 
-  .inner {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background-color: var(--gray-1);
-  }
-
   .checked & {
     border-color: var(--gray-1);
   }
+}
+
+.inner {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--gray-1);
 }
 
 .info {
@@ -47,15 +47,15 @@
 
   display: grid;
   gap: 4px;
+}
 
-  .duration {
-    display: flex;
-    align-items: center;
-    gap: 4px;
+.duration {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 
-    color: var(--gray-2);
-    font-size: 11px;
-  }
+  color: var(--gray-2);
+  font-size: 11px;
 }
 
 .amount {
@@ -67,8 +67,8 @@
   font-family: var(--monospace);
   font-size: 12px;
   font-weight: 500;
+}
 
-  .symbol {
-    color: var(--gray-2);
-  }
+.symbol {
+  color: var(--gray-2);
 }

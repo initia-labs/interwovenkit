@@ -2,26 +2,26 @@
   display: flex;
   gap: 8px;
   margin-bottom: 28px;
+}
 
-  .item {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
+.item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
 
-    background-color: rgba(81, 220, 251, 0.1); /* FIXME: rgba(var(--info), 0.1) */
-    border-radius: 8px;
-    color: var(--info);
-    font-size: 14px;
-    font-weight: 600;
-    padding: 12px;
+  background-color: rgba(81, 220, 251, 0.1); /* FIXME: rgba(var(--info), 0.1) */
+  border-radius: 8px;
+  color: var(--info);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px;
 
-    transition: background-color var(--transition) ease;
+  transition: background-color var(--transition) ease;
 
-    &:hover {
-      background-color: rgba(81, 220, 251, 0.15); /* FIXME: rgba(var(--info), 0.15) */
-    }
+  &:hover {
+    background-color: rgba(81, 220, 251, 0.15); /* FIXME: rgba(var(--info), 0.15) */
   }
 }
 

@@ -5,18 +5,18 @@
 
   font-size: 14px;
   height: 44px;
+}
 
-  .name {
-    flex: 1;
-  }
+.name {
+  flex: 1;
+}
 
-  .icon {
-    color: var(--dimmed);
+.icon {
+  color: var(--dimmed);
 
-    transition: color var(--transition) ease;
-  }
+  transition: color var(--transition) ease;
 
-  &:hover .icon {
+  .name:hover & {
     color: var(--gray-1);
   }
 }

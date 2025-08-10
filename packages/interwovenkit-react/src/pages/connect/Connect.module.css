@@ -52,35 +52,35 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
+}
 
-  .name {
-    flex: 1;
+.name {
+  flex: 1;
 
-    color: var(--gray-0);
-    font-size: 14px;
-    font-weight: 600;
-  }
+  color: var(--gray-0);
+  font-size: 14px;
+  font-weight: 600;
+}
 
-  .dimmed {
-    color: var(--gray-2);
-  }
+.dimmed {
+  color: var(--gray-2);
+}
 
-  .recent,
-  .installed {
-    font-size: 11px;
-    font-weight: 600;
-  }
+.recent,
+.installed {
+  font-size: 11px;
+  font-weight: 600;
+}
 
-  .recent {
-    display: flex;
-    align-items: center;
+.recent {
+  display: flex;
+  align-items: center;
 
-    background-color: var(--info-bg);
-    border-radius: 4px;
-    color: var(--info);
-    height: 20px;
-    padding: 0 10px;
-  }
+  background-color: var(--info-bg);
+  border-radius: 4px;
+  color: var(--info);
+  height: 20px;
+  padding: 0 10px;
 }
 
 .docs {

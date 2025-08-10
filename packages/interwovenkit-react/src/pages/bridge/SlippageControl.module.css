@@ -45,13 +45,13 @@
 
 .wrapper {
   position: relative;
+}
 
-  .percent {
-    position: absolute;
-    right: 16px;
-    top: 50%;
-    transform: translateY(-50%);
+.percent {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
 
-    font-family: var(--monospace);
-  }
+  font-family: var(--monospace);
 }
