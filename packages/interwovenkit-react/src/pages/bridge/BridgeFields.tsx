@@ -32,12 +32,7 @@ import type { FormValues } from "./data/form"
 import { FormValuesSchema, useBridgeForm } from "./data/form"
 import { useChainType, useSkipChain } from "./data/chains"
 import { useSkipAsset } from "./data/assets"
-import {
-  useIsOpWithdrawable,
-  useRouteErrorInfo,
-  useRouteQuery,
-  FeeBehaviorJson,
-} from "./data/simulate"
+import { useIsOpWithdrawable, useRouteErrorInfo, useRouteQuery } from "./data/simulate"
 import { useSkipBalance, useSkipBalancesQuery } from "./data/balance"
 import SelectedChainAsset from "./SelectedChainAsset"
 import BridgeAccount from "./BridgeAccount"
@@ -151,7 +146,7 @@ const BridgeFields = () => {
   const deductedFees = useMemo(() => {
     return (
       route?.estimated_fees?.filter(
-        ({ fee_behavior }) => fee_behavior === FeeBehaviorJson.FEE_BEHAVIOR_DEDUCTED,
+        ({ fee_behavior }) => fee_behavior === "FEE_BEHAVIOR_DEDUCTED",
       ) ?? []
     )
   }, [route])
@@ -159,7 +154,7 @@ const BridgeFields = () => {
   const additionalFees = useMemo(() => {
     return (
       route?.estimated_fees?.filter(
-        ({ fee_behavior }) => fee_behavior === FeeBehaviorJson.FEE_BEHAVIOR_ADDITIONAL,
+        ({ fee_behavior }) => fee_behavior === "FEE_BEHAVIOR_ADDITIONAL",
       ) ?? []
     )
   }, [route])
