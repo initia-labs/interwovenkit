@@ -20,7 +20,6 @@ import Footer from "@/components/Footer"
 import AddedChainList from "../../components/AddedChainList"
 import type { ChainCollectionNftCollectionState } from "../../tabs/nft/queries"
 import NftThumbnail from "../../tabs/nft/NftThumbnail"
-import { createNftTransferParams } from "./tx"
 import type { FormValues } from "./SendNft"
 import styles from "./SendNftFields.module.css"
 
@@ -53,24 +52,15 @@ const SendNftFields = () => {
       routerApiUrl,
     }).queryKey,
     queryFn: async () => {
-      const params = Object.assign(
-        {
-          from_address: sender,
-          from_chain_id: srcChain.chainId,
-          to_address: InitiaAddress(recipient).bech32,
-          to_chain_id: dstChainId,
-          collection_address: collection.object_addr,
-          token_ids: [nft.token_id],
-          object_addresses: [nft.object_addr],
-        },
-        srcChain.chainId !== dstChainId &&
-          (await createNftTransferParams({
-            collection,
-            nft,
-            srcChain,
-            intermediaryChain: layer1,
-          })),
-      )
+      const params = {
+        from_address: sender,
+        from_chain_id: srcChain.chainId,
+        to_address: InitiaAddress(recipient).bech32,
+        to_chain_id: dstChainId,
+        collection_address: collection.object_addr,
+        token_ids: [nft.token_id],
+        object_addresses: [nft.object_addr],
+      }
 
       const { msgs } = await ky
         .create({ prefixUrl: routerApiUrl })
