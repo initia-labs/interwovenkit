@@ -49,7 +49,7 @@ export function useInterwovenKit() {
   const { data: username } = useUsernameQuery()
   const offlineSigner = useOfflineSigner()
 
-  const { openDrawer } = useDrawer()
+  const { isDrawerOpen: isOpen, openDrawer } = useDrawer()
 
   const openWallet = () => {
     openDrawer("/")
@@ -71,6 +71,7 @@ export function useInterwovenKit() {
     hexAddress,
     username,
     offlineSigner,
+    isOpen,
     openConnect,
     openWallet,
     openBridge,

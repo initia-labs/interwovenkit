@@ -37,7 +37,7 @@ export function calcMaxAmount({
   const lastFeeOption = availableFeeOptions.find((option) => option.denom === lastFeeDenom)
 
   if (availableFeeOptions.length === 0) {
-    return "0"
+    return balance
   }
 
   if (denom === lastFeeDenom && lastFeeOption) {

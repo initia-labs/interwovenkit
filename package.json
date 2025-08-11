@@ -9,11 +9,11 @@
     "postinstall": "simple-git-hooks"
   },
   "devDependencies": {
-    "@initia/eslint-config-react-app": "^1",
-    "eslint": "^9",
-    "lint-staged": "^16",
-    "prettier": "^3",
-    "simple-git-hooks": "^2"
+    "@initia/eslint-config-react-app": "^1.1.0",
+    "eslint": "^9.33.0",
+    "lint-staged": "^16.1.5",
+    "prettier": "^3.6.2",
+    "simple-git-hooks": "^2.13.1"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm lint-staged --concurrent false"
