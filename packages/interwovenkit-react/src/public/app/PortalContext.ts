@@ -9,3 +9,9 @@ export function usePortal() {
   const { container } = useContext(PortalContext)
   return container
 }
+
+export function usePortalCssVariable(property: string) {
+  const portalContainer = usePortal()
+  if (!portalContainer) return ""
+  return getComputedStyle(portalContainer).getPropertyValue(property)
+}

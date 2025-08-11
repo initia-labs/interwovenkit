@@ -6,6 +6,7 @@ import { truncate } from "@initia/utils"
 import WidgetTooltip from "@/components/WidgetTooltip"
 import CopyButton from "@/components/CopyButton"
 import { useInterwovenKit } from "../data/hooks"
+import { usePortalCssVariable } from "./PortalContext"
 import styles from "./AddressQr.module.css"
 
 const AddressQr = () => {
@@ -13,12 +14,10 @@ const AddressQr = () => {
   const qrCode = useRef<QRCodeStyling | null>(null)
 
   const { initiaAddress, hexAddress } = useInterwovenKit()
+  const color = usePortalCssVariable("--gray-0")
 
   useEffect(() => {
     if (!ref.current) return
-
-    const computedStyle = getComputedStyle(ref.current)
-    const color = computedStyle.getPropertyValue("--gray-0")
 
     if (!qrCode.current) {
       qrCode.current = new QRCodeStyling({
@@ -42,7 +41,7 @@ const AddressQr = () => {
         data: initiaAddress,
       })
     }
-  }, [initiaAddress])
+  }, [initiaAddress, color])
 
   return (
     <div className={styles.root}>
