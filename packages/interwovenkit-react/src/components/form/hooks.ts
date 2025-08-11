@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react"
 import { useIsMobile } from "@/hooks/useIsMobile"
 
-export function useAutoFocus<T extends HTMLInputElement>() {
-  const ref = useRef<T>(null)
+export function useAutoFocus() {
+  const ref = useRef<HTMLInputElement>(null)
   const isSmall = useIsMobile()
 
   useEffect(() => {
