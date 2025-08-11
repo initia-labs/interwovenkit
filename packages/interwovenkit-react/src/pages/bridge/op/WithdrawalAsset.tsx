@@ -1,4 +1,4 @@
-import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
+import type { Coin } from "@interchainjs/cosmos-types"
 import { formatAmount } from "@initia/utils"
 import { useLayer1 } from "@/data/chains"
 import { useAsset } from "@/data/assets"
