@@ -9,6 +9,10 @@
     "lint": "eslint src --fix"
   },
   "dependencies": {
+    "@breezelabs/inertia.proto": "file:src/inertia/breezelabs-inertia.proto-1.0.4.tgz",
+    "@cosmjs/proto-signing": "^0.34.0",
+    "@cosmjs/stargate": "^0.34.0",
+    "@initia/initia-registry-types": "^1.0.8",
     "@initia/interwovenkit-react": "workspace:^",
     "@initia/utils": "2.0.0-alpha.5",
     "@tanstack/react-query": "^5.84.2",

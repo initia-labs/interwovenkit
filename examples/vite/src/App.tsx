@@ -1,8 +1,7 @@
 import { useAtom } from "jotai"
 import { isTestnet, themeAtom } from "./data"
 import Connection from "./Connection"
-import Send from "./Send"
-import Bridge from "./Bridge"
+import Inertia from "./Inertia"
 import styles from "./App.module.css"
 
 const App = () => {
@@ -27,8 +26,7 @@ const App = () => {
         </div>
       </header>
 
-      <Send />
-      <Bridge />
+      <Inertia />
     </div>
   )
 }

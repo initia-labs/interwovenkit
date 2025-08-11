@@ -26,6 +26,18 @@ importers:
 
   examples/vite:
     dependencies:
+      '@breezelabs/inertia.proto':
+        specifier: file:src/inertia/breezelabs-inertia.proto-1.0.4.tgz
+        version: file:examples/vite/src/inertia/breezelabs-inertia.proto-1.0.4.tgz(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      '@cosmjs/proto-signing':
+        specifier: ^0.34.0
+        version: 0.34.0
+      '@cosmjs/stargate':
+        specifier: ^0.34.0
+        version: 0.34.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      '@initia/initia-registry-types':
+        specifier: ^1.0.8
+        version: 1.0.8
       '@initia/interwovenkit-react':
         specifier: workspace:^
         version: link:../../packages/interwovenkit-react
@@ -429,6 +441,10 @@ packages:
   '@base-org/account@1.1.1':
     resolution: {integrity: sha512-IfVJPrDPhHfqXRDb89472hXkpvJuQQR7FDI9isLPHEqSYt/45whIoBxSPgZ0ssTt379VhQo4+87PWI1DoLSfAQ==}
 
+  '@breezelabs/inertia.proto@file:examples/vite/src/inertia/breezelabs-inertia.proto-1.0.4.tgz':
+    resolution: {integrity: sha512-2fOcpkosSHQbR2/L6jOzoWDoJ1npOZqbx81HZwS5LKZMEKTnxpkhwonL/7Py4bR0SNZXXjX7XYhhpn00SadskA==, tarball: file:examples/vite/src/inertia/breezelabs-inertia.proto-1.0.4.tgz}
+    version: 1.0.4
+
   '@bufbuild/protobuf@2.6.3':
     resolution: {integrity: sha512-w/gJKME9mYN7ZoUAmSMAWXk4hkVpxRKvEJCb3dV5g9wwWdxTJJ0ayOJAVcNxtdqaxDyFuC0uz4RSGVacJ030PQ==}
 
@@ -437,6 +453,13 @@ packages:
 
   '@coinbase/wallet-sdk@4.3.6':
     resolution: {integrity: sha512-4q8BNG1ViL4mSAAvPAtpwlOs1gpC+67eQtgIwNvT3xyeyFFd+guwkc8bcX5rTmQhXpqnhzC4f0obACbP9CqMSA==}
+
+  '@confio/ics23@0.6.8':
+    resolution: {integrity: sha512-wB6uo+3A50m0sW/EWcU64xpV/8wShZ6bMTa7pF8eYsTrSkQA7oLUIJcs/wb8g4y2Oyq701BaGiO6n/ak5WXO1w==}
+    deprecated: Unmaintained. The codebase for this package was moved to https://github.com/cosmos/ics23 but then the JS implementation was removed in https://github.com/cosmos/ics23/pull/353. Please consult the maintainers of https://github.com/cosmos for further assistance.
+
+  '@cosmjs/amino@0.32.4':
+    resolution: {integrity: sha512-zKYOt6hPy8obIFtLie/xtygCkH9ZROiQ12UHfKsOkWaZfPQUvVbtgmu6R4Kn1tFLI/SRkw7eqhaogmW/3NYu/Q==}
 
   '@cosmjs/amino@0.33.1':
     resolution: {integrity: sha512-WfWiBf2EbIWpwKG9AOcsIIkR717SY+JdlXM/SL/bI66BdrhniAF+/ZNis9Vo9HF6lP2UU5XrSmFA4snAvEgdrg==}
@@ -447,11 +470,17 @@ packages:
   '@cosmjs/cosmwasm-stargate@0.33.1':
     resolution: {integrity: sha512-bsEH8FmDHE0zc9WmJuyYEruV/HP7DU98FLP/BMxb1Egk/weH304m1AuIdibdVfFZKYVNq6PkD8+Xvg23qnecIg==}
 
+  '@cosmjs/crypto@0.32.4':
+    resolution: {integrity: sha512-zicjGU051LF1V9v7bp8p7ovq+VyC91xlaHdsFOTo2oVry3KQikp8L/81RkXmUIT8FxMwdx1T7DmFwVQikcSDIw==}
+
   '@cosmjs/crypto@0.33.1':
     resolution: {integrity: sha512-U4kGIj/SNBzlb2FGgA0sMR0MapVgJUg8N+oIAiN5+vl4GZ3aefmoL1RDyTrFS/7HrB+M+MtHsxC0tvEu4ic/zA==}
 
   '@cosmjs/crypto@0.34.0':
     resolution: {integrity: sha512-hn8Z1RYS9bhT5mbitGhPYF5CMcln9r2BVZ7nXIpfpI7TdhUEmNnHVI2ddodxFun0uOg8kokOM6X/etD/MZ6NFA==}
+
+  '@cosmjs/encoding@0.32.4':
+    resolution: {integrity: sha512-tjvaEy6ZGxJchiizzTn7HVRiyTg1i4CObRRaTRPknm5EalE13SV+TCHq38gIDfyUeden4fCuaBVEdBR5+ti7Hw==}
 
   '@cosmjs/encoding@0.33.1':
     resolution: {integrity: sha512-nuNxf29fUcQE14+1p//VVQDwd1iau5lhaW/7uMz7V2AH3GJbFJoJVaKvVyZvdFk+Cnu+s3wCqgq4gJkhRCJfKw==}
@@ -459,11 +488,17 @@ packages:
   '@cosmjs/encoding@0.34.0':
     resolution: {integrity: sha512-oWUA9VTnr74GHMdMCvaaCfP0g66Y9iT7TA8vkWB1sfd+fO5FznAcMACEiF+sBE0TBoKGr02tYCJDCe9XNp2gOg==}
 
+  '@cosmjs/json-rpc@0.32.4':
+    resolution: {integrity: sha512-/jt4mBl7nYzfJ2J/VJ+r19c92mUKF0Lt0JxM3MXEJl7wlwW5haHAWtzRujHkyYMXOwIR+gBqT2S0vntXVBRyhQ==}
+
   '@cosmjs/json-rpc@0.33.1':
     resolution: {integrity: sha512-T6VtWzecpmuTuMRGZWuBYHsMF/aznWCYUt/cGMWNSz7DBPipVd0w774PKpxXzpEbyt5sr61NiuLXc+Az15S/Cw==}
 
   '@cosmjs/json-rpc@0.34.0':
     resolution: {integrity: sha512-2j0kmz1l3ftVkSRjt1d3H0iHlP5s02ULGz4CBF+Da/2u93ghudxfC38i0QiWKIjIGtqUv5w9ryd0YqIgnmuEew==}
+
+  '@cosmjs/math@0.32.4':
+    resolution: {integrity: sha512-++dqq2TJkoB8zsPVYCvrt88oJWsy1vMOuSOKcdlnXuOA/ASheTJuYy4+oZlTQ3Fr8eALDLGGPhJI02W2HyAQaw==}
 
   '@cosmjs/math@0.33.1':
     resolution: {integrity: sha512-ytGkWdKFCPiiBU5eqjHNd59djPpIsOjbr2CkNjlnI1Zmdj+HDkSoD9MUGpz9/RJvRir5IvsXqdE05x8EtoQkJA==}
@@ -471,11 +506,17 @@ packages:
   '@cosmjs/math@0.34.0':
     resolution: {integrity: sha512-E/7dxu/hhbVEz1NNGJi+gPAadEtlk4N1ONm4CRgTnVWmPSLHNFgATF+UANAVUVAOfy6OpB0t94gAHRLYnEZYeA==}
 
+  '@cosmjs/proto-signing@0.32.4':
+    resolution: {integrity: sha512-QdyQDbezvdRI4xxSlyM1rSVBO2st5sqtbEIl3IX03uJ7YiZIQHyv6vaHVf1V4mapusCqguiHJzm4N4gsFdLBbQ==}
+
   '@cosmjs/proto-signing@0.33.1':
     resolution: {integrity: sha512-Sv4W+MxX+0LVnd+2rU4Fw1HRsmMwSVSYULj7pRkij3wnPwUlTVoJjmKFgKz13ooIlfzPrz/dnNjGp/xnmXChFQ==}
 
   '@cosmjs/proto-signing@0.34.0':
     resolution: {integrity: sha512-1/f4JNSAhsP5lr7fdCJxT+qkWqeDq8vViwCilqMIkqvxLAcf6FxEkvmTOpYBAdOT5fVe3+5nZ5GX5FYMq1tdfA==}
+
+  '@cosmjs/socket@0.32.4':
+    resolution: {integrity: sha512-davcyYziBhkzfXQTu1l5NrpDYv0K9GekZCC9apBRvL1dvMc9F/ygM7iemHjUA+z8tJkxKxrt/YPjJ6XNHzLrkw==}
 
   '@cosmjs/socket@0.33.1':
     resolution: {integrity: sha512-KzAeorten6Vn20sMiM6NNWfgc7jbyVo4Zmxev1FXa5EaoLCZy48cmT3hJxUJQvJP/lAy8wPGEjZ/u4rmF11x9A==}
@@ -483,11 +524,17 @@ packages:
   '@cosmjs/socket@0.34.0':
     resolution: {integrity: sha512-smIYDsRVLkP/q/Rkxq7Lutrxly3uJOisKvcdpNGkG9PVENwYdF5imHwNy/pLhOIRfk8AGE2s03ag0b2HYwxSzQ==}
 
+  '@cosmjs/stargate@0.32.4':
+    resolution: {integrity: sha512-usj08LxBSsPRq9sbpCeVdyLx2guEcOHfJS9mHGCLCXpdAPEIEQEtWLDpEUc0LEhWOx6+k/ChXTc5NpFkdrtGUQ==}
+
   '@cosmjs/stargate@0.33.1':
     resolution: {integrity: sha512-CnJ1zpSiaZgkvhk+9aTp5IPmgWn2uo+cNEBN8VuD9sD6BA0V4DMjqe251cNFLiMhkGtiE5I/WXFERbLPww3k8g==}
 
   '@cosmjs/stargate@0.34.0':
     resolution: {integrity: sha512-FU/A0OdkNKfqQ4d7CC8KceTVGoCy3BemFgVjbXL/K5FnAafEjqqWInQ531oNvBejpMdm1NSkfbp97CfILeTW7A==}
+
+  '@cosmjs/stream@0.32.4':
+    resolution: {integrity: sha512-Gih++NYHEiP+oyD4jNEUxU9antoC0pFSg+33Hpp0JlHwH0wXhtD3OOKnzSfDB7OIoEbrzLJUpEjOgpCp5Z+W3A==}
 
   '@cosmjs/stream@0.33.1':
     resolution: {integrity: sha512-bMUvEENjeQPSTx+YRzVsWT1uFIdHRcf4brsc14SOoRQ/j5rOJM/aHfsf/BmdSAnYbdOQ3CMKj/8nGAQ7xUdn7w==}
@@ -495,11 +542,17 @@ packages:
   '@cosmjs/stream@0.34.0':
     resolution: {integrity: sha512-87pWCl4g1Cm11cX0iK8nSQYs7oswPUShlwOF8feIrxwC+bqLJh/oEtl7yjjXD2ie8UgtPZAvo9GQ2OTCMpK3Ww==}
 
+  '@cosmjs/tendermint-rpc@0.32.4':
+    resolution: {integrity: sha512-MWvUUno+4bCb/LmlMIErLypXxy7ckUuzEmpufYYYd9wgbdCXaTaO08SZzyFM5PI8UJ/0S2AmUrgWhldlbxO8mw==}
+
   '@cosmjs/tendermint-rpc@0.33.1':
     resolution: {integrity: sha512-22klDFq2MWnf//C8+rZ5/dYatr6jeGT+BmVbutXYfAK9fmODbtFcumyvB6uWaEORWfNukl8YK1OLuaWezoQvxA==}
 
   '@cosmjs/tendermint-rpc@0.34.0':
     resolution: {integrity: sha512-riUuEG8VG90zJAe6r+mklRSHDZ64fb9JGU/JtQM8YIiwakrkruK21vtiejjgU9da5PHziabta0+N5SYUvHV+bA==}
+
+  '@cosmjs/utils@0.32.4':
+    resolution: {integrity: sha512-D1Yc+Zy8oL/hkUkFUL/bwxvuDBzRGpc4cF7/SkdhxX4iHpSLgdOuTt1mhCh9+kl6NQREy9t7SYZ6xeW5gFe60w==}
 
   '@cosmjs/utils@0.33.1':
     resolution: {integrity: sha512-UnLHDY6KMmC+UXf3Ufyh+onE19xzEXjT4VZ504Acmk4PXxqyvG4cCPprlKUFnGUX7f0z8Or9MAOHXBx41uHBcg==}
@@ -1066,6 +1119,36 @@ packages:
         optional: true
       '@wagmi/core':
         optional: true
+
+  '@protobufjs/aspromise@1.1.2':
+    resolution: {integrity: sha512-j+gKExEuLmKwvz3OgROXtrJ2UG2x8Ch2YZUxahh+s1F2HZ+wAceUNLkvy6zKCPVRkU++ZWQrdxsUeQXmcg4uoQ==}
+
+  '@protobufjs/base64@1.1.2':
+    resolution: {integrity: sha512-AZkcAA5vnN/v4PDqKyMR5lx7hZttPDgClv83E//FMNhR2TMcLUhfRUBHCmSl0oi9zMgDDqRUJkSxO3wm85+XLg==}
+
+  '@protobufjs/codegen@2.0.4':
+    resolution: {integrity: sha512-YyFaikqM5sH0ziFZCN3xDC7zeGaB/d0IUb9CATugHWbd1FRFwWwt4ld4OYMPWu5a3Xe01mGAULCdqhMlPl29Jg==}
+
+  '@protobufjs/eventemitter@1.1.0':
+    resolution: {integrity: sha512-j9ednRT81vYJ9OfVuXG6ERSTdEL1xVsNgqpkxMsbIabzSo3goCjDIveeGv5d03om39ML71RdmrGNjG5SReBP/Q==}
+
+  '@protobufjs/fetch@1.1.0':
+    resolution: {integrity: sha512-lljVXpqXebpsijW71PZaCYeIcE5on1w5DlQy5WH6GLbFryLUrBD4932W/E2BSpfRJWseIL4v/KPgBFxDOIdKpQ==}
+
+  '@protobufjs/float@1.0.2':
+    resolution: {integrity: sha512-Ddb+kVXlXst9d+R9PfTIxh1EdNkgoRe5tOX6t01f1lYWOvJnSPDBlG241QLzcyPdoNTsblLUdujGSE4RzrTZGQ==}
+
+  '@protobufjs/inquire@1.1.0':
+    resolution: {integrity: sha512-kdSefcPdruJiFMVSbn801t4vFK7KB/5gd2fYvrxhuJYg8ILrmn9SKSX2tZdV6V+ksulWqS7aXjBcRXl3wHoD9Q==}
+
+  '@protobufjs/path@1.1.2':
+    resolution: {integrity: sha512-6JOcJ5Tm08dOHAbdR3GrvP+yUUfkjG5ePsHYczMFLq3ZmMkAD98cDgcT2iA1lJ9NVwFd4tH/iSSoe44YWkltEA==}
+
+  '@protobufjs/pool@1.1.0':
+    resolution: {integrity: sha512-0kELaGSIDBKvcgS4zkjz1PeddatrjYcmMWOlAuAPwAeccUrPHdUqo/J6LiymHHEiJT5NrF1UVwxY14f+fy4WQw==}
+
+  '@protobufjs/utf8@1.1.0':
+    resolution: {integrity: sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw==}
 
   '@radix-ui/number@1.1.1':
     resolution: {integrity: sha512-MkKCwxlXTgz6CFoJx3pCwn07GKp36+aZyu/u2Ln2VrA5DcdyCZkASEDBTd8x5whTQQL5CiYf4prXKLcgQdv29g==}
@@ -2247,6 +2330,9 @@ packages:
 
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
+
+  '@types/long@4.0.2':
+    resolution: {integrity: sha512-MqTGEo5bj5t157U6fA/BiDynNkn0YknVdh48CMPkTSpFTVmvao5UQmm7uEF6xBEo7qIMAlY/JSleYaE6VOdpaA==}
 
   '@types/minimist@1.2.5':
     resolution: {integrity: sha512-hov8bUuiLiyFPGyFPE1lwWhmzYbirOXQNNo40+y3zow8aFVTeyn3VWL0VFFfdNddA8S4Vf0Tc062rzyNr7Paag==}
@@ -4414,6 +4500,9 @@ packages:
   long@4.0.0:
     resolution: {integrity: sha512-XsP+KhQif4bjX1kbuSiySJFNAehNxgLb6hPRGJ9QsUr8ajHkuXGdrHmFUTUUXhDwVX2R5bY4JNZEwbUiMhV+MA==}
 
+  long@5.3.2:
+    resolution: {integrity: sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA==}
+
   loose-envify@1.4.0:
     resolution: {integrity: sha512-lyuxPGr/Wfhrlem2CL/UcnUc1zcqKAImBDzukY7Y5F/yQiNdko6+fRLevlw1HgMySw7f611UIY408EtxRSoK3Q==}
     hasBin: true
@@ -4964,6 +5053,14 @@ packages:
   prop-types@15.8.1:
     resolution: {integrity: sha512-oj87CgZICdulUohogVAR7AjlC0327U4el4L6eAvOqCeudMDVU0NThNaV+b9Df4dXgSP1gXMTnPdhfe/2qDH5cg==}
 
+  protobufjs@6.11.4:
+    resolution: {integrity: sha512-5kQWPaJHi1WoCpjTGszzQ32PG2F4+wRY6BmAT4Vfw56Q2FZ4YZzK20xUYQH4YkfehY1e6QSICrJquM6xXZNcrw==}
+    hasBin: true
+
+  protobufjs@7.5.3:
+    resolution: {integrity: sha512-sildjKwVqOI2kmFDiXQ6aEB0fjYTafpEvIBs8tOR8qI4spuL9OPROLVu2qZqi/xgCfsHIwVqlaF8JBjWFHnKbw==}
+    engines: {node: '>=12.0.0'}
+
   proxy-compare@2.6.0:
     resolution: {integrity: sha512-8xuCeM3l8yqdmbPoYeLbrAXCBWu19XEYc5/F28f5qOaoAIMyfmBUkl5axiK+x9olUvRlcekvnm98AP9RDngOIw==}
 
@@ -4982,7 +5079,6 @@ packages:
     engines: {node: '>=0.6.0', teleport: '>=0.2.0'}
     deprecated: |-
       You or someone you depend on is using Q, the JavaScript Promise library that gave JavaScript developers strong feelings about promises. They can almost certainly migrate to the native JavaScript promise now. Thank you literally everyone for joining me in this bet against the odds. Be excellent to each other.
-
       (For a CapTP with native promises, see @endo/eventual-send and @endo/captp)
 
   qr-code-styling@1.9.2:
@@ -6518,6 +6614,20 @@ snapshots:
       - utf-8-validate
       - zod
 
+  '@breezelabs/inertia.proto@file:examples/vite/src/inertia/breezelabs-inertia.proto-1.0.4.tgz(bufferutil@4.0.9)(utf-8-validate@5.0.10)':
+    dependencies:
+      '@cosmjs/proto-signing': 0.32.4
+      '@cosmjs/stargate': 0.32.4(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      '@cosmjs/tendermint-rpc': 0.32.4(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      '@improbable-eng/grpc-web': 0.15.0(google-protobuf@3.21.4)
+      google-protobuf: 3.21.4
+      long: 5.3.2
+      protobufjs: 7.5.3
+    transitivePeerDependencies:
+      - bufferutil
+      - debug
+      - utf-8-validate
+
   '@bufbuild/protobuf@2.6.3': {}
 
   '@coinbase/wallet-sdk@3.9.3':
@@ -6554,6 +6664,18 @@ snapshots:
       - utf-8-validate
       - zod
 
+  '@confio/ics23@0.6.8':
+    dependencies:
+      '@noble/hashes': 1.8.0
+      protobufjs: 6.11.4
+
+  '@cosmjs/amino@0.32.4':
+    dependencies:
+      '@cosmjs/crypto': 0.32.4
+      '@cosmjs/encoding': 0.32.4
+      '@cosmjs/math': 0.32.4
+      '@cosmjs/utils': 0.32.4
+
   '@cosmjs/amino@0.33.1':
     dependencies:
       '@cosmjs/crypto': 0.33.1
@@ -6585,6 +6707,16 @@ snapshots:
       - debug
       - utf-8-validate
 
+  '@cosmjs/crypto@0.32.4':
+    dependencies:
+      '@cosmjs/encoding': 0.32.4
+      '@cosmjs/math': 0.32.4
+      '@cosmjs/utils': 0.32.4
+      '@noble/hashes': 1.8.0
+      bn.js: 5.2.2
+      elliptic: 6.6.1
+      libsodium-wrappers-sumo: 0.7.15
+
   '@cosmjs/crypto@0.33.1':
     dependencies:
       '@cosmjs/encoding': 0.33.1
@@ -6605,6 +6737,12 @@ snapshots:
       bn.js: 5.2.2
       libsodium-wrappers-sumo: 0.7.15
 
+  '@cosmjs/encoding@0.32.4':
+    dependencies:
+      base64-js: 1.5.1
+      bech32: 1.1.4
+      readonly-date: 1.0.0
+
   '@cosmjs/encoding@0.33.1':
     dependencies:
       base64-js: 1.5.1
@@ -6617,6 +6755,11 @@ snapshots:
       bech32: 1.1.4
       readonly-date: 1.0.0
 
+  '@cosmjs/json-rpc@0.32.4':
+    dependencies:
+      '@cosmjs/stream': 0.32.4
+      xstream: 11.14.0
+
   '@cosmjs/json-rpc@0.33.1':
     dependencies:
       '@cosmjs/stream': 0.33.1
@@ -6627,6 +6770,10 @@ snapshots:
       '@cosmjs/stream': 0.34.0
       xstream: 11.14.0
 
+  '@cosmjs/math@0.32.4':
+    dependencies:
+      bn.js: 5.2.2
+
   '@cosmjs/math@0.33.1':
     dependencies:
       bn.js: 5.2.2
@@ -6634,6 +6781,15 @@ snapshots:
   '@cosmjs/math@0.34.0':
     dependencies:
       bn.js: 5.2.2
+
+  '@cosmjs/proto-signing@0.32.4':
+    dependencies:
+      '@cosmjs/amino': 0.32.4
+      '@cosmjs/crypto': 0.32.4
+      '@cosmjs/encoding': 0.32.4
+      '@cosmjs/math': 0.32.4
+      '@cosmjs/utils': 0.32.4
+      cosmjs-types: 0.9.0
 
   '@cosmjs/proto-signing@0.33.1':
     dependencies:
@@ -6653,6 +6809,16 @@ snapshots:
       '@cosmjs/utils': 0.34.0
       cosmjs-types: 0.9.0
 
+  '@cosmjs/socket@0.32.4(bufferutil@4.0.9)(utf-8-validate@5.0.10)':
+    dependencies:
+      '@cosmjs/stream': 0.32.4
+      isomorphic-ws: 4.0.1(ws@7.5.10(bufferutil@4.0.9)(utf-8-validate@5.0.10))
+      ws: 7.5.10(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      xstream: 11.14.0
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
   '@cosmjs/socket@0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)':
     dependencies:
       '@cosmjs/stream': 0.33.1
@@ -6671,6 +6837,23 @@ snapshots:
       xstream: 11.14.0
     transitivePeerDependencies:
       - bufferutil
+      - utf-8-validate
+
+  '@cosmjs/stargate@0.32.4(bufferutil@4.0.9)(utf-8-validate@5.0.10)':
+    dependencies:
+      '@confio/ics23': 0.6.8
+      '@cosmjs/amino': 0.32.4
+      '@cosmjs/encoding': 0.32.4
+      '@cosmjs/math': 0.32.4
+      '@cosmjs/proto-signing': 0.32.4
+      '@cosmjs/stream': 0.32.4
+      '@cosmjs/tendermint-rpc': 0.32.4(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      '@cosmjs/utils': 0.32.4
+      cosmjs-types: 0.9.0
+      xstream: 11.14.0
+    transitivePeerDependencies:
+      - bufferutil
+      - debug
       - utf-8-validate
 
   '@cosmjs/stargate@0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)':
@@ -6703,6 +6886,10 @@ snapshots:
       - encoding
       - utf-8-validate
 
+  '@cosmjs/stream@0.32.4':
+    dependencies:
+      xstream: 11.14.0
+
   '@cosmjs/stream@0.33.1':
     dependencies:
       xstream: 11.14.0
@@ -6710,6 +6897,23 @@ snapshots:
   '@cosmjs/stream@0.34.0':
     dependencies:
       xstream: 11.14.0
+
+  '@cosmjs/tendermint-rpc@0.32.4(bufferutil@4.0.9)(utf-8-validate@5.0.10)':
+    dependencies:
+      '@cosmjs/crypto': 0.32.4
+      '@cosmjs/encoding': 0.32.4
+      '@cosmjs/json-rpc': 0.32.4
+      '@cosmjs/math': 0.32.4
+      '@cosmjs/socket': 0.32.4(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      '@cosmjs/stream': 0.32.4
+      '@cosmjs/utils': 0.32.4
+      axios: 1.11.0
+      readonly-date: 1.0.0
+      xstream: 11.14.0
+    transitivePeerDependencies:
+      - bufferutil
+      - debug
+      - utf-8-validate
 
   '@cosmjs/tendermint-rpc@0.33.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)':
     dependencies:
@@ -6744,6 +6948,8 @@ snapshots:
       - bufferutil
       - encoding
       - utf-8-validate
+
+  '@cosmjs/utils@0.32.4': {}
 
   '@cosmjs/utils@0.33.1': {}
 
@@ -7378,6 +7584,29 @@ snapshots:
     optionalDependencies:
       '@rainbow-me/rainbowkit': 2.2.8(@tanstack/react-query@5.84.2(react@19.1.1))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)(typescript@5.9.2)(viem@2.33.3(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76))(wagmi@2.16.2(@tanstack/query-core@5.83.1)(@tanstack/react-query@5.84.2(react@19.1.1))(@types/react@19.1.9)(bufferutil@4.0.9)(react@19.1.1)(typescript@5.9.2)(utf-8-validate@5.0.10)(viem@2.33.3(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76))(zod@3.25.76))
       '@wagmi/core': 2.19.0(@tanstack/query-core@5.83.1)(@types/react@19.1.9)(react@19.1.1)(typescript@5.9.2)(use-sync-external-store@1.5.0(react@19.1.1))(viem@2.33.3(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76))
+
+  '@protobufjs/aspromise@1.1.2': {}
+
+  '@protobufjs/base64@1.1.2': {}
+
+  '@protobufjs/codegen@2.0.4': {}
+
+  '@protobufjs/eventemitter@1.1.0': {}
+
+  '@protobufjs/fetch@1.1.0':
+    dependencies:
+      '@protobufjs/aspromise': 1.1.2
+      '@protobufjs/inquire': 1.1.0
+
+  '@protobufjs/float@1.0.2': {}
+
+  '@protobufjs/inquire@1.1.0': {}
+
+  '@protobufjs/path@1.1.2': {}
+
+  '@protobufjs/pool@1.1.0': {}
+
+  '@protobufjs/utf8@1.1.0': {}
 
   '@radix-ui/number@1.1.1': {}
 
@@ -8863,7 +9092,7 @@ snapshots:
 
   '@types/connect@3.4.38':
     dependencies:
-      '@types/node': 12.20.55
+      '@types/node': 24.2.1
 
   '@types/debug@4.1.12':
     dependencies:
@@ -8888,6 +9117,8 @@ snapshots:
       '@types/istanbul-lib-report': 3.0.3
 
   '@types/json-schema@7.0.15': {}
+
+  '@types/long@4.0.2': {}
 
   '@types/minimist@1.2.5': {}
 
@@ -8925,7 +9156,7 @@ snapshots:
 
   '@types/ws@7.4.7':
     dependencies:
-      '@types/node': 12.20.55
+      '@types/node': 24.2.1
 
   '@types/ws@8.18.1':
     dependencies:
@@ -11879,6 +12110,8 @@ snapshots:
 
   long@4.0.0: {}
 
+  long@5.3.2: {}
+
   loose-envify@1.4.0:
     dependencies:
       js-tokens: 4.0.0
@@ -12540,6 +12773,37 @@ snapshots:
       loose-envify: 1.4.0
       object-assign: 4.1.1
       react-is: 16.13.1
+
+  protobufjs@6.11.4:
+    dependencies:
+      '@protobufjs/aspromise': 1.1.2
+      '@protobufjs/base64': 1.1.2
+      '@protobufjs/codegen': 2.0.4
+      '@protobufjs/eventemitter': 1.1.0
+      '@protobufjs/fetch': 1.1.0
+      '@protobufjs/float': 1.0.2
+      '@protobufjs/inquire': 1.1.0
+      '@protobufjs/path': 1.1.2
+      '@protobufjs/pool': 1.1.0
+      '@protobufjs/utf8': 1.1.0
+      '@types/long': 4.0.2
+      '@types/node': 24.2.1
+      long: 4.0.0
+
+  protobufjs@7.5.3:
+    dependencies:
+      '@protobufjs/aspromise': 1.1.2
+      '@protobufjs/base64': 1.1.2
+      '@protobufjs/codegen': 2.0.4
+      '@protobufjs/eventemitter': 1.1.0
+      '@protobufjs/fetch': 1.1.0
+      '@protobufjs/float': 1.0.2
+      '@protobufjs/inquire': 1.1.0
+      '@protobufjs/path': 1.1.2
+      '@protobufjs/pool': 1.1.0
+      '@protobufjs/utf8': 1.1.0
+      '@types/node': 24.2.1
+      long: 5.3.2
 
   proxy-compare@2.6.0: {}
 

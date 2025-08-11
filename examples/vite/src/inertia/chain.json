@@ -1,0 +1,18 @@
+{
+  "chain_id": "inertiation-12",
+  "chain_name": "inertiation-12",
+  "apis": {
+    "rpc": [{ "address": "https://rpc.inertiation-12.inrt.fi/" }],
+    "rest": [{ "address": "https://rest.inertiation-12.inrt.fi/" }]
+  },
+  "fees": {
+    "fee_tokens": [
+      {
+        "denom": "l2/01a7a1ea004c23bad7ff1772ab739c0818c881faa1e11383ed8d549d0069f617",
+        "fixed_min_gas_price": 0.015
+      }
+    ]
+  },
+  "bech32_prefix": "init",
+  "network_type": "testnet"
+}

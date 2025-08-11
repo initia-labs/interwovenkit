@@ -11,6 +11,11 @@ import {
 import css from "@initia/interwovenkit-react/styles.css?inline"
 import { isTestnet, useTheme } from "./data"
 
+// Inertia
+import type { Chain } from "@initia/initia-registry-types"
+import customChain from "./inertia/chain.json"
+import { aminoConverters, inertiaRegistryTypes } from "./inertia/message"
+
 injectStyles(css)
 const wagmiConfig = createConfig({
   connectors: [initiaPrivyWalletConnector],
@@ -28,6 +33,10 @@ const Providers = ({ children }: PropsWithChildren) => {
           {...(isTestnet ? TESTNET : {})}
           theme={theme}
           container={import.meta.env.DEV ? document.body : undefined}
+          defaultChainId="inertiation-12"
+          customChain={customChain as Chain}
+          protoTypes={inertiaRegistryTypes}
+          aminoConverters={aminoConverters}
         >
           {children}
         </InterwovenKitProvider>
