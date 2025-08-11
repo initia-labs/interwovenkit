@@ -4,4 +4,5 @@
   align-items: center;
   gap: 2px;
   text-decoration: none;
+  overflow: hidden; /* Prevents overflow when displaying very long denom strings in Activity changes */
 }
