@@ -5,7 +5,6 @@ import type { EncodeObject } from "@cosmjs/proto-signing"
 import type { DeliverTxResponse, SigningStargateClient } from "@cosmjs/stargate"
 import { QueryClient, setupTxExtension } from "@cosmjs/stargate"
 import { atom, useAtomValue, useSetAtom } from "jotai"
-import { registry } from "@initia/amino-converter"
 import { useNavigate } from "@/lib/router"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useInitiaAddress } from "@/public/data/hooks"
@@ -14,7 +13,12 @@ import { useConfig } from "./config"
 import { normalizeError } from "./http"
 import { formatMoveError } from "./errors"
 import { useFindChain } from "./chains"
-import { useCreateComet38Client, useCreateSigningStargateClient, useOfflineSigner } from "./signer"
+import {
+  useCreateComet38Client,
+  useCreateSigningStargateClient,
+  useOfflineSigner,
+  useRegistry,
+} from "./signer"
 import { useDrawer } from "./ui"
 
 export interface TxRequest {
@@ -65,6 +69,7 @@ export function useTx() {
   const createComet38Client = useCreateComet38Client()
   const createSigningStargateClient = useCreateSigningStargateClient()
   const offlineSigner = useOfflineSigner()
+  const registry = useRegistry()
 
   const estimateGas = async ({ messages, memo, chainId = defaultChainId }: TxRequest) => {
     try {
