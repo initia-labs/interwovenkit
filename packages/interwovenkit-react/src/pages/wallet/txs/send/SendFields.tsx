@@ -3,11 +3,12 @@ import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { useFormContext } from "react-hook-form"
-import { useChain, useManageChains, usePricesQuery } from "@/data/chains"
-import { InitiaAddress, formatAmount, formatNumber, toBaseUnit, fromBaseUnit } from "@initia/utils"
+import { InitiaAddress, formatAmount, toBaseUnit, fromBaseUnit } from "@initia/utils"
+import { formatValue } from "@/lib/format"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { STALE_TIMES } from "@/data/http"
+import { useChain, useManageChains, usePricesQuery } from "@/data/chains"
 import { useAsset } from "@/data/assets"
 import { useBalances } from "@/data/account"
 import { useGasPrices, useLastFeeDenom } from "@/data/fee"
@@ -121,7 +122,7 @@ export const SendFields = () => {
                 {formatAmount(balance ?? "0", { decimals })}
               </BalanceButton>
             }
-            value={!quantity ? "0" : !price ? "-" : formatNumber(BigNumber(quantity).times(price))}
+            value={!quantity ? "$0" : !price ? "$-" : formatValue(BigNumber(quantity).times(price))}
             errorMessage={formState.errors.quantity?.message}
           />
 

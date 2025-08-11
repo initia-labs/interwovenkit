@@ -10,8 +10,9 @@ import {
   IconSettingFilled,
   IconWarningFilled,
 } from "@initia/icons-react"
+import { formatAmount, fromBaseUnit } from "@initia/utils"
 import { useNavigate } from "@/lib/router"
-import { formatAmount, formatNumber, fromBaseUnit } from "@initia/utils"
+import { formatValue } from "@/lib/format"
 import { useModal } from "@/public/app/ModalContext"
 import { LocalStorageKey } from "@/data/constants"
 import { useFindChain } from "@/data/chains"
@@ -248,7 +249,7 @@ const BridgeFields = () => {
             {formatAmount(srcBalance?.amount ?? "0", { decimals: srcAsset.decimals })}
           </BalanceButton>
         }
-        value={!route ? "0" : route.usd_amount_in ? formatNumber(route.usd_amount_in) : "-"}
+        value={!route ? "$0" : route.usd_amount_in ? formatValue(route.usd_amount_in) : "$-"}
       />
 
       <div className={styles.arrow}>
@@ -262,7 +263,7 @@ const BridgeFields = () => {
         selectButton={<SelectedChainAsset type="dst" />}
         accountButton={<BridgeAccount type="dst" />}
         quantityInput={<QuantityInput.ReadOnly>{received}</QuantityInput.ReadOnly>}
-        value={!route ? "0" : route.usd_amount_out ? formatNumber(route.usd_amount_out) : "-"}
+        value={!route ? "$0" : route.usd_amount_out ? formatValue(route.usd_amount_out) : "$-"}
       />
 
       <Footer

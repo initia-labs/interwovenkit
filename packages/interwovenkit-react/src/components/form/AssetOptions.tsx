@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import { useState } from "react"
-import { formatAmount, formatNumber } from "@initia/utils"
+import { formatAmount } from "@initia/utils"
+import { formatValue } from "@/lib/format"
 import Image from "../Image"
 import Status from "../Status"
 import type { BaseAsset } from "./types"
@@ -45,7 +46,7 @@ const AssetOptions = (props: Props) => {
                     </div>
                     <div className={styles.balance}>
                       {balance && <div>{formatAmount(balance, { decimals })}</div>}
-                      {value > 0 && <div className={styles.value}>${formatNumber(value)}</div>}
+                      {value > 0 && <div className={styles.value}>{formatValue(value)}</div>}
                     </div>
                   </>
                 )

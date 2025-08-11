@@ -26,7 +26,7 @@ const ChainAssetQuantityLayout = (props: Props) => {
 
         <div className={styles.wrapper}>
           <div className={styles.balance}>{balanceButton}</div>
-          {value && <div className={styles.value}>${value}</div>}
+          {value && <div className={styles.value}>{value}</div>}
         </div>
 
         {errorMessage && (
