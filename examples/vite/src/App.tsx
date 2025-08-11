@@ -1,7 +1,7 @@
 import { useAtom } from "jotai"
 import Bridge from "./Bridge"
 import Connection from "./Connection"
-import { isTestnet, themeAtom } from "./data"
+import { chainId, themeAtom } from "./data"
 import Send from "./Send"
 import styles from "./App.module.css"
 
@@ -12,13 +12,9 @@ const App = () => {
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        {isTestnet ? (
-          <h1 className={styles.title} data-testnet>
-            Initia Testnet
-          </h1>
-        ) : (
-          <h1 className={styles.title}>Initia</h1>
-        )}
+        <h1 className={styles.title} data-testnet>
+          {chainId}
+        </h1>
         <div className={styles.controls}>
           <button className={styles.toggle} onClick={toggleTheme}>
             {theme === "light" ? "Dark" : "Light"}

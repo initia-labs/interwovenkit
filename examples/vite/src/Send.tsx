@@ -19,7 +19,12 @@ const Send = () => {
   const [directSign, setDirectSign] = useState(true)
 
   const { register, setValue, handleSubmit } = useForm({
-    defaultValues: { recipient: "", amount: "1000000", denom: "uinit", memo: "" },
+    defaultValues: {
+      recipient: "",
+      amount: "1000000000000000000",
+      denom: "evm/2eE7007DF876084d4C74685e90bB7f4cd7c86e22",
+      memo: "",
+    },
   })
 
   useEffect(() => {
@@ -42,7 +47,10 @@ const Send = () => {
       if (directSign) {
         // Use submitTxBlock for direct signing without modal
         const gasEstimate = await estimateGas({ messages, memo })
-        const fee = calculateFee(Math.ceil(gasEstimate * 1.4), GasPrice.fromString("0.015uinit"))
+        const fee = calculateFee(
+          Math.ceil(gasEstimate * 1.4),
+          GasPrice.fromString("150000000000evm/2eE7007DF876084d4C74685e90bB7f4cd7c86e22"),
+        )
         const { transactionHash } = await submitTxBlock({ messages, memo, fee })
         return transactionHash
       } else {
