@@ -120,7 +120,6 @@ Connect the wallet, check the balance, and send a transaction:
 // page.tsx
 "use client"
 
-import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
 import { truncate } from "@initia/utils"
 import { useInterwovenKit } from "@initia/interwovenkit-react"
 
@@ -139,11 +138,11 @@ export default function Home() {
     const messages = [
       {
         typeUrl: "/cosmos.bank.v1beta1.MsgSend",
-        value: MsgSend.fromPartial({
+        value: {
           fromAddress: address,
           toAddress: address,
           amount: [{ amount: "1000000", denom: "uinit" }],
-        }),
+        },
       },
     ]
 
