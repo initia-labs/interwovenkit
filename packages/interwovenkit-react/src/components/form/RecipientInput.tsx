@@ -60,14 +60,20 @@ const RecipientInput = ({ mode = "onChange", myAddress, ...props }: Props) => {
   // onChange: update form value on every valid input change
   useEffect(() => {
     if (mode !== "onChange") return
-    if (!inputValue) return
-    setValue("recipient", usernameAddress ?? inputValue, { shouldValidate: true })
-  }, [inputValue, mode, setValue, usernameAddress])
+    if (!inputValue && !formState.dirtyFields.recipient) return
+    setValue("recipient", usernameAddress ?? inputValue, {
+      shouldValidate: true,
+      shouldDirty: true,
+    })
+  }, [formState.dirtyFields.recipient, inputValue, mode, setValue, usernameAddress])
 
   // onSubmit: update form value when button clicked
   const handleApply = () => {
     if (isLoading || error) return
-    setValue("recipient", resolvedAddress, { shouldValidate: true })
+    setValue("recipient", resolvedAddress, {
+      shouldValidate: true,
+      shouldDirty: true,
+    })
     onApply?.()
   }
 

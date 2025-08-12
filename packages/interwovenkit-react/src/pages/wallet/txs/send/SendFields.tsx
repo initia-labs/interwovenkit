@@ -35,7 +35,8 @@ const queryKeys = createQueryKeys("interwovenkit:send", {
 export const SendFields = () => {
   const { address, initiaAddress, estimateGas, requestTxSync } = useInterwovenKit()
 
-  const { register, watch, setValue, handleSubmit, formState } = useFormContext<FormValues>()
+  const { register, watch, setValue, handleSubmit, formState, trigger } =
+    useFormContext<FormValues>()
   const { chainId, denom, quantity, memo } = watch()
 
   const { addedChains } = useManageChains()
@@ -104,7 +105,14 @@ export const SendFields = () => {
             selectButton={
               <ModalTrigger
                 title={addedChains.length > 1 ? "Select chain and asset" : "Select asset"}
-                content={(close) => <SelectChainAsset afterSelect={close} />}
+                content={(close) => (
+                  <SelectChainAsset
+                    afterSelect={() => {
+                      trigger("quantity")
+                      close()
+                    }}
+                  />
+                )}
               >
                 <AssetOnChainButton asset={asset} chain={chain} />
               </ModalTrigger>
