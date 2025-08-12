@@ -8,7 +8,6 @@ import { IconList, IconMinus, IconWallet } from "@initia/icons-react"
 import { InitiaAddress } from "@initia/utils"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import Image from "@/components/Image"
-import FlexEnd from "@/components/FlexEnd"
 import { useBridgePreviewState } from "./data/tx"
 import { useCosmosWallets } from "./data/cosmos"
 import OperationItem from "./OperationItem"
@@ -119,23 +118,21 @@ const BridgePreviewRoute = ({ addressList }: Props) => {
   return (
     <Collapsible.Root className={styles.root} open={showAll} onOpenChange={toggleShowAll}>
       {canToggleShowAll && (
-        <Collapsible.Trigger asChild>
-          <FlexEnd>
-            <button className={styles.toggle} onClick={toggleShowAll}>
-              {showAll ? (
-                <>
-                  <IconMinus size={12} />
-                  <span>Hide details</span>
-                </>
-              ) : (
-                <>
-                  <IconList size={12} />
-                  <span>Show details</span>
-                </>
-              )}
-            </button>
-          </FlexEnd>
-        </Collapsible.Trigger>
+        <div className={styles.flexEnd}>
+          <Collapsible.Trigger className={styles.toggle}>
+            {showAll ? (
+              <>
+                <IconMinus size={12} />
+                <span>Hide details</span>
+              </>
+            ) : (
+              <>
+                <IconList size={12} />
+                <span>Show details</span>
+              </>
+            )}
+          </Collapsible.Trigger>
+        </div>
       )}
 
       <div className={styles.route}>

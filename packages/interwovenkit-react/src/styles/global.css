@@ -31,33 +31,33 @@
 
 :root[data-theme="light"],
 :host([data-theme="light"]) {
-  --gray-0: #0a0a0a;
+  --gray-0: #0f0f0f;
   --gray-1: #242628;
   --gray-2: #56595c;
-  --gray-3: #797d81;
-  --gray-4: #989b9e;
-  --gray-5: #bec2c6;
-  --gray-6: #c8ccd0;
-  --gray-7: #dbdee1;
-  --gray-8: #e3e6e9;
-  --gray-9: #f5f5f5;
+  --gray-3: #737577;
+  --gray-4: #9a9c9e;
+  --gray-5: #dfe1e3;
+  --gray-6: #e6e8eb;
+  --gray-7: #eef0f2;
+  --gray-8: #f7f8f9;
+  --gray-9: #ffffff;
 
   --success-light: #00832a;
   --success: #109435;
   --success-dark: #afdebc;
-  --success-bg: #d4f6dd;
+  --success-bg: #eefbf2;
   --error-light: #b50a1c;
   --error: #d1242f;
   --error-dark: #f6c3c4;
-  --error-bg: #ffebe9;
+  --error-bg: #ffeceb;
   --warning-light: #c66f00;
   --warning: #d18800;
   --warning-dark: #eed888;
-  --warning-bg: #fff7db;
-  --info-light: #006bc6;
-  --info: #037cd8;
-  --info-dark: #a6d8ff;
-  --info-bg: #ddf4ff;
+  --warning-bg: #fff9e0;
+  --info-light: #008499;
+  --info: #0098b2;
+  --info-dark: #abe6f3;
+  --info-bg: #e4f9ff;
 }
 
 :root,

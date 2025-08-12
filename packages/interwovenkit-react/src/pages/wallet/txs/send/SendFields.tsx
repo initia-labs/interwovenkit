@@ -8,7 +8,7 @@ import { formatValue } from "@/lib/format"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { STALE_TIMES } from "@/data/http"
-import { useChain, useManageChains, usePricesQuery } from "@/data/chains"
+import { useChain, usePricesQuery } from "@/data/chains"
 import { useAsset } from "@/data/assets"
 import { useBalances } from "@/data/account"
 import { useGasPrices, useLastFeeDenom } from "@/data/fee"
@@ -39,13 +39,12 @@ export const SendFields = () => {
     useFormContext<FormValues>()
   const { chainId, denom, quantity, memo } = watch()
 
-  const { addedChains } = useManageChains()
   const chain = useChain(chainId)
   const balances = useBalances(chain)
   const gasPrices = useGasPrices(chain)
   const lastFeeDenom = useLastFeeDenom(chain)
   const asset = useAsset(denom, chain)
-  const { data: prices } = usePricesQuery(chain.chainId)
+  const { data: prices } = usePricesQuery(chain)
   const { decimals } = asset
   const balance = balances.find((coin) => coin.denom === denom)?.amount ?? "0"
   const price = prices?.find(({ id }) => id === denom)?.price
@@ -104,7 +103,7 @@ export const SendFields = () => {
           <ChainAssetQuantityLayout
             selectButton={
               <ModalTrigger
-                title={addedChains.length > 1 ? "Select chain and asset" : "Select asset"}
+                title="Select chain and asset"
                 content={(close) => (
                   <SelectChainAsset
                     afterSelect={() => {

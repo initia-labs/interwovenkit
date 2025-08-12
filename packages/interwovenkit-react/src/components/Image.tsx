@@ -9,12 +9,15 @@ interface Props extends ImgHTMLAttributes<HTMLImageElement> {
   circle?: boolean
 }
 
-const Image = ({ src, alt, placeholder, classNames, circle, ...attrs }: Props) => {
+const Image = ({ src, alt, placeholder, classNames, style, circle, ...attrs }: Props) => {
   const [hasError, setHasError] = useState(false)
   const { width, height } = attrs
 
   const unloader = placeholder ?? (
-    <div className={clsx(styles.placeholder, classNames?.placeholder)} style={{ width, height }} />
+    <div
+      className={clsx(styles.placeholder, classNames?.placeholder)}
+      style={{ width, height, ...style }}
+    />
   )
 
   // Reset state when src changes
@@ -30,7 +33,7 @@ const Image = ({ src, alt, placeholder, classNames, circle, ...attrs }: Props) =
     <img
       {...attrs}
       className={clsx(attrs.className, { [styles.circle]: circle })}
-      style={{ width, height }}
+      style={{ width, height, ...style }}
       src={src}
       alt={alt}
       loading="lazy"

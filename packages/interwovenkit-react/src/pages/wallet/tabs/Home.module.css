@@ -1,13 +1,36 @@
+.totalValue {
+  text-align: center;
+  padding: 8px 0;
+  margin-bottom: 4px;
+}
+
+.totalLabel {
+  color: var(--dimmed);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.totalAmount {
+  color: var(--gray-0);
+  font-size: 32px;
+  font-weight: 600;
+
+  &.loading {
+    opacity: 0.5;
+  }
+}
+
 .nav {
   display: flex;
   gap: 8px;
-  margin-bottom: 28px;
+  margin-bottom: 32px;
 
   .item {
     flex: 1;
+
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+    justify-content: center;
+    align-items: center;
     gap: 8px;
 
     background-color: rgba(81, 220, 251, 0.1); /* FIXME: rgba(var(--info), 0.1) */
@@ -15,7 +38,7 @@
     color: var(--info);
     font-size: 14px;
     font-weight: 600;
-    padding: 12px;
+    height: 56px;
 
     transition: background-color var(--transition) ease;
 
@@ -27,13 +50,13 @@
 
 .tabs {
   display: flex;
-  gap: 24px;
-  margin-bottom: 10px;
+  gap: 16px;
+  margin-bottom: 12px;
 }
 
 .tab {
   color: var(--gray-4);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
 
   transition: color var(--transition) ease;
@@ -42,7 +65,7 @@
     color: var(--gray-2);
   }
 
-  &[data-state="active"] {
+  &[data-selected] {
     color: var(--gray-0);
   }
 }

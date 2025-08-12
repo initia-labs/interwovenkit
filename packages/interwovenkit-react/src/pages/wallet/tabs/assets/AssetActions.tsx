@@ -1,30 +1,43 @@
-import clsx from "clsx"
-import { useAccount, useSwitchChain, useWatchAsset } from "wagmi"
+import { useState, type PropsWithChildren, type ReactElement } from "react"
+import { useChainId, useSwitchChain, useWatchAsset } from "wagmi"
+import { Menu } from "@base-ui-components/react"
 import { useMutation } from "@tanstack/react-query"
-import { IconCheck, IconPlus } from "@initia/icons-react"
+import { IconCheck, IconPlus, IconSwap, IconArrowRight } from "@initia/icons-react"
 import { useNavigate } from "@/lib/router"
 import { useConfig } from "@/data/config"
 import { useDefaultChain, type NormalizedChain } from "@/data/chains"
 import { useAsset } from "@/data/assets"
-import Image from "@/components/Image"
+import { useNotification } from "@/public/app/NotificationContext"
+import { useScrollableRef } from "../ScrollableContext"
 import styles from "./AssetActions.module.css"
 
-const AssetActions = ({ denom, chain }: { denom: string; chain: NormalizedChain }) => {
+interface Props {
+  denom: string
+  chain: NormalizedChain
+  isUnsupported?: boolean
+}
+
+const AssetActions = ({ denom, chain, children, isUnsupported }: PropsWithChildren<Props>) => {
+  const [open, setOpen] = useState(false)
   const navigate = useNavigate()
+  const scrollableRef = useScrollableRef()
+  const { showNotification } = useNotification()
   const { defaultChainId } = useConfig()
   const { evm_chain_id } = useDefaultChain()
+  const wagmiChainId = useChainId()
   const { address = "", symbol, decimals, logoUrl: image } = useAsset(denom, chain)
-  const { connector } = useAccount()
   const { switchChainAsync } = useSwitchChain()
   const { watchAssetAsync } = useWatchAsset()
   const { chainId } = chain
 
   const send = () => {
+    setOpen(false)
     navigate("/send", { denom, chain })
   }
 
   const bridge = () => {
-    navigate("/bridge", { srcChainId: chainId, srcDenom: denom })
+    setOpen(false)
+    navigate("/bridge", { srcChainId: chainId, srcDenom: denom, quantity: "" })
   }
 
   const addAsset = useMutation({
@@ -32,29 +45,51 @@ const AssetActions = ({ denom, chain }: { denom: string; chain: NormalizedChain 
       await switchChainAsync({ chainId: Number(evm_chain_id) })
       return watchAssetAsync({ type: "ERC20", options: { address, symbol, decimals, image } })
     },
+    onSuccess: () => {
+      showNotification({
+        type: "success",
+        title: "Asset added",
+        description: "Asset added to wallet",
+      })
+    },
+    onError: (error) => {
+      showNotification({
+        type: "error",
+        title: "Asset addition failed",
+        description: error.message,
+      })
+    },
   })
 
   return (
-    <nav className={styles.actions}>
-      <button className={styles.button} onClick={send}>
-        Send
-      </button>
+    <Menu.Root open={open} onOpenChange={setOpen} modal={false}>
+      <Menu.Trigger render={children as ReactElement<Record<string, unknown>>} />
 
-      <button className={styles.button} onClick={bridge}>
-        Bridge/Swap
-      </button>
-
-      {chainId === defaultChainId && !!address && (
-        <button
-          className={clsx(styles.button, styles.add)}
-          onClick={() => addAsset.mutate()}
-          disabled={addAsset.isPending || addAsset.data}
-        >
-          {!addAsset.data ? <IconPlus size={10} /> : <IconCheck size={10} />}
-          <Image src={connector?.icon} width={16} height={16} />
-        </button>
-      )}
-    </nav>
+      <Menu.Portal container={scrollableRef.current}>
+        <Menu.Positioner side="bottom" sideOffset={-6} align="end">
+          <Menu.Popup className={styles.popup}>
+            <Menu.Item className={styles.item} onClick={send}>
+              <IconArrowRight size={16} />
+              <span>Send</span>
+            </Menu.Item>
+            <Menu.Item className={styles.item} onClick={bridge} disabled={isUnsupported}>
+              <IconSwap size={16} />
+              <span>Bridge/Swap</span>
+            </Menu.Item>
+            {chainId === defaultChainId && evm_chain_id === wagmiChainId && !!address && (
+              <Menu.Item
+                className={styles.item}
+                onClick={() => addAsset.mutate()}
+                disabled={addAsset.isPending || addAsset.data}
+              >
+                {!addAsset.data ? <IconPlus size={16} /> : <IconCheck size={16} />}
+                <span>Add to Wallet</span>
+              </Menu.Item>
+            )}
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
   )
 }
 

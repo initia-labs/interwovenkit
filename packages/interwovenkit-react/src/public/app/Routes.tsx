@@ -4,10 +4,8 @@ import { useDrawer } from "@/data/ui"
 import Connect from "@/pages/connect/Connect"
 import Home from "@/pages/wallet/tabs/Home"
 import Send from "@/pages/wallet/txs/send/Send"
-import CollectionDetails from "@/pages/wallet/tabs/nft/CollectionDetails"
 import NftDetails from "@/pages/wallet/tabs/nft/NftDetails"
 import SendNft from "@/pages/wallet/txs/send-nft/SendNft"
-import ManageChains from "@/pages/wallet/tabs/ManageChains"
 import BridgeForm from "@/pages/bridge/BridgeForm"
 import Withdrawals from "@/pages/bridge/op/Withdrawals"
 import BridgePreview from "@/pages/bridge/BridgePreview"
@@ -59,14 +57,10 @@ const Routes = () => {
       return <Home />
     case "/send":
       return <Send key={address} />
-    case "/collection":
-      return <CollectionDetails />
     case "/nft":
       return <NftDetails />
     case "/nft/send":
       return <SendNft key={address} />
-    case "/rollups":
-      return <ManageChains />
     case "/bridge":
       return <BridgeForm key={address} />
     case "/bridge/preview":

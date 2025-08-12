@@ -1,11 +1,8 @@
 import ky from "ky"
-import { descend, path, uniq } from "ramda"
-import { useAtom } from "jotai"
-import { atomWithStorage } from "jotai/utils"
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
+import { descend, path } from "ramda"
+import { queryOptions, useQueries, useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import type { Chain, SecureEndpoint } from "@initia/initia-registry-types"
-import { LocalStorageKey } from "./constants"
 import { useConfig } from "./config"
 import { STALE_TIMES } from "./http"
 
@@ -14,8 +11,6 @@ export const chainQueryKeys = createQueryKeys("interwovenkit:chain", {
   prices: (chainId: string) => [chainId],
   gasPrices: (chain: NormalizedChain) => [chain],
 })
-
-const addedChainIdsAtom = atomWithStorage<string[]>(LocalStorageKey.ADDED_CHAIN_IDS, [])
 
 function getPrimaryEndpoint(endpoints?: SecureEndpoint[]) {
   const url = path<string>([0, "address"], endpoints)
@@ -81,42 +76,34 @@ export function useLayer1() {
   return chain
 }
 
-export function usePricesQuery(chainId: string) {
-  return useQuery({
-    queryKey: chainQueryKeys.prices(chainId).queryKey,
-    queryFn: () =>
-      ky
-        .create({ prefixUrl: "https://api.initia.xyz" })
-        .get(`initia/${chainId}/assets`, { searchParams: { quote: "USD", with_prices: true } })
-        .json<{ id: string; price: number }[]>(),
-    staleTime: STALE_TIMES.SECOND,
-  })
+export interface PriceItem {
+  id: string
+  price: number
 }
 
-export function useManageChains() {
+function useCreatePricesQuery() {
+  return ({ chainId }: NormalizedChain) => {
+    return queryOptions({
+      queryKey: chainQueryKeys.prices(chainId).queryKey,
+      queryFn: () =>
+        ky
+          .create({ prefixUrl: "https://api.initia.xyz" })
+          .get(`initia/${chainId}/assets`, { searchParams: { quote: "USD", with_prices: true } })
+          .json<PriceItem[]>(),
+      staleTime: STALE_TIMES.SECOND,
+    })
+  }
+}
+
+export function usePricesQuery(chain: NormalizedChain) {
+  const createPricesQuery = useCreatePricesQuery()
+  return useQuery(createPricesQuery(chain))
+}
+
+export function useAllChainPriceQueries() {
   const chains = useInitiaRegistry()
-  const { defaultChainId } = useConfig()
-  const [addedChainIds, setAddedChainIds] = useAtom(addedChainIdsAtom)
-
-  const withDefaultChainID = (chainIds: string[]) => {
-    return uniq([defaultChainId, ...chainIds])
-  }
-
-  const addedChains = withDefaultChainID(addedChainIds)
-    .map((chainId) => chains.find((chain) => chain.chainId === chainId))
-    .filter(Boolean) as NormalizedChain[]
-
-  const notAddedChains = chains.filter(
-    (chain) => !withDefaultChainID(addedChainIds).includes(chain.chainId),
-  )
-
-  const addChain = (chainId: string) => {
-    setAddedChainIds((prev) => withDefaultChainID([...prev, chainId]))
-  }
-
-  const removeChain = (chainId: string) => {
-    setAddedChainIds((prev) => withDefaultChainID(prev.filter((id) => id !== chainId)))
-  }
-
-  return { chains, addedChains, notAddedChains, addChain, removeChain }
+  const createPricesQuery = useCreatePricesQuery()
+  return useQueries({
+    queries: chains.map((chain) => createPricesQuery(chain)),
+  })
 }

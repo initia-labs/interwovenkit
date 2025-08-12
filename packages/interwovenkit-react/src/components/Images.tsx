@@ -1,16 +1,34 @@
+import clsx from "clsx"
 import Image from "./Image"
 import styles from "./Images.module.css"
 
 interface Props {
   assetLogoUrl?: string
+  assetLogoSize?: number
   chainLogoUrl?: string
+  chainLogoSize?: number
+  chainLogoOffset?: number
+  className?: string
 }
 
-const Images = ({ assetLogoUrl, chainLogoUrl }: Props) => {
+const Images = ({
+  assetLogoUrl,
+  assetLogoSize = 36,
+  chainLogoUrl,
+  chainLogoSize = 18,
+  chainLogoOffset = 6,
+  className,
+}: Props) => {
   return (
-    <div className={styles.images}>
-      <Image src={assetLogoUrl} width={36} height={36} />
-      <Image src={chainLogoUrl} width={18} height={18} className={styles.chain} />
+    <div className={clsx(styles.images, className)}>
+      <Image src={assetLogoUrl} width={assetLogoSize} height={assetLogoSize} />
+      <Image
+        src={chainLogoUrl}
+        width={chainLogoSize}
+        height={chainLogoSize}
+        className={styles.chain}
+        style={{ right: -1 * chainLogoOffset }}
+      />
     </div>
   )
 }

@@ -1,0 +1,32 @@
+.container {
+  display: flex; /* Prevents overflow when displaying very long denom strings in Activity changes */
+  flex-direction: column;
+  gap: 16px;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search {
+  flex: 1;
+  border: 1px solid var(--gray-6);
+  border-radius: 8px;
+  height: 44px;
+
+  transition: border-color var(--transition) ease;
+
+  input {
+    height: 100%;
+  }
+
+  &:hover {
+    border-color: var(--gray-4);
+  }
+
+  &:focus-within {
+    border-color: var(--gray-3);
+  }
+}
