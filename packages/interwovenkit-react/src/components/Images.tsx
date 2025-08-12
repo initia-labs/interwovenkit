@@ -20,14 +20,21 @@ const Images = ({
   className,
 }: Props) => {
   return (
-    <div className={clsx(styles.images, className)}>
-      <Image src={assetLogoUrl} width={assetLogoSize} height={assetLogoSize} />
+    <div className={clsx(styles.images, className)} style={{ position: "relative" }}>
+      <Image
+        src={assetLogoUrl}
+        width={assetLogoSize}
+        height={assetLogoSize}
+        className={styles.asset}
+        logo
+      />
       <Image
         src={chainLogoUrl}
         width={chainLogoSize}
         height={chainLogoSize}
         className={styles.chain}
-        style={{ right: -1 * chainLogoOffset }}
+        style={{ position: "absolute", bottom: 0, right: -1 * chainLogoOffset }}
+        logo
       />
     </div>
   )

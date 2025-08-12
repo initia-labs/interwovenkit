@@ -32,7 +32,7 @@ const ChainOptions = ({ label, chains, value, onSelect, getShowIndicator }: Prop
                 className={clsx(styles.button, { [styles.active]: chainId === value })}
                 onClick={() => onSelect(chainId)}
               >
-                <Image src={logoUrl} width={28} height={28} circle />
+                <Image src={logoUrl} width={28} height={28} logo />
               </button>
             </WidgetTooltip>
           </Indicator>

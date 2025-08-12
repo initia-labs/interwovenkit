@@ -27,6 +27,28 @@
   --info: #51dcfb;
   --info-dark: #296e7e;
   --info-bg: #122327;
+
+  --drawer-shadow: 0px 0px 10px 0px rgba(255, 255, 255, 0.15);
+  --component-shadow: 0px 0px 10px 0px rgba(0, 0, 0, 0.2);
+  --border: var(--gray-7);
+  --button-bg: var(--gray-0);
+  --button-bg-hover: var(--gray-1);
+  --button-bg-disabled: var(--gray-4);
+  --button-text: var(--gray-8);
+  --button-text-disabled: var(--gray-8);
+  --button-small-border: var(--gray-6);
+  --button-small-border-hover: var(--gray-4);
+  --input-border: var(--gray-5);
+  --input-border-focus: var(--gray-3);
+  --home-button-bg: rgba(81, 220, 251, 0.1);
+  --home-button-bg-hover: rgba(81, 220, 251, 0.15);
+  --home-border: var(--gray-6);
+  --home-border-hover: var(--gray-4);
+  --dropdown-menu-bg: var(--gray-8);
+  --dropdown-menu-hover: var(--gray-7);
+  --logo-border: var(--border);
+  --bridge-meta-bg: var(--gray-7);
+  --bridge-meta-button-bg: var(--gray-6);
 }
 
 :root[data-theme="light"],
@@ -34,12 +56,12 @@
   --gray-0: #0f0f0f;
   --gray-1: #242628;
   --gray-2: #56595c;
-  --gray-3: #737577;
-  --gray-4: #9a9c9e;
+  --gray-3: #797d81;
+  --gray-4: #9ea0a2;
   --gray-5: #dfe1e3;
-  --gray-6: #e6e8eb;
-  --gray-7: #eef0f2;
-  --gray-8: #f7f8f9;
+  --gray-6: #e9ebed;
+  --gray-7: #f1f3f5;
+  --gray-8: #f8f9fa;
   --gray-9: #ffffff;
 
   --success-light: #00832a;
@@ -58,12 +80,33 @@
   --info: #0098b2;
   --info-dark: #abe6f3;
   --info-bg: #e4f9ff;
+
+  --drawer-shadow: 0 0 15px 0 rgba(0, 0, 0, 0.1);
+  --component-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.07);
+  --border: var(--gray-6);
+  --button-bg: var(--gray-0);
+  --button-bg-hover: var(--gray-1);
+  --button-bg-disabled: var(--gray-6);
+  --button-text: var(--gray-9);
+  --button-text-disabled: var(--gray-3);
+  --button-small-border: var(--gray-6);
+  --button-small-border-hover: var(--gray-3);
+  --input-border: var(--gray-4);
+  --input-border-focus: var(--gray-3);
+  --home-button-bg: rgba(81, 220, 251, 0.15);
+  --home-button-bg-hover: rgba(81, 220, 251, 0.2);
+  --home-border: var(--gray-5);
+  --home-border-hover: var(--gray-4);
+  --dropdown-menu-bg: var(--gray-9);
+  --dropdown-menu-hover: var(--gray-8);
+  --logo-border: var(--gray-5);
+  --bridge-meta-bg: var(--gray-8);
+  --bridge-meta-button-bg: var(--gray-5);
 }
 
 :root,
 :host {
   --bg: var(--gray-9);
-  --border: var(--gray-7);
   --dimmed: var(--gray-3);
 
   --border-radius: 24px;
@@ -115,13 +158,13 @@
   transition: border-color var(--transition) ease;
 
   &:hover {
-    border-color: var(--gray-4);
+    border-color: var(--input-border);
   }
 }
 
 :where(input) {
   &:focus {
-    border-color: var(--gray-1);
+    border-color: var(--input-border-focus);
     outline: none;
   }
 }

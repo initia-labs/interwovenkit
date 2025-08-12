@@ -47,7 +47,7 @@ const AssetOptions = (props: Props) => {
                 const { denom, logoUrl, symbol, name, balance, decimals, value = 0 } = asset
                 return (
                   <>
-                    <Image src={logoUrl} width={32} height={32} className={styles.logo} />
+                    <Image src={logoUrl} width={32} height={32} className={styles.logo} logo />
                     <div className={styles.info}>
                       <div className={styles.symbol}>{symbol || denom}</div>
                       <div className={styles.name}>{name}</div>

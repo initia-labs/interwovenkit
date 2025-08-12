@@ -33,7 +33,7 @@
     align-items: center;
     gap: 8px;
 
-    background-color: rgba(81, 220, 251, 0.1); /* FIXME: rgba(var(--info), 0.1) */
+    background-color: var(--home-button-bg);
     border-radius: 8px;
     color: var(--info);
     font-size: 14px;
@@ -43,7 +43,7 @@
     transition: background-color var(--transition) ease;
 
     &:hover {
-      background-color: rgba(81, 220, 251, 0.15); /* FIXME: rgba(var(--info), 0.15) */
+      background-color: var(--home-button-bg-hover);
     }
   }
 }

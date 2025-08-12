@@ -61,10 +61,6 @@
 }
 
 .chainLogo {
-  border: 1px solid var(--asset-item-bg);
-  border-radius: 50%;
-  transition: border-color var(--transition) ease;
-
   &:not(:first-child) {
     margin-left: -4px;
   }

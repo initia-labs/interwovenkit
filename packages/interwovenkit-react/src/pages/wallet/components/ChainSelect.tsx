@@ -143,7 +143,7 @@ const ChainSelect = ({ value, onChange, chainIds, fullWidth }: Props) => {
           >
             <div className={styles.triggerContent}>
               {typeof selectedChain.logoUrl === "string" ? (
-                <Image src={selectedChain.logoUrl} width={14} height={14} />
+                <Image src={selectedChain.logoUrl} width={14} height={14} logo />
               ) : (
                 selectedChain.logoUrl(14)
               )}
@@ -205,7 +205,7 @@ const ChainSelect = ({ value, onChange, chainIds, fullWidth }: Props) => {
                   >
                     <div className={styles.itemContent}>
                       {typeof logoUrl === "string" ? (
-                        <Image src={logoUrl} width={18} height={18} />
+                        <Image src={logoUrl} width={18} height={18} logo />
                       ) : (
                         logoUrl(18)
                       )}

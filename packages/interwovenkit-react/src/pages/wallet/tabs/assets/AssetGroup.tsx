@@ -38,7 +38,7 @@ const AssetGroup = ({ assetGroup, isUnsupported }: Props) => {
   const renderAssetHeader = () => (
     <button className={styles.assetItem}>
       <div className={styles.assetInfo}>
-        {logoUrl && <Image src={logoUrl} width={32} height={32} className={styles.logo} />}
+        {logoUrl && <Image src={logoUrl} width={32} height={32} className={styles.logo} logo />}
         <div className={styles.details}>
           <div className={styles.symbol}>{symbol}</div>
           {isSingleChain ? (
@@ -53,6 +53,7 @@ const AssetGroup = ({ assetGroup, isUnsupported }: Props) => {
                     width={16}
                     height={16}
                     className={styles.chainLogo}
+                    logo
                   />
                 ))}
               </div>

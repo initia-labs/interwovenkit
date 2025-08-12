@@ -6,10 +6,10 @@ import styles from "./Image.module.css"
 interface Props extends ImgHTMLAttributes<HTMLImageElement> {
   placeholder?: ReactNode
   classNames?: { placeholder?: string }
-  circle?: boolean
+  logo?: boolean
 }
 
-const Image = ({ src, alt, placeholder, classNames, style, circle, ...attrs }: Props) => {
+const Image = ({ src, alt, placeholder, classNames, style, logo, ...attrs }: Props) => {
   const [hasError, setHasError] = useState(false)
   const { width, height } = attrs
 
@@ -32,7 +32,7 @@ const Image = ({ src, alt, placeholder, classNames, style, circle, ...attrs }: P
   return (
     <img
       {...attrs}
-      className={clsx(attrs.className, { [styles.circle]: circle })}
+      className={clsx(attrs.className, { [styles.logo]: logo })}
       style={{ width, height, ...style }}
       src={src}
       alt={alt}
