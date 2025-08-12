@@ -1,7 +1,9 @@
 .header {
+  --header-size: 52px;
+
   display: grid;
-  grid-template-columns: 1fr 52px auto;
-  height: 52px;
+  grid-template-columns: 1fr auto auto;
+  height: var(--header-size);
 
   background-color: var(--gray-8);
   border-bottom: 1px solid var(--border);
@@ -59,15 +61,19 @@
   }
 }
 
+.qr {
+  width: var(--header-size);
+}
+
 .disconnect {
   display: flex;
   align-items: center;
   justify-content: flex-start;
   gap: 4px;
 
-  min-width: 52px;
+  min-width: var(--header-size);
   overflow: hidden;
-  padding-left: calc((52px - 16px) / 2);
+  padding-left: calc((var(--header-size) - 16px) / 2);
 
   .label {
     font-size: 12px;

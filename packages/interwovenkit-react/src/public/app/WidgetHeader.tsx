@@ -94,7 +94,7 @@ const WidgetHeader = () => {
 
       {deafultChain.metadata?.is_l1 && (
         <button
-          className={styles.button}
+          className={clsx(styles.button, styles.qr)}
           onClick={() => openModal({ title: "Initia address", content: <AddressQr /> })}
         >
           <IconQrCode size={16} />
