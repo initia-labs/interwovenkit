@@ -1,9 +1,9 @@
 .overlay {
   position: fixed;
-  top: var(--offset);
-  right: var(--offset);
-  bottom: var(--offset);
-  width: calc(var(--width) + 54px);
+  top: var(--drawer-offset);
+  right: var(--drawer-offset);
+  bottom: var(--drawer-offset);
+  width: calc(var(--drawer-width) + 54px);
   will-change: transform;
   z-index: var(--z-index);
 
@@ -48,9 +48,9 @@
 
 .content {
   position: fixed;
-  top: var(--offset);
-  right: var(--offset);
-  bottom: var(--offset);
+  top: var(--drawer-offset);
+  right: var(--drawer-offset);
+  bottom: var(--drawer-offset);
   will-change: transform;
   z-index: var(--z-index);
 
@@ -67,7 +67,7 @@
 .inner {
   border: 1px solid var(--gray-6);
   box-shadow: 0px 0px 10px 0px rgba(255, 255, 255, 0.15);
-  width: var(--width);
+  width: var(--drawer-width);
   height: 100%;
 
   @media (max-width: 576px) {

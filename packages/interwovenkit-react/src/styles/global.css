@@ -67,9 +67,9 @@
   --dimmed: var(--gray-3);
 
   --border-radius: 24px;
-  --offset: 12px;
+  --drawer-width: 420px;
+  --drawer-offset: 12px;
   --padding: 20px;
-  --width: 420px;
 
   --font-family: "Pilat Wide", sans-serif;
   --monospace: "Roboto Mono", monospace;

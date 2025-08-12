@@ -35,7 +35,7 @@
   position: fixed;
   top: 50%;
   left: 50%;
-  width: var(--width);
+  width: var(--drawer-width);
   height: 720px;
   transform: translate(-50%, -50%);
 }

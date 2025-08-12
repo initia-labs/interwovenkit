@@ -1,6 +1,6 @@
 .container {
   position: absolute;
-  top: calc(var(--offset) + var(--padding) + 12px);
+  top: calc(var(--drawer-offset) + var(--padding) + 12px);
   left: 0;
   right: 0;
   padding: var(--padding);
