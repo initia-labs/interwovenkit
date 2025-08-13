@@ -6,7 +6,8 @@ import { useIsMobile } from "@/hooks/useIsMobile"
 import type { FallbackProps } from "react-error-boundary"
 import { useTransition, animated } from "@react-spring/web"
 import { useIsMutating, useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "@/lib/router"
+import { useNavigate, usePath } from "@/lib/router"
+import { LocalStorageKey } from "@/data/constants"
 import { useDrawer } from "@/data/ui"
 import { TX_APPROVAL_MUTATION_KEY, txRequestHandlerAtom } from "@/data/tx"
 import AsyncBoundary from "@/components/AsyncBoundary"
@@ -43,11 +44,19 @@ const Drawer = ({ children }: PropsWithChildren) => {
   }
 
   // Error
+  const path = usePath()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const errorBoundaryProps = {
     fallbackRender: ({ error, resetErrorBoundary }: FallbackProps) => {
       const retry = () => {
+        if (path === "/bridge") {
+          localStorage.removeItem(LocalStorageKey.BRIDGE_SRC_CHAIN_ID)
+          localStorage.removeItem(LocalStorageKey.BRIDGE_SRC_DENOM)
+          localStorage.removeItem(LocalStorageKey.BRIDGE_DST_CHAIN_ID)
+          localStorage.removeItem(LocalStorageKey.BRIDGE_DST_DENOM)
+        }
+
         navigate("/")
         queryClient.clear()
         resetErrorBoundary()
