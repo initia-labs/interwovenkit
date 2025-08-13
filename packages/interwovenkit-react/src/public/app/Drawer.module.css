@@ -59,7 +59,6 @@
     left: 0;
     right: 0;
     bottom: 0;
-    width: 100%;
     height: calc(100vh - 54px); /* fallback */
     height: calc(100dvh - 54px);
   }
@@ -74,5 +73,6 @@
   @media (max-width: 576px) {
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
+    width: 100%;
   }
 }
