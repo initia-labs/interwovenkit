@@ -86,8 +86,8 @@ export function usePricesQuery(chainId: string) {
     queryKey: chainQueryKeys.prices(chainId).queryKey,
     queryFn: () =>
       ky
-        .create({ prefixUrl: "https://celatone-api-prod.alleslabs.dev" })
-        .get(`v1/initia/${chainId}/assets`, { searchParams: { with_prices: true } })
+        .create({ prefixUrl: "https://api.initia.xyz" })
+        .get(`initia/${chainId}/assets`, { searchParams: { quote: "USD", with_prices: true } })
         .json<{ id: string; price: number }[]>(),
     staleTime: STALE_TIMES.SECOND,
   })
