@@ -25,6 +25,7 @@ const SearchInput = ({ value = "", onChange, placeholder = "Search", className }
         onChange={(e) => onChange?.(e.target.value)}
         placeholder={placeholder}
         readOnly={!onChange}
+        maxLength={100}
         ref={useAutoFocus()}
       />
 
