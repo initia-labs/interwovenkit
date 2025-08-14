@@ -50,7 +50,7 @@ const ChainAccordion = ({ renderContent, storageKey }: Props) => {
         getKey={({ chainId }) => chainId}
         renderHeader={({ name, logoUrl }) => (
           <>
-            <Image src={logoUrl} width={16} height={16} />
+            <Image src={logoUrl} width={16} height={16} logo />
             <span className={styles.name}>{name}</span>
           </>
         )}

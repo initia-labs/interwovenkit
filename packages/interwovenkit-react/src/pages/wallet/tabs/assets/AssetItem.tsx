@@ -9,7 +9,7 @@ const AssetItem = (props: BaseAsset) => {
 
   return (
     <div className={styles.asset}>
-      <Image src={logoUrl} width={24} height={24} />
+      <Image src={logoUrl} width={24} height={24} logo />
 
       <div className={styles.token}>
         <div className={styles.symbol}>{symbol || denom}</div>

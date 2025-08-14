@@ -38,7 +38,7 @@
   display: grid;
   gap: 8px;
 
-  background-color: var(--gray-7);
+  background-color: var(--bridge-meta-bg);
   border-radius: 8px;
   font-size: 12px;
   font-weight: 500;
@@ -72,7 +72,7 @@
   .edit {
     width: 24px;
     height: 24px;
-    background-color: var(--gray-6);
+    background-color: var(--bridge-meta-button-bg);
     border-radius: 50%;
     color: var(--gray-2);
     display: flex;

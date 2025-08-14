@@ -35,7 +35,7 @@ const ManageChainsItem = (chain: NormalizedChain) => {
 
   return (
     <div className={styles.item}>
-      <Image src={logoUrl} width={32} height={32} title={metadata?.minitia?.type} />
+      <Image src={logoUrl} width={32} height={32} title={metadata?.minitia?.type} logo />
 
       <header className={styles.header}>
         <h3 className={styles.name}>{name}</h3>

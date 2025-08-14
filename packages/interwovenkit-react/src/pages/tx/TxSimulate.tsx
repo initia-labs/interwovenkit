@@ -26,7 +26,7 @@ const Change = ({ amount, asset, price }: { amount: string; asset: BaseAsset; pr
   return (
     <div className={styles.change}>
       <div className={styles.amount}>
-        <Image src={logoUrl} width={14} height={14} />
+        <Image src={logoUrl} width={14} height={14} logo />
         <span className={styles.text}>
           {formattedAmount} {symbol || denom}
         </span>

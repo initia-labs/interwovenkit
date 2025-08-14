@@ -1,9 +1,9 @@
 .button {
   gap: 8px;
 
-  background-color: var(--gray-0);
+  background-color: var(--button-bg);
   border-radius: 12px;
-  color: var(--gray-8);
+  color: var(--button-text);
   font-size: 16px;
   font-weight: 600;
   height: 56px;
@@ -12,12 +12,13 @@
   transition: background-color var(--transition) ease;
 
   &:hover {
-    background-color: var(--gray-1);
+    background-color: var(--button-bg-hover);
   }
 
   &:disabled {
     cursor: not-allowed;
-    background-color: var(--gray-4);
+    background-color: var(--button-bg-disabled);
+    color: var(--button-text-disabled);
   }
 }
 
@@ -54,7 +55,7 @@
 
   background: var(--gray-8);
   border-radius: 12px;
-  border: 1px solid var(--gray-6);
+  border: 1px solid var(--button-small-border);
   color: var(--gray-1);
   font-size: 12px;
   font-weight: 500;
@@ -68,7 +69,7 @@
   transition: border-color var(--transition) ease;
 
   &:hover:not(:disabled):not(.span) {
-    border-color: var(--gray-4);
+    border-color: var(--button-small-border-hover);
   }
 
   &:disabled {

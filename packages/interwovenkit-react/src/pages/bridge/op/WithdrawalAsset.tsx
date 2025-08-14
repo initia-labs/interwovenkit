@@ -12,7 +12,7 @@ const WithdrawalAsset = ({ amount, denom }: Coin) => {
 
   return (
     <div className={styles.asset}>
-      <Image src={logoUrl} width={32} height={32} />
+      <Image src={logoUrl} width={32} height={32} logo />
       <div className={styles.info}>
         <span className="monospace">{formatAmount(amount, { decimals })}</span>
         <span className={styles.symbol}>{symbol}</span>

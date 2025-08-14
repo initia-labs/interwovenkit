@@ -1,13 +1,3 @@
 .images {
   flex: none;
-  position: relative;
-
-  .chain {
-    position: absolute;
-    bottom: 0;
-    right: -6px;
-
-    border-radius: 50%;
-    border: 1px solid var(--bg);
-  }
 }

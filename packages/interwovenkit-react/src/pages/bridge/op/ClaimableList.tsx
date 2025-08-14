@@ -33,7 +33,7 @@ const ClaimableList = ({ list, onNavigate, onDismiss }: Props) => {
             return (
               <div className={styles.row} key={txHash}>
                 <div className={styles.dt}>
-                  <Image src={chain.logoUrl} width={16} height={16} />
+                  <Image src={chain.logoUrl} width={16} height={16} logo />
                   <span>{chain.name}</span>
                 </div>
 

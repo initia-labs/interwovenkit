@@ -108,7 +108,7 @@ const SendNftFields = () => {
               )}
               className={clsx("input", styles.chain)}
             >
-              <Image src={dstChain.logoUrl} width={20} height={20} />
+              <Image src={dstChain.logoUrl} width={20} height={20} logo />
               <span>{dstChain.name}</span>
             </ModalTrigger>
           </div>

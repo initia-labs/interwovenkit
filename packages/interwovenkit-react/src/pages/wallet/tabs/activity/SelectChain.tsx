@@ -27,7 +27,7 @@ const SelectChain = ({ value, onSelect }: Props) => {
       )}
       className={clsx("input", styles.button)}
     >
-      <Image src={logoUrl} width={16} height={16} />
+      <Image src={logoUrl} width={16} height={16} logo />
       <span className={styles.name}>{name}</span>
       <IconChevronDown size={16} className={styles.icon} />
     </ModalTrigger>

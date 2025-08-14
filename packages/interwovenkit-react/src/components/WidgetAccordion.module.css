@@ -1,5 +1,5 @@
 .root {
-  --accordion-border: var(--gray-7);
+  --accordion-border: var(--border);
   --accordion-border-radius: 8px;
   --accordion-padding: 12px 16px;
 

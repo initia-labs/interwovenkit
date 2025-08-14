@@ -28,7 +28,7 @@
 
 .route {
   background: var(--gray-8);
-  border: 1px solid var(--gray-5);
+  border: 1px solid var(--gray-6);
   border-radius: 12px;
   padding: 24px 20px;
 }
