@@ -37,7 +37,7 @@ export const SendFields = () => {
 
   const { register, watch, setValue, handleSubmit, formState, trigger } =
     useFormContext<FormValues>()
-  const { chainId, denom, quantity, memo } = watch()
+  const { chainId, denom, recipient, quantity, memo } = watch()
 
   const { addedChains } = useManageChains()
   const chain = useChain(chainId)
@@ -50,15 +50,15 @@ export const SendFields = () => {
   const balance = balances.find((coin) => coin.denom === denom)?.amount ?? "0"
   const price = prices?.find(({ id }) => id === denom)?.price
 
-  const { data: estimatedGas = 200000, isLoading } = useQuery({
-    queryKey: queryKeys.gas({ chainId, denom, initiaAddress }).queryKey,
+  const { data: estimatedGas = 0, isLoading } = useQuery({
+    queryKey: queryKeys.gas({ chainId, denom, recipient, initiaAddress }).queryKey,
     queryFn: () => {
       const messages = [
         {
           typeUrl: "/cosmos.bank.v1beta1.MsgSend",
           value: MsgSend.fromPartial({
             fromAddress: initiaAddress,
-            toAddress: InitiaAddress(initiaAddress).bech32,
+            toAddress: InitiaAddress(recipient).bech32,
             amount: [{ denom, amount: "1" }],
           }),
         },
@@ -152,7 +152,11 @@ export const SendFields = () => {
         </div>
 
         <Footer>
-          <Button.White type="submit" loading={isPending} disabled={!formState.isValid}>
+          <Button.White
+            type="submit"
+            loading={isLoading || isPending}
+            disabled={!formState.isValid}
+          >
             Confirm
           </Button.White>
         </Footer>

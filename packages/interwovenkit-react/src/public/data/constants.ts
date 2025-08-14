@@ -1,7 +1,7 @@
 import type { Config } from "../../data/config"
 
 export const DEFAULT_GAS_ADJUSTMENT = 1.4
-export const DEFAULT_GAS_PRICE_MULTIPLIER = 1.03
+export const DEFAULT_GAS_PRICE_MULTIPLIER = 1.05
 
 export const MAINNET: Config = {
   defaultChainId: "interwoven-1",
