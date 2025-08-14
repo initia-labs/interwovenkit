@@ -1,5 +1,5 @@
 import clsx from "clsx"
-import type { ChangeEvent, InputHTMLAttributes, RefObject } from "react"
+import type { InputHTMLAttributes, RefObject } from "react"
 import { IconCloseCircleFilled, IconSearch } from "@initia/icons-react"
 import styles from "./SearchInput.module.css"
 
@@ -7,10 +7,12 @@ export interface Props extends InputHTMLAttributes<HTMLInputElement> {
   rootClassName?: string
   padding?: number
   iconSize?: number
+  onClear?: () => void
   ref?: RefObject<HTMLInputElement | null>
 }
 
-const SearchInput = ({ rootClassName, padding = 16, iconSize = 16, ref, ...attrs }: Props) => {
+const SearchInput = (props: Props) => {
+  const { rootClassName, padding = 16, iconSize = 16, onClear, ref, ...attrs } = props
   return (
     <div
       className={clsx(styles.root, rootClassName, { [styles.hasValue]: attrs.value })}
@@ -35,12 +37,7 @@ const SearchInput = ({ rootClassName, padding = 16, iconSize = 16, ref, ...attrs
       />
 
       {attrs.value && (
-        <button
-          className={styles.clear}
-          onClick={() =>
-            attrs.onChange?.({ target: { value: "" } } as ChangeEvent<HTMLInputElement>)
-          }
-        >
+        <button className={styles.clear} onClick={onClear}>
           <IconCloseCircleFilled size={iconSize} />
         </button>
       )}

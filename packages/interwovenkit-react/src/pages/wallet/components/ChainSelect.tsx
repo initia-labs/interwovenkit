@@ -172,6 +172,7 @@ const ChainSelect = ({ value, onChange, chainIds, fullWidth }: Props) => {
                 setSearchQuery(e.target.value)
                 setHighlightedIndex(0)
               }}
+              onClear={() => setSearchQuery("")}
               onKeyDown={handleSearchKeyDown}
               placeholder="Search rollups"
               rootClassName={styles.search}

@@ -86,6 +86,7 @@ const Assets = () => {
           <HomeContainer.SearchInput
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onClear={() => setSearchQuery("")}
             placeholder="Search assets"
           />
           <ChainSelect value={selectedChain} onChange={setSelectedChain} chainIds={chainIds} />

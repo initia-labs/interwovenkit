@@ -26,6 +26,7 @@ const AssetOptions = (props: Props) => {
       <SearchInput
         value={search}
         onChange={(e) => setSearch(e.target.value)}
+        onClear={() => setSearch("")}
         placeholder="Search by symbol"
         rootClassName={styles.search}
         padding={20}
