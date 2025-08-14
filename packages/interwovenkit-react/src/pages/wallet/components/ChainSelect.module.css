@@ -1,0 +1,136 @@
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+
+  border-radius: 8px;
+  border: 1px solid var(--home-border);
+  color: var(--gray-0);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0px 16px;
+  transition: border-color var(--transition) ease;
+  width: 132px;
+  height: 44px;
+
+  &:hover {
+    border-color: var(--home-border-hover);
+  }
+
+  &[aria-expanded="true"] .icon {
+    transform: rotate(180deg);
+  }
+
+  &.full {
+    width: 100%;
+  }
+}
+
+.triggerContent {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  overflow: hidden;
+}
+
+.triggerText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.icon {
+  color: var(--dimmed);
+  transition: transform var(--transition);
+}
+
+.popoverBackdrop {
+  position: fixed;
+  top: 1px;
+  left: 1px;
+  right: 1px;
+  bottom: 1px;
+
+  animation: fadeIn var(--transition) ease-out;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: var(--border-radius);
+  z-index: 9999;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.popoverPositioner {
+  z-index: 10000;
+}
+
+.popoverPopup {
+  display: flex;
+  flex-direction: column;
+
+  animation: slideDown var(--transition) ease-out;
+  background: var(--gray-8);
+  border-radius: 8px;
+  border: 1px solid var(--gray-6);
+  box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  width: 240px;
+
+  &.full {
+    width: var(--anchor-width);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.search {
+  flex: none;
+  border-bottom: 1px solid var(--gray-6);
+}
+
+.viewport {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  color: var(--gray-0);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  height: 48px;
+  padding: 0 16px;
+  transition: background-color var(--transition) ease;
+
+  &:hover,
+  &.highlighted {
+    background: var(--gray-7);
+  }
+}
+
+.itemContent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

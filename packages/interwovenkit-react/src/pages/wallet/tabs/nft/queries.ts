@@ -1,109 +1,83 @@
 import ky from "ky"
-import { useQuery, useSuspenseInfiniteQuery, useSuspenseQuery } from "@tanstack/react-query"
+import { prop } from "ramda"
+import { useQuery, useQueries } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { STALE_TIMES } from "@/data/http"
-import type { Paginated } from "@/data/pagination"
-import { fetchAllPages, getNextPageParam } from "@/data/pagination"
-import type { NormalizedChain } from "@/data/chains"
+import { fetchAllPages } from "@/data/pagination"
+import { useInitiaRegistry, type NormalizedChain } from "@/data/chains"
 
 const nftQueryKeys = createQueryKeys("interwovenkit:nft", {
-  collections: (indexerUrl: string, address: string) => [indexerUrl, address],
-  collection: (indexerUrl: string, address: string, collectionAddress: string) => [
-    indexerUrl,
-    address,
-    collectionAddress,
-  ],
+  nfts: (indexerUrl: string, address: string) => [indexerUrl, address],
   metadata: (url?: string) => [url],
 })
 
-export interface CollectionResponse {
-  object_addr: string
-  collection: {
-    name: string
-    description: string
-    uri: string
-    creator_addr: string
-  }
-}
-
-function normalizeCollection(collectionResponse: CollectionResponse) {
-  const { object_addr, collection } = collectionResponse
-  return { object_addr, ...collection }
-}
-
-export type NormalizedCollection = ReturnType<typeof normalizeCollection>
-
-export interface NftResponse {
+interface NftResponse {
   collection_addr: string
   collection_name: string
   nft: { token_id: string; uri: string; description: string }
   object_addr: string
 }
 
-export interface NftMetadata {
+interface NftMetadata {
   name?: string
   image?: string
   description?: string
   attributes?: { trait_type: string; value: string }[]
 }
 
-export function normalizeNft(nftResponse: NftResponse, nftMetadata: NftMetadata) {
-  const { collection_addr, collection_name, nft, object_addr } = nftResponse
+export function normalizeNft(nftInfo: NftInfo, nftMetadata: NftMetadata) {
+  const { nft } = nftInfo
   const name = nftMetadata.name ?? nft.token_id
-  return { collection_addr, collection_name, ...nft, object_addr, ...nftMetadata, name }
+  return { ...nftInfo, ...nft, ...nftMetadata, name }
 }
 
 export type NormalizedNft = ReturnType<typeof normalizeNft>
 
-export function useCollections(chain: NormalizedChain) {
-  const { indexerUrl } = chain
-  const address = useInitiaAddress()
-  const { data } = useSuspenseQuery({
-    queryKey: nftQueryKeys.collections(indexerUrl, address).queryKey,
-    queryFn: () =>
-      fetchAllPages<"collections", CollectionResponse>(
-        `indexer/nft/v1/collections/by_account/${address}`,
-        { prefixUrl: indexerUrl },
-        "collections",
-      ),
-    select: (collections) => collections.map(normalizeCollection),
-    staleTime: STALE_TIMES.SECOND,
-  })
-  return data
-}
-
-export function useNfts({
-  chain,
-  collection,
-}: {
+export interface NftInfo extends NftResponse {
   chain: NormalizedChain
-  collection: NormalizedCollection
-}) {
-  const address = useInitiaAddress()
-  const { object_addr: collectionAddress } = collection
-  const { indexerUrl } = chain
-  return useSuspenseInfiniteQuery({
-    queryKey: nftQueryKeys.collection(indexerUrl, address, collectionAddress).queryKey,
-    queryFn: ({ pageParam: key = "" }) =>
-      ky
-        .create({ prefixUrl: indexerUrl })
-        .get(`indexer/nft/v1/tokens/by_account/${address}`, {
-          searchParams: {
-            collection_addr: collectionAddress,
-            "pagination.key": key || "",
-            "pagination.limit": 9,
-          },
-        })
-        .json<Paginated<"tokens", NftResponse>>(),
-    initialPageParam: "",
-    getNextPageParam: getNextPageParam,
-    staleTime: STALE_TIMES.SECOND,
+}
+
+/**
+ * Aggregates NFT data from multiple chains
+ */
+export function aggregateNfts(
+  chains: NormalizedChain[],
+  nftResults: (NftResponse[] | undefined)[],
+): NftInfo[] {
+  // Combine all NFT data from different chains
+  return chains.flatMap((chain, index) => {
+    const nfts = nftResults[index] ?? []
+    return nfts.map((nft) => ({ ...nft, chain }))
   })
 }
 
-function convertIPFS(url?: string) {
-  return url?.replace("ipfs://", "https://ipfs.io/ipfs/")
+// Hook to fetch and aggregate NFT data from all rollups
+export const useAllNfts = () => {
+  const address = useInitiaAddress()
+  const chains = useInitiaRegistry()
+
+  // Fetch NFTs from all rollups in parallel
+  const queries = useQueries({
+    queries: chains.map((chain) => ({
+      queryKey: nftQueryKeys.nfts(chain.indexerUrl, address).queryKey,
+      queryFn: () =>
+        fetchAllPages<"tokens", NftResponse>(
+          `indexer/nft/v1/tokens/by_account/${address}`,
+          { prefixUrl: chain.indexerUrl },
+          "tokens",
+        ),
+      staleTime: STALE_TIMES.SECOND,
+    })),
+  })
+
+  const results = queries.map(prop("data"))
+  const nftInfos = aggregateNfts(chains, results)
+
+  // Aggregate loading state - true if any chain is still loading
+  const isLoading = queries.some((query) => query.isLoading)
+
+  return { nftInfos, isLoading }
 }
 
 export function useNftMetataQuery(url?: string) {
@@ -123,8 +97,6 @@ export function useNftMetataQuery(url?: string) {
   })
 }
 
-export interface ChainCollectionNftCollectionState {
-  collection: NormalizedCollection
-  nft: NormalizedNft
-  chain: NormalizedChain
+function convertIPFS(url?: string) {
+  return url?.replace("ipfs://", "https://ipfs.io/ipfs/")
 }

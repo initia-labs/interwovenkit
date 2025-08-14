@@ -3,6 +3,11 @@
   gap: 12px;
 }
 
+.flexEnd {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .toggle {
   justify-content: flex-start;
   gap: 4px;

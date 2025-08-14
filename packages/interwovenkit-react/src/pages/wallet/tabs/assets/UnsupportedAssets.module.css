@@ -1,0 +1,46 @@
+.collapsible {
+  display: grid;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  color: var(--gray-4);
+  padding: 16px 0;
+
+  transition: color var(--transition) ease;
+
+  &:hover {
+    color: var(--gray-2);
+  }
+}
+
+.divider {
+  flex: 1;
+  height: 1px;
+  background-color: var(--border);
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.chevron {
+  transition: transform var(--transition);
+
+  &[data-state="open"] {
+    transform: rotate(180deg);
+  }
+}
+
+.content {
+  overflow: hidden;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+}
