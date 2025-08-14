@@ -20,12 +20,12 @@ const Assets = () => {
   const filteredAssets = useMemo(() => {
     const searchFiltered = searchQuery
       ? assetGroups.filter((assetGroup) => {
-          const { denom, symbol, name, address } = assetGroup.asset
+          const { denom, symbol, name = "", address = "" } = assetGroup.asset
           return (
             denom.toLowerCase().includes(searchQuery.toLowerCase()) ||
             symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            address?.toLowerCase().includes(searchQuery.toLowerCase())
+            name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            address.toLowerCase().includes(searchQuery.toLowerCase())
           )
         })
       : assetGroups
