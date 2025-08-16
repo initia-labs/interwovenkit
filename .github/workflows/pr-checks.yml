@@ -2,13 +2,12 @@ name: PR Checks
 
 on:
   pull_request:
-    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
-  lint-and-format:
+  checks:
     runs-on: ubuntu-latest
 
     steps:
@@ -18,7 +17,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "lts/*"
+          node-version: lts/*
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -32,7 +31,7 @@ jobs:
         run: pnpm typecheck
 
       - name: Run ESLint
-        run: pnpm lint
+        run: pnpm lint --max-warnings=0
 
       - name: Run tests
         run: pnpm test
