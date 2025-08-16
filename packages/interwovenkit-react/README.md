@@ -1,8 +1,47 @@
 # @initia/interwovenkit-react
 
-## What is Initia Wallet?
+InterwovenKit is a React library that provides components and hooks to connect dApps to Initia and Interwoven Rollups.
 
-Initia Wallet is a React library that provides components and hooks to connect dApps to Initia and Interwoven Rollups.
+## Table of Contents
+
+- [Features](#features)
+- [Getting Started](#getting-started)
+  - [Installation](#installation)
+  - [Configure Providers](#configure-providers)
+  - [Basic Example](#basic-example)
+- [Usage on Testnet](#usage-on-testnet)
+- [Migrating From v1](#migrating-from-v1)
+
+## Features
+
+### Connect
+
+Connect to external wallets. Supports multiple wallet providers including MetaMask and Keplr.
+
+### Wallet
+
+Wallet interface for managing assets across Interwoven rollups:
+
+- View fungible tokens
+- Browse NFT items
+- Track transaction history
+
+### Bridge
+
+Cross-chain bridge and swap functionality:
+
+- Transfer assets between Initia and Interwoven rollups
+- Swap tokens within and across chains
+- Automatic route optimization for best rates
+- Support for OP Bridge withdrawals
+
+### Transaction Signing
+
+Transaction handling with detailed preview:
+
+- Fee estimation with multiple fee token options
+- Transaction simulation before signing
+- Detailed message breakdown
 
 ## Getting Started
 
@@ -49,7 +88,7 @@ export default function Providers({ children }: PropsWithChildren) {
   return (
     <QueryClientProvider client={queryClient}>
       <WagmiProvider config={wagmiConfig}>
-        <InterwovenKitProvider defaultChainId="interwoven-1">{children}</InterwovenKitProvider>
+        <InterwovenKitProvider defaultChainId="YOUR_CHAIN_ID">{children}</InterwovenKitProvider>
       </WagmiProvider>
     </QueryClientProvider>
   )

@@ -16,10 +16,15 @@
     "simple-git-hooks": "^2.13.1"
   },
   "simple-git-hooks": {
-    "pre-commit": "pnpm lint-staged --concurrent false"
+    "pre-commit": "pnpm lint-staged"
   },
   "lint-staged": {
-    "*": "prettier --write --ignore-unknown",
-    "**/*.{ts,tsx}": "eslint --fix --max-warnings=0"
+    "*.{ts,tsx}": [
+      "eslint --fix --max-warnings=0",
+      "prettier --write"
+    ],
+    "*.{json,css,md}": [
+      "prettier --write"
+    ]
   }
 }
