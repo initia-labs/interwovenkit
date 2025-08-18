@@ -14,7 +14,7 @@ describe("aggregateActivities", () => {
     name: "Chain 2",
   } as unknown as NormalizedChain
 
-  const createMockTx = (txhash: string, timestamp: Date): TxItem => ({
+  const createMockTx = (txhash: string, timestamp: string): TxItem => ({
     tx: {
       body: {
         messages: [],
@@ -32,10 +32,10 @@ describe("aggregateActivities", () => {
   })
 
   it("should combine and sort transactions from multiple chains by timestamp", () => {
-    const tx1 = createMockTx("hash1", new Date("2026-01-03T10:00:00Z"))
-    const tx2 = createMockTx("hash2", new Date("2026-01-01T10:00:00Z"))
-    const tx3 = createMockTx("hash3", new Date("2026-01-04T10:00:00Z"))
-    const tx4 = createMockTx("hash4", new Date("2026-01-02T10:00:00Z"))
+    const tx1 = createMockTx("hash1", "2026-01-03T10:00:00Z")
+    const tx2 = createMockTx("hash2", "2026-01-01T10:00:00Z")
+    const tx3 = createMockTx("hash3", "2026-01-04T10:00:00Z")
+    const tx4 = createMockTx("hash4", "2026-01-02T10:00:00Z")
 
     const chains = [mockChain1, mockChain2]
     const txResults = [
@@ -57,7 +57,7 @@ describe("aggregateActivities", () => {
   })
 
   it("should handle undefined transaction results", () => {
-    const tx1 = createMockTx("hash1", new Date("2026-01-01T10:00:00Z"))
+    const tx1 = createMockTx("hash1", "2026-01-01T10:00:00Z")
 
     const chains = [mockChain1, mockChain2]
     const txResults = [[tx1], undefined]
@@ -79,8 +79,8 @@ describe("aggregateActivities", () => {
   })
 
   it("should handle mixed empty and populated results", () => {
-    const tx1 = createMockTx("hash1", new Date("2026-01-02T10:00:00Z"))
-    const tx2 = createMockTx("hash2", new Date("2026-01-01T10:00:00Z"))
+    const tx1 = createMockTx("hash1", "2026-01-02T10:00:00Z")
+    const tx2 = createMockTx("hash2", "2026-01-01T10:00:00Z")
 
     const chains = [mockChain1, mockChain2]
     const txResults = [[], [tx1, tx2]]
@@ -95,7 +95,7 @@ describe("aggregateActivities", () => {
   })
 
   it("should maintain stable sort for transactions with identical timestamps", () => {
-    const sameTime = new Date("2026-01-01T10:00:00Z")
+    const sameTime = "2026-01-01T10:00:00Z"
     const tx1 = createMockTx("hash1", sameTime)
     const tx2 = createMockTx("hash2", sameTime)
     const tx3 = createMockTx("hash3", sameTime)
@@ -111,9 +111,9 @@ describe("aggregateActivities", () => {
   })
 
   it("should correctly handle single chain with multiple transactions", () => {
-    const tx1 = createMockTx("hash1", new Date("2026-01-03T10:00:00Z"))
-    const tx2 = createMockTx("hash2", new Date("2026-01-01T10:00:00Z"))
-    const tx3 = createMockTx("hash3", new Date("2026-01-02T10:00:00Z"))
+    const tx1 = createMockTx("hash1", "2026-01-03T10:00:00Z")
+    const tx2 = createMockTx("hash2", "2026-01-01T10:00:00Z")
+    const tx3 = createMockTx("hash3", "2026-01-02T10:00:00Z")
 
     const chains = [mockChain1]
     const txResults = [[tx1, tx2, tx3]]
