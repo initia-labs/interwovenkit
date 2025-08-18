@@ -38,7 +38,7 @@ const NftDetails = () => {
             Traits <span className={styles.count}>({attributes.length})</span>
           </header>
 
-          <div className={styles.list}>
+          <div>
             {attributes.map(({ trait_type, value }) => (
               <div key={trait_type} className={styles.item}>
                 <div className={styles.type}>{trait_type}</div>
