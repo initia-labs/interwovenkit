@@ -25,7 +25,7 @@ export interface TxItem {
   code: number
   events: Event[]
   txhash: string
-  timestamp: Date
+  timestamp: string
 }
 
 export interface TxItemMessage {
