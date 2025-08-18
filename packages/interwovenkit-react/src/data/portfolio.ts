@@ -74,7 +74,7 @@ export function sortAssetGroups(groups: AssetGroup[]): AssetGroup[] {
 export function sortChainsWithinGroup(chains: AssetBalance[]): AssetBalance[] {
   return sortWith<AssetBalance>([
     descend(prop("value")),
-    descend(prop("quantity")),
+    descend(({ quantity }) => Number(quantity)),
     ascend(({ chain }) => chain.name),
   ])(chains)
 }
