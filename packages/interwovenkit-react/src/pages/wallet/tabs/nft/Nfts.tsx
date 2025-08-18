@@ -72,7 +72,7 @@ const Nfts = () => {
         <div className={styles.grid}>
           {filteredNfts.map((nftInfo) => (
             <WithNormalizedNft nftInfo={nftInfo} key={nftInfo.object_addr}>
-              {(normalizedNft) => <NftItem {...normalizedNft} />}
+              {(normalizedNft) => <NftItem normalizedNft={normalizedNft} />}
             </WithNormalizedNft>
           ))}
         </div>

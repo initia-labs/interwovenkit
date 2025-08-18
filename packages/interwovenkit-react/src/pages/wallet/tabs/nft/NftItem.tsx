@@ -4,7 +4,7 @@ import type { NormalizedNft } from "./queries"
 import NftThumbnail from "./NftThumbnail"
 import styles from "./NftItem.module.css"
 
-const NftItem = (normalizedNft: NormalizedNft) => {
+const NftItem = ({ normalizedNft }: { normalizedNft: NormalizedNft }) => {
   const { collection_name, name, chain } = normalizedNft
   const navigate = useNavigate()
 
