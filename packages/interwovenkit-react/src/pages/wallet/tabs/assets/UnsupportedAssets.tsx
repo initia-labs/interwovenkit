@@ -28,17 +28,14 @@ const UnsupportedAssets = ({ unsupportedAssets }: UnsupportedAssetsProps) => {
 
   // Scroll to bottom when opened
   useEffect(() => {
-    if (isOpen && scrollableRef?.current) {
-      const container = scrollableRef.current
-      container.scrollTo({ top: container.scrollHeight, behavior: "instant" })
-      setTimeout(() => {
-        if (container) {
-          container.scrollTo({ top: container.scrollHeight, behavior: "smooth" })
-        }
-      }, 150)
-    }
+    if (!isOpen || !scrollableRef?.current) return
+    const container = scrollableRef.current
+    container.scrollTo({ top: container.scrollHeight, behavior: "auto" })
+    const id = window.setTimeout(() => {
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" })
+    }, 150)
+    return () => window.clearTimeout(id)
   }, [isOpen, scrollableRef])
-
   const animationStyles = useSpring({
     height: isOpen ? contentHeight : 0,
     opacity: isOpen ? 1 : 0,
