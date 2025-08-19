@@ -15,7 +15,7 @@ const NftItem = ({ normalizedNft }: { normalizedNft: NormalizedNft }) => {
         <div className={styles.collectionName}>{collection_name}</div>
         <div className={styles.nftName}>{name}</div>
         <div className={styles.chainInfo}>
-          <Image src={chain.logoUrl} width={12} height={12} />
+          <Image src={chain.logoUrl} width={12} height={12} logo />
           <span>{chain.name}</span>
         </div>
       </div>

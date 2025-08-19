@@ -19,7 +19,7 @@ const ActivityItem = ({ txItem, chain }: Props) => {
       <div className={styles.inner}>
         <div className={styles.header}>
           <div className={styles.chainInfo}>
-            <Image src={chain.logoUrl} width={12} height={12} />
+            <Image src={chain.logoUrl} width={12} height={12} logo />
             <span>{chain.name}</span>
           </div>
 

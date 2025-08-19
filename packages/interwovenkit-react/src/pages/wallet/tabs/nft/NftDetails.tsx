@@ -20,7 +20,7 @@ const NftDetails = () => {
           <div className={styles.collectionName}>{collection_name}</div>
           <h2 className={styles.name}>{name}</h2>
           <div className={styles.chainInfo}>
-            <Image src={chain.logoUrl} width={14} height={14} />
+            <Image src={chain.logoUrl} width={14} height={14} logo />
             <span>{chain.name}</span>
           </div>
         </div>
