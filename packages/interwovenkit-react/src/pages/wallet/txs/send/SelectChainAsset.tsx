@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useFormContext } from "react-hook-form"
-import { useChain, useManageChains } from "@/data/chains"
+import { useChain, useInitiaRegistry } from "@/data/chains"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import ChainOptions from "@/components/form/ChainOptions"
 import AssetOptions from "@/components/form/AssetOptions"
@@ -13,7 +13,7 @@ const SelectChainAsset = ({ afterSelect }: { afterSelect: () => void }) => {
   const [chainId, setChainId] = useState(defaultChainId)
 
   const chain = useChain(chainId)
-  const { addedChains } = useManageChains()
+  const chains = useInitiaRegistry()
 
   const handleSelect = (denom: string) => {
     setValue("chainId", chainId)
@@ -23,11 +23,9 @@ const SelectChainAsset = ({ afterSelect }: { afterSelect: () => void }) => {
 
   return (
     <>
-      {addedChains.length > 1 && (
-        <ChainOptions.Stack>
-          <ChainOptions chains={addedChains} value={chainId} onSelect={setChainId} />
-        </ChainOptions.Stack>
-      )}
+      <ChainOptions.Stack>
+        <ChainOptions chains={chains} value={chainId} onSelect={setChainId} />
+      </ChainOptions.Stack>
 
       <AsyncBoundary suspenseFallback={<AssetOptions.Placeholder />} key={chainId}>
         <SelectAsset chain={chain} onSelect={handleSelect} />

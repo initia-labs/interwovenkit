@@ -3,6 +3,10 @@
   overflow: hidden;
 }
 
+.search {
+  border-bottom: 1px solid var(--border);
+}
+
 .list {
   flex: 1;
   display: grid;

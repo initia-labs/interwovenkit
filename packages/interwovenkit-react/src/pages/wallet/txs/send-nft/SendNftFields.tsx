@@ -10,15 +10,15 @@ import { useMutation, useQuery } from "@tanstack/react-query"
 import { useLocationState } from "@/lib/router"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useConfig } from "@/data/config"
-import { useChain, useLayer1 } from "@/data/chains"
+import { useChain, useInitiaRegistry, useLayer1 } from "@/data/chains"
 import { useAutoFocus } from "@/components/form/hooks"
 import ModalTrigger from "@/components/ModalTrigger"
+import List from "@/components/List"
 import RecipientInput from "@/components/form/RecipientInput"
 import Button from "@/components/Button"
 import Image from "@/components/Image"
 import Footer from "@/components/Footer"
-import AddedChainList from "../../components/AddedChainList"
-import type { ChainCollectionNftCollectionState } from "../../tabs/nft/queries"
+import type { NormalizedNft } from "../../tabs/nft/queries"
 import NftThumbnail from "../../tabs/nft/NftThumbnail"
 import type { FormValues } from "./SendNft"
 import styles from "./SendNftFields.module.css"
@@ -28,7 +28,9 @@ const queryKeys = createQueryKeys("interwovenkit:send-nft", {
 })
 
 const SendNftFields = () => {
-  const { chain: srcChain, collection, nft } = useLocationState<ChainCollectionNftCollectionState>()
+  const chains = useInitiaRegistry()
+  const nft = useLocationState<NormalizedNft>()
+  const { chain: srcChain, collection_addr, collection_name, image, name } = nft
 
   const { routerApiUrl } = useConfig()
   const aminoTypes = useAminoTypes()
@@ -42,12 +44,12 @@ const SendNftFields = () => {
 
   const simulation = useQuery({
     queryKey: queryKeys.simulation({
-      collection,
+      collection_addr,
       nft,
       sender,
       recipient,
       srcChain,
-      dstChainId,
+      dstChain,
       layer1,
       routerApiUrl,
     }).queryKey,
@@ -56,8 +58,8 @@ const SendNftFields = () => {
         from_address: sender,
         from_chain_id: srcChain.chainId,
         to_address: InitiaAddress(recipient).bech32,
-        to_chain_id: dstChainId,
-        collection_address: collection.object_addr,
+        to_chain_id: dstChain.chainId,
+        collection_address: collection_addr,
         token_ids: [nft.token_id],
         object_addresses: [nft.object_addr],
       }
@@ -84,10 +86,10 @@ const SendNftFields = () => {
   return (
     <form onSubmit={handleSubmit(() => mutate())}>
       <header className={styles.header}>
-        {nft.image && <NftThumbnail chain={srcChain} collection={collection} nft={nft} size={80} />}
+        {image && <NftThumbnail nftInfo={nft} size={80} />}
         <div className={styles.name}>
-          <div className={styles.collection}>{collection.name}</div>
-          <div className={styles.nft}>{nft.name}</div>
+          <div className={styles.collection}>{collection_name}</div>
+          <div className={styles.nft}>{name}</div>
         </div>
       </header>
 
@@ -99,11 +101,15 @@ const SendNftFields = () => {
             <ModalTrigger
               title="Destination rollup"
               content={(close) => (
-                <AddedChainList
-                  onSelect={(chainId) => {
+                <List
+                  onSelect={({ chainId }) => {
                     setValue("dstChainId", chainId)
                     close()
                   }}
+                  list={chains}
+                  getImage={(item) => item.logoUrl}
+                  getName={(item) => item.name}
+                  getKey={(item) => item.chainId}
                 />
               )}
               className={clsx("input", styles.chain)}

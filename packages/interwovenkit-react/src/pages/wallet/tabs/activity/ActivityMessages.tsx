@@ -1,5 +1,5 @@
 import { sentenceCase } from "change-case"
-import type { TxItemMessage } from "./data"
+import type { TxItemMessage } from "./queries"
 import styles from "./ActivityMessages.module.css"
 
 const ActivityMessages = ({ messages }: { messages: TxItemMessage[] }) => {

@@ -9,7 +9,7 @@ import { useSuspenseQuery } from "@tanstack/react-query"
 import { InitiaAddress } from "@initia/utils"
 import { DEFAULT_GAS_PRICE_MULTIPLIER } from "@/public/data/constants"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { useTxs } from "@/pages/wallet/tabs/activity/data"
+import { useTxs } from "@/pages/wallet/tabs/activity/queries"
 import { STALE_TIMES } from "./http"
 import { chainQueryKeys, type NormalizedChain } from "./chains"
 

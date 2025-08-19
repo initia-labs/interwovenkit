@@ -1,13 +1,13 @@
 import ky from "ky"
 import { head } from "ramda"
-import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import { queryOptions, useQueries, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import type { Asset, AssetList } from "@initia/initia-registry-types"
 import { getIbcDenom } from "@initia/utils"
 import type { BaseAsset } from "@/components/form/types"
 import { STALE_TIMES } from "./http"
 import type { NormalizedChain } from "./chains"
-import { useLayer1 } from "./chains"
+import { useInitiaRegistry, useLayer1 } from "./chains"
 import placeholder from "./placeholder"
 
 export const assetQueryKeys = createQueryKeys("interwovenkit:asset", {
@@ -34,42 +34,43 @@ function normalizeAsset(asset: Asset): NormalizedAsset {
   return { denom, symbol, decimals, logoUrl, name, address, traces }
 }
 
-/**
- * NOTE:
- *
- * We currently load asset metadata (e.g. symbol, decimals) primarily from `assetlist.json`,
- * regardless of the user's balance.
- *
- * If an asset is not found in the list — especially on Move-based chains — we fall back to
- * fetching its info from on-chain Move resources. However, this fallback is only possible
- * after we detect the user's balance for that asset.
- *
- * Because of this, we first fetch from the asset list for all assets, and later query
- * Move resources only for the assets that appear in the user's balance but are missing metadata.
- *
- * This structure is not perfect. A future improvement might be to query all assets individually,
- * cache the result into queryClient, and always read asset metadata from there.
- */
-export function useAssets(chain?: NormalizedChain) {
-  const assetlistUrl = chain?.metadata?.assetlist
+function useCreateAssetsQuery() {
   const queryClient = useQueryClient()
-  const { data } = useSuspenseQuery({
-    queryKey: assetQueryKeys.list(assetlistUrl).queryKey,
-    queryFn: async () => {
-      if (!assetlistUrl) return { assets: [] as Asset[] }
-      return ky.get(assetlistUrl).json<AssetList>()
-    },
-    select: ({ assets }) => {
-      if (!chain) return []
-      const normalizedAssets = assets.map(normalizeAsset)
-      for (const asset of normalizedAssets) {
-        queryClient.setQueryData(assetQueryKeys.item(chain.chainId, asset.denom).queryKey, asset)
-      }
-      return normalizedAssets
-    },
-    staleTime: STALE_TIMES.MINUTE,
-  })
+
+  return (chain?: NormalizedChain) => {
+    const assetlistUrl = chain?.metadata?.assetlist
+
+    return queryOptions({
+      queryKey: assetQueryKeys.list(assetlistUrl).queryKey,
+      queryFn: async () => {
+        if (!assetlistUrl) return { assets: [] as Asset[] } as AssetList
+        return ky.get(assetlistUrl).json<AssetList>()
+      },
+      select: ({ assets }: AssetList) => {
+        if (!chain) return []
+        const normalizedAssets = assets.map(normalizeAsset)
+        for (const asset of normalizedAssets) {
+          queryClient.setQueryData(assetQueryKeys.item(chain.chainId, asset.denom).queryKey, asset)
+        }
+        return normalizedAssets
+      },
+      staleTime: STALE_TIMES.MINUTE,
+    })
+  }
+}
+
+export function useAssets(chain?: NormalizedChain) {
+  const createAssetsQuery = useCreateAssetsQuery()
+  const { data } = useSuspenseQuery(createAssetsQuery(chain))
   return data
+}
+
+export function useAllChainAssetsQueries() {
+  const chains = useInitiaRegistry()
+  const createAssetsQuery = useCreateAssetsQuery()
+  return useQueries({
+    queries: chains.map((chain) => createAssetsQuery(chain)),
+  })
 }
 
 export function useFindAsset(chain: NormalizedChain) {

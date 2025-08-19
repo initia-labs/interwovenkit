@@ -1,37 +1,50 @@
 import clsx from "clsx"
+import type { InputHTMLAttributes, RefObject } from "react"
 import { IconCloseCircleFilled, IconSearch } from "@initia/icons-react"
-import { useAutoFocus } from "./hooks"
 import styles from "./SearchInput.module.css"
 
-interface Props {
-  value?: string
-  onChange?: (value: string) => void
-  placeholder?: string
-  className?: string
+export interface Props extends InputHTMLAttributes<HTMLInputElement> {
+  rootClassName?: string
+  padding?: number
+  iconSize?: number
+  onClear?: () => void
+  ref?: RefObject<HTMLInputElement | null>
 }
 
-const SearchInput = ({ value = "", onChange, placeholder = "Search", className }: Props) => {
+const SearchInput = (props: Props) => {
+  const { rootClassName, padding = 16, iconSize = 16, onClear, ref, ...attrs } = props
   return (
-    <div className={clsx(styles.root, className)}>
+    <div
+      className={clsx(styles.root, rootClassName, { [styles.hasValue]: attrs.value })}
+      style={
+        {
+          "--search-input-padding": `${padding}px`,
+          "--search-input-icon-size": `${iconSize}px`,
+        } as React.CSSProperties
+      }
+    >
       <label htmlFor="search" className={styles.label}>
-        <IconSearch size={16} />
+        <IconSearch size={iconSize} />
       </label>
 
       <input
+        className={styles.input}
         id="search"
         type="text"
-        className={styles.input}
-        value={value}
-        onChange={(e) => onChange?.(e.target.value)}
-        placeholder={placeholder}
-        readOnly={!onChange}
         maxLength={100}
-        ref={useAutoFocus()}
+        ref={ref}
+        {...attrs}
       />
 
-      {value && (
-        <button className={styles.clear} onClick={() => onChange?.("")}>
-          <IconCloseCircleFilled size={20} />
+      {attrs.value && (
+        <button
+          type="button"
+          className={styles.clear}
+          aria-label="Clear search"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={onClear}
+        >
+          <IconCloseCircleFilled size={iconSize} />
         </button>
       )}
     </div>

@@ -42,6 +42,10 @@
   --input-border-focus: var(--gray-3);
   --home-button-bg: rgba(81, 220, 251, 0.1);
   --home-button-bg-hover: rgba(81, 220, 251, 0.15);
+  --home-border: var(--gray-6);
+  --home-border-hover: var(--gray-4);
+  --dropdown-menu-bg: var(--gray-8);
+  --dropdown-menu-hover: var(--gray-7);
   --logo-border: var(--border);
   --bridge-meta-bg: var(--gray-7);
   --bridge-meta-button-bg: var(--gray-6);
@@ -91,6 +95,10 @@
   --input-border-focus: var(--gray-3);
   --home-button-bg: rgba(81, 220, 251, 0.15);
   --home-button-bg-hover: rgba(81, 220, 251, 0.2);
+  --home-border: var(--gray-5);
+  --home-border-hover: var(--gray-4);
+  --dropdown-menu-bg: var(--gray-9);
+  --dropdown-menu-hover: var(--gray-8);
   --logo-border: var(--gray-5);
   --bridge-meta-bg: var(--gray-8);
   --bridge-meta-button-bg: var(--gray-5);

@@ -47,9 +47,10 @@ export const Send = () => {
         const { decimals } = queryClient.getQueryData<NormalizedAsset>(
           assetQueryKeys.item(chainId, denom).queryKey,
         ) ?? { denom, symbol: denom, decimals: 0 }
-        const { balances } = queryClient.getQueryData<{ balances: Coin[] }>(
-          accountQueryKeys.balances(chain.restUrl, address).queryKey,
-        ) ?? { balances: [] }
+        const balances =
+          queryClient.getQueryData<Coin[]>(
+            accountQueryKeys.balances(chain.restUrl, address).queryKey,
+          ) ?? []
         const balance = balances.find((balance) => balance.denom === denom)?.amount
         quantitySuperRefine({ quantity, balance, decimals }, ctx)
       }),

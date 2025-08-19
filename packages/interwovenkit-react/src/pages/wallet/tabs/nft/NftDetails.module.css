@@ -1,6 +1,13 @@
 .header {
   display: grid;
-  gap: 12px;
+  gap: 16px;
+}
+
+.collectionName {
+  color: var(--gray-2);
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
 }
 
 .name {
@@ -9,23 +16,29 @@
   word-break: break-all;
 }
 
+.chainInfo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  color: var(--dimmed);
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .attributes {
   margin-top: 28px;
 
   .title {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 600;
-    margin-bottom: 8px;
   }
 
-  .list {
-    margin-top: 8px;
+  .count {
+    color: var(--gray-2);
   }
 
   .item {
-    display: grid;
-    gap: 2px;
-
     border-bottom: 1px solid var(--border);
     margin: 0 calc(-1 * var(--padding));
     padding: 16px var(--padding);
