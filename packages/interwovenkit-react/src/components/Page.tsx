@@ -6,16 +6,16 @@ import styles from "./Page.module.css"
 
 interface Props {
   title: string
-  returnTo?: string | false
+  backButton?: ReactNode
   extra?: ReactNode
 }
 
-const Page = ({ title, returnTo, extra, children }: PropsWithChildren<Props>) => {
+const Page = ({ title, backButton, extra, children }: PropsWithChildren<Props>) => {
   return (
     <>
       <header className={styles.header}>
-        {returnTo !== false && (
-          <Link to={returnTo ?? -1} className={styles.back}>
+        {backButton ?? (
+          <Link to={-1} className={styles.back}>
             <IconBack size={16} />
           </Link>
         )}

@@ -5,7 +5,8 @@ import { useQueryClient } from "@tanstack/react-query"
 import { FormProvider, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import type { BalancesResponseJson } from "@skip-go/client"
-import { useHistory, useNavigate } from "@/lib/router"
+import { IconBack } from "@initia/icons-react"
+import { Link, useHistory, useNavigate } from "@/lib/router"
 import { useAddress } from "@/public/data/hooks"
 import { LocalStorageKey } from "@/data/constants"
 import { useDrawer } from "@/data/ui"
@@ -24,6 +25,7 @@ import { useSkipAssets } from "./data/assets"
 import { skipQueryKeys } from "./data/skip"
 import { useClaimableModal, useClaimableReminders } from "./op/reminder"
 import BridgeFields from "./BridgeFields"
+import styles from "./BridgeForm.module.css"
 
 const BridgeForm = () => {
   useClaimableModal()
@@ -133,10 +135,15 @@ const BridgeForm = () => {
 
   return (
     <Page
-      title="Bridge/Swap"
-      // The previous page may not be the intended destination.
-      // To avoid unexpected behavior, it explicitly returns to the wallet page.
-      returnTo={isBridge ? false : "/"}
+      title={isBridge ? "" : "Bridge/Swap"}
+      backButton={
+        isBridge ? (
+          <Link to="/" className={styles.backButton} shouldReset>
+            <IconBack size={12} />
+            <span>Wallet</span>
+          </Link>
+        ) : undefined
+      }
       extra={
         <>
           <Button.Small onClick={() => navigate("/bridge/history")} unpadded>
