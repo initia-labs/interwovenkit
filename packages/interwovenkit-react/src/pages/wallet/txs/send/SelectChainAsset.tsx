@@ -9,6 +9,7 @@ import SelectAsset from "./SelectAsset"
 
 const SelectChainAsset = ({ afterSelect }: { afterSelect: () => void }) => {
   const { watch, setValue, resetField } = useFormContext<FormValues>()
+  const { chainId: currentChainId, denom: currentDenom } = watch()
   const { chainId: defaultChainId } = watch()
   const [chainId, setChainId] = useState(defaultChainId)
 
@@ -16,6 +17,11 @@ const SelectChainAsset = ({ afterSelect }: { afterSelect: () => void }) => {
   const chains = useInitiaRegistry()
 
   const handleSelect = (denom: string) => {
+    if (currentChainId === chainId && currentDenom === denom) {
+      afterSelect()
+      return
+    }
+
     setValue("chainId", chainId)
     setValue("denom", denom)
     resetField("quantity")
