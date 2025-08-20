@@ -71,7 +71,7 @@ const SendNftFields = () => {
 
       return msgs.map((msg) => aminoTypes.fromAmino(msg))
     },
-    enabled: !!recipient,
+    enabled: InitiaAddress.validate(recipient),
   })
 
   const { data: messages, isLoading, error } = simulation
@@ -124,7 +124,7 @@ const SendNftFields = () => {
       </div>
 
       <Footer>
-        <Button.White loading={isLoading || isPending} disabled={!formState.isValid}>
+        <Button.White loading={isLoading || isPending} disabled={!formState.isValid || !!error}>
           {error ? "Route not found" : "Confirm"}
         </Button.White>
       </Footer>
