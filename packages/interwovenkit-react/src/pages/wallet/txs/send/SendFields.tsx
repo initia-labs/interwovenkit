@@ -63,6 +63,7 @@ export const SendFields = () => {
       ]
       return estimateGas({ messages, chainId })
     },
+    enabled: InitiaAddress.validate(recipient),
     staleTime: STALE_TIMES.INFINITY,
   })
 
