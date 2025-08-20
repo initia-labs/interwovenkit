@@ -7,7 +7,7 @@ interface Pagination {
   total: string
 }
 
-export type Paginated<K extends string, T> = { pagination: Pagination } & { [P in K]: T[] }
+export type Paginated<K extends string, T> = { pagination: Pagination | null } & { [P in K]: T[] }
 
 export function parsePaginatedResponse<K extends string, T>(
   key: K,
@@ -19,7 +19,7 @@ export function parsePaginatedResponse<K extends string, T>(
 }
 
 export function getNextPageParam<K extends string, T>(data: Paginated<K, T>): string | null {
-  return data.pagination.next_key
+  return data.pagination?.next_key ?? null
 }
 
 export async function fetchAllPages<K extends string, T>(
