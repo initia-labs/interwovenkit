@@ -2,6 +2,7 @@ import type { PropsWithChildren } from "react"
 import { useEffect } from "react"
 import { Tooltip } from "radix-ui"
 import { useIsClient } from "usehooks-ts"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { MemoryRouter } from "@/lib/router"
 import { LocalStorageKey } from "@/data/constants"
 import { migrateLocalStorage } from "@/data/migration"
@@ -46,6 +47,8 @@ const Prefetch = () => {
   return null
 }
 
+const queryClient = new QueryClient()
+
 const InterwovenKitProvider = ({ children, ...config }: PropsWithChildren<Partial<Config>>) => {
   useEffect(() => {
     migrateLocalStorage()
@@ -60,10 +63,6 @@ const InterwovenKitProvider = ({ children, ...config }: PropsWithChildren<Partia
       <Fonts />
 
       <ConfigContext.Provider value={{ ...MAINNET, ...config }}>
-        <AsyncBoundary suspenseFallback={null} errorBoundaryProps={{ fallback: null }}>
-          <Prefetch />
-        </AsyncBoundary>
-
         <MemoryRouter>
           <PortalProvider>
             <Tooltip.Provider delayDuration={0} skipDelayDuration={0}>
@@ -71,9 +70,15 @@ const InterwovenKitProvider = ({ children, ...config }: PropsWithChildren<Partia
                 <ModalProvider>
                   {children}
 
-                  <Drawer>
-                    <Routes />
-                  </Drawer>
+                  <QueryClientProvider client={queryClient}>
+                    <AsyncBoundary suspenseFallback={null} errorBoundaryProps={{ fallback: null }}>
+                      <Prefetch />
+                    </AsyncBoundary>
+
+                    <Drawer>
+                      <Routes />
+                    </Drawer>
+                  </QueryClientProvider>
                 </ModalProvider>
               </NotificationProvider>
             </Tooltip.Provider>
