@@ -63,7 +63,7 @@ const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
                     <Loader size={16} />
                   ) : recentConnectorId === id ? (
                     <span className={styles.recent}>Recent</span>
-                  ) : (
+                  ) : connector.name === "Google" ? null : (
                     <span className={styles.installed}>Installed</span>
                   )}
                 </button>
