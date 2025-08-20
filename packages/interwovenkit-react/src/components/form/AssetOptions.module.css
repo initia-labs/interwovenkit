@@ -8,8 +8,6 @@
 }
 
 .list {
-  flex: 1;
-  display: grid;
   overflow-y: auto;
 }
 
@@ -19,7 +17,9 @@
   border-bottom: 1px solid var(--border);
   font-size: 14px;
   font-weight: 500;
+  overflow: hidden;
   padding: 12px var(--padding);
+  width: 100%;
 
   transition: background-color var(--transition) ease;
 
@@ -43,6 +43,7 @@
 
 .symbol {
   font-weight: 600;
+  width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -55,10 +56,9 @@
 }
 
 .balance {
-  flex: none;
-  display: grid;
   font-family: var(--monospace);
   text-align: right;
+  word-break: break-all;
 }
 
 .name,
