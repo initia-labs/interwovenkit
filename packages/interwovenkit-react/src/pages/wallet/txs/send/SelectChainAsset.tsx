@@ -8,7 +8,7 @@ import type { FormValues } from "./Send"
 import SelectAsset from "./SelectAsset"
 
 const SelectChainAsset = ({ afterSelect }: { afterSelect: () => void }) => {
-  const { watch, setValue } = useFormContext<FormValues>()
+  const { watch, setValue, resetField } = useFormContext<FormValues>()
   const { chainId: defaultChainId } = watch()
   const [chainId, setChainId] = useState(defaultChainId)
 
@@ -18,6 +18,7 @@ const SelectChainAsset = ({ afterSelect }: { afterSelect: () => void }) => {
   const handleSelect = (denom: string) => {
     setValue("chainId", chainId)
     setValue("denom", denom)
+    resetField("quantity")
     afterSelect()
   }
 
