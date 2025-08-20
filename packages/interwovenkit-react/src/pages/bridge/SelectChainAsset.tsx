@@ -22,10 +22,10 @@ const SelectChainAsset = ({ type, afterSelect }: Props) => {
   const connectedAddress = useAddress()
   const chains = useSkipChains()
 
-  const { watch, setValue, trigger } = useBridgeForm()
-  const quantity = watch("quantity")
+  const { watch, setValue, resetField } = useBridgeForm()
   const initialAddress = watch(addressKey)
   const initialChainId = watch(chainIdKey)
+  const initialDenom = watch(denomKey)
   const [chainId, setChainId] = useState(initialChainId)
   const chain = useSkipChain(chainId)
 
@@ -37,9 +37,14 @@ const SelectChainAsset = ({ type, afterSelect }: Props) => {
   )
 
   const handleSelect = (denom: string) => {
+    if (initialChainId === chainId && initialDenom === denom) {
+      afterSelect()
+      return
+    }
+
     setValue(chainIdKey, chainId)
     setValue(denomKey, denom)
-    if (Number(quantity)) trigger()
+    resetField("quantity")
     afterSelect()
   }
 

@@ -56,7 +56,7 @@ const BridgeFields = () => {
   )
 
   // form
-  const { watch, setValue, handleSubmit, trigger, formState } = useBridgeForm()
+  const { watch, setValue, handleSubmit, resetField, formState } = useBridgeForm()
   const values = watch()
   const { srcChainId, srcDenom, dstChainId, dstDenom, quantity, sender, slippagePercent } = values
 
@@ -69,10 +69,6 @@ const BridgeFields = () => {
   const dstAsset = useSkipAsset(dstDenom, dstChainId)
   const { data: balances } = useSkipBalancesQuery(sender, srcChainId)
   const srcBalance = useSkipBalance(sender, srcChainId, srcDenom)
-
-  useEffect(() => {
-    if (Number(quantity)) trigger()
-  }, [srcBalance, quantity, trigger])
 
   // simulation
   // Avoid hitting the simulation API on every keystroke.  Wait a short period
@@ -118,7 +114,7 @@ const BridgeFields = () => {
     setValue("srcDenom", dstDenom)
     setValue("dstChainId", srcChainId)
     setValue("dstDenom", srcDenom)
-    if (Number(quantity)) trigger()
+    resetField("quantity")
   }
 
   // submit
