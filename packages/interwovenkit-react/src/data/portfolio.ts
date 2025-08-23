@@ -40,13 +40,16 @@ export interface PortfolioChainInfo {
   logoUrl: string
 }
 
+const INIT_SYMBOL = "INIT"
+const INITIA_CHAIN_NAME = "Initia"
+
 /** Calculates total value for an asset group */
-export function calcTotalValue(group: PortfolioAssetGroup): number {
+export function calculateTotalValue(group: PortfolioAssetGroup): number {
   return group.assets.reduce((sum, { value }) => sum + (value ?? 0), 0)
 }
 
 /** Calculates total quantity for an asset group */
-export function calcTotalQuantity(group: PortfolioAssetGroup): string {
+export function calculateTotalQuantity(group: PortfolioAssetGroup): string {
   return group.assets.reduce((sum, { quantity }) => sum.plus(quantity), BigNumber(0)).toString()
 }
 
@@ -67,8 +70,8 @@ function toChainInfo(chain: NormalizedChain): PortfolioChainInfo {
  */
 export function sortAssetGroups(assetGroups: PortfolioAssetGroup[]) {
   return sortWith<PortfolioAssetGroup>([
-    descend(({ symbol }) => symbol === "INIT"),
-    descend(calcTotalValue),
+    descend(({ symbol }) => symbol === INIT_SYMBOL),
+    descend(calculateTotalValue),
     descend(({ assets }) => assets.length),
     ascend(({ symbol }) => symbol),
   ])(assetGroups)
@@ -96,7 +99,7 @@ export function sortAssets(assetItems: PortfolioAssetItem[]) {
  */
 export function sortUnsupportedAssets(unsupportedAssets: PortfolioAssetItem[]) {
   return sortWith<PortfolioAssetItem>([
-    descend(({ chain }) => chain.name === "Initia"),
+    descend(({ chain }) => chain.name === INITIA_CHAIN_NAME),
     ascend(({ chain }) => chain.name),
     ascend(({ denom }) => denom),
   ])(unsupportedAssets)
@@ -161,12 +164,12 @@ export function createPortfolio(
   // chains by value
   const chainItemsMap = new Map<string, PortfolioChainItem>()
 
-  for (const [chainId, items] of Object.entries(assetItemsByChain)) {
-    const chain = chains.find((chain) => chain.chainId === chainId)
+  for (const [currentChainId, assetItems] of Object.entries(assetItemsByChain)) {
+    const chain = chains.find((chain) => chain.chainId === currentChainId)
     if (!chain) continue
 
-    const totalValue = items.reduce((sum, { value }) => sum + (value ?? 0), 0)
-    chainItemsMap.set(chainId, { ...toChainInfo(chain), value: totalValue })
+    const totalValue = assetItems.reduce((sum, { value }) => sum + (value ?? 0), 0)
+    chainItemsMap.set(currentChainId, { ...toChainInfo(chain), value: totalValue })
   }
 
   // asset groups
@@ -184,11 +187,11 @@ export function createPortfolio(
 
   const assetGroups: PortfolioAssetGroup[] = []
   for (const [symbol, assets] of assetGroupsMap) {
-    const firstAsset = head(assets)
-    if (!firstAsset) continue
+    const representativeAsset = head(assets)
+    if (!representativeAsset) continue
 
     const sortedAssets = sortAssets(assets)
-    assetGroups.push({ symbol, logoUrl: firstAsset.logoUrl, assets: sortedAssets })
+    assetGroups.push({ symbol, logoUrl: representativeAsset.logoUrl, assets: sortedAssets })
   }
 
   // unsupported assets
@@ -206,7 +209,7 @@ export function createPortfolio(
     chainsByValue: sortChainItems(Array.from(chainItemsMap.values()), defaultChainId),
     assetGroups: sortAssetGroups(assetGroups),
     unsupportedAssets: sortUnsupportedAssets(unsupportedAssets),
-    totalValue: assetGroups.reduce((sum, group) => sum + calcTotalValue(group), 0),
+    totalValue: assetGroups.reduce((sum, group) => sum + calculateTotalValue(group), 0),
   }
 }
 
@@ -230,9 +233,7 @@ export function usePortfolio() {
     defaultChainId,
   )
 
-  const isLoading = [balances, assets, prices].some((queries) =>
-    queries.some(({ isLoading }) => isLoading),
-  )
+  const isLoading = [balances, assets, prices].flat().some(({ isLoading }) => isLoading)
 
   const refetch = () => {
     balances.forEach(({ refetch }) => refetch())

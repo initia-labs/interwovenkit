@@ -2,7 +2,7 @@ import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import type { NormalizedChain, PriceItem } from "./chains"
 import type { NormalizedAsset } from "./assets"
 import type { PortfolioAssetGroup, PortfolioAssetItem } from "./portfolio"
-import { calcTotalValue, createPortfolio, sortAssetGroups, sortAssets } from "./portfolio"
+import { calculateTotalValue, createPortfolio, sortAssetGroups, sortAssets } from "./portfolio"
 
 describe("createPortfolio", () => {
   const mockChains: NormalizedChain[] = [
@@ -213,7 +213,7 @@ describe("sortAssetGroups", () => {
       createAssetGroup({ symbol: "C", totalValue: 25 }),
     ]
     const sorted = sortAssetGroups(groups)
-    expect(sorted.map(calcTotalValue)).toEqual([100, 50, 25])
+    expect(sorted.map(calculateTotalValue)).toEqual([100, 50, 25])
   })
 
   it("should sort by chain count when values are equal", () => {

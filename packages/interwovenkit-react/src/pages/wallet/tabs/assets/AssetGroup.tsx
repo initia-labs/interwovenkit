@@ -7,7 +7,7 @@ import { IconChevronDown } from "@initia/icons-react"
 import { formatNumber } from "@initia/utils"
 import { formatValue } from "@/lib/format"
 import type { PortfolioAssetGroup } from "@/data/portfolio"
-import { calcTotalQuantity, calcTotalValue } from "@/data/portfolio"
+import { calculateTotalQuantity, calculateTotalValue } from "@/data/portfolio"
 import Image from "@/components/Image"
 import AssetActions from "./AssetActions"
 import AssetBalance from "./AssetBalance"
@@ -25,8 +25,8 @@ const AssetGroup = ({ assetGroup }: Props) => {
 
   const [openAssetGroups, setOpenAssetGroups] = useAtom(openAssetGroupsAtom)
 
-  const totalQuantity = useMemo(() => calcTotalQuantity(assetGroup), [assetGroup])
-  const totalValue = useMemo(() => calcTotalValue(assetGroup), [assetGroup])
+  const totalQuantity = useMemo(() => calculateTotalQuantity(assetGroup), [assetGroup])
+  const totalValue = useMemo(() => calculateTotalValue(assetGroup), [assetGroup])
 
   const isOpen = openAssetGroups.includes(symbol)
 
