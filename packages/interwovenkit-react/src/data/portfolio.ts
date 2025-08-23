@@ -187,7 +187,8 @@ export function createPortfolio(
     const firstAsset = head(assets)
     if (!firstAsset) continue
 
-    assetGroups.push({ ...firstAsset, symbol, assets: sortAssets(assets) })
+    const sortedAssets = sortAssets(assets)
+    assetGroups.push({ symbol, logoUrl: firstAsset.logoUrl, assets: sortedAssets })
   }
 
   // unsupported assets
