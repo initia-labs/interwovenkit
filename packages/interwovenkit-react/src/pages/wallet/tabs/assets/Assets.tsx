@@ -13,55 +13,54 @@ import styles from "./Assets.module.css"
 const Assets = () => {
   const [searchQuery, setSearchQuery] = useAtom(assetsSearchAtom)
   const [selectedChain, setSelectedChain] = useAtom(assetsChainAtom)
-  const { assetGroups, unsupportedAssetGroups, chainPortfolios, isLoading } = usePortfolio()
-  const chainIds = chainPortfolios.map((c) => c.chain.chainId)
+  const { assetGroups, unsupportedAssets, chainsByValue, isLoading } = usePortfolio()
+  const chainIds = chainsByValue.map(({ chainId }) => chainId)
 
   // Filter assets based on selected chain and search query
   const filteredAssets = useMemo(() => {
-    const searchFiltered = searchQuery
-      ? assetGroups.filter((assetGroup) => {
-          const { denom, symbol, name = "", address = "" } = assetGroup.asset
+    const searchFiltered = !searchQuery
+      ? assetGroups
+      : assetGroups.filter((assetGroup) => {
+          const { symbol, assets } = assetGroup
           return (
-            denom.toLowerCase().includes(searchQuery.toLowerCase()) ||
             symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            address.toLowerCase().includes(searchQuery.toLowerCase())
+            assets.some(({ denom, address }) => {
+              return (
+                denom.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                address?.toLowerCase().includes(searchQuery.toLowerCase())
+              )
+            })
           )
         })
-      : assetGroups
 
-    const chainFiltered = selectedChain
+    const chainFiltered = !selectedChain
       ? searchFiltered
+      : searchFiltered
           .map((assetGroup) => ({
             ...assetGroup,
-            chains: assetGroup.chains.filter(({ chain }) => chain.chainId === selectedChain),
+            assets: assetGroup.assets.filter(({ chain }) => chain.chainId === selectedChain),
           }))
-          .filter((assetGroup) => assetGroup.chains.length > 0)
-      : searchFiltered
+          .filter((assetGroup) => assetGroup.assets.length > 0)
 
     return chainFiltered
   }, [assetGroups, searchQuery, selectedChain])
 
   // Filter unsupported assets based on selected chain and search query
   const filteredUnsupportedAssets = useMemo(() => {
-    const searchFiltered = searchQuery
-      ? unsupportedAssetGroups.filter((assetGroup) => {
-          const { denom } = assetGroup.asset
-          return denom.toLowerCase().includes(searchQuery.toLowerCase())
-        })
-      : unsupportedAssetGroups
+    const searchFiltered = !searchQuery
+      ? unsupportedAssets
+      : unsupportedAssets.filter(
+          ({ denom, address }) =>
+            denom.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            address?.toLowerCase().includes(searchQuery.toLowerCase()),
+        )
 
-    const chainFiltered = selectedChain
+    const chainFiltered = !selectedChain
       ? searchFiltered
-          .map((assetGroup) => ({
-            ...assetGroup,
-            chains: assetGroup.chains.filter(({ chain }) => chain.chainId === selectedChain),
-          }))
-          .filter((assetGroup) => assetGroup.chains.length > 0)
-      : searchFiltered
+      : searchFiltered.filter(({ chain }) => chain.chainId === selectedChain)
 
     return chainFiltered
-  }, [unsupportedAssetGroups, searchQuery, selectedChain])
+  }, [unsupportedAssets, searchQuery, selectedChain])
 
   // Show loading only on initial load when no data exists yet
   // This prevents flickering when refetching with existing data
@@ -99,7 +98,7 @@ const Assets = () => {
             <>
               <div className={styles.list}>
                 {filteredAssets.map((assetGroup) => (
-                  <AssetGroup assetGroup={assetGroup} key={assetGroup.asset.symbol} />
+                  <AssetGroup assetGroup={assetGroup} key={assetGroup.symbol} />
                 ))}
               </div>
               <UnsupportedAssets unsupportedAssets={filteredUnsupportedAssets} />

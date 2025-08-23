@@ -2,6 +2,7 @@ import clsx from "clsx"
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { Popover } from "@base-ui-components/react/popover"
 import { IconChevronDown, IconCheckCircleFilled } from "@initia/icons-react"
+import type { NormalizedChain } from "@/data/chains"
 import { useInitiaRegistry } from "@/data/chains"
 import { usePortal } from "@/public/app/PortalContext"
 import { usePortalCssVariable } from "@/public/app/PortalContext"
@@ -28,7 +29,9 @@ const ChainSelect = ({ value, onChange, chainIds, fullWidth }: Props) => {
   const allChains = useInitiaRegistry()
 
   // Filter chains based on chainIds prop
-  const chains = allChains.filter((chain) => chainIds.includes(chain.chainId))
+  const chains = chainIds
+    .map((chainId) => allChains.find((chain) => chain.chainId === chainId))
+    .filter(Boolean) as NormalizedChain[]
 
   const renderAllRollupsLogo = (size: number) => {
     return (

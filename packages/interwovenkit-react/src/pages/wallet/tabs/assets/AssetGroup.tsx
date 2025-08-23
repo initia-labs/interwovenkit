@@ -6,28 +6,27 @@ import { Collapsible } from "radix-ui"
 import { IconChevronDown } from "@initia/icons-react"
 import { formatNumber } from "@initia/utils"
 import { formatValue } from "@/lib/format"
-import type { AssetGroup as AssetGroupType } from "@/data/portfolio"
-import { calculateAssetGroupTotalQuantity, calculateAssetGroupTotalValue } from "@/data/portfolio"
+import type { PortfolioAssetGroup } from "@/data/portfolio"
+import { calcTotalQuantity, calcTotalValue } from "@/data/portfolio"
 import Image from "@/components/Image"
 import AssetActions from "./AssetActions"
-import ChainBalance from "./ChainBalance"
+import AssetBalance from "./AssetBalance"
 import styles from "./AssetGroup.module.css"
 
 const openAssetGroupsAtom = atom<string[]>([])
 
 interface Props {
-  assetGroup: AssetGroupType
-  isUnsupported?: boolean
+  assetGroup: PortfolioAssetGroup
 }
 
-const AssetGroup = ({ assetGroup, isUnsupported }: Props) => {
-  const [openAssetGroups, setOpenAssetGroups] = useAtom(openAssetGroupsAtom)
-  const { asset, chains } = assetGroup
-  const { symbol, logoUrl } = asset
-  const isSingleChain = chains.length === 1
+const AssetGroup = ({ assetGroup }: Props) => {
+  const { symbol, logoUrl, assets } = assetGroup
+  const isSingleChain = assets.length === 1
 
-  const totalQuantity = useMemo(() => calculateAssetGroupTotalQuantity(assetGroup), [assetGroup])
-  const totalValue = useMemo(() => calculateAssetGroupTotalValue(assetGroup), [assetGroup])
+  const [openAssetGroups, setOpenAssetGroups] = useAtom(openAssetGroupsAtom)
+
+  const totalQuantity = useMemo(() => calcTotalQuantity(assetGroup), [assetGroup])
+  const totalValue = useMemo(() => calcTotalValue(assetGroup), [assetGroup])
 
   const isOpen = openAssetGroups.includes(symbol)
 
@@ -42,14 +41,14 @@ const AssetGroup = ({ assetGroup, isUnsupported }: Props) => {
         <div className={styles.details}>
           <div className={styles.symbol}>{symbol}</div>
           {isSingleChain ? (
-            <div className={styles.chainName}>{chains[0].chain.name}</div>
+            <div className={styles.chainName}>{assets[0].chain.name}</div>
           ) : (
             <div className={styles.chainInfos}>
               <div className={styles.chainLogos}>
-                {chains.slice(0, 5).map((chainBalance) => (
+                {assets.slice(0, 5).map(({ chain }) => (
                   <Image
-                    key={chainBalance.chain.chainId}
-                    src={chainBalance.chain.logoUrl}
+                    key={chain.chainId}
+                    src={chain.logoUrl}
                     width={16}
                     height={16}
                     className={styles.chainLogo}
@@ -57,7 +56,7 @@ const AssetGroup = ({ assetGroup, isUnsupported }: Props) => {
                   />
                 ))}
               </div>
-              {chains.length > 5 && <span className={styles.moreChains}>+{chains.length - 5}</span>}
+              {assets.length > 5 && <span className={styles.moreChains}>+{assets.length - 5}</span>}
               <IconChevronDown
                 size={16}
                 className={clsx(styles.expandIcon, { [styles.expanded]: isOpen })}
@@ -68,7 +67,7 @@ const AssetGroup = ({ assetGroup, isUnsupported }: Props) => {
       </div>
       <div className={styles.valueColumn}>
         <div className={styles.amount}>
-          {formatNumber(totalQuantity, { dp: !isSingleChain ? 6 : Math.min(asset.decimals, 6) })}
+          {formatNumber(totalQuantity, { dp: assets[0].unsupported ? 0 : 6 })}
         </div>
         {totalValue > 0 && <div className={styles.value}>{formatValue(totalValue)}</div>}
       </div>
@@ -76,13 +75,11 @@ const AssetGroup = ({ assetGroup, isUnsupported }: Props) => {
   )
 
   if (isSingleChain) {
-    const [{ denom, chain }] = chains
+    const [asset] = assets
 
     return (
       <div className={styles.container}>
-        <AssetActions denom={denom} chain={chain} isUnsupported={isUnsupported}>
-          {renderAssetHeader()}
-        </AssetActions>
+        <AssetActions asset={asset}>{renderAssetHeader()}</AssetActions>
       </div>
     )
   }
@@ -94,12 +91,8 @@ const AssetGroup = ({ assetGroup, isUnsupported }: Props) => {
 
         <Collapsible.Content className={styles.collapsibleContent}>
           <div className={styles.chainsList}>
-            {chains.map((chainBalance) => (
-              <ChainBalance
-                chainBalance={chainBalance}
-                isUnsupported={isUnsupported}
-                key={chainBalance.chain.chainId}
-              />
+            {assets.map((asset) => (
+              <AssetBalance asset={asset} key={asset.chain.chainId} />
             ))}
           </div>
         </Collapsible.Content>

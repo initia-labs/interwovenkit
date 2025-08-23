@@ -1,5 +1,5 @@
 import BigNumber from "bignumber.js"
-import { prop, sortWith, descend, ascend } from "ramda"
+import { ascend, descend, head, pick, prop, sortWith, zipObj } from "ramda"
 import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import { fromBaseUnit } from "@initia/utils"
 import placeholder from "./placeholder"
@@ -9,45 +9,53 @@ import { useAllChainPriceQueries, useInitiaRegistry } from "./chains"
 import { useAllChainAssetsQueries, type NormalizedAsset } from "./assets"
 import { useAllChainBalancesQueries } from "./account"
 
-export interface AssetBalance {
-  chain: NormalizedChain
-  asset: NormalizedAsset
-  denom: string
+export interface PortfolioAssetGroupInfo {
+  symbol: string
+  logoUrl: string
+}
+
+export interface PortfolioAssetGroup extends PortfolioAssetGroupInfo {
+  assets: Array<PortfolioAssetItem>
+}
+
+export interface PortfolioAssetItem extends PortfolioAssetGroupInfo {
   amount: string
+  denom: string
+  decimals: number
   quantity: string
-  price: number
+  price?: number
+  value?: number
+  address?: string
+  unsupported?: boolean
+  chain: PortfolioChainInfo
+}
+
+export interface PortfolioChainItem extends PortfolioChainInfo {
   value: number
 }
 
-export interface AssetGroup {
-  asset: NormalizedAsset
-  chains: AssetBalance[]
+export interface PortfolioChainInfo {
+  chainId: string
+  name: string
+  logoUrl: string
 }
 
-export interface ChainPortfolio {
-  chain: NormalizedChain
-  totalValue: number
+/** Calculates total value for an asset group */
+export function calcTotalValue(group: PortfolioAssetGroup): number {
+  return group.assets.reduce((sum, { value }) => sum + (value ?? 0), 0)
 }
 
-export interface PortfolioData {
-  assetGroups: AssetGroup[]
-  unsupportedAssetGroups: AssetGroup[]
-  chainPortfolios: ChainPortfolio[]
-  totalValue: number
+/** Calculates total quantity for an asset group */
+export function calcTotalQuantity(group: PortfolioAssetGroup): string {
+  return group.assets.reduce((sum, { quantity }) => sum.plus(quantity), BigNumber(0)).toString()
 }
 
-/**
- * Calculates total quantity for an asset group
- */
-export function calculateAssetGroupTotalQuantity(group: AssetGroup): string {
-  return group.chains.reduce((sum, { quantity }) => sum.plus(quantity), BigNumber(0)).toString()
+function toAssetInfo(denom: string, asset?: NormalizedAsset): PortfolioAssetGroupInfo {
+  return { symbol: asset?.symbol ?? denom, logoUrl: asset?.logoUrl ?? placeholder }
 }
 
-/**
- * Calculates total value for an asset group
- */
-export function calculateAssetGroupTotalValue(group: AssetGroup): number {
-  return group.chains.reduce((sum, { value }) => sum + value, 0)
+function toChainInfo(chain: NormalizedChain): PortfolioChainInfo {
+  return pick(["chainId", "name", "logoUrl"], chain)
 }
 
 /**
@@ -57,195 +65,179 @@ export function calculateAssetGroupTotalValue(group: AssetGroup): number {
  * 3. Group with more chains
  * 4. Alphabetically by symbol
  */
-export function sortAssetGroups(groups: AssetGroup[]): AssetGroup[] {
-  return sortWith<AssetGroup>([
-    descend(({ asset }) => asset.symbol === "INIT"),
-    descend(calculateAssetGroupTotalValue),
-    descend(({ chains }) => chains.length),
-    ascend(({ asset }) => asset.symbol),
-  ])(groups)
+export function sortAssetGroups(assetGroups: PortfolioAssetGroup[]) {
+  return sortWith<PortfolioAssetGroup>([
+    descend(({ symbol }) => symbol === "INIT"),
+    descend(calcTotalValue),
+    descend(({ assets }) => assets.length),
+    ascend(({ symbol }) => symbol),
+  ])(assetGroups)
 }
 
 /**
  * Sorts chains within an asset group with deterministic rules:
  * 1. Higher value
- * 2. Alphabetically by chain name
+ * 2. Higher quantity
+ * 3. Alphabetically by chain name
  */
-export function sortChainsWithinGroup(chains: AssetBalance[]): AssetBalance[] {
-  return sortWith<AssetBalance>([
-    descend(prop("value")),
-    descend(({ quantity }) => Number(quantity)),
+export function sortAssets(assetItems: PortfolioAssetItem[]) {
+  return sortWith<PortfolioAssetItem>([
+    descend(({ value }) => value ?? 0),
+    descend(({ quantity }) => Number(quantity)), // Supported assets only
     ascend(({ chain }) => chain.name),
-  ])(chains)
+  ])(assetItems)
 }
 
-// Helper function to create asset group from first balance
-function createAssetGroup(assetBalance: AssetBalance): AssetGroup {
-  return {
-    asset: assetBalance.asset,
-    chains: [assetBalance],
-  }
+/**
+ * Sorts unsupported assets with deterministic rules:
+ * 1. Initia first
+ * 2. Alphabetically by chain name
+ * 3. Alphabetically by denom
+ */
+export function sortUnsupportedAssets(unsupportedAssets: PortfolioAssetItem[]) {
+  return sortWith<PortfolioAssetItem>([
+    descend(({ chain }) => chain.name === "Initia"),
+    ascend(({ chain }) => chain.name),
+    ascend(({ denom }) => denom),
+  ])(unsupportedAssets)
 }
 
-// Helper function to add balance to existing group
-function addToAssetGroup(group: AssetGroup, assetBalance: AssetBalance): AssetGroup {
-  return {
-    ...group,
-    chains: [...group.chains, assetBalance],
-  }
+/**
+ * Sorts chains with deterministic rules:
+ * 1. Default chain first
+ * 2. Higher value
+ */
+export function sortChainItems(chainItems: PortfolioChainItem[], defaultChainId?: string) {
+  return sortWith<PortfolioChainItem>([
+    descend(({ chainId }) => chainId === defaultChainId),
+    descend(prop("value")),
+  ])(chainItems)
 }
 
-// Helper function to group asset balances by symbol
-function groupAssetBalances(assetBalances: AssetBalance[]): AssetGroup[] {
-  const grouped = Object.values(
-    assetBalances.reduce<Record<string, AssetGroup>>((acc, assetBalance) => {
-      const symbol = assetBalance.asset.symbol
-      const existing = acc[symbol]
-
-      return {
-        ...acc,
-        [symbol]: existing
-          ? addToAssetGroup(existing, assetBalance)
-          : createAssetGroup(assetBalance),
-      }
-    }, {}),
-  )
-
-  return sortAssetGroups(grouped).map((group) => ({
-    ...group,
-    chains: sortChainsWithinGroup(group.chains),
-  }))
-}
-
-// Helper to create asset balance from coin data
-function createAssetBalance(
-  chain: NormalizedChain,
-  balance: Coin,
-  asset: NormalizedAsset,
-  price: number,
-): AssetBalance {
-  const { denom, amount } = balance
-  const quantity = fromBaseUnit(amount, { decimals: asset.decimals })
-  const value = Number(quantity) * price
-  return { denom, amount, quantity, price, value, chain, asset }
-}
-
-// Helper to create unsupported asset balance
-function createUnsupportedAssetBalance(chain: NormalizedChain, balance: Coin): AssetBalance {
-  const { denom, amount } = balance
-  const quantity = fromBaseUnit(amount, { decimals: 0 })
-  const asset = { denom, symbol: denom, decimals: 0, logoUrl: placeholder }
-  return { denom, amount, quantity, price: 0, value: 0, chain, asset }
-}
-
-// Process balances for a single chain
-function processChainBalances(
-  chain: NormalizedChain,
-  balances: Coin[],
-  assets: NormalizedAsset[],
-  priceMap: Record<string, number>,
+export function createPortfolio(
+  chains: Array<NormalizedChain>,
+  balancesByChain: Record<string, Coin[] | undefined>,
+  assetsByChain: Record<string, NormalizedAsset[] | undefined>,
+  pricesByChain: Record<string, PriceItem[] | undefined>,
+  defaultChainId?: string,
 ) {
-  return balances
-    .filter(({ amount }) => BigNumber(amount).gt(0))
-    .reduce<{ supported: AssetBalance[]; unsupported: AssetBalance[] }>(
-      (acc, balance) => {
-        const asset = assets.find(({ denom }) => denom === balance.denom)
-        const assetBalance = asset
-          ? createAssetBalance(chain, balance, asset, priceMap[balance.denom] ?? 0)
-          : createUnsupportedAssetBalance(chain, balance)
+  // asset items by chain
+  const assetItemsByChain: Record<string, PortfolioAssetItem[]> = {}
 
-        return asset
-          ? { ...acc, supported: [...acc.supported, assetBalance] }
-          : { ...acc, unsupported: [...acc.unsupported, assetBalance] }
-      },
-      { supported: [], unsupported: [] },
-    )
-}
+  for (const chain of chains) {
+    const chainId = chain.chainId
+    const balances = balancesByChain[chainId] ?? []
+    const assets = assetsByChain[chainId]
+    const prices = pricesByChain[chainId]
 
-// Calculate chain portfolios from supported asset balances
-function calculateChainPortfolios(
-  supported: AssetBalance[],
-  currentChainId?: string,
-): ChainPortfolio[] {
-  const portfolioMap = supported.reduce<Record<string, ChainPortfolio>>((acc, { chain, value }) => {
-    const existing = acc[chain.chainId]
-    return {
-      ...acc,
-      [chain.chainId]: {
-        chain,
-        totalValue: (existing?.totalValue ?? 0) + value,
-      },
+    const items: PortfolioAssetItem[] = []
+
+    for (const { amount, denom } of balances) {
+      if (!BigNumber(amount).gt(0)) continue
+
+      const asset = assets?.find((a) => a.denom === denom)
+      const price = prices?.find((p) => p.id === denom)?.price
+      const decimals = asset?.decimals ?? 0
+      const quantity = fromBaseUnit(amount, { decimals })
+      const value = price ? BigNumber(quantity).times(price).toNumber() : undefined
+
+      items.push({
+        ...toAssetInfo(denom, asset),
+        amount,
+        denom,
+        decimals,
+        quantity,
+        price,
+        value,
+        address: asset?.address,
+        unsupported: !asset,
+        chain: toChainInfo(chain),
+      })
     }
-  }, {})
 
-  return sortWith<ChainPortfolio>([
-    descend(({ chain }) => chain.chainId === currentChainId),
-    descend(({ totalValue }) => totalValue),
-  ])(Object.values(portfolioMap))
-}
+    assetItemsByChain[chainId] = items
+  }
 
-export function aggregatePortfolio(
-  balanceResults: (Coin[] | undefined)[],
-  assetsResults: (NormalizedAsset[] | undefined)[],
-  pricesResults: (PriceItem[] | undefined)[],
-  chains: NormalizedChain[],
-  currentChainId?: string,
-): PortfolioData {
-  // Process all chains and collect asset balances
-  const { supported, unsupported } = chains.reduce<{
-    supported: AssetBalance[]
-    unsupported: AssetBalance[]
-  }>(
-    (acc, chain, chainIndex) => {
-      const balances = balanceResults[chainIndex] ?? []
-      const assets = assetsResults[chainIndex] ?? []
-      const prices = pricesResults[chainIndex] ?? []
+  // chains by value
+  const chainItemsMap = new Map<string, PortfolioChainItem>()
 
-      const priceMap = Object.fromEntries(prices.map(({ id, price }) => [id, price]))
-      const { supported, unsupported } = processChainBalances(chain, balances, assets, priceMap)
+  for (const [chainId, items] of Object.entries(assetItemsByChain)) {
+    const chain = chains.find((chain) => chain.chainId === chainId)
+    if (!chain) continue
 
-      return {
-        supported: [...acc.supported, ...supported],
-        unsupported: [...acc.unsupported, ...unsupported],
+    const totalValue = items.reduce((sum, { value }) => sum + (value ?? 0), 0)
+    chainItemsMap.set(chainId, { ...toChainInfo(chain), value: totalValue })
+  }
+
+  // asset groups
+  const assetGroupsMap = new Map<string, PortfolioAssetItem[]>()
+
+  for (const items of Object.values(assetItemsByChain)) {
+    for (const item of items) {
+      if (!item.unsupported) {
+        const { symbol } = item
+        const existing = assetGroupsMap.get(symbol) ?? []
+        assetGroupsMap.set(symbol, [...existing, item])
       }
-    },
-    { supported: [], unsupported: [] },
-  )
+    }
+  }
+
+  const assetGroups: PortfolioAssetGroup[] = []
+  for (const [symbol, assets] of assetGroupsMap) {
+    const firstAsset = head(assets)
+    if (!firstAsset) continue
+
+    assetGroups.push({ ...firstAsset, symbol, assets: sortAssets(assets) })
+  }
+
+  // unsupported assets
+  const unsupportedAssets: PortfolioAssetItem[] = []
+
+  for (const items of Object.values(assetItemsByChain)) {
+    for (const item of items) {
+      if (item.unsupported) {
+        unsupportedAssets.push(item)
+      }
+    }
+  }
 
   return {
-    assetGroups: groupAssetBalances(supported),
-    unsupportedAssetGroups: groupAssetBalances(unsupported),
-    chainPortfolios: calculateChainPortfolios(supported, currentChainId),
-    totalValue: supported.reduce((sum, { value }) => sum + value, 0),
+    chainsByValue: sortChainItems(Array.from(chainItemsMap.values()), defaultChainId),
+    assetGroups: sortAssetGroups(assetGroups),
+    unsupportedAssets: sortUnsupportedAssets(unsupportedAssets),
+    totalValue: assetGroups.reduce((sum, group) => sum + calcTotalValue(group), 0),
   }
 }
 
-export const usePortfolio = () => {
+export function usePortfolio() {
   const { defaultChainId } = useConfig()
   const chains = useInitiaRegistry()
-  const queries = {
-    balances: useAllChainBalancesQueries(),
-    assets: useAllChainAssetsQueries(),
-    prices: useAllChainPriceQueries(),
-  }
+  const balances = useAllChainBalancesQueries()
+  const assets = useAllChainAssetsQueries()
+  const prices = useAllChainPriceQueries()
 
-  const results = {
-    balances: queries.balances.map(prop("data")),
-    assets: queries.assets.map(prop("data")),
-    prices: queries.prices.map(prop("data")),
-  }
+  const chainIds = chains.map((chain) => chain.chainId)
+  const balancesByChain = zipObj(chainIds, balances.map(prop("data")))
+  const assetsByChain = zipObj(chainIds, assets.map(prop("data")))
+  const pricesByChain = zipObj(chainIds, prices.map(prop("data")))
 
-  const isLoading = Object.values(queries).some((queryList) =>
-    queryList.some(({ isLoading }) => isLoading),
-  )
-
-  const portfolio = aggregatePortfolio(
-    results.balances,
-    results.assets,
-    results.prices,
+  const portfolio = createPortfolio(
     chains,
+    balancesByChain,
+    assetsByChain,
+    pricesByChain,
     defaultChainId,
   )
 
-  return { ...portfolio, isLoading }
+  const isLoading = [balances, assets, prices].some((queries) =>
+    queries.some(({ isLoading }) => isLoading),
+  )
+
+  const refetch = () => {
+    balances.forEach(({ refetch }) => refetch())
+    assets.forEach(({ refetch }) => refetch())
+    prices.forEach(({ refetch }) => refetch())
+  }
+
+  return { ...portfolio, isLoading, refetch }
 }

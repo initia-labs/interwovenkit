@@ -2,13 +2,13 @@ import { useRef, useEffect, useState } from "react"
 import { Collapsible } from "radix-ui"
 import { useSpring, animated } from "@react-spring/web"
 import { IconChevronDown } from "@initia/icons-react"
-import type { AssetGroup as AssetGroupType } from "@/data/portfolio"
+import type { PortfolioAssetItem } from "@/data/portfolio"
 import { useScrollableRef } from "../ScrollableContext"
 import AssetGroup from "./AssetGroup"
 import styles from "./UnsupportedAssets.module.css"
 
 interface UnsupportedAssetsProps {
-  unsupportedAssets: AssetGroupType[]
+  unsupportedAssets: PortfolioAssetItem[]
 }
 
 const UnsupportedAssets = ({ unsupportedAssets }: UnsupportedAssetsProps) => {
@@ -62,8 +62,11 @@ const UnsupportedAssets = ({ unsupportedAssets }: UnsupportedAssetsProps) => {
       <Collapsible.Content forceMount asChild>
         <animated.div className={styles.content} style={animationStyles}>
           <div className={styles.list} ref={contentRef}>
-            {unsupportedAssets.map((assetGroup) => (
-              <AssetGroup assetGroup={assetGroup} key={assetGroup.asset.denom} isUnsupported />
+            {unsupportedAssets.map((assetItem) => (
+              <AssetGroup
+                assetGroup={{ ...assetItem, assets: [assetItem] }}
+                key={assetItem.denom}
+              />
             ))}
           </div>
         </animated.div>

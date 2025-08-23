@@ -5,19 +5,19 @@ import { useMutation } from "@tanstack/react-query"
 import { IconCheck, IconPlus, IconSwap, IconArrowRight } from "@initia/icons-react"
 import { useNavigate } from "@/lib/router"
 import { useConfig } from "@/data/config"
-import { useDefaultChain, type NormalizedChain } from "@/data/chains"
-import { useAsset } from "@/data/assets"
+import { useDefaultChain } from "@/data/chains"
+import type { PortfolioAssetItem } from "@/data/portfolio"
 import { useNotification } from "@/public/app/NotificationContext"
 import { useScrollableRef } from "../ScrollableContext"
 import styles from "./AssetActions.module.css"
 
 interface Props {
-  denom: string
-  chain: NormalizedChain
-  isUnsupported?: boolean
+  asset: PortfolioAssetItem
 }
 
-const AssetActions = ({ denom, chain, children, isUnsupported }: PropsWithChildren<Props>) => {
+const AssetActions = ({ asset, children }: PropsWithChildren<Props>) => {
+  const { denom, decimals, symbol, logoUrl, unsupported, address, chain } = asset
+  const { chainId } = chain
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
   const scrollableRef = useScrollableRef()
@@ -25,10 +25,8 @@ const AssetActions = ({ denom, chain, children, isUnsupported }: PropsWithChildr
   const { defaultChainId } = useConfig()
   const { evm_chain_id } = useDefaultChain()
   const wagmiChainId = useChainId()
-  const { address = "", symbol, decimals, logoUrl: image } = useAsset(denom, chain)
   const { switchChainAsync } = useSwitchChain()
   const { watchAssetAsync } = useWatchAsset()
-  const { chainId } = chain
 
   const send = () => {
     setOpen(false)
@@ -42,6 +40,8 @@ const AssetActions = ({ denom, chain, children, isUnsupported }: PropsWithChildr
 
   const addAsset = useMutation({
     mutationFn: async () => {
+      if (!address) throw new Error("Address is required")
+      const image = logoUrl
       await switchChainAsync({ chainId: Number(evm_chain_id) })
       return watchAssetAsync({ type: "ERC20", options: { address, symbol, decimals, image } })
     },
@@ -72,7 +72,7 @@ const AssetActions = ({ denom, chain, children, isUnsupported }: PropsWithChildr
               <IconArrowRight size={16} />
               <span>Send</span>
             </Menu.Item>
-            <Menu.Item className={styles.item} onClick={bridge} disabled={isUnsupported}>
+            <Menu.Item className={styles.item} onClick={bridge} disabled={unsupported}>
               <IconSwap size={16} />
               <span>Bridge/Swap</span>
             </Menu.Item>
