@@ -29,7 +29,7 @@ import AnimatedHeight from "@/components/AnimatedHeight"
 import WidgetTooltip from "@/components/WidgetTooltip"
 import { formatDuration, formatFees } from "./data/format"
 import type { FormValues } from "./data/form"
-import { FormValuesSchema, useBridgeForm } from "./data/form"
+import { useBridgeForm } from "./data/form"
 import { useChainType, useSkipChain } from "./data/chains"
 import { useSkipAsset } from "./data/assets"
 import { useIsOpWithdrawable, useRouteErrorInfo, useRouteQuery } from "./data/simulate"
@@ -175,8 +175,7 @@ const BridgeFields = () => {
     if (!debouncedQuantity) return "Enter amount"
     if (!values.recipient) return "Enter recipient address"
     if (formState.errors.quantity) return formState.errors.quantity.message
-    const result = FormValuesSchema.safeParse(values)
-    if (!result.success) return `Invalid ${result.error.issues[0].path}`
+    if (!formState.isValid) return "Invalid values"
     if (!route) return "Route not found"
     if (feeErrorMessage) return feeErrorMessage
   }, [debouncedQuantity, feeErrorMessage, formState, route, values])
@@ -226,7 +225,7 @@ const BridgeFields = () => {
       <ChainAssetQuantityLayout
         selectButton={<SelectedChainAsset type="src" />}
         accountButton={srcChainType === "cosmos" && <BridgeAccount type="src" />}
-        quantityInput={<QuantityInput />}
+        quantityInput={<QuantityInput balance={srcBalance?.amount} decimals={srcAsset?.decimals} />}
         balanceButton={
           <BalanceButton
             onClick={() =>
