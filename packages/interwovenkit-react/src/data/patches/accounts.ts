@@ -1,6 +1,6 @@
-import type { Any } from "cosmjs-types/google/protobuf/any"
-import { PubKey as CosmosCryptoSecp256k1Pubkey } from "cosmjs-types/cosmos/crypto/secp256k1/keys"
-import { BaseAccount } from "cosmjs-types/cosmos/auth/v1beta1/auth"
+import type { Any } from "@interchainjs/cosmos-types"
+import { CosmosCryptoSecp256k1PubKey } from "@interchainjs/cosmos-types"
+import { BaseAccount } from "@interchainjs/cosmos-types"
 import { encodeSecp256k1Pubkey, type Pubkey } from "@cosmjs/amino"
 import { decodeOptionalPubkey } from "@cosmjs/proto-signing"
 import type { Account } from "@cosmjs/stargate"
@@ -8,7 +8,7 @@ import { accountFromAny } from "@cosmjs/stargate"
 
 function decodeOptionalPubkeyInitia(pubkey: Any | null | undefined): Pubkey | null {
   if (pubkey?.typeUrl === "/initia.crypto.v1beta1.ethsecp256k1.PubKey") {
-    const { key } = CosmosCryptoSecp256k1Pubkey.decode(pubkey.value)
+    const { key } = CosmosCryptoSecp256k1PubKey.decode(pubkey.value)
     return encodeSecp256k1Pubkey(key)
   }
 

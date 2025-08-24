@@ -1,5 +1,5 @@
-import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import type { Coin } from "@interchainjs/cosmos-types"
+import { TxRaw } from "@interchainjs/cosmos-types"
 import { encodeSecp256k1Pubkey } from "@cosmjs/amino"
 import type { EncodeObject } from "@cosmjs/proto-signing"
 import type { DeliverTxResponse, SigningStargateClient } from "@cosmjs/stargate"

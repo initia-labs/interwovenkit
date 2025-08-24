@@ -1,6 +1,6 @@
 import { has, head } from "ramda"
 import BigNumber from "bignumber.js"
-import { AuthInfo, Tx, TxBody } from "cosmjs-types/cosmos/tx/v1beta1/tx"
+import { AuthInfo, Tx, TxBody } from "@interchainjs/cosmos-types"
 import { toBase64 } from "@cosmjs/encoding"
 import { calculateFee, GasPrice, SigningStargateClient } from "@cosmjs/stargate"
 import { createElement, Fragment } from "react"

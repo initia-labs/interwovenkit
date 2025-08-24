@@ -1,8 +1,8 @@
 import type { Eip1193Provider } from "ethers"
 import { useAccount, useSignMessage } from "wagmi"
 import { BrowserProvider, ethers } from "ethers"
-import { SignMode } from "cosmjs-types/cosmos/tx/signing/v1beta1/signing"
-import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
+import { SignMode } from "@interchainjs/cosmos-types"
+import { TxRaw } from "@interchainjs/cosmos-types"
 import type {
   AccountData,
   Algo,
