@@ -1,5 +1,5 @@
-import type { StdSignature } from "@cosmjs/amino"
-import { toBase64 } from "@cosmjs/encoding"
+import type { StdSignature } from "@interchainjs/amino"
+import { toBase64 } from "@interchainjs/encoding"
 import { encodeEthSecp256k1Pubkey } from "./encoding"
 
 /**

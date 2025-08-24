@@ -1,7 +1,7 @@
 import type { Eip1193Provider } from "ethers"
 import { useAccount, useSignMessage } from "wagmi"
 import { BrowserProvider, ethers } from "ethers"
-import { SignMode } from "@interchainjs/cosmos-types"
+import { AuthInfo, SignMode } from "@interchainjs/cosmos-types"
 import { TxRaw } from "@interchainjs/cosmos-types"
 import type {
   AccountData,
@@ -10,19 +10,15 @@ import type {
   OfflineAminoSigner,
   StdFee,
   StdSignDoc,
-} from "@cosmjs/amino"
-import {
-  escapeCharacters,
-  makeSignDoc as makeSignDocAmino,
-  sortedJsonStringify,
-} from "@cosmjs/amino/build/signdoc"
-import { Secp256k1, Secp256k1Signature } from "@cosmjs/crypto"
-import { fromBase64, fromHex, toHex } from "@cosmjs/encoding"
-import { Int53 } from "@cosmjs/math"
-import type { EncodeObject, TxBodyEncodeObject } from "@cosmjs/proto-signing"
-import { makeAuthInfoBytes, Registry } from "@cosmjs/proto-signing"
-import { AminoTypes, SigningStargateClient } from "@cosmjs/stargate"
-import { Comet38Client, HttpClient } from "@cosmjs/tendermint-rpc"
+} from "@interchainjs/amino"
+import { makeSignDoc as makeSignDocAmino } from "@interchainjs/amino"
+import { Secp256k1, Secp256k1Signature } from "@interchainjs/crypto"
+import { fromBase64, fromHex, toHex } from "@interchainjs/encoding"
+import { Int53 } from "@interchainjs/math"
+import type { Any, Coin, EncodeObject, SignerInfo } from "@interchainjs/cosmos-types"
+import { Registry } from "@interchainjs/cosmos-types"
+import { AminoTypes, SigningStargateClient } from "@interchainjs/cosmos-types"
+import { Comet38Client, HttpClient } from "@interchainjs/cosmos"
 import { useMemo } from "react"
 import { aminoConverters, protoRegistry } from "@initia/amino-converter"
 import { useInitiaAddress } from "@/public/data/hooks"
@@ -33,6 +29,104 @@ import { encodeEthSecp256k1Signature } from "./patches/signature"
 import { LocalStorageKey } from "./constants"
 import { useConfig } from "./config"
 import { useFindChain } from "./chains"
+
+/**
+ * Takes a valid JSON document and performs the following escapings in string values:
+ *
+ * `&` -> `\u0026`
+ * `<` -> `\u003c`
+ * `>` -> `\u003e`
+ *
+ * Since those characters do not occur in other places of the JSON document, only
+ * string values are affected.
+ *
+ * If the input is invalid JSON, the behaviour is undefined.
+ */
+export function escapeCharacters(input: string): string {
+  // When we migrate to target es2021 or above, we can use replaceAll instead of global patterns.
+  // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replaceAll
+  const amp = /&/g
+  const lt = /</g
+  const gt = />/g
+  return input.replace(amp, "\\u0026").replace(lt, "\\u003c").replace(gt, "\\u003e")
+}
+
+/** Returns a JSON string with objects sorted by key */
+// eslint-disable-next-line @typescript-eslint/explicit-module-boundary-types
+export function sortedJsonStringify(obj: any): string {
+  return JSON.stringify(sortedObject(obj))
+}
+
+/**
+ * Create signer infos from the provided signers.
+ *
+ * This implementation does not support different signing modes for the different signers.
+ */
+function makeSignerInfos(
+  signers: ReadonlyArray<{ readonly pubkey: Any; readonly sequence: number | bigint }>,
+  signMode: SignMode,
+): SignerInfo[] {
+  return signers.map(
+    ({ pubkey, sequence }): SignerInfo => ({
+      publicKey: pubkey,
+      modeInfo: {
+        single: { mode: signMode },
+      },
+      sequence: BigInt(sequence),
+    }),
+  )
+}
+
+/**
+ * Creates and serializes an AuthInfo document.
+ *
+ * This implementation does not support different signing modes for the different signers.
+ */
+export function makeAuthInfoBytes(
+  signers: ReadonlyArray<{ readonly pubkey: Any; readonly sequence: bigint | number }>,
+  feeAmount: readonly Coin[],
+  gasLimit: number,
+  feeGranter: string | undefined,
+  feePayer: string | undefined,
+  signMode = SignMode.SIGN_MODE_DIRECT,
+): Uint8Array {
+  // Required arguments 4 and 5 were added in CosmJS 0.29. Use runtime checks to help our non-TS users.
+  assert(
+    feeGranter === undefined || typeof feeGranter === "string",
+    "feeGranter must be undefined or string",
+  )
+  assert(
+    feePayer === undefined || typeof feePayer === "string",
+    "feePayer must be undefined or string",
+  )
+
+  const authInfo = AuthInfo.fromPartial({
+    signerInfos: makeSignerInfos(signers, signMode),
+    fee: {
+      amount: [...feeAmount],
+      gasLimit: BigInt(gasLimit),
+      granter: feeGranter,
+      payer: feePayer,
+    },
+  })
+  return AuthInfo.encode(authInfo).finish()
+}
+
+function sortedObject(obj: any): any {
+  if (typeof obj !== "object" || obj === null) {
+    return obj
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(sortedObject)
+  }
+  const sortedKeys = Object.keys(obj).sort()
+  const result: Record<string, any> = {}
+  // NOTE: Use forEach instead of reduce for performance with large objects eg Wasm code
+  sortedKeys.forEach((key) => {
+    result[key] = sortedObject(obj[key])
+  })
+  return result
+}
 
 export const useRegistry = () => {
   const config = useConfig()
@@ -147,7 +241,7 @@ export function useSignWithEthSecp256k1() {
       messages: signed.msgs.map((msg) => aminoTypes.fromAmino(msg)),
       memo,
     }
-    const signedTxBodyEncodeObject: TxBodyEncodeObject = {
+    const signedTxBodyEncodeObject = {
       typeUrl: "/cosmos.tx.v1beta1.TxBody",
       value: signedTxBody,
     }

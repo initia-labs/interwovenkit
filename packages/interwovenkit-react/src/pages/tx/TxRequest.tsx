@@ -1,6 +1,6 @@
 import BigNumber from "bignumber.js"
 import { sentenceCase } from "change-case"
-import { calculateFee, GasPrice } from "@cosmjs/stargate"
+import { GasPrice } from "@cosmjs/stargate"
 import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { useInitiaAddress } from "@/public/data/hooks"
@@ -20,6 +20,21 @@ import TxSimulate from "./TxSimulate"
 import TxFee from "./TxFee"
 import TxMessage from "./TxMessage"
 import styles from "./TxRequest.module.css"
+import { Uint53 } from "@interchainjs/math"
+import { coins } from "@interchainjs/amino"
+import type { StdFee } from "@interchainjs/cosmos-types"
+
+export function calculateFee(gasLimit: number, gasPrice: GasPrice | string): StdFee {
+  const processedGasPrice = typeof gasPrice === "string" ? GasPrice.fromString(gasPrice) : gasPrice
+  const { denom, amount: gasPriceAmount } = processedGasPrice
+  // Note: Amount can exceed the safe integer range (https://github.com/cosmos/cosmjs/issues/1134),
+  // which we handle by converting from Decimal to string without going through number.
+  const amount = gasPriceAmount.multiply(new Uint53(gasLimit)).ceil().toString()
+  return {
+    amount: coins(amount, denom),
+    gas: gasLimit.toString(),
+  }
+}
 
 const TxRequest = () => {
   const { txRequest, resolve, reject } = useTxRequestHandler()
