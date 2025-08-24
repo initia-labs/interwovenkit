@@ -117,12 +117,6 @@ importers:
       '@initia/icons-react':
         specifier: ^1.0.0
         version: 1.0.0(react-native@0.81.0(@babel/core@7.28.3)(@react-native/metro-config@0.81.0(@babel/core@7.28.3)(bufferutil@4.0.9)(utf-8-validate@5.0.10))(@types/react@19.1.10)(bufferutil@4.0.9)(react@19.1.1)(utf-8-validate@5.0.10))(react@19.1.1)
-      '@initia/initia.proto':
-        specifier: ^1.0.3
-        version: 1.0.3(google-protobuf@3.21.4)
-      '@initia/opinit.proto':
-        specifier: ^1.0.2
-        version: 1.0.2(google-protobuf@3.21.4)
       '@initia/utils':
         specifier: 2.0.0-alpha.5
         version: 2.0.0-alpha.5(@cosmjs/encoding@0.36.0)(@mysten/bcs@1.7.0)(@noble/hashes@1.8.0)(bignumber.js@9.3.1)(viem@2.33.3(bufferutil@4.0.9)(typescript@5.9.2)(utf-8-validate@5.0.10)(zod@3.25.76))

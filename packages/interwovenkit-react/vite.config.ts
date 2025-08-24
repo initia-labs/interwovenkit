@@ -36,7 +36,7 @@ function appendJsExtension(): Plugin {
     name: "append-js-extension",
     apply: "build",
     renderChunk(code) {
-      const targetPackages = ["cosmjs-types", "@cosmjs/amino", "@initia/opinit.proto"]
+      const targetPackages = ["cosmjs-types", "@cosmjs/amino"]
 
       return targetPackages.reduce((currentCode, pkg) => {
         const regex = new RegExp(`from\\s+['"](${pkg}/[^'"]*?)['"]`, "g")

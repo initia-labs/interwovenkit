@@ -1,6 +1,5 @@
 import { fromBase64, toBase64 } from "@cosmjs/encoding"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { MsgFinalizeTokenWithdrawal } from "@initia/opinit.proto/opinit/ophost/v1/tx"
 import { IconCheckCircleFilled } from "@initia/icons-react"
 import { useInitiaAddress, useInterwovenKit } from "@/public/data/hooks"
 import { useLayer1 } from "@/data/chains"
@@ -40,7 +39,7 @@ const ClaimButton = () => {
         messages: [
           {
             typeUrl: "/opinit.ophost.v1.MsgFinalizeTokenWithdrawal",
-            value: MsgFinalizeTokenWithdrawal.fromPartial({
+            value: {
               sender: address,
               bridgeId: BigInt(bridge_id),
               outputIndex: BigInt(output_index),
@@ -52,7 +51,7 @@ const ClaimButton = () => {
               version: fromBase64(version),
               storageRoot: fromBase64(storage_root),
               lastBlockHash: fromBase64(last_block_hash),
-            }),
+            },
           },
         ],
         internal: true,

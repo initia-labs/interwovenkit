@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query"
 import { ErrorBoundary } from "react-error-boundary"
 import { useToggle } from "usehooks-ts"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
-import type { MsgExecute } from "@initia/initia.proto/initia/move/v1/tx"
 import { resolveBcsType } from "@initia/utils"
 import { STALE_TIMES } from "@/data/http"
 import { useChain } from "@/data/chains"
@@ -23,6 +22,15 @@ const moveQueryKeys = createQueryKeys("interwovenkit:move", {
     return [restUrl, moduleAddress, moduleName, functionName]
   },
 })
+
+interface MsgExecute {
+  sender: string
+  moduleAddress: string
+  moduleName: string
+  functionName: string
+  typeArgs: string[]
+  args: Uint8Array[]
+}
 
 interface Props {
   msg: MsgExecute
