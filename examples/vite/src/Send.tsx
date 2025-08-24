@@ -1,4 +1,3 @@
-import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
 import { useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { useMutation } from "@tanstack/react-query"
@@ -29,11 +28,11 @@ const Send = () => {
       const messages = [
         {
           typeUrl: "/cosmos.bank.v1beta1.MsgSend",
-          value: MsgSend.fromPartial({
+          value: {
             fromAddress: initiaAddress,
             toAddress: InitiaAddress(recipient).bech32,
             amount: [{ amount, denom }],
-          }),
+          },
         },
       ]
 
