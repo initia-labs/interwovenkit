@@ -1,6 +1,6 @@
 import BigNumber from "bignumber.js"
 import { ascend, descend, head, pick, prop, sortWith, zipObj } from "ramda"
-import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
+import type { Coin } from "@interchainjs/cosmos-types"
 import { fromBaseUnit } from "@initia/utils"
 import placeholder from "./placeholder"
 import { useConfig } from "./config"
