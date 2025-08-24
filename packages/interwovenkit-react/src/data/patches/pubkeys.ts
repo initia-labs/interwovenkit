@@ -1,5 +1,5 @@
-import { Any } from "cosmjs-types/google/protobuf/any"
-import { PubKey as CosmosCryptoSecp256k1Pubkey } from "cosmjs-types/cosmos/crypto/secp256k1/keys"
+import { Any } from "@interchainjs/cosmos-types"
+import { CosmosCryptoSecp256k1PubKey } from "@interchainjs/cosmos-types"
 import type { Pubkey } from "@cosmjs/amino"
 import { pubkeyType } from "@cosmjs/amino"
 import { fromBase64 } from "@cosmjs/encoding"
@@ -24,12 +24,12 @@ export const pubkeyTypeInitia = {
  */
 export function encodePubkeyInitia(pubkey: Pubkey): Any {
   if (isEthSecp256k1Pubkey(pubkey)) {
-    const pubkeyProto = CosmosCryptoSecp256k1Pubkey.fromPartial({
+    const pubkeyProto = CosmosCryptoSecp256k1PubKey.fromPartial({
       key: fromBase64(pubkey.value),
     })
     return Any.fromPartial({
       typeUrl: "/initia.crypto.v1beta1.ethsecp256k1.PubKey",
-      value: Uint8Array.from(CosmosCryptoSecp256k1Pubkey.encode(pubkeyProto).finish()),
+      value: Uint8Array.from(CosmosCryptoSecp256k1PubKey.encode(pubkeyProto).finish()),
     })
   }
 
