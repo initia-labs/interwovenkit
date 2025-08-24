@@ -50,7 +50,7 @@ const SlippageControl = ({ afterConfirm }: { afterConfirm: () => void }) => {
       return { type: "warning" as const, text: "Your transaction may be frontrun" }
     }
 
-    if (Number(value) < 0.5) {
+    if (Number(value) < 0.1) {
       return { type: "warning" as const, text: "Your transaction may fail" }
     }
 
