@@ -1,5 +1,4 @@
 import BigNumber from "bignumber.js"
-import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { useFormContext } from "react-hook-form"
@@ -54,11 +53,11 @@ export const SendFields = () => {
       const messages = [
         {
           typeUrl: "/cosmos.bank.v1beta1.MsgSend",
-          value: MsgSend.fromPartial({
+          value: {
             fromAddress: initiaAddress,
             toAddress: InitiaAddress(recipient).bech32,
             amount: [{ denom, amount: "1" }],
-          }),
+          },
         },
       ]
       return estimateGas({ messages, chainId })
@@ -76,11 +75,11 @@ export const SendFields = () => {
       const messages = [
         {
           typeUrl: "/cosmos.bank.v1beta1.MsgSend",
-          value: MsgSend.fromPartial({
+          value: {
             fromAddress: initiaAddress,
             toAddress: InitiaAddress(recipient).bech32,
             amount: [{ denom, amount }],
-          }),
+          },
         },
       ]
       return requestTxSync({
