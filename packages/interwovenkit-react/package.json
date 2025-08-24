@@ -63,8 +63,8 @@
     "react-intersection-observer": "^9.16.0",
     "react-merge-refs": "^3.0.2",
     "usehooks-ts": "^3.1.1",
-    "xss": "^1.0.15",
-    "zod": "^3.25.76"
+    "valibot": "^1.1.0",
+    "xss": "^1.0.15"
   },
   "devDependencies": {
     "@initia/initia-registry-types": "^1.0.8",
@@ -127,9 +127,9 @@
     "react-intersection-observer": ">=9.0.0",
     "react-merge-refs": ">=3.0.0",
     "usehooks-ts": ">=3.0.0",
+    "valibot": ">=1.0.0",
     "viem": ">=2.0.0",
     "wagmi": ">=2.0.0",
-    "xss": ">=1.0.0",
-    "zod": ">=3.0.0"
+    "xss": ">=1.0.0"
   }
 }

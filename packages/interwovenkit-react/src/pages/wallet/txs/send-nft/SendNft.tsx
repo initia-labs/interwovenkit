@@ -1,25 +1,25 @@
-import { z } from "zod"
+import * as v from "valibot"
 import { FormProvider, useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
+import { valibotResolver } from "@hookform/resolvers/valibot"
 import { useLocationState } from "@/lib/router"
 import { RecipientSchema } from "@/components/form/types"
 import Page from "@/components/Page"
 import type { NormalizedNft } from "../../tabs/nft/queries"
 import SendNftFields from "./SendNftFields"
 
-const FormValuesSchema = z.object({
-  dstChainId: z.string().nonempty(),
+const FormValuesSchema = v.object({
+  dstChainId: v.pipe(v.string(), v.nonEmpty()),
   recipient: RecipientSchema,
 })
 
-export type FormValues = z.infer<typeof FormValuesSchema>
+export type FormValues = v.InferOutput<typeof FormValuesSchema>
 
 const SendNft = () => {
   const { chain: srcChain } = useLocationState<NormalizedNft>()
 
   const form = useForm<FormValues>({
     defaultValues: { dstChainId: srcChain.chainId },
-    resolver: zodResolver(FormValuesSchema),
+    resolver: valibotResolver(FormValuesSchema),
   })
 
   return (

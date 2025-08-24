@@ -1,3 +1,4 @@
+import * as v from "valibot"
 import BigNumber from "bignumber.js"
 import { isAddress } from "ethers"
 import { sentenceCase } from "change-case"
@@ -175,8 +176,8 @@ const BridgeFields = () => {
     if (!debouncedQuantity) return "Enter amount"
     if (!values.recipient) return "Enter recipient address"
     if (formState.errors.quantity) return formState.errors.quantity.message
-    const result = FormValuesSchema.safeParse(values)
-    if (!result.success) return `Invalid ${result.error.issues[0].path}`
+    const result = v.safeParse(FormValuesSchema, values)
+    if (!result.success) return result.issues[0].message
     if (!route) return "Route not found"
     if (feeErrorMessage) return feeErrorMessage
   }, [debouncedQuantity, feeErrorMessage, formState, route, values])

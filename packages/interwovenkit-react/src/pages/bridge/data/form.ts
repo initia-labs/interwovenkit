@@ -1,4 +1,5 @@
-import { z } from "zod"
+import * as v from "valibot"
+import { BigNumber } from "bignumber.js"
 import { pickBy } from "ramda"
 import { useFormContext } from "react-hook-form"
 import { useLocationState } from "@/lib/router"
@@ -10,19 +11,23 @@ export function useIsTestnet() {
   return chain.network_type === "testnet"
 }
 
-export const FormValuesSchema = z.object({
-  srcChainId: z.string().nonempty(),
-  srcDenom: z.string().nonempty(),
-  dstChainId: z.string().nonempty(),
-  dstDenom: z.string().nonempty(),
-  quantity: z.string().nonempty("Amount is required"),
-  sender: z.string().nonempty(),
-  cosmosWalletName: z.string().optional(),
-  recipient: z.string().nonempty("Recipient address is required"),
-  slippagePercent: z.string().nonempty(),
+export const FormValuesSchema = v.object({
+  srcChainId: v.pipe(v.string(), v.nonEmpty()),
+  srcDenom: v.pipe(v.string(), v.nonEmpty()),
+  dstChainId: v.pipe(v.string(), v.nonEmpty()),
+  dstDenom: v.pipe(v.string(), v.nonEmpty()),
+  quantity: v.pipe(
+    v.string(),
+    v.nonEmpty("Enter amount"),
+    v.check((quantity) => !BigNumber(quantity).isZero(), "Enter amount"),
+  ),
+  sender: v.pipe(v.string(), v.nonEmpty()),
+  cosmosWalletName: v.optional(v.string()),
+  recipient: v.pipe(v.string(), v.nonEmpty("Recipient address is required")),
+  slippagePercent: v.pipe(v.string(), v.nonEmpty()),
 })
 
-export type FormValues = z.infer<typeof FormValuesSchema>
+export type FormValues = v.InferOutput<typeof FormValuesSchema>
 
 export function useBridgeForm() {
   return useFormContext<FormValues>()

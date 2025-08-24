@@ -1,10 +1,11 @@
-import { z } from "zod"
+import * as v from "valibot"
 import { InitiaAddress } from "@initia/utils"
 
-export const RecipientSchema = z
-  .string()
-  .nonempty("Recipient address is required")
-  .refine((address) => InitiaAddress.validate(address), "Invalid address")
+export const RecipientSchema = v.pipe(
+  v.string(),
+  v.nonEmpty("Recipient address is required"),
+  v.check((address) => InitiaAddress.validate(address), "Invalid address"),
+)
 
 /** Normalize the chain information from both Initia registry and Skip API */
 
