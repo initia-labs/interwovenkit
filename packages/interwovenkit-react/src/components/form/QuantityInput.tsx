@@ -13,12 +13,12 @@ const QuantityInputReadOnly = ({ children }: { children: string }) => {
   )
 }
 
-interface QuantityInputProps {
+interface Props {
   balance?: string
   decimals?: number
 }
 
-const QuantityInput = ({ balance, decimals }: QuantityInputProps) => {
+const QuantityInput = ({ balance, decimals }: Props) => {
   const { control } = useFormContext()
 
   const rules = {
