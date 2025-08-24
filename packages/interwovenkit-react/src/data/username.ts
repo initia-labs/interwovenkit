@@ -1,6 +1,6 @@
 import ky from "ky"
 import { bcs } from "@mysten/bcs"
-import { toBase64 } from "@cosmjs/encoding"
+import { toBase64 } from "@interchainjs/encoding"
 import { InitiaAddress } from "@initia/utils"
 
 interface Params {

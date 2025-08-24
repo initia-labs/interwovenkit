@@ -1,5 +1,5 @@
 import { isAddress } from "ethers"
-import { fromBech32 } from "@cosmjs/encoding"
+import { fromBech32 } from "@interchainjs/encoding"
 import { InitiaAddress } from "@initia/utils"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useFindSkipChain, useFindChainType } from "./chains"

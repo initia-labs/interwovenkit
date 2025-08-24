@@ -1,4 +1,4 @@
-import { fromBase64, toBase64 } from "@cosmjs/encoding"
+import { fromBase64, toBase64 } from "@interchainjs/encoding"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { IconCheckCircleFilled } from "@initia/icons-react"
 import { useInitiaAddress, useInterwovenKit } from "@/public/data/hooks"

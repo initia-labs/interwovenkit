@@ -1,5 +1,5 @@
 import { isPast } from "date-fns"
-import { toBase64 } from "@cosmjs/encoding"
+import { toBase64 } from "@interchainjs/encoding"
 import type { PropsWithChildren } from "react"
 import { useEffect } from "react"
 import { computeWithdrawalHash, useWithdrawalClaimed } from "./data"

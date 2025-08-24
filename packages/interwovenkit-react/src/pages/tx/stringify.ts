@@ -1,4 +1,4 @@
-import { toBase64 } from "@cosmjs/encoding"
+import { toBase64 } from "@interchainjs/encoding"
 
 export function stringifyValue(content: unknown): string {
   switch (typeof content) {
