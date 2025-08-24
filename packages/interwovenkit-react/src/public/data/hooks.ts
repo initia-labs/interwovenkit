@@ -9,6 +9,8 @@ import { accountQueryKeys, useUsernameClient } from "@/data/account"
 import type { FormValues } from "@/pages/bridge/data/form"
 import { STALE_TIMES } from "@/data/http"
 
+export { usePortfolio } from "@/data/portfolio"
+
 export function useInitiaAddress() {
   const hexAddress = useHexAddress()
   if (!hexAddress) return ""
