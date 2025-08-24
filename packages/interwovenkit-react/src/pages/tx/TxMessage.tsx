@@ -1,4 +1,4 @@
-import type { EncodeObject } from "@cosmjs/proto-signing"
+import type { EncodeObject } from "@interchainjs/cosmos-types"
 import { stringifyValue } from "./stringify"
 import MsgExecuteArgs from "./MsgExecuteArgs"
 import styles from "./TxMessage.module.css"
