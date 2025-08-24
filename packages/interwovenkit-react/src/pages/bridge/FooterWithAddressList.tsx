@@ -1,5 +1,5 @@
-import { encodeSecp256k1Pubkey, pubkeyToAddress } from "@cosmjs/amino"
-import { fromBech32, toBech32 } from "@cosmjs/encoding"
+import { encodeSecp256k1Pubkey, pubkeyToAddress } from "@interchainjs/amino"
+import { fromBech32, toBech32 } from "@interchainjs/encoding"
 import type { ReactNode } from "react"
 import { useState, useEffect } from "react"
 import { InitiaAddress } from "@initia/utils"

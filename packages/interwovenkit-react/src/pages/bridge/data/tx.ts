@@ -1,7 +1,7 @@
 import { has, head } from "ramda"
 import BigNumber from "bignumber.js"
 import { AuthInfo, Tx, TxBody } from "@interchainjs/cosmos-types"
-import { toBase64 } from "@cosmjs/encoding"
+import { toBase64 } from "@interchainjs/encoding"
 import { calculateFee, GasPrice, SigningStargateClient } from "@cosmjs/stargate"
 import { createElement, Fragment } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"

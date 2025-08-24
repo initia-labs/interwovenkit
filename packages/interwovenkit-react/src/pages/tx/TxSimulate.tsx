@@ -1,7 +1,7 @@
 import BigNumber from "bignumber.js"
 import { partition } from "ramda"
 import type { Coin } from "@interchainjs/cosmos-types"
-import type { EncodeObject } from "@cosmjs/proto-signing"
+import type { EncodeObject } from "@interchainjs/cosmos-types"
 import type { ReactNode } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"

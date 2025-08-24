@@ -1,5 +1,5 @@
 import type { Coin } from "@interchainjs/cosmos-types"
-import type { Event } from "@cosmjs/stargate"
+import type { Event } from "@interchainjs/cosmos-types"
 import { createUserDerivedObjectAddress } from "@initia/utils"
 
 interface MoveEventData {

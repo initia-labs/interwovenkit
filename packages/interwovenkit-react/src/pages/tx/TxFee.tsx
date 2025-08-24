@@ -1,6 +1,6 @@
 import { Select } from "@base-ui-components/react/select"
 import BigNumber from "bignumber.js"
-import type { StdFee } from "@cosmjs/amino"
+import type { StdFee } from "@interchainjs/amino"
 import { IconChevronDown } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
 import { usePortal } from "@/public/app/PortalContext"
