@@ -1,4 +1,4 @@
-import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
+import type { Coin } from "@interchainjs/cosmos-types"
 import type { Event } from "@cosmjs/stargate"
 import { createUserDerivedObjectAddress } from "@initia/utils"
 

@@ -1,4 +1,4 @@
-import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
+import type { Coin } from "@interchainjs/cosmos-types"
 import BigNumber from "bignumber.js"
 
 function createAvailableFeeOptions({
