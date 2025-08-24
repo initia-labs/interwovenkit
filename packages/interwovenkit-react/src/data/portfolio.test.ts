@@ -1,4 +1,4 @@
-import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
+import type { Coin } from "@interchainjs/cosmos-types"
 import type { NormalizedChain, PriceItem } from "./chains"
 import type { NormalizedAsset } from "./assets"
 import type { PortfolioAssetGroup, PortfolioAssetItem } from "./portfolio"
