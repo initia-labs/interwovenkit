@@ -1,5 +1,5 @@
-import type { SinglePubkey } from "@cosmjs/amino"
-import { toBase64 } from "@cosmjs/encoding"
+import type { SinglePubkey } from "@interchainjs/amino"
+import { toBase64 } from "@interchainjs/encoding"
 import { pubkeyTypeInitia } from "./pubkeys"
 
 export interface EthSecp256k1Pubkey extends SinglePubkey {
