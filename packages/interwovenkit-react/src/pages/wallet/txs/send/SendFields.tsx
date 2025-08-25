@@ -109,7 +109,7 @@ export const SendFields = () => {
                 <AssetOnChainButton asset={asset} chain={chain} />
               </ModalTrigger>
             }
-            quantityInput={<QuantityInput />}
+            quantityInput={<QuantityInput balance={balance} decimals={decimals} />}
             balanceButton={
               <BalanceButton
                 onClick={() =>
@@ -132,7 +132,13 @@ export const SendFields = () => {
 
           <div>
             <label htmlFor="memo">Memo (optional)</label>
-            <input {...register("memo")} id="memo" autoComplete="off" />
+            <input
+              {...register("memo", {
+                validate: (value) => !value || new Blob([value]).size <= 256 || "Memo is too long",
+              })}
+              id="memo"
+              autoComplete="off"
+            />
             <InputHelp level="error">{formState.errors.memo?.message}</InputHelp>
           </div>
 

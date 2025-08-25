@@ -1,4 +1,3 @@
-import { z } from "zod"
 import { pickBy } from "ramda"
 import { useFormContext } from "react-hook-form"
 import { useLocationState } from "@/lib/router"
@@ -10,19 +9,17 @@ export function useIsTestnet() {
   return chain.network_type === "testnet"
 }
 
-export const FormValuesSchema = z.object({
-  srcChainId: z.string().nonempty(),
-  srcDenom: z.string().nonempty(),
-  dstChainId: z.string().nonempty(),
-  dstDenom: z.string().nonempty(),
-  quantity: z.string().nonempty("Amount is required"),
-  sender: z.string().nonempty(),
-  cosmosWalletName: z.string().optional(),
-  recipient: z.string().nonempty("Recipient address is required"),
-  slippagePercent: z.string().nonempty(),
-})
-
-export type FormValues = z.infer<typeof FormValuesSchema>
+export interface FormValues {
+  srcChainId: string
+  srcDenom: string
+  dstChainId: string
+  dstDenom: string
+  quantity: string
+  sender: string
+  cosmosWalletName?: string
+  recipient: string
+  slippagePercent: string
+}
 
 export function useBridgeForm() {
   return useFormContext<FormValues>()

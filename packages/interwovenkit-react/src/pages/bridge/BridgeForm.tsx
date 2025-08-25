@@ -1,16 +1,10 @@
-import { z } from "zod"
-import { pathOr } from "ramda"
 import { useEffect, useMemo } from "react"
-import { useQueryClient } from "@tanstack/react-query"
 import { FormProvider, useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import type { BalancesResponseJson } from "@skip-go/client"
 import { IconBack } from "@initia/icons-react"
 import { Link, useHistory, useNavigate } from "@/lib/router"
 import { useAddress } from "@/public/data/hooks"
 import { LocalStorageKey } from "@/data/constants"
 import { useDrawer } from "@/data/ui"
-import { quantitySuperRefine } from "@/data/form"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import Page from "@/components/Page"
 import Button from "@/components/Button"
@@ -18,11 +12,9 @@ import Status from "@/components/Status"
 import Footer from "@/components/Footer"
 import Indicator from "@/components/Indicator"
 import type { FormValues } from "./data/form"
-import { FormValuesSchema, useDefaultValues } from "./data/form"
+import { useDefaultValues } from "./data/form"
 import { useGetDefaultAddress, useValidateAddress } from "./data/address"
-import type { RouterAsset } from "./data/assets"
 import { useSkipAssets } from "./data/assets"
-import { skipQueryKeys } from "./data/skip"
 import { useClaimableModal, useClaimableReminders } from "./op/reminder"
 import BridgeFields from "./BridgeFields"
 import styles from "./BridgeForm.module.css"
@@ -36,33 +28,9 @@ const BridgeForm = () => {
   const address = useAddress()
 
   const defaultValues = useDefaultValues()
-  const validateRecipientAddress = useValidateAddress()
-
-  const queryClient = useQueryClient()
   const form = useForm<FormValues>({
     mode: "onChange",
     defaultValues,
-    resolver: zodResolver(
-      FormValuesSchema.superRefine(({ srcChainId, srcDenom, quantity, sender }, ctx) => {
-        const balances = queryClient.getQueryData<BalancesResponseJson>(
-          skipQueryKeys.balances(srcChainId, sender).queryKey,
-        )
-        const balance = pathOr("0", ["chains", srcChainId, "denoms", srcDenom, "amount"], balances)
-        const { decimals } = queryClient.getQueryData<RouterAsset>(
-          skipQueryKeys.asset(srcChainId, srcDenom).queryKey,
-        ) ?? { decimals: 0 }
-        quantitySuperRefine({ quantity, balance, decimals }, ctx)
-      }).superRefine(({ dstChainId, recipient }, ctx) => {
-        if (!validateRecipientAddress(recipient, dstChainId)) {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Invalid address",
-            path: ["recipient"],
-          })
-          return
-        }
-      }),
-    ),
   })
 
   const { watch, setValue } = form

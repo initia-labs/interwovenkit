@@ -2,7 +2,7 @@ import clsx from "clsx"
 import type { Ref } from "react"
 import { useState, useEffect } from "react"
 import { mergeRefs } from "react-merge-refs"
-import { useFormContext } from "react-hook-form"
+import { Controller, useFormContext } from "react-hook-form"
 import { useQuery } from "@tanstack/react-query"
 import type { ChainTypeJson } from "@skip-go/client"
 import { IconCloseCircleFilled } from "@initia/icons-react"
@@ -29,7 +29,7 @@ const RecipientInput = ({ mode = "onChange", myAddress, ...props }: Props) => {
   const { validate = InitiaAddress.validate, chainType = "initia", onApply, ref } = props
   const autoFocusRef = useAutoFocus()
 
-  const { getValues, setValue, formState } = useFormContext<{ recipient: string }>()
+  const { control, getValues, setValue, formState } = useFormContext<{ recipient: string }>()
   const initialValue = getValues("recipient")
   const [inputValue, setInputValue] = useState(initialValue)
   const client = useUsernameClient()
@@ -110,15 +110,33 @@ const RecipientInput = ({ mode = "onChange", myAddress, ...props }: Props) => {
       </label>
 
       <div className={styles.wrapper}>
-        <input
-          id="recipient"
-          className={clsx(styles.input, "monospace")}
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value.trim())}
-          placeholder={chainType === "initia" ? "Address or username" : "Enter address"}
-          autoComplete="off"
-          data-has-value={inputValue ? "true" : undefined}
-          ref={mode === "onSubmit" ? mergeRefs([ref, autoFocusRef]) : ref}
+        {/*
+          Controller is used here primarily for validation rule registration.
+          The field prop is intentionally not used because:
+          1. Input displays the user's original entry (username or address)
+          2. Form stores the resolved address after username lookup
+          3. This separation allows showing "username.init" while storing "init1..."
+          The actual form value is updated via setValue() after username resolution.
+        */}
+        <Controller
+          name="recipient"
+          control={control}
+          rules={{
+            required: "Recipient address is required",
+            validate: (address: string) => validate(address) || "Invalid address",
+          }}
+          render={() => (
+            <input
+              id="recipient"
+              className={clsx(styles.input, "monospace")}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value.trim())}
+              placeholder={chainType === "initia" ? "Address or username" : "Enter address"}
+              autoComplete="off"
+              data-has-value={inputValue ? "true" : undefined}
+              ref={mode === "onSubmit" ? mergeRefs([ref, autoFocusRef]) : ref}
+            />
+          )}
         />
 
         {!!inputValue && (
