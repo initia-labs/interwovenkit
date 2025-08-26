@@ -1,7 +1,7 @@
 import clsx from "clsx"
 import { useState, useMemo, useEffect, useRef, useCallback } from "react"
 import { Popover } from "@base-ui-components/react/popover"
-import { IconChevronDown, IconCheckCircleFilled } from "@initia/icons-react"
+import { IconChevronDown, IconCheck } from "@initia/icons-react"
 import type { NormalizedChain } from "@/data/chains"
 import { useInitiaRegistry } from "@/data/chains"
 import { usePortal } from "@/public/app/PortalContext"
@@ -209,13 +209,13 @@ const ChainSelect = ({ value, onChange, chainIds, fullWidth }: Props) => {
                   >
                     <div className={styles.itemContent}>
                       {typeof logoUrl === "string" ? (
-                        <Image src={logoUrl} width={18} height={18} logo />
+                        <Image src={logoUrl} width={16} height={16} logo />
                       ) : (
-                        logoUrl(18)
+                        logoUrl(16)
                       )}
                       <span>{name}</span>
                     </div>
-                    {value === chainId && <IconCheckCircleFilled size={14} />}
+                    {value === chainId && <IconCheck size={16} />}
                   </div>
                 ))
               )}
