@@ -2,6 +2,7 @@ import { HTTPError } from "ky"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { OperationJson, RouteResponseJson } from "@skip-go/client"
 import { toBaseUnit } from "@initia/utils"
+import { useAnalyticsTrack } from "@/data/analytics"
 import { STALE_TIMES } from "@/data/http"
 import { useInitiaRegistry, useLayer1 } from "@/data/chains"
 import { skipQueryKeys, useSkip } from "./skip"
@@ -24,13 +25,14 @@ export function useRouteQuery(
   const { watch } = useBridgeForm()
   const values = watch()
   const skip = useSkip()
+  const track = useAnalyticsTrack()
 
   const debouncedValues = { ...values, quantity: debouncedQuantity }
 
   const queryClient = useQueryClient()
   return useQuery({
     queryKey: skipQueryKeys.route(debouncedValues, opWithdrawal?.isOpWithdraw).queryKey,
-    queryFn: () => {
+    queryFn: async () => {
       // This query may produce specific errors that need separate handling.
       // Therefore, we do not use try-catch or normalizeError here.
 
@@ -49,7 +51,20 @@ export function useRouteQuery(
         is_op_withdraw: opWithdrawal?.isOpWithdraw,
       }
 
-      return skip.post("v2/fungible/route", { json: params }).json<RouterRouteResponseJson>()
+      const response = await skip
+        .post("v2/fungible/route", { json: params })
+        .json<RouterRouteResponseJson>()
+
+      const trackParams = {
+        quantity: debouncedValues.quantity,
+        srcChainId: debouncedValues.srcChainId,
+        srcDenom: debouncedValues.srcDenom,
+        dstChainId: debouncedValues.dstChainId,
+        dstDenom: debouncedValues.dstDenom,
+      }
+      track("Bridge Simulation Success", trackParams)
+
+      return response
     },
     enabled: !!Number(debouncedValues.quantity) && !opWithdrawal?.disabled,
     staleTime: STALE_TIMES.MINUTE,
