@@ -16,6 +16,7 @@ import { MAINNET } from "../data/constants"
 import PortalProvider from "./PortalProvider"
 import NotificationProvider from "./NotificationProvider"
 import ModalProvider from "./ModalProvider"
+import Analytics from "./Analytics"
 import Drawer from "./Drawer"
 import Routes from "./Routes"
 
@@ -71,6 +72,7 @@ const InterwovenKitProvider = ({ children, ...config }: PropsWithChildren<Partia
                   {children}
 
                   <QueryClientProvider client={queryClient}>
+                    <Analytics />
                     <AsyncBoundary suspenseFallback={null} errorBoundaryProps={{ fallback: null }}>
                       <Prefetch />
                     </AsyncBoundary>

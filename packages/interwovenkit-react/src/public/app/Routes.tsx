@@ -1,5 +1,6 @@
 import { useEffect } from "react"
 import { useNavigate, usePath } from "@/lib/router"
+import { useAnalyticsTrack } from "@/data/analytics"
 import { useDrawer } from "@/data/ui"
 import Connect from "@/pages/connect/Connect"
 import Home from "@/pages/wallet/tabs/Home"
@@ -36,6 +37,12 @@ const Routes = () => {
     // Run only on address changes, preventing navigation from triggering on path updates.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address])
+
+  // Track page views when path changes
+  const track = useAnalyticsTrack()
+  useEffect(() => {
+    track("Page View")
+  }, [path, track])
 
   if (path === "/connect") {
     if (address) return null

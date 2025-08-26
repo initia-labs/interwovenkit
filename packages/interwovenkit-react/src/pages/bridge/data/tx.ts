@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { StatusResponseJson, TrackResponseJson, TxJson } from "@skip-go/client"
 import { aminoConverters, aminoTypes } from "@initia/amino-converter"
 import { InitiaAddress, toBaseUnit } from "@initia/utils"
+import { useAnalyticsTrack } from "@/data/analytics"
 import { Link, useLocationState, useNavigate } from "@/lib/router"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useNotification } from "@/public/app/NotificationContext"
@@ -57,6 +58,7 @@ export function useBridgeTx(tx: TxJson) {
   const navigate = useNavigate()
   const { showNotification, updateNotification, hideNotification } = useNotification()
   const { addHistoryItem } = useBridgeHistoryList()
+  const track = useAnalyticsTrack()
 
   const { route, values } = useBridgePreviewState()
   const { srcChainId, sender, recipient, cosmosWalletName } = values
@@ -187,6 +189,7 @@ export function useBridgeTx(tx: TxJson) {
             ),
             autoHide: true,
           })
+          track("Bridge Transaction Success", { values, txHash })
           if (isOpWithdraw) {
             addReminder(tx, {
               ...tx,
@@ -203,6 +206,7 @@ export function useBridgeTx(tx: TxJson) {
             title: "Transaction failed",
             description: error.message,
           })
+          track("Bridge Transaction Failed", { values, error: error.message })
         })
         .finally(() => {
           queryClient.invalidateQueries({

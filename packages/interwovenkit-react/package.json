@@ -28,6 +28,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@amplitude/analytics-browser": "^2.23.3",
     "@base-ui-components/react": "1.0.0-beta.2",
     "@cosmjs/amino": "^0.36.0",
     "@cosmjs/crypto": "^0.36.0",
@@ -87,6 +88,7 @@
     "wagmi": "^2.16.3"
   },
   "peerDependencies": {
+    "@amplitude/analytics-browser": ">=2.0.0",
     "@base-ui-components/react": "1.0.0-beta.2",
     "@cosmjs/amino": ">=0.36.0",
     "@cosmjs/crypto": ">=0.36.0",

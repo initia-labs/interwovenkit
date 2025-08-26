@@ -15,6 +15,7 @@ export interface Config {
 
   theme: "light" | "dark"
   container?: HTMLElement
+  disableAnalytics?: boolean
 }
 
 export const ConfigContext = createContext<Config>(null!)
