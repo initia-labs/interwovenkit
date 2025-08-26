@@ -1,7 +1,6 @@
-import ky from "ky"
 import { bcs } from "@mysten/bcs"
 import { toBase64 } from "@cosmjs/encoding"
-import { InitiaAddress } from "@initia/utils"
+import { createMoveClient, InitiaAddress } from "@initia/utils"
 
 interface Params {
   restUrl: string
@@ -11,32 +10,11 @@ interface Params {
 const moduleName = "usernames"
 
 export function createUsernameClient({ restUrl, moduleAddress }: Params) {
-  const restClient = ky.create({ prefixUrl: restUrl })
-
-  interface ViewFunctionParams {
-    moduleAddress: string
-    moduleName: string
-    functionName: string
-    typeArgs: string[]
-    args: string[]
-  }
-
-  async function view<T>(params: ViewFunctionParams) {
-    const { moduleAddress, moduleName, functionName, typeArgs, args } = params
-    const path = `initia/move/v1/accounts/${moduleAddress}/modules/${moduleName}/view_functions/${functionName}`
-    const payload = { type_args: typeArgs, args }
-    const { data, message } = await restClient
-      .post(path, { json: payload })
-      .json<{ data: string; message?: string }>()
-    if (message) throw new Error(message)
-    // The REST API responds with JSON embedded in a string. Parse it before
-    // returning to keep the external API clean.
-    return JSON.parse(data) as T
-  }
+  const { viewFunction } = createMoveClient(restUrl)
 
   async function getUsername(address: string) {
     if (!InitiaAddress.validate(address)) return null
-    const name = await view<string>({
+    const name = await viewFunction<string>({
       moduleAddress,
       moduleName,
       functionName: "get_name_from_address",
@@ -53,7 +31,7 @@ export function createUsernameClient({ restUrl, moduleAddress }: Params) {
 
   async function getAddress(username: string) {
     if (!validateUsername(username)) return null
-    const address = await view<string>({
+    const address = await viewFunction<string>({
       moduleAddress,
       moduleName,
       functionName: "get_address_from_name",
