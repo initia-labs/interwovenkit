@@ -1,6 +1,6 @@
 import ky from "ky"
 import { last } from "ramda"
-import { concatBytes, toBytes } from "@noble/hashes/utils"
+import { concatBytes, utf8ToBytes } from "@noble/hashes/utils"
 import { sha3_256 } from "@noble/hashes/sha3"
 import { useMemo } from "react"
 import { useSuspenseInfiniteQuery, useSuspenseQuery } from "@tanstack/react-query"
@@ -218,9 +218,9 @@ export function computeWithdrawalHash(withdrawalTx: WithdrawalTx) {
   const buffer = concatBytes(
     bridgeIdBuffer,
     sequenceBuffer,
-    sha3(toBytes(from)),
-    sha3(toBytes(to)),
-    sha3(toBytes(amount.denom)),
+    sha3(utf8ToBytes(from)),
+    sha3(utf8ToBytes(to)),
+    sha3(utf8ToBytes(amount.denom)),
     amountBuffer,
   )
   return sha3(sha3(buffer))
