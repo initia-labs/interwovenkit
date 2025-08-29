@@ -48,7 +48,7 @@ const Prefetch = () => {
   return null
 }
 
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 0 } } })
 
 const InterwovenKitProvider = ({ children, ...config }: PropsWithChildren<Partial<Config>>) => {
   useEffect(() => {
