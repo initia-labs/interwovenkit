@@ -22,7 +22,7 @@ const SelectChainAsset = ({ type, afterSelect }: Props) => {
   const connectedAddress = useAddress()
   const chains = useSkipChains()
 
-  const { watch, setValue, resetField } = useBridgeForm()
+  const { watch, setValue } = useBridgeForm()
   const initialAddress = watch(addressKey)
   const initialChainId = watch(chainIdKey)
   const initialDenom = watch(denomKey)
@@ -44,7 +44,8 @@ const SelectChainAsset = ({ type, afterSelect }: Props) => {
 
     setValue(chainIdKey, chainId)
     setValue(denomKey, denom)
-    resetField("quantity")
+    // Use setValue instead of resetField to prevent localStorage values from appearing unexpectedly
+    setValue("quantity", "", { shouldTouch: false, shouldDirty: false })
     afterSelect()
   }
 

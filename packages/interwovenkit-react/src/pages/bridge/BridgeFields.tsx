@@ -51,7 +51,7 @@ const BridgeFields = () => {
   )
 
   // form
-  const { watch, setValue, handleSubmit, resetField, formState } = useBridgeForm()
+  const { watch, setValue, handleSubmit, formState } = useBridgeForm()
   const values = watch()
   const { srcChainId, srcDenom, dstChainId, dstDenom, quantity, sender, slippagePercent } = values
 
@@ -109,7 +109,8 @@ const BridgeFields = () => {
     setValue("srcDenom", dstDenom)
     setValue("dstChainId", srcChainId)
     setValue("dstDenom", srcDenom)
-    resetField("quantity")
+    // Use setValue instead of resetField to prevent localStorage values from appearing unexpectedly
+    setValue("quantity", "", { shouldTouch: false, shouldDirty: false })
   }
 
   // submit

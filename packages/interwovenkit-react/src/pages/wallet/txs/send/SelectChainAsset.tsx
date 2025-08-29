@@ -8,7 +8,7 @@ import type { FormValues } from "./Send"
 import SelectAsset from "./SelectAsset"
 
 const SelectChainAsset = ({ afterSelect }: { afterSelect: () => void }) => {
-  const { watch, setValue, resetField } = useFormContext<FormValues>()
+  const { watch, setValue } = useFormContext<FormValues>()
   const { chainId: currentChainId, denom: currentDenom } = watch()
   const { chainId: defaultChainId } = watch()
   const [chainId, setChainId] = useState(defaultChainId)
@@ -24,7 +24,8 @@ const SelectChainAsset = ({ afterSelect }: { afterSelect: () => void }) => {
 
     setValue("chainId", chainId)
     setValue("denom", denom)
-    resetField("quantity")
+    // Use setValue instead of resetField to prevent localStorage values from appearing unexpectedly
+    setValue("quantity", "", { shouldTouch: false, shouldDirty: false })
     afterSelect()
   }
 
