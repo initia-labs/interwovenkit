@@ -77,6 +77,7 @@ export function useBridgeTx(tx: TxJson) {
   const findChain = useFindChain()
 
   const { addReminder } = useClaimableReminders()
+  const skip = useSkip()
   return useMutation({
     mutationFn: async () => {
       try {
@@ -154,7 +155,8 @@ export function useBridgeTx(tx: TxJson) {
         throw new Error(await normalizeError(error))
       }
     },
-    onSuccess: ({ txHash, wait }) => {
+    onSuccess: async ({ txHash, wait }) => {
+      // Clean up and navigate
       localStorage.removeItem(LocalStorageKey.BRIDGE_QUANTITY)
       navigate(-1)
       showNotification({
@@ -162,73 +164,70 @@ export function useBridgeTx(tx: TxJson) {
         title: "Transaction is pending...",
       })
 
-      wait
-        .then(() => {
-          const tx = { chainId: srcChainId, txHash }
-          const isOpWithdraw = getBridgeType(route) === BridgeType.OP_WITHDRAW
-          addHistoryItem(tx, {
-            ...tx,
-            timestamp: Date.now(),
-            route,
-            values,
-            state: isOpWithdraw ? "success" : undefined,
-          })
-          updateNotification({
-            type: "info",
-            title: "Transaction submitted",
-            description: createElement(
-              Fragment,
-              null,
-              "Check ",
-              createElement(
-                Link,
-                { to: "/bridge/history", onClick: hideNotification },
-                "the activity page",
-              ),
-              " for transaction status",
-            ),
+      try {
+        // Wait for transaction confirmation
+        await wait
+
+        // Determine if this is an OP withdrawal
+        const isOpWithdraw = getBridgeType(route) === BridgeType.OP_WITHDRAW
+
+        // Track the transaction after it's confirmed (skip for OP withdrawals as they don't need tracking)
+        const trackingResult = isOpWithdraw
+          ? { success: true, error: null }
+          : await trackTransaction(skip, txHash, srcChainId)
+
+        if (!trackingResult.success && trackingResult.error) {
+          const errorMessage =
+            trackingResult.error instanceof Error
+              ? trackingResult.error.message
+              : String(trackingResult.error)
+          showNotification({
+            type: "error",
+            title: "Transaction tracking failed",
+            description: `Failed to track transaction: ${errorMessage}. The transaction may still be processing.`,
             autoHide: true,
           })
-          const trackParams = {
-            quantity: values.quantity,
-            srcChainId: values.srcChainId,
-            srcDenom: values.srcDenom,
-            dstChainId: values.dstChainId,
-            dstDenom: values.dstDenom,
-            txHash,
-          }
-          track("Bridge Transaction Success", trackParams)
-          if (isOpWithdraw) {
-            addReminder(tx, {
-              ...tx,
-              recipient: InitiaAddress(recipient).bech32,
-              claimableAt: Date.now() + route.estimated_route_duration_seconds * 1000,
-              amount: route.amount_out,
-              denom: route.dest_asset_denom,
-            })
-          }
+        }
+
+        const tracked = trackingResult.success
+
+        // Create and add history item
+        const context: TxSuccessContext = { txHash, srcChainId, route, values, recipient }
+        const historyResult = createHistoryItem(context, tracked)
+        addHistoryItem(historyResult.tx, historyResult.details)
+
+        // Update notification
+        updateNotification(createSuccessNotification(hideNotification))
+
+        // Track analytics
+        const analyticsParams = createAnalyticsParams(values, txHash)
+        track("Bridge Transaction Success", analyticsParams)
+
+        // Add reminder for OP withdrawals
+        if (isOpWithdraw) {
+          const reminder = createReminder(historyResult.tx, route, recipient)
+          addReminder(historyResult.tx, reminder)
+        }
+      } catch (error) {
+        // Handle transaction failure
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        updateNotification({
+          type: "error",
+          title: "Transaction failed",
+          description: errorMessage,
         })
-        .catch((error) => {
-          updateNotification({
-            type: "error",
-            title: "Transaction failed",
-            description: error.message,
-          })
-          const trackParams = {
-            quantity: values.quantity,
-            srcChainId: values.srcChainId,
-            srcDenom: values.srcDenom,
-            dstChainId: values.dstChainId,
-            dstDenom: values.dstDenom,
-            error: error.message,
-          }
-          track("Bridge Transaction Failed", trackParams)
+
+        const analyticsParams = {
+          ...createAnalyticsParams(values, txHash),
+          error: errorMessage,
+        }
+        track("Bridge Transaction Failed", analyticsParams)
+      } finally {
+        // Always invalidate balance queries
+        queryClient.invalidateQueries({
+          queryKey: skipQueryKeys.balances(srcChainId, sender).queryKey,
         })
-        .finally(() => {
-          queryClient.invalidateQueries({
-            queryKey: skipQueryKeys.balances(srcChainId, sender).queryKey,
-          })
-        })
+      }
     },
     onError: async (error) => {
       const formattedError =
@@ -300,6 +299,108 @@ export function useSignOpHook() {
   })
 }
 
+interface TxSuccessContext {
+  txHash: string
+  srcChainId: string
+  route: RouterRouteResponseJson
+  values: FormValues
+  recipient: string
+}
+
+function createSuccessNotification(hideNotification: () => void) {
+  return {
+    type: "info" as const,
+    title: "Transaction submitted",
+    description: createElement(
+      Fragment,
+      null,
+      "Check ",
+      createElement(
+        Link,
+        { to: "/bridge/history", onClick: hideNotification },
+        "the activity page",
+      ),
+      " for transaction status",
+    ),
+    autoHide: true,
+  }
+}
+
+function createAnalyticsParams(values: FormValues, txHash: string) {
+  return {
+    quantity: values.quantity,
+    srcChainId: values.srcChainId,
+    srcDenom: values.srcDenom,
+    dstChainId: values.dstChainId,
+    dstDenom: values.dstDenom,
+    txHash,
+  }
+}
+
+function createHistoryItem(context: TxSuccessContext, tracked: boolean) {
+  const { txHash, srcChainId, route, values } = context
+  const tx = { chainId: srcChainId, txHash }
+  const isOpWithdraw = getBridgeType(route) === BridgeType.OP_WITHDRAW
+
+  return {
+    tx,
+    details: {
+      ...tx,
+      timestamp: Date.now(),
+      route,
+      values,
+      state: isOpWithdraw ? ("success" as const) : undefined,
+      tracked,
+    },
+    isOpWithdraw,
+  }
+}
+
+function createReminder(
+  tx: { chainId: string; txHash: string },
+  route: RouterRouteResponseJson,
+  recipient: string,
+) {
+  return {
+    ...tx,
+    recipient: InitiaAddress(recipient).bech32,
+    claimableAt: Date.now() + route.estimated_route_duration_seconds * 1000,
+    amount: route.amount_out,
+    denom: route.dest_asset_denom,
+  }
+}
+
+/**
+ * Track a transaction immediately after submission.
+ * Retries more frequently (1 second intervals) compared to useTrackTxQuery (5 second intervals)
+ * because this is called right after transaction submission when the Skip API is most likely
+ * to accept the tracking request successfully.
+ */
+async function trackTransaction(skip: ReturnType<typeof useSkip>, txHash: string, chainId: string) {
+  const maxRetries = 30
+  const retryDelay = 1000 // 1 second - more frequent retries for immediate tracking
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      await skip.post("v2/tx/track", { json: { tx_hash: txHash, chain_id: chainId } }).json()
+      return { success: true as const, error: null }
+    } catch (error) {
+      if (attempt === maxRetries) {
+        const normalizedError = await normalizeError(error)
+        return { success: false as const, error: normalizedError }
+      }
+      // Wait before retrying
+      await new Promise((resolve) => setTimeout(resolve, retryDelay))
+    }
+  }
+  return { success: false as const, error: new Error("Maximum retries exceeded") }
+}
+
+/**
+ * React Query hook for tracking transactions from the Bridge History page.
+ * Used as a fallback when initial tracking fails.
+ * Retries less frequently (5 second intervals) since this is a background operation.
+ */
 export function useTrackTxQuery(details: HistoryDetails) {
   const { chainId, txHash, tracked } = details
   const skip = useSkip()
@@ -316,7 +417,7 @@ export function useTrackTxQuery(details: HistoryDetails) {
     },
     select: ({ tx_hash }) => tx_hash,
     retry: 6,
-    retryDelay: 5000,
+    retryDelay: 5000, // 5 seconds - less frequent retries for background tracking
     staleTime: STALE_TIMES.INFINITY,
     enabled: !tracked,
   })
