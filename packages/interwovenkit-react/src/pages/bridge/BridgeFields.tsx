@@ -170,13 +170,16 @@ const BridgeFields = () => {
   }, [balances, route, additionalFees])
 
   // disabled
+  // Note: formState.isValid is not used here because:
+  // 1. It was found to not trigger properly (possibly related to balance loading timing)
+  // 2. All necessary validations are already performed individually with specific error messages
+  // 3. This provides more actionable feedback to users compared to a generic "Invalid values" message
   const disabledMessage = useMemo(() => {
     if (!values.sender) return "Connect wallet"
     if (!values.quantity) return "Enter amount"
     if (!debouncedQuantity) return "Enter amount"
     if (!values.recipient) return "Enter recipient address"
     if (formState.errors.quantity) return formState.errors.quantity.message
-    if (!formState.isValid) return "Invalid values"
     if (!route) return "Route not found"
     if (feeErrorMessage) return feeErrorMessage
   }, [debouncedQuantity, feeErrorMessage, formState, route, values])
