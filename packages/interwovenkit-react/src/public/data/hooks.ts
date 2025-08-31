@@ -2,7 +2,7 @@ import { useAccount } from "wagmi"
 import { useQuery } from "@tanstack/react-query"
 import { InitiaAddress } from "@initia/utils"
 import { useTx } from "@/data/tx"
-import { useDrawer } from "@/data/ui"
+import { useDisconnect, useDrawer } from "@/data/ui"
 import { useDefaultChain } from "@/data/chains"
 import { useOfflineSigner } from "@/data/signer"
 import { accountQueryKeys, useUsernameClient } from "@/data/account"
@@ -50,6 +50,7 @@ export function useInterwovenKit() {
   const hexAddress = useHexAddress()
   const { data: username } = useUsernameQuery()
   const offlineSigner = useOfflineSigner()
+  const disconnect = useDisconnect()
 
   const { isDrawerOpen: isOpen, openDrawer } = useDrawer()
 
@@ -77,6 +78,7 @@ export function useInterwovenKit() {
     openConnect,
     openWallet,
     openBridge,
+    disconnect,
     ...tx,
   }
 }
