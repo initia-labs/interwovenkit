@@ -7,13 +7,13 @@ import ChainSelect from "../../components/ChainSelect"
 import Version from "../../components/Version"
 import { assetsSearchAtom, assetsChainAtom } from "../state"
 import AssetGroup from "./AssetGroup"
-import UnsupportedAssets from "./UnsupportedAssets"
+import UnlistedAssets from "./UnlistedAssets"
 import styles from "./Assets.module.css"
 
 const Assets = () => {
   const [searchQuery, setSearchQuery] = useAtom(assetsSearchAtom)
   const [selectedChain, setSelectedChain] = useAtom(assetsChainAtom)
-  const { assetGroups, unsupportedAssets, chainsByValue, isLoading } = usePortfolio()
+  const { assetGroups, unlistedAssets, chainsByValue, isLoading } = usePortfolio()
   const chainIds = chainsByValue.map(({ chainId }) => chainId)
 
   // Filter assets based on selected chain and search query
@@ -45,11 +45,11 @@ const Assets = () => {
     return chainFiltered
   }, [assetGroups, searchQuery, selectedChain])
 
-  // Filter unsupported assets based on selected chain and search query
-  const filteredUnsupportedAssets = useMemo(() => {
+  // Filter unlisted assets based on selected chain and search query
+  const filteredUnlistedAssets = useMemo(() => {
     const searchFiltered = !searchQuery
-      ? unsupportedAssets
-      : unsupportedAssets.filter(
+      ? unlistedAssets
+      : unlistedAssets.filter(
           ({ denom, address }) =>
             denom.toLowerCase().includes(searchQuery.toLowerCase()) ||
             address?.toLowerCase().includes(searchQuery.toLowerCase()),
@@ -60,7 +60,7 @@ const Assets = () => {
       : searchFiltered.filter(({ chain }) => chain.chainId === selectedChain)
 
     return chainFiltered
-  }, [unsupportedAssets, searchQuery, selectedChain])
+  }, [unlistedAssets, searchQuery, selectedChain])
 
   // Show loading only on initial load when no data exists yet
   // This prevents flickering when refetching with existing data
@@ -70,7 +70,7 @@ const Assets = () => {
 
   if (
     !filteredAssets.length &&
-    !filteredUnsupportedAssets.length &&
+    !filteredUnlistedAssets.length &&
     !searchQuery &&
     !selectedChain &&
     !isLoading
@@ -92,7 +92,7 @@ const Assets = () => {
         </HomeContainer.Controls>
 
         <div>
-          {filteredAssets.length === 0 && filteredUnsupportedAssets.length === 0 ? (
+          {filteredAssets.length === 0 && filteredUnlistedAssets.length === 0 ? (
             <Status>No assets found</Status>
           ) : (
             <>
@@ -101,7 +101,7 @@ const Assets = () => {
                   <AssetGroup assetGroup={assetGroup} key={assetGroup.symbol} />
                 ))}
               </div>
-              <UnsupportedAssets unsupportedAssets={filteredUnsupportedAssets} />
+              <UnlistedAssets unlistedAssets={filteredUnlistedAssets} />
             </>
           )}
         </div>

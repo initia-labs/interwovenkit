@@ -16,7 +16,7 @@ interface Props {
 }
 
 const AssetActions = ({ asset, children }: PropsWithChildren<Props>) => {
-  const { denom, decimals, symbol, logoUrl, unsupported, address, chain } = asset
+  const { denom, decimals, symbol, logoUrl, unlisted, address, chain } = asset
   const { chainId } = chain
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
@@ -72,7 +72,7 @@ const AssetActions = ({ asset, children }: PropsWithChildren<Props>) => {
               <IconArrowRight size={16} />
               <span>Send</span>
             </Menu.Item>
-            <Menu.Item className={styles.item} onClick={bridge} disabled={unsupported}>
+            <Menu.Item className={styles.item} onClick={bridge} disabled={unlisted}>
               <IconSwap size={16} />
               <span>Bridge/Swap</span>
             </Menu.Item>

@@ -67,7 +67,7 @@ const AssetGroup = ({ assetGroup }: Props) => {
       </div>
       <div className={styles.valueColumn}>
         <div className={styles.amount}>
-          {formatNumber(totalQuantity, { dp: assets[0].unsupported ? 0 : 6 })}
+          {formatNumber(totalQuantity, { dp: assets[0].unlisted ? 0 : 6 })}
         </div>
         {totalValue > 0 && <div className={styles.value}>{formatValue(totalValue)}</div>}
       </div>

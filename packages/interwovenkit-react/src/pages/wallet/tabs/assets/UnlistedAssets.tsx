@@ -5,13 +5,13 @@ import { IconChevronDown } from "@initia/icons-react"
 import type { PortfolioAssetItem } from "@/data/portfolio"
 import { useScrollableRef } from "../ScrollableContext"
 import AssetGroup from "./AssetGroup"
-import styles from "./UnsupportedAssets.module.css"
+import styles from "./UnlistedAssets.module.css"
 
-interface UnsupportedAssetsProps {
-  unsupportedAssets: PortfolioAssetItem[]
+interface UnlistedAssetsProps {
+  unlistedAssets: PortfolioAssetItem[]
 }
 
-const UnsupportedAssets = ({ unsupportedAssets }: UnsupportedAssetsProps) => {
+const UnlistedAssets = ({ unlistedAssets }: UnlistedAssetsProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const scrollableRef = useScrollableRef()
 
@@ -24,7 +24,7 @@ const UnsupportedAssets = ({ unsupportedAssets }: UnsupportedAssetsProps) => {
       const height = contentRef.current.scrollHeight
       setContentHeight(height)
     }
-  }, [unsupportedAssets])
+  }, [unlistedAssets])
 
   // Scroll to bottom when opened
   useEffect(() => {
@@ -42,7 +42,7 @@ const UnsupportedAssets = ({ unsupportedAssets }: UnsupportedAssetsProps) => {
     config: { tension: 500, friction: 30, clamp: true },
   })
 
-  if (unsupportedAssets.length === 0) {
+  if (unlistedAssets.length === 0) {
     return null
   }
 
@@ -50,7 +50,7 @@ const UnsupportedAssets = ({ unsupportedAssets }: UnsupportedAssetsProps) => {
     <Collapsible.Root open={isOpen} onOpenChange={setIsOpen} className={styles.collapsible}>
       <Collapsible.Trigger className={styles.trigger}>
         <div className={styles.divider} />
-        <span className={styles.label}>Unsupported assets ({unsupportedAssets.length})</span>
+        <span className={styles.label}>Unlisted assets ({unlistedAssets.length})</span>
         <IconChevronDown
           className={styles.chevron}
           size={12}
@@ -62,7 +62,7 @@ const UnsupportedAssets = ({ unsupportedAssets }: UnsupportedAssetsProps) => {
       <Collapsible.Content forceMount asChild>
         <animated.div className={styles.content} style={animationStyles}>
           <div className={styles.list} ref={contentRef}>
-            {unsupportedAssets.map((assetItem) => (
+            {unlistedAssets.map((assetItem) => (
               <AssetGroup
                 assetGroup={{ ...assetItem, assets: [assetItem] }}
                 key={assetItem.denom}
@@ -75,4 +75,4 @@ const UnsupportedAssets = ({ unsupportedAssets }: UnsupportedAssetsProps) => {
   )
 }
 
-export default UnsupportedAssets
+export default UnlistedAssets

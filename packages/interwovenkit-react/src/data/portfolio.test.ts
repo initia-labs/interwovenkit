@@ -147,8 +147,8 @@ describe("createPortfolio", () => {
     })
   })
 
-  it("should separate unsupported assets correctly", () => {
-    const balancesWithUnsupported: Record<string, Coin[] | undefined> = {
+  it("should separate unlisted assets correctly", () => {
+    const balancesWithUnlisted: Record<string, Coin[] | undefined> = {
       "interwoven-1": [
         { denom: "uinit", amount: String(1000 * 1e6) },
         { denom: "unknown", amount: String(999 * 1e6) },
@@ -164,15 +164,15 @@ describe("createPortfolio", () => {
       ],
     }
 
-    const { assetGroups, unsupportedAssets, totalValue } = createPortfolio(
+    const { assetGroups, unlistedAssets, totalValue } = createPortfolio(
       mockChains,
-      balancesWithUnsupported,
+      balancesWithUnlisted,
       mockAssets,
       mockPrices,
     )
 
     expect(assetGroups).toHaveLength(3)
-    expect(unsupportedAssets).toHaveLength(3)
+    expect(unlistedAssets).toHaveLength(3)
     expect(totalValue).toBe(157500) // Only supported assets count
   })
 })
