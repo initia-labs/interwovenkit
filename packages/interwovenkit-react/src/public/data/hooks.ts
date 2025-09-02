@@ -68,12 +68,15 @@ export function useInterwovenKit() {
 
   const tx = useTx()
 
+  const isConnected = !!address
+
   return {
     address,
     initiaAddress,
     hexAddress,
     username,
     offlineSigner,
+    isConnected,
     isOpen,
     openConnect,
     openWallet,
