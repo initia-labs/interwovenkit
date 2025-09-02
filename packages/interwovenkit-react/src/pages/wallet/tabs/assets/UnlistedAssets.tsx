@@ -12,7 +12,7 @@ interface UnlistedAssetsProps {
 }
 
 const UnlistedAssets = ({ unlistedAssets }: UnlistedAssetsProps) => {
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(true)
   const scrollableRef = useScrollableRef()
 
   // Animation for collapsible content using measureRef for auto height
@@ -26,16 +26,18 @@ const UnlistedAssets = ({ unlistedAssets }: UnlistedAssetsProps) => {
     }
   }, [unlistedAssets])
 
-  // Scroll to bottom when opened
-  useEffect(() => {
-    if (!isOpen || !scrollableRef?.current) return
-    const container = scrollableRef.current
-    container.scrollTo({ top: container.scrollHeight, behavior: "auto" })
-    const id = window.setTimeout(() => {
-      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" })
-    }, 150)
-    return () => window.clearTimeout(id)
-  }, [isOpen, scrollableRef])
+  const handleOpenChange = (open: boolean) => {
+    if (open && !isOpen && scrollableRef?.current) {
+      // Scroll to bottom when reopening
+      const container = scrollableRef.current
+      container.scrollTo({ top: container.scrollHeight, behavior: "auto" })
+      window.setTimeout(() => {
+        container.scrollTo({ top: container.scrollHeight, behavior: "smooth" })
+      }, 150)
+    }
+    setIsOpen(open)
+  }
+
   const animationStyles = useSpring({
     height: isOpen ? contentHeight : 0,
     opacity: isOpen ? 1 : 0,
@@ -47,7 +49,7 @@ const UnlistedAssets = ({ unlistedAssets }: UnlistedAssetsProps) => {
   }
 
   return (
-    <Collapsible.Root open={isOpen} onOpenChange={setIsOpen} className={styles.collapsible}>
+    <Collapsible.Root open={isOpen} onOpenChange={handleOpenChange} className={styles.collapsible}>
       <Collapsible.Trigger className={styles.trigger}>
         <div className={styles.divider} />
         <span className={styles.label}>Unlisted assets ({unlistedAssets.length})</span>
