@@ -150,7 +150,7 @@ export function useBridgeTx(tx: TxJson) {
           return { txHash: response.hash, wait: response.wait() }
         }
 
-        throw new Error("Unsupported chain type")
+        throw new Error("Unlisted chain type")
       } catch (error) {
         throw new Error(await normalizeError(error))
       }

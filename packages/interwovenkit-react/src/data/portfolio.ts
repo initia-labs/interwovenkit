@@ -26,7 +26,7 @@ export interface PortfolioAssetItem extends PortfolioAssetGroupInfo {
   price?: number
   value?: number
   address?: string
-  unsupported?: boolean
+  unlisted?: boolean
   chain: PortfolioChainInfo
 }
 
@@ -92,17 +92,17 @@ export function sortAssets(assetItems: PortfolioAssetItem[]) {
 }
 
 /**
- * Sorts unsupported assets with deterministic rules:
+ * Sorts unlisted assets with deterministic rules:
  * 1. Initia first
  * 2. Alphabetically by chain name
  * 3. Alphabetically by denom
  */
-export function sortUnsupportedAssets(unsupportedAssets: PortfolioAssetItem[]) {
+export function sortUnlistedAssets(unlistedAssets: PortfolioAssetItem[]) {
   return sortWith<PortfolioAssetItem>([
     descend(({ chain }) => chain.name === INITIA_CHAIN_NAME),
     ascend(({ chain }) => chain.name),
     ascend(({ denom }) => denom),
-  ])(unsupportedAssets)
+  ])(unlistedAssets)
 }
 
 /**
@@ -153,7 +153,7 @@ export function createPortfolio(
         price,
         value,
         address: asset?.address,
-        unsupported: !asset,
+        unlisted: !asset,
         chain: toChainInfo(chain),
       })
     }
@@ -177,7 +177,7 @@ export function createPortfolio(
 
   for (const items of Object.values(assetItemsByChain)) {
     for (const item of items) {
-      if (!item.unsupported) {
+      if (!item.unlisted) {
         const { symbol } = item
         const existing = assetGroupsMap.get(symbol) ?? []
         assetGroupsMap.set(symbol, [...existing, item])
@@ -194,13 +194,13 @@ export function createPortfolio(
     assetGroups.push({ symbol, logoUrl: representativeAsset.logoUrl, assets: sortedAssets })
   }
 
-  // unsupported assets
-  const unsupportedAssets: PortfolioAssetItem[] = []
+  // unlisted assets
+  const unlistedAssets: PortfolioAssetItem[] = []
 
   for (const items of Object.values(assetItemsByChain)) {
     for (const item of items) {
-      if (item.unsupported) {
-        unsupportedAssets.push(item)
+      if (item.unlisted) {
+        unlistedAssets.push(item)
       }
     }
   }
@@ -208,7 +208,7 @@ export function createPortfolio(
   return {
     chainsByValue: sortChainItems(Array.from(chainItemsMap.values()), defaultChainId),
     assetGroups: sortAssetGroups(assetGroups),
-    unsupportedAssets: sortUnsupportedAssets(unsupportedAssets),
+    unlistedAssets: sortUnlistedAssets(unlistedAssets),
     totalValue: assetGroups.reduce((sum, group) => sum + calculateTotalValue(group), 0),
   }
 }

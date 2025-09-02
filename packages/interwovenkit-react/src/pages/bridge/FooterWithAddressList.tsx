@@ -99,7 +99,7 @@ const FooterWithAddressList = ({ children }: Props) => {
           return pubkeyToAddress(encodeSecp256k1Pubkey(pubkey), chain.bech32_prefix)
         }
         default:
-          throw new Error("Unsupported chain type")
+          throw new Error("Unlisted chain type")
       }
     })
 
