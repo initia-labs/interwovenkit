@@ -14,7 +14,7 @@ const Assets = () => {
   const [searchQuery, setSearchQuery] = useAtom(assetsSearchAtom)
   const [selectedChain, setSelectedChain] = useAtom(assetsChainAtom)
   const { assetGroups, unlistedAssets, chainsByValue, isLoading } = usePortfolio()
-  const chainIds = chainsByValue.map(({ chainId }) => chainId)
+  const chainIds = chainsByValue.filter(({ value }) => value).map(({ chainId }) => chainId)
 
   // Filter assets based on selected chain and search query
   const filteredAssets = useMemo(() => {
