@@ -12,6 +12,8 @@ export class MoveError extends Error {
   moduleAddress: string
   moduleName: string
   errorCode: string
+  errorCodeHex: string
+  isFromRegistry: boolean
 
   constructor(
     message: string,
@@ -19,6 +21,8 @@ export class MoveError extends Error {
     moduleAddress: string,
     moduleName: string,
     errorCode: string,
+    errorCodeHex: string,
+    isFromRegistry: boolean,
   ) {
     super(message)
     this.name = "MoveError"
@@ -26,6 +30,8 @@ export class MoveError extends Error {
     this.moduleAddress = moduleAddress
     this.moduleName = moduleName
     this.errorCode = errorCode
+    this.errorCodeHex = errorCodeHex
+    this.isFromRegistry = isFromRegistry
   }
 }
 
@@ -78,8 +84,18 @@ function createMoveError(
   moduleAddress: string,
   moduleName: string,
   errorCode: string,
+  errorCodeHex: string,
+  isFromRegistry: boolean,
 ): MoveError {
-  return new MoveError(message, originalError, moduleAddress, moduleName, errorCode)
+  return new MoveError(
+    message,
+    originalError,
+    moduleAddress,
+    moduleName,
+    errorCode,
+    errorCodeHex,
+    isFromRegistry,
+  )
 }
 
 export async function formatMoveError(
@@ -103,9 +119,19 @@ export async function formatMoveError(
   const errorCodeHex = `0x${parseInt(parsed.errorCode, 10).toString(16)}`
   const defaultMessage = `Failed with code ${errorCodeHex} in module ${parsed.moduleName} at ${parsed.moduleAddress}`
 
-  const message = errorRegistry?.[parsed.moduleName]?.[parsed.errorCode] || defaultMessage
+  const registryMessage = errorRegistry?.[parsed.moduleName]?.[parsed.errorCode]
+  const message = registryMessage || defaultMessage
+  const isFromRegistry = !!registryMessage
 
-  return createMoveError(message, error, parsed.moduleAddress, parsed.moduleName, parsed.errorCode)
+  return createMoveError(
+    message,
+    error,
+    parsed.moduleAddress,
+    parsed.moduleName,
+    parsed.errorCode,
+    errorCodeHex,
+    isFromRegistry,
+  )
 }
 
 export function clearErrorCache() {
