@@ -10,7 +10,6 @@ import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useModal } from "@/public/app/ModalContext"
 import { useConfig } from "./config"
-import { normalizeError } from "./http"
 import { formatMoveError } from "./errors"
 import { useFindChain } from "./chains"
 import {
@@ -76,7 +75,7 @@ export function useTx() {
       const client = await createSigningStargateClient(chainId)
       return await client.simulate(address, messages, memo)
     } catch (error) {
-      throw new Error(await normalizeError(error))
+      throw await formatMoveError(error as Error, findChain(chainId), registryUrl)
     }
   }
 

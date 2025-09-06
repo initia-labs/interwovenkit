@@ -15,3 +15,6 @@ export { injectStyles } from "./public/portal"
 
 // <InterwovenKit />
 export { default as InterwovenKit } from "./public/app/InterwovenKit"
+
+// MoveError
+export { MoveError } from "./data/errors"
