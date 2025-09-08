@@ -6,6 +6,7 @@ import { useState } from "react"
 import { useReadLocalStorage } from "usehooks-ts"
 import { useMutation } from "@tanstack/react-query"
 import { IconExternalLink } from "@initia/icons-react"
+import { initiaPrivyWalletOptions } from "@/public/data/connectors"
 import { normalizeError } from "@/data/http"
 import Scrollable from "@/components/Scrollable"
 import Image from "@/components/Image"
@@ -63,7 +64,7 @@ const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
                     <Loader size={16} />
                   ) : recentConnectorId === id ? (
                     <span className={styles.recent}>Recent</span>
-                  ) : connector.name === "Google" ? null : (
+                  ) : connector.id === initiaPrivyWalletOptions.id ? null : (
                     <span className={styles.installed}>Installed</span>
                   )}
                 </button>
