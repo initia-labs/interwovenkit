@@ -13,7 +13,7 @@ export function useGetDefaultAddress() {
     const chainType = findChainType(chain)
     switch (chainType) {
       case "initia":
-        // FIXME: If the field is a recipient address and the rollup is based on MiniEVM,
+        // FIXME: If the field is a recipient address and the chain is based on MiniEVM,
         // it might be desirable to auto-fill the hex address.
         // However, since this address is also used as the sender, it's safer to use initiaAddress for now.
         return initiaAddress

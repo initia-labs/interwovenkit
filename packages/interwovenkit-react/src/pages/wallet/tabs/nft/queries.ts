@@ -52,12 +52,12 @@ export function aggregateNfts(
   })
 }
 
-// Hook to fetch and aggregate NFT data from all rollups
+// Hook to fetch and aggregate NFT data from all chains
 export const useAllNfts = () => {
   const address = useInitiaAddress()
   const chains = useInitiaRegistry()
 
-  // Fetch NFTs from all rollups in parallel
+  // Fetch NFTs from all chains in parallel
   const queries = useQueries({
     queries: chains.map((chain) => ({
       queryKey: nftQueryKeys.nfts(chain.indexerUrl, address).queryKey,
