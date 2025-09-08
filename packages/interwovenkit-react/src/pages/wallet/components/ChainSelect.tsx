@@ -177,7 +177,7 @@ const ChainSelect = ({ value, onChange, chainIds, fullWidth }: Props) => {
               }}
               onClear={() => setSearchQuery("")}
               onKeyDown={handleSearchKeyDown}
-              placeholder="Search appchain"
+              placeholder="Search appchains"
               rootClassName={styles.search}
               ref={useAutoFocus()}
             />
