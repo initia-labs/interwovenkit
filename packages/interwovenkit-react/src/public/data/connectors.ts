@@ -2,8 +2,8 @@ import { toPrivyWallet, toPrivyWalletConnector } from "@privy-io/cross-app-conne
 
 export const initiaPrivyWalletOptions = {
   id: "cmbq1ozyc006al70lx4uciz0q",
-  name: "Google",
-  iconUrl: "https://assets.initia.xyz/images/wallets/Google.webp",
+  name: "Socials & Passkeys",
+  iconUrl: "https://assets.initia.xyz/images/wallets/Privy.webp",
   iconBackground: "#ffffff",
 }
 
