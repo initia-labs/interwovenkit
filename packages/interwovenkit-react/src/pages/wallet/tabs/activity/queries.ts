@@ -82,12 +82,12 @@ export function aggregateActivities(
   )
 }
 
-// Hook to fetch and aggregate activity data from all rollups
+// Hook to fetch and aggregate activity data from all chains
 export const useAllActivities = () => {
   const chains = useInitiaRegistry()
   const createTxsQuery = useCreateTxsQuery()
 
-  // Fetch transactions from all rollups in parallel
+  // Fetch transactions from all chains in parallel
   // Each query fetches the most recent transactions for the user's address
   const queries = useQueries({
     queries: chains.map((chain) => createTxsQuery(chain)),

@@ -33,7 +33,7 @@ const ChainSelect = ({ value, onChange, chainIds, fullWidth }: Props) => {
     .map((chainId) => allChains.find((chain) => chain.chainId === chainId))
     .filter(Boolean) as NormalizedChain[]
 
-  const renderAllRollupsLogo = (size: number) => {
+  const renderAllChainsLogo = (size: number) => {
     return (
       <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 14 14">
         <path
@@ -49,11 +49,11 @@ const ChainSelect = ({ value, onChange, chainIds, fullWidth }: Props) => {
   }
 
   const allChainsOption = useMemo(
-    () => ({ chainId: "", name: "All rollups", logoUrl: renderAllRollupsLogo }),
+    () => ({ chainId: "", name: "All", logoUrl: renderAllChainsLogo }),
     [],
   )
 
-  // Build options list with "All rollups" option and apply search filtering
+  // Build options list with "All" option and apply search filtering
   // Search matches against both chain name and chain ID
   const options = useMemo(() => {
     const chainOptions = [allChainsOption, ...chains]
@@ -66,7 +66,7 @@ const ChainSelect = ({ value, onChange, chainIds, fullWidth }: Props) => {
     )
   }, [chains, searchQuery, allChainsOption])
 
-  // Determine currently selected chain, defaulting to "All rollups" if not found
+  // Determine currently selected chain, defaulting to "All" if not found
   const selectedChain = chains.find((chain) => chain.chainId === value) || allChainsOption
 
   // Get the offset from the portal css variable
@@ -177,14 +177,14 @@ const ChainSelect = ({ value, onChange, chainIds, fullWidth }: Props) => {
               }}
               onClear={() => setSearchQuery("")}
               onKeyDown={handleSearchKeyDown}
-              placeholder="Search rollups"
+              placeholder="Search appchains"
               rootClassName={styles.search}
               ref={useAutoFocus()}
             />
 
             <div className={styles.viewport} role="listbox">
               {options.length === 0 ? (
-                <Status>No rollups found</Status>
+                <Status>No appchains found</Status>
               ) : (
                 options.map(({ chainId, name, logoUrl }, index) => (
                   <div
