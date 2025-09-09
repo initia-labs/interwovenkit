@@ -3,7 +3,6 @@ import QRCodeStyling from "qr-code-styling"
 import { useEffect, useRef } from "react"
 import { IconCopy } from "@initia/icons-react"
 import { truncate } from "@initia/utils"
-import WidgetTooltip from "@/components/WidgetTooltip"
 import CopyButton from "@/components/CopyButton"
 import { useInterwovenKit } from "../data/hooks"
 import { usePortalCssVariable } from "./PortalContext"
@@ -47,9 +46,7 @@ const AddressQr = () => {
     <div className={styles.root}>
       <div ref={ref} style={{ width: 200, height: 200 }} />
 
-      <WidgetTooltip label={`Derived from ${truncate(hexAddress)}`}>
-        <span className={styles.address}>{initiaAddress}</span>
-      </WidgetTooltip>
+      <span className={styles.address}>{initiaAddress}</span>
 
       <CopyButton value={initiaAddress}>
         {({ copy, copied }) => (
@@ -59,6 +56,19 @@ const AddressQr = () => {
               <span className={styles.labelCopy}>Copy address</span>
               <span className={styles.labelCopied}>Copied!</span>
             </div>
+          </button>
+        )}
+      </CopyButton>
+
+      <CopyButton value={hexAddress}>
+        {({ copy, copied }) => (
+          <button className={clsx(styles.derived, { [styles.copied]: copied })} onClick={copy}>
+            <span className={styles.derivedLabel}>Derived from</span>
+            <span className={styles.derivedAddress}>
+              <span className={styles.hexAddress}>{truncate(hexAddress)}</span>
+              <IconCopy size={12} className={styles.derivedCopy} />
+              {copied && <span className={styles.copiedText}>Copied!</span>}
+            </span>
           </button>
         )}
       </CopyButton>
