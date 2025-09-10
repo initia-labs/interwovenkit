@@ -1,7 +1,6 @@
 import { useEffect, useMemo } from "react"
 import { FormProvider, useForm } from "react-hook-form"
-import { IconBack } from "@initia/icons-react"
-import { Link, useHistory, useNavigate } from "@/lib/router"
+import { useHistory, useNavigate } from "@/lib/router"
 import { useAddress } from "@/public/data/hooks"
 import { LocalStorageKey } from "@/data/constants"
 import { useDrawer } from "@/data/ui"
@@ -17,7 +16,6 @@ import { useGetDefaultAddress, useValidateAddress } from "./data/address"
 import { useSkipAssets } from "./data/assets"
 import { useClaimableModal, useClaimableReminders } from "./op/reminder"
 import BridgeFields from "./BridgeFields"
-import styles from "./BridgeForm.module.css"
 
 const BridgeForm = () => {
   useClaimableModal()
@@ -104,15 +102,8 @@ const BridgeForm = () => {
 
   return (
     <Page
-      title={isBridge ? "" : "Bridge/Swap"}
-      backButton={
-        isBridge ? (
-          <Link to="/" className={styles.backButton} shouldReset>
-            <IconBack size={12} />
-            <span>Wallet</span>
-          </Link>
-        ) : undefined
-      }
+      title="Bridge/Swap"
+      backButton={isBridge ? "/" : undefined}
       extra={
         <>
           <Button.Small onClick={() => navigate("/bridge/history")} unpadded>

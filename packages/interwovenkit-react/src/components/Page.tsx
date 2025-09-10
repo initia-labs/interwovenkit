@@ -6,7 +6,7 @@ import styles from "./Page.module.css"
 
 interface Props {
   title: string
-  backButton?: ReactNode
+  backButton?: string
   extra?: ReactNode
 }
 
@@ -14,11 +14,9 @@ const Page = ({ title, backButton, extra, children }: PropsWithChildren<Props>) 
   return (
     <>
       <header className={styles.header}>
-        {backButton ?? (
-          <Link to={-1} className={styles.back}>
-            <IconBack size={16} />
-          </Link>
-        )}
+        <Link to={backButton ?? -1} className={styles.back} shouldReset={!!backButton}>
+          <IconBack size={16} />
+        </Link>
 
         <h1 className={styles.title}>{title}</h1>
 
