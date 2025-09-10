@@ -44,8 +44,6 @@ const SelectChainAsset = ({ type, afterSelect }: Props) => {
 
     setValue(chainIdKey, chainId)
     setValue(denomKey, denom)
-    // Use setValue instead of resetField to prevent localStorage values from appearing unexpectedly
-    setValue("quantity", "", { shouldTouch: false, shouldDirty: false })
     afterSelect()
   }
 

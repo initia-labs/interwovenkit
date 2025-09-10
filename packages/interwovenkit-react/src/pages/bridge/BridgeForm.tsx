@@ -39,7 +39,8 @@ const BridgeForm = () => {
 
   watch((_, { name }) => {
     if (name === "srcChainId" || name === "srcDenom") {
-      setValue("quantity", "")
+      // Use setValue instead of resetField to prevent localStorage values from appearing unexpectedly
+      setValue("quantity", "", { shouldTouch: false, shouldDirty: false })
     }
   })
 
