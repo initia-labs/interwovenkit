@@ -14,7 +14,7 @@ const FooterWithErc20Approval = ({ tx, children }: PropsWithChildren<{ tx: TxJso
   const getProvider = useGetProvider()
   const findSkipChain = useFindSkipChain()
 
-  const { data: approvalsNeeded } = useQuery({
+  const { data: approvalsNeeded, isLoading } = useQuery({
     queryKey: ["erc20-approvals-needed", tx],
     queryFn: async () => {
       if (!("evm_tx" in tx)) return []
@@ -69,6 +69,14 @@ const FooterWithErc20Approval = ({ tx, children }: PropsWithChildren<{ tx: TxJso
       }
     },
   })
+
+  if (isLoading) {
+    return (
+      <Footer>
+        <Button.White loading="Checking approvals..." />
+      </Footer>
+    )
+  }
 
   if (approvalsNeeded && approvalsNeeded.length > 0 && !data) {
     return (
