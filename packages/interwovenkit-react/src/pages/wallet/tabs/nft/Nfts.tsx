@@ -57,7 +57,7 @@ const Nfts = () => {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onClear={() => setSearchQuery("")}
-          placeholder="Search nfts"
+          placeholder="Search NFTs"
         />
         <ChainSelect
           value={selectedChain}
