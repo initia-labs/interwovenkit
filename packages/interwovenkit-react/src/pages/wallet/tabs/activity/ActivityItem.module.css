@@ -19,8 +19,26 @@
 
 .header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
+
+  color: var(--dimmed);
+  font-size: 12px;
+}
+
+.time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.error {
+  color: var(--error);
+}
+
+.timestamp {
+  color: var(--gray-3);
+  font-weight: 500;
 }
 
 .chainInfo {
@@ -28,19 +46,7 @@
   align-items: center;
   gap: 4px;
 
-  color: var(--dimmed);
-  font-size: 12px;
   font-weight: 600;
-}
-
-.error {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-
-  color: var(--error);
-  font-size: 10px;
-  font-weight: 500;
 }
 
 .content {
