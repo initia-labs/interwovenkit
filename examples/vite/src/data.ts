@@ -2,6 +2,7 @@ import { useEffect } from "react"
 import { atom, useAtomValue } from "jotai"
 
 export const isTestnet = import.meta.env.INITIA_NETWORK_TYPE === "testnet"
+export const isStaging = import.meta.env.INITIA_NETWORK_TYPE === "staging"
 export const themeAtom = atom<"light" | "dark">("dark")
 export function useTheme() {
   const theme = useAtomValue(themeAtom)
