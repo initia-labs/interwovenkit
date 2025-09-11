@@ -7,9 +7,9 @@ import { truncate } from "@initia/utils"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useDisconnect } from "@/data/ui"
 import { useDefaultChain } from "@/data/chains"
+import ModalTrigger from "@/components/ModalTrigger"
 import CopyButton from "@/components/CopyButton"
 import Image from "@/components/Image"
-import { useModal } from "./ModalContext"
 import AddressQr from "./AddressQr"
 import styles from "./WidgetHeader.module.css"
 
@@ -18,7 +18,6 @@ const WidgetHeader = () => {
   const { connector } = useAccount()
   const disconnect = useDisconnect()
   const { address, username } = useInterwovenKit()
-  const { openModal } = useModal()
   const name = username ?? address
 
   const [isExpanded, setIsExpanded] = useState(false)
@@ -79,12 +78,13 @@ const WidgetHeader = () => {
       </CopyButton>
 
       {deafultChain.metadata?.is_l1 && (
-        <button
+        <ModalTrigger
+          title="Initia address"
+          content={() => <AddressQr />}
           className={clsx(styles.button, styles.qr)}
-          onClick={() => openModal({ title: "Initia address", content: <AddressQr /> })}
         >
           <IconQrCode size={16} />
-        </button>
+        </ModalTrigger>
       )}
 
       <animated.button
