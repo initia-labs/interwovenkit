@@ -18,8 +18,10 @@ export interface Config {
   disableAnalytics?: boolean
 }
 
-export const ConfigContext = createContext<Config>(null!)
+export const ConfigContext = createContext<Config | null>(null)
 
 export function useConfig() {
-  return useContext(ConfigContext)
+  const config = useContext(ConfigContext)
+  if (!config) throw new Error("Check if the InterwovenKitProvider is mounted")
+  return config
 }
