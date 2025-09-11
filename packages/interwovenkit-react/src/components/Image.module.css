@@ -3,6 +3,7 @@
 }
 
 .logo {
+  background-color: var(--logo-border);
   border-radius: 50%;
-  border: 1px solid var(--logo-border);
+  padding: 1px;
 }
