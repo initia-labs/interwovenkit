@@ -1,7 +1,7 @@
 import BigNumber from "bignumber.js"
 import { isAddress } from "ethers"
 import { sentenceCase } from "change-case"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo } from "react"
 import { useLocalStorage, useDebounceValue } from "usehooks-ts"
 import type { FeeJson } from "@skip-go/client"
 import {
@@ -81,27 +81,9 @@ const BridgeFields = () => {
   })
   const routeQuery =
     isOpWithdrawable && selectedType === "op" ? routeQueryOpWithdrawal : routeQueryDefault
-  const { data, isLoading, isFetching, isFetched, error } = routeQuery
+  const { data: route, isLoading, isFetching, error } = routeQuery
   const { data: routeErrorInfo } = useRouteErrorInfo(error)
 
-  // Local state to retain the last successful simulated route
-  const [previousData, setPreviousData] = useState(data)
-  useEffect(() => {
-    if (!data) return
-    // When the user changes only the `amount`, we still re-fetch the `route` each time.
-    // Changing the `chain` or `asset` can affect estimated fees, time, or warnings.
-    // But changing only the `amount` affects only the received amount and its USD value.
-    // So, it is okay to keep showing the old simulation result for a short time.
-    setPreviousData({ ...data, amount_out: "0", usd_amount_in: "0", usd_amount_out: "0" })
-  }, [data])
-
-  // Clear previous data when chain or asset changes to avoid showing stale fees/duration
-  useEffect(() => {
-    setPreviousData(undefined)
-  }, [srcChainId, srcDenom, dstChainId, dstDenom])
-
-  // Only use previous data if we haven't fetched yet and there's no error
-  const route = isFetched ? data : debouncedQuantity && !error ? previousData : undefined
   const isSimulating = debouncedQuantity && (isLoading || isFetching)
 
   const flip = () => {
