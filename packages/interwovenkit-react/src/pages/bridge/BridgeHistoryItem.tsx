@@ -110,7 +110,7 @@ const BridgeHistoryItem = ({ tx }: { tx: TxIdentifier }) => {
       <header className={styles.header}>
         <div className={styles.title}>
           {!tracked ? <Loader size={14} /> : <BridgeHistoryItemIcon tx={tx} />}
-          <div className={styles.date}>{format(new Date(timestamp), "HH:mm")}</div>
+          <div className={styles.date}>{format(new Date(timestamp), "h:mm a")}</div>
         </div>
         <div className={styles.explorer}>
           <span>{linkLabel}</span>

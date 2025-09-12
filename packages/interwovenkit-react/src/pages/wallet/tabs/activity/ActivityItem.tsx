@@ -21,7 +21,7 @@ const ActivityItem = ({ txItem, chain }: Props) => {
         <div className={styles.header}>
           <div className={styles.time}>
             {txItem.code !== 0 && <IconWarningFilled size={14} className={styles.error} />}
-            <span className={styles.timestamp}>{format(new Date(txItem.timestamp), "HH:mm")}</span>
+            <span className={styles.timestamp}>{format(new Date(txItem.timestamp), "h:mm a")}</span>
           </div>
 
           <div className={styles.chainInfo}>
