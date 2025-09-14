@@ -18,7 +18,6 @@ import { usePortalContainer } from "../portal"
 import { PortalContext } from "./PortalContext"
 import WidgetHeader from "./WidgetHeader"
 import TxWatcher from "./TxWatcher"
-import ScrollLock from "./ScrollLock"
 import styles from "./Drawer.module.css"
 
 const Drawer = ({ children }: PropsWithChildren) => {
@@ -77,12 +76,11 @@ const Drawer = ({ children }: PropsWithChildren) => {
     <Dialog.Root
       open={isDrawerOpen}
       onOpenChange={(open) => !open && handleCloseDrawer()}
-      modal={false}
+      modal={isSmall}
     >
       <Dialog.Portal container={portalContainer}>
         <Dialog.Popup className={styles.content}>
           <div className={clsx(styles.inner, "body")} ref={setContainer}>
-            {isSmall && <ScrollLock />}
             <TxWatcher />
             <WidgetHeader />
             <AsyncBoundary errorBoundaryProps={errorBoundaryProps}>{children}</AsyncBoundary>
