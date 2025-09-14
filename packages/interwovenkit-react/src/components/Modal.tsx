@@ -23,7 +23,11 @@ const Modal = ({ title, children, trigger, className, open, onOpenChange }: Prop
   if (!portal) return null
 
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+    <Dialog.Root
+      open={open}
+      onOpenChange={onOpenChange}
+      modal={false} // Don't block parent app scroll as this is a widget
+    >
       {trigger && <Dialog.Trigger className={className}>{trigger}</Dialog.Trigger>}
 
       <Dialog.Portal container={portal}>
