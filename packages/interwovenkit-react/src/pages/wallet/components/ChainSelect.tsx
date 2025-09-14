@@ -74,7 +74,7 @@ const ChainSelect = ({ value, onChange, chainIds, fullWidth }: Props) => {
   const sideOffset = 6
 
   // Reset search state and calculate max height when dropdown opens
-  const open = () => {
+  const handleOpenChange = () => {
     setSearchQuery("")
     setHighlightedIndex(-1)
 
@@ -135,7 +135,7 @@ const ChainSelect = ({ value, onChange, chainIds, fullWidth }: Props) => {
   }
 
   return (
-    <Popover.Root open={isOpen} onOpenChange={open} modal={false}>
+    <Popover.Root open={isOpen} onOpenChange={handleOpenChange} modal={false}>
       <Popover.Trigger
         render={
           <button
