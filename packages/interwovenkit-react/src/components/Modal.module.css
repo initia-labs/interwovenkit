@@ -1,12 +1,15 @@
 .overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
 
   background-color: rgba(0, 0, 0, 0.7);
   z-index: var(--z-index);
+  transition: opacity var(--transition) cubic-bezier(0.4, 0, 0.2, 1);
+
+  &[data-starting-style],
+  &[data-ending-style] {
+    opacity: 0;
+  }
 }
 
 .overlay.fullscreen {
@@ -29,6 +32,14 @@
   overflow: hidden;
   min-height: 360px;
   max-height: calc(100% - 2 * 16px);
+  transition: all var(--transition) cubic-bezier(0.4, 0, 0.2, 1);
+  transition-property: opacity, transform;
+
+  &[data-starting-style],
+  &[data-ending-style] {
+    opacity: 0;
+    transform: translateY(24px);
+  }
 }
 
 .content.fullscreen {

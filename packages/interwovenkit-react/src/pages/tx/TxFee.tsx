@@ -1,4 +1,4 @@
-import { Select } from "radix-ui"
+import { Select } from "@base-ui-components/react/select"
 import BigNumber from "bignumber.js"
 import type { StdFee } from "@cosmjs/amino"
 import { IconChevronDown } from "@initia/icons-react"
@@ -21,6 +21,12 @@ const TxFee = ({ options, value, onChange }: Props) => {
   const chain = useChain(txRequest.chainId)
   const findAsset = useFindAsset(chain)
 
+  const getOption = (denom: string) => {
+    const option = options.find((option) => option.amount[0].denom === denom)
+    if (!option) throw new Error(`Option not found for denom: ${denom}`)
+    return option
+  }
+
   const getLabel = ({ amount: [{ amount, denom }] }: StdFee) => {
     if (BigNumber(amount).isZero()) return "0"
     const { symbol, decimals } = findAsset(denom)
@@ -32,17 +38,22 @@ const TxFee = ({ options, value, onChange }: Props) => {
   }
 
   return (
-    <Select.Root value={value} onValueChange={onChange}>
+    <Select.Root value={value} onValueChange={onChange} modal={false}>
       <Select.Trigger className={styles.trigger}>
-        <Select.Value />
+        <Select.Value>{(value) => getLabel(getOption(value))}</Select.Value>
         <Select.Icon className={styles.icon}>
           <IconChevronDown size={16} />
         </Select.Icon>
       </Select.Trigger>
 
       <Select.Portal container={portalContainer}>
-        <Select.Content className={styles.content} position="popper" sideOffset={6} align="end">
-          <Select.Viewport>
+        <Select.Positioner
+          className={styles.content}
+          alignItemWithTrigger={false}
+          sideOffset={6}
+          align="end"
+        >
+          <Select.Popup>
             {options.map((option) => {
               const [{ denom }] = option.amount
               return (
@@ -51,8 +62,8 @@ const TxFee = ({ options, value, onChange }: Props) => {
                 </Select.Item>
               )
             })}
-          </Select.Viewport>
-        </Select.Content>
+          </Select.Popup>
+        </Select.Positioner>
       </Select.Portal>
     </Select.Root>
   )
