@@ -29,7 +29,8 @@ const Modal = ({ title, children, trigger, className, open, onOpenChange }: Prop
       <Dialog.Portal container={portal}>
         <Dialog.Backdrop
           className={clsx(styles.overlay, { [styles.fullscreen]: fullscreen })}
-          forceRender
+          onClick={() => onOpenChange(false)} // Workaround: backdrop click doesn't work after build
+          forceRender // Required for nested backdrop rendering
         />
 
         <Dialog.Popup className={clsx(styles.content, { [styles.fullscreen]: fullscreen })}>
