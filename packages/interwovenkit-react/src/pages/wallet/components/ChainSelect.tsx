@@ -135,7 +135,7 @@ const ChainSelect = ({ value, onChange, chainIds, fullWidth }: Props) => {
   }
 
   return (
-    <Popover.Root open={isOpen} onOpenChange={open}>
+    <Popover.Root open={isOpen} onOpenChange={open} modal={false}>
       <Popover.Trigger
         render={
           <button
