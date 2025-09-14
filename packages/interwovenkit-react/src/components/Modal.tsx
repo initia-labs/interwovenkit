@@ -1,8 +1,7 @@
 import clsx from "clsx"
 import type { ReactNode } from "react"
-import { useContext, useEffect } from "react"
-import { createPortal } from "react-dom"
-import { useTransition, animated } from "@react-spring/web"
+import { useContext } from "react"
+import { Dialog } from "@base-ui-components/react/dialog"
 import { IconClose } from "@initia/icons-react"
 import { usePortal } from "@/public/app/PortalContext"
 import { fullscreenContext } from "@/public/app/fullscreen"
@@ -21,89 +20,32 @@ const Modal = ({ title, children, trigger, className, open, onOpenChange }: Prop
   const portal = usePortal()
   const fullscreen = useContext(fullscreenContext)
 
-  useEffect(() => {
-    if (!open) return
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        onOpenChange(false)
-      }
-    }
-
-    document.addEventListener("keydown", handleKeyDown)
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown)
-    }
-  }, [onOpenChange, open])
-
-  const overlayTransitions = useTransition(open, {
-    from: { opacity: 0 },
-    enter: { opacity: 1 },
-    leave: { opacity: 0 },
-    config: { tension: 500, friction: 30, clamp: true },
-  })
-
-  const contentTransitions = useTransition(open, {
-    from: { opacity: 0, transform: "translateY(24px)" },
-    enter: { opacity: 1, transform: "translateY(0px)" },
-    leave: { opacity: 0, transform: "translateY(24px)" },
-    config: { tension: 500, friction: 30, clamp: true },
-  })
-
   if (!portal) return null
 
   return (
-    <>
-      {trigger && (
-        <button type="button" className={className} onClick={() => onOpenChange(true)}>
-          {trigger}
-        </button>
-      )}
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      {trigger && <Dialog.Trigger className={className}>{trigger}</Dialog.Trigger>}
 
-      {createPortal(
-        <>
-          {overlayTransitions(
-            (style, item) =>
-              item && (
-                <animated.div
-                  style={style}
-                  className={clsx(styles.overlay, { [styles.fullscreen]: fullscreen })}
-                  onClick={() => onOpenChange(false)}
-                  onKeyDown={() => onOpenChange(false)}
-                  role="button"
-                  tabIndex={0}
-                />
-              ),
+      <Dialog.Portal container={portal}>
+        <Dialog.Backdrop
+          className={clsx(styles.overlay, { [styles.fullscreen]: fullscreen })}
+          forceRender
+        />
+
+        <Dialog.Popup className={clsx(styles.content, { [styles.fullscreen]: fullscreen })}>
+          {title && (
+            <header className={styles.header}>
+              <Dialog.Title className={styles.title}>{title}</Dialog.Title>
+              <Dialog.Close className={styles.close}>
+                <IconClose size={20} />
+              </Dialog.Close>
+            </header>
           )}
 
-          {contentTransitions(
-            (style, item) =>
-              item && (
-                <animated.div
-                  style={style}
-                  className={clsx(styles.content, { [styles.fullscreen]: fullscreen })}
-                >
-                  {title && (
-                    <header className={styles.header}>
-                      <h2 className={styles.title}>{title}</h2>
-                      <button
-                        type="button"
-                        className={styles.close}
-                        onClick={() => onOpenChange(false)}
-                      >
-                        <IconClose size={20} />
-                      </button>
-                    </header>
-                  )}
-
-                  {children}
-                </animated.div>
-              ),
-          )}
-        </>,
-        portal,
-      )}
-    </>
+          {children}
+        </Dialog.Popup>
+      </Dialog.Portal>
+    </Dialog.Root>
   )
 }
 
