@@ -1,5 +1,5 @@
 import { useAccount } from "wagmi"
-import { format } from "date-fns"
+import { intlFormatDistance } from "date-fns"
 import { useEffect, useMemo, type ReactNode } from "react"
 import { IconArrowDown, IconExternalLink, IconWallet } from "@initia/icons-react"
 import { InitiaAddress, formatAmount, truncate } from "@initia/utils"
@@ -110,7 +110,9 @@ const BridgeHistoryItem = ({ tx }: { tx: TxIdentifier }) => {
       <header className={styles.header}>
         <div className={styles.title}>
           {!tracked ? <Loader size={14} /> : <BridgeHistoryItemIcon tx={tx} />}
-          <div className={styles.date}>{format(new Date(timestamp), "h:mm a")}</div>
+          <div className={styles.date}>
+            {intlFormatDistance(new Date(timestamp), new Date(), { locale: "en-US" })}
+          </div>
         </div>
         <div className={styles.explorer}>
           <span>{linkLabel}</span>
