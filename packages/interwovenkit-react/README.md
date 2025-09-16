@@ -2,6 +2,8 @@
 
 InterwovenKit is a React library that provides components and hooks to connect dApps to Initia and Interwoven Rollups.
 
+For detailed documentation, visit [https://docs.initia.xyz/interwovenkit](https://docs.initia.xyz/interwovenkit).
+
 ## Table of Contents
 
 - [Features](#features)
@@ -120,38 +122,27 @@ Connect the wallet, check the balance, and send a transaction:
 // page.tsx
 "use client"
 
-import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
 import { truncate } from "@initia/utils"
 import { useInterwovenKit } from "@initia/interwovenkit-react"
 
 export default function Home() {
-  const {
-    address,
-    username,
-    openConnect,
-    openWallet,
-    openBridge,
-    requestTxSync,
-    waitForTxConfirmation,
-  } = useInterwovenKit()
+  const { address, username, openConnect, openWallet, openBridge, requestTxBlock } =
+    useInterwovenKit()
 
   const send = async () => {
     const messages = [
       {
         typeUrl: "/cosmos.bank.v1beta1.MsgSend",
-        value: MsgSend.fromPartial({
+        value: {
           fromAddress: address,
           toAddress: address,
           amount: [{ amount: "1000000", denom: "uinit" }],
-        }),
+        },
       },
     ]
 
-    const transactionHash = await requestTxSync({ messages })
+    const { transactionHash } = await requestTxBlock({ messages })
     console.log("Transaction sent:", transactionHash)
-
-    await waitForTxConfirmation({ txHash: transactionHash })
-    console.log("Transaction confirmed:", transactionHash)
   }
 
   const ETH = "move/edfcddacac79ab86737a1e9e65805066d8be286a37cb94f4884b892b0e39f954"
@@ -193,4 +184,4 @@ export default function Providers({ children }: PropsWithChildren) {
 
 To migrate from `@initia/react-wallet-widget` v1.x to `@initia/interwovenkit-react`, see our official migration guide:
 
-[https://github.com/initia-labs/interwovenkit/blob/main/packages/interwovenkit-react/MIGRATION.md](https://github.com/initia-labs/interwovenkit/blob/main/packages/interwovenkit-react/MIGRATION.md)
+[https://docs.initia.xyz/interwovenkit/migration](https://docs.initia.xyz/interwovenkit/migration)
