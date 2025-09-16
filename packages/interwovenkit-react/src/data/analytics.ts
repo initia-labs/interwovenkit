@@ -5,7 +5,7 @@ import { Identify } from "@amplitude/analytics-browser"
 import { usePath } from "@/lib/router"
 import { useConfig } from "@/data/config"
 
-const AMPLITUDE_API_KEY = ""
+const AMPLITUDE_API_KEY = "c33b940c24c17e95f7d9d525d508ac61"
 
 export function useAnalyticsInit() {
   const { disableAnalytics } = useConfig()

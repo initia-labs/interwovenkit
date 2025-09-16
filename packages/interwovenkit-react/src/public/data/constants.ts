@@ -17,4 +17,5 @@ export const TESTNET: Config = {
   routerApiUrl: "https://router-api.initiation-2.initia.xyz",
   usernamesModuleAddress: "0x42cd8467b1c86e59bf319e5664a09b6b5840bb3fac64f5ce690b5041c530565a",
   theme: "dark",
+  disableAnalytics: true,
 }
