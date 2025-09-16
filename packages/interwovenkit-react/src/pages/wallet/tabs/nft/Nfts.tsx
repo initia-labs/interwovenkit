@@ -70,11 +70,14 @@ const Nfts = () => {
         <Status>No NFTs found</Status>
       ) : (
         <div className={styles.grid}>
-          {filteredNfts.map((nftInfo) => (
-            <WithNormalizedNft nftInfo={nftInfo} key={nftInfo.object_addr}>
-              {(normalizedNft) => <NftItem normalizedNft={normalizedNft} />}
-            </WithNormalizedNft>
-          ))}
+          {filteredNfts.map((nftInfo) => {
+            const { collection_addr, nft } = nftInfo
+            return (
+              <WithNormalizedNft nftInfo={nftInfo} key={collection_addr + nft.token_id}>
+                {(normalizedNft) => <NftItem normalizedNft={normalizedNft} />}
+              </WithNormalizedNft>
+            )
+          })}
         </div>
       )}
     </HomeContainer.Root>
