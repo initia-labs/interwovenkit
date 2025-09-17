@@ -13,6 +13,9 @@ const ActivityList = ({ list, chainId }: { list: ChainActivity[]; chainId: strin
   const groupedActivities = useMemo(() => {
     return list.reduce(
       (groups, activity) => {
+        // Skip activities without timestamp to prevent grouping errors
+        if (!activity.timestamp) return groups
+
         const date = new Date(activity.timestamp)
         const dateKey = date.toLocaleDateString("en-US", {
           month: "short",
