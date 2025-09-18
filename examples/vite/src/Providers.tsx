@@ -22,7 +22,7 @@ const Providers = ({ children }: PropsWithChildren) => {
   const theme = useTheme()
   return (
     <PrivyProvider
-      appId={import.meta.env.INITIA_PRIVY_APP_ID}
+      appId={import.meta.env.INITIA_PRIVY_APP_ID || "cmbqs2wzv007qky0m8kxyqn7r"}
       config={{
         appearance: {
           theme: "light",
