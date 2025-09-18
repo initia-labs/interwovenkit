@@ -6,9 +6,10 @@ import { usePortal } from "@/public/app/PortalContext"
 import { usePortalCssVariable } from "@/public/app/PortalContext"
 import styles from "./DurationSelector.module.css"
 
-export type DurationOption = "1hour" | "1day" | "7days" | "until-revoked"
+export type DurationOption = "10min" | "1hour" | "1day" | "7days" | "until-revoked"
 
 const DURATION_OPTIONS: Array<{ value: DurationOption; label: string; milliseconds: number }> = [
+  { value: "10min", label: "10 Minutes", milliseconds: 10 * 60 * 1000 },
   { value: "1hour", label: "1 Hour", milliseconds: 60 * 60 * 1000 },
   { value: "1day", label: "1 Day", milliseconds: 24 * 60 * 60 * 1000 },
   { value: "7days", label: "7 Days", milliseconds: 7 * 24 * 60 * 60 * 1000 },
@@ -31,7 +32,7 @@ const DurationSelector = ({ value, onChange, disabled = false, fullWidth }: Prop
 
   // Determine currently selected duration
   const selectedDuration =
-    DURATION_OPTIONS.find((option) => option.value === value) || DURATION_OPTIONS[2]
+    DURATION_OPTIONS.find((option) => option.value === value) || DURATION_OPTIONS[0]
 
   // Get the offset from the portal css variable
   const offset = parseInt(usePortalCssVariable("--drawer-offset"))
