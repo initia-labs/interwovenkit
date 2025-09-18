@@ -1,7 +1,9 @@
 import { useDisconnect as useDisconnectWagmi } from "wagmi"
+import { useLogout } from "@privy-io/react-auth"
 import { atom, useAtom } from "jotai"
 import { useNavigate, useReset } from "@/lib/router"
 import { useAnalyticsTrack } from "@/data/analytics"
+import { useConfig } from "@/data/config"
 import { LocalStorageKey } from "./constants"
 
 const isDrawerOpenAtom = atom<boolean>(false)
@@ -31,11 +33,17 @@ export function useDisconnect() {
   const navigate = useNavigate()
   const { closeDrawer } = useDrawer()
   const { disconnect } = useDisconnectWagmi()
+  const { logout } = useLogout()
+  const config = useConfig()
 
   return () => {
     navigate("/blank")
     closeDrawer()
     disconnect()
+
+    if (config.ghostWalletPermissions) {
+      logout()
+    }
 
     // Clear bridge form values on disconnect
     localStorage.removeItem(LocalStorageKey.BRIDGE_SRC_CHAIN_ID)

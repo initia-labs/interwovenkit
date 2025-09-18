@@ -1,38 +1,54 @@
 import type { PropsWithChildren } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { createConfig, http, WagmiProvider } from "wagmi"
+import { PrivyProvider } from "@privy-io/react-auth"
+import { WagmiProvider } from "@privy-io/wagmi"
+import { createConfig } from "@privy-io/wagmi"
+import { http } from "wagmi"
 import { mainnet } from "wagmi/chains"
-import {
-  InterwovenKitProvider,
-  initiaPrivyWalletConnector,
-  injectStyles,
-  TESTNET,
-} from "@initia/interwovenkit-react"
+import { InterwovenKitProvider, injectStyles, TESTNET } from "@initia/interwovenkit-react"
 import css from "@initia/interwovenkit-react/styles.css?inline"
 import { isTestnet, useTheme } from "./data"
 
 injectStyles(css)
+
 const wagmiConfig = createConfig({
-  connectors: [initiaPrivyWalletConnector],
   chains: [mainnet],
   transports: { [mainnet.id]: http() },
 })
+
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
 const Providers = ({ children }: PropsWithChildren) => {
   const theme = useTheme()
   return (
-    <QueryClientProvider client={queryClient}>
-      <WagmiProvider config={wagmiConfig}>
-        <InterwovenKitProvider
-          {...(isTestnet ? TESTNET : {})}
-          theme={theme}
-          container={import.meta.env.DEV ? document.body : undefined}
-        >
-          {children}
-        </InterwovenKitProvider>
-      </WagmiProvider>
-    </QueryClientProvider>
+    <PrivyProvider
+      appId={import.meta.env.INITIA_PRIVY_APP_ID}
+      config={{
+        appearance: {
+          theme: "light",
+        },
+        embeddedWallets: {
+          createOnLogin: "users-without-wallets",
+          //showWalletUIs: false,
+        },
+        loginMethodsAndOrder: {
+          primary: ["detected_ethereum_wallets", "privy:cmbq1ozyc006al70lx4uciz0q"],
+        },
+      }}
+    >
+      <QueryClientProvider client={queryClient}>
+        <WagmiProvider config={wagmiConfig}>
+          <InterwovenKitProvider
+            ghostWalletPermissions={["/cosmos.bank.v1beta1.MsgSend"]}
+            {...(isTestnet ? TESTNET : {})}
+            theme={theme}
+            container={import.meta.env.DEV ? document.body : undefined}
+          >
+            {children}
+          </InterwovenKitProvider>
+        </WagmiProvider>
+      </QueryClientProvider>
+    </PrivyProvider>
   )
 }
 

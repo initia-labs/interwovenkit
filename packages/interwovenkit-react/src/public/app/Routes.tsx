@@ -12,6 +12,7 @@ import Withdrawals from "@/pages/bridge/op/Withdrawals"
 import BridgePreview from "@/pages/bridge/BridgePreview"
 import BridgeHistory from "@/pages/bridge/BridgeHistory"
 import TxRequest from "@/pages/tx/TxRequest"
+import GhostWallet from "@/pages/ghost-wallet/GhostWallet"
 import { useAddress } from "../data/hooks"
 import { useModal } from "./ModalContext"
 
@@ -78,6 +79,8 @@ const Routes = () => {
       return <Withdrawals />
     case "/tx":
       return <TxRequest />
+    case "/ghost-wallet":
+      return <GhostWallet />
   }
 }
 

@@ -1,5 +1,5 @@
 import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
-import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
+import { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
 import { encodeSecp256k1Pubkey } from "@cosmjs/amino"
 import type { EncodeObject } from "@cosmjs/proto-signing"
 import type { DeliverTxResponse, SigningStargateClient } from "@cosmjs/stargate"
@@ -18,6 +18,7 @@ import {
   useOfflineSigner,
   useRegistry,
 } from "./signer"
+import { useCanGhostWalletHandleTx, useSignWithGhostWallet } from "@/pages/ghost-wallet/hooks"
 import { useDrawer } from "./ui"
 
 export interface TxRequest {
@@ -69,6 +70,8 @@ export function useTx() {
   const createSigningStargateClient = useCreateSigningStargateClient()
   const offlineSigner = useOfflineSigner()
   const registry = useRegistry()
+  const canGhostWalletHandleTx = useCanGhostWalletHandleTx()
+  const signWithGhostWallet = useSignWithGhostWallet()
 
   const estimateGas = async ({ messages, memo, chainId = defaultChainId }: TxRequest) => {
     try {
@@ -111,6 +114,27 @@ export function useTx() {
     }
 
     const txRequest = { ...defaultTxRequest, ...rawTxRequest }
+
+    // Check if ghost wallet can handle this transaction
+    if (canGhostWalletHandleTx(txRequest.messages)) {
+      // Sign with ghost wallet automatically
+      const fee = {
+        amount: [], // Empty because feegrant will cover the fee
+        gas: txRequest.gas.toString(),
+      }
+
+      const signedTx = await signWithGhostWallet(
+        txRequest.chainId,
+        txRequest.messages,
+        fee,
+        txRequest.memo,
+      )
+
+      // Broadcast the transaction directly
+      const client = await createSigningStargateClient(txRequest.chainId)
+      const response = await broadcaster(client, TxRaw.encode(signedTx).finish())
+      return response
+    }
 
     return new Promise<T>((resolve, reject) => {
       setTxRequestHandler({

@@ -1,0 +1,63 @@
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.listItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--gray-1);
+}
+
+.listItem svg {
+  color: var(--success);
+}
+
+.footer {
+  padding: var(--padding);
+}
+
+.durationSelector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 var(--padding);
+  margin-bottom: 8px;
+}
+
+.durationLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-1);
+}
+
+.durationSelect {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--gray-3);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 14px;
+}
+
+.durationSelect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.buttons {
+  display: flex;
+  gap: 12px;
+}

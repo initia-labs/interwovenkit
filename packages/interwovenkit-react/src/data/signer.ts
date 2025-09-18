@@ -1,8 +1,8 @@
 import type { Eip1193Provider } from "ethers"
 import { useAccount, useSignMessage } from "wagmi"
 import { BrowserProvider, ethers } from "ethers"
-import { SignMode } from "cosmjs-types/cosmos/tx/signing/v1beta1/signing"
-import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
+import { SignMode } from "@initia/initia.proto/cosmos/tx/signing/v1beta1/signing"
+import { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
 import type {
   AccountData,
   Algo,
@@ -33,6 +33,7 @@ import { encodeEthSecp256k1Signature } from "./patches/signature"
 import { LocalStorageKey } from "./constants"
 import { useConfig } from "./config"
 import { useFindChain } from "./chains"
+import { MsgExecAuthorized } from "@initia/initia.js"
 
 export const useRegistry = () => {
   const config = useConfig()
@@ -41,7 +42,16 @@ export const useRegistry = () => {
 
 export const useAminoTypes = () => {
   const config = useConfig()
-  return new AminoTypes({ ...aminoConverters, ...config.aminoConverters })
+
+  return new AminoTypes({
+    ...aminoConverters,
+    ...config.aminoConverters,
+    "/cosmos.authz.v1beta1.MsgExec": {
+      aminoType: "cosmos-sdk/MsgExec",
+      toAmino: (data) => MsgExecAuthorized.fromProto(data).toAmino().value,
+      fromAmino: (data) => MsgExecAuthorized.fromAmino({ value: data }).toProto(),
+    },
+  })
 }
 
 export class OfflineSigner implements OfflineAminoSigner {
@@ -57,7 +67,6 @@ export class OfflineSigner implements OfflineAminoSigner {
     if (this.cachedPublicKey) {
       return this.cachedPublicKey
     }
-
     // Persist the derived key in localStorage so reloads don't trigger another
     // sign request. Note that the host page can also access this key since
     // localStorage is scoped to the embedding origin. The key itself is not
@@ -90,11 +99,13 @@ export class OfflineSigner implements OfflineAminoSigner {
   }
 
   async getAccounts(): Promise<readonly AccountData[]> {
+    const pubkey = await this.getCachedPublicKey()
+
     return [
       {
         address: this.address,
         algo: "ethsecp256k1" as Algo,
-        pubkey: await this.getCachedPublicKey(),
+        pubkey,
       },
     ]
   }
@@ -127,8 +138,11 @@ export function useSignWithEthSecp256k1() {
     messages: readonly EncodeObject[],
     fee: StdFee,
     memo: string,
+    customSigner?: OfflineAminoSigner,
   ): Promise<TxRaw> {
-    if (!signer) throw new Error("Signer not initialized")
+    const signerToUse = customSigner || signer
+    if (!signerToUse) throw new Error("Signer not initialized")
+
     const client = await createSigningStargateClient(chainId)
     const { accountNumber, sequence } = await client.getSequence(signerAddress)
 
@@ -137,12 +151,15 @@ export function useSignWithEthSecp256k1() {
     // This overrides SigningStargateClient's `signAmino()` method because
     // 1. it doesn't support Initia's `EthSecp256k1Pubkey`
     // 2. it forces the `signMode` to `SIGN_MODE_LEGACY_AMINO_JSON`.
-    const [accountFromSigner] = await signer.getAccounts()
+
+    const [accountFromSigner] = await signerToUse.getAccounts()
     /* 1 */ const pubkey = encodePubkeyInitia(encodeEthSecp256k1Pubkey(accountFromSigner.pubkey))
     /* 2 */ const signMode = SignMode.SIGN_MODE_EIP_191
     const msgs = messages.map((msg) => aminoTypes.toAmino(msg))
+
     const signDoc = makeSignDocAmino(msgs, fee, chainId, memo, accountNumber, sequence)
-    const { signature, signed } = await signer.signAmino(signerAddress, signDoc)
+
+    const { signature, signed } = await signerToUse.signAmino(signerAddress, signDoc)
     const signedTxBody = {
       messages: signed.msgs.map((msg) => aminoTypes.fromAmino(msg)),
       memo,

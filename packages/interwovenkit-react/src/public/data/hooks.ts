@@ -1,5 +1,6 @@
 import { useAccount } from "wagmi"
 import { useQuery } from "@tanstack/react-query"
+import { useLogin } from "@privy-io/react-auth"
 import { InitiaAddress } from "@initia/utils"
 import { useTx } from "@/data/tx"
 import { useDisconnect, useDrawer } from "@/data/ui"
@@ -8,6 +9,7 @@ import { useOfflineSigner } from "@/data/signer"
 import { accountQueryKeys, useUsernameClient } from "@/data/account"
 import type { FormValues } from "@/pages/bridge/data/form"
 import { STALE_TIMES } from "@/data/http"
+import { useConfig } from "@/data/config"
 
 export { usePortfolio } from "@/data/portfolio"
 
@@ -45,12 +47,14 @@ export function useUsernameQuery() {
 }
 
 export function useInterwovenKit() {
+  const config = useConfig()
   const address = useAddress()
   const initiaAddress = useInitiaAddress()
   const hexAddress = useHexAddress()
   const { data: username } = useUsernameQuery()
   const offlineSigner = useOfflineSigner()
   const disconnect = useDisconnect()
+  const { login } = useLogin()
 
   const { isDrawerOpen: isOpen, openDrawer } = useDrawer()
 
@@ -59,7 +63,18 @@ export function useInterwovenKit() {
   }
 
   const openConnect = () => {
-    openDrawer("/connect")
+    if (config.ghostWalletPermissions) {
+      login()
+    } else {
+      openDrawer("/connect")
+    }
+  }
+
+  const createGhostWallet = () => {
+    if (!config.ghostWalletPermissions)
+      throw new Error("Ghost wallet permissions are required to create a ghost wallet")
+
+    openDrawer("/ghost-wallet")
   }
 
   const openBridge = (defaultValues?: Partial<FormValues>) => {
@@ -82,6 +97,7 @@ export function useInterwovenKit() {
     openWallet,
     openBridge,
     disconnect,
+    createGhostWallet,
     ...tx,
   }
 }
