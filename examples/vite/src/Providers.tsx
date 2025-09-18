@@ -29,7 +29,7 @@ const Providers = ({ children }: PropsWithChildren) => {
         },
         embeddedWallets: {
           createOnLogin: "users-without-wallets",
-          //showWalletUIs: false,
+          showWalletUIs: false,
         },
         loginMethodsAndOrder: {
           primary: ["detected_ethereum_wallets", "privy:cmbq1ozyc006al70lx4uciz0q"],
