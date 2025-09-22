@@ -39,28 +39,29 @@ export interface ChainActivity extends TxItem {
 
 export function useCreateTxsQuery() {
   const address = useInitiaAddress()
-  return (chain: NormalizedChain) => {
+  return (chain: NormalizedChain, options: { enabled: boolean }) => {
     return queryOptions({
       queryKey: accountQueryKeys.txs(chain.indexerUrl, address).queryKey,
       queryFn: async () => {
+        if (!options.enabled) return []
         const searchParams = {
           "pagination.reverse": true,
           "pagination.limit": ACTIVITY_PAGINATION_LIMIT,
         }
-        return ky
+        const { txs } = await ky
           .create({ prefixUrl: chain.indexerUrl })
           .get(`indexer/tx/v1/txs/by_account/${address}`, { searchParams })
           .json<Paginated<"txs", TxItem>>()
+        return txs
       },
-      select: (data: Paginated<"txs", TxItem>) => data.txs,
       staleTime: STALE_TIMES.SECOND,
     })
   }
 }
 
-export function useTxs(chain: NormalizedChain) {
+export function useTxs(chain: NormalizedChain, options: { enabled: boolean }) {
   const createTxsQuery = useCreateTxsQuery()
-  return useSuspenseQuery(createTxsQuery(chain))
+  return useSuspenseQuery(createTxsQuery(chain, options))
 }
 
 /**
@@ -90,7 +91,7 @@ export const useAllActivities = () => {
   // Fetch transactions from all chains in parallel
   // Each query fetches the most recent transactions for the user's address
   const queries = useQueries({
-    queries: chains.map((chain) => createTxsQuery(chain)),
+    queries: chains.map((chain) => createTxsQuery(chain, { enabled: true })),
   })
 
   const results = queries.map(prop("data"))

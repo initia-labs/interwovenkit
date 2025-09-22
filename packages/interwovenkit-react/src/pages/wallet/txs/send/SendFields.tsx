@@ -41,7 +41,7 @@ export const SendFields = () => {
   const chain = useChain(chainId)
   const balances = useBalances(chain)
   const gasPrices = useGasPrices(chain)
-  const lastFeeDenom = useLastFeeDenom(chain)
+  const lastFeeDenom = useLastFeeDenom(chain, { enabled: chain.fees.fee_tokens.length >= 2 })
   const asset = useAsset(denom, chain)
   const { data: prices } = usePricesQuery(chain)
   const { decimals } = asset

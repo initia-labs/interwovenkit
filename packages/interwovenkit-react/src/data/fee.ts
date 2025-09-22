@@ -42,9 +42,9 @@ export function useGasPrices(chain: NormalizedChain) {
   return data
 }
 
-export function useLastFeeDenom(chain: NormalizedChain) {
+export function useLastFeeDenom(chain: NormalizedChain, options: { enabled: boolean }) {
   const address = useInitiaAddress()
-  const { data: txs } = useTxs(chain)
+  const { data: txs } = useTxs(chain, options)
 
   if (chain.fees.fee_tokens.length === 0) {
     return null
