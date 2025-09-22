@@ -22,10 +22,10 @@ function normalizeChain(chain: Chain) {
   const { chain_id: chainId, chain_name, pretty_name, logo_URIs, apis, metadata } = chain
   const name = pretty_name || chain_name
   const logoUrl = logo_URIs?.png ?? ""
-  const { rpc, rest, api, ["json-rpc"]: jsonRpc } = apis
+  const { rpc, rest, ["json-rpc"]: jsonRpc, indexer } = apis
   const rpcUrl = getPrimaryEndpoint(rpc)
   const restUrl = getPrimaryEndpoint(rest)
-  const indexerUrl = metadata?.is_l1 ? getPrimaryEndpoint(api) : restUrl
+  const indexerUrl = getPrimaryEndpoint(indexer)
   const jsonRpcUrl = metadata?.minitia?.type === "minievm" ? getPrimaryEndpoint(jsonRpc) : undefined
   return { ...chain, chainId, name, logoUrl, rpcUrl, restUrl, indexerUrl, jsonRpcUrl }
 }

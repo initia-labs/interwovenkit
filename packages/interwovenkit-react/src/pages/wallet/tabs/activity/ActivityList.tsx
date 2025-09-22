@@ -1,6 +1,7 @@
 import { useMemo } from "react"
 import { useInitiaAddress } from "@/public/data/hooks"
 import Status from "@/components/Status"
+import AsyncBoundary from "@/components/AsyncBoundary"
 import ExplorerLink from "@/components/ExplorerLink"
 import type { ChainActivity } from "./queries"
 import ActivityItem from "./ActivityItem"
@@ -42,7 +43,9 @@ const ActivityList = ({ list, chainId }: { list: ChainActivity[]; chainId: strin
           <div className={styles.dateGroup} key={date}>
             <div className={styles.dateHeader}>{date}</div>
             {items.map((item) => (
-              <ActivityItem txItem={item} chain={item.chain} key={item.txhash} />
+              <AsyncBoundary errorBoundaryProps={{ fallback: null }} key={item.txhash}>
+                <ActivityItem txItem={item} chain={item.chain} />
+              </AsyncBoundary>
             ))}
           </div>
         ))}

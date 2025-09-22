@@ -44,7 +44,9 @@ export function useGasPrices(chain: NormalizedChain) {
 
 export function useLastFeeDenom(chain: NormalizedChain) {
   const address = useInitiaAddress()
-  const { data: txs } = useTxs(chain)
+  // Only fetch txs if there are multiple fee tokens to choose from
+  // With 1 token, we don't need transaction history to determine the last used denom
+  const { data: txs } = useTxs(chain, { enabled: chain.fees.fee_tokens.length >= 2 })
 
   if (chain.fees.fee_tokens.length === 0) {
     return null
