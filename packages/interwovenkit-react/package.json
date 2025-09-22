@@ -67,7 +67,7 @@
     "xss": "^1.0.15"
   },
   "devDependencies": {
-    "@initia/initia-registry-types": "^1.0.8",
+    "@initia/initia-registry-types": "^1.0.10",
     "@keplr-wallet/types": "^0.12.263",
     "@skip-go/client": "^1.5.2",
     "@tanstack/react-query": "^5.85.3",
