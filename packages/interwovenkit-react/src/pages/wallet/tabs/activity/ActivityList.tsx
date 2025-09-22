@@ -44,7 +44,7 @@ const ActivityList = ({ list, chainId }: { list: ChainActivity[]; chainId: strin
             <div className={styles.dateHeader}>{date}</div>
             {items.map((item) => (
               <AsyncBoundary errorBoundaryProps={{ fallback: null }} key={item.txhash}>
-                <ActivityItem txItem={item} chain={item.chain} key={item.txhash} />
+                <ActivityItem txItem={item} chain={item.chain} />
               </AsyncBoundary>
             ))}
           </div>
