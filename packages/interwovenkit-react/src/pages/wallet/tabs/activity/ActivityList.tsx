@@ -40,14 +40,14 @@ const ActivityList = ({ list, chainId }: { list: ChainActivity[]; chainId: strin
     <>
       <div className={styles.list}>
         {Object.entries(groupedActivities).map(([date, items]) => (
-          <AsyncBoundary errorBoundaryProps={{ fallback: null }} key={date}>
-            <div className={styles.dateGroup}>
-              <div className={styles.dateHeader}>{date}</div>
-              {items.map((item) => (
+          <div className={styles.dateGroup} key={date}>
+            <div className={styles.dateHeader}>{date}</div>
+            {items.map((item) => (
+              <AsyncBoundary errorBoundaryProps={{ fallback: null }} key={item.txhash}>
                 <ActivityItem txItem={item} chain={item.chain} key={item.txhash} />
-              ))}
-            </div>
-          </AsyncBoundary>
+              </AsyncBoundary>
+            ))}
+          </div>
         ))}
       </div>
 
