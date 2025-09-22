@@ -31,7 +31,7 @@ const TxRequest = () => {
   const chain = useChain(chainId)
   const balances = useBalances(chain)
   const gasPrices = useGasPrices(chain)
-  const lastUsedFeeDenom = useLastFeeDenom(chain, { enabled: chain.fees.fee_tokens.length >= 2 })
+  const lastUsedFeeDenom = useLastFeeDenom(chain)
 
   const feeOptions = (txRequest.gasPrices ?? gasPrices).map(({ amount, denom }) =>
     calculateFee(Math.ceil(gas * gasAdjustment), GasPrice.fromString(amount + denom)),
