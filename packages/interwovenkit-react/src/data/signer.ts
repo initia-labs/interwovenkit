@@ -3,26 +3,6 @@ import { useAccount, useSignMessage } from "wagmi"
 import { BrowserProvider, ethers } from "ethers"
 import { SignMode } from "@interchainjs/cosmos-types"
 import { TxRaw } from "@interchainjs/cosmos-types"
-import type {
-  AccountData,
-  Algo,
-  AminoSignResponse,
-  OfflineAminoSigner,
-  StdFee,
-  StdSignDoc,
-} from "@cosmjs/amino"
-import {
-  escapeCharacters,
-  makeSignDoc as makeSignDocAmino,
-  sortedJsonStringify,
-} from "@cosmjs/amino/build/signdoc"
-import { Secp256k1, Secp256k1Signature } from "@cosmjs/crypto"
-import { fromBase64, fromHex, toHex } from "@cosmjs/encoding"
-import { Int53 } from "@cosmjs/math"
-import type { EncodeObject, TxBodyEncodeObject } from "@cosmjs/proto-signing"
-import { makeAuthInfoBytes, Registry } from "@cosmjs/proto-signing"
-import { AminoTypes, SigningStargateClient } from "@cosmjs/stargate"
-import { Comet38Client, HttpClient } from "@cosmjs/tendermint-rpc"
 import { useMemo } from "react"
 import { aminoConverters, protoRegistry } from "@initia/amino-converter"
 import { useInitiaAddress } from "@/public/data/hooks"

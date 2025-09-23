@@ -1,6 +1,5 @@
 import BigNumber from "bignumber.js"
 import { sentenceCase } from "change-case"
-import { calculateFee, GasPrice } from "@cosmjs/stargate"
 import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { useInitiaAddress } from "@/public/data/hooks"
