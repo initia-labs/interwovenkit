@@ -2,7 +2,7 @@ import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import { encodeSecp256k1Pubkey } from "@cosmjs/amino"
 import type { EncodeObject } from "@cosmjs/proto-signing"
-import type { DeliverTxResponse, SigningStargateClient } from "@cosmjs/stargate"
+import type { DeliverTxResponse, SigningStargateClient, StdFee } from "@cosmjs/stargate"
 import { QueryClient, setupTxExtension } from "@cosmjs/stargate"
 import { atom, useAtomValue, useSetAtom } from "jotai"
 import { useNavigate } from "@/lib/router"
@@ -17,8 +17,16 @@ import {
   useCreateSigningStargateClient,
   useOfflineSigner,
   useRegistry,
+  useSignWithEthSecp256k1,
 } from "./signer"
 import { useDrawer } from "./ui"
+
+export interface TxParams {
+  messages: EncodeObject[]
+  memo?: string
+  chainId?: string
+  fee: StdFee
+}
 
 export interface TxRequest {
   messages: EncodeObject[]
@@ -219,7 +227,23 @@ export function useTx() {
     }
   }
 
-  return { estimateGas, simulateTx, requestTxSync, requestTxBlock, waitForTxConfirmation }
+  const signWithEthSecp256k1 = useSignWithEthSecp256k1()
+  const signAndBroadcastTx = async (txParams: TxParams) => {
+    const { messages, memo = "", chainId = defaultChainId, fee } = txParams
+    const client = await createSigningStargateClient(chainId)
+    const signedTx = await signWithEthSecp256k1(chainId, address, messages, fee, memo)
+    const response = await client.broadcastTx(TxRaw.encode(signedTx).finish())
+    return response
+  }
+
+  return {
+    estimateGas,
+    simulateTx,
+    requestTxSync,
+    requestTxBlock,
+    waitForTxConfirmation,
+    signAndBroadcastTx,
+  }
 }
 
 export async function waitForTxConfirmationWithClient({

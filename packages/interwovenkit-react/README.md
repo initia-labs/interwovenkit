@@ -169,6 +169,42 @@ export default function Home() {
 }
 ```
 
+## Custom Fee Handling
+
+When you need to bypass the fee selection UI and use pre-calculated fees directly:
+
+```tsx
+// page.tsx
+"use client"
+
+import { calculateFee, GasPrice } from "@cosmjs/stargate"
+import { useInterwovenKit } from "@initia/interwovenkit-react"
+
+export default function Home() {
+  const { address, estimateGas, signAndBroadcastTx } = useInterwovenKit()
+
+  const send = async () => {
+    const messages = [
+      {
+        typeUrl: "/cosmos.bank.v1beta1.MsgSend",
+        value: {
+          fromAddress: address,
+          toAddress: address,
+          amount: [{ amount: "1000000", denom: "uinit" }],
+        },
+      },
+    ]
+
+    const gas = await estimateGas({ messages })
+    const fee = calculateFee(gas, GasPrice.fromString("0.015uinit"))
+    const { transactionHash } = await signAndBroadcastTx({ messages, fee })
+    console.log("Transaction sent:", transactionHash)
+  }
+
+  return <button onClick={send}>Send</button>
+}
+```
+
 ## Usage on Testnet
 
 ```tsx
