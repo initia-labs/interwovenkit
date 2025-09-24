@@ -31,19 +31,17 @@ const TxFee = ({ options, value, onChange }: Props) => {
     return getLabel(options[0])
   }
 
-  const currentOption = options.find((option) => option.amount[0].denom === value)
-  const currentAmount = currentOption?.amount[0].amount
-  const currentDecimals = findAsset(value).decimals
-  const currentSymbol = findAsset(value).symbol
+  const selected = options.find((o) => o.amount[0].denom === value)
+  if (!selected) throw new Error("Fee option not found")
+  const [{ amount, denom }] = selected.amount
+  const { decimals, symbol } = findAsset(denom)
 
   return (
     <Select.Root value={value} onValueChange={onChange} modal={false}>
       <div className={styles.value}>
-        <span className="monospace">
-          {formatAmount(currentAmount, { decimals: currentDecimals })}
-        </span>
+        <span className="monospace">{formatAmount(amount, { decimals })}</span>
         <Select.Trigger className={styles.trigger}>
-          <Select.Value>{currentSymbol}</Select.Value>
+          <Select.Value>{symbol}</Select.Value>
           <Select.Icon className={styles.icon}>
             <IconChevronDown size={16} />
           </Select.Icon>
