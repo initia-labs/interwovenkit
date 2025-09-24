@@ -1,66 +1,55 @@
 import ky from "ky"
-import { queryOptions } from "@tanstack/react-query"
-import { createQueryKeys } from "@lukemorales/query-key-factory"
-import { useInitiaAddress } from "@/public/data/hooks"
-import { useDefaultChain } from "@/data/chains"
-import { useConfig } from "@/data/config"
-import { STALE_TIMES } from "@/data/http"
-import { useEmbeddedWalletAddress } from "./hooks"
 
-export const ghostWalletQueryKeys = createQueryKeys("interwovenkit:ghost-wallet", {
-  enabled: (address: string, restUrl: string, permissions?: string[], embeddedAddress?: string) => [
-    address,
-    restUrl,
-    permissions,
-    embeddedAddress,
-  ],
-})
+export async function checkGhostWalletEnabled(
+  granter: string,
+  grantee: string,
+  permissions: string[],
+  restUrl: string,
+): Promise<{ enabled: boolean; expiresAt?: number }> {
+  if (!grantee) return { enabled: false }
+  if (!permissions?.length) return { enabled: false }
 
-export function useIsGhostWalletEnabled() {
-  const address = useInitiaAddress()
-  const defaultChain = useDefaultChain()
-  const config = useConfig()
-  const embeddedAddress = useEmbeddedWalletAddress()
-  const permissions = config.ghostWalletPermissions
+  const client = ky.create({ prefixUrl: restUrl })
 
-  return queryOptions({
-    queryKey: ghostWalletQueryKeys.enabled(
-      address,
-      defaultChain.restUrl,
-      permissions,
-      embeddedAddress,
-    ).queryKey,
-    queryFn: async () => {
-      if (!embeddedAddress) return false
+  try {
+    // Check feegrant allowance
+    const feegrantResponse = await client
+      .get(`cosmos/feegrant/v1beta1/allowance/${granter}/${grantee}`)
+      .json<{ allowance: { allowance?: { expiration?: string } } }>()
 
-      if (!permissions?.length) return false
+    // Check authz grants
+    const grantsResponse = await client.get(`cosmos/authz/v1beta1/grants/grantee/${grantee}`).json<{
+      grants: Array<{ granter: string; authorization: { msg: string }; expiration?: string }>
+    }>()
 
-      const granter = address
-      const grantee = embeddedAddress
-      const client = ky.create({ prefixUrl: defaultChain.restUrl })
+    // Check that all required permissions have grants from the correct granter
+    const relevantGrants = grantsResponse.grants.filter(
+      (grant) => grant.granter === granter && permissions.includes(grant.authorization.msg),
+    )
 
-      try {
-        // Check feegrant allowance
-        await client.get(`cosmos/feegrant/v1beta1/allowance/${granter}/${grantee}`).json()
+    const hasAllGrants = permissions.every((permission) =>
+      relevantGrants.some((grant) => grant.authorization.msg === permission),
+    )
 
-        // Check authz grants
-        const grantsResponse = await client
-          .get(`cosmos/authz/v1beta1/grants/grantee/${grantee}`)
-          .json<{ grants: Array<{ granter: string; authorization: { msg: string } }> }>()
+    if (!hasAllGrants) {
+      return { enabled: false }
+    }
 
-        // Check that all required permissions have grants from the correct granter
-        const hasAllGrants = permissions.every((permission) =>
-          grantsResponse.grants.some(
-            (grant) => grant.granter === granter && grant.authorization.msg === permission,
-          ),
-        )
+    // Find the earliest expiration from all grants and feegrant
+    const expirations = [
+      ...relevantGrants.map((grant) => grant.expiration).filter(Boolean),
+      feegrantResponse.allowance?.allowance?.expiration,
+    ]
+      .filter(Boolean)
+      .map((exp) => new Date(exp!).getTime())
 
-        return hasAllGrants
-      } catch {
-        return false
-      }
-    },
-    enabled: !!address,
-    staleTime: STALE_TIMES.MINUTE,
-  })
+    const earliestExpiration = expirations.length > 0 ? Math.min(...expirations) : undefined
+
+    return {
+      enabled: true,
+      expiresAt: earliestExpiration,
+    }
+  } catch {
+    return { enabled: false }
+  }
 }

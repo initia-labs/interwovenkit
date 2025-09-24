@@ -12,6 +12,7 @@ import { useInitiaRegistry, useLayer1 } from "@/data/chains"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import { useSkipChains } from "@/pages/bridge/data/chains"
 import { useSkipAssets } from "@/pages/bridge/data/assets"
+import { useGhostWalletState } from "@/pages/ghost-wallet/hooks"
 import { MAINNET } from "../data/constants"
 import PortalProvider from "./PortalProvider"
 import NotificationProvider from "./NotificationProvider"
@@ -44,6 +45,11 @@ const Prefetch = () => {
   useSkipChains()
   useSkipAssets(localStorage.getItem(LocalStorageKey.BRIDGE_SRC_CHAIN_ID) ?? layer1.chainId)
   useSkipAssets(localStorage.getItem(LocalStorageKey.BRIDGE_DST_CHAIN_ID) ?? layer1.chainId)
+
+  const ghostWalletState = useGhostWalletState()
+  useEffect(() => {
+    ghostWalletState.checkGhostWallet()
+  }, [ghostWalletState])
 
   return null
 }

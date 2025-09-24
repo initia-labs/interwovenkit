@@ -1,5 +1,5 @@
 import { IconCheckCircle } from "@initia/icons-react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation } from "@tanstack/react-query"
 import { useState } from "react"
 import { useDrawer } from "@/data/ui"
 import Scrollable from "@/components/Scrollable"
@@ -12,11 +12,12 @@ import { GenericAuthorization } from "@initia/initia.proto/cosmos/authz/v1beta1/
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useConfig } from "@/data/config"
 import { InitiaAddress } from "@initia/utils"
-import { ghostWalletQueryKeys } from "./queries"
-import { useEmbeddedWallet } from "./hooks"
+import { useEmbeddedWallet, ghostWalletExpirationAtom } from "./hooks"
+import { useSetAtom } from "jotai"
 import DurationSelector, { type DurationOption } from "./DurationSelector"
 
 const DURATION_OPTIONS: Array<{ value: DurationOption; label: string; milliseconds: number }> = [
+  { value: "10min", label: "10 Minutes", milliseconds: 10 * 60 * 1000 },
   { value: "1hour", label: "1 Hour", milliseconds: 60 * 60 * 1000 },
   { value: "1day", label: "1 Day", milliseconds: 24 * 60 * 60 * 1000 },
   { value: "7days", label: "7 Days", milliseconds: 7 * 24 * 60 * 60 * 1000 },
@@ -28,9 +29,9 @@ const GhostWallet = () => {
   const { createWallet } = useCreateWallet()
   const { initiaAddress, requestTxSync } = useInterwovenKit()
   const config = useConfig()
-  const queryClient = useQueryClient()
   const embeddedWallet = useEmbeddedWallet()
-  const [selectedDuration, setSelectedDuration] = useState<DurationOption>("7days")
+  const setGhostWalletExpiration = useSetAtom(ghostWalletExpirationAtom)
+  const [selectedDuration, setSelectedDuration] = useState<DurationOption>("10min")
 
   const { mutate: createGhostWallet, isPending } = useMutation({
     mutationFn: async () => {
@@ -39,7 +40,7 @@ const GhostWallet = () => {
 
       const selectedDurationMs =
         DURATION_OPTIONS.find((option) => option.value === selectedDuration)?.milliseconds ||
-        DURATION_OPTIONS[2].milliseconds
+        DURATION_OPTIONS[0].milliseconds
       const expiration = new Date(Date.now() + selectedDurationMs)
 
       if (!config.ghostWalletPermissions?.length) {
@@ -85,9 +86,13 @@ const GhostWallet = () => {
       })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ghostWalletQueryKeys._def,
-      })
+      // Set the ghost wallet expiration atom based on selected duration
+      const selectedDurationMs =
+        DURATION_OPTIONS.find((option) => option.value === selectedDuration)?.milliseconds ||
+        DURATION_OPTIONS[0].milliseconds
+
+      setGhostWalletExpiration(Date.now() + selectedDurationMs)
+
       closeDrawer()
     },
   })

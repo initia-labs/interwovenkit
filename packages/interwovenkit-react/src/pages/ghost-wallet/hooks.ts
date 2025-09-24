@@ -1,14 +1,22 @@
 import { useWallets } from "@privy-io/react-auth"
-import { useQuery } from "@tanstack/react-query"
 import { InitiaAddress } from "@initia/utils"
 import type { EncodeObject } from "@cosmjs/proto-signing"
 import type { StdFee } from "@cosmjs/amino"
+import { atom, useAtomValue, useSetAtom } from "jotai"
 import { useConfig } from "@/data/config"
-import { useIsGhostWalletEnabled } from "./queries"
+import { useDefaultChain } from "@/data/chains"
+import { checkGhostWalletEnabled } from "./queries"
 import { OfflineSigner, useSignWithEthSecp256k1, useRegistry } from "@/data/signer"
 import { useInitiaAddress } from "@/public/data/hooks"
 import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
 import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
+
+export const ghostWalletExpirationAtom = atom<number | undefined>(undefined)
+
+const isGhostWalletEnabledAtom = atom((get) => {
+  const expiration = get(ghostWalletExpirationAtom)
+  return expiration !== undefined && expiration >= Date.now()
+})
 
 export function useEmbeddedWalletAddress() {
   const { wallets } = useWallets()
@@ -19,23 +27,6 @@ export function useEmbeddedWalletAddress() {
 export function useEmbeddedWallet() {
   const { wallets } = useWallets()
   return wallets.find((w) => w.connectorType === "embedded")
-}
-
-export function useCanGhostWalletHandleTx() {
-  const config = useConfig()
-  const ghostWalletEnabledQuery = useQuery(useIsGhostWalletEnabled())
-
-  return (messages: EncodeObject[]) => {
-    // Check if ghost wallet is enabled
-    if (!ghostWalletEnabledQuery.data) {
-      return false
-    }
-
-    // Check if all message types are allowed by ghost wallet permissions
-    const allowedMessageTypes = config.ghostWalletPermissions || []
-
-    return messages.every((message) => allowedMessageTypes.includes(message.typeUrl))
-  }
 }
 
 export function useSignWithGhostWallet() {
@@ -96,5 +87,46 @@ export function useSignWithGhostWallet() {
       memo,
       embeddedSigner,
     )
+  }
+}
+
+export function useGhostWalletState() {
+  const isEnabled = useAtomValue(isGhostWalletEnabledAtom)
+  const setExpiration = useSetAtom(ghostWalletExpirationAtom)
+  const address = useInitiaAddress()
+  const config = useConfig()
+  const defaultChain = useDefaultChain()
+  const embeddedWalletAddress = useEmbeddedWalletAddress()
+
+  const checkGhostWallet = async (): Promise<boolean> => {
+    if (!embeddedWalletAddress || !address) return false
+
+    const permissions = config.ghostWalletPermissions || []
+    if (!permissions.length) return false
+
+    // If already enabled and not expired, return true
+    if (isEnabled) return true
+
+    // Perform the actual check
+    const result = await checkGhostWalletEnabled(
+      address,
+      embeddedWalletAddress,
+      permissions,
+      defaultChain.restUrl,
+    )
+
+    // Update expiration based on actual grant expiration
+    if (result.enabled) {
+      setExpiration(result.expiresAt)
+    } else {
+      setExpiration(undefined)
+    }
+
+    return result.enabled
+  }
+
+  return {
+    isEnabled,
+    checkGhostWallet,
   }
 }

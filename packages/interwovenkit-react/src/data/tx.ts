@@ -18,7 +18,7 @@ import {
   useOfflineSigner,
   useRegistry,
 } from "./signer"
-import { useCanGhostWalletHandleTx, useSignWithGhostWallet } from "@/pages/ghost-wallet/hooks"
+import { useSignWithGhostWallet, useGhostWalletState } from "@/pages/ghost-wallet/hooks"
 import { useDrawer } from "./ui"
 
 export interface TxRequest {
@@ -60,7 +60,7 @@ export function useTxRequestHandler() {
 export function useTx() {
   const navigate = useNavigate()
   const address = useInitiaAddress()
-  const { defaultChainId, registryUrl } = useConfig()
+  const { defaultChainId, registryUrl, ghostWalletPermissions } = useConfig()
   const findChain = useFindChain()
   const { openDrawer, closeDrawer } = useDrawer()
   const { openModal, closeModal } = useModal()
@@ -70,8 +70,8 @@ export function useTx() {
   const createSigningStargateClient = useCreateSigningStargateClient()
   const offlineSigner = useOfflineSigner()
   const registry = useRegistry()
-  const canGhostWalletHandleTx = useCanGhostWalletHandleTx()
   const signWithGhostWallet = useSignWithGhostWallet()
+  const ghostWalletState = useGhostWalletState()
 
   const estimateGas = async ({ messages, memo, chainId = defaultChainId }: TxRequest) => {
     try {
@@ -116,24 +116,34 @@ export function useTx() {
     const txRequest = { ...defaultTxRequest, ...rawTxRequest }
 
     // Check if ghost wallet can handle this transaction
-    if (canGhostWalletHandleTx(txRequest.messages)) {
-      // Sign with ghost wallet automatically
-      const fee = {
-        amount: [], // Empty because feegrant will cover the fee
-        gas: txRequest.gas.toString(),
+    const allowedMessageTypes = ghostWalletPermissions || []
+    const canHandleMessageTypes = txRequest.messages.every((message) =>
+      allowedMessageTypes.includes(message.typeUrl),
+    )
+
+    if (canHandleMessageTypes) {
+      // Check if ghost wallet is enabled (with caching)
+      const isGhostWalletEnabled = await ghostWalletState.checkGhostWallet()
+
+      if (isGhostWalletEnabled) {
+        // Sign with ghost wallet automatically
+        const fee = {
+          amount: [], // Empty because feegrant will cover the fee
+          gas: txRequest.gas.toString(),
+        }
+
+        const signedTx = await signWithGhostWallet(
+          txRequest.chainId,
+          txRequest.messages,
+          fee,
+          txRequest.memo,
+        )
+
+        // Broadcast the transaction directly
+        const client = await createSigningStargateClient(txRequest.chainId)
+        const response = await broadcaster(client, TxRaw.encode(signedTx).finish())
+        return response
       }
-
-      const signedTx = await signWithGhostWallet(
-        txRequest.chainId,
-        txRequest.messages,
-        fee,
-        txRequest.memo,
-      )
-
-      // Broadcast the transaction directly
-      const client = await createSigningStargateClient(txRequest.chainId)
-      const response = await broadcaster(client, TxRaw.encode(signedTx).finish())
-      return response
     }
 
     return new Promise<T>((resolve, reject) => {

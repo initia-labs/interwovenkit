@@ -10,6 +10,7 @@ import { accountQueryKeys, useUsernameClient } from "@/data/account"
 import type { FormValues } from "@/pages/bridge/data/form"
 import { STALE_TIMES } from "@/data/http"
 import { useConfig } from "@/data/config"
+import { useGhostWalletState } from "@/pages/ghost-wallet/hooks"
 
 export { usePortfolio } from "@/data/portfolio"
 
@@ -55,6 +56,7 @@ export function useInterwovenKit() {
   const offlineSigner = useOfflineSigner()
   const disconnect = useDisconnect()
   const { login } = useLogin()
+  const ghostWalletState = useGhostWalletState()
 
   const { isDrawerOpen: isOpen, openDrawer } = useDrawer()
 
@@ -73,6 +75,8 @@ export function useInterwovenKit() {
   const createGhostWallet = () => {
     if (!config.ghostWalletPermissions)
       throw new Error("Ghost wallet permissions are required to create a ghost wallet")
+
+    if (ghostWalletState.isEnabled) throw new Error("Ghost wallet is already enabled")
 
     openDrawer("/ghost-wallet")
   }
@@ -97,7 +101,10 @@ export function useInterwovenKit() {
     openWallet,
     openBridge,
     disconnect,
-    createGhostWallet,
+    ghostWallet: {
+      enabled: ghostWalletState.isEnabled,
+      create: createGhostWallet,
+    },
     ...tx,
   }
 }
