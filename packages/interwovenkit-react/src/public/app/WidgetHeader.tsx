@@ -10,7 +10,6 @@ import { useDefaultChain } from "@/data/chains"
 import CopyButton from "@/components/CopyButton"
 import Image from "@/components/Image"
 import { useModal } from "./ModalContext"
-import AddressQr from "./AddressQr"
 import styles from "./WidgetHeader.module.css"
 
 const WidgetHeader = () => {
@@ -81,7 +80,7 @@ const WidgetHeader = () => {
       {deafultChain.metadata?.is_l1 && (
         <button
           className={clsx(styles.button, styles.qr)}
-          onClick={() => openModal({ title: "Initia address", content: <AddressQr /> })}
+          onClick={() => openModal({ title: "Initia address", content: <></> })}
         >
           <IconQrCode size={16} />
         </button>
