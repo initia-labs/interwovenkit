@@ -36,6 +36,18 @@ function NumericInput<T extends FieldValues>(props: Props<T>) {
           {...field}
           className={clsx(styles.input, className)}
           onChange={(e) => field.onChange(sanitizeNumericInput(e.target.value, dp))}
+          onPaste={(e) => {
+            e.preventDefault()
+            const pastedText = e.clipboardData.getData("text")
+
+            // Check if it's a formatted number (e.g., 1,234,567.890)
+            const formattedNumberRegex = /^[0-9,]+(\.[0-9]+)?$/
+            if (!formattedNumberRegex.test(pastedText)) return
+
+            const cleanedValue = pastedText.replace(/,/g, "")
+            const sanitized = sanitizeNumericInput(cleanedValue, dp)
+            field.onChange(sanitized)
+          }}
           placeholder="0"
           inputMode="decimal"
           autoComplete="off"
