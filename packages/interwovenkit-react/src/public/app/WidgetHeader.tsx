@@ -2,22 +2,20 @@ import clsx from "clsx"
 import { useAccount } from "wagmi"
 import { useState, useRef, useEffect } from "react"
 import { useSpring, animated } from "@react-spring/web"
-import { IconCopy, IconQrCode, IconSignOut } from "@initia/icons-react"
+import { IconCopy, IconSettingFilled, IconSignOut } from "@initia/icons-react"
 import { truncate } from "@initia/utils"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useDisconnect } from "@/data/ui"
-import { useDefaultChain } from "@/data/chains"
 import CopyButton from "@/components/CopyButton"
 import Image from "@/components/Image"
-import { useModal } from "./ModalContext"
 import styles from "./WidgetHeader.module.css"
+import { useNavigate } from "@/lib/router"
 
 const WidgetHeader = () => {
-  const deafultChain = useDefaultChain()
   const { connector } = useAccount()
   const disconnect = useDisconnect()
   const { address, username } = useInterwovenKit()
-  const { openModal } = useModal()
+  const navigate = useNavigate()
   const name = username ?? address
 
   const [isExpanded, setIsExpanded] = useState(false)
@@ -77,14 +75,9 @@ const WidgetHeader = () => {
         )}
       </CopyButton>
 
-      {deafultChain.metadata?.is_l1 && (
-        <button
-          className={clsx(styles.button, styles.qr)}
-          onClick={() => openModal({ title: "Initia address", content: <></> })}
-        >
-          <IconQrCode size={16} />
-        </button>
-      )}
+      <button className={clsx(styles.button, styles.qr)} onClick={() => navigate("/settings")}>
+        <IconSettingFilled size={16} />
+      </button>
 
       <animated.button
         className={clsx(styles.button, styles.disconnect, { [styles.expanded]: isExpanded })}

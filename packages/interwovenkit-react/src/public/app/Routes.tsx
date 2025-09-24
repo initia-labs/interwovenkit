@@ -14,6 +14,7 @@ import BridgeHistory from "@/pages/bridge/BridgeHistory"
 import TxRequest from "@/pages/tx/TxRequest"
 import GhostWallet from "@/pages/ghost-wallet/GhostWallet"
 import AddressQrPage from "@/pages/wallet/receive/AddressQrPage"
+import SettingsPage from "@/pages/settings/SettingsPage"
 import { useAddress } from "../data/hooks"
 import { useModal } from "./ModalContext"
 
@@ -68,6 +69,8 @@ const Routes = () => {
       return <Send key={address} />
     case "/receive":
       return <AddressQrPage />
+    case "/settings":
+      return <SettingsPage />
     case "/nft":
       return <NftDetails />
     case "/nft/send":
