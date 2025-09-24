@@ -104,7 +104,7 @@ const RecipientInput = ({ mode = "onChange", myAddress, ...props }: Props) => {
       <label htmlFor="recipient" className={styles.label}>
         <span>Recipient</span>
 
-        <Button.Small type="button" onClick={handlePaste}>
+        <Button.Small type="button" tabIndex={-1} onClick={handlePaste}>
           Paste
         </Button.Small>
       </label>

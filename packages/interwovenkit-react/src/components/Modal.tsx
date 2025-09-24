@@ -26,7 +26,7 @@ const Modal = ({ title, children, trigger, className, open, onOpenChange }: Prop
     <Dialog.Root
       open={open}
       onOpenChange={onOpenChange}
-      modal={false} // Don't block parent app scroll as this is a widget
+      modal="trap-focus" // Don't block parent app scroll as this is a widget
     >
       {trigger && <Dialog.Trigger className={className}>{trigger}</Dialog.Trigger>}
 

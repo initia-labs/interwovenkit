@@ -135,7 +135,7 @@ const ChainSelect = ({ value, onChange, chainIds, fullWidth }: Props) => {
   }
 
   return (
-    <Popover.Root open={isOpen} onOpenChange={handleOpenChange} modal={false}>
+    <Popover.Root open={isOpen} onOpenChange={handleOpenChange} modal="trap-focus">
       <Popover.Trigger
         render={
           <button
