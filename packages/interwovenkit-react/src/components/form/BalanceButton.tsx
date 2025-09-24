@@ -12,7 +12,13 @@ const BalanceButton = ({ onClick, children, disabled }: PropsWithChildren<Props>
     <div className={styles.wrapper}>
       <IconWallet size={16} />
       <span className={styles.balance}>{children}</span>
-      <button type="button" className={styles.button} onClick={() => onClick()} disabled={disabled}>
+      <button
+        type="button"
+        tabIndex={-1}
+        className={styles.button}
+        onClick={() => onClick()}
+        disabled={disabled}
+      >
         MAX
       </button>
     </div>

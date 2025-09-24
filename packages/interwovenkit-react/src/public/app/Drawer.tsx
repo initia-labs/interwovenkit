@@ -77,7 +77,7 @@ const Drawer = ({ children }: PropsWithChildren) => {
     <Dialog.Root
       open={isDrawerOpen}
       onOpenChange={(open) => !open && handleCloseDrawer()}
-      modal={false}
+      modal="trap-focus"
     >
       <Dialog.Portal container={portalContainer}>
         {isSmall && (
