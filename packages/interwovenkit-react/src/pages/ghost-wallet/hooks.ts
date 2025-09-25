@@ -3,6 +3,7 @@ import { InitiaAddress } from "@initia/utils"
 import type { EncodeObject } from "@cosmjs/proto-signing"
 import type { StdFee } from "@cosmjs/amino"
 import { atom, useAtomValue, useSetAtom } from "jotai"
+import { useEffect, useState } from "react"
 import { useConfig } from "@/data/config"
 import { useDefaultChain } from "@/data/chains"
 import { checkGhostWalletEnabled } from "./queries"
@@ -13,10 +14,36 @@ import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 
 export const ghostWalletExpirationAtom = atom<number | undefined>(undefined)
 
-const isGhostWalletEnabledAtom = atom((get) => {
-  const expiration = get(ghostWalletExpirationAtom)
-  return expiration !== undefined && expiration >= Date.now()
-})
+function useIsGhostWalletEnabled() {
+  const expiration = useAtomValue(ghostWalletExpirationAtom)
+  const [isEnabled, setIsEnabled] = useState(expiration !== undefined && expiration >= Date.now())
+
+  useEffect(() => {
+    if (expiration === undefined) {
+      setIsEnabled(false)
+      return
+    }
+
+    // Initial check
+    const currentTime = Date.now()
+    if (currentTime >= expiration) {
+      setIsEnabled(false)
+      return
+    }
+
+    setIsEnabled(true)
+
+    // Set up timer to disable when expiration is reached
+    const timeUntilExpiration = expiration - currentTime
+    const timeoutId = setTimeout(() => {
+      setIsEnabled(false)
+    }, timeUntilExpiration)
+
+    return () => clearTimeout(timeoutId)
+  }, [expiration])
+
+  return isEnabled
+}
 
 export function useEmbeddedWalletAddress() {
   const { wallets } = useWallets()
@@ -91,7 +118,7 @@ export function useSignWithGhostWallet() {
 }
 
 export function useGhostWalletState() {
-  const isEnabled = useAtomValue(isGhostWalletEnabledAtom)
+  const isEnabled = useIsGhostWalletEnabled()
   const setExpiration = useSetAtom(ghostWalletExpirationAtom)
   const address = useInitiaAddress()
   const config = useConfig()

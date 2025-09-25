@@ -29,7 +29,7 @@ const SettingsPage = () => {
 
         return acc
       },
-      [] as { grantee: string; expiration?: string }[],
+      [] as { grantee: string; expiration: string }[],
     ) || []
 
   return (

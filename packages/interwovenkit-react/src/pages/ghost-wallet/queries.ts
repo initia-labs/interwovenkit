@@ -69,7 +69,7 @@ export interface AuthzGrant {
     "@type": string
     msg: string
   }
-  expiration?: string
+  expiration: string
 }
 
 export interface GrantsResponse {
