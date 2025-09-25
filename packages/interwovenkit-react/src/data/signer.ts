@@ -127,6 +127,7 @@ export function useSignWithEthSecp256k1() {
     messages: readonly EncodeObject[],
     fee: StdFee,
     memo: string,
+    options: { increaseSequence?: boolean },
   ): Promise<TxRaw> {
     if (!signer) throw new Error("Signer not initialized")
     const client = await createSigningStargateClient(chainId)
@@ -141,7 +142,14 @@ export function useSignWithEthSecp256k1() {
     /* 1 */ const pubkey = encodePubkeyInitia(encodeEthSecp256k1Pubkey(accountFromSigner.pubkey))
     /* 2 */ const signMode = SignMode.SIGN_MODE_EIP_191
     const msgs = messages.map((msg) => aminoTypes.toAmino(msg))
-    const signDoc = makeSignDocAmino(msgs, fee, chainId, memo, accountNumber, sequence)
+    const signDoc = makeSignDocAmino(
+      msgs,
+      fee,
+      chainId,
+      memo,
+      accountNumber,
+      sequence + (options.increaseSequence ? 1 : 0),
+    )
     const { signature, signed } = await signer.signAmino(signerAddress, signDoc)
     const signedTxBody = {
       messages: signed.msgs.map((msg) => aminoTypes.fromAmino(msg)),

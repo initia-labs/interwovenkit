@@ -283,6 +283,9 @@ export function useSignOpHook() {
           messages,
           { amount: [], gas: "1" },
           "",
+          {
+            increaseSequence: chain_id === values.srcChainId,
+          },
         )
 
         const tx = Tx.fromPartial({
