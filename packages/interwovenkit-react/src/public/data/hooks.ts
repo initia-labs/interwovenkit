@@ -1,6 +1,5 @@
 import { useAccount } from "wagmi"
 import { useQuery } from "@tanstack/react-query"
-import { useLogin } from "@privy-io/react-auth"
 import { InitiaAddress } from "@initia/utils"
 import { useTx } from "@/data/tx"
 import { useDisconnect, useDrawer } from "@/data/ui"
@@ -55,7 +54,6 @@ export function useInterwovenKit() {
   const { data: username } = useUsernameQuery()
   const offlineSigner = useOfflineSigner()
   const disconnect = useDisconnect()
-  const { login } = useLogin()
   const ghostWalletState = useGhostWalletState()
 
   const { isDrawerOpen: isOpen, openDrawer } = useDrawer()
@@ -65,11 +63,7 @@ export function useInterwovenKit() {
   }
 
   const openConnect = () => {
-    if (config.ghostWalletPermissions) {
-      login()
-    } else {
-      openDrawer("/connect")
-    }
+    openDrawer("/connect")
   }
 
   const createGhostWallet = () => {

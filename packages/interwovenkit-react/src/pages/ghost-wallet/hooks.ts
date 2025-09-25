@@ -1,9 +1,9 @@
-import { useWallets } from "@privy-io/react-auth"
-import { InitiaAddress } from "@initia/utils"
 import type { EncodeObject } from "@cosmjs/proto-signing"
 import type { StdFee } from "@cosmjs/amino"
 import { atom, useAtomValue, useSetAtom } from "jotai"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { Wallet } from "ethers"
+import { InitiaAddress } from "@initia/utils"
 import { useConfig } from "@/data/config"
 import { useDefaultChain } from "@/data/chains"
 import { checkGhostWalletEnabled } from "./queries"
@@ -45,19 +45,33 @@ function useIsGhostWalletEnabled() {
   return isEnabled
 }
 
+const GHOST_WALLET_PRIVATE_KEY = "ghost-wallet-private-key"
+
 export function useEmbeddedWalletAddress() {
-  const { wallets } = useWallets()
-  const embeddedWallet = wallets.find((w) => w.connectorType === "embedded")
-  return embeddedWallet?.address ? InitiaAddress(embeddedWallet.address).bech32 : undefined
+  const wallet = useEmbeddedWallet()
+
+  return InitiaAddress(wallet.address).bech32
 }
 
 export function useEmbeddedWallet() {
-  const { wallets } = useWallets()
-  return wallets.find((w) => w.connectorType === "embedded")
+  return useMemo(() => {
+    let privateKey = localStorage.getItem(GHOST_WALLET_PRIVATE_KEY)
+
+    if (!privateKey) {
+      // Generate a new private key
+      const wallet = Wallet.createRandom()
+      privateKey = wallet.privateKey
+      localStorage.setItem(GHOST_WALLET_PRIVATE_KEY, privateKey)
+    }
+
+    // Create wallet from private key and convert to Initia address
+    return new Wallet(privateKey)
+  }, [])
 }
 
 export function useSignWithGhostWallet() {
   const embeddedWallet = useEmbeddedWallet()
+  const embeddedWalletAddress = useEmbeddedWalletAddress()
   const signWithEthSecp256k1 = useSignWithEthSecp256k1()
   const userAddress = useInitiaAddress()
   const registry = useRegistry()
@@ -68,18 +82,16 @@ export function useSignWithGhostWallet() {
     fee: StdFee,
     memo: string,
   ): Promise<TxRaw> => {
-    if (!embeddedWallet?.address) {
+    if (!embeddedWallet || !embeddedWalletAddress) {
       throw new Error("Ghost wallet not available")
     }
-
-    const ghostWalletAddress = InitiaAddress(embeddedWallet.address).bech32
 
     // Wrap all messages in a MsgExec for authz execution
     const wrappedMessages: EncodeObject[] = [
       {
         typeUrl: "/cosmos.authz.v1beta1.MsgExec",
         value: MsgExec.fromPartial({
-          grantee: ghostWalletAddress,
+          grantee: embeddedWalletAddress,
           msgs: messages.map((msg) => ({
             typeUrl: msg.typeUrl,
             value: registry.encode(msg),
@@ -100,15 +112,17 @@ export function useSignWithGhostWallet() {
           : [{ denom: "uinit", amount: (1000000 * 0.015).toFixed(0) }], // default amount if not provided
     }
 
-    // Create a custom signer for the embedded wallet
-    const embeddedSigner = new OfflineSigner(ghostWalletAddress, async (message: string) => {
-      return await embeddedWallet.sign(message)
+    // Create a custom signer for the embedded wallet using ethers
+    const embeddedSigner = new OfflineSigner(embeddedWalletAddress, async (message: string) => {
+      const messageBytes = new TextEncoder().encode(message)
+      const signature = await embeddedWallet.signMessage(messageBytes)
+      return signature
     })
 
     // Use the existing signing function but with the embedded wallet signer
     return await signWithEthSecp256k1(
       chainId,
-      ghostWalletAddress,
+      embeddedWalletAddress,
       wrappedMessages,
       feeWithGranter,
       memo,
