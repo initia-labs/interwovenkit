@@ -1,8 +1,9 @@
 import clsx from "clsx"
 import type { PropsWithChildren } from "react"
-import { IconClockFilled } from "@initia/icons-react"
+import { IconCheck, IconClockFilled } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
-import Loader from "@/components/Loader"
+import { formatValue } from "@/lib/format"
+import Skeleton from "@/components/Skeleton"
 import { formatDuration } from "./data/format"
 import { useBridgeForm } from "./data/form"
 import { useSkipAsset } from "./data/assets"
@@ -23,38 +24,67 @@ const SelectRouteOptionStack = ({ children }: PropsWithChildren) => {
   return <div className={styles.stack}>{children}</div>
 }
 
-const SelectRouteOption = ({ label, query, value, onSelect, checked }: Props) => {
-  const { data, isLoading } = query
+const SelectRouteOption = ({ label, query, value, onSelect, ...props }: Props) => {
+  const { data: route, isLoading } = query
   const { watch } = useBridgeForm()
   const { dstChainId, dstDenom } = watch()
   const dstAsset = useSkipAsset(dstDenom, dstChainId)
 
+  const checked = !isLoading && props.checked
+  const disabled = !isLoading && !route
+
   return (
     <button
       type="button"
-      className={clsx(styles.button, { [styles.checked]: checked })}
-      onClick={() => onSelect(value)}
+      className={clsx(styles.button, {
+        [styles.isLoading]: isLoading,
+        [styles.disabled]: disabled,
+        [styles.checked]: checked,
+      })}
+      onClick={() => {
+        if (isLoading || disabled) return
+        onSelect(value)
+      }}
     >
-      <div className={styles.checkmark}>{checked && <span className={styles.inner} />}</div>
-
-      <div className={styles.info}>
-        <div>{label}</div>
-        <div className={styles.duration}>
-          <IconClockFilled size={12} />
-          {data ? formatDuration(data.estimated_route_duration_seconds) : "Not available"}
+      <div className={styles.header}>
+        <div className={styles.title}>
+          <span>{label}</span>
+          {checked && <IconCheck size={14} />}
         </div>
+
+        {isLoading ? (
+          <Skeleton width={80} height={16} />
+        ) : !route ? (
+          <div className={styles.duration}>Not available</div>
+        ) : (
+          <div className={clsx(styles.duration, { [styles.warning]: value === "op" })}>
+            <IconClockFilled size={12} />
+            <span>{formatDuration(route.estimated_route_duration_seconds)}</span>
+          </div>
+        )}
       </div>
 
-      <div className={styles.amount}>
-        {isLoading ? (
-          <Loader size={14} />
-        ) : data ? (
-          <>
-            <span>{formatAmount(data.amount_out, { decimals: dstAsset.decimals })}</span>
-            <span className={styles.symbol}>{dstAsset.symbol}</span>
-          </>
-        ) : null}
-      </div>
+      {(isLoading || route) && (
+        <>
+          <div className={styles.amount}>
+            {isLoading ? (
+              <Skeleton width={260} height={40} />
+            ) : !route ? null : (
+              formatAmount(route.amount_out, { decimals: dstAsset.decimals })
+            )}
+          </div>
+
+          <div className={styles.value}>
+            {isLoading ? (
+              <Skeleton width={120} height={16} />
+            ) : !route ? null : route.usd_amount_out ? (
+              formatValue(route.usd_amount_out)
+            ) : (
+              "$-"
+            )}
+          </div>
+        </>
+      )}
     </button>
   )
 }

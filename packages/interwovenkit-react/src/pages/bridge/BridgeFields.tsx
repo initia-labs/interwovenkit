@@ -1,7 +1,7 @@
 import BigNumber from "bignumber.js"
 import { isAddress } from "ethers"
 import { sentenceCase } from "change-case"
-import { useMemo } from "react"
+import { useCallback, useMemo } from "react"
 import { useLocalStorage, useDebounceValue } from "usehooks-ts"
 import type { FeeJson } from "@skip-go/client"
 import {
@@ -190,21 +190,70 @@ const BridgeFields = () => {
 
   const isFeeToken = getIsFeeToken()
 
-  const renderFees = (fees: FeeJson[], tooltip: string) => {
-    if (!fees.length) return null
-    return (
-      <div className={styles.description}>
-        {formatFees(fees)}
-        {!isMobile && (
-          <WidgetTooltip label={tooltip}>
-            <span className={styles.icon}>
-              <IconInfoFilled size={12} />
-            </span>
-          </WidgetTooltip>
-        )}
-      </div>
-    )
-  }
+  const renderFees = useCallback(
+    (fees: FeeJson[], tooltip: string) => {
+      if (!fees.length) return null
+      return (
+        <div className={styles.description}>
+          {formatFees(fees)}
+          {!isMobile && (
+            <WidgetTooltip label={tooltip}>
+              <span className={styles.icon}>
+                <IconInfoFilled size={12} />
+              </span>
+            </WidgetTooltip>
+          )}
+        </div>
+      )
+    },
+    [isMobile],
+  )
+
+  const shouldShowRouteOptions = BigNumber(quantity).gt(0) && isOpWithdrawable
+
+  const metaRows = useMemo(() => {
+    if (!route) return []
+
+    return [
+      {
+        condition: !!route.estimated_fees?.length,
+        title: "Fees",
+        content: (
+          <div>
+            {renderFees(deductedFees, "Fee deducted from the amount you receive")}
+            {renderFees(additionalFees, "Fee charged in addition to the amount you enter")}
+          </div>
+        ),
+      },
+      {
+        condition:
+          !shouldShowRouteOptions && !!formatDuration(route.estimated_route_duration_seconds),
+        title: "Estimated time",
+        content: (
+          <span className={styles.description}>
+            {formatDuration(route.estimated_route_duration_seconds)}
+          </span>
+        ),
+      },
+      {
+        condition: route.does_swap,
+        title: "Slippage",
+        content: (
+          <span className={styles.description}>
+            <span>{slippagePercent}%</span>
+
+            <ModalTrigger
+              title="Slippage tolerance"
+              content={(close) => <SlippageControl afterConfirm={close} />}
+              className={styles.edit}
+            >
+              <IconSettingFilled size={12} />
+            </ModalTrigger>
+          </span>
+        ),
+      },
+    ].filter((row) => row.condition)
+  }, [additionalFees, deductedFees, renderFees, route, shouldShowRouteOptions, slippagePercent])
 
   return (
     <form className={styles.form} onSubmit={submit}>
@@ -240,32 +289,33 @@ const BridgeFields = () => {
         accountButton={<BridgeAccount type="dst" />}
         quantityInput={<QuantityInput.ReadOnly>{received}</QuantityInput.ReadOnly>}
         value={!route ? "$0" : route.usd_amount_out ? formatValue(route.usd_amount_out) : "$-"}
+        hideNumbers={shouldShowRouteOptions}
       />
+
+      <AnimatedHeight>
+        {shouldShowRouteOptions ? (
+          <SelectRouteOption.Stack>
+            <SelectRouteOption
+              label="Fast"
+              query={routeQueryDefault}
+              value="default"
+              onSelect={setSelectedType}
+              checked={selectedType === "default"}
+            />
+            <SelectRouteOption
+              label="Lossless"
+              query={routeQueryOpWithdrawal}
+              value="op"
+              onSelect={setSelectedType}
+              checked={selectedType === "op"}
+            />
+          </SelectRouteOption.Stack>
+        ) : null}
+      </AnimatedHeight>
 
       <Footer
         extra={
           <>
-            <AnimatedHeight>
-              {BigNumber(quantity).gt(0) && isOpWithdrawable ? (
-                <SelectRouteOption.Stack>
-                  <SelectRouteOption
-                    label="Minitswap"
-                    query={routeQueryDefault}
-                    value="default"
-                    onSelect={setSelectedType}
-                    checked={selectedType === "default"}
-                  />
-                  <SelectRouteOption
-                    label="OP Bridge"
-                    query={routeQueryOpWithdrawal}
-                    value="op"
-                    onSelect={setSelectedType}
-                    checked={selectedType === "op"}
-                  />
-                </SelectRouteOption.Stack>
-              ) : null}
-            </AnimatedHeight>
-
             <FormHelp.Stack>
               {route?.extra_infos?.map((info) => (
                 <FormHelp level="info" key={info}>
@@ -285,46 +335,14 @@ const BridgeFields = () => {
             </FormHelp.Stack>
 
             <AnimatedHeight>
-              {route && (
+              {metaRows.length > 0 && (
                 <div className={styles.meta}>
-                  {!!route.estimated_fees?.length && (
-                    <div className={styles.row}>
-                      <span className={styles.title}>Fees</span>
-                      <div>
-                        {renderFees(deductedFees, "Fee deducted from the amount you receive")}
-                        {renderFees(
-                          additionalFees,
-                          "Fee charged in addition to the amount you enter",
-                        )}
-                      </div>
+                  {metaRows.map((row, index) => (
+                    <div className={styles.row} key={index}>
+                      <span className={styles.title}>{row.title}</span>
+                      {row.content}
                     </div>
-                  )}
-
-                  {formatDuration(route.estimated_route_duration_seconds) && (
-                    <div className={styles.row}>
-                      <span className={styles.title}>Estimated time</span>
-                      <span className={styles.description}>
-                        {formatDuration(route.estimated_route_duration_seconds)}
-                      </span>
-                    </div>
-                  )}
-
-                  {route.does_swap && (
-                    <div className={styles.row}>
-                      <span className={styles.title}>Slippage</span>
-                      <span className={styles.description}>
-                        <span>{slippagePercent}%</span>
-
-                        <ModalTrigger
-                          title="Slippage tolerance"
-                          content={(close) => <SlippageControl afterConfirm={close} />}
-                          className={styles.edit}
-                        >
-                          <IconSettingFilled size={12} />
-                        </ModalTrigger>
-                      </span>
-                    </div>
-                  )}
+                  ))}
                 </div>
               )}
             </AnimatedHeight>

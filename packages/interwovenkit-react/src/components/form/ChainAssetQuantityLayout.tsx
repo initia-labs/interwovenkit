@@ -9,10 +9,19 @@ interface Props {
   balanceButton?: ReactNode
   value?: string
   errorMessage?: string
+  hideNumbers?: boolean
 }
 
 const ChainAssetQuantityLayout = (props: Props) => {
-  const { selectButton, accountButton, quantityInput, balanceButton, value, errorMessage } = props
+  const {
+    selectButton,
+    accountButton,
+    quantityInput,
+    balanceButton,
+    value,
+    errorMessage,
+    hideNumbers,
+  } = props
 
   return (
     <div className={styles.fieldset}>
@@ -21,21 +30,23 @@ const ChainAssetQuantityLayout = (props: Props) => {
         <div className={styles.account}>{accountButton}</div>
       </div>
 
-      <div className={styles.lower}>
-        {quantityInput}
+      {!hideNumbers && (
+        <div className={styles.lower}>
+          {quantityInput}
 
-        <div className={styles.wrapper}>
-          <div className={styles.balance}>{balanceButton}</div>
-          {value && <div className={styles.value}>{value}</div>}
+          <div className={styles.wrapper}>
+            <div className={styles.balance}>{balanceButton}</div>
+            {value && <div className={styles.value}>{value}</div>}
+          </div>
+
+          {errorMessage && (
+            <footer className={styles.error}>
+              <IconWarningFilled size={12} />
+              <p>{errorMessage}</p>
+            </footer>
+          )}
         </div>
-
-        {errorMessage && (
-          <footer className={styles.error}>
-            <IconWarningFilled size={12} />
-            <p>{errorMessage}</p>
-          </footer>
-        )}
-      </div>
+      )}
     </div>
   )
 }
