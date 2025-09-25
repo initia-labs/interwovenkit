@@ -21,12 +21,6 @@ const TxFee = ({ options, value, onChange }: Props) => {
   const chain = useChain(txRequest.chainId)
   const findAsset = useFindAsset(chain)
 
-  const getOption = (denom: string) => {
-    const option = options.find((option) => option.amount[0].denom === denom)
-    if (!option) throw new Error(`Option not found for denom: ${denom}`)
-    return option
-  }
-
   const getLabel = ({ amount: [{ amount, denom }] }: StdFee) => {
     if (BigNumber(amount).isZero()) return "0"
     const { symbol, decimals } = findAsset(denom)
@@ -37,14 +31,22 @@ const TxFee = ({ options, value, onChange }: Props) => {
     return getLabel(options[0])
   }
 
+  const selected = options.find((o) => o.amount[0].denom === value)
+  if (!selected) throw new Error("Fee option not found")
+  const [{ amount, denom }] = selected.amount
+  const { decimals, symbol } = findAsset(denom)
+
   return (
     <Select.Root value={value} onValueChange={onChange} modal={false}>
-      <Select.Trigger className={styles.trigger}>
-        <Select.Value>{(value) => getLabel(getOption(value))}</Select.Value>
-        <Select.Icon className={styles.icon}>
-          <IconChevronDown size={16} />
-        </Select.Icon>
-      </Select.Trigger>
+      <div className={styles.value}>
+        <span className="monospace">{formatAmount(amount, { decimals })}</span>
+        <Select.Trigger className={styles.trigger}>
+          <Select.Value>{symbol}</Select.Value>
+          <Select.Icon className={styles.icon}>
+            <IconChevronDown size={16} />
+          </Select.Icon>
+        </Select.Trigger>
+      </div>
 
       <Select.Portal container={portalContainer}>
         <Select.Positioner
