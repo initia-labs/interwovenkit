@@ -277,15 +277,15 @@ export function useSignOpHook() {
           })
         })
 
+        // When bridging from the same chain where the op hook is executed,
+        // increment the sequence to prevent nonce conflicts in concurrent transactions
         const signed = await signWithEthSecp256k1(
           chain_id,
           initiaAddress,
           messages,
           { amount: [], gas: "1" },
           "",
-          {
-            increaseSequence: chain_id === values.srcChainId,
-          },
+          { incrementSequence: chain_id === values.srcChainId },
         )
 
         const tx = Tx.fromPartial({
