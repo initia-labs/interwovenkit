@@ -1,4 +1,13 @@
 import ky from "ky"
+import { queryOptions, useQuery } from "@tanstack/react-query"
+import { createQueryKeys } from "@lukemorales/query-key-factory"
+import { STALE_TIMES } from "@/data/http"
+import { useInitiaAddress } from "@/public/data/hooks"
+import { useDefaultChain } from "@/data/chains"
+
+export const ghostWalletQueryKeys = createQueryKeys("interwovenkit:ghost-wallet", {
+  grantsByGranter: (restUrl: string, granter: string) => [restUrl, granter],
+})
 
 export async function checkGhostWalletEnabled(
   granter: string,
@@ -52,4 +61,38 @@ export async function checkGhostWalletEnabled(
   } catch {
     return { enabled: false }
   }
+}
+
+export interface AuthzGrant {
+  grantee: string
+  authorization: {
+    "@type": string
+    msg: string
+  }
+  expiration?: string
+}
+
+export interface GrantsResponse {
+  grants: AuthzGrant[]
+  pagination: {
+    next_key: string | null
+    total: string
+  }
+}
+
+export function useAllGrants() {
+  const address = useInitiaAddress()
+  const defaultChain = useDefaultChain()
+
+  return useQuery(
+    queryOptions({
+      queryKey: ghostWalletQueryKeys.grantsByGranter(defaultChain.restUrl, address).queryKey,
+      queryFn: async (): Promise<GrantsResponse> => {
+        const client = ky.create({ prefixUrl: defaultChain.restUrl })
+        return client.get(`cosmos/authz/v1beta1/grants/granter/${address}`).json<GrantsResponse>()
+      },
+      enabled: !!address,
+      staleTime: STALE_TIMES.MINUTE,
+    }),
+  )
 }

@@ -1,7 +1,44 @@
 import Page from "@/components/Page"
+import { useAllGrants } from "@/pages/ghost-wallet/queries"
+import SettingsGrant from "./SettingsGrant"
 
 const SettingsPage = () => {
-  return <Page title="Settings">{/* Settings content will go here */}</Page>
+  const { data: grants } = useAllGrants()
+
+  const groupedGrants =
+    grants?.grants.reduce(
+      (acc, grant) => {
+        const existingGrantee = acc.find((g) => g.grantee === grant.grantee)
+
+        if (existingGrantee) {
+          if (grant.expiration) {
+            const grantExpiration = new Date(grant.expiration).getTime()
+            const currentExpiration = existingGrantee.expiration
+              ? new Date(existingGrantee.expiration).getTime()
+              : 0
+            if (grantExpiration > currentExpiration) {
+              existingGrantee.expiration = grant.expiration
+            }
+          }
+        } else {
+          acc.push({
+            grantee: grant.grantee,
+            expiration: grant.expiration,
+          })
+        }
+
+        return acc
+      },
+      [] as { grantee: string; expiration?: string }[],
+    ) || []
+
+  return (
+    <Page title="Settings">
+      {groupedGrants.map((grant) => (
+        <SettingsGrant key={grant.grantee} grantee={grant.grantee} expiration={grant.expiration} />
+      ))}
+    </Page>
+  )
 }
 
 export default SettingsPage
