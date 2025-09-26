@@ -62,8 +62,8 @@ const BridgeHistory = () => {
             <div className={styles.dateGroup} key={date}>
               <div className={styles.dateHeader}>{date}</div>
               <div className={styles.list}>
-                {items.map((tx, index) => (
-                  <AsyncBoundary key={index}>
+                {items.map((tx) => (
+                  <AsyncBoundary key={tx.txHash}>
                     <BridgeHistoryItem tx={tx} />
                   </AsyncBoundary>
                 ))}
