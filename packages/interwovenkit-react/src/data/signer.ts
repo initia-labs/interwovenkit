@@ -127,10 +127,13 @@ export function useSignWithEthSecp256k1() {
     messages: readonly EncodeObject[],
     fee: StdFee,
     memo: string,
+    options?: { incrementSequence?: boolean },
   ): Promise<TxRaw> {
     if (!signer) throw new Error("Signer not initialized")
     const client = await createSigningStargateClient(chainId)
-    const { accountNumber, sequence } = await client.getSequence(signerAddress)
+    const { accountNumber, ...account } = await client.getSequence(signerAddress)
+    // Optionally increment sequence to handle concurrent transactions on the same chain
+    const sequence = options?.incrementSequence ? account.sequence + 1 : account.sequence
 
     // Returns a signed tx that includes `signerInfos`, `fee`, and the `signatures` created with OfflineSigner's `signAmino()`.
     // https://github.com/cosmos/cosmjs/blob/main/packages/stargate/src/signingstargateclient.ts
