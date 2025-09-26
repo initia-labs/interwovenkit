@@ -33,7 +33,6 @@ import { encodeEthSecp256k1Signature } from "./patches/signature"
 import { LocalStorageKey } from "./constants"
 import { useConfig } from "./config"
 import { useFindChain } from "./chains"
-import { MsgExecAuthorized, MsgRevokeAuthorization } from "@initia/initia.js"
 
 export const useRegistry = () => {
   const config = useConfig()
@@ -46,16 +45,6 @@ export const useAminoTypes = () => {
   return new AminoTypes({
     ...aminoConverters,
     ...config.aminoConverters,
-    "/cosmos.authz.v1beta1.MsgExec": {
-      aminoType: "cosmos-sdk/MsgExec",
-      toAmino: (data) => MsgExecAuthorized.fromProto(data).toAmino().value,
-      fromAmino: (data) => MsgExecAuthorized.fromAmino({ value: data }).toProto(),
-    },
-    "/cosmos.authz.v1beta1.MsgRevoke": {
-      aminoType: "cosmos-sdk/MsgRevoke",
-      toAmino: (data) => MsgRevokeAuthorization.fromProto(data).toAmino().value,
-      fromAmino: (data) => MsgRevokeAuthorization.fromAmino({ value: data }).toProto(),
-    },
   })
 }
 
