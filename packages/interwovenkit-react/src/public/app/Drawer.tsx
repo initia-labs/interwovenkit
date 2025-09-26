@@ -77,11 +77,18 @@ const Drawer = ({ children }: PropsWithChildren) => {
     <Dialog.Root
       open={isDrawerOpen}
       onOpenChange={(open) => !open && handleCloseDrawer()}
-      modal="trap-focus"
+      // We intentionally use `modal={false}` instead of `modal="trap-focus"`
+      // because the drawer must be closable via outside clicks.
+      // In the current Base UI implementation, enabling "trap-focus" prevents
+      // users from dismissing the drawer by clicking outside of it.
+      // If Base UI is updated in the future to support outside-click dismissal
+      // while "trap-focus" is active, consider switching back to "trap-focus"
+      // for improved accessibility and focus management.
+      modal={false}
     >
       <Dialog.Portal container={portalContainer}>
         {isSmall && (
-          <Dialog.Backdrop className={styles.overlay} onClick={handleCloseDrawer}>
+          <Dialog.Backdrop className={styles.overlay}>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="14" height="14">
               <path d="M7.168 14.04 l 6.028 -6.028 l -6.028 -6.028 L8.57 .582 L16 8.012 l -7.43 7.43 l -1.402 -1.402 Z" />
               <path d="M0.028 14.04 l 6.028 -6.028 L0.028 1.984 L1.43 .582 l 7.43 7.43 l -7.43 7.43 L0.028 14.04 Z" />
