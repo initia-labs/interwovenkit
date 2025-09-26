@@ -9,7 +9,7 @@ import {
   TESTNET,
 } from "@initia/interwovenkit-react"
 import css from "@initia/interwovenkit-react/styles.css?inline"
-import { isStaging, isTestnet, useTheme } from "./data"
+import { routerApiUrl, isTestnet, useTheme } from "./data"
 
 injectStyles(css)
 const wagmiConfig = createConfig({
@@ -25,8 +25,8 @@ const Providers = ({ children }: PropsWithChildren) => {
     <QueryClientProvider client={queryClient}>
       <WagmiProvider config={wagmiConfig}>
         <InterwovenKitProvider
-          {...(isStaging ? { routerApiUrl: "https://router-api.staging.initia.xyz" } : {})}
           {...(isTestnet ? TESTNET : {})}
+          {...(routerApiUrl ? { routerApiUrl } : {})}
           theme={theme}
           container={import.meta.env.DEV ? document.body : undefined}
         >
