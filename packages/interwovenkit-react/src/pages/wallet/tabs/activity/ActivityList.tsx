@@ -1,5 +1,6 @@
 import { useMemo } from "react"
 import { useInitiaAddress } from "@/public/data/hooks"
+import { groupByDate } from "@/data/date"
 import Status from "@/components/Status"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import ExplorerLink from "@/components/ExplorerLink"
@@ -12,26 +13,10 @@ const ActivityList = ({ list, chainId }: { list: ChainActivity[]; chainId: strin
 
   // Group activities by date
   const groupedActivities = useMemo(() => {
-    return list.reduce(
-      (groups, activity) => {
-        // Skip activities without timestamp to prevent grouping errors
-        if (!activity.timestamp) return groups
-
-        const date = new Date(activity.timestamp)
-        const dateKey = date.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        })
-
-        const existingGroup = groups[dateKey] || []
-        return {
-          ...groups,
-          [dateKey]: [...existingGroup, activity],
-        }
-      },
-      {} as Record<string, ChainActivity[]>,
-    )
+    return groupByDate(list, (activity) => {
+      if (!activity.timestamp) return undefined
+      return new Date(activity.timestamp)
+    })
   }, [list])
 
   if (list.length === 0) return <Status>No activity found</Status>

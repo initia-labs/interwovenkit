@@ -1,5 +1,7 @@
-.list {
-  margin: calc(-1 * var(--padding));
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
 }
 
 .header {
@@ -10,6 +12,18 @@
   padding: 12px var(--padding);
 }
 
-.item {
-  border-bottom: 1px solid var(--border);
+.dateGroup {
+  display: grid;
+  gap: 8px;
+}
+
+.dateHeader {
+  color: var(--gray-1);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
 }

@@ -1,6 +1,7 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useToggle } from "usehooks-ts"
 import { useInterwovenKit } from "@/public/data/hooks"
+import { groupByDate } from "@/data/date"
 import Page from "@/components/Page"
 import Status from "@/components/Status"
 import AsyncBoundary from "@/components/AsyncBoundary"
@@ -31,9 +32,18 @@ const BridgeHistory = () => {
   const filteredHistory = showAll ? allHistory : myHistory
   const paginatedHistory = filteredHistory.slice(0, page * BRIDGE_HISTORY_LIMIT_PER_PAGE)
 
+  // Group history items by date
+  const groupedHistory = useMemo(() => {
+    return groupByDate(paginatedHistory, (tx) => {
+      const details = getHistoryDetails(tx)
+      if (!details) return undefined
+      return new Date(details.timestamp)
+    })
+  }, [paginatedHistory, getHistoryDetails])
+
   return (
     <Page title="Bridge/Swap activity">
-      <div className={styles.list}>
+      <div className={styles.history}>
         {allHistory.length > 0 && allHistory.length !== myHistory.length && (
           <header className={styles.header}>
             <CheckboxButton
@@ -48,11 +58,16 @@ const BridgeHistory = () => {
         {filteredHistory.length === 0 ? (
           <Status>No bridge/swap activity</Status>
         ) : (
-          paginatedHistory.map((tx, index) => (
-            <div className={styles.item} key={index}>
-              <AsyncBoundary>
-                <BridgeHistoryItem tx={tx} />
-              </AsyncBoundary>
+          Object.entries(groupedHistory).map(([date, items]) => (
+            <div className={styles.dateGroup} key={date}>
+              <div className={styles.dateHeader}>{date}</div>
+              <div className={styles.list}>
+                {items.map((tx) => (
+                  <AsyncBoundary key={tx.txHash}>
+                    <BridgeHistoryItem tx={tx} />
+                  </AsyncBoundary>
+                ))}
+              </div>
             </div>
           ))
         )}
