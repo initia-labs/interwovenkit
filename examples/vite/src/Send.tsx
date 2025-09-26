@@ -1,5 +1,6 @@
 import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
-import { useEffect } from "react"
+import { calculateFee, GasPrice } from "@cosmjs/stargate"
+import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { useMutation } from "@tanstack/react-query"
 import { InitiaAddress } from "@initia/utils"
@@ -14,7 +15,8 @@ interface FormValues {
 }
 
 const Send = () => {
-  const { initiaAddress, requestTxSync, waitForTxConfirmation } = useInterwovenKit()
+  const { initiaAddress, requestTxBlock, signAndBroadcastTx, estimateGas } = useInterwovenKit()
+  const [directSign, setDirectSign] = useState(true)
 
   const { register, setValue, handleSubmit } = useForm({
     defaultValues: { recipient: "", amount: "1000000", denom: "uinit", memo: "" },
@@ -37,13 +39,17 @@ const Send = () => {
         },
       ]
 
-      const txHash = await requestTxSync({ messages, memo })
-
-      waitForTxConfirmation({ txHash })
-        .then((tx) => window.alert(tx.hash))
-        .catch((error) => window.alert(error.message))
-
-      return txHash
+      if (directSign) {
+        // Use signAndBroadcastTx for direct signing without modal
+        const gasEstimate = await estimateGas({ messages, memo })
+        const fee = calculateFee(gasEstimate, GasPrice.fromString("0.015uinit"))
+        const { transactionHash } = await signAndBroadcastTx({ messages, memo, fee })
+        return transactionHash
+      } else {
+        // Use requestTxBlock with modal
+        const { transactionHash } = await requestTxBlock({ messages, memo })
+        return transactionHash
+      }
     },
   })
 
@@ -82,6 +88,18 @@ const Send = () => {
           Memo
         </label>
         <input id="memo" className={styles.input} {...register("memo")} />
+      </div>
+
+      <div className={styles.checkbox}>
+        <label htmlFor="directSign" className={styles.checkboxLabel}>
+          <input
+            type="checkbox"
+            id="directSign"
+            checked={directSign}
+            onChange={(e) => setDirectSign(e.target.checked)}
+          />
+          Use direct signing
+        </label>
       </div>
 
       <button type="submit" className={styles.submit} disabled={isPending}>

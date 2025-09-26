@@ -9,6 +9,7 @@
     "lint": "eslint src --fix"
   },
   "dependencies": {
+    "@cosmjs/stargate": "^0.36.0",
     "@initia/interwovenkit-react": "workspace:^",
     "@initia/utils": "2.0.0",
     "@tanstack/react-query": "^5.85.3",

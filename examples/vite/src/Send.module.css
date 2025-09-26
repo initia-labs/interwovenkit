@@ -119,3 +119,26 @@
 [data-theme="light"] .error {
   color: #b91c1c;
 }
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-bottom: 0;
+}
+
+.checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
+[data-theme="dark"] .checkboxLabel {
+  color: #d1d5db;
+}
+
+[data-theme="light"] .checkboxLabel {
+  color: #374151;
+}
