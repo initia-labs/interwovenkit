@@ -1,6 +1,6 @@
 import { useEffect } from "react"
 import type { StatusResponseJson } from "@skip-go/client"
-import { IconCheckCircleFilled, IconCloseCircleFilled } from "@initia/icons-react"
+import { IconCloseCircleFilled } from "@initia/icons-react"
 import Loader from "@/components/Loader"
 import { useTxStatusQuery } from "./data/tx"
 import type { TxIdentifier } from "./data/history"
@@ -34,11 +34,7 @@ const BridgeHistoryItemIcon = ({ tx }: { tx: TxIdentifier }) => {
       )
 
     case "success":
-      return (
-        <div className={styles.success}>
-          <IconCheckCircleFilled size={14} />
-        </div>
-      )
+      return null
 
     default:
       return <Loader size={14} />
