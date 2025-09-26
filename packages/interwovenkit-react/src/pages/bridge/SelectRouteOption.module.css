@@ -1,74 +1,85 @@
 .stack {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .button {
-  gap: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 
   background-color: var(--gray-8);
   border: 1px solid var(--gray-5);
   border-radius: 8px;
   padding: 12px 16px;
+  transition:
+    background-color var(--transition) ease,
+    border-color var(--transition) ease;
 
-  &.checked {
+  &:hover:not(.isLoading):not(.disabled) {
+    background-color: var(--gray-6);
+  }
+
+  &.checked:not(.isLoading):not(.disabled) {
     background-color: var(--gray-7);
     border-color: var(--gray-1);
   }
+
+  &.isLoading {
+    cursor: default;
+  }
+
+  &.disabled {
+    cursor: not-allowed;
+  }
 }
 
-.checkmark {
+.header {
   display: flex;
-  justify-content: center;
   align-items: center;
-
-  border: 1px solid var(--gray-4);
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-
-  .inner {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background-color: var(--gray-1);
-  }
-
-  .checked & {
-    border-color: var(--gray-1);
-  }
+  justify-content: space-between;
 }
 
-.info {
-  flex: 1;
+.title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 
   font-size: 13px;
   font-weight: 600;
+}
 
-  display: grid;
+.duration {
+  display: flex;
+  align-items: center;
   gap: 4px;
 
-  .duration {
-    display: flex;
-    align-items: center;
-    gap: 4px;
+  color: var(--gray-2);
+  font-size: 11px;
+  font-weight: 500;
+}
 
-    color: var(--gray-2);
-    font-size: 11px;
-  }
+.warning {
+  color: var(--warning);
+}
+
+.amount,
+.value {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-family: var(--monospace);
 }
 
 .amount {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 2px;
+  font-size: 32px;
+  font-weight: 700;
+  height: 48px;
+}
 
-  font-family: var(--monospace);
-  font-size: 12px;
+.value {
+  color: var(--gray-2);
+  font-size: 13px;
   font-weight: 500;
-
-  .symbol {
-    color: var(--gray-2);
-  }
+  height: 20px;
 }
