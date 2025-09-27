@@ -2,8 +2,6 @@ import { IconCheckCircle } from "@initia/icons-react"
 import { useMutation } from "@tanstack/react-query"
 import { useState } from "react"
 import { useDrawer } from "@/data/ui"
-import Scrollable from "@/components/Scrollable"
-import Footer from "@/components/Footer"
 import Button from "@/components/Button"
 import styles from "./GhostWallet.module.css"
 import { useCreateWallet } from "@privy-io/react-auth"
@@ -11,18 +9,13 @@ import { BasicAllowance } from "@initia/initia.proto/cosmos/feegrant/v1beta1/fee
 import { GenericAuthorization } from "@initia/initia.proto/cosmos/authz/v1beta1/authz"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useConfig } from "@/data/config"
-import { InitiaAddress } from "@initia/utils"
+import { InitiaAddress, truncate } from "@initia/utils"
 import { useEmbeddedWallet, ghostWalletExpirationAtom } from "./hooks"
 import { useSetAtom } from "jotai"
-import DurationSelector, { type DurationOption } from "./DurationSelector"
+import DurationSelector from "./DurationSelector"
+import Modal from "@/components/Modal"
 
-const DURATION_OPTIONS: Array<{ value: DurationOption; label: string; milliseconds: number }> = [
-  { value: "10min", label: "10 Minutes", milliseconds: 10 * 60 * 1000 },
-  { value: "1hour", label: "1 Hour", milliseconds: 60 * 60 * 1000 },
-  { value: "1day", label: "1 Day", milliseconds: 24 * 60 * 60 * 1000 },
-  { value: "7days", label: "7 Days", milliseconds: 7 * 24 * 60 * 60 * 1000 },
-  { value: "until-revoked", label: "Until Revoked", milliseconds: 100 * 365 * 24 * 60 * 60 * 1000 }, // 100 years
-]
+const DEFAULT_DURATION = 10 * 60 * 1000
 
 const GhostWallet = () => {
   const { closeDrawer } = useDrawer()
@@ -31,16 +24,16 @@ const GhostWallet = () => {
   const config = useConfig()
   const embeddedWallet = useEmbeddedWallet()
   const setGhostWalletExpiration = useSetAtom(ghostWalletExpirationAtom)
-  const [selectedDuration, setSelectedDuration] = useState<DurationOption>("10min")
+  const [selectedDuration, setSelectedDuration] = useState<number>(DEFAULT_DURATION)
+
+  const appIcon = (document.querySelector("link[rel~='icon']") as HTMLLinkElement | null)?.href
 
   const { mutate: createGhostWallet, isPending } = useMutation({
     mutationFn: async () => {
       const { address: ghostWalletAddress } =
         embeddedWallet || (await createWallet({ createAdditional: false }))
 
-      const selectedDurationMs =
-        DURATION_OPTIONS.find((option) => option.value === selectedDuration)?.milliseconds ||
-        DURATION_OPTIONS[0].milliseconds
+      const selectedDurationMs = selectedDuration
       const expiration = new Date(Date.now() + selectedDurationMs)
 
       if (!config.ghostWalletPermissions?.length) {
@@ -87,9 +80,7 @@ const GhostWallet = () => {
     },
     onSuccess: () => {
       // Set the ghost wallet expiration atom based on selected duration
-      const selectedDurationMs =
-        DURATION_OPTIONS.find((option) => option.value === selectedDuration)?.milliseconds ||
-        DURATION_OPTIONS[0].milliseconds
+      const selectedDurationMs = selectedDuration
 
       setGhostWalletExpiration(Date.now() + selectedDurationMs)
 
@@ -106,9 +97,35 @@ const GhostWallet = () => {
   }
 
   return (
-    <>
-      <Scrollable>
-        <h1 className={styles.title}>Create Ghost Wallet</h1>
+    <Modal open={true} onOpenChange={() => {}}>
+      <div className={styles.content}>
+        <h1 className={styles.title}>Enable auto-signing</h1>
+
+        <p className={styles.description}>Asking for permission</p>
+        <div className={styles.appInfoContainer}>
+          {appIcon ? (
+            <img
+              src={appIcon}
+              alt={document.title}
+              className={styles.icon}
+              width={28}
+              height={28}
+            />
+          ) : (
+            <div className={styles.iconPlaceholder} />
+          )}
+
+          <p className={styles.appName}>{document.title}</p>
+          <p className={styles.host}>{window.location.host}</p>
+        </div>
+
+        <div className={styles.descriptionContainer}>
+          <p className={styles.descriptionLabel}>Address</p>
+          <p className={styles.descriptionValue}>{truncate(initiaAddress)}</p>
+
+          <p className={styles.descriptionLabel}>Chain</p>
+          <p className={styles.descriptionValue}>{config.defaultChainId}</p>
+        </div>
 
         <ul className={styles.list}>
           {[
@@ -123,27 +140,27 @@ const GhostWallet = () => {
             </li>
           ))}
         </ul>
-      </Scrollable>
 
-      <div className={styles.durationSelector}>
-        <span className={styles.durationLabel}>Duration:</span>
-        <DurationSelector
-          value={selectedDuration}
-          onChange={setSelectedDuration}
-          disabled={isPending}
-          fullWidth
-        />
+        <div className={styles.durationSelector}>
+          <span className={styles.durationLabel}>Set duration</span>
+          <DurationSelector
+            value={selectedDuration}
+            onChange={setSelectedDuration}
+            disabled={isPending}
+            fullWidth
+          />
+        </div>
+
+        <footer className={styles.footer}>
+          <Button.Outline onClick={handleReject} disabled={isPending}>
+            Reject
+          </Button.Outline>
+          <Button.White onClick={handleConfirm} loading={isPending}>
+            Confirm
+          </Button.White>
+        </footer>
       </div>
-
-      <Footer className={styles.footer}>
-        <Button.Outline onClick={handleReject} disabled={isPending}>
-          Reject
-        </Button.Outline>
-        <Button.White onClick={handleConfirm} loading={isPending}>
-          Confirm
-        </Button.White>
-      </Footer>
-    </>
+    </Modal>
   )
 }
 

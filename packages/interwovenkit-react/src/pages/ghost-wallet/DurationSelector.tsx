@@ -6,19 +6,17 @@ import { usePortal } from "@/public/app/PortalContext"
 import { usePortalCssVariable } from "@/public/app/PortalContext"
 import styles from "./DurationSelector.module.css"
 
-export type DurationOption = "10min" | "1hour" | "1day" | "7days" | "until-revoked"
-
-const DURATION_OPTIONS: Array<{ value: DurationOption; label: string; milliseconds: number }> = [
-  { value: "10min", label: "10 Minutes", milliseconds: 10 * 60 * 1000 },
-  { value: "1hour", label: "1 Hour", milliseconds: 60 * 60 * 1000 },
-  { value: "1day", label: "1 Day", milliseconds: 24 * 60 * 60 * 1000 },
-  { value: "7days", label: "7 Days", milliseconds: 7 * 24 * 60 * 60 * 1000 },
-  { value: "until-revoked", label: "Until Revoked", milliseconds: 100 * 365 * 24 * 60 * 60 * 1000 },
+const DURATION_OPTIONS: Array<{ milliseconds: number; label: string }> = [
+  { milliseconds: 10 * 60 * 1000, label: "for 10 minutes" },
+  { milliseconds: 60 * 60 * 1000, label: "for 1 hour" },
+  { milliseconds: 24 * 60 * 60 * 1000, label: "for 1 day" },
+  { milliseconds: 7 * 24 * 60 * 60 * 1000, label: "for 7 days" },
+  { milliseconds: 100 * 365 * 24 * 60 * 60 * 1000, label: "Until Revoked" },
 ]
 
 interface Props {
-  value: DurationOption
-  onChange: (value: DurationOption) => void
+  value: number
+  onChange: (value: number) => void
   disabled?: boolean
   fullWidth?: boolean
 }
@@ -32,7 +30,7 @@ const DurationSelector = ({ value, onChange, disabled = false, fullWidth }: Prop
 
   // Determine currently selected duration
   const selectedDuration =
-    DURATION_OPTIONS.find((option) => option.value === value) || DURATION_OPTIONS[0]
+    DURATION_OPTIONS.find((option) => option.milliseconds === value) || DURATION_OPTIONS[0]
 
   // Get the offset from the portal css variable
   const offset = parseInt(usePortalCssVariable("--drawer-offset"))
@@ -81,7 +79,7 @@ const DurationSelector = ({ value, onChange, disabled = false, fullWidth }: Prop
         case "Enter":
           e.preventDefault()
           if (DURATION_OPTIONS[highlightedIndex]) {
-            onChange(DURATION_OPTIONS[highlightedIndex].value)
+            onChange(DURATION_OPTIONS[highlightedIndex].milliseconds)
             setIsOpen(false)
           }
           break
@@ -94,8 +92,8 @@ const DurationSelector = ({ value, onChange, disabled = false, fullWidth }: Prop
     [isOpen, highlightedIndex, onChange],
   )
 
-  const handleItemClick = (durationValue: DurationOption) => {
-    onChange(durationValue)
+  const handleItemClick = (milliseconds: number) => {
+    onChange(milliseconds)
     setIsOpen(false)
   }
 
@@ -135,31 +133,31 @@ const DurationSelector = ({ value, onChange, disabled = false, fullWidth }: Prop
             style={{ maxHeight }}
           >
             <div className={styles.viewport} role="listbox">
-              {DURATION_OPTIONS.map(({ value: optionValue, label }, index) => (
+              {DURATION_OPTIONS.map(({ milliseconds, label }, index) => (
                 <div
                   className={clsx(styles.item, {
                     [styles.highlighted]: index === highlightedIndex,
                   })}
-                  onClick={() => handleItemClick(optionValue)}
+                  onClick={() => handleItemClick(milliseconds)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault()
-                      handleItemClick(optionValue)
+                      handleItemClick(milliseconds)
                     }
                   }}
                   onMouseEnter={() => setHighlightedIndex(index)}
                   role="option"
-                  aria-selected={value === optionValue}
+                  aria-selected={value === milliseconds}
                   tabIndex={-1}
                   ref={(el) => {
                     if (el) itemsRef.current[index] = el
                   }}
-                  key={optionValue}
+                  key={milliseconds}
                 >
                   <div className={styles.itemContent}>
                     <span>{label}</span>
                   </div>
-                  {value === optionValue && <IconCheck size={16} />}
+                  {value === milliseconds && <IconCheck size={16} />}
                 </div>
               ))}
             </div>
