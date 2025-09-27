@@ -9,7 +9,7 @@ import {
   TESTNET,
 } from "@initia/interwovenkit-react"
 import css from "@initia/interwovenkit-react/styles.css?inline"
-import { isTestnet, useTheme } from "./data"
+import { isTestnet, routerApiUrl, useTheme } from "./data"
 
 injectStyles(css)
 const wagmiConfig = createConfig({
@@ -26,6 +26,7 @@ const Providers = ({ children }: PropsWithChildren) => {
       <WagmiProvider config={wagmiConfig}>
         <InterwovenKitProvider
           {...(isTestnet ? TESTNET : {})}
+          {...(routerApiUrl ? { routerApiUrl } : {})}
           theme={theme}
           container={import.meta.env.DEV ? document.body : undefined}
         >
