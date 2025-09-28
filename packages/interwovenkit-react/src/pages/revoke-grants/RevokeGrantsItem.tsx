@@ -1,4 +1,4 @@
-import styles from "./SettingsGrant.module.css"
+import styles from "./RevokeGrantsItem.module.css"
 import { formatDuration } from "@/pages/bridge/data/format"
 import { useDefaultChain } from "@/data/chains"
 import { useInterwovenKit } from "@/public/data/hooks"
@@ -7,12 +7,12 @@ import { ghostWalletExpirationAtom, useEmbeddedWalletAddress } from "@/pages/gho
 import { useQueryClient } from "@tanstack/react-query"
 import { useSetAtom } from "jotai"
 
-interface SettingsGrantProps {
+interface RevokeGrantsItemProps {
   grantee: string
   expiration: string
 }
 
-const SettingsGrant = ({ grantee, expiration }: SettingsGrantProps) => {
+const RevokeGrantsItem = ({ grantee, expiration }: RevokeGrantsItemProps) => {
   const defaultChain = useDefaultChain()
   const { initiaAddress, requestTxBlock } = useInterwovenKit()
   const { data: grants } = useAllGrants()
@@ -49,7 +49,7 @@ const SettingsGrant = ({ grantee, expiration }: SettingsGrantProps) => {
 
     await requestTxBlock({
       messages,
-      internal: "/settings",
+      internal: "/revoke-grants",
     })
 
     // Invalidate the grants query to refresh the data
@@ -88,4 +88,4 @@ const SettingsGrant = ({ grantee, expiration }: SettingsGrantProps) => {
   )
 }
 
-export default SettingsGrant
+export default RevokeGrantsItem

@@ -1,0 +1,34 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.link {
+  background-color: var(--gray-8);
+  border-radius: 8px;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  grid-template-areas: "title icon" "subtitle icon";
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  grid-area: title;
+}
+
+.subtitle {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-2);
+  grid-area: subtitle;
+  margin-top: 4px;
+}
+
+.icon {
+  color: var(--gray-3);
+  grid-area: icon;
+}

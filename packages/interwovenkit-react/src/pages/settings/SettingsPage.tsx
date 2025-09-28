@@ -1,42 +1,34 @@
 import Page from "@/components/Page"
-import { useAllGrants } from "@/pages/ghost-wallet/queries"
-import SettingsGrant from "./SettingsGrant"
+import styles from "./SettingsPage.module.css"
+import { useNavigate } from "@/lib/router"
+import { IconChevronRight } from "@initia/icons-react"
 
 const SettingsPage = () => {
-  const { data: grants } = useAllGrants()
-
-  const groupedGrants =
-    grants?.grants.reduce(
-      (acc, grant) => {
-        const existingGrantee = acc.find((g) => g.grantee === grant.grantee)
-
-        if (existingGrantee) {
-          if (grant.expiration) {
-            const grantExpiration = new Date(grant.expiration).getTime()
-            const currentExpiration = existingGrantee.expiration
-              ? new Date(existingGrantee.expiration).getTime()
-              : 0
-            if (grantExpiration > currentExpiration) {
-              existingGrantee.expiration = grant.expiration
-            }
-          }
-        } else {
-          acc.push({
-            grantee: grant.grantee,
-            expiration: grant.expiration,
-          })
-        }
-
-        return acc
-      },
-      [] as { grantee: string; expiration: string }[],
-    ) || []
+  const navigate = useNavigate()
 
   return (
     <Page title="Settings">
-      {groupedGrants.map((grant) => (
-        <SettingsGrant key={grant.grantee} grantee={grant.grantee} expiration={grant.expiration} />
-      ))}
+      <div className={styles.container}>
+        <button className={styles.link} onClick={() => navigate("/settings/revoke")}>
+          <p className={styles.title}>Manage auto-signing</p>
+          <p className={styles.subtitle}>Manage which websites have auto-signing permissions</p>
+          <IconChevronRight className={styles.icon} size={16} />
+        </button>
+
+        <button
+          className={styles.link}
+          onClick={() =>
+            window.open(
+              "https://export.initia.xyz",
+              "exportPopup",
+              "width=600,height=700,scrollbars=yes,resizable=yes",
+            )
+          }
+        >
+          <p className={styles.title}>Export private key</p>
+          <IconChevronRight className={styles.icon} size={16} />
+        </button>
+      </div>
     </Page>
   )
 }
