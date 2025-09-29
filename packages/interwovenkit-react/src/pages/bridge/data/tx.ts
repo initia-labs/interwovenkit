@@ -239,7 +239,11 @@ export function useBridgeTx(tx: TxJson) {
         title: "Transaction failed",
         description: formattedError.message,
       })
-      track("Bridge Transaction Failed", analyticsParams)
+      const analyticsParams = createAnalyticsParams(values)
+      track("Bridge Transaction Failed", {
+        ...analyticsParams,
+        error: formattedError.message,
+      })
     },
   })
 }
@@ -330,7 +334,7 @@ function createSuccessNotification(hideNotification: () => void) {
   }
 }
 
-function createAnalyticsParams(values: FormValues, txHash: string) {
+function createAnalyticsParams(values: FormValues, txHash?: string) {
   return {
     quantity: values.quantity,
     srcChainId: values.srcChainId,
