@@ -157,13 +157,16 @@ const BridgeFields = () => {
   // 2. All necessary validations are already performed individually with specific error messages
   // 3. This provides more actionable feedback to users compared to a generic "Invalid values" message
   const disabledMessage = useMemo(() => {
-    if (!values.sender) return "Connect wallet"
-    if (!values.quantity) return "Enter amount"
+    const { srcChainId, dstChainId, srcDenom, dstDenom, sender, recipient, quantity } = values
+    const isSameChain = srcChainId === dstChainId && srcDenom === dstDenom && sender === recipient
+    if (isSameChain) return "Destination cannot equal source"
+    if (!sender) return "Connect wallet"
+    if (!quantity) return "Enter amount"
     if (!debouncedQuantity) return "Enter amount"
-    if (!values.recipient) return "Enter recipient address"
+    if (!recipient) return "Enter recipient address"
     if (formState.errors.quantity) return formState.errors.quantity.message
-    if (!route) return "Route not found"
     if (feeErrorMessage) return feeErrorMessage
+    if (!route) return "Route not found"
   }, [debouncedQuantity, feeErrorMessage, formState, route, values])
 
   // render
