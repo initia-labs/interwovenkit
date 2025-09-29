@@ -277,8 +277,11 @@ export function useSignOpHook() {
           })
         })
 
-        // When bridging from the same chain where the op hook is executed,
-        // increment the sequence to prevent nonce conflicts in concurrent transactions
+        // Sequence handling for minievm chains:
+        // - Move/wasm chains: sequence increases by 1 per transaction
+        // - Minievm chains: sequence increases by 1 per MsgCall within a transaction
+        // For same-chain OP hooks, we hardcode +2 to account for the 2 MsgCalls
+        // in the initial bridge transaction that executes before this hook
         const signed = await signWithEthSecp256k1(
           chain_id,
           initiaAddress,
