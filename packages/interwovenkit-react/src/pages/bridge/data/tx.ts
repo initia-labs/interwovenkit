@@ -285,7 +285,7 @@ export function useSignOpHook() {
           messages,
           { amount: [], gas: "1" },
           "",
-          { incrementSequence: chain_id === values.srcChainId },
+          { incrementSequence: chain_id === values.srcChainId ? 2 : 0 },
         )
 
         const tx = Tx.fromPartial({
