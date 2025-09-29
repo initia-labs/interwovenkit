@@ -127,13 +127,15 @@ export function useSignWithEthSecp256k1() {
     messages: readonly EncodeObject[],
     fee: StdFee,
     memo: string,
-    options?: { incrementSequence?: boolean },
+    options?: { incrementSequence?: number },
   ): Promise<TxRaw> {
     if (!signer) throw new Error("Signer not initialized")
     const client = await createSigningStargateClient(chainId)
     const { accountNumber, ...account } = await client.getSequence(signerAddress)
-    // Optionally increment sequence to handle concurrent transactions on the same chain
-    const sequence = options?.incrementSequence ? account.sequence + 1 : account.sequence
+    // Handle sequence increments for minievm chains
+    // Note: minievm increases sequence by 1 per MsgCall (unlike move/wasm chains which use 1 per tx)
+    // For OP hook transactions on the same chain, we need to account for this difference
+    const sequence = account.sequence + (options?.incrementSequence ?? 0)
 
     // Returns a signed tx that includes `signerInfos`, `fee`, and the `signatures` created with OfflineSigner's `signAmino()`.
     // https://github.com/cosmos/cosmjs/blob/main/packages/stargate/src/signingstargateclient.ts
