@@ -210,6 +210,34 @@ export function useTx() {
     })
   }
 
+  const signWithEthSecp256k1 = useSignWithEthSecp256k1()
+
+  const submitTxSync = async (txParams: TxParams): Promise<string> => {
+    const chainId = txParams.chainId ?? defaultChainId
+    try {
+      const { messages, memo = "", fee } = txParams
+      const client = await createSigningStargateClient(chainId)
+      const signedTx = await signWithEthSecp256k1(chainId, address, messages, fee, memo)
+      return await client.broadcastTxSync(TxRaw.encode(signedTx).finish())
+    } catch (error) {
+      throw await formatMoveError(error as Error, findChain(chainId), registryUrl)
+    }
+  }
+
+  const submitTxBlock = async (txParams: TxParams): Promise<DeliverTxResponse> => {
+    const chainId = txParams.chainId ?? defaultChainId
+    try {
+      const { messages, memo = "", fee } = txParams
+      const client = await createSigningStargateClient(chainId)
+      const signedTx = await signWithEthSecp256k1(chainId, address, messages, fee, memo)
+      const response = await client.broadcastTx(TxRaw.encode(signedTx).finish())
+      if (response.code !== 0) throw new Error(response.rawLog)
+      return response
+    } catch (error) {
+      throw await formatMoveError(error as Error, findChain(chainId), registryUrl)
+    }
+  }
+
   const waitForTxConfirmation = async ({
     chainId = defaultChainId,
     ...params
@@ -227,22 +255,14 @@ export function useTx() {
     }
   }
 
-  const signWithEthSecp256k1 = useSignWithEthSecp256k1()
-  const signAndBroadcastTx = async (txParams: TxParams) => {
-    const { messages, memo = "", chainId = defaultChainId, fee } = txParams
-    const client = await createSigningStargateClient(chainId)
-    const signedTx = await signWithEthSecp256k1(chainId, address, messages, fee, memo)
-    const response = await client.broadcastTx(TxRaw.encode(signedTx).finish())
-    return response
-  }
-
   return {
     estimateGas,
     simulateTx,
     requestTxSync,
     requestTxBlock,
+    submitTxSync,
+    submitTxBlock,
     waitForTxConfirmation,
-    signAndBroadcastTx,
   }
 }
 

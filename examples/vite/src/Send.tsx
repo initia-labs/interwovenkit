@@ -15,7 +15,7 @@ interface FormValues {
 }
 
 const Send = () => {
-  const { initiaAddress, requestTxBlock, signAndBroadcastTx, estimateGas } = useInterwovenKit()
+  const { initiaAddress, requestTxBlock, submitTxBlock, estimateGas } = useInterwovenKit()
   const [directSign, setDirectSign] = useState(true)
 
   const { register, setValue, handleSubmit } = useForm({
@@ -40,10 +40,10 @@ const Send = () => {
       ]
 
       if (directSign) {
-        // Use signAndBroadcastTx for direct signing without modal
+        // Use submitTxBlock for direct signing without modal
         const gasEstimate = await estimateGas({ messages, memo })
         const fee = calculateFee(gasEstimate, GasPrice.fromString("0.015uinit"))
-        const { transactionHash } = await signAndBroadcastTx({ messages, memo, fee })
+        const { transactionHash } = await submitTxBlock({ messages, memo, fee })
         return transactionHash
       } else {
         // Use requestTxBlock with modal
