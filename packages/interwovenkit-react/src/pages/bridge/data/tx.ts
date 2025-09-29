@@ -213,7 +213,7 @@ export function useBridgeTx(tx: TxJson) {
         const errorMessage = error instanceof Error ? error.message : String(error)
         updateNotification({
           type: "error",
-          title: "Transaction failed",
+          title: "Transaction not confirmed",
           description: errorMessage,
         })
 
@@ -221,7 +221,7 @@ export function useBridgeTx(tx: TxJson) {
           ...createAnalyticsParams(values, txHash),
           error: errorMessage,
         }
-        track("Bridge Transaction Failed", analyticsParams)
+        track("Bridge Confirmation Failed", analyticsParams)
       } finally {
         // Always invalidate balance queries
         queryClient.invalidateQueries({
@@ -239,6 +239,7 @@ export function useBridgeTx(tx: TxJson) {
         title: "Transaction failed",
         description: formattedError.message,
       })
+      track("Bridge Transaction Failed", analyticsParams)
     },
   })
 }
