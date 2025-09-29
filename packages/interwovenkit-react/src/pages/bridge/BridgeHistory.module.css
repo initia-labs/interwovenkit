@@ -1,7 +1,5 @@
 .history {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+  margin: calc(-1 * var(--padding));
 }
 
 .header {
@@ -10,6 +8,14 @@
 
 .checkbox {
   padding: 12px var(--padding);
+}
+
+.groups {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+
+  padding: var(--padding);
 }
 
 .dateGroup {

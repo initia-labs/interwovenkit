@@ -58,18 +58,20 @@ const BridgeHistory = () => {
         {filteredHistory.length === 0 ? (
           <Status>No bridge/swap activity</Status>
         ) : (
-          Object.entries(groupedHistory).map(([date, items]) => (
-            <div className={styles.dateGroup} key={date}>
-              <div className={styles.dateHeader}>{date}</div>
-              <div className={styles.list}>
-                {items.map((tx) => (
-                  <AsyncBoundary key={tx.txHash}>
-                    <BridgeHistoryItem tx={tx} />
-                  </AsyncBoundary>
-                ))}
+          <div className={styles.groups}>
+            {Object.entries(groupedHistory).map(([date, items]) => (
+              <div className={styles.dateGroup} key={date}>
+                <div className={styles.dateHeader}>{date}</div>
+                <div className={styles.list}>
+                  {items.map((tx) => (
+                    <AsyncBoundary key={tx.txHash}>
+                      <BridgeHistoryItem tx={tx} />
+                    </AsyncBoundary>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
 
         {filteredHistory.length > page * BRIDGE_HISTORY_LIMIT_PER_PAGE ? (
