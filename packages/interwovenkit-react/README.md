@@ -181,7 +181,7 @@ import { calculateFee, GasPrice } from "@cosmjs/stargate"
 import { useInterwovenKit } from "@initia/interwovenkit-react"
 
 export default function Home() {
-  const { address, estimateGas, signAndBroadcastTx } = useInterwovenKit()
+  const { address, estimateGas, submitTxBlock } = useInterwovenKit()
 
   const send = async () => {
     const messages = [
@@ -197,7 +197,7 @@ export default function Home() {
 
     const gas = await estimateGas({ messages })
     const fee = calculateFee(gas, GasPrice.fromString("0.015uinit"))
-    const { transactionHash } = await signAndBroadcastTx({ messages, fee })
+    const { transactionHash } = await submitTxBlock({ messages, fee })
     console.log("Transaction sent:", transactionHash)
   }
 
