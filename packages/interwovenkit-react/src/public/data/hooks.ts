@@ -1,3 +1,4 @@
+import type { ComponentType } from "react"
 import { useAccount } from "wagmi"
 import { useQuery } from "@tanstack/react-query"
 import { InitiaAddress } from "@initia/utils"
@@ -10,6 +11,15 @@ import type { FormValues } from "@/pages/bridge/data/form"
 import { STALE_TIMES } from "@/data/http"
 
 export { usePortfolio } from "@/data/portfolio"
+
+export function useDrawerControl() {
+  const { openDrawer, closeDrawer } = useDrawer()
+
+  return {
+    openDrawer: (component?: ComponentType) => openDrawer("/custom", undefined, component),
+    closeDrawer,
+  }
+}
 
 export function useInitiaAddress() {
   const hexAddress = useHexAddress()

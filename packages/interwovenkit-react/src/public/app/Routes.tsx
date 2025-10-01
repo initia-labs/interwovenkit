@@ -19,7 +19,7 @@ const Routes = () => {
   const navigate = useNavigate()
   const path = usePath()
   const address = useAddress()
-  const { closeDrawer } = useDrawer()
+  const { closeDrawer, customComponent: CustomComponent } = useDrawer()
   const { closeModal } = useModal()
 
   // whenever address changes, navigate to the appropriate path
@@ -43,6 +43,11 @@ const Routes = () => {
   useEffect(() => {
     track("Page View")
   }, [path, track])
+
+  // Render custom component if provided
+  if (CustomComponent) {
+    return <CustomComponent />
+  }
 
   if (path === "/connect") {
     if (address) return null

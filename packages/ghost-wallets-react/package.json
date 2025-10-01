@@ -1,0 +1,75 @@
+{
+  "name": "@initia/ghost-wallets-react",
+  "version": "1.0.0",
+  "description": "Ghost wallet integrations for Interwovenkit",
+  "author": "Initia (https://initia.xyz)",
+  "repository": "github:initia-labs/interwovenkit",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.cjs",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vite build",
+    "build:fast": "vite build --mode fast",
+    "typecheck": "tsc",
+    "lint": "eslint src --fix",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@base-ui-components/react": "1.0.0-beta.2",
+    "@cosmjs/amino": "^0.36.0",
+    "@cosmjs/proto-signing": "^0.36.0",
+    "@initia/icons-react": "^1.0.0",
+    "@initia/initia.proto": "^1.0.3",
+    "@initia/interwovenkit-react": "workspace:*",
+    "@initia/utils": "2.0.0-alpha.6",
+    "@privy-io/react-auth": "^3.0.1",
+    "@privy-io/wagmi": "^2.0.0",
+    "@tanstack/react-query": "^5.0.0",
+    "@tsconfig/vite-react": "^7.0.0",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "@vitejs/plugin-react-swc": "^4.0.0",
+    "clsx": "^2.1.1",
+    "eslint": "^9.33.0",
+    "jotai": "^2.13.1",
+    "ky": "^1.8.2",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "typescript": "^5.9.2",
+    "viem": "^2.33.3",
+    "vite": "^7.1.2",
+    "vite-plugin-dts": "^4.5.4",
+    "vitest": "^3.2.4",
+    "wagmi": "^2.16.3"
+  },
+  "peerDependencies": {
+    "@base-ui-components/react": "1.0.0-beta.2",
+    "@cosmjs/amino": ">=0.36.0",
+    "@cosmjs/proto-signing": ">=0.36.0",
+    "@initia/icons-react": "^1.0.0",
+    "@initia/initia.proto": "^1.0.3",
+    "@initia/interwovenkit-react": "workspace:*",
+    "@initia/utils": "2.0.0-alpha.6",
+    "@privy-io/react-auth": "^3.0.1",
+    "@privy-io/wagmi": "^2.0.0",
+    "@tanstack/react-query": ">=5.0.0",
+    "clsx": "^2.1.1",
+    "jotai": "^2.13.1",
+    "ky": "^1.8.2",
+    "react": ">=19.0.0",
+    "react-dom": ">=19.0.0",
+    "viem": "^2.33.3",
+    "wagmi": "^2.16.3"
+  }
+}
