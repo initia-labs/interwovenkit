@@ -15,7 +15,7 @@ export async function normalizeError(error: unknown): Promise<Error> {
     if (includes("application/json", contentType)) {
       try {
         const data = await response.json()
-        if (data.message) return data.message
+        if (data.message) return new Error(data.message)
       } catch {
         return new Error(error.message)
       }
