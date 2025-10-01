@@ -1,8 +1,12 @@
 import ky from "ky"
 import type { Chain } from "@initia/initia-registry-types"
 import { parseMoveError, formatMoveError, clearErrorCache, MoveError } from "./errors"
+import * as http from "./http"
 
 vi.mock("ky")
+vi.mock("./http", () => ({
+  normalizeError: vi.fn((error: Error) => Promise.resolve(error)),
+}))
 
 describe("Move Error Handling", () => {
   beforeEach(() => {
@@ -97,6 +101,7 @@ describe("Move Error Handling", () => {
       const result = await formatMoveError(error, mockChainOther, registryUrl)
 
       expect(result).toBe(error)
+      expect(http.normalizeError).toHaveBeenCalledWith(error)
     })
 
     test("should return original error for non-move errors", async () => {
@@ -104,6 +109,7 @@ describe("Move Error Handling", () => {
       const result = await formatMoveError(error, mockChainL1, registryUrl)
 
       expect(result).toBe(error)
+      expect(http.normalizeError).toHaveBeenCalledWith(error)
     })
 
     test("should fetch and use error message from registry for 0x1", async () => {

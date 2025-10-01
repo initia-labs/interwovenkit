@@ -1,5 +1,6 @@
 import ky from "ky"
 import type { Chain } from "@initia/initia-registry-types"
+import { normalizeError } from "./http"
 
 export interface ParsedMoveError {
   moduleAddress: string
@@ -104,11 +105,11 @@ export async function formatMoveError(
   registryUrl: string,
 ): Promise<Error> {
   if (!chain.metadata?.is_l1 && chain.metadata?.minitia?.type !== "minimove") {
-    return error
+    return await normalizeError(error)
   }
 
   const parsed = parseMoveError(error.message)
-  if (!parsed) return error
+  if (!parsed) return await normalizeError(error)
 
   const errorRegistry = await fetchErrorRegistry(
     chain.chain_name,

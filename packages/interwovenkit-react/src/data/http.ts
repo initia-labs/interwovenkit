@@ -7,7 +7,7 @@ export const STALE_TIMES = {
   INFINITY: /* HOUR, just in case */ 1000 * 60 * 60,
 } as const
 
-export async function normalizeError(error: unknown): Promise<string> {
+export async function normalizeErrorMessage(error: unknown): Promise<string> {
   if (error instanceof HTTPError) {
     const { response } = error
     const contentType = response.headers.get("content-type") ?? ""
@@ -41,4 +41,8 @@ export async function normalizeError(error: unknown): Promise<string> {
   }
 
   return String(error)
+}
+
+export async function normalizeError(error: unknown): Promise<Error> {
+  return new Error(await normalizeErrorMessage(error))
 }

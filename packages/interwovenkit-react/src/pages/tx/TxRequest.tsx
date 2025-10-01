@@ -7,7 +7,6 @@ import { useInitiaAddress } from "@/public/data/hooks"
 import { useBalances } from "@/data/account"
 import { useChain } from "@/data/chains"
 import { useSignWithEthSecp256k1, useOfflineSigner } from "@/data/signer"
-import { normalizeError } from "@/data/http"
 import { TX_APPROVAL_MUTATION_KEY, useTxRequestHandler } from "@/data/tx"
 import { useGasPrices, useLastFeeDenom } from "@/data/fee"
 import WidgetAccordion from "@/components/WidgetAccordion"
@@ -81,7 +80,7 @@ const TxRequest = () => {
       await resolve(signedTx)
     },
     onError: async (error: Error) => {
-      reject(new Error(await normalizeError(error)))
+      reject(error)
     },
   })
 

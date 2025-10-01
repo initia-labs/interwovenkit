@@ -65,7 +65,7 @@ const FooterWithErc20Approval = ({ tx, children }: PropsWithChildren<{ tx: TxJso
 
         return true
       } catch (error) {
-        throw new Error(await normalizeError(error))
+        throw await normalizeError(error)
       }
     },
   })

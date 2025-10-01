@@ -152,7 +152,7 @@ export function useBridgeTx(tx: TxJson) {
 
         throw new Error("Unlisted chain type")
       } catch (error) {
-        throw new Error(await normalizeError(error))
+        throw await normalizeError(error)
       }
     },
     onSuccess: async ({ txHash, wait }) => {
@@ -304,7 +304,7 @@ export function useSignOpHook() {
 
         return { signer: initiaAddress, hook: toBase64(Tx.encode(tx).finish()) }
       } catch (error) {
-        throw new Error(await normalizeError(error))
+        throw await normalizeError(error)
       }
     },
   })
@@ -423,7 +423,7 @@ export function useTrackTxQuery(details: HistoryDetails) {
           .post("v2/tx/track", { json: { tx_hash: txHash, chain_id: chainId } })
           .json<TrackResponseJson>()
       } catch (error) {
-        throw new Error(await normalizeError(error))
+        throw await normalizeError(error)
       }
     },
     select: ({ tx_hash }) => tx_hash,
