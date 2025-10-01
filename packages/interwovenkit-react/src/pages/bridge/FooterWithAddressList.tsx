@@ -51,7 +51,7 @@ const FooterWithAddressList = ({ children }: Props) => {
         const [{ pubkey }] = await signer.getAccounts()
         setPubkey(pubkey)
       } catch (error) {
-        setError(new Error(await normalizeError(error)))
+        setError(await normalizeError(error))
       } finally {
         setLoading(false)
       }

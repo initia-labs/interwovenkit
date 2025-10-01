@@ -7,7 +7,7 @@ export const STALE_TIMES = {
   INFINITY: /* HOUR, just in case */ 1000 * 60 * 60,
 } as const
 
-export async function normalizeError(error: unknown): Promise<string> {
+export async function normalizeError(error: unknown): Promise<Error> {
   if (error instanceof HTTPError) {
     const { response } = error
     const contentType = response.headers.get("content-type") ?? ""
@@ -17,28 +17,28 @@ export async function normalizeError(error: unknown): Promise<string> {
         const data = await response.json()
         if (data.message) return data.message
       } catch {
-        return error.message
+        return new Error(error.message)
       }
     }
 
     try {
-      return await response.text()
+      return new Error(await response.text())
     } catch {
-      return error.message
+      return new Error(error.message)
     }
   }
 
   if (error instanceof Error) {
-    if (path(["code"], error) === 4001) return "User rejected"
-    if (path(["code"], error) === "ACTION_REJECTED") return "User rejected"
+    if (path(["code"], error) === 4001) return new Error("User rejected")
+    if (path(["code"], error) === "ACTION_REJECTED") return new Error("User rejected")
     const errorMessage = path<string>(["error", "message"], error)
     const causeMessage = path<string>(["cause", "message"], error)
     const shortMessage = path<string>(["shortMessage"], error)
-    if (errorMessage) return errorMessage
-    if (causeMessage) return causeMessage
-    if (shortMessage) return shortMessage
-    return error.message
+    if (errorMessage) return new Error(errorMessage)
+    if (causeMessage) return new Error(causeMessage)
+    if (shortMessage) return new Error(shortMessage)
+    return new Error(error.message)
   }
 
-  return String(error)
+  return new Error(String(error))
 }

@@ -30,7 +30,7 @@ const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
       try {
         await connectAsync({ connector })
       } catch (error) {
-        throw new Error(await normalizeError(error))
+        throw await normalizeError(error)
       }
     },
     onSettled: () => {

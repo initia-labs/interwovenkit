@@ -81,7 +81,7 @@ const TxRequest = () => {
       await resolve(signedTx)
     },
     onError: async (error: Error) => {
-      reject(new Error(await normalizeError(error)))
+      reject(await normalizeError(error))
     },
   })
 
