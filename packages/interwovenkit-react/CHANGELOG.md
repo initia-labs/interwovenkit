@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.4](https://github.com/initia-labs/interwovenkit/compare/v2.0.3...v2.0.4) (2025-10-01)
+
+### Features
+
+- **tx:** add timeout and interval parameters ([5e52d05](https://github.com/initia-labs/interwovenkit/commit/5e52d0508b20659e6adfd12766fc291592fc1206))
+
 ## [2.0.3](https://github.com/initia-labs/interwovenkit/compare/v2.0.2...v2.0.3) (2025-09-30)
 
 ### Features
