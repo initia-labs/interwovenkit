@@ -199,11 +199,15 @@ export function useTx() {
     }
   }
 
-  const requestTxBlock = (txRequest: TxRequest) => {
+  const requestTxBlock = (txRequest: TxRequest, timeoutSeconds = 30, intervalSeconds = 1) => {
     return requestTx<DeliverTxResponse>({
       txRequest,
       broadcaster: async (client, signedTxBytes) => {
-        const response = await client.broadcastTx(signedTxBytes)
+        const response = await client.broadcastTx(
+          signedTxBytes,
+          timeoutSeconds * 1000,
+          intervalSeconds * 1000,
+        )
         if (response.code !== 0) throw new Error(response.rawLog)
         return response
       },
@@ -224,13 +228,21 @@ export function useTx() {
     }
   }
 
-  const submitTxBlock = async (txParams: TxParams): Promise<DeliverTxResponse> => {
+  const submitTxBlock = async (
+    txParams: TxParams,
+    timeoutSeconds = 30,
+    intervalSeconds = 1,
+  ): Promise<DeliverTxResponse> => {
     const chainId = txParams.chainId ?? defaultChainId
     try {
       const { messages, memo = "", fee } = txParams
       const client = await createSigningStargateClient(chainId)
       const signedTx = await signWithEthSecp256k1(chainId, address, messages, fee, memo)
-      const response = await client.broadcastTx(TxRaw.encode(signedTx).finish())
+      const response = await client.broadcastTx(
+        TxRaw.encode(signedTx).finish(),
+        timeoutSeconds * 1000,
+        intervalSeconds * 1000,
+      )
       if (response.code !== 0) throw new Error(response.rawLog)
       return response
     } catch (error) {
