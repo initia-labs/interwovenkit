@@ -224,7 +224,7 @@ export function useCreateSigningStargateClient() {
       registry,
       aminoTypes,
       accountParser: parseAccount,
-      broadcastPollIntervalMs: 1000,
+      broadcastPollIntervalMs: 500,
     })
 
     signingStargateClientCache.set(cacheKey, client)

@@ -199,11 +199,11 @@ export function useTx() {
     }
   }
 
-  const requestTxBlock = (txRequest: TxRequest) => {
+  const requestTxBlock = (txRequest: TxRequest, timeoutMs = 30 * 1000, intervalMs = 0.5 * 1000) => {
     return requestTx<DeliverTxResponse>({
       txRequest,
       broadcaster: async (client, signedTxBytes) => {
-        const response = await client.broadcastTx(signedTxBytes)
+        const response = await client.broadcastTx(signedTxBytes, timeoutMs, intervalMs)
         if (response.code !== 0) throw new Error(response.rawLog)
         return response
       },
@@ -224,13 +224,21 @@ export function useTx() {
     }
   }
 
-  const submitTxBlock = async (txParams: TxParams): Promise<DeliverTxResponse> => {
+  const submitTxBlock = async (
+    txParams: TxParams,
+    timeoutMs = 30 * 1000,
+    intervalMs = 0.5 * 1000,
+  ): Promise<DeliverTxResponse> => {
     const chainId = txParams.chainId ?? defaultChainId
     try {
       const { messages, memo = "", fee } = txParams
       const client = await createSigningStargateClient(chainId)
       const signedTx = await signWithEthSecp256k1(chainId, address, messages, fee, memo)
-      const response = await client.broadcastTx(TxRaw.encode(signedTx).finish())
+      const response = await client.broadcastTx(
+        TxRaw.encode(signedTx).finish(),
+        timeoutMs,
+        intervalMs,
+      )
       if (response.code !== 0) throw new Error(response.rawLog)
       return response
     } catch (error) {
@@ -244,8 +252,8 @@ export function useTx() {
   }: {
     txHash: string
     chainId?: string
-    timeoutSeconds?: number
-    intervalSeconds?: number
+    timeoutMs?: number
+    intervalMs?: number
   }) => {
     try {
       const client = await createSigningStargateClient(chainId)
@@ -269,16 +277,15 @@ export function useTx() {
 export async function waitForTxConfirmationWithClient({
   txHash,
   client,
-  timeoutSeconds = 30,
-  intervalSeconds = 1,
+  timeoutMs = 30 * 1000,
+  intervalMs = 0.5 * 1000,
 }: {
   txHash: string
   client: SigningStargateClient
-  timeoutSeconds?: number
-  intervalSeconds?: number
+  timeoutMs?: number
+  intervalMs?: number
 }) {
   const start = Date.now()
-  const timeoutMs = timeoutSeconds * 1000
 
   while (true) {
     const tx = await client.getTx(txHash)
@@ -290,10 +297,10 @@ export async function waitForTxConfirmationWithClient({
 
     if (Date.now() - start >= timeoutMs) {
       throw new Error(
-        `Transaction was submitted, but not found on the chain within ${timeoutSeconds} seconds.`,
+        `Transaction was submitted, but not found on the chain within ${timeoutMs / 1000} seconds.`,
       )
     }
 
-    await new Promise((resolve) => setTimeout(resolve, intervalSeconds * 1000))
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
   }
 }
