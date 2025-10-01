@@ -199,7 +199,7 @@ export function useTx() {
     }
   }
 
-  const requestTxBlock = (txRequest: TxRequest, timeoutSeconds = 30, intervalSeconds = 1) => {
+  const requestTxBlock = (txRequest: TxRequest, timeoutSeconds = 30, intervalSeconds = 0.5) => {
     return requestTx<DeliverTxResponse>({
       txRequest,
       broadcaster: async (client, signedTxBytes) => {
@@ -231,7 +231,7 @@ export function useTx() {
   const submitTxBlock = async (
     txParams: TxParams,
     timeoutSeconds = 30,
-    intervalSeconds = 1,
+    intervalSeconds = 0.5,
   ): Promise<DeliverTxResponse> => {
     const chainId = txParams.chainId ?? defaultChainId
     try {
@@ -282,7 +282,7 @@ export async function waitForTxConfirmationWithClient({
   txHash,
   client,
   timeoutSeconds = 30,
-  intervalSeconds = 1,
+  intervalSeconds = 0.5,
 }: {
   txHash: string
   client: SigningStargateClient
