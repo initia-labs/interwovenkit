@@ -1,4 +1,5 @@
 import { useAtom } from "jotai"
+import { useGhostWallet } from "@initia/ghost-wallets-react"
 import { isTestnet, themeAtom } from "./data"
 import Connection from "./Connection"
 import Send from "./Send"
@@ -8,6 +9,7 @@ import styles from "./App.module.css"
 const App = () => {
   const [theme, setTheme] = useAtom(themeAtom)
   const toggleTheme = () => setTheme((prev) => (prev === "dark" ? "light" : "dark"))
+  const { requestGhostWallet } = useGhostWallet()
 
   return (
     <div className={styles.container}>
@@ -22,6 +24,9 @@ const App = () => {
         <div className={styles.controls}>
           <button className={styles.toggle} onClick={toggleTheme}>
             {theme === "light" ? "Dark" : "Light"}
+          </button>
+          <button className={styles.toggle} onClick={() => requestGhostWallet("interwoven-1")}>
+            Ghost Wallet
           </button>
           <Connection />
         </div>

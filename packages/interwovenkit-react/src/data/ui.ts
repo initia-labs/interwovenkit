@@ -1,41 +1,55 @@
 import { useDisconnect as useDisconnectWagmi } from "wagmi"
 import { atom, useAtom } from "jotai"
+import type { ComponentType } from "react"
 import { useNavigate, useReset } from "@/lib/router"
 import { useAnalyticsTrack } from "@/data/analytics"
 import { LocalStorageKey } from "./constants"
+import { useConfig } from "./config"
 
-const isDrawerOpenAtom = atom<boolean>(false)
+interface DrawerState {
+  isOpen: boolean
+  customComponent?: ComponentType
+}
+
+const drawerAtom = atom<DrawerState>({ isOpen: false })
 
 export function useDrawer() {
   const reset = useReset()
-  const [isOpen, setIsOpen] = useAtom(isDrawerOpenAtom)
+  const [drawerState, setDrawerState] = useAtom(drawerAtom)
   const track = useAnalyticsTrack()
 
-  const open = (path: string, state?: object) => {
+  const open = (path: string, state?: object, customComponent?: ComponentType) => {
     if (path) {
       reset(path, state)
     }
-    setIsOpen(true)
+    setDrawerState({ isOpen: true, customComponent })
     track("Widget Opened")
   }
 
   const close = () => {
-    setIsOpen(false)
+    setDrawerState({ isOpen: false, customComponent: undefined })
     track("Widget Closed")
   }
 
-  return { isDrawerOpen: isOpen, openDrawer: open, closeDrawer: close }
+  return {
+    isDrawerOpen: drawerState.isOpen,
+    openDrawer: open,
+    closeDrawer: close,
+    customComponent: drawerState.customComponent,
+  }
 }
 
 export function useDisconnect() {
   const navigate = useNavigate()
   const { closeDrawer } = useDrawer()
   const { disconnect } = useDisconnectWagmi()
+  const { disconnectAction } = useConfig()
 
   return () => {
     navigate("/blank")
     closeDrawer()
     disconnect()
+    disconnectAction?.()
 
     // Clear bridge form values on disconnect
     localStorage.removeItem(LocalStorageKey.BRIDGE_SRC_CHAIN_ID)
