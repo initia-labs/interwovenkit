@@ -3,6 +3,7 @@ import { isTestnet, themeAtom } from "./data"
 import Connection from "./Connection"
 import Send from "./Send"
 import Bridge from "./Bridge"
+import GhostWallet from "./GhostWallet"
 import styles from "./App.module.css"
 
 const App = () => {
@@ -28,6 +29,8 @@ const App = () => {
       </header>
 
       <Send />
+      <GhostWallet />
+
       <Bridge />
     </div>
   )
