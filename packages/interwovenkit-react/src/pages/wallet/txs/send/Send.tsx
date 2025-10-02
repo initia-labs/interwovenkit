@@ -18,6 +18,15 @@ export const Send = () => {
   const defaultChain = useDefaultChain()
   const defaultAssets = useAssets(defaultChain)
   const [primaryAsset] = defaultAssets
+
+  if (!primaryAsset) {
+    throw new Error(
+      "Asset list not found. This occurs during local development when asset list is not configured. " +
+        "Use asset-specific send buttons instead of the default send button, " +
+        "or register chain in Initia Registry with at least one asset defined.",
+    )
+  }
+
   const { chain = defaultChain, denom = primaryAsset.denom } = state
 
   const form = useForm<FormValues>({
