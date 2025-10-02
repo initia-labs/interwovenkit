@@ -18,7 +18,9 @@ const GhostWallet = () => {
 
   return (
     <div className={styles.container}>
-      {!ghostWallet.enabled["interwoven-1"] ? (
+      {ghostWallet.loading ? (
+        <p className={styles.enabled}>Loading...</p>
+      ) : !ghostWallet.enabled["interwoven-1"] ? (
         <button className={styles.button} onClick={handleCreateGhostWallet} disabled={isCreating}>
           {isCreating ? "Creating ghost wallet..." : "Enable ghost wallet"}
         </button>

@@ -53,6 +53,7 @@ export function useSignWithGhostWallet() {
       },
     ]
 
+    // TODO: we must enforce app developers to set gas and fee when using ghost wallet
     const gas = fee.gas || "1000000" // default gas if not provided
 
     // Modify the fee to set the granter as the user's main wallet
@@ -85,42 +86,56 @@ export function useSignWithGhostWallet() {
 export function useGhostWalletState() {
   const isEnabled = useIsGhostWalletEnabled()
   const setExpiration = useSetAtom(ghostWalletExpirationAtom)
+  const setLoading = useSetAtom(ghostWalletLoadingAtom)
   const address = useInitiaAddress()
   const config = useConfig()
   const defaultChain = useDefaultChain()
   const embeddedWalletAddress = useEmbeddedWalletAddress()
 
   const checkGhostWallet = async (): Promise<Record<string, boolean>> => {
-    if (!embeddedWalletAddress || !address) return {}
+    if (!embeddedWalletAddress || !address) {
+      setLoading(false)
+      return {}
+    }
 
-    if (!config.ghostWalletPermissions) return {}
+    if (!config.ghostWalletPermissions) {
+      setLoading(false)
+      return {}
+    }
 
     // If already enabled and not expired, return true
-    if (Object.values(isEnabled).some((v) => v)) return isEnabled
+    if (Object.values(isEnabled).some((v) => v)) {
+      setLoading(false)
+      return isEnabled
+    }
 
-    // Perform the actual check
-    const result = await Promise.all(
-      Object.entries(config.ghostWalletPermissions).map(
-        async ([chainId, permission]) =>
-          [
-            chainId,
-            await checkGhostWalletEnabled(
-              address,
-              embeddedWalletAddress,
-              permission,
-              defaultChain.restUrl,
-            ),
-          ] as [string, { enabled: boolean; expiresAt?: number }],
-      ),
-    )
+    try {
+      // Perform the actual check
+      const result = await Promise.all(
+        Object.entries(config.ghostWalletPermissions).map(
+          async ([chainId, permission]) =>
+            [
+              chainId,
+              await checkGhostWalletEnabled(
+                address,
+                embeddedWalletAddress,
+                permission,
+                defaultChain.restUrl,
+              ),
+            ] as [string, { enabled: boolean; expiresAt?: number }],
+        ),
+      )
 
-    setExpiration(
-      Object.fromEntries(
-        result.map(([chainId, res]) => [chainId, res.enabled ? res.expiresAt : undefined]),
-      ),
-    )
+      setExpiration(
+        Object.fromEntries(
+          result.map(([chainId, res]) => [chainId, res.enabled ? res.expiresAt : undefined]),
+        ),
+      )
 
-    return Object.fromEntries(result.map(([chainId, res]) => [chainId, res.enabled]))
+      return Object.fromEntries(result.map(([chainId, res]) => [chainId, res.enabled]))
+    } finally {
+      setLoading(false)
+    }
   }
 
   return {
@@ -130,6 +145,7 @@ export function useGhostWalletState() {
 }
 
 export const ghostWalletExpirationAtom = atom<Record<string, number | undefined>>({})
+export const ghostWalletLoadingAtom = atom<boolean>(true)
 
 export function useIsGhostWalletEnabled() {
   const expirations = useAtomValue(ghostWalletExpirationAtom)

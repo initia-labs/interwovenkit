@@ -23,7 +23,7 @@ const DEFAULT_DURATION = 10 * 60 * 1000
 
 const GhostWallet = () => {
   const { closeDrawer } = useDrawer()
-  const { initiaAddress, requestTxSync } = useInterwovenKit()
+  const { initiaAddress, requestTxBlock } = useInterwovenKit()
   const config = useConfig()
   const embeddedWallet = useEmbeddedWallet()
   const setGhostWalletExpiration = useSetAtom(ghostWalletExpirationAtom)
@@ -85,7 +85,7 @@ const GhostWallet = () => {
         })),
       ]
 
-      await requestTxSync({
+      await requestTxBlock({
         messages,
         chainId,
       })

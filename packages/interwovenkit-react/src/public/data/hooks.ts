@@ -1,7 +1,7 @@
 import { useAccount } from "wagmi"
 import { useQuery } from "@tanstack/react-query"
 import { InitiaAddress } from "@initia/utils"
-import { atom, useSetAtom } from "jotai"
+import { atom, useAtomValue, useSetAtom } from "jotai"
 import { useTx } from "@/data/tx"
 import { useDisconnect, useDrawer } from "@/data/ui"
 import { useDefaultChain } from "@/data/chains"
@@ -9,7 +9,7 @@ import { useOfflineSigner } from "@/data/signer"
 import { accountQueryKeys, useUsernameClient } from "@/data/account"
 import type { FormValues } from "@/pages/bridge/data/form"
 import { STALE_TIMES } from "@/data/http"
-import { useGhostWalletState } from "@/pages/ghost-wallet/hooks"
+import { useGhostWalletState, ghostWalletLoadingAtom } from "@/pages/ghost-wallet/hooks"
 import { useConfig } from "@/data/config"
 
 export { usePortfolio } from "@/data/portfolio"
@@ -63,6 +63,7 @@ export function useInterwovenKit() {
   const offlineSigner = useOfflineSigner()
   const disconnect = useDisconnect()
   const ghostWalletState = useGhostWalletState()
+  const ghostWalletLoading = useAtomValue(ghostWalletLoadingAtom)
 
   const { isDrawerOpen: isOpen, openDrawer } = useDrawer()
 
@@ -119,6 +120,7 @@ export function useInterwovenKit() {
     ghostWallet: {
       enabled: ghostWalletState.isEnabled,
       create: createGhostWallet,
+      loading: ghostWalletLoading,
     },
     ...tx,
   }
