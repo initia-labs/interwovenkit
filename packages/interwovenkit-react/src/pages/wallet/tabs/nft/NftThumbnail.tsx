@@ -1,4 +1,5 @@
 import clsx from "clsx"
+import { useConfig } from "@/data/config"
 import Image from "@/components/Image"
 import type { NftInfo } from "./queries"
 import styles from "./NftThumbnail.module.css"
@@ -11,10 +12,11 @@ interface Props {
 
 const NftThumbnail = ({ nftInfo, size, onClick }: Props) => {
   const { collection_addr, object_addr, nft, chain } = nftInfo
+  const { glyphUrl } = useConfig()
 
   const src = new URL(
     `/v1/${chain.chainId}/${collection_addr}/${object_addr || nft.token_id}`,
-    "https://glyph.initia.xyz",
+    glyphUrl,
   ).toString()
 
   if (onClick) {

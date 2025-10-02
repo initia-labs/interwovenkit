@@ -11,6 +11,7 @@ export interface Config {
 
   registryUrl: string
   routerApiUrl: string
+  glyphUrl: string
   usernamesModuleAddress: string
 
   theme: "light" | "dark"
