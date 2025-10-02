@@ -48,6 +48,8 @@ const TxRequest = () => {
     const spendAmount = spendCoins
       .filter((coin) => coin.denom === feeDenom)
       .reduce((total, coin) => BigNumber(total).plus(coin.amount), BigNumber(0))
+    const totalRequired = BigNumber(feeAmount).plus(spendAmount)
+    const isSufficient = BigNumber(balance).gte(totalRequired)
 
     const { symbol, decimals } = findAsset(feeDenom)
     const formattedBalance = formatAmount(balance, { decimals })
@@ -55,10 +57,7 @@ const TxRequest = () => {
     const formattedSpend = spendAmount.gt(0)
       ? formatAmount(spendAmount.toFixed(), { decimals })
       : null
-
-    const totalRequired = BigNumber(feeAmount).plus(spendAmount)
     const formattedTotal = formatAmount(totalRequired.toFixed(), { decimals })
-    const isSufficient = BigNumber(balance).gte(totalRequired)
 
     return {
       symbol,
