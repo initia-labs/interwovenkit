@@ -1,15 +1,15 @@
+import { useEffect, useState } from "react"
+import { atom, useAtomValue, useSetAtom } from "jotai"
 import type { EncodeObject } from "@cosmjs/proto-signing"
 import type { StdFee } from "@cosmjs/amino"
-import { atom, useAtomValue, useSetAtom } from "jotai"
-import { useEffect, useState } from "react"
+import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
+import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import { InitiaAddress } from "@initia/utils"
 import { useConfig } from "@/data/config"
 import { useDefaultChain } from "@/data/chains"
-import { checkGhostWalletEnabled } from "./queries"
 import { OfflineSigner, useSignWithEthSecp256k1, useRegistry } from "@/data/signer"
 import { useInitiaAddress } from "@/public/data/hooks"
-import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
-import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
+import { checkGhostWalletEnabled } from "./queries"
 
 export function useEmbeddedWalletAddress() {
   const wallet = useEmbeddedWallet()

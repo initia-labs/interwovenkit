@@ -1,9 +1,8 @@
-import clsx from "clsx"
 import { useState, useEffect, useRef, useCallback } from "react"
+import clsx from "clsx"
 import { Popover } from "@base-ui-components/react/popover"
 import { IconChevronDown, IconCheck } from "@initia/icons-react"
-import { usePortal } from "@/public/app/PortalContext"
-import { usePortalCssVariable } from "@/public/app/PortalContext"
+import { usePortal, usePortalCssVariable } from "@/public/app/PortalContext"
 import styles from "./DurationSelector.module.css"
 
 const DURATION_OPTIONS: Array<{ milliseconds: number; label: string }> = [

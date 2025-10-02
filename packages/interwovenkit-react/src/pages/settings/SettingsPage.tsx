@@ -1,7 +1,7 @@
-import Page from "@/components/Page"
-import styles from "./SettingsPage.module.css"
-import { useNavigate } from "@/lib/router"
 import { IconChevronRight } from "@initia/icons-react"
+import Page from "@/components/Page"
+import { useNavigate } from "@/lib/router"
+import styles from "./SettingsPage.module.css"
 
 const SettingsPage = () => {
   const navigate = useNavigate()

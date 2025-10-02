@@ -1,11 +1,11 @@
-import styles from "./RevokeGrantsItem.module.css"
+import { useSetAtom } from "jotai"
+import { useQueryClient } from "@tanstack/react-query"
 import { formatDuration } from "@/pages/bridge/data/format"
 import { useDefaultChain } from "@/data/chains"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useAllGrants, ghostWalletQueryKeys } from "@/pages/ghost-wallet/queries"
 import { ghostWalletExpirationAtom, useEmbeddedWalletAddress } from "@/pages/ghost-wallet/hooks"
-import { useQueryClient } from "@tanstack/react-query"
-import { useSetAtom } from "jotai"
+import styles from "./RevokeGrantsItem.module.css"
 
 interface RevokeGrantsItemProps {
   grantee: string
