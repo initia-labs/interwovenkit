@@ -1,6 +1,12 @@
 import type { PropsWithChildren } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { PrivyProvider } from "@privy-io/react-auth"
+import {
+  PrivyProvider,
+  useCreateWallet,
+  useLogin,
+  useLogout,
+  useWallets,
+} from "@privy-io/react-auth"
 import { createConfig, WagmiProvider } from "@privy-io/wagmi"
 import { http } from "wagmi"
 import { mainnet } from "wagmi/chains"
@@ -21,8 +27,28 @@ const wagmiConfig = createConfig({
 })
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-const Providers = ({ children }: PropsWithChildren) => {
+const InnerProviders = ({ children }: PropsWithChildren) => {
   const theme = useTheme()
+  const { login } = useLogin()
+  const { logout } = useLogout()
+  const { createWallet } = useCreateWallet()
+  const { wallets } = useWallets()
+
+  return (
+    <InterwovenKitProvider
+      ghostWalletPermissions={["/cosmos.bank.v1beta1.MsgSend"]}
+      privyHooks={{ logout, login, createWallet, wallets }}
+      {...(isTestnet ? TESTNET : {})}
+      {...(routerApiUrl ? { routerApiUrl } : {})}
+      theme={theme}
+      container={import.meta.env.DEV ? document.body : undefined}
+    >
+      {children}
+    </InterwovenKitProvider>
+  )
+}
+
+const Providers = ({ children }: PropsWithChildren) => {
   return (
     <PrivyProvider
       appId="cmbqs2wzv007qky0m8kxyqn7r"
@@ -43,15 +69,7 @@ const Providers = ({ children }: PropsWithChildren) => {
     >
       <QueryClientProvider client={queryClient}>
         <WagmiProvider config={wagmiConfig}>
-          <InterwovenKitProvider
-            ghostWalletPermissions={["/cosmos.bank.v1beta1.MsgSend"]}
-            {...(isTestnet ? TESTNET : {})}
-            {...(routerApiUrl ? { routerApiUrl } : {})}
-            theme={theme}
-            container={import.meta.env.DEV ? document.body : undefined}
-          >
-            {children}
-          </InterwovenKitProvider>
+          <InnerProviders>{children}</InnerProviders>
         </WagmiProvider>
       </QueryClientProvider>
     </PrivyProvider>

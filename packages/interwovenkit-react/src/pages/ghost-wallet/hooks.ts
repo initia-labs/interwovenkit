@@ -10,7 +10,6 @@ import { OfflineSigner, useSignWithEthSecp256k1, useRegistry } from "@/data/sign
 import { useInitiaAddress } from "@/public/data/hooks"
 import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
 import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
-import { useWallets } from "@privy-io/react-auth"
 
 export const ghostWalletExpirationAtom = atom<number | undefined>(undefined)
 
@@ -52,8 +51,8 @@ export function useEmbeddedWalletAddress() {
 }
 
 export function useEmbeddedWallet() {
-  const { wallets } = useWallets()
-  return wallets.find((w) => w.connectorType === "embedded")
+  const { privyHooks } = useConfig()
+  return privyHooks?.wallets.find((w) => w.connectorType === "embedded")
 }
 
 export function useSignWithGhostWallet() {

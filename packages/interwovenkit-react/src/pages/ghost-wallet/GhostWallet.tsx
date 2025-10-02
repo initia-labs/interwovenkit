@@ -4,7 +4,6 @@ import { useState } from "react"
 import { useDrawer } from "@/data/ui"
 import Button from "@/components/Button"
 import styles from "./GhostWallet.module.css"
-import { useCreateWallet } from "@privy-io/react-auth"
 import { BasicAllowance } from "@initia/initia.proto/cosmos/feegrant/v1beta1/feegrant"
 import { GenericAuthorization } from "@initia/initia.proto/cosmos/authz/v1beta1/authz"
 import { useInterwovenKit } from "@/public/data/hooks"
@@ -19,7 +18,6 @@ const DEFAULT_DURATION = 10 * 60 * 1000
 
 const GhostWallet = () => {
   const { closeDrawer } = useDrawer()
-  const { createWallet } = useCreateWallet()
   const { initiaAddress, requestTxSync } = useInterwovenKit()
   const config = useConfig()
   const embeddedWallet = useEmbeddedWallet()
@@ -30,15 +28,19 @@ const GhostWallet = () => {
 
   const { mutate: createGhostWallet, isPending } = useMutation({
     mutationFn: async () => {
-      const { address: ghostWalletAddress } =
-        embeddedWallet || (await createWallet({ createAdditional: false }))
-
-      const selectedDurationMs = selectedDuration
-      const expiration = new Date(Date.now() + selectedDurationMs)
+      if (!config.privyHooks) {
+        throw new Error("Privy hooks must be configured")
+      }
 
       if (!config.ghostWalletPermissions?.length) {
         throw new Error("Ghost wallet permissions must be configured")
       }
+
+      const { address: ghostWalletAddress } =
+        embeddedWallet || (await config.privyHooks.createWallet({ createAdditional: false }))
+
+      const selectedDurationMs = selectedDuration
+      const expiration = new Date(Date.now() + selectedDurationMs)
 
       const messages = [
         {

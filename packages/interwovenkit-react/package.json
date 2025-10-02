@@ -107,7 +107,6 @@
     "@lukemorales/query-key-factory": ">=1.0.0",
     "@mysten/bcs": ">=1.0.0",
     "@noble/hashes": ">=1.0.0",
-    "@privy-io/cross-app-connect": ">=0.2.0",
     "@privy-io/react-auth": ">=3.0.0",
     "@privy-io/wagmi": ">=2.0.0",
     "@rainbow-me/rainbowkit": ">=2.0.0",

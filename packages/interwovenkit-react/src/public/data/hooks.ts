@@ -10,7 +10,6 @@ import type { FormValues } from "@/pages/bridge/data/form"
 import { STALE_TIMES } from "@/data/http"
 import { useGhostWalletState } from "@/pages/ghost-wallet/hooks"
 import { useConfig } from "@/data/config"
-import { useLogin } from "@privy-io/react-auth"
 
 export { usePortfolio } from "@/data/portfolio"
 
@@ -54,7 +53,6 @@ export function useInterwovenKit() {
   const hexAddress = useHexAddress()
   const { data: username } = useUsernameQuery()
   const offlineSigner = useOfflineSigner()
-  const { login } = useLogin()
   const disconnect = useDisconnect()
   const ghostWalletState = useGhostWalletState()
 
@@ -65,8 +63,8 @@ export function useInterwovenKit() {
   }
 
   const openConnect = () => {
-    if (config.ghostWalletPermissions) {
-      login()
+    if (config.privyHooks) {
+      config.privyHooks.login()
     } else {
       openDrawer("/connect")
     }
