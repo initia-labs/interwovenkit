@@ -30,7 +30,7 @@ const InputHelp = ({ level, className, mt = 8, children }: PropsWithChildren<Pro
   return (
     <div className={clsx(styles.help, level && styles[level], className)} style={{ marginTop: mt }}>
       <div className={styles.icon}>{getIcon()}</div>
-      <p>{children}</p>
+      {children}
     </div>
   )
 }
