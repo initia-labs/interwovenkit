@@ -11,39 +11,6 @@ import { useInitiaAddress } from "@/public/data/hooks"
 import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
 import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 
-export const ghostWalletExpirationAtom = atom<number | undefined>(undefined)
-
-function useIsGhostWalletEnabled() {
-  const expiration = useAtomValue(ghostWalletExpirationAtom)
-  const [isEnabled, setIsEnabled] = useState(expiration !== undefined && expiration >= Date.now())
-
-  useEffect(() => {
-    if (expiration === undefined) {
-      setIsEnabled(false)
-      return
-    }
-
-    // Initial check
-    const currentTime = Date.now()
-    if (currentTime >= expiration) {
-      setIsEnabled(false)
-      return
-    }
-
-    setIsEnabled(true)
-
-    // Set up timer to disable when expiration is reached
-    const timeUntilExpiration = expiration - currentTime
-    const timeoutId = setTimeout(() => {
-      setIsEnabled(false)
-    }, timeUntilExpiration)
-
-    return () => clearTimeout(timeoutId)
-  }, [expiration])
-
-  return isEnabled
-}
-
 export function useEmbeddedWalletAddress() {
   const wallet = useEmbeddedWallet()
 
@@ -121,35 +88,83 @@ export function useGhostWalletState() {
   const defaultChain = useDefaultChain()
   const embeddedWalletAddress = useEmbeddedWalletAddress()
 
-  const checkGhostWallet = async (): Promise<boolean> => {
-    if (!embeddedWalletAddress || !address) return false
+  const checkGhostWallet = async (): Promise<Record<string, boolean>> => {
+    if (!embeddedWalletAddress || !address) return {}
 
     const permissions = config.ghostWalletPermissions || []
-    if (!permissions.length) return false
+    if (!permissions.length) return {}
 
     // If already enabled and not expired, return true
-    if (isEnabled) return true
+    if (Object.values(isEnabled).some((v) => v)) return isEnabled
 
     // Perform the actual check
-    const result = await checkGhostWalletEnabled(
-      address,
-      embeddedWalletAddress,
-      permissions,
-      defaultChain.restUrl,
+    const result = await Promise.all(
+      Object.entries(permissions).map(
+        async ([chainId, permission]) =>
+          [
+            chainId,
+            await checkGhostWalletEnabled(
+              address,
+              embeddedWalletAddress,
+              permission,
+              defaultChain.restUrl,
+            ),
+          ] as [string, { enabled: boolean; expiresAt?: number }],
+      ),
     )
 
-    // Update expiration based on actual grant expiration
-    if (result.enabled) {
-      setExpiration(result.expiresAt)
-    } else {
-      setExpiration(undefined)
-    }
+    setExpiration(
+      Object.fromEntries(
+        result.map(([chainId, res]) => [chainId, res.enabled ? res.expiresAt : undefined]),
+      ),
+    )
 
-    return result.enabled
+    return Object.fromEntries(result.map(([chainId, res]) => [chainId, res.enabled]))
   }
 
   return {
     isEnabled,
     checkGhostWallet,
   }
+}
+
+export const ghostWalletExpirationAtom = atom<Record<string, number | undefined>>({})
+
+export function useIsGhostWalletEnabled() {
+  const expirations = useAtomValue(ghostWalletExpirationAtom)
+  const [isEnabled, setIsEnabled] = useState(parseExpirationTimes(expirations))
+
+  useEffect(() => {
+    setIsEnabled(parseExpirationTimes(expirations))
+
+    const expiration = getEarliestExpiration(expirations)
+    if (!expiration) return
+
+    // Set up timer to disable when expiration is reached
+    const timeoutId = setTimeout(() => {
+      setIsEnabled(parseExpirationTimes(expirations))
+    }, expiration - Date.now())
+
+    return () => clearTimeout(timeoutId)
+  }, [expirations])
+
+  return isEnabled
+}
+
+/* utils */
+function parseExpirationTimes(expirations: Record<string, number | undefined>) {
+  return Object.fromEntries(
+    Object.entries(expirations).map(([chainId, expirationTime]) => {
+      return [chainId, !!expirationTime && expirationTime > Date.now()]
+    }),
+  )
+}
+
+function getEarliestExpiration(expirations: Record<string, number | undefined>) {
+  const validExpirations = Object.values(expirations).filter(
+    (expiration) => !!expiration && expiration > Date.now(),
+  ) as number[]
+
+  if (validExpirations.length === 0) return undefined
+  return Math.min(...validExpirations)
 }

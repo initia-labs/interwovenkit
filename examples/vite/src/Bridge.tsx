@@ -8,8 +8,8 @@ const Bridge = () => {
       <button className={styles.button} onClick={() => openBridge()}>
         Open bridge
       </button>
-      {!ghostWallet.enabled && (
-        <button className={styles.button} onClick={() => ghostWallet.create()}>
+      {!ghostWallet.enabled["interwoven-1"] && (
+        <button className={styles.button} onClick={() => ghostWallet.create("interwoven-1")}>
           Open ghost wallet
         </button>
       )}

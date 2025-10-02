@@ -70,8 +70,6 @@
   "devDependencies": {
     "@initia/initia-registry-types": "^1.0.10",
     "@keplr-wallet/types": "^0.12.263",
-    "@privy-io/react-auth": "^3.0.1",
-    "@privy-io/wagmi": "^2.0.0",
     "@skip-go/client": "^1.5.2",
     "@tanstack/react-query": "^5.85.3",
     "@tsconfig/vite-react": "^7.0.0",

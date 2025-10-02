@@ -124,9 +124,8 @@ export function useTx() {
     const txRequest = { ...defaultTxRequest, ...rawTxRequest }
 
     // Check if ghost wallet can handle this transaction
-    const allowedMessageTypes = ghostWalletPermissions || []
     const canHandleMessageTypes = txRequest.messages.every((message) =>
-      allowedMessageTypes.includes(message.typeUrl),
+      ghostWalletPermissions?.[txRequest.chainId]?.includes(message.typeUrl),
     )
 
     if (canHandleMessageTypes) {

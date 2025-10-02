@@ -59,7 +59,7 @@ const RevokeGrantsItem = ({ grantee, expiration }: RevokeGrantsItemProps) => {
 
     // Reset ghost wallet expiration if this is the embedded wallet address
     if (grantee === embeddedWalletAddress) {
-      setGhostWalletExpiration(undefined)
+      setGhostWalletExpiration((exp) => ({ ...exp, [defaultChain.chainId]: undefined }))
     }
   }
 

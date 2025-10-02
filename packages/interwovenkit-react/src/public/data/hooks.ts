@@ -74,13 +74,13 @@ export function useInterwovenKit() {
     openDrawer("/bridge", defaultValues)
   }
 
-  const createGhostWallet = () => {
-    if (!config.ghostWalletPermissions)
+  const createGhostWallet = (chainId: string) => {
+    if (!config.ghostWalletPermissions?.[chainId]?.length)
       throw new Error("Ghost wallet permissions are required to create a ghost wallet")
 
-    if (ghostWalletState.isEnabled) throw new Error("Ghost wallet is already enabled")
+    if (ghostWalletState.isEnabled[chainId]) throw new Error("Ghost wallet is already enabled")
 
-    openDrawer("/ghost-wallet")
+    openDrawer("/ghost-wallet", { chainId })
   }
 
   const tx = useTx()

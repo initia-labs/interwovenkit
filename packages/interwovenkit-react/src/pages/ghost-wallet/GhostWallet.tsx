@@ -13,6 +13,11 @@ import { useEmbeddedWallet, ghostWalletExpirationAtom } from "./hooks"
 import { useSetAtom } from "jotai"
 import DurationSelector from "./DurationSelector"
 import Modal from "@/components/Modal"
+import { useLocationState } from "@/lib/router"
+
+interface GhostWalletLocationState {
+  chainId?: string
+}
 
 const DEFAULT_DURATION = 10 * 60 * 1000
 
@@ -23,6 +28,8 @@ const GhostWallet = () => {
   const embeddedWallet = useEmbeddedWallet()
   const setGhostWalletExpiration = useSetAtom(ghostWalletExpirationAtom)
   const [selectedDuration, setSelectedDuration] = useState<number>(DEFAULT_DURATION)
+  const { chainId: locationChainId } = useLocationState<GhostWalletLocationState>()
+  const chainId = locationChainId || config.defaultChainId
 
   const appIcon = (document.querySelector("link[rel~='icon']") as HTMLLinkElement | null)?.href
 
@@ -32,7 +39,7 @@ const GhostWallet = () => {
         throw new Error("Privy hooks must be configured")
       }
 
-      if (!config.ghostWalletPermissions?.length) {
+      if (!config.ghostWalletPermissions?.[chainId]?.length) {
         throw new Error("Ghost wallet permissions must be configured")
       }
 
@@ -58,7 +65,7 @@ const GhostWallet = () => {
             },
           },
         },
-        ...config.ghostWalletPermissions.map((typeUrl) => ({
+        ...config.ghostWalletPermissions[chainId].map((typeUrl) => ({
           typeUrl: "/cosmos.authz.v1beta1.MsgGrant",
           value: {
             granter: initiaAddress,
@@ -76,16 +83,15 @@ const GhostWallet = () => {
         })),
       ]
 
-      return await requestTxSync({
+      await requestTxSync({
         messages,
+        chainId,
       })
+
+      return expiration
     },
-    onSuccess: () => {
-      // Set the ghost wallet expiration atom based on selected duration
-      const selectedDurationMs = selectedDuration
-
-      setGhostWalletExpiration(Date.now() + selectedDurationMs)
-
+    onSuccess: (expiration) => {
+      setGhostWalletExpiration((exp) => ({ ...exp, [chainId]: expiration.getTime() }))
       closeDrawer()
     },
   })
@@ -126,7 +132,7 @@ const GhostWallet = () => {
           <p className={styles.descriptionValue}>{truncate(initiaAddress)}</p>
 
           <p className={styles.descriptionLabel}>Chain</p>
-          <p className={styles.descriptionValue}>{config.defaultChainId}</p>
+          <p className={styles.descriptionValue}>{chainId}</p>
         </div>
 
         <ul className={styles.list}>

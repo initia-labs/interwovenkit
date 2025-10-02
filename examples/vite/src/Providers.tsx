@@ -36,7 +36,7 @@ const InnerProviders = ({ children }: PropsWithChildren) => {
 
   return (
     <InterwovenKitProvider
-      ghostWalletPermissions={["/cosmos.bank.v1beta1.MsgSend"]}
+      ghostWalletPermissions={{ "interwoven-1": ["/cosmos.bank.v1beta1.MsgSend"] }}
       privyHooks={{ logout, login, createWallet, wallets }}
       {...(isTestnet ? TESTNET : {})}
       {...(routerApiUrl ? { routerApiUrl } : {})}

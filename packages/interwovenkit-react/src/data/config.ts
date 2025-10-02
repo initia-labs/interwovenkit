@@ -18,7 +18,7 @@ export interface Config {
   theme: "light" | "dark"
   container?: HTMLElement
   disableAnalytics?: boolean
-  ghostWalletPermissions?: string[]
+  ghostWalletPermissions?: Record<string, string[]>
   privyHooks?: {
     logout: ReturnType<typeof useLogout>["logout"]
     login: ReturnType<typeof useLogin>["login"]
