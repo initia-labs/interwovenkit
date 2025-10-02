@@ -135,7 +135,7 @@ export function useTx() {
       if (isGhostWalletEnabled) {
         // Sign with ghost wallet automatically
         const fee = {
-          amount: [], // Empty because feegrant will cover the fee
+          amount: [],
           gas: txRequest.gas.toString(),
         }
 
@@ -245,12 +245,35 @@ export function useTx() {
 
   const signWithEthSecp256k1 = useSignWithEthSecp256k1()
 
+  const handleSubmitGhostWalletTx = async (txParams: TxParams): Promise<TxRaw | false> => {
+    const { messages, memo = "", fee } = txParams
+    const chainId = txParams.chainId ?? defaultChainId
+
+    // Check if ghost wallet can handle this transaction
+    const canHandleMessageTypes = messages.every((message) =>
+      ghostWalletPermissions?.[chainId]?.includes(message.typeUrl),
+    )
+
+    if (canHandleMessageTypes) {
+      // Check if ghost wallet is enabled (with caching)
+      const isGhostWalletEnabled = await ghostWalletState.checkGhostWallet()
+
+      if (isGhostWalletEnabled) {
+        return await signWithGhostWallet(chainId, messages, fee, memo)
+      }
+    }
+
+    return false
+  }
+
   const submitTxSync = async (txParams: TxParams): Promise<string> => {
     const chainId = txParams.chainId ?? defaultChainId
     try {
       const { messages, memo = "", fee } = txParams
       const client = await createSigningStargateClient(chainId)
-      const signedTx = await signWithEthSecp256k1(chainId, address, messages, fee, memo)
+      const signedTx =
+        (await handleSubmitGhostWalletTx(txParams)) ||
+        (await signWithEthSecp256k1(chainId, address, messages, fee, memo))
       return await client.broadcastTxSync(TxRaw.encode(signedTx).finish())
     } catch (error) {
       throw await formatMoveError(error as Error, findChain(chainId), registryUrl)
@@ -266,7 +289,9 @@ export function useTx() {
     try {
       const { messages, memo = "", fee } = txParams
       const client = await createSigningStargateClient(chainId)
-      const signedTx = await signWithEthSecp256k1(chainId, address, messages, fee, memo)
+      const signedTx =
+        (await handleSubmitGhostWalletTx(txParams)) ||
+        (await signWithEthSecp256k1(chainId, address, messages, fee, memo))
       const response = await client.broadcastTx(
         TxRaw.encode(signedTx).finish(),
         timeoutMs,

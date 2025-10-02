@@ -53,16 +53,18 @@ export function useSignWithGhostWallet() {
       },
     ]
 
+    const gas = fee.gas || "1000000" // default gas if not provided
+
     // Modify the fee to set the granter as the user's main wallet
     const feeWithGranter: StdFee = {
       ...fee,
       granter: userAddress,
+      gas,
       // calculate fee
-      gas: "1000000", // default gas if not provided
       amount:
         fee.amount.length > 0
           ? fee.amount
-          : [{ denom: "uinit", amount: (1000000 * 0.015).toFixed(0) }], // default amount if not provided
+          : [{ denom: "uinit", amount: (Number(gas) * 0.015).toFixed(0) }], // default amount if not provided
     }
 
     // Create a custom signer for the embedded wallet using ethers
@@ -91,15 +93,14 @@ export function useGhostWalletState() {
   const checkGhostWallet = async (): Promise<Record<string, boolean>> => {
     if (!embeddedWalletAddress || !address) return {}
 
-    const permissions = config.ghostWalletPermissions || []
-    if (!permissions.length) return {}
+    if (!config.ghostWalletPermissions) return {}
 
     // If already enabled and not expired, return true
     if (Object.values(isEnabled).some((v) => v)) return isEnabled
 
     // Perform the actual check
     const result = await Promise.all(
-      Object.entries(permissions).map(
+      Object.entries(config.ghostWalletPermissions).map(
         async ([chainId, permission]) =>
           [
             chainId,

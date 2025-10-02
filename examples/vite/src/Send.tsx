@@ -41,7 +41,7 @@ const Send = () => {
 
       if (directSign) {
         // Use submitTxBlock for direct signing without modal
-        const gasEstimate = await estimateGas({ messages, memo })
+        const gasEstimate = (await estimateGas({ messages, memo })) * 1.2
         const fee = calculateFee(gasEstimate, GasPrice.fromString("0.015uinit"))
         const { transactionHash } = await submitTxBlock({ messages, memo, fee })
         return transactionHash
