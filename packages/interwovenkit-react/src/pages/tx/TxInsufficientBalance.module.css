@@ -1,0 +1,78 @@
+.root {
+  flex: 1;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  width: 100%;
+}
+
+.chevron {
+  transition:
+    transform var(--transition),
+    color var(--transition);
+
+  .trigger:hover & {
+    color: var(--error-light);
+  }
+
+  .trigger[data-state="open"] & {
+    transform: rotate(180deg);
+  }
+}
+
+.content {
+  overflow: hidden;
+
+  &[data-state="open"] {
+    animation: slideDown var(--transition) ease-out;
+  }
+
+  &[data-state="closed"] {
+    animation: slideUp var(--transition) ease-out;
+  }
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  color: var(--error-light);
+  margin-top: 10px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  :last-child {
+    font-family: var(--monospace);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+  to {
+    height: 0;
+    opacity: 0;
+  }
+}
