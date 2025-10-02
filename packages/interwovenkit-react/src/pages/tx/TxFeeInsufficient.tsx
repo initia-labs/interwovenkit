@@ -25,7 +25,7 @@ const TxFeeInsufficient = ({
   ].filter(Boolean) as Array<{ label: string; value: string }>
 
   return (
-    <Collapsible.Root defaultOpen={false} className={styles.root}>
+    <Collapsible.Root className={styles.root}>
       <Collapsible.Trigger className={styles.trigger}>
         <span>Insufficient balance for fee</span>
         <IconChevronDown className={styles.chevron} size={16} />
