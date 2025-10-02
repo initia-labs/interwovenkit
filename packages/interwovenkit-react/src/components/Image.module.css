@@ -3,6 +3,7 @@
 }
 
 .logo {
+  /* Use background-color instead of border to avoid tiny gap between border and image */
   background-color: var(--logo-border);
   border-radius: 50%;
   padding: 1px;
