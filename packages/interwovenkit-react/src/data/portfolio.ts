@@ -165,6 +165,9 @@ export function createPortfolio(
   const chainItemsMap = new Map<string, PortfolioChainItem>()
 
   for (const [currentChainId, assetItems] of Object.entries(assetItemsByChain)) {
+    // Only include chains with actual balances
+    if (assetItems.length === 0) continue
+
     const chain = chains.find((chain) => chain.chainId === currentChainId)
     if (!chain) continue
 
