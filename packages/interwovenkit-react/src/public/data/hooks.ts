@@ -1,6 +1,7 @@
 import { useAccount } from "wagmi"
 import { useQuery } from "@tanstack/react-query"
 import { InitiaAddress } from "@initia/utils"
+import { atom, useSetAtom } from "jotai"
 import { useTx } from "@/data/tx"
 import { useDisconnect, useDrawer } from "@/data/ui"
 import { useDefaultChain } from "@/data/chains"
@@ -12,6 +13,13 @@ import { useGhostWalletState } from "@/pages/ghost-wallet/hooks"
 import { useConfig } from "@/data/config"
 
 export { usePortfolio } from "@/data/portfolio"
+
+interface GhostWalletRequestHandler {
+  resolve: () => void
+  reject: (error: Error) => void
+}
+
+export const ghostWalletRequestHandlerAtom = atom<GhostWalletRequestHandler | null>(null)
 
 export function useInitiaAddress() {
   const hexAddress = useHexAddress()
@@ -74,13 +82,22 @@ export function useInterwovenKit() {
     openDrawer("/bridge", defaultValues)
   }
 
-  const createGhostWallet = (chainId: string) => {
+  const setGhostWalletRequestHandler = useSetAtom(ghostWalletRequestHandlerAtom)
+
+  const createGhostWallet = async (chainId: string): Promise<void> => {
     if (!config.ghostWalletPermissions?.[chainId]?.length)
       throw new Error("Ghost wallet permissions are required to create a ghost wallet")
 
     if (ghostWalletState.isEnabled[chainId]) throw new Error("Ghost wallet is already enabled")
 
-    openDrawer("/ghost-wallet", { chainId })
+    return new Promise<void>((resolve, reject) => {
+      setGhostWalletRequestHandler({
+        resolve,
+        reject,
+      })
+
+      openDrawer("/ghost-wallet", { chainId })
+    })
   }
 
   const tx = useTx()

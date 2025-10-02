@@ -6,11 +6,11 @@ import Button from "@/components/Button"
 import styles from "./GhostWallet.module.css"
 import { BasicAllowance } from "@initia/initia.proto/cosmos/feegrant/v1beta1/feegrant"
 import { GenericAuthorization } from "@initia/initia.proto/cosmos/authz/v1beta1/authz"
-import { useInterwovenKit } from "@/public/data/hooks"
+import { useInterwovenKit, ghostWalletRequestHandlerAtom } from "@/public/data/hooks"
 import { useConfig } from "@/data/config"
 import { InitiaAddress, truncate } from "@initia/utils"
 import { useEmbeddedWallet, ghostWalletExpirationAtom } from "./hooks"
-import { useSetAtom } from "jotai"
+import { useAtomValue, useSetAtom } from "jotai"
 import DurationSelector from "./DurationSelector"
 import Modal from "@/components/Modal"
 import { useLocationState } from "@/lib/router"
@@ -27,6 +27,8 @@ const GhostWallet = () => {
   const config = useConfig()
   const embeddedWallet = useEmbeddedWallet()
   const setGhostWalletExpiration = useSetAtom(ghostWalletExpirationAtom)
+  const ghostWalletRequestHandler = useAtomValue(ghostWalletRequestHandlerAtom)
+  const setGhostWalletRequestHandler = useSetAtom(ghostWalletRequestHandlerAtom)
   const [selectedDuration, setSelectedDuration] = useState<number>(DEFAULT_DURATION)
   const { chainId: locationChainId } = useLocationState<GhostWalletLocationState>()
   const chainId = locationChainId || config.defaultChainId
@@ -92,11 +94,23 @@ const GhostWallet = () => {
     },
     onSuccess: (expiration) => {
       setGhostWalletExpiration((exp) => ({ ...exp, [chainId]: expiration.getTime() }))
+      // Resolve the promise if there's a pending request
+      ghostWalletRequestHandler?.resolve()
+      setGhostWalletRequestHandler(null)
+      closeDrawer()
+    },
+    onError: (error) => {
+      // Reject the promise if there's a pending request
+      ghostWalletRequestHandler?.reject(error as Error)
+      setGhostWalletRequestHandler(null)
       closeDrawer()
     },
   })
 
   const handleReject = () => {
+    // Reject the promise if there's a pending request
+    ghostWalletRequestHandler?.reject(new Error("User rejected ghost wallet creation"))
+    setGhostWalletRequestHandler(null)
     closeDrawer()
   }
 

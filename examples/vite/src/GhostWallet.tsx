@@ -1,13 +1,26 @@
 import { useInterwovenKit } from "@initia/interwovenkit-react"
+import { useState } from "react"
 import styles from "./GhostWallet.module.css"
 
 const GhostWallet = () => {
   const { ghostWallet } = useInterwovenKit()
+  const [isCreating, setIsCreating] = useState(false)
+
+  const handleCreateGhostWallet = async () => {
+    try {
+      setIsCreating(true)
+      await ghostWallet.create("interwoven-1")
+      // Ghost wallet created successfully
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
   return (
     <div className={styles.container}>
       {!ghostWallet.enabled["interwoven-1"] ? (
-        <button className={styles.button} onClick={() => ghostWallet.create("interwoven-1")}>
-          Enable ghost wallet
+        <button className={styles.button} onClick={handleCreateGhostWallet} disabled={isCreating}>
+          {isCreating ? "Creating ghost wallet..." : "Enable ghost wallet"}
         </button>
       ) : (
         <p className={styles.enabled}>Ghost wallet is enabled!</p>
