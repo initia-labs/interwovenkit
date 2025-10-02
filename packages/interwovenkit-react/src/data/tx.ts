@@ -20,6 +20,7 @@ import {
   useSignWithEthSecp256k1,
 } from "./signer"
 import { useDrawer } from "./ui"
+import { useGhostWalletState, useSignWithGhostWallet } from "@/pages/ghost-wallet/hooks"
 
 export interface TxParams {
   messages: EncodeObject[]
@@ -67,7 +68,7 @@ export function useTxRequestHandler() {
 export function useTx() {
   const navigate = useNavigate()
   const address = useInitiaAddress()
-  const { defaultChainId, registryUrl } = useConfig()
+  const { defaultChainId, registryUrl, ghostWalletPermissions } = useConfig()
   const findChain = useFindChain()
   const { openDrawer, closeDrawer } = useDrawer()
   const { openModal, closeModal } = useModal()
@@ -77,6 +78,8 @@ export function useTx() {
   const createSigningStargateClient = useCreateSigningStargateClient()
   const offlineSigner = useOfflineSigner()
   const registry = useRegistry()
+  const signWithGhostWallet = useSignWithGhostWallet()
+  const ghostWalletState = useGhostWalletState()
 
   const estimateGas = async ({ messages, memo, chainId = defaultChainId }: TxRequest) => {
     try {
@@ -119,6 +122,37 @@ export function useTx() {
     }
 
     const txRequest = { ...defaultTxRequest, ...rawTxRequest }
+
+    // Check if ghost wallet can handle this transaction
+    const allowedMessageTypes = ghostWalletPermissions || []
+    const canHandleMessageTypes = txRequest.messages.every((message) =>
+      allowedMessageTypes.includes(message.typeUrl),
+    )
+
+    if (canHandleMessageTypes) {
+      // Check if ghost wallet is enabled (with caching)
+      const isGhostWalletEnabled = await ghostWalletState.checkGhostWallet()
+
+      if (isGhostWalletEnabled) {
+        // Sign with ghost wallet automatically
+        const fee = {
+          amount: [], // Empty because feegrant will cover the fee
+          gas: txRequest.gas.toString(),
+        }
+
+        const signedTx = await signWithGhostWallet(
+          txRequest.chainId,
+          txRequest.messages,
+          fee,
+          txRequest.memo,
+        )
+
+        // Broadcast the transaction directly
+        const client = await createSigningStargateClient(txRequest.chainId)
+        const response = await broadcaster(client, TxRaw.encode(signedTx).finish())
+        return response
+      }
+    }
 
     return new Promise<T>((resolve, reject) => {
       setTxRequestHandler({

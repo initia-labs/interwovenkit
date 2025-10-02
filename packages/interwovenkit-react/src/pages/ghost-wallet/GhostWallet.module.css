@@ -1,0 +1,136 @@
+.content {
+  padding: var(--padding);
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+.description {
+  color: var(--gray-2);
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.appInfoContainer {
+  background-color: var(--gray-8);
+  border-radius: 8px;
+  padding: 12px;
+  display: grid;
+  grid-template-areas:
+    "icon name"
+    "icon host";
+  grid-template-columns: 28px 1fr;
+  align-items: center;
+  column-gap: 8px;
+}
+
+.icon {
+  grid-area: icon;
+}
+
+.iconPlaceholder {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: var(--gray-6);
+  grid-area: icon;
+}
+
+.appName {
+  color: var(--gray-1);
+  font-size: 14px;
+  font-weight: 600;
+  grid-area: name;
+}
+
+.host {
+  color: var(--gray-2);
+  font-size: 12px;
+  font-weight: 500;
+  grid-area: host;
+}
+
+.descriptionContainer {
+  margin-block: 20px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  row-gap: 8px;
+}
+
+.descriptionLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-3);
+}
+
+.descriptionValue {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-1);
+  font-family: var(--monospace);
+  text-align: end;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.listItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-1);
+}
+
+.listItem svg {
+  color: var(--success);
+}
+
+.footer {
+  display: grid;
+  grid-template-columns: 50% 50%;
+  gap: 8px;
+}
+
+.durationSelector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-block: 20px;
+}
+
+.durationLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-0);
+}
+
+.durationSelect {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--gray-3);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 14px;
+}
+
+.durationSelect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.buttons {
+  display: flex;
+  gap: 12px;
+}

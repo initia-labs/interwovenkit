@@ -118,7 +118,7 @@ export class OfflineSigner implements OfflineAminoSigner {
 export function useSignWithEthSecp256k1() {
   const registry = useRegistry()
   const aminoTypes = useAminoTypes()
-  const signer = useOfflineSigner()
+  const offlineSigner = useOfflineSigner()
   const createSigningStargateClient = useCreateSigningStargateClient()
 
   return async function (
@@ -127,8 +127,9 @@ export function useSignWithEthSecp256k1() {
     messages: readonly EncodeObject[],
     fee: StdFee,
     memo: string,
-    options?: { incrementSequence?: number },
+    options?: { incrementSequence?: number; customSigner?: OfflineAminoSigner },
   ): Promise<TxRaw> {
+    const signer = options?.customSigner || offlineSigner
     if (!signer) throw new Error("Signer not initialized")
     const client = await createSigningStargateClient(chainId)
     const { accountNumber, ...account } = await client.getSequence(signerAddress)

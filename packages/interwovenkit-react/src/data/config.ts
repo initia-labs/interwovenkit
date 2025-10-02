@@ -17,6 +17,7 @@ export interface Config {
   theme: "light" | "dark"
   container?: HTMLElement
   disableAnalytics?: boolean
+  ghostWalletPermissions?: string[]
 }
 
 export const ConfigContext = createContext<Config | null>(null)

@@ -8,6 +8,9 @@ import { useOfflineSigner } from "@/data/signer"
 import { accountQueryKeys, useUsernameClient } from "@/data/account"
 import type { FormValues } from "@/pages/bridge/data/form"
 import { STALE_TIMES } from "@/data/http"
+import { useGhostWalletState } from "@/pages/ghost-wallet/hooks"
+import { useConfig } from "@/data/config"
+import { useLogin } from "@privy-io/react-auth"
 
 export { usePortfolio } from "@/data/portfolio"
 
@@ -45,12 +48,15 @@ export function useUsernameQuery() {
 }
 
 export function useInterwovenKit() {
+  const config = useConfig()
   const address = useAddress()
   const initiaAddress = useInitiaAddress()
   const hexAddress = useHexAddress()
   const { data: username } = useUsernameQuery()
   const offlineSigner = useOfflineSigner()
+  const { login } = useLogin()
   const disconnect = useDisconnect()
+  const ghostWalletState = useGhostWalletState()
 
   const { isDrawerOpen: isOpen, openDrawer } = useDrawer()
 
@@ -59,11 +65,24 @@ export function useInterwovenKit() {
   }
 
   const openConnect = () => {
-    openDrawer("/connect")
+    if (config.ghostWalletPermissions) {
+      login()
+    } else {
+      openDrawer("/connect")
+    }
   }
 
   const openBridge = (defaultValues?: Partial<FormValues>) => {
     openDrawer("/bridge", defaultValues)
+  }
+
+  const createGhostWallet = () => {
+    if (!config.ghostWalletPermissions)
+      throw new Error("Ghost wallet permissions are required to create a ghost wallet")
+
+    if (ghostWalletState.isEnabled) throw new Error("Ghost wallet is already enabled")
+
+    openDrawer("/ghost-wallet")
   }
 
   const tx = useTx()
@@ -82,6 +101,10 @@ export function useInterwovenKit() {
     openWallet,
     openBridge,
     disconnect,
+    ghostWallet: {
+      enabled: ghostWalletState.isEnabled,
+      create: createGhostWallet,
+    },
     ...tx,
   }
 }

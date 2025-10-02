@@ -1,7 +1,7 @@
 import clsx from "clsx"
 import { useRef } from "react"
 import { Tabs } from "@base-ui-components/react/tabs"
-import { IconArrowRight, IconSwap } from "@initia/icons-react"
+import { IconArrowRight, IconQrCode, IconSwap } from "@initia/icons-react"
 import { Link, useNavigate, usePath } from "@/lib/router"
 import { formatValue } from "@/lib/format"
 import { usePortfolio } from "@/data/portfolio"
@@ -40,6 +40,11 @@ const Home = () => {
           <button className={styles.item} onClick={() => navigate("/bridge")}>
             <IconSwap size={16} />
             <span>Bridge/Swap</span>
+          </button>
+
+          <button className={styles.item} onClick={() => navigate("/receive")}>
+            <IconQrCode size={16} />
+            <span>Receive</span>
           </button>
         </div>
 

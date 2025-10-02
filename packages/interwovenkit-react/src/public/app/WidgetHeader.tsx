@@ -2,21 +2,19 @@ import clsx from "clsx"
 import { useAccount } from "wagmi"
 import { useState, useRef, useEffect } from "react"
 import { useSpring, animated } from "@react-spring/web"
-import { IconCopy, IconQrCode, IconSignOut } from "@initia/icons-react"
+import { IconCopy, IconSettingFilled, IconSignOut } from "@initia/icons-react"
 import { truncate } from "@initia/utils"
+import { useNavigate } from "@/lib/router"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useDisconnect } from "@/data/ui"
-import { useDefaultChain } from "@/data/chains"
-import ModalTrigger from "@/components/ModalTrigger"
 import CopyButton from "@/components/CopyButton"
 import Image from "@/components/Image"
-import AddressQr from "./AddressQr"
 import styles from "./WidgetHeader.module.css"
 
 const WidgetHeader = () => {
-  const deafultChain = useDefaultChain()
   const { connector } = useAccount()
   const disconnect = useDisconnect()
+  const navigate = useNavigate()
   const { address, username } = useInterwovenKit()
   const name = username ?? address
 
@@ -77,15 +75,9 @@ const WidgetHeader = () => {
         )}
       </CopyButton>
 
-      {deafultChain.metadata?.is_l1 && (
-        <ModalTrigger
-          title="Initia address"
-          content={() => <AddressQr />}
-          className={clsx(styles.button, styles.qr)}
-        >
-          <IconQrCode size={16} />
-        </ModalTrigger>
-      )}
+      <button className={clsx(styles.button, styles.qr)} onClick={() => navigate("/settings")}>
+        <IconSettingFilled size={16} />
+      </button>
 
       <animated.button
         className={clsx(styles.button, styles.disconnect, { [styles.expanded]: isExpanded })}
