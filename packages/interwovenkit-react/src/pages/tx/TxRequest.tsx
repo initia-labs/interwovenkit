@@ -3,7 +3,6 @@ import { sentenceCase } from "change-case"
 import { calculateFee, GasPrice } from "@cosmjs/stargate"
 import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
-import { formatAmount } from "@initia/utils"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useBalances } from "@/data/account"
 import { useChain } from "@/data/chains"
@@ -43,28 +42,23 @@ const TxRequest = () => {
   const feeCoins = feeOptions.map((fee) => fee.amount[0])
 
   const getFeeDetails = (feeDenom: string) => {
-    const balance = balances.find((balance) => balance.denom === feeDenom)?.amount ?? 0
-    const feeAmount = feeCoins.find((coin) => coin.denom === feeDenom)?.amount ?? 0
+    const balance = balances.find((balance) => balance.denom === feeDenom)?.amount ?? "0"
+    const feeAmount = feeCoins.find((coin) => coin.denom === feeDenom)?.amount ?? "0"
     const spendAmount = spendCoins
       .filter((coin) => coin.denom === feeDenom)
-      .reduce((total, coin) => BigNumber(total).plus(coin.amount), BigNumber(0))
+      .reduce((total, coin) => BigNumber(total).plus(coin.amount), BigNumber("0"))
     const totalRequired = BigNumber(feeAmount).plus(spendAmount)
     const isSufficient = BigNumber(balance).gte(totalRequired)
 
     const { symbol, decimals } = findAsset(feeDenom)
-    const formattedBalance = formatAmount(balance, { decimals })
-    const formattedFee = formatAmount(feeAmount, { decimals })
-    const formattedSpend = spendAmount.gt(0)
-      ? formatAmount(spendAmount.toFixed(), { decimals })
-      : null
-    const formattedTotal = formatAmount(totalRequired.toFixed(), { decimals })
 
     return {
       symbol,
-      formattedSpend,
-      formattedFee,
-      formattedTotal,
-      formattedBalance,
+      decimals,
+      spend: spendAmount.gt(0) ? spendAmount.toFixed() : null,
+      fee: feeAmount,
+      total: totalRequired.toFixed(),
+      balance,
       isSufficient,
     }
   }
