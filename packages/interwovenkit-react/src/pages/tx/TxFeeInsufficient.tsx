@@ -1,7 +1,6 @@
-import BigNumber from "bignumber.js"
 import { Collapsible } from "@base-ui-components/react/collapsible"
 import { IconChevronDown } from "@initia/icons-react"
-import { formatAmount, fromBaseUnit } from "@initia/utils"
+import { formatAmount } from "@initia/utils"
 import styles from "./TxFeeInsufficient.module.css"
 
 interface Props {
@@ -21,10 +20,10 @@ const TxFeeInsufficient = ({ spend, fee, total, balance, symbol, decimals }: Pro
     { label: "Balance", value: balance },
   ].filter(Boolean) as Array<{ label: string; value: string }>
 
-  // Determine decimal places for display based on fee amount
-  // - decimals=6: use default (undefined)
-  // - otherwise: show up to 8 decimal places if fee would display as 0.000000
-  const dp = BigNumber(fromBaseUnit(fee, { decimals })).lt(0.000001) ? 8 : undefined
+  // Show 8 decimal places for high-precision tokens (decimals=18) to display meaningful fee amounts
+  // Without this, fees might show as 0.000000 ETH or required/balance appear equal when they're not
+  // 8dp is a balance between accuracy and UI space constraints (full 18dp would be excessive)
+  const dp = decimals === 6 ? undefined : 8
 
   return (
     <Collapsible.Root className={styles.root}>
