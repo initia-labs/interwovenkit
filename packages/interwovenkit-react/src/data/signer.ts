@@ -1,3 +1,4 @@
+import ky from "ky"
 import type { Eip1193Provider } from "ethers"
 import { useAccount, useSignMessage } from "wagmi"
 import { BrowserProvider, ethers } from "ethers"
@@ -32,7 +33,7 @@ import { encodePubkeyInitia } from "./patches/pubkeys"
 import { encodeEthSecp256k1Signature } from "./patches/signature"
 import { LocalStorageKey } from "./constants"
 import { useConfig } from "./config"
-import { useFindChain } from "./chains"
+import { useFindChain, useLayer1 } from "./chains"
 
 export const useRegistry = () => {
   const config = useConfig()
@@ -48,6 +49,7 @@ export class OfflineSigner implements OfflineAminoSigner {
   constructor(
     private address: string,
     private signMessage: (message: string) => Promise<string>,
+    private layer1RestUrl: string,
   ) {}
 
   // Cache the public key so we don't have to ask the wallet to sign the
@@ -69,11 +71,39 @@ export class OfflineSigner implements OfflineAminoSigner {
       return fromHex(localPublicKey)
     }
 
+    // Try to fetch the public key from L1 REST API first
+    const publicKeyFromRestApi = await this.getPublicKeyFromRestApi()
+    if (publicKeyFromRestApi) {
+      this.cachedPublicKey = publicKeyFromRestApi
+      localStorage.setItem(storageKey, toHex(publicKeyFromRestApi))
+      return publicKeyFromRestApi
+    }
+
+    // Fallback to signature-based derivation if API doesn't have the public key
     const publicKey = await this.getPublicKey()
     this.cachedPublicKey = publicKey
     localStorage.setItem(storageKey, toHex(publicKey))
 
     return publicKey
+  }
+
+  private async getPublicKeyFromRestApi(): Promise<Uint8Array | null> {
+    try {
+      const data = await ky
+        .create({ prefixUrl: this.layer1RestUrl })
+        .get(`cosmos/auth/v1beta1/account_info/${this.address}`)
+        .json<{ info: { pub_key: { "@type": string; key: string } | null } }>()
+
+      const pubKey = data?.info?.pub_key?.key
+
+      if (!pubKey) return null
+
+      // The API returns the public key in base64 format
+      return fromBase64(pubKey)
+    } catch {
+      // If the API call fails, return null to fallback to signature-based derivation
+      return null
+    }
   }
 
   private async getPublicKey() {
@@ -178,9 +208,10 @@ export function useSignWithEthSecp256k1() {
 export function useOfflineSigner() {
   const address = useInitiaAddress()
   const { signMessageAsync } = useSignMessage()
+  const layer1 = useLayer1()
   return useMemo(
-    () => new OfflineSigner(address, (message) => signMessageAsync({ message })),
-    [address, signMessageAsync],
+    () => new OfflineSigner(address, (message) => signMessageAsync({ message }), layer1.restUrl),
+    [address, signMessageAsync, layer1.restUrl],
   )
 }
 
