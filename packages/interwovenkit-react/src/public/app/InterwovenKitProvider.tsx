@@ -12,7 +12,7 @@ import { useInitiaRegistry, useLayer1 } from "@/data/chains"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import { useSkipChains } from "@/pages/bridge/data/chains"
 import { useSkipAssets } from "@/pages/bridge/data/assets"
-import { useGhostWalletState } from "@/pages/ghost-wallet/hooks"
+import { useEmbeddedWalletAddress, useGhostWalletState } from "@/pages/ghost-wallet/hooks"
 import { MAINNET } from "../data/constants"
 import PortalProvider from "./PortalProvider"
 import NotificationProvider from "./NotificationProvider"
@@ -20,6 +20,7 @@ import ModalProvider from "./ModalProvider"
 import Analytics from "./Analytics"
 import Drawer from "./Drawer"
 import Routes from "./Routes"
+import { useInitiaAddress } from "../data/hooks"
 
 const ROBOTO_MONO =
   "https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@100..700&display=swap"
@@ -47,9 +48,13 @@ const Prefetch = () => {
   useSkipAssets(localStorage.getItem(LocalStorageKey.BRIDGE_DST_CHAIN_ID) ?? layer1.chainId)
 
   const ghostWalletState = useGhostWalletState()
+  const address = useInitiaAddress()
+  const embeddedWalletAddress = useEmbeddedWalletAddress()
+
   useEffect(() => {
+    if (!embeddedWalletAddress || !address) return
     ghostWalletState.checkGhostWallet()
-  }, [ghostWalletState])
+  }, [address, embeddedWalletAddress]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return null
 }
