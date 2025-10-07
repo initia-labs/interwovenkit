@@ -9,29 +9,29 @@
     "lint": "eslint src --fix"
   },
   "dependencies": {
-    "@cosmjs/stargate": "^0.36.0",
+    "@cosmjs/stargate": "^0.36.1",
     "@initia/interwovenkit-react": "workspace:^",
     "@initia/utils": "2.0.0",
     "@privy-io/react-auth": "^3.0.1",
     "@privy-io/wagmi": "^2.0.0",
-    "@tanstack/react-query": "^5.85.3",
+    "@tanstack/react-query": "^5.90.2",
     "cosmjs-types": "^0.10.1",
     "ethers": "^6.15.0",
-    "jotai": "^2.13.1",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "react-hook-form": "^7.62.0",
-    "viem": "^2.33.3",
+    "jotai": "^2.15.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-hook-form": "^7.63.0",
+    "viem": "^2.37.12",
     "vite-plugin-node-polyfills": "^0.24.0",
-    "wagmi": "^2.16.3"
+    "wagmi": "^2.17.5"
   },
   "devDependencies": {
-    "@tsconfig/vite-react": "^7.0.0",
-    "@types/react": "^19.1.10",
-    "@types/react-dom": "^19.1.7",
-    "@vitejs/plugin-react-swc": "^4.0.0",
-    "eslint": "^9.33.0",
-    "typescript": "^5.9.2",
-    "vite": "^7.1.2"
+    "@tsconfig/vite-react": "^7.0.1",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react-swc": "^4.1.0",
+    "eslint": "^9.36.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.1.9"
   }
 }
