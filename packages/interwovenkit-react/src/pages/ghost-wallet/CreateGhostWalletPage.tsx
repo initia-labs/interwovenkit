@@ -1,7 +1,7 @@
 import { useState } from "react"
 import clsx from "clsx"
 import { useAtomValue, useSetAtom } from "jotai"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { IconCheckCircle, IconWallet } from "@initia/icons-react"
 import { BasicAllowance } from "@initia/initia.proto/cosmos/feegrant/v1beta1/feegrant"
 import { GenericAuthorization } from "@initia/initia.proto/cosmos/authz/v1beta1/authz"
@@ -14,6 +14,7 @@ import Button from "@/components/Button"
 import Modal from "@/components/Modal"
 import DurationSelector from "./DurationSelector"
 import { useEmbeddedWallet, ghostWalletExpirationAtom } from "./hooks"
+import { ghostWalletQueryKeys } from "./queries"
 import styles from "./CreateGhostWalletPage.module.css"
 import { useChain } from "@/data/chains"
 import { DEFAULT_DURATION } from "./constants"
@@ -34,6 +35,7 @@ const CreateGhostWalletPage = () => {
   const { chainId: locationChainId } = useLocationState<GhostWalletLocationState>()
   const chainId = locationChainId || config.defaultChainId
   const chain = useChain(chainId)
+  const queryClient = useQueryClient()
 
   const appIcon = (document.querySelector("link[rel~='icon']") as HTMLLinkElement | null)?.href
 
@@ -96,6 +98,10 @@ const CreateGhostWalletPage = () => {
     },
     onSuccess: (expiration) => {
       setGhostWalletExpiration((exp) => ({ ...exp, [chainId]: expiration.getTime() }))
+      // Invalidate grants queries to refresh the data
+      queryClient.invalidateQueries({
+        queryKey: ghostWalletQueryKeys.grantsByGranter(chain.restUrl, initiaAddress).queryKey,
+      })
       // Resolve the promise if there's a pending request
       ghostWalletRequestHandler?.resolve()
       setGhostWalletRequestHandler(null)

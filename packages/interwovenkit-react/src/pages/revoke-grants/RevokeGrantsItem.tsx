@@ -7,6 +7,8 @@ import { useAllGrants, ghostWalletQueryKeys } from "@/pages/ghost-wallet/queries
 import { ghostWalletExpirationAtom, useEmbeddedWalletAddress } from "@/pages/ghost-wallet/hooks"
 import styles from "./RevokeGrantsItem.module.css"
 
+const ONE_YEAR_IN_MS = 365 * 24 * 60 * 60 * 1000
+
 interface RevokeGrantsItemProps {
   grantee: string
   expiration: string
@@ -68,7 +70,7 @@ const RevokeGrantsItem = ({ grantee, expiration }: RevokeGrantsItemProps) => {
       <div className={styles.textContainer}>
         <div className={styles.chain}>{defaultChain.chainId}</div>
         <div className={styles.expiration}>
-          {new Date(expiration).getTime() - Date.now() > 365 * 24 * 60 * 60 * 1000 ? (
+          {new Date(expiration).getTime() - Date.now() > ONE_YEAR_IN_MS ? (
             "Until revoked"
           ) : (
             <>
