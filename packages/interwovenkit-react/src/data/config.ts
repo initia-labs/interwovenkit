@@ -19,7 +19,7 @@ export interface Config {
   container?: HTMLElement
   disableAnalytics?: boolean
   ghostWalletPermissions?: Record<string, string[]>
-  privyHooks?: {
+  privy?: {
     logout: ReturnType<typeof useLogout>["logout"]
     login: ReturnType<typeof useLogin>["login"]
     createWallet: ReturnType<typeof useCreateWallet>["createWallet"]

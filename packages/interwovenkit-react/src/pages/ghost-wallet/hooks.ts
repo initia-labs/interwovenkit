@@ -18,8 +18,8 @@ export function useEmbeddedWalletAddress() {
 }
 
 export function useEmbeddedWallet() {
-  const { privyHooks } = useConfig()
-  return privyHooks?.wallets.find((w) => w.connectorType === "embedded")
+  const { privy } = useConfig()
+  return privy?.wallets.find((w) => w.connectorType === "embedded")
 }
 
 export function useSignWithGhostWallet() {
@@ -28,6 +28,7 @@ export function useSignWithGhostWallet() {
   const signWithEthSecp256k1 = useSignWithEthSecp256k1()
   const userAddress = useInitiaAddress()
   const registry = useRegistry()
+  const defaultChain = useDefaultChain()
 
   return async (
     chainId: string,
@@ -69,7 +70,11 @@ export function useSignWithGhostWallet() {
     }
 
     // Create a custom signer for the embedded wallet using ethers
-    const embeddedSigner = new OfflineSigner(embeddedWalletAddress, embeddedWallet.sign)
+    const embeddedSigner = new OfflineSigner(
+      embeddedWalletAddress,
+      embeddedWallet.sign,
+      defaultChain.restUrl,
+    )
 
     // Use the existing signing function but with the embedded wallet signer
     return await signWithEthSecp256k1(

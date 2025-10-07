@@ -38,7 +38,7 @@ export function useDisconnect() {
     navigate("/blank")
     closeDrawer()
     disconnect()
-    config.privyHooks?.logout()
+    config.privy?.logout()
 
     // Clear bridge form values on disconnect
     localStorage.removeItem(LocalStorageKey.BRIDGE_SRC_CHAIN_ID)

@@ -37,7 +37,7 @@ const GhostWallet = () => {
 
   const { mutate: createGhostWallet, isPending } = useMutation({
     mutationFn: async () => {
-      if (!config.privyHooks) {
+      if (!config.privy) {
         throw new Error("Privy hooks must be configured")
       }
 
@@ -46,7 +46,7 @@ const GhostWallet = () => {
       }
 
       const { address: ghostWalletAddress } =
-        embeddedWallet || (await config.privyHooks.createWallet({ createAdditional: false }))
+        embeddedWallet || (await config.privy.createWallet({ createAdditional: false }))
 
       const selectedDurationMs = selectedDuration
       const expiration = new Date(Date.now() + selectedDurationMs)

@@ -72,8 +72,8 @@ export function useInterwovenKit() {
   }
 
   const openConnect = () => {
-    if (config.privyHooks) {
-      config.privyHooks.login()
+    if (config.privy) {
+      config.privy.login()
     } else {
       openDrawer("/connect")
     }
