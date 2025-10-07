@@ -65,7 +65,7 @@ const AssetActions = ({ asset, children }: PropsWithChildren<Props>) => {
     <Menu.Root open={open} onOpenChange={setOpen} modal={false}>
       <Menu.Trigger render={children as ReactElement<Record<string, unknown>>} />
 
-      <Menu.Portal container={scrollableRef.current}>
+      <Menu.Portal container={scrollableRef}>
         <Menu.Positioner side="bottom" sideOffset={-6} align="end">
           <Menu.Popup className={styles.popup}>
             <Menu.Item className={styles.item} onClick={send}>

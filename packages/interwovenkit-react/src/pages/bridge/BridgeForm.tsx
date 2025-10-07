@@ -33,6 +33,8 @@ const BridgeForm = () => {
 
   const { watch, setValue } = form
   const { srcChainId, dstChainId, srcDenom, dstDenom, quantity, slippagePercent, recipient } =
+    // React Hook Form's watch() is safe, React Compiler warning can be ignored
+    // eslint-disable-next-line react-hooks/incompatible-library
     watch()
 
   watch((_, { name }) => {

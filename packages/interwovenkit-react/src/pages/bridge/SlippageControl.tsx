@@ -24,6 +24,8 @@ const SlippageControl = ({ afterConfirm }: { afterConfirm: () => void }) => {
     defaultValues: { value: defaultValue },
   })
 
+  // React Hook Form's watch() is safe, React Compiler warning can be ignored
+  // eslint-disable-next-line react-hooks/incompatible-library
   const value = watch("value")
 
   // Initialize active preset if default matches one
