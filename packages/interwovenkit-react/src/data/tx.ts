@@ -21,6 +21,7 @@ import {
 } from "./signer"
 import { useDrawer } from "./ui"
 import { useGhostWalletState, useSignWithGhostWallet } from "@/pages/ghost-wallet/hooks"
+import { canGhostWalletHandleTxRequest } from "@/pages/ghost-wallet/utils"
 
 export interface TxParams {
   messages: EncodeObject[]
@@ -80,6 +81,7 @@ export function useTx() {
   const registry = useRegistry()
   const signWithGhostWallet = useSignWithGhostWallet()
   const ghostWalletState = useGhostWalletState()
+  const signWithEthSecp256k1 = useSignWithEthSecp256k1()
 
   const estimateGas = async ({ messages, memo, chainId = defaultChainId }: TxRequest) => {
     try {
@@ -122,36 +124,6 @@ export function useTx() {
     }
 
     const txRequest = { ...defaultTxRequest, ...rawTxRequest }
-
-    // Check if ghost wallet can handle this transaction
-    const canHandleMessageTypes = txRequest.messages.every((message) =>
-      ghostWalletPermissions?.[txRequest.chainId]?.includes(message.typeUrl),
-    )
-
-    if (canHandleMessageTypes) {
-      // Check if ghost wallet is enabled (with caching)
-      const isGhostWalletEnabled = await ghostWalletState.checkGhostWallet()
-
-      if (isGhostWalletEnabled) {
-        // Sign with ghost wallet automatically
-        const fee = {
-          amount: [],
-          gas: txRequest.gas.toString(),
-        }
-
-        const signedTx = await signWithGhostWallet(
-          txRequest.chainId,
-          txRequest.messages,
-          fee,
-          txRequest.memo,
-        )
-
-        // Broadcast the transaction directly
-        const client = await createSigningStargateClient(txRequest.chainId)
-        const response = await broadcaster(client, TxRaw.encode(signedTx).finish())
-        return response
-      }
-    }
 
     return new Promise<T>((resolve, reject) => {
       setTxRequestHandler({
@@ -243,18 +215,11 @@ export function useTx() {
     })
   }
 
-  const signWithEthSecp256k1 = useSignWithEthSecp256k1()
-
   const handleSubmitGhostWalletTx = async (txParams: TxParams): Promise<TxRaw | false> => {
     const { messages, memo = "", fee } = txParams
     const chainId = txParams.chainId ?? defaultChainId
 
-    // Check if ghost wallet can handle this transaction
-    const canHandleMessageTypes = messages.every((message) =>
-      ghostWalletPermissions?.[chainId]?.includes(message.typeUrl),
-    )
-
-    if (canHandleMessageTypes) {
+    if (canGhostWalletHandleTxRequest({ messages, chainId }, ghostWalletPermissions)) {
       // Check if ghost wallet is enabled (with caching)
       const isGhostWalletEnabled = await ghostWalletState.checkGhostWallet()
 

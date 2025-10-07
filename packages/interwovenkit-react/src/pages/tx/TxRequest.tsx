@@ -10,6 +10,9 @@ import { useFindAsset } from "@/data/assets"
 import { useSignWithEthSecp256k1, useOfflineSigner } from "@/data/signer"
 import { TX_APPROVAL_MUTATION_KEY, useTxRequestHandler } from "@/data/tx"
 import { useGasPrices, useLastFeeDenom } from "@/data/fee"
+import { useConfig } from "@/data/config"
+import { useGhostWalletState, useSignWithGhostWallet } from "@/pages/ghost-wallet/hooks"
+import { canGhostWalletHandleTxRequest } from "@/pages/ghost-wallet/utils"
 import WidgetAccordion from "@/components/WidgetAccordion"
 import Scrollable from "@/components/Scrollable"
 import FormHelp from "@/components/form/FormHelp"
@@ -34,6 +37,9 @@ const TxRequest = () => {
   const gasPrices = useGasPrices(chain)
   const lastUsedFeeDenom = useLastFeeDenom(chain)
   const findAsset = useFindAsset(chain)
+  const { ghostWalletPermissions } = useConfig()
+  const ghostWalletState = useGhostWalletState()
+  const signWithGhostWallet = useSignWithGhostWallet()
 
   const feeOptions = (txRequest.gasPrices ?? gasPrices).map(({ amount, denom }) =>
     calculateFee(Math.ceil(gas * gasAdjustment), GasPrice.fromString(amount + denom)),
@@ -84,6 +90,20 @@ const TxRequest = () => {
     mutationFn: async () => {
       const fee = feeOptions.find((fee) => fee.amount[0].denom === feeDenom)
       if (!fee) throw new Error("Fee not found")
+
+      // Check if ghost wallet can and should be used
+      if (canGhostWalletHandleTxRequest(txRequest, ghostWalletPermissions)) {
+        const isGhostWalletEnabled = await ghostWalletState.checkGhostWallet()
+
+        if (isGhostWalletEnabled[chainId]) {
+          // Sign with ghost wallet using the selected fee
+          const signedTx = await signWithGhostWallet(chainId, messages, fee, memo)
+          await resolve(signedTx)
+          return
+        }
+      }
+
+      // Fall back to normal signing
       if (!signer) throw new Error("Signer not initialized")
       const signedTx = await signWithEthSecp256k1(chainId, address, messages, fee, memo)
       await resolve(signedTx)
