@@ -5,20 +5,30 @@
 .title {
   font-size: 20px;
   font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.subtitle {
+  color: var(--gray-1);
+  font-size: 12px;
+  font-weight: 500;
   margin-bottom: 20px;
 }
 
-.description {
+.label {
   color: var(--gray-2);
   font-size: 12px;
   font-weight: 500;
   margin-bottom: 4px;
 }
 
-.appInfoContainer {
-  background-color: var(--gray-8);
+.container {
+  border: 1px solid var(--gray-7);
   border-radius: 8px;
   padding: 12px;
+}
+
+.appInfo {
   display: grid;
   grid-template-areas:
     "icon name"
@@ -26,6 +36,7 @@
   grid-template-columns: 28px 1fr;
   align-items: center;
   column-gap: 8px;
+  margin-bottom: 20px;
 }
 
 .icon {
@@ -54,25 +65,28 @@
   grid-area: host;
 }
 
-.descriptionContainer {
-  margin-block: 20px;
+.details {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr;
+  align-items: center;
   row-gap: 8px;
+  column-gap: 12px;
+  margin-bottom: 20px;
 }
 
-.descriptionLabel {
+.detailLabel {
+  color: var(--gray-2);
   font-size: 12px;
   font-weight: 500;
-  color: var(--gray-3);
 }
 
-.descriptionValue {
+.detailValue {
+  color: var(--gray-0);
   font-size: 12px;
   font-weight: 500;
-  color: var(--gray-1);
-  font-family: var(--monospace);
-  text-align: end;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .list {
@@ -81,6 +95,8 @@
   margin: 0;
   display: grid;
   gap: 8px;
+  margin-bottom: 24px;
+  margin-top: 8px;
 }
 
 .listItem {
@@ -100,34 +116,6 @@
   display: grid;
   grid-template-columns: 50% 50%;
   gap: 8px;
-}
-
-.durationSelector {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-block: 20px;
-}
-
-.durationLabel {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--gray-0);
-}
-
-.durationSelect {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid var(--gray-3);
-  border-radius: 8px;
-  background: var(--background);
-  color: var(--foreground);
-  font-size: 14px;
-}
-
-.durationSelect:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .buttons {

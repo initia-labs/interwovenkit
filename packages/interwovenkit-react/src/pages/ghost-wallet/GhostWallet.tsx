@@ -1,7 +1,8 @@
 import { useState } from "react"
+import clsx from "clsx"
 import { useAtomValue, useSetAtom } from "jotai"
 import { useMutation } from "@tanstack/react-query"
-import { IconCheckCircle } from "@initia/icons-react"
+import { IconCheckCircle, IconWallet } from "@initia/icons-react"
 import { BasicAllowance } from "@initia/initia.proto/cosmos/feegrant/v1beta1/feegrant"
 import { GenericAuthorization } from "@initia/initia.proto/cosmos/authz/v1beta1/authz"
 import { InitiaAddress, truncate } from "@initia/utils"
@@ -14,6 +15,7 @@ import Modal from "@/components/Modal"
 import DurationSelector from "./DurationSelector"
 import { useEmbeddedWallet, ghostWalletExpirationAtom } from "./hooks"
 import styles from "./GhostWallet.module.css"
+import { useChain } from "@/data/chains"
 
 interface GhostWalletLocationState {
   chainId?: string
@@ -23,7 +25,7 @@ const DEFAULT_DURATION = 10 * 60 * 1000
 
 const GhostWallet = () => {
   const { closeDrawer } = useDrawer()
-  const { initiaAddress, requestTxBlock } = useInterwovenKit()
+  const { initiaAddress, username, requestTxBlock } = useInterwovenKit()
   const config = useConfig()
   const embeddedWallet = useEmbeddedWallet()
   const setGhostWalletExpiration = useSetAtom(ghostWalletExpirationAtom)
@@ -32,6 +34,7 @@ const GhostWallet = () => {
   const [selectedDuration, setSelectedDuration] = useState<number>(DEFAULT_DURATION)
   const { chainId: locationChainId } = useLocationState<GhostWalletLocationState>()
   const chainId = locationChainId || config.defaultChainId
+  const chain = useChain(chainId)
 
   const appIcon = (document.querySelector("link[rel~='icon']") as HTMLLinkElement | null)?.href
 
@@ -122,9 +125,10 @@ const GhostWallet = () => {
     <Modal open={true} onOpenChange={() => {}}>
       <div className={styles.content}>
         <h1 className={styles.title}>Enable auto-signing</h1>
+        <h2 className={styles.subtitle}>An application is requesting to enable auto-signing.</h2>
 
-        <p className={styles.description}>Asking for permission</p>
-        <div className={styles.appInfoContainer}>
+        <p className={styles.label}>Requested by</p>
+        <div className={clsx(styles.container, styles.appInfo)}>
           {appIcon ? (
             <img
               src={appIcon}
@@ -141,20 +145,37 @@ const GhostWallet = () => {
           <p className={styles.host}>{window.location.host}</p>
         </div>
 
-        <div className={styles.descriptionContainer}>
-          <p className={styles.descriptionLabel}>Address</p>
-          <p className={styles.descriptionValue}>{truncate(initiaAddress)}</p>
+        <p className={styles.label}>Applies to</p>
 
-          <p className={styles.descriptionLabel}>Chain</p>
-          <p className={styles.descriptionValue}>{chainId}</p>
+        <div className={clsx(styles.container, styles.details)}>
+          <p className={styles.detailLabel}>Address</p>
+          <p className={styles.detailValue}>
+            <IconWallet size={14} />
+            {username ?? truncate(initiaAddress)}
+          </p>
+
+          <p className={styles.detailLabel}>Chain</p>
+          <p className={styles.detailValue}>
+            <img src={chain?.logoUrl} alt={chain?.name} width={14} height={14} /> {chain?.name}
+          </p>
+
+          <p className={styles.detailLabel}>Duration</p>
+          <div className={styles.detailValue}>
+            <DurationSelector
+              value={selectedDuration}
+              onChange={setSelectedDuration}
+              disabled={isPending}
+            />
+          </div>
         </div>
+
+        <p className={styles.label}>About auto-signing</p>
 
         <ul className={styles.list}>
           {[
-            "Automatic transaction signing",
-            "Enables faster interactions",
-            "Can be disabled at any time",
-            "Secured by Privy",
+            "Send transactions without confirmation pop-ups",
+            "Protected by Privy embedded wallet",
+            "Revoke permissions any time in settings",
           ].map((text) => (
             <li className={styles.listItem}>
               <IconCheckCircle size={12} />
@@ -162,16 +183,6 @@ const GhostWallet = () => {
             </li>
           ))}
         </ul>
-
-        <div className={styles.durationSelector}>
-          <span className={styles.durationLabel}>Set duration</span>
-          <DurationSelector
-            value={selectedDuration}
-            onChange={setSelectedDuration}
-            disabled={isPending}
-            fullWidth
-          />
-        </div>
 
         <footer className={styles.footer}>
           <Button.Outline onClick={handleReject} disabled={isPending}>
