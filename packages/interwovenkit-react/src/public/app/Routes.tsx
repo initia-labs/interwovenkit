@@ -12,7 +12,7 @@ import Withdrawals from "@/pages/bridge/op/Withdrawals"
 import BridgePreview from "@/pages/bridge/BridgePreview"
 import BridgeHistory from "@/pages/bridge/BridgeHistory"
 import TxRequest from "@/pages/tx/TxRequest"
-import GhostWallet from "@/pages/ghost-wallet/GhostWallet"
+import CreateGhostWalletPage from "@/pages/ghost-wallet/CreateGhostWalletPage"
 import AddressQrPage from "@/pages/wallet/receive/AddressQrPage"
 import RevokeGrantsPage from "@/pages/revoke-grants/RevokeGrantsPage"
 import SettingsPage from "@/pages/settings/SettingsPage"
@@ -89,7 +89,7 @@ const Routes = () => {
     case "/settings/revoke":
       return <RevokeGrantsPage />
     case "/ghost-wallet":
-      return <GhostWallet />
+      return <CreateGhostWalletPage />
   }
 }
 

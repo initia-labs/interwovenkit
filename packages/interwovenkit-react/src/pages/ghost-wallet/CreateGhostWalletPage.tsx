@@ -14,7 +14,7 @@ import Button from "@/components/Button"
 import Modal from "@/components/Modal"
 import DurationSelector from "./DurationSelector"
 import { useEmbeddedWallet, ghostWalletExpirationAtom } from "./hooks"
-import styles from "./GhostWallet.module.css"
+import styles from "./CreateGhostWalletPage.module.css"
 import { useChain } from "@/data/chains"
 
 interface GhostWalletLocationState {
@@ -23,7 +23,7 @@ interface GhostWalletLocationState {
 
 const DEFAULT_DURATION = 10 * 60 * 1000
 
-const GhostWallet = () => {
+const CreateGhostWalletPage = () => {
   const { closeDrawer } = useDrawer()
   const { initiaAddress, username, requestTxBlock } = useInterwovenKit()
   const config = useConfig()
@@ -197,4 +197,4 @@ const GhostWallet = () => {
   )
 }
 
-export default GhostWallet
+export default CreateGhostWalletPage
