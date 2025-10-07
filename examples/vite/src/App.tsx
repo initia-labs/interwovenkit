@@ -1,8 +1,8 @@
 import { useAtom } from "jotai"
-import { isTestnet, themeAtom } from "./data"
-import Connection from "./Connection"
-import Send from "./Send"
 import Bridge from "./Bridge"
+import Connection from "./Connection"
+import { isTestnet, themeAtom } from "./data"
+import Send from "./Send"
 import styles from "./App.module.css"
 
 const App = () => {

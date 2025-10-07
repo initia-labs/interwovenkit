@@ -1,13 +1,13 @@
-import ky from "ky"
-import { prop, sortWith, descend } from "ramda"
 import type { StdFee } from "@cosmjs/amino"
 import type { Event } from "@cosmjs/stargate/build/events"
+import ky from "ky"
+import { descend, prop, sortWith } from "ramda"
 import { queryOptions, useQueries, useSuspenseQuery } from "@tanstack/react-query"
-import { useInitiaAddress } from "@/public/data/hooks"
+import { accountQueryKeys } from "@/data/account"
+import { type NormalizedChain, useInitiaRegistry } from "@/data/chains"
 import { STALE_TIMES } from "@/data/http"
 import type { Paginated } from "@/data/pagination"
-import { accountQueryKeys } from "@/data/account"
-import { useInitiaRegistry, type NormalizedChain } from "@/data/chains"
+import { useInitiaAddress } from "@/public/data/hooks"
 
 export const ACTIVITY_PAGINATION_LIMIT = 10
 

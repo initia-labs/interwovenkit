@@ -1,7 +1,8 @@
 import clsx from "clsx"
-import type { ImgHTMLAttributes, ReactNode } from "react"
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import styles from "./Image.module.css"
+
+import type { ImgHTMLAttributes, ReactNode } from "react"
 
 interface Props extends ImgHTMLAttributes<HTMLImageElement> {
   placeholder?: ReactNode

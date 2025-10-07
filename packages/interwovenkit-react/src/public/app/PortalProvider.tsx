@@ -1,6 +1,7 @@
-import type { PropsWithChildren } from "react"
 import { useState } from "react"
 import { PortalContext } from "./PortalContext"
+
+import type { PropsWithChildren } from "react"
 
 const PortalProvider = ({ children }: PropsWithChildren) => {
   const [container, setContainer] = useState<HTMLDivElement | null>(null)

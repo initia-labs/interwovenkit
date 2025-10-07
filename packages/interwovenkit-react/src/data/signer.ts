@@ -1,9 +1,3 @@
-import ky from "ky"
-import type { Eip1193Provider } from "ethers"
-import { useAccount, useSignMessage } from "wagmi"
-import { BrowserProvider, ethers } from "ethers"
-import { SignMode } from "cosmjs-types/cosmos/tx/signing/v1beta1/signing"
-import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import type {
   AccountData,
   Algo,
@@ -24,6 +18,12 @@ import type { EncodeObject, TxBodyEncodeObject } from "@cosmjs/proto-signing"
 import { makeAuthInfoBytes, Registry } from "@cosmjs/proto-signing"
 import { AminoTypes, SigningStargateClient } from "@cosmjs/stargate"
 import { Comet38Client, HttpClient } from "@cosmjs/tendermint-rpc"
+import { SignMode } from "cosmjs-types/cosmos/tx/signing/v1beta1/signing"
+import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
+import type { Eip1193Provider } from "ethers"
+import { BrowserProvider, ethers } from "ethers"
+import ky from "ky"
+import { useAccount, useSignMessage } from "wagmi"
 import { useMemo } from "react"
 import { aminoConverters, protoRegistry } from "@initia/amino-converter"
 import { useInitiaAddress } from "@/public/data/hooks"
@@ -31,9 +31,9 @@ import { parseAccount } from "./patches/accounts"
 import { encodeEthSecp256k1Pubkey } from "./patches/encoding"
 import { encodePubkeyInitia } from "./patches/pubkeys"
 import { encodeEthSecp256k1Signature } from "./patches/signature"
-import { LocalStorageKey } from "./constants"
-import { useConfig } from "./config"
 import { useFindChain, useLayer1 } from "./chains"
+import { useConfig } from "./config"
+import { LocalStorageKey } from "./constants"
 
 export const useRegistry = () => {
   const config = useConfig()

@@ -1,12 +1,12 @@
 import { partition } from "ramda"
 import { useState } from "react"
-import { useAddress } from "@/public/data/hooks"
-import ChainOptions from "@/components/form/ChainOptions"
-import AssetOptions from "@/components/form/AssetOptions"
 import AsyncBoundary from "@/components/AsyncBoundary"
-import { useBridgeForm } from "./data/form"
-import { useGetIsInitiaChain, useSkipChain, useSkipChains } from "./data/chains"
+import AssetOptions from "@/components/form/AssetOptions"
+import ChainOptions from "@/components/form/ChainOptions"
+import { useAddress } from "@/public/data/hooks"
 import { useGetAddressForBalance } from "./data/address"
+import { useGetIsInitiaChain, useSkipChain, useSkipChains } from "./data/chains"
+import { useBridgeForm } from "./data/form"
 import SelectAsset from "./SelectAsset"
 
 interface Props {

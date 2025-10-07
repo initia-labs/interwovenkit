@@ -1,6 +1,6 @@
+import type { AssetJson } from "@skip-go/client"
 import { descend } from "ramda"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
-import type { AssetJson } from "@skip-go/client"
 import { STALE_TIMES } from "@/data/http"
 import { skipQueryKeys, useSkip } from "./skip"
 

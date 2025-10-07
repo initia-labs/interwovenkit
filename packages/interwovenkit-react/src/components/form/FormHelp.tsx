@@ -1,8 +1,9 @@
 import clsx from "clsx"
-import type { PropsWithChildren } from "react"
 import AnimatedHeight from "../AnimatedHeight"
 import InputHelp from "./InputHelp"
 import styles from "./FormHelp.module.css"
+
+import type { PropsWithChildren } from "react"
 
 interface Props {
   level: "info" | "warning" | "error" | "success"

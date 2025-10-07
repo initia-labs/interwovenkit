@@ -1,17 +1,17 @@
-import ky from "ky"
-import { descend, isNil } from "ramda"
-import BigNumber from "bignumber.js"
-import { computeAddress } from "ethers"
 import { Secp256k1 } from "@cosmjs/crypto"
 import { fromBase64, toHex } from "@cosmjs/encoding"
 import type { Coin } from "@cosmjs/proto-signing"
+import BigNumber from "bignumber.js"
+import { computeAddress } from "ethers"
+import ky from "ky"
+import { descend, isNil } from "ramda"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { InitiaAddress } from "@initia/utils"
+import { useTxs } from "@/pages/wallet/tabs/activity/queries"
 import { DEFAULT_GAS_PRICE_MULTIPLIER } from "@/public/data/constants"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { useTxs } from "@/pages/wallet/tabs/activity/queries"
-import { STALE_TIMES } from "./http"
 import { chainQueryKeys, type NormalizedChain } from "./chains"
+import { STALE_TIMES } from "./http"
 
 export function useGasPrices(chain: NormalizedChain) {
   const { data } = useSuspenseQuery({

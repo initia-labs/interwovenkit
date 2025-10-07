@@ -1,8 +1,9 @@
-import type { PropsWithChildren, ReactNode } from "react"
 import { Suspense } from "react"
 import type { ErrorBoundaryProps } from "react-error-boundary"
 import { ErrorBoundary } from "react-error-boundary"
 import Status from "./Status"
+
+import type { PropsWithChildren, ReactNode } from "react"
 
 interface Props {
   errorBoundaryProps?: ErrorBoundaryProps

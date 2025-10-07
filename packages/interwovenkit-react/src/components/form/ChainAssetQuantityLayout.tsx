@@ -1,6 +1,7 @@
-import type { ReactNode } from "react"
 import { IconWarningFilled } from "@initia/icons-react"
 import styles from "./ChainAssetQuantityLayout.module.css"
+
+import type { ReactNode } from "react"
 
 interface Props {
   selectButton: ReactNode

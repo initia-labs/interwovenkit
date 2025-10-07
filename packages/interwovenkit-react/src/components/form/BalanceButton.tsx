@@ -1,6 +1,7 @@
-import type { PropsWithChildren } from "react"
 import { IconWallet } from "@initia/icons-react"
 import styles from "./BalanceButton.module.css"
+
+import type { PropsWithChildren } from "react"
 
 interface Props {
   onClick: () => void

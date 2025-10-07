@@ -1,12 +1,12 @@
-import { Select } from "@base-ui-components/react/select"
-import BigNumber from "bignumber.js"
 import type { StdFee } from "@cosmjs/amino"
+import BigNumber from "bignumber.js"
+import { Select } from "@base-ui-components/react/select"
 import { IconChevronDown } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
-import { usePortal } from "@/public/app/PortalContext"
-import { useChain } from "@/data/chains"
 import { useFindAsset } from "@/data/assets"
+import { useChain } from "@/data/chains"
 import { useTxRequestHandler } from "@/data/tx"
+import { usePortal } from "@/public/app/PortalContext"
 import styles from "./TxFee.module.css"
 
 interface Props {

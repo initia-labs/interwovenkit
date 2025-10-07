@@ -1,6 +1,6 @@
-import Scrollable from "./Scrollable"
 import Image from "./Image"
 import Loader from "./Loader"
+import Scrollable from "./Scrollable"
 import styles from "./List.module.css"
 
 interface Props<Item> {

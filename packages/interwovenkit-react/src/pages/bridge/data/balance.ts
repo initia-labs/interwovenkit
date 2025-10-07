@@ -1,6 +1,6 @@
+import type { BalanceResponseDenomEntryJson, BalancesResponseJson } from "@skip-go/client"
 import { path } from "ramda"
 import { useQuery } from "@tanstack/react-query"
-import type { BalanceResponseDenomEntryJson, BalancesResponseJson } from "@skip-go/client"
 import { STALE_TIMES } from "@/data/http"
 import { skipQueryKeys, useSkip } from "./skip"
 

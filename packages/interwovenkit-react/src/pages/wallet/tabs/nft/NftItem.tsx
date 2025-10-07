@@ -1,7 +1,7 @@
-import { useNavigate } from "@/lib/router"
 import Image from "@/components/Image"
-import type { NormalizedNft } from "./queries"
+import { useNavigate } from "@/lib/router"
 import NftThumbnail from "./NftThumbnail"
+import type { NormalizedNft } from "./queries"
 import styles from "./NftItem.module.css"
 
 const NftItem = ({ normalizedNft }: { normalizedNft: NormalizedNft }) => {

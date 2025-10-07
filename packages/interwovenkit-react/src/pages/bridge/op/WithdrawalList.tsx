@@ -1,13 +1,13 @@
 import { useEffect, useMemo } from "react"
-import type { NormalizedChain } from "@/data/chains"
 import AsyncBoundary from "@/components/AsyncBoundary"
-import Status from "@/components/Status"
 import LoadMoreButton from "@/components/LoadMoreButton"
-import { useWithdrawals } from "./data"
+import Status from "@/components/Status"
+import type { NormalizedChain } from "@/data/chains"
 import { OpWithdrawalContext } from "./context"
+import { useWithdrawals } from "./data"
 import { useClaimableReminders } from "./reminder"
-import WithdrawalAsset from "./WithdrawalAsset"
 import WithdrawalAction from "./WithdrawalAction"
+import WithdrawalAsset from "./WithdrawalAsset"
 import styles from "./WithdrawalList.module.css"
 
 const WithdrawalList = ({ chain }: { chain: NormalizedChain }) => {

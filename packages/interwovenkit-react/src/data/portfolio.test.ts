@@ -1,6 +1,6 @@
 import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
-import type { NormalizedChain, PriceItem } from "./chains"
 import type { NormalizedAsset } from "./assets"
+import type { NormalizedChain, PriceItem } from "./chains"
 import type { PortfolioAssetGroup, PortfolioAssetItem } from "./portfolio"
 import { calculateTotalValue, createPortfolio, sortAssetGroups, sortAssets } from "./portfolio"
 

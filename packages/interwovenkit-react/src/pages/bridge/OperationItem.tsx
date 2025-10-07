@@ -1,13 +1,14 @@
-import type { ReactNode } from "react"
 import { IconArrowDown } from "@initia/icons-react"
 import { formatAmount, truncate } from "@initia/utils"
-import placeholder from "@/data/placeholder"
+import CopyButton from "@/components/CopyButton"
 import Images from "@/components/Images"
 import WidgetTooltip from "@/components/WidgetTooltip"
-import CopyButton from "@/components/CopyButton"
+import placeholder from "@/data/placeholder"
 import { useSkipAsset } from "./data/assets"
 import { useSkipChain } from "./data/chains"
 import styles from "./OperationItem.module.css"
+
+import type { ReactNode } from "react"
 
 interface ComponentProps extends Props {
   symbol?: string

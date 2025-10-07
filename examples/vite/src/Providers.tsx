@@ -1,15 +1,16 @@
-import type { PropsWithChildren } from "react"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { createConfig, http, WagmiProvider } from "wagmi"
 import { mainnet } from "wagmi/chains"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import {
-  InterwovenKitProvider,
   initiaPrivyWalletConnector,
   injectStyles,
+  InterwovenKitProvider,
   TESTNET,
 } from "@initia/interwovenkit-react"
 import css from "@initia/interwovenkit-react/styles.css?inline"
 import { isTestnet, routerApiUrl, useTheme } from "./data"
+
+import type { PropsWithChildren } from "react"
 
 injectStyles(css)
 const wagmiConfig = createConfig({

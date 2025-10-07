@@ -1,7 +1,8 @@
-import type { ReactNode } from "react"
 import { Accordion } from "radix-ui"
 import { IconChevronDown } from "@initia/icons-react"
 import styles from "./WidgetAccordion.module.css"
+
+import type { ReactNode } from "react"
 
 interface Props<T> {
   list: T[]

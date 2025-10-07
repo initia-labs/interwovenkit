@@ -1,6 +1,6 @@
 import { FormProvider, useForm } from "react-hook-form"
-import { useLocationState } from "@/lib/router"
 import Page from "@/components/Page"
+import { useLocationState } from "@/lib/router"
 import type { NormalizedNft } from "../../tabs/nft/queries"
 import SendNftFields from "./SendNftFields"
 

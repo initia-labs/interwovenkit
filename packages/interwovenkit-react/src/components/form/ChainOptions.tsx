@@ -1,10 +1,11 @@
 import clsx from "clsx"
-import type { PropsWithChildren } from "react"
+import Image from "../Image"
 import Indicator from "../Indicator"
 import WidgetTooltip from "../WidgetTooltip"
-import Image from "../Image"
 import type { BaseChain } from "./types"
 import styles from "./ChainOptions.module.css"
+
+import type { PropsWithChildren } from "react"
 
 interface Props {
   label?: string

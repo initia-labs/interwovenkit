@@ -1,12 +1,13 @@
-import type { ReactNode } from "react"
-import { useState, useEffect } from "react"
 import type { MsgsResponseJson, TxJson } from "@skip-go/client"
-import Footer from "@/components/Footer"
+import { useEffect, useState } from "react"
 import Button from "@/components/Button"
+import Footer from "@/components/Footer"
 import { useSkip } from "./data/skip"
 import type { SignedOpHook } from "./data/tx"
 import { useBridgePreviewState } from "./data/tx"
 import FooterWithError from "./FooterWithError"
+
+import type { ReactNode } from "react"
 
 interface Props {
   addressList: string[]

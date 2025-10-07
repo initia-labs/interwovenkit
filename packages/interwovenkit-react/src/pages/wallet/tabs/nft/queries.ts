@@ -1,11 +1,11 @@
 import ky from "ky"
 import { prop } from "ramda"
-import { useQuery, useQueries } from "@tanstack/react-query"
+import { useQueries, useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
-import { useInitiaAddress } from "@/public/data/hooks"
+import { type NormalizedChain, useInitiaRegistry } from "@/data/chains"
 import { STALE_TIMES } from "@/data/http"
 import { fetchAllPages } from "@/data/pagination"
-import { useInitiaRegistry, type NormalizedChain } from "@/data/chains"
+import { useInitiaAddress } from "@/public/data/hooks"
 
 const nftQueryKeys = createQueryKeys("interwovenkit:nft", {
   nfts: (indexerUrl: string, address: string) => [indexerUrl, address],

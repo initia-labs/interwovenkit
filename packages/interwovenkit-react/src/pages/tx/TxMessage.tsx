@@ -1,6 +1,6 @@
 import type { EncodeObject } from "@cosmjs/proto-signing"
-import { stringifyValue } from "./stringify"
 import MsgExecuteArgs from "./MsgExecuteArgs"
+import { stringifyValue } from "./stringify"
 import styles from "./TxMessage.module.css"
 
 interface Props {

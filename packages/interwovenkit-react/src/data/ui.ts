@@ -1,7 +1,7 @@
 import { useDisconnect as useDisconnectWagmi } from "wagmi"
 import { atom, useAtom } from "jotai"
-import { useNavigate, useReset } from "@/lib/router"
 import { useAnalyticsTrack } from "@/data/analytics"
+import { useNavigate, useReset } from "@/lib/router"
 import { LocalStorageKey } from "./constants"
 
 const isDrawerOpenAtom = atom<boolean>(false)

@@ -1,11 +1,12 @@
-import type { HTMLAttributes } from "react"
+import { animated, useTransition } from "@react-spring/web"
 import clsx from "clsx"
-import { useTransition, animated } from "@react-spring/web"
 import { IconCheckCircleFilled, IconClose, IconCloseCircleFilled } from "@initia/icons-react"
-import type { InternalNotification } from "@/public/app/NotificationProvider"
 import type { NotificationType } from "@/public/app/NotificationContext"
+import type { InternalNotification } from "@/public/app/NotificationProvider"
 import Loader from "./Loader"
 import styles from "./Toast.module.css"
+
+import type { HTMLAttributes } from "react"
 
 interface Props extends HTMLAttributes<HTMLDivElement> {
   notification: InternalNotification | null

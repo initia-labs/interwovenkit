@@ -1,10 +1,10 @@
-import { useLocationState, useNavigate } from "@/lib/router"
-import Page from "@/components/Page"
-import Image from "@/components/Image"
-import Footer from "@/components/Footer"
 import Button from "@/components/Button"
-import type { NormalizedNft } from "./queries"
+import Footer from "@/components/Footer"
+import Image from "@/components/Image"
+import Page from "@/components/Page"
+import { useLocationState, useNavigate } from "@/lib/router"
 import NftThumbnail from "./NftThumbnail"
+import type { NormalizedNft } from "./queries"
 import styles from "./NftDetails.module.css"
 
 const NftDetails = () => {

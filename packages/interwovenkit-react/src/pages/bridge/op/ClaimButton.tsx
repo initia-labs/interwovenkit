@@ -1,10 +1,10 @@
 import { fromBase64, toBase64 } from "@cosmjs/encoding"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { IconCheckCircleFilled } from "@initia/icons-react"
-import { useInitiaAddress, useInterwovenKit } from "@/public/data/hooks"
 import { useLayer1 } from "@/data/chains"
-import { computeWithdrawalHash, opQueryKeys, useOutputResponse, useWithdrawalClaimed } from "./data"
+import { useInitiaAddress, useInterwovenKit } from "@/public/data/hooks"
 import { useOpWithdrawal } from "./context"
+import { computeWithdrawalHash, opQueryKeys, useOutputResponse, useWithdrawalClaimed } from "./data"
 import styles from "./ClaimButton.module.css"
 
 const ClaimButton = () => {

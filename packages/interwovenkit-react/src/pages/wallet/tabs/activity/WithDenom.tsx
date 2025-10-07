@@ -1,9 +1,10 @@
 import ky from "ky"
-import type { ReactNode } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { STALE_TIMES } from "@/data/http"
-import type { NormalizedChain } from "@/data/chains"
 import { assetQueryKeys } from "@/data/assets"
+import type { NormalizedChain } from "@/data/chains"
+import { STALE_TIMES } from "@/data/http"
+
+import type { ReactNode } from "react"
 
 interface Props {
   metadata: string

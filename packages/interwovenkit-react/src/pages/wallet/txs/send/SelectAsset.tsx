@@ -1,6 +1,6 @@
-import type { NormalizedChain } from "@/data/chains"
-import { useSortedBalancesWithValue } from "@/data/account"
 import AssetOptions from "@/components/form/AssetOptions"
+import { useSortedBalancesWithValue } from "@/data/account"
+import type { NormalizedChain } from "@/data/chains"
 
 interface Props {
   chain: NormalizedChain

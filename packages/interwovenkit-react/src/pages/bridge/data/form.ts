@@ -1,8 +1,8 @@
 import { pickBy } from "ramda"
 import { useFormContext } from "react-hook-form"
-import { useLocationState } from "@/lib/router"
-import { LocalStorageKey } from "@/data/constants"
 import { useLayer1 } from "@/data/chains"
+import { LocalStorageKey } from "@/data/constants"
+import { useLocationState } from "@/lib/router"
 
 export function useIsTestnet() {
   const chain = useLayer1()

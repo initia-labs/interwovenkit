@@ -1,9 +1,10 @@
 import clsx from "clsx"
-import type { PropsWithChildren, ReactNode } from "react"
 import { IconChevronRight } from "@initia/icons-react"
-import Scrollable from "./Scrollable"
 import Button from "./Button"
+import Scrollable from "./Scrollable"
 import styles from "./PlainModalContent.module.css"
+
+import type { PropsWithChildren, ReactNode } from "react"
 
 interface Props {
   type?: "warning"

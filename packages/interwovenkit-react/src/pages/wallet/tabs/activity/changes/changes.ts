@@ -1,5 +1,5 @@
-import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import type { Event } from "@cosmjs/stargate"
+import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import { createUserDerivedObjectAddress } from "@initia/utils"
 
 interface MoveEventData {
