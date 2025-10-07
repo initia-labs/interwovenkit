@@ -11,15 +11,15 @@ import { OfflineSigner, useSignWithEthSecp256k1, useRegistry } from "@/data/sign
 import { useInitiaAddress } from "@/public/data/hooks"
 import { checkGhostWalletEnabled } from "./queries"
 
+export function useEmbeddedWallet() {
+  const { privy } = useConfig()
+  return privy?.wallets.find((w) => w.connectorType === "embedded")
+}
+
 export function useEmbeddedWalletAddress() {
   const wallet = useEmbeddedWallet()
 
   return wallet?.address ? InitiaAddress(wallet.address).bech32 : undefined
-}
-
-export function useEmbeddedWallet() {
-  const { privy } = useConfig()
-  return privy?.wallets.find((w) => w.connectorType === "embedded")
 }
 
 export function useSignWithGhostWallet() {
@@ -54,19 +54,10 @@ export function useSignWithGhostWallet() {
       },
     ]
 
-    // TODO: we must enforce app developers to set gas and fee when using ghost wallet
-    const gas = fee.gas || "1000000" // default gas if not provided
-
     // Modify the fee to set the granter as the user's main wallet
     const feeWithGranter: StdFee = {
       ...fee,
       granter: userAddress,
-      gas,
-      // calculate fee
-      amount:
-        fee.amount.length > 0
-          ? fee.amount
-          : [{ denom: "uinit", amount: (Number(gas) * 0.015).toFixed(0) }], // default amount if not provided
     }
 
     // Create a custom signer for the embedded wallet using ethers
@@ -98,12 +89,7 @@ export function useGhostWalletState() {
   const embeddedWalletAddress = useEmbeddedWalletAddress()
 
   const checkGhostWallet = async (): Promise<Record<string, boolean>> => {
-    if (!embeddedWalletAddress || !address) {
-      setLoading(false)
-      return {}
-    }
-
-    if (!config.ghostWalletPermissions) {
+    if (!embeddedWalletAddress || !address || !config.ghostWalletPermissions) {
       setLoading(false)
       return {}
     }
