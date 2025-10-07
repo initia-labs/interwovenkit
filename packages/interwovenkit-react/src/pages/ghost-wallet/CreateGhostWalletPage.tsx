@@ -16,12 +16,11 @@ import DurationSelector from "./DurationSelector"
 import { useEmbeddedWallet, ghostWalletExpirationAtom } from "./hooks"
 import styles from "./CreateGhostWalletPage.module.css"
 import { useChain } from "@/data/chains"
+import { DEFAULT_DURATION } from "./constants"
 
 interface GhostWalletLocationState {
   chainId?: string
 }
-
-const DEFAULT_DURATION = 10 * 60 * 1000
 
 const CreateGhostWalletPage = () => {
   const { closeDrawer } = useDrawer()
