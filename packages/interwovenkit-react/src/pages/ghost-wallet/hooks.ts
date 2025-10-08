@@ -18,7 +18,6 @@ export function useEmbeddedWallet() {
 
 export function useEmbeddedWalletAddress() {
   const wallet = useEmbeddedWallet()
-
   return wallet?.address ? InitiaAddress(wallet.address).bech32 : undefined
 }
 

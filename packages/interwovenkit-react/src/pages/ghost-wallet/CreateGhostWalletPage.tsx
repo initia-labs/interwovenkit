@@ -63,15 +63,11 @@ const CreateGhostWalletPage = () => {
             grantee: InitiaAddress(ghostWalletAddress).bech32,
             allowance: {
               typeUrl: "/cosmos.feegrant.v1beta1.BasicAllowance",
-              value: BasicAllowance.encode(
-                BasicAllowance.fromPartial({
-                  expiration,
-                }),
-              ).finish(),
+              value: BasicAllowance.encode(BasicAllowance.fromPartial({ expiration })).finish(),
             },
           },
         },
-        ...config.ghostWalletPermissions[chainId].map((typeUrl) => ({
+        ...config.ghostWalletPermissions[chainId].map((msg) => ({
           typeUrl: "/cosmos.authz.v1beta1.MsgGrant",
           value: {
             granter: initiaAddress,
@@ -79,9 +75,7 @@ const CreateGhostWalletPage = () => {
             grant: {
               authorization: {
                 typeUrl: "/cosmos.authz.v1beta1.GenericAuthorization",
-                value: GenericAuthorization.encode({
-                  msg: typeUrl,
-                }).finish(),
+                value: GenericAuthorization.encode({ msg }).finish(),
               },
               expiration,
             },
@@ -89,11 +83,7 @@ const CreateGhostWalletPage = () => {
         })),
       ]
 
-      await requestTxBlock({
-        messages,
-        chainId,
-      })
-
+      await requestTxBlock({ messages, chainId })
       return expiration
     },
     onSuccess: (expiration) => {
