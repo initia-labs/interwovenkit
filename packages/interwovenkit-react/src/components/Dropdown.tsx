@@ -11,37 +11,23 @@ export interface DropdownOption<T = string> {
   displayLabel?: string // Optional different label for the trigger display
 }
 
-interface DropdownProps<T = string> {
+interface DropdownProps<T = string>
+  extends Omit<
+    Select.Root.Props<string>,
+    "value" | "onValueChange" | "defaultValue" | "multiple" | "children" | "items"
+  > {
   options: DropdownOption<T>[]
   value: T
   onChange: (value: T) => void
-  triggerClassName?: string
-  contentClassName?: string
-  itemClassName?: string
-  renderTrigger?: (
-    selectedOption: DropdownOption<T>,
-    defaultTrigger: React.ReactNode,
-  ) => React.ReactNode
-  prefix?: React.ReactNode // Content to show before the trigger
-  renderItem?: (option: DropdownOption<T>) => React.ReactNode
-  align?: "start" | "end" | "center"
-  sideOffset?: number
-  disabled?: boolean
+  prefix?: React.ReactNode
 }
 
 function Dropdown<T extends string | number = string>({
   options,
   value,
   onChange,
-  triggerClassName,
-  contentClassName,
-  itemClassName,
-  renderTrigger,
   prefix,
-  renderItem,
-  align = "end",
-  sideOffset = 6,
-  disabled = false,
+  ...selectRootProps
 }: DropdownProps<T>) {
   const portalContainer = usePortal()
 
@@ -50,7 +36,7 @@ function Dropdown<T extends string | number = string>({
 
   // Single option, just display it
   if (options.length === 1) {
-    return <span className={clsx("monospace", triggerClassName)}>{selectedOption.label}</span>
+    return <span className={clsx("monospace")}>{selectedOption.label}</span>
   }
 
   const handleChange = (newValue: string) => {
@@ -63,8 +49,8 @@ function Dropdown<T extends string | number = string>({
 
   const defaultTrigger = (
     <Select.Trigger
-      className={clsx(styles.trigger, triggerClassName, {
-        [styles.disabled]: disabled,
+      className={clsx(styles.trigger, {
+        [styles.disabled]: selectRootProps.disabled,
       })}
     >
       <Select.Value>{selectedOption.displayLabel || selectedOption.label}</Select.Value>
@@ -76,35 +62,31 @@ function Dropdown<T extends string | number = string>({
 
   return (
     <Select.Root
+      {...selectRootProps}
       value={String(value)}
       onValueChange={handleChange}
-      modal={false}
-      disabled={disabled}
+      modal={selectRootProps.modal ?? false}
     >
-      {renderTrigger ? (
-        renderTrigger(selectedOption, defaultTrigger)
-      ) : (
-        <div className={styles.value}>
-          {prefix}
-          {defaultTrigger}
-        </div>
-      )}
+      <div className={styles.value}>
+        {prefix}
+        {defaultTrigger}
+      </div>
 
       <Select.Portal container={portalContainer}>
         <Select.Positioner
-          className={clsx(styles.content, contentClassName)}
+          className={clsx(styles.content)}
           alignItemWithTrigger={false}
-          sideOffset={sideOffset}
-          align={align}
+          sideOffset={6}
+          align={"end"}
         >
           <Select.Popup>
             {options.map((option) => (
               <Select.Item
-                className={clsx(styles.item, itemClassName)}
+                className={clsx(styles.item)}
                 value={String(option.value)}
                 key={String(option.value)}
               >
-                <Select.ItemText>{renderItem ? renderItem(option) : option.label}</Select.ItemText>
+                <Select.ItemText>{option.label}</Select.ItemText>
               </Select.Item>
             ))}
           </Select.Popup>
