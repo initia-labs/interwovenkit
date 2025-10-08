@@ -10,6 +10,7 @@ import { useDefaultChain } from "@/data/chains"
 import { OfflineSigner, useSignWithEthSecp256k1, useRegistry } from "@/data/signer"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { checkGhostWalletEnabled } from "./queries"
+import { canGhostWalletHandleTxRequest } from "./utils"
 
 export function useEmbeddedWallet() {
   const { privy } = useConfig()
@@ -174,4 +175,36 @@ function getEarliestExpiration(expirations: Record<string, number | undefined>) 
 
   if (validExpirations.length === 0) return undefined
   return Math.min(...validExpirations)
+}
+
+/**
+ * Hook that returns a simplified trySignWithGhostWallet function
+ * with all ghost wallet dependencies already injected.
+ */
+export function useTrySignWithGhostWallet() {
+  const config = useConfig()
+  const ghostWalletState = useGhostWalletState()
+  const signWithGhostWallet = useSignWithGhostWallet()
+  const ghostWalletPermissions = config.ghostWalletPermissions
+
+  return async (
+    chainId: string,
+    messages: EncodeObject[],
+    fee: StdFee,
+    memo: string,
+  ): Promise<TxRaw | null> => {
+    // Check if ghost wallet can handle this transaction type
+    if (!canGhostWalletHandleTxRequest({ messages, chainId }, ghostWalletPermissions)) {
+      return null
+    }
+
+    // Check if ghost wallet is enabled for this chain
+    const isGhostWalletEnabled = await ghostWalletState.checkGhostWallet()
+    if (!isGhostWalletEnabled[chainId]) {
+      return null
+    }
+
+    // Sign with ghost wallet
+    return await signWithGhostWallet(chainId, messages, fee, memo)
+  }
 }

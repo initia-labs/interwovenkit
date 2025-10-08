@@ -20,8 +20,7 @@ import {
   useSignWithEthSecp256k1,
 } from "./signer"
 import { useDrawer } from "./ui"
-import { useGhostWalletState, useSignWithGhostWallet } from "@/pages/ghost-wallet/hooks"
-import { canGhostWalletHandleTxRequest } from "@/pages/ghost-wallet/utils"
+import { useTrySignWithGhostWallet } from "@/pages/ghost-wallet/hooks"
 
 export interface TxParams {
   messages: EncodeObject[]
@@ -69,7 +68,7 @@ export function useTxRequestHandler() {
 export function useTx() {
   const navigate = useNavigate()
   const address = useInitiaAddress()
-  const { defaultChainId, registryUrl, ghostWalletPermissions } = useConfig()
+  const { defaultChainId, registryUrl } = useConfig()
   const findChain = useFindChain()
   const { openDrawer, closeDrawer } = useDrawer()
   const { openModal, closeModal } = useModal()
@@ -79,8 +78,7 @@ export function useTx() {
   const createSigningStargateClient = useCreateSigningStargateClient()
   const offlineSigner = useOfflineSigner()
   const registry = useRegistry()
-  const signWithGhostWallet = useSignWithGhostWallet()
-  const ghostWalletState = useGhostWalletState()
+  const trySignWithGhostWallet = useTrySignWithGhostWallet()
   const signWithEthSecp256k1 = useSignWithEthSecp256k1()
 
   const estimateGas = async ({ messages, memo, chainId = defaultChainId }: TxRequest) => {
@@ -215,29 +213,13 @@ export function useTx() {
     })
   }
 
-  const handleSubmitGhostWalletTx = async (txParams: TxParams): Promise<TxRaw | false> => {
-    const { messages, memo = "", fee } = txParams
-    const chainId = txParams.chainId ?? defaultChainId
-
-    if (canGhostWalletHandleTxRequest({ messages, chainId }, ghostWalletPermissions)) {
-      // Check if ghost wallet is enabled (with caching)
-      const isGhostWalletEnabled = await ghostWalletState.checkGhostWallet()
-
-      if (isGhostWalletEnabled) {
-        return await signWithGhostWallet(chainId, messages, fee, memo)
-      }
-    }
-
-    return false
-  }
-
   const submitTxSync = async (txParams: TxParams): Promise<string> => {
     const chainId = txParams.chainId ?? defaultChainId
     try {
       const { messages, memo = "", fee } = txParams
       const client = await createSigningStargateClient(chainId)
       const signedTx =
-        (await handleSubmitGhostWalletTx(txParams)) ||
+        (await trySignWithGhostWallet(chainId, messages, fee, memo)) ||
         (await signWithEthSecp256k1(chainId, address, messages, fee, memo))
       return await client.broadcastTxSync(TxRaw.encode(signedTx).finish())
     } catch (error) {
@@ -255,7 +237,7 @@ export function useTx() {
       const { messages, memo = "", fee } = txParams
       const client = await createSigningStargateClient(chainId)
       const signedTx =
-        (await handleSubmitGhostWalletTx(txParams)) ||
+        (await trySignWithGhostWallet(chainId, messages, fee, memo)) ||
         (await signWithEthSecp256k1(chainId, address, messages, fee, memo))
       const response = await client.broadcastTx(
         TxRaw.encode(signedTx).finish(),
