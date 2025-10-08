@@ -1,6 +1,6 @@
 import { useState } from "react"
 import clsx from "clsx"
-import { useAtomValue, useSetAtom } from "jotai"
+import { useSetAtom } from "jotai"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { IconCheckCircle, IconWallet } from "@initia/icons-react"
 import { BasicAllowance } from "@initia/initia.proto/cosmos/feegrant/v1beta1/feegrant"
@@ -9,7 +9,8 @@ import { InitiaAddress, truncate } from "@initia/utils"
 import { useLocationState } from "@/lib/router"
 import { useDrawer } from "@/data/ui"
 import { useConfig } from "@/data/config"
-import { useInterwovenKit, ghostWalletRequestHandlerAtom } from "@/public/data/hooks"
+import { useInterwovenKit } from "@/public/data/hooks"
+import { useGhostWalletRequestHandler, useSetGhostWalletRequestHandler } from "@/data/ghost-wallet"
 import Button from "@/components/Button"
 import Modal from "@/components/Modal"
 import DurationSelector from "./DurationSelector"
@@ -29,8 +30,8 @@ const CreateGhostWalletPage = () => {
   const config = useConfig()
   const embeddedWallet = useEmbeddedWallet()
   const setGhostWalletExpiration = useSetAtom(ghostWalletExpirationAtom)
-  const ghostWalletRequestHandler = useAtomValue(ghostWalletRequestHandlerAtom)
-  const setGhostWalletRequestHandler = useSetAtom(ghostWalletRequestHandlerAtom)
+  const ghostWalletRequestHandler = useGhostWalletRequestHandler()
+  const setGhostWalletRequestHandler = useSetGhostWalletRequestHandler()
   const [selectedDuration, setSelectedDuration] = useState<number>(DEFAULT_DURATION)
   const { chainId: locationChainId } = useLocationState<GhostWalletLocationState>()
   const chainId = locationChainId || config.defaultChainId

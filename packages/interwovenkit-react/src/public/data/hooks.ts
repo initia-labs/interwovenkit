@@ -1,7 +1,7 @@
 import { useAccount } from "wagmi"
 import { useQuery } from "@tanstack/react-query"
 import { InitiaAddress } from "@initia/utils"
-import { atom, useAtomValue, useSetAtom } from "jotai"
+import { useAtomValue } from "jotai"
 import { useTx } from "@/data/tx"
 import { useDisconnect, useDrawer } from "@/data/ui"
 import { useDefaultChain } from "@/data/chains"
@@ -11,15 +11,9 @@ import type { FormValues } from "@/pages/bridge/data/form"
 import { STALE_TIMES } from "@/data/http"
 import { useGhostWalletState, ghostWalletLoadingAtom } from "@/pages/ghost-wallet/hooks"
 import { useConfig } from "@/data/config"
+import { useSetGhostWalletRequestHandler } from "@/data/ghost-wallet"
 
 export { usePortfolio } from "@/data/portfolio"
-
-interface GhostWalletRequestHandler {
-  resolve: () => void
-  reject: (error: Error) => void
-}
-
-export const ghostWalletRequestHandlerAtom = atom<GhostWalletRequestHandler | null>(null)
 
 export function useInitiaAddress() {
   const hexAddress = useHexAddress()
@@ -83,7 +77,7 @@ export function useInterwovenKit() {
     openDrawer("/bridge", defaultValues)
   }
 
-  const setGhostWalletRequestHandler = useSetAtom(ghostWalletRequestHandlerAtom)
+  const setGhostWalletRequestHandler = useSetGhostWalletRequestHandler()
 
   const createGhostWallet = async (chainId: string): Promise<void> => {
     if (!config.ghostWalletPermissions?.[chainId]?.length)
