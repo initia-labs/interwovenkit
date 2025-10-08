@@ -1,4 +1,4 @@
-import { queryOptions, useQuery } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import ky from "ky"
 import { STALE_TIMES } from "@/data/http"
@@ -84,15 +84,13 @@ export function useAllGrants() {
   const address = useInitiaAddress()
   const defaultChain = useDefaultChain()
 
-  return useQuery(
-    queryOptions({
-      queryKey: ghostWalletQueryKeys.grantsByGranter(defaultChain.restUrl, address).queryKey,
-      queryFn: async (): Promise<GrantsResponse> => {
-        const client = ky.create({ prefixUrl: defaultChain.restUrl })
-        return client.get(`cosmos/authz/v1beta1/grants/granter/${address}`).json<GrantsResponse>()
-      },
-      enabled: !!address,
-      staleTime: STALE_TIMES.MINUTE,
-    }),
-  )
+  return useQuery({
+    queryKey: ghostWalletQueryKeys.grantsByGranter(defaultChain.restUrl, address).queryKey,
+    queryFn: async (): Promise<GrantsResponse> => {
+      const client = ky.create({ prefixUrl: defaultChain.restUrl })
+      return client.get(`cosmos/authz/v1beta1/grants/granter/${address}`).json<GrantsResponse>()
+    },
+    enabled: !!address,
+    staleTime: STALE_TIMES.MINUTE,
+  })
 }

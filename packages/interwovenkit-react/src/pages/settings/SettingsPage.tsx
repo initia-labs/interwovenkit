@@ -10,8 +10,10 @@ const SettingsPage = () => {
     <Page title="Settings">
       <div className={styles.container}>
         <button className={styles.link} onClick={() => navigate("/settings/revoke")}>
-          <p className={styles.title}>Manage auto-signing</p>
-          <p className={styles.subtitle}>Manage which websites have auto-signing permissions</p>
+          <div>
+            <p className={styles.title}>Manage auto-signing</p>
+            <p className={styles.subtitle}>Manage which websites have auto-signing permissions</p>
+          </div>
           <IconChevronRight className={styles.icon} size={16} />
         </button>
 
@@ -25,7 +27,9 @@ const SettingsPage = () => {
             )
           }
         >
-          <p className={styles.title}>Export private key</p>
+          <div>
+            <p className={styles.title}>Export private key</p>
+          </div>
           <IconChevronRight className={styles.icon} size={16} />
         </button>
       </div>

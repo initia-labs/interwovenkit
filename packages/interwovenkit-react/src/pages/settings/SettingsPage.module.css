@@ -8,27 +8,25 @@
   background-color: var(--gray-8);
   border-radius: 8px;
   padding: 16px;
-  display: grid;
-  grid-template-columns: 1fr auto;
+  display: flex;
   align-items: center;
-  grid-template-areas: "title icon" "subtitle icon";
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .title {
   font-size: 14px;
   font-weight: 600;
-  grid-area: title;
 }
 
 .subtitle {
   font-size: 12px;
   font-weight: 500;
   color: var(--gray-2);
-  grid-area: subtitle;
   margin-top: 4px;
 }
 
 .icon {
   color: var(--gray-3);
-  grid-area: icon;
+  flex-shrink: 0;
 }

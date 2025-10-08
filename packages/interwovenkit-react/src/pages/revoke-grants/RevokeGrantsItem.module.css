@@ -23,12 +23,12 @@
   font-size: 12px;
   font-weight: 400;
   color: var(--gray-2);
+}
 
-  span {
-    font-family: var(--monospace);
-    color: var(--gray-0);
-    margin-left: 2px;
-  }
+.expirationTime {
+  font-family: var(--monospace);
+  color: var(--gray-0);
+  margin-left: 2px;
 }
 
 .revokeButton {

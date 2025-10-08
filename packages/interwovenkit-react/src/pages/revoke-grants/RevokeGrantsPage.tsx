@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import Page from "@/components/Page"
 import { useAllGrants } from "@/pages/ghost-wallet/queries"
 import RevokeGrantsItem from "./RevokeGrantsItem"
@@ -6,49 +7,41 @@ import styles from "./RevokeGrantsItem.module.css"
 const RevokeGrantsPage = () => {
   const { data: grants, isLoading } = useAllGrants()
 
-  // Get unique grants by grantee (using Map to deduplicate)
-  const uniqueGrantees = new Map<string, string>()
-  grants?.grants.forEach((grant) => {
-    if (!uniqueGrantees.has(grant.grantee)) {
-      uniqueGrantees.set(grant.grantee, grant.expiration)
+  // Use functional approach to get unique grants by grantee
+  const uniqueGrants = useMemo(() => {
+    if (!grants?.grants) return []
+
+    // Create a map of unique grantees with their first occurrence's expiration
+    const uniqueGrantsMap = grants.grants.reduce((acc, grant) => {
+      if (!acc.has(grant.grantee)) {
+        acc.set(grant.grantee, grant.expiration)
+      }
+      return acc
+    }, new Map<string, string>())
+
+    // Convert to array format
+    return Array.from(uniqueGrantsMap, ([grantee, expiration]) => ({
+      grantee,
+      expiration,
+    }))
+  }, [grants])
+
+  // Render content based on state
+  const renderContent = () => {
+    if (isLoading) {
+      return <p className={styles.empty}>Loading...</p>
     }
-  })
 
-  const groupedGrants = Array.from(uniqueGrantees, ([grantee, expiration]) => ({
-    grantee,
-    expiration,
-  }))
+    if (uniqueGrants.length === 0) {
+      return <p className={styles.empty}>Nothing found</p>
+    }
 
-  // Early return for loading state
-  if (isLoading) {
-    return (
-      <Page title="Manage auto-signing">
-        <p className={styles.empty}>Loading...</p>
-      </Page>
-    )
+    return uniqueGrants.map((grant) => (
+      <RevokeGrantsItem key={grant.grantee} grantee={grant.grantee} expiration={grant.expiration} />
+    ))
   }
 
-  // Early return for empty state
-  if (groupedGrants.length === 0) {
-    return (
-      <Page title="Manage auto-signing">
-        <p className={styles.empty}>Nothing found</p>
-      </Page>
-    )
-  }
-
-  // Main content
-  return (
-    <Page title="Manage auto-signing">
-      {groupedGrants.map((grant) => (
-        <RevokeGrantsItem
-          key={grant.grantee}
-          grantee={grant.grantee}
-          expiration={grant.expiration}
-        />
-      ))}
-    </Page>
-  )
+  return <Page title="Manage auto-signing">{renderContent()}</Page>
 }
 
 export default RevokeGrantsPage
