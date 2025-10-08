@@ -1,7 +1,7 @@
 import { formatAmount } from "@initia/utils"
-import { formatValue } from "@/lib/format"
-import type { PortfolioAssetItem } from "@/data/portfolio"
 import Images from "@/components/Images"
+import type { PortfolioAssetItem } from "@/data/portfolio"
+import { formatValue } from "@/lib/format"
 import AssetActions from "./AssetActions"
 import styles from "./AssetBalance.module.css"
 

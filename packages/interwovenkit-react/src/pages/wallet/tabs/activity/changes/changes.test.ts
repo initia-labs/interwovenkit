@@ -1,7 +1,7 @@
 import { getCoinChanges, getMoveChanges } from "./changes"
+import evmTx from "./evm.json"
 import moveTx from "./move.json"
 import wasmTx from "./wasm.json"
-import evmTx from "./evm.json"
 
 describe("getCoinChanges", () => {
   describe("move", () => {

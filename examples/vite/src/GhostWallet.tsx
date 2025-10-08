@@ -1,5 +1,5 @@
-import { useInterwovenKit } from "@initia/interwovenkit-react"
 import { useState } from "react"
+import { useInterwovenKit } from "@initia/interwovenkit-react"
 import styles from "./GhostWallet.module.css"
 
 const GhostWallet = () => {

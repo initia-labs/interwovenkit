@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
+import type { NormalizedChain } from "@/data/chains"
 import type { TxItem } from "./queries"
 import { aggregateActivities } from "./queries"
-import type { NormalizedChain } from "@/data/chains"
 
 describe("aggregateActivities", () => {
   const mockChain1 = {

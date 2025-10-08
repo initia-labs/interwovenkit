@@ -1,8 +1,9 @@
 import clsx from "clsx"
-import type { PropsWithChildren } from "react"
 import { Tooltip } from "radix-ui"
 import { usePortal } from "@/public/app/PortalContext"
 import styles from "./WidgetTooltip.module.css"
+
+import type { PropsWithChildren } from "react"
 
 interface Props extends Tooltip.TooltipProps {
   label: string

@@ -1,8 +1,8 @@
 import { formatAmount } from "@initia/utils"
-import { useFindChain, useLayer1 } from "@/data/chains"
-import { useFindAsset } from "@/data/assets"
 import Image from "@/components/Image"
 import PlainModalContent from "@/components/PlainModalContent"
+import { useFindAsset } from "@/data/assets"
+import { useFindChain, useLayer1 } from "@/data/chains"
 import type { ReminderDetails } from "./reminder"
 import styles from "./ClaimableList.module.css"
 

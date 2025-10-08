@@ -1,11 +1,12 @@
 import clsx from "clsx"
-import type { ReactNode } from "react"
 import { useContext } from "react"
 import { Dialog } from "@base-ui-components/react/dialog"
 import { IconClose } from "@initia/icons-react"
-import { usePortal } from "@/public/app/PortalContext"
 import { fullscreenContext } from "@/public/app/fullscreen"
+import { usePortal } from "@/public/app/PortalContext"
 import styles from "./Modal.module.css"
+
+import type { ReactNode } from "react"
 
 interface Props {
   title?: string

@@ -1,17 +1,18 @@
 import clsx from "clsx"
-import type { ReactNode } from "react"
 import { IconChevronRight, IconCloseCircleFilled, IconEdit, IconWallet } from "@initia/icons-react"
 import { InitiaAddress, truncate } from "@initia/utils"
+import RecipientInput from "@/components/form/RecipientInput"
 import Image from "@/components/Image"
+import List from "@/components/List"
 import ModalTrigger from "@/components/ModalTrigger"
 import Scrollable from "@/components/Scrollable"
-import List from "@/components/List"
-import RecipientInput from "@/components/form/RecipientInput"
-import { useChainType, useSkipChain } from "./data/chains"
 import { useGetDefaultAddress, useValidateAddress } from "./data/address"
-import { useBridgeForm } from "./data/form"
+import { useChainType, useSkipChain } from "./data/chains"
 import { useCosmosWallets } from "./data/cosmos"
+import { useBridgeForm } from "./data/form"
 import styles from "./BridgeAccount.module.css"
+
+import type { ReactNode } from "react"
 
 interface Props {
   type?: "src" | "dst"

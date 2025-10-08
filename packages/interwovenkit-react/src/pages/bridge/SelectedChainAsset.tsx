@@ -1,8 +1,8 @@
-import ModalTrigger from "@/components/ModalTrigger"
 import AssetOnChainButton from "@/components/form/AssetOnChainButton"
-import { useBridgeForm } from "./data/form"
-import { useSkipChain } from "./data/chains"
+import ModalTrigger from "@/components/ModalTrigger"
 import { useSkipAsset } from "./data/assets"
+import { useSkipChain } from "./data/chains"
+import { useBridgeForm } from "./data/form"
 import SelectChainAsset from "./SelectChainAsset"
 
 const SelectedChainAsset = ({ type }: { type: "src" | "dst" }) => {

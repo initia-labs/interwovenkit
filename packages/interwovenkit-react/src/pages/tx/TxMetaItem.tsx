@@ -1,5 +1,6 @@
-import type { ReactNode } from "react"
 import styles from "./TxMetaItem.module.css"
+
+import type { ReactNode } from "react"
 
 const TxMetaItem = ({ title, content }: { title: ReactNode; content: ReactNode }) => {
   return (

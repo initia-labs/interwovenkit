@@ -1,8 +1,8 @@
+import ky from "ky"
 import { useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
-import ky from "ky"
-import { STALE_TIMES } from "@/data/http"
 import { useDefaultChain } from "@/data/chains"
+import { STALE_TIMES } from "@/data/http"
 import { useInitiaAddress } from "@/public/data/hooks"
 
 export const ghostWalletQueryKeys = createQueryKeys("interwovenkit:ghost-wallet", {

@@ -1,11 +1,11 @@
 import { useMemo } from "react"
-import { useInitiaAddress } from "@/public/data/hooks"
-import { groupByDate } from "@/data/date"
-import Status from "@/components/Status"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import ExplorerLink from "@/components/ExplorerLink"
-import type { ChainActivity } from "./queries"
+import Status from "@/components/Status"
+import { groupByDate } from "@/data/date"
+import { useInitiaAddress } from "@/public/data/hooks"
 import ActivityItem from "./ActivityItem"
+import type { ChainActivity } from "./queries"
 import styles from "./ActivityList.module.css"
 
 const ActivityList = ({ list, chainId }: { list: ChainActivity[]; chainId: string }) => {

@@ -1,6 +1,7 @@
-import type { ReactNode } from "react"
 import type { NftInfo, NormalizedNft } from "./queries"
 import { normalizeNft, useNftMetataQuery } from "./queries"
+
+import type { ReactNode } from "react"
 
 interface Props {
   nftInfo: NftInfo

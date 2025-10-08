@@ -1,6 +1,6 @@
 import ky from "ky"
 import type { Chain } from "@initia/initia-registry-types"
-import { parseMoveError, formatMoveError, clearErrorCache, MoveError } from "./errors"
+import { clearErrorCache, formatMoveError, MoveError, parseMoveError } from "./errors"
 import * as http from "./http"
 
 vi.mock("ky")

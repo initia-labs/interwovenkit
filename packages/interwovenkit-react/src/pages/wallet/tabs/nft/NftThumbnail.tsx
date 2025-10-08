@@ -1,6 +1,6 @@
 import clsx from "clsx"
-import { useConfig } from "@/data/config"
 import Image from "@/components/Image"
+import { useConfig } from "@/data/config"
 import type { NftInfo } from "./queries"
 import styles from "./NftThumbnail.module.css"
 

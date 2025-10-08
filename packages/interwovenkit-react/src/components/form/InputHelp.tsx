@@ -1,8 +1,9 @@
 import clsx from "clsx"
-import type { PropsWithChildren } from "react"
 import { IconCheckCircleFilled, IconInfoFilled, IconWarningFilled } from "@initia/icons-react"
 import Loader from "../Loader"
 import styles from "./InputHelp.module.css"
+
+import type { PropsWithChildren } from "react"
 
 interface Props {
   level?: "info" | "warning" | "error" | "success" | "loading"

@@ -1,10 +1,11 @@
-import { isPast } from "date-fns"
 import { toBase64 } from "@cosmjs/encoding"
-import type { PropsWithChildren } from "react"
+import { isPast } from "date-fns"
 import { useEffect } from "react"
-import { computeWithdrawalHash, useWithdrawalClaimed } from "./data"
 import { useOpWithdrawal } from "./context"
+import { computeWithdrawalHash, useWithdrawalClaimed } from "./data"
 import { useClaimableReminders } from "./reminder"
+
+import type { PropsWithChildren } from "react"
 
 interface Props {
   date: Date

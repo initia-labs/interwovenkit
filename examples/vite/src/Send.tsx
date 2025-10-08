@@ -1,10 +1,10 @@
-import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
 import { calculateFee, GasPrice } from "@cosmjs/stargate"
+import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
 import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { useMutation } from "@tanstack/react-query"
-import { InitiaAddress } from "@initia/utils"
 import { useInterwovenKit } from "@initia/interwovenkit-react"
+import { InitiaAddress } from "@initia/utils"
 import styles from "./Send.module.css"
 
 interface FormValues {

@@ -1,10 +1,11 @@
 import clsx from "clsx"
-import type { InputHTMLAttributes } from "react"
-import { mergeRefs } from "react-merge-refs"
 import type { Control, FieldValues, Path, RegisterOptions } from "react-hook-form"
 import { Controller } from "react-hook-form"
+import { mergeRefs } from "react-merge-refs"
 import { useAutoFocus } from "./hooks"
 import styles from "./NumericInput.module.css"
+
+import type { InputHTMLAttributes } from "react"
 
 function sanitizeNumericInput(value: string, maxLength: number): string {
   const cleaned = value.replace(/[^0-9.]/g, "")

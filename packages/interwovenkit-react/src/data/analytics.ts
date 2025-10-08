@@ -1,9 +1,9 @@
-import { useCallback, useEffect } from "react"
-import { useAccount } from "wagmi"
 import * as amplitude from "@amplitude/analytics-browser"
 import { Identify } from "@amplitude/analytics-browser"
-import { usePath } from "@/lib/router"
+import { useAccount } from "wagmi"
+import { useCallback, useEffect } from "react"
 import { useConfig } from "@/data/config"
+import { usePath } from "@/lib/router"
 
 const AMPLITUDE_API_KEY = "c33b940c24c17e95f7d9d525d508ac61"
 

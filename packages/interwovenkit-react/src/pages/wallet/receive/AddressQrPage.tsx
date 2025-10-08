@@ -3,11 +3,11 @@ import QRCodeStyling from "qr-code-styling"
 import { useEffect, useRef } from "react"
 import { IconCopy } from "@initia/icons-react"
 import { truncate } from "@initia/utils"
-import Page from "@/components/Page"
 import CopyButton from "@/components/CopyButton"
-import styles from "./AddressQrPage.module.css"
+import Page from "@/components/Page"
 import { usePortalCssVariable } from "@/public/app/PortalContext"
 import { useInterwovenKit } from "@/public/data/hooks"
+import styles from "./AddressQrPage.module.css"
 
 const AddressQrPage = () => {
   const ref = useRef<HTMLDivElement>(null)

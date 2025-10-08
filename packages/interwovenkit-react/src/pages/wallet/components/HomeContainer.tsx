@@ -1,7 +1,8 @@
-import type { PropsWithChildren } from "react"
 import type { Props as SearchInputProps } from "@/components/form/SearchInput"
 import SearchInput from "@/components/form/SearchInput"
 import styles from "./HomeContainer.module.css"
+
+import type { PropsWithChildren } from "react"
 
 const HomeContainerRoot = ({ children }: PropsWithChildren) => {
   return <div className={styles.container}>{children}</div>

@@ -1,7 +1,8 @@
 import clsx from "clsx"
-import type { PropsWithChildren, ReactNode } from "react"
 import { IconCheck } from "@initia/icons-react"
 import styles from "./CheckboxButton.module.css"
+
+import type { PropsWithChildren, ReactNode } from "react"
 
 export interface Props {
   checked: boolean

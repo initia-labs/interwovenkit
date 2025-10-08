@@ -1,11 +1,11 @@
 import clsx from "clsx"
 import { useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
-import Scrollable from "@/components/Scrollable"
-import Footer from "@/components/Footer"
 import Button from "@/components/Button"
-import NumericInput from "@/components/form/NumericInput"
+import Footer from "@/components/Footer"
 import FormHelp from "@/components/form/FormHelp"
+import NumericInput from "@/components/form/NumericInput"
+import Scrollable from "@/components/Scrollable"
 import { useBridgeForm } from "./data/form"
 import styles from "./SlippageControl.module.css"
 
@@ -24,6 +24,8 @@ const SlippageControl = ({ afterConfirm }: { afterConfirm: () => void }) => {
     defaultValues: { value: defaultValue },
   })
 
+  // React Hook Form's watch() is safe, React Compiler warning can be ignored
+  // eslint-disable-next-line react-hooks/incompatible-library
   const value = watch("value")
 
   // Initialize active preset if default matches one

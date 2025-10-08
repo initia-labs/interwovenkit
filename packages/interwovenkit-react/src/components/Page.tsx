@@ -1,8 +1,9 @@
-import type { PropsWithChildren, ReactNode } from "react"
 import { IconBack } from "@initia/icons-react"
 import { Link } from "@/lib/router"
 import Scrollable from "./Scrollable"
 import styles from "./Page.module.css"
+
+import type { PropsWithChildren, ReactNode } from "react"
 
 interface Props {
   title: string

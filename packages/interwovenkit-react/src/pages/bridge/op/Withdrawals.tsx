@@ -1,12 +1,12 @@
 import { useState } from "react"
-import { useLocationState } from "@/lib/router"
-import { useDefaultChain, useFindChain, useInitiaRegistry } from "@/data/chains"
-import Page from "@/components/Page"
-import FormHelp from "@/components/form/FormHelp"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import ChainOptions from "@/components/form/ChainOptions"
-import WithdrawalList from "./WithdrawalList"
+import FormHelp from "@/components/form/FormHelp"
+import Page from "@/components/Page"
+import { useDefaultChain, useFindChain, useInitiaRegistry } from "@/data/chains"
+import { useLocationState } from "@/lib/router"
 import { useClaimableReminders } from "./reminder"
+import WithdrawalList from "./WithdrawalList"
 import styles from "./Withdrawals.module.css"
 
 const Withdrawals = () => {

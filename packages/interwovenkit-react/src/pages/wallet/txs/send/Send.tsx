@@ -1,8 +1,8 @@
 import { head } from "ramda"
 import { FormProvider, useForm } from "react-hook-form"
-import { useLocationState } from "@/lib/router"
-import { useDefaultChain, type NormalizedChain } from "@/data/chains"
 import { useAssets } from "@/data/assets"
+import { type NormalizedChain, useDefaultChain } from "@/data/chains"
+import { useLocationState } from "@/lib/router"
 import SendFields from "./SendFields"
 
 export interface FormValues {

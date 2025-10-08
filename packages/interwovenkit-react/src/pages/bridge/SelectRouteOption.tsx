@@ -1,14 +1,15 @@
 import clsx from "clsx"
-import type { PropsWithChildren } from "react"
 import { IconCheck, IconClockFilled } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
-import { formatValue } from "@/lib/format"
 import Skeleton from "@/components/Skeleton"
-import { formatDuration } from "./data/format"
-import { useBridgeForm } from "./data/form"
+import { formatValue } from "@/lib/format"
 import { useSkipAsset } from "./data/assets"
+import { useBridgeForm } from "./data/form"
+import { formatDuration } from "./data/format"
 import type { useRouteQuery } from "./data/simulate"
 import styles from "./SelectRouteOption.module.css"
+
+import type { PropsWithChildren } from "react"
 
 export type RouteType = "default" | "op"
 

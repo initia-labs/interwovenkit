@@ -1,7 +1,7 @@
-import { Select } from "@base-ui-components/react/select"
-import { IconChevronDown } from "@initia/icons-react"
 import clsx from "clsx"
 import React from "react"
+import { Select } from "@base-ui-components/react/select"
+import { IconChevronDown } from "@initia/icons-react"
 import { usePortal } from "@/public/app/PortalContext"
 import styles from "./Dropdown.module.css"
 

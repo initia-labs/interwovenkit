@@ -1,5 +1,5 @@
-import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import BigNumber from "bignumber.js"
+import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 
 function createAvailableFeeOptions({
   balances,

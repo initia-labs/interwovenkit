@@ -1,13 +1,13 @@
+import type { StdFee } from "@cosmjs/amino"
+import type { EncodeObject } from "@cosmjs/proto-signing"
 import { useEffect, useState } from "react"
 import { atom, useAtomValue, useSetAtom } from "jotai"
-import type { EncodeObject } from "@cosmjs/proto-signing"
-import type { StdFee } from "@cosmjs/amino"
-import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
 import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
+import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
 import { InitiaAddress } from "@initia/utils"
-import { useConfig } from "@/data/config"
 import { useDefaultChain } from "@/data/chains"
-import { OfflineSigner, useSignWithEthSecp256k1, useRegistry } from "@/data/signer"
+import { useConfig } from "@/data/config"
+import { OfflineSigner, useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { checkGhostWalletEnabled } from "./queries"
 import { canGhostWalletHandleTxRequest } from "./utils"
@@ -143,6 +143,7 @@ export function useIsGhostWalletEnabled() {
   const [isEnabled, setIsEnabled] = useState(parseExpirationTimes(expirations))
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsEnabled(parseExpirationTimes(expirations))
 
     const expiration = getEarliestExpiration(expirations)

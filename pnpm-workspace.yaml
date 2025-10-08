@@ -1,4 +1,7 @@
-minimumReleaseAge: 1440
 packages:
   - "packages/*"
   - "examples/*"
+
+minimumReleaseAge: 1440
+minimumReleaseAgeExclude:
+  - "@initia/*"

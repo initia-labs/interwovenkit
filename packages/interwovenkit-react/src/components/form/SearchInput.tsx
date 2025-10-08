@@ -1,7 +1,8 @@
 import clsx from "clsx"
-import type { InputHTMLAttributes, RefObject } from "react"
 import { IconCloseCircleFilled, IconSearch } from "@initia/icons-react"
 import styles from "./SearchInput.module.css"
+
+import type { InputHTMLAttributes, RefObject } from "react"
 
 export interface Props extends InputHTMLAttributes<HTMLInputElement> {
   rootClassName?: string

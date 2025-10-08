@@ -1,10 +1,10 @@
 import Page from "@/components/Page"
+import BridgePreviewFooter from "./BridgePreviewFooter"
 import BridgePreviewRoute from "./BridgePreviewRoute"
 import FooterWithAddressList from "./FooterWithAddressList"
+import FooterWithErc20Approval from "./FooterWithErc20Approval"
 import FooterWithMsgs from "./FooterWithMsgs"
 import FooterWithSignedOpHook from "./FooterWithSignedOpHook"
-import FooterWithErc20Approval from "./FooterWithErc20Approval"
-import BridgePreviewFooter from "./BridgePreviewFooter"
 
 const BridgePreview = () => {
   return (

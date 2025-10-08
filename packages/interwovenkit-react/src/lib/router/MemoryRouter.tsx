@@ -1,12 +1,12 @@
 import { adjust, take } from "ramda"
-import type { PropsWithChildren } from "react"
 import { useCallback, useState } from "react"
-
 // A deliberately lightweight router used by the widget.  It keeps navigation
 // history entirely in memory so we don't interfere with the host application's
 // URL or history state.  Each navigation pushes or truncates this local array.
 import type { HistoryEntry } from "./RouterContext"
 import { RouterContext } from "./RouterContext"
+
+import type { PropsWithChildren } from "react"
 
 interface MemoryRouterProps {
   initialEntry?: HistoryEntry

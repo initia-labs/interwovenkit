@@ -1,6 +1,7 @@
 import clsx from "clsx"
-import type { PropsWithChildren, RefObject } from "react"
 import styles from "./Scrollable.module.css"
+
+import type { PropsWithChildren, RefObject } from "react"
 
 interface Props {
   className?: string

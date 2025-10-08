@@ -1,9 +1,9 @@
+import type { ChainJson } from "@skip-go/client"
 import { ascend, descend, sortWith } from "ramda"
 import { useSuspenseQuery } from "@tanstack/react-query"
-import type { ChainJson } from "@skip-go/client"
 import type { Chain } from "@initia/initia-registry-types"
-import { STALE_TIMES } from "@/data/http"
 import { useInitiaRegistry } from "@/data/chains"
+import { STALE_TIMES } from "@/data/http"
 import { skipQueryKeys, useSkip } from "./skip"
 
 export interface RouterChainJson extends ChainJson {

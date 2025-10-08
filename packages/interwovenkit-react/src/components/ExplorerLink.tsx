@@ -1,11 +1,12 @@
-import xss from "xss"
 import clsx from "clsx"
-import type { AnchorHTMLAttributes } from "react"
+import xss from "xss"
+import { IconExternalLink } from "@initia/icons-react"
 import { truncate } from "@initia/utils"
 import { useChain } from "@/data/chains"
-import { IconExternalLink } from "@initia/icons-react"
 import { buildExplorerUrl, sanitizeLink } from "./explorer"
 import styles from "./ExplorerLink.module.css"
+
+import type { AnchorHTMLAttributes } from "react"
 
 interface Props extends AnchorHTMLAttributes<HTMLAnchorElement> {
   chainId: string
