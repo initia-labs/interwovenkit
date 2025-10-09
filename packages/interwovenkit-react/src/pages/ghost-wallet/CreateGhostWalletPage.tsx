@@ -7,7 +7,8 @@ import { GenericAuthorization } from "@initia/initia.proto/cosmos/authz/v1beta1/
 import { BasicAllowance } from "@initia/initia.proto/cosmos/feegrant/v1beta1/feegrant"
 import { InitiaAddress, truncate } from "@initia/utils"
 import Button from "@/components/Button"
-import Modal from "@/components/Modal"
+import Footer from "@/components/Footer"
+import Scrollable from "@/components/Scrollable"
 import { useChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import { useGhostWalletRequestHandler, useSetGhostWalletRequestHandler } from "@/data/ghost-wallet"
@@ -84,7 +85,7 @@ const CreateGhostWalletPage = () => {
         })),
       ]
 
-      await requestTxBlock({ messages, chainId })
+      await requestTxBlock({ messages, chainId, internal: "/ghost-wallet" })
       return expiration
     },
     onSuccess: (expiration) => {
@@ -118,8 +119,8 @@ const CreateGhostWalletPage = () => {
   }
 
   return (
-    <Modal open={true} onOpenChange={() => {}}>
-      <div className={styles.content}>
+    <>
+      <Scrollable>
         <h1 className={styles.title}>Enable auto-signing</h1>
         <h2 className={styles.subtitle}>An application is requesting to enable auto-signing.</h2>
 
@@ -179,17 +180,17 @@ const CreateGhostWalletPage = () => {
             </li>
           ))}
         </ul>
+      </Scrollable>
 
-        <footer className={styles.footer}>
-          <Button.Outline onClick={handleReject} disabled={isPending}>
-            Reject
-          </Button.Outline>
-          <Button.White onClick={handleConfirm} loading={isPending}>
-            Confirm
-          </Button.White>
-        </footer>
-      </div>
-    </Modal>
+      <Footer className={styles.footer}>
+        <Button.Outline onClick={handleReject} disabled={isPending}>
+          Reject
+        </Button.Outline>
+        <Button.White onClick={handleConfirm} loading={isPending}>
+          Confirm
+        </Button.White>
+      </Footer>
+    </>
   )
 }
 
