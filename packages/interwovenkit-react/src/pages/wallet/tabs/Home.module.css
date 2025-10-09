@@ -27,6 +27,7 @@
 
   .item {
     flex: 1;
+    flex-direction: column;
 
     display: flex;
     justify-content: center;
@@ -36,9 +37,10 @@
     background-color: var(--home-button-bg);
     border-radius: 8px;
     color: var(--info);
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 600;
-    height: 56px;
+    padding-top: 16px;
+    padding-bottom: 12px;
 
     transition: background-color var(--transition) ease;
 
