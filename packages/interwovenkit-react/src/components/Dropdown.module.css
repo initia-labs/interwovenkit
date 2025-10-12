@@ -5,8 +5,8 @@
 }
 
 .trigger {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr auto;
   gap: 4px;
 
   background-color: var(--gray-7);
@@ -51,7 +51,6 @@
   font-weight: 500;
   text-align: right;
   padding: 4px 12px;
-  min-width: 152px;
 
   transition: background-color var(--transition) ease;
 

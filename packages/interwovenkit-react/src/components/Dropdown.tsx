@@ -20,6 +20,8 @@ interface DropdownProps<T = string>
   value: T
   onChange: (value: T) => void
   prefix?: React.ReactNode
+  width?: string | number
+  style?: React.CSSProperties
 }
 
 function Dropdown<T extends string | number = string>({
@@ -27,6 +29,8 @@ function Dropdown<T extends string | number = string>({
   value,
   onChange,
   prefix,
+  width,
+  style,
   ...selectRootProps
 }: DropdownProps<T>) {
   const portalContainer = usePortal()
@@ -52,6 +56,7 @@ function Dropdown<T extends string | number = string>({
       className={clsx(styles.trigger, {
         [styles.disabled]: selectRootProps.disabled,
       })}
+      style={{ ...style, ...(width ? { width } : {}) }}
     >
       <Select.Value>{selectedOption.displayLabel || selectedOption.label}</Select.Value>
       <Select.Icon className={styles.icon}>
@@ -79,10 +84,11 @@ function Dropdown<T extends string | number = string>({
           sideOffset={6}
           align={"end"}
         >
-          <Select.Popup>
+          <Select.Popup className={clsx(styles.popup)}>
             {options.map((option) => (
               <Select.Item
                 className={clsx(styles.item)}
+                style={{ ...style, minWidth: width || 152 }}
                 value={String(option.value)}
                 key={String(option.value)}
               >

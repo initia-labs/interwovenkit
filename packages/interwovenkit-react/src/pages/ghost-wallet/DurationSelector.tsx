@@ -9,7 +9,19 @@ interface Props {
 
 const DurationSelector = ({ value, onChange, disabled = false }: Props) => {
   return (
-    <Dropdown options={DURATION_OPTIONS} value={value} onChange={onChange} disabled={disabled} />
+    <Dropdown
+      options={DURATION_OPTIONS}
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      width={140}
+      style={{
+        fontFamily: "var(--font-family)",
+        textAlign: "start",
+        fontSize: 12,
+        fontWeight: 500,
+      }}
+    />
   )
 }
 
