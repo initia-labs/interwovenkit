@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useSetAtom } from "jotai"
 import { useQueryClient } from "@tanstack/react-query"
 import { useDefaultChain } from "@/data/chains"
@@ -22,16 +22,43 @@ const RevokeGrantsItem = ({ grantee, expiration }: RevokeGrantsItemProps) => {
   const setGhostWalletExpiration = useSetAtom(ghostWalletExpirationAtom)
   const embeddedWalletAddress = useEmbeddedWalletAddress()
 
-  // Calculate expiration details using useMemo
-  const expirationDetails = useMemo(() => {
+  // Track current time to trigger re-renders every second
+  const [currentTime, setCurrentTime] = useState(() => Date.now())
+
+  // Calculate if it's a long-term expiration (doesn't change)
+  const isLongTerm = useMemo(() => {
     const expirationTime = new Date(expiration).getTime()
     // eslint-disable-next-line react-hooks/purity
-    const now = Date.now()
-    const remainingTime = expirationTime - now
-    const isLongTerm = remainingTime > YEAR_IN_MS
-    const formattedDuration = !isLongTerm ? formatDuration(Math.floor(remainingTime / 1000)) : null
-    return { isLongTerm, formattedDuration }
+    const initialRemainingTime = expirationTime - Date.now()
+    return initialRemainingTime > YEAR_IN_MS
   }, [expiration])
+
+  // Calculate the formatted duration based on current time
+  const formattedDuration = useMemo(() => {
+    if (isLongTerm) return null
+
+    const expirationTime = new Date(expiration).getTime()
+    const remainingTime = Math.max(0, expirationTime - currentTime)
+    return formatDuration(Math.floor(remainingTime / 1000))
+  }, [expiration, currentTime, isLongTerm])
+
+  // Check if the grant has expired
+  const hasExpired = useMemo(() => {
+    if (isLongTerm) return false
+    const expirationTime = new Date(expiration).getTime()
+    return currentTime >= expirationTime
+  }, [expiration, currentTime, isLongTerm])
+
+  // Update the current time every second to trigger countdown updates
+  useEffect(() => {
+    if (isLongTerm) return // No need to update for long-term expirations
+
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now())
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [isLongTerm])
 
   const handleRevoke = async () => {
     if (!grants || !initiaAddress) return
@@ -76,17 +103,21 @@ const RevokeGrantsItem = ({ grantee, expiration }: RevokeGrantsItemProps) => {
     }
   }
 
+  // Don't render the item if it has expired
+  if (hasExpired) {
+    return null
+  }
+
   return (
     <div className={styles.container}>
       <div className={styles.textContainer}>
         <div className={styles.chain}>{defaultChain.chainId}</div>
         <div className={styles.expiration}>
-          {expirationDetails.isLongTerm ? (
+          {isLongTerm ? (
             "Until revoked"
           ) : (
             <>
-              Expires in{" "}
-              <span className={styles.expirationTime}>{expirationDetails.formattedDuration}</span>
+              Expires in <span className={styles.expirationTime}>{formattedDuration}</span>
             </>
           )}
         </div>
