@@ -1,3 +1,4 @@
+import { useAccount } from "wagmi"
 import { IconChevronRight } from "@initia/icons-react"
 import Page from "@/components/Page"
 import { useNavigate } from "@/lib/router"
@@ -5,6 +6,7 @@ import styles from "./SettingsPage.module.css"
 
 const SettingsPage = () => {
   const navigate = useNavigate()
+  const { connector } = useAccount()
 
   return (
     <Page title="Settings">
@@ -17,21 +19,23 @@ const SettingsPage = () => {
           <IconChevronRight className={styles.icon} size={16} />
         </button>
 
-        <button
-          className={styles.link}
-          onClick={() =>
-            window.open(
-              "https://export.initia.xyz",
-              "exportPopup",
-              "width=600,height=700,scrollbars=yes,resizable=yes",
-            )
-          }
-        >
-          <div>
-            <p className={styles.title}>Export private key</p>
-          </div>
-          <IconChevronRight className={styles.icon} size={16} />
-        </button>
+        {connector?.id === "io.privy.wallet" && (
+          <button
+            className={styles.link}
+            onClick={() =>
+              window.open(
+                "https://privy-export.staging.initia.xyz/",
+                "exportPopup",
+                "width=600,height=700,scrollbars=yes,resizable=yes",
+              )
+            }
+          >
+            <div>
+              <p className={styles.title}>Export private key</p>
+            </div>
+            <IconChevronRight className={styles.icon} size={16} />
+          </button>
+        )}
       </div>
     </Page>
   )
