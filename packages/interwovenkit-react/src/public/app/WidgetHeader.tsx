@@ -26,6 +26,11 @@ const WidgetHeader = () => {
     config: { tension: 500, friction: 30, clamp: true },
   })
 
+  const icon =
+    connector?.id === "io.privy.wallet"
+      ? "https://assets.initia.xyz/images/wallets/Privy.webp"
+      : connector?.icon
+
   const handleDisconnectClick = () => {
     if (!isExpanded) {
       setIsExpanded(true)
@@ -66,7 +71,7 @@ const WidgetHeader = () => {
       <CopyButton value={address}>
         {({ copy, copied }) => (
           <button className={clsx(styles.account, { [styles.copied]: copied })} onClick={copy}>
-            <Image src={connector.icon} width={18} height={18} />
+            <Image src={icon} width={18} height={18} />
             <div className={styles.address}>{truncate(address)}</div>
             <div className={styles.name}>{truncate(name)}</div>
             <IconCopy className={styles.icon} size={12} />
