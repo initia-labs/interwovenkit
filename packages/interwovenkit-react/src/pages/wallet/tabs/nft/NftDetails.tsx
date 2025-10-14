@@ -1,21 +1,21 @@
-import { useLocationState, useNavigate } from "@/lib/router"
-import Page from "@/components/Page"
-import Image from "@/components/Image"
-import Footer from "@/components/Footer"
 import Button from "@/components/Button"
-import type { NormalizedNft } from "./queries"
+import Footer from "@/components/Footer"
+import Image from "@/components/Image"
+import Page from "@/components/Page"
+import { useLocationState, useNavigate } from "@/lib/router"
 import NftThumbnail from "./NftThumbnail"
+import type { NormalizedNft } from "./queries"
 import styles from "./NftDetails.module.css"
 
 const NftDetails = () => {
   const navigate = useNavigate()
   const normalizedNft = useLocationState<NormalizedNft>()
-  const { collection_name, image, name, attributes, chain } = normalizedNft
+  const { collection_name, name, attributes, chain, nft } = normalizedNft
 
   return (
     <Page title="NFT details">
       <header className={styles.header}>
-        {image && <NftThumbnail nftInfo={normalizedNft} />}
+        {nft.uri && <NftThumbnail nftInfo={normalizedNft} />}
         <div>
           <div className={styles.collectionName}>{collection_name}</div>
           <h2 className={styles.name}>{name}</h2>
