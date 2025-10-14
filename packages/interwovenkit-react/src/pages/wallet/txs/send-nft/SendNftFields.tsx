@@ -1,25 +1,25 @@
-import ky from "ky"
-import clsx from "clsx"
-import { VisuallyHidden } from "radix-ui"
-import { createQueryKeys } from "@lukemorales/query-key-factory"
-import { InitiaAddress } from "@initia/utils"
-import { useAminoTypes } from "@/data/signer"
 import type { AminoMsg } from "@cosmjs/amino"
+import clsx from "clsx"
+import ky from "ky"
+import { VisuallyHidden } from "radix-ui"
 import { useFormContext } from "react-hook-form"
 import { useMutation, useQuery } from "@tanstack/react-query"
+import { createQueryKeys } from "@lukemorales/query-key-factory"
+import { InitiaAddress } from "@initia/utils"
+import Button from "@/components/Button"
+import Footer from "@/components/Footer"
+import { useAutoFocus } from "@/components/form/hooks"
+import RecipientInput from "@/components/form/RecipientInput"
+import Image from "@/components/Image"
+import List from "@/components/List"
+import ModalTrigger from "@/components/ModalTrigger"
+import { useChain, useInitiaRegistry, useLayer1 } from "@/data/chains"
+import { useConfig } from "@/data/config"
+import { useAminoTypes } from "@/data/signer"
 import { useLocationState } from "@/lib/router"
 import { useInterwovenKit } from "@/public/data/hooks"
-import { useConfig } from "@/data/config"
-import { useChain, useInitiaRegistry, useLayer1 } from "@/data/chains"
-import { useAutoFocus } from "@/components/form/hooks"
-import ModalTrigger from "@/components/ModalTrigger"
-import List from "@/components/List"
-import RecipientInput from "@/components/form/RecipientInput"
-import Button from "@/components/Button"
-import Image from "@/components/Image"
-import Footer from "@/components/Footer"
-import type { NormalizedNft } from "../../tabs/nft/queries"
 import NftThumbnail from "../../tabs/nft/NftThumbnail"
+import type { NormalizedNft } from "../../tabs/nft/queries"
 import type { FormValues } from "./SendNft"
 import styles from "./SendNftFields.module.css"
 
@@ -30,7 +30,7 @@ const queryKeys = createQueryKeys("interwovenkit:send-nft", {
 const SendNftFields = () => {
   const chains = useInitiaRegistry()
   const nft = useLocationState<NormalizedNft>()
-  const { chain: srcChain, collection_addr, collection_name, image, name } = nft
+  const { chain: srcChain, collection_addr, collection_name, name } = nft
 
   const { routerApiUrl } = useConfig()
   const aminoTypes = useAminoTypes()
@@ -86,7 +86,7 @@ const SendNftFields = () => {
   return (
     <form onSubmit={handleSubmit(() => mutate())}>
       <header className={styles.header}>
-        {image && <NftThumbnail nftInfo={nft} size={80} />}
+        {nft.uri && <NftThumbnail nftInfo={nft} size={80} />}
         <div className={styles.name}>
           <div className={styles.collection}>{collection_name}</div>
           <div className={styles.nft}>{name}</div>
