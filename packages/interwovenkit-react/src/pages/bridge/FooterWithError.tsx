@@ -1,7 +1,7 @@
-import { useNavigate } from "@/lib/router"
+import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import FormHelp from "@/components/form/FormHelp"
-import Button from "@/components/Button"
+import { useNavigate } from "@/lib/router"
 
 const FooterWithError = ({ error }: { error: Error }) => {
   const navigate = useNavigate()

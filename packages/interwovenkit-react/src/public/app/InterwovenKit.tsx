@@ -1,5 +1,5 @@
-import { MemoryRouter } from "@/lib/router"
 import AsyncBoundary from "@/components/AsyncBoundary"
+import { MemoryRouter } from "@/lib/router"
 import type { FormValues } from "@/pages/bridge/data/form"
 import { fullscreenContext } from "./fullscreen"
 import Routes from "./Routes"

@@ -1,12 +1,12 @@
 import { useMemo } from "react"
 import { useAtom } from "jotai"
-import { useLayer1 } from "@/data/chains"
 import Status from "@/components/Status"
-import HomeContainer from "../../components/HomeContainer"
+import { useLayer1 } from "@/data/chains"
 import ChainSelect from "../../components/ChainSelect"
+import HomeContainer from "../../components/HomeContainer"
 import { activityChainAtom } from "../state"
-import { useAllActivities } from "./queries"
 import ActivityList from "./ActivityList"
+import { useAllActivities } from "./queries"
 
 const Activity = () => {
   const { activities, isLoading } = useAllActivities()

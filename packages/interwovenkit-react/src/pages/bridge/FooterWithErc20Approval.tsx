@@ -1,14 +1,15 @@
-import { ethers } from "ethers"
-import type { PropsWithChildren } from "react"
-import { useMutation, useQuery } from "@tanstack/react-query"
 import type { TxJson } from "@skip-go/client"
-import { normalizeError } from "@/data/http"
-import { useGetProvider } from "@/data/signer"
+import { ethers } from "ethers"
+import { useMutation, useQuery } from "@tanstack/react-query"
+import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import FormHelp from "@/components/form/FormHelp"
-import Button from "@/components/Button"
+import { normalizeError } from "@/data/http"
+import { useGetProvider } from "@/data/signer"
 import { useFindSkipChain } from "./data/chains"
 import { switchEthereumChain } from "./data/evm"
+
+import type { PropsWithChildren } from "react"
 
 const FooterWithErc20Approval = ({ tx, children }: PropsWithChildren<{ tx: TxJson }>) => {
   const getProvider = useGetProvider()

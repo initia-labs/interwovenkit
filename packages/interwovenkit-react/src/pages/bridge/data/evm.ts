@@ -1,5 +1,5 @@
-import { path } from "ramda"
 import type { BrowserProvider } from "ethers"
+import { path } from "ramda"
 import type { RouterChainJson } from "./chains"
 
 export async function switchEthereumChain(provider: BrowserProvider, chain: RouterChainJson) {

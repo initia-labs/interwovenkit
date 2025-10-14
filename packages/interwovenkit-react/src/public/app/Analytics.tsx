@@ -1,4 +1,4 @@
-import { useAnalyticsInit, useAnalyticsIdentify } from "@/data/analytics"
+import { useAnalyticsIdentify, useAnalyticsInit } from "@/data/analytics"
 
 const Analytics = () => {
   useAnalyticsInit()

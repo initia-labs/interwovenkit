@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.0.5](https://github.com/initia-labs/interwovenkit/compare/v2.0.4...v2.0.5) (2025-10-02)
+
+### Features
+
+- **config:** add configurable glyph URL ([98795e8](https://github.com/initia-labs/interwovenkit/commit/98795e8d618f6c74bb42533862bb41d7cefe11c6))
+- **tx:** add collapsible fee breakdown ([5446105](https://github.com/initia-labs/interwovenkit/commit/5446105310fef408e4662e5d3e0a28cbc6d73d07))
+
+### Bug Fixes
+
+- **drawer:** add onClick handler to backdrop ([bc8b842](https://github.com/initia-labs/interwovenkit/commit/bc8b842cbfe14984739d1ec9d71ccaa5c57375c0))
+- **portfolio:** show chains with balance regardless of value ([59c6cf2](https://github.com/initia-labs/interwovenkit/commit/59c6cf2b695f4bd1f67b4bf90edc13941ed55a5c))
+- **send:** add error handling for missing primary asset ([efaa699](https://github.com/initia-labs/interwovenkit/commit/efaa699d472606f15699aef666198f13ab33cf45))
+
 ## [2.0.4](https://github.com/initia-labs/interwovenkit/compare/v2.0.3...v2.0.4) (2025-10-01)
 
 ### Features

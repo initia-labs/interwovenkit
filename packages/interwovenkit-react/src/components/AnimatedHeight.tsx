@@ -1,6 +1,7 @@
+import { animated, useSpring } from "@react-spring/web"
+import { useEffect, useRef, useState } from "react"
+
 import type { PropsWithChildren } from "react"
-import { useRef, useState, useEffect } from "react"
-import { useSpring, animated } from "@react-spring/web"
 
 const AnimatedHeight = ({ children }: PropsWithChildren) => {
   const contentRef = useRef<HTMLDivElement>(null)

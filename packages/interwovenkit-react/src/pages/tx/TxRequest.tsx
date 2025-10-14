@@ -1,23 +1,25 @@
+import { calculateFee, GasPrice } from "@cosmjs/stargate"
 import BigNumber from "bignumber.js"
 import { sentenceCase } from "change-case"
-import { calculateFee, GasPrice } from "@cosmjs/stargate"
 import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
-import { useInitiaAddress } from "@/public/data/hooks"
-import { useBalances } from "@/data/account"
-import { useChain } from "@/data/chains"
-import { useSignWithEthSecp256k1, useOfflineSigner } from "@/data/signer"
-import { TX_APPROVAL_MUTATION_KEY, useTxRequestHandler } from "@/data/tx"
-import { useGasPrices, useLastFeeDenom } from "@/data/fee"
-import WidgetAccordion from "@/components/WidgetAccordion"
-import Scrollable from "@/components/Scrollable"
-import FormHelp from "@/components/form/FormHelp"
-import Footer from "@/components/Footer"
 import Button from "@/components/Button"
+import Footer from "@/components/Footer"
+import FormHelp from "@/components/form/FormHelp"
+import Scrollable from "@/components/Scrollable"
+import WidgetAccordion from "@/components/WidgetAccordion"
+import { useBalances } from "@/data/account"
+import { useFindAsset } from "@/data/assets"
+import { useChain } from "@/data/chains"
+import { useGasPrices, useLastFeeDenom } from "@/data/fee"
+import { useOfflineSigner, useSignWithEthSecp256k1 } from "@/data/signer"
+import { TX_APPROVAL_MUTATION_KEY, useTxRequestHandler } from "@/data/tx"
+import { useInitiaAddress } from "@/public/data/hooks"
+import TxFee from "./TxFee"
+import TxFeeInsufficient from "./TxFeeInsufficient"
+import TxMessage from "./TxMessage"
 import TxMetaItem from "./TxMetaItem"
 import TxSimulate from "./TxSimulate"
-import TxFee from "./TxFee"
-import TxMessage from "./TxMessage"
 import styles from "./TxRequest.module.css"
 
 const TxRequest = () => {
@@ -31,6 +33,7 @@ const TxRequest = () => {
   const balances = useBalances(chain)
   const gasPrices = useGasPrices(chain)
   const lastUsedFeeDenom = useLastFeeDenom(chain)
+  const findAsset = useFindAsset(chain)
 
   const feeOptions = (txRequest.gasPrices ?? gasPrices).map(({ amount, denom }) =>
     calculateFee(Math.ceil(gas * gasAdjustment), GasPrice.fromString(amount + denom)),
@@ -38,29 +41,35 @@ const TxRequest = () => {
 
   const feeCoins = feeOptions.map((fee) => fee.amount[0])
 
-  const canPayFee = (feeDenom: string) => {
-    const balance = balances.find((balance) => balance.denom === feeDenom)?.amount ?? 0
-    const feeAmount = feeCoins.find((coin) => coin.denom === feeDenom)?.amount ?? 0
-
+  const getFeeDetails = (feeDenom: string) => {
+    const balance = balances.find((balance) => balance.denom === feeDenom)?.amount ?? "0"
+    const feeAmount = feeCoins.find((coin) => coin.denom === feeDenom)?.amount ?? "0"
     const spendAmount = spendCoins
       .filter((coin) => coin.denom === feeDenom)
-      .reduce((total, coin) => BigNumber(total).plus(coin.amount), BigNumber(0))
+      .reduce((total, coin) => BigNumber(total).plus(coin.amount), BigNumber("0"))
+    const totalRequired = BigNumber(feeAmount).plus(spendAmount)
+    const isSufficient = BigNumber(balance).gte(totalRequired)
 
-    if (spendAmount.gt(0)) {
-      const totalRequired = BigNumber(feeAmount).plus(spendAmount)
-      return BigNumber(balance).gte(totalRequired)
+    const { symbol, decimals } = findAsset(feeDenom)
+
+    return {
+      symbol,
+      decimals,
+      spend: spendAmount.gt(0) ? spendAmount.toFixed() : null,
+      fee: feeAmount,
+      total: totalRequired.toFixed(),
+      balance,
+      isSufficient,
     }
-
-    return BigNumber(balance).gte(feeAmount)
   }
 
   const getInitialFeeDenom = () => {
-    if (lastUsedFeeDenom && canPayFee(lastUsedFeeDenom)) {
+    if (lastUsedFeeDenom && getFeeDetails(lastUsedFeeDenom).isSufficient) {
       return lastUsedFeeDenom
     }
 
     for (const { denom: feeDenom } of feeCoins) {
-      if (canPayFee(feeDenom)) {
+      if (getFeeDetails(feeDenom).isSufficient) {
         return feeDenom
       }
     }
@@ -84,7 +93,8 @@ const TxRequest = () => {
     },
   })
 
-  const isInsufficient = !canPayFee(feeDenom)
+  const feeDetails = getFeeDetails(feeDenom)
+  const isInsufficient = !feeDetails.isSufficient
 
   return (
     <>
@@ -98,7 +108,11 @@ const TxRequest = () => {
             content={<TxFee options={feeOptions} value={feeDenom} onChange={setFeeDenom} />}
           />
           {memo && <TxMetaItem title="Memo" content={memo} />}
-          {isInsufficient && <FormHelp level="error">Insufficient balance for fee</FormHelp>}
+          {isInsufficient && (
+            <FormHelp level="error">
+              <TxFeeInsufficient {...feeDetails} />
+            </FormHelp>
+          )}
         </div>
 
         <TxSimulate messages={messages} memo={memo} chainId={chainId} />

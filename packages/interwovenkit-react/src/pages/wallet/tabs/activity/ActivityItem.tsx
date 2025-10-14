@@ -1,12 +1,12 @@
 import { format } from "date-fns"
 import { IconWarningFilled } from "@initia/icons-react"
-import type { NormalizedChain } from "@/data/chains"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import ExplorerLink from "@/components/ExplorerLink"
 import Image from "@/components/Image"
-import type { TxItem } from "./queries"
-import ActivityMessages from "./ActivityMessages"
+import type { NormalizedChain } from "@/data/chains"
 import ActivityChanges from "./ActivityChanges"
+import ActivityMessages from "./ActivityMessages"
+import type { TxItem } from "./queries"
 import styles from "./ActivityItem.module.css"
 
 interface Props {

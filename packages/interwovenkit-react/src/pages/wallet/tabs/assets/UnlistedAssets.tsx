@@ -1,6 +1,6 @@
-import { useRef, useEffect, useState } from "react"
+import { animated, useSpring } from "@react-spring/web"
 import { Collapsible } from "radix-ui"
-import { useSpring, animated } from "@react-spring/web"
+import { useEffect, useRef, useState } from "react"
 import { IconChevronDown } from "@initia/icons-react"
 import type { PortfolioAssetItem } from "@/data/portfolio"
 import { useScrollableRef } from "../ScrollableContext"

@@ -1,19 +1,19 @@
 import { useEffect, useMemo } from "react"
 import { FormProvider, useForm } from "react-hook-form"
-import { useHistory, useNavigate } from "@/lib/router"
-import { useAddress } from "@/public/data/hooks"
-import { LocalStorageKey } from "@/data/constants"
-import { useDrawer } from "@/data/ui"
 import AsyncBoundary from "@/components/AsyncBoundary"
-import Page from "@/components/Page"
 import Button from "@/components/Button"
-import Status from "@/components/Status"
 import Footer from "@/components/Footer"
 import Indicator from "@/components/Indicator"
-import type { FormValues } from "./data/form"
-import { useDefaultValues } from "./data/form"
+import Page from "@/components/Page"
+import Status from "@/components/Status"
+import { LocalStorageKey } from "@/data/constants"
+import { useDrawer } from "@/data/ui"
+import { useHistory, useNavigate } from "@/lib/router"
+import { useAddress } from "@/public/data/hooks"
 import { useGetDefaultAddress, useValidateAddress } from "./data/address"
 import { useSkipAssets } from "./data/assets"
+import type { FormValues } from "./data/form"
+import { useDefaultValues } from "./data/form"
 import { useClaimableModal, useClaimableReminders } from "./op/reminder"
 import BridgeFields from "./BridgeFields"
 
@@ -33,6 +33,8 @@ const BridgeForm = () => {
 
   const { watch, setValue } = form
   const { srcChainId, dstChainId, srcDenom, dstDenom, quantity, slippagePercent, recipient } =
+    // React Hook Form's watch() is safe, React Compiler warning can be ignored
+    // eslint-disable-next-line react-hooks/incompatible-library
     watch()
 
   watch((_, { name }) => {

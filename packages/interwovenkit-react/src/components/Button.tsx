@@ -1,7 +1,8 @@
 import clsx from "clsx"
-import type { ButtonHTMLAttributes } from "react"
 import Loader from "./Loader"
 import styles from "./Button.module.css"
+
+import type { ButtonHTMLAttributes } from "react"
 
 export interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   sm?: boolean

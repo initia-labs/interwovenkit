@@ -1,10 +1,10 @@
-import type { Any } from "cosmjs-types/google/protobuf/any"
-import { PubKey as CosmosCryptoSecp256k1Pubkey } from "cosmjs-types/cosmos/crypto/secp256k1/keys"
-import { BaseAccount } from "cosmjs-types/cosmos/auth/v1beta1/auth"
 import { encodeSecp256k1Pubkey, type Pubkey } from "@cosmjs/amino"
 import { decodeOptionalPubkey } from "@cosmjs/proto-signing"
 import type { Account } from "@cosmjs/stargate"
 import { accountFromAny } from "@cosmjs/stargate"
+import { BaseAccount } from "cosmjs-types/cosmos/auth/v1beta1/auth"
+import { PubKey as CosmosCryptoSecp256k1Pubkey } from "cosmjs-types/cosmos/crypto/secp256k1/keys"
+import type { Any } from "cosmjs-types/google/protobuf/any"
 
 function decodeOptionalPubkeyInitia(pubkey: Any | null | undefined): Pubkey | null {
   if (pubkey?.typeUrl === "/initia.crypto.v1beta1.ethsecp256k1.PubKey") {

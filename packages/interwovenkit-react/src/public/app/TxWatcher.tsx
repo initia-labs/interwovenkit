@@ -1,7 +1,7 @@
-import { useAtom } from "jotai"
 import { useEffect } from "react"
-import { txStatusAtom } from "@/data/tx"
+import { useAtom } from "jotai"
 import ExplorerLink from "@/components/ExplorerLink"
+import { txStatusAtom } from "@/data/tx"
 import { useNotification } from "./NotificationContext"
 
 const TxWatcher = () => {

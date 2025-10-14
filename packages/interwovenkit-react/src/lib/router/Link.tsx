@@ -1,5 +1,6 @@
-import type { ButtonHTMLAttributes, MouseEvent } from "react"
 import { useNavigate, useReset } from "./RouterContext"
+
+import type { ButtonHTMLAttributes, MouseEvent } from "react"
 
 export interface LinkProp extends ButtonHTMLAttributes<HTMLButtonElement> {
   to: string | number

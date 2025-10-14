@@ -1,7 +1,8 @@
+import { head } from "ramda"
 import { FormProvider, useForm } from "react-hook-form"
-import { useLocationState } from "@/lib/router"
-import { useDefaultChain, type NormalizedChain } from "@/data/chains"
 import { useAssets } from "@/data/assets"
+import { type NormalizedChain, useDefaultChain } from "@/data/chains"
+import { useLocationState } from "@/lib/router"
 import SendFields from "./SendFields"
 
 export interface FormValues {
@@ -17,9 +18,11 @@ export const Send = () => {
 
   const defaultChain = useDefaultChain()
   const defaultAssets = useAssets(defaultChain)
-  const [primaryAsset] = defaultAssets
 
-  if (!primaryAsset) {
+  const { chain = defaultChain } = state
+  const primaryAsset = head(defaultAssets)
+
+  if (!state.denom && !primaryAsset) {
     throw new Error(
       "Asset list not found. This occurs during local development when asset list is not configured. " +
         "Use asset-specific send buttons instead of the default send button, " +
@@ -27,7 +30,7 @@ export const Send = () => {
     )
   }
 
-  const { chain = defaultChain, denom = primaryAsset.denom } = state
+  const denom = state.denom ?? primaryAsset?.denom
 
   const form = useForm<FormValues>({
     mode: "onChange",

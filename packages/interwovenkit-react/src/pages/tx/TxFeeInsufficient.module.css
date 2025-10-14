@@ -1,0 +1,55 @@
+.root {
+  flex: 1;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  width: 100%;
+}
+
+.chevron {
+  transition:
+    transform var(--transition),
+    color var(--transition);
+
+  .trigger:hover & {
+    color: var(--error-light);
+  }
+
+  .trigger[data-state="open"] & {
+    transform: rotate(180deg);
+  }
+}
+
+.panel {
+  overflow: hidden;
+  transition: height var(--transition) ease-out;
+  height: var(--collapsible-panel-height);
+
+  &[data-starting-style],
+  &[data-ending-style] {
+    height: 0;
+  }
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  color: var(--error-light);
+  margin-top: 10px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  :last-child {
+    font-family: var(--monospace);
+  }
+}

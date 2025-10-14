@@ -1,6 +1,7 @@
 import clsx from "clsx"
-import type { PropsWithChildren } from "react"
 import styles from "./Indicator.module.css"
+
+import type { PropsWithChildren } from "react"
 
 interface Props {
   offset?: number

@@ -1,6 +1,7 @@
 import clsx from "clsx"
-import type { PropsWithChildren, ReactNode } from "react"
 import styles from "./Footer.module.css"
+
+import type { PropsWithChildren, ReactNode } from "react"
 
 interface Props {
   extra?: ReactNode

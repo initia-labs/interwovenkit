@@ -1,10 +1,10 @@
-import { useEffect } from "react"
 import type { StatusResponseJson } from "@skip-go/client"
+import { useEffect } from "react"
 import { IconCheckCircleFilled, IconCloseCircleFilled } from "@initia/icons-react"
 import Loader from "@/components/Loader"
-import { useTxStatusQuery } from "./data/tx"
 import type { TxIdentifier } from "./data/history"
 import { useBridgeHistoryDetails } from "./data/history"
+import { useTxStatusQuery } from "./data/tx"
 import styles from "./BridgeHistoryItemIcon.module.css"
 
 // it should be mounted only after the transaction is tracked

@@ -1,12 +1,12 @@
-import { useState, type PropsWithChildren, type ReactElement } from "react"
 import { useChainId, useSwitchChain, useWatchAsset } from "wagmi"
+import { type PropsWithChildren, type ReactElement, useState } from "react"
 import { Menu } from "@base-ui-components/react"
 import { useMutation } from "@tanstack/react-query"
-import { IconCheck, IconPlus, IconSwap, IconArrowRight } from "@initia/icons-react"
-import { useNavigate } from "@/lib/router"
-import { useConfig } from "@/data/config"
+import { IconArrowRight, IconCheck, IconPlus, IconSwap } from "@initia/icons-react"
 import { useDefaultChain } from "@/data/chains"
+import { useConfig } from "@/data/config"
 import type { PortfolioAssetItem } from "@/data/portfolio"
+import { useNavigate } from "@/lib/router"
 import { useNotification } from "@/public/app/NotificationContext"
 import { useScrollableRef } from "../ScrollableContext"
 import styles from "./AssetActions.module.css"
@@ -65,7 +65,7 @@ const AssetActions = ({ asset, children }: PropsWithChildren<Props>) => {
     <Menu.Root open={open} onOpenChange={setOpen} modal={false}>
       <Menu.Trigger render={children as ReactElement<Record<string, unknown>>} />
 
-      <Menu.Portal container={scrollableRef.current}>
+      <Menu.Portal container={scrollableRef}>
         <Menu.Positioner side="bottom" sideOffset={-6} align="end">
           <Menu.Popup className={styles.popup}>
             <Menu.Item className={styles.item} onClick={send}>

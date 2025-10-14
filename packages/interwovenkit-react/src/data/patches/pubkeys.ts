@@ -1,9 +1,9 @@
-import { Any } from "cosmjs-types/google/protobuf/any"
-import { PubKey as CosmosCryptoSecp256k1Pubkey } from "cosmjs-types/cosmos/crypto/secp256k1/keys"
 import type { Pubkey } from "@cosmjs/amino"
 import { pubkeyType } from "@cosmjs/amino"
 import { fromBase64 } from "@cosmjs/encoding"
 import { encodePubkey } from "@cosmjs/proto-signing"
+import { PubKey as CosmosCryptoSecp256k1Pubkey } from "cosmjs-types/cosmos/crypto/secp256k1/keys"
+import { Any } from "cosmjs-types/google/protobuf/any"
 import type { EthSecp256k1Pubkey } from "./encoding"
 
 export function isEthSecp256k1Pubkey(pubkey: Pubkey): pubkey is EthSecp256k1Pubkey {

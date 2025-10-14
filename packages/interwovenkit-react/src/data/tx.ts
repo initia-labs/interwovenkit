@@ -1,17 +1,17 @@
-import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
-import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import { encodeSecp256k1Pubkey } from "@cosmjs/amino"
 import type { EncodeObject } from "@cosmjs/proto-signing"
 import type { DeliverTxResponse, SigningStargateClient, StdFee } from "@cosmjs/stargate"
 import { QueryClient, setupTxExtension } from "@cosmjs/stargate"
+import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
+import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import { atom, useAtomValue, useSetAtom } from "jotai"
 import { useNavigate } from "@/lib/router"
+import { useModal } from "@/public/app/ModalContext"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { useModal } from "@/public/app/ModalContext"
+import { useFindChain } from "./chains"
 import { useConfig } from "./config"
 import { formatMoveError } from "./errors"
-import { useFindChain } from "./chains"
 import {
   useCreateComet38Client,
   useCreateSigningStargateClient,

@@ -1,4 +1,4 @@
-import { createContext, useContext, type RefObject } from "react"
+import { createContext, type RefObject, useContext } from "react"
 
 export const ScrollableContext = createContext<RefObject<HTMLDivElement | null>>(null!)
 

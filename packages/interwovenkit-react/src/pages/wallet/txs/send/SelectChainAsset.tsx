@@ -1,11 +1,11 @@
 import { useState } from "react"
 import { useFormContext } from "react-hook-form"
-import { useChain, useInitiaRegistry } from "@/data/chains"
 import AsyncBoundary from "@/components/AsyncBoundary"
-import ChainOptions from "@/components/form/ChainOptions"
 import AssetOptions from "@/components/form/AssetOptions"
-import type { FormValues } from "./Send"
+import ChainOptions from "@/components/form/ChainOptions"
+import { useChain, useInitiaRegistry } from "@/data/chains"
 import SelectAsset from "./SelectAsset"
+import type { FormValues } from "./Send"
 
 const SelectChainAsset = ({ afterSelect }: { afterSelect: () => void }) => {
   const { watch, setValue } = useFormContext<FormValues>()

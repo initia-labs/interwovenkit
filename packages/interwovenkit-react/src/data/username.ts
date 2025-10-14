@@ -1,5 +1,5 @@
-import { bcs } from "@mysten/bcs"
 import { toBase64 } from "@cosmjs/encoding"
+import { bcs } from "@mysten/bcs"
 import { createMoveClient, InitiaAddress } from "@initia/utils"
 
 interface Params {

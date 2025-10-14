@@ -1,11 +1,12 @@
 import { nanoid } from "nanoid"
-import type { PropsWithChildren } from "react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import Toast from "@/components/Toast"
-import { usePortal } from "./PortalContext"
 import type { Notification } from "./NotificationContext"
 import { NotificationContext } from "./NotificationContext"
+import { usePortal } from "./PortalContext"
+
+import type { PropsWithChildren } from "react"
 
 export interface InternalNotification extends Notification {
   id: string

@@ -5,9 +5,9 @@ import { createQueryKeys } from "@lukemorales/query-key-factory"
 import type { Asset, AssetList } from "@initia/initia-registry-types"
 import { getIbcDenom } from "@initia/utils"
 import type { BaseAsset } from "@/components/form/types"
-import { STALE_TIMES } from "./http"
 import type { NormalizedChain } from "./chains"
 import { useInitiaRegistry, useLayer1 } from "./chains"
+import { STALE_TIMES } from "./http"
 import placeholder from "./placeholder"
 
 export const assetQueryKeys = createQueryKeys("interwovenkit:asset", {

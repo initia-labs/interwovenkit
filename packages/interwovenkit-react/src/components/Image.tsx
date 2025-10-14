@@ -1,7 +1,8 @@
 import clsx from "clsx"
-import type { ImgHTMLAttributes, ReactNode } from "react"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import styles from "./Image.module.css"
+
+import type { ImgHTMLAttributes, ReactNode } from "react"
 
 interface Props extends ImgHTMLAttributes<HTMLImageElement> {
   placeholder?: ReactNode
@@ -10,7 +11,7 @@ interface Props extends ImgHTMLAttributes<HTMLImageElement> {
 }
 
 const Image = ({ src, alt, placeholder, classNames, style, logo, ...attrs }: Props) => {
-  const [hasError, setHasError] = useState(false)
+  const [errorSrc, setErrorSrc] = useState<string | undefined>(undefined)
   const { width, height } = attrs
 
   const unloader = placeholder ?? (
@@ -20,10 +21,7 @@ const Image = ({ src, alt, placeholder, classNames, style, logo, ...attrs }: Pro
     />
   )
 
-  // Reset state when src changes
-  useEffect(() => {
-    setHasError(false)
-  }, [src])
+  const hasError = errorSrc === src
 
   if (!src || hasError) {
     return unloader
@@ -37,7 +35,7 @@ const Image = ({ src, alt, placeholder, classNames, style, logo, ...attrs }: Pro
       src={src}
       alt={alt}
       loading="lazy"
-      onError={() => setHasError(true)}
+      onError={() => setErrorSrc(src)}
     />
   )
 }

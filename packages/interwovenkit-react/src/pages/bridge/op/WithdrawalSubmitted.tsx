@@ -1,6 +1,6 @@
 import { IconInfoFilled } from "@initia/icons-react"
-import { useIsMobile } from "@/hooks/useIsMobile"
 import WidgetTooltip from "@/components/WidgetTooltip"
+import { useIsMobile } from "@/hooks/useIsMobile"
 import styles from "./WithdrawalSubmitted.module.css"
 
 const DESCRIPTION = "Withdrawal will begin within an hour"
