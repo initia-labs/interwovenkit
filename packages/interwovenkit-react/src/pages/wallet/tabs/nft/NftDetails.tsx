@@ -86,10 +86,10 @@ const NftDetails = () => {
         <Button.White
           onClick={() => navigate("/nft/send", normalizedNft)}
           disabled={!simulation.data}
-          loading={simulation.isLoading ? "Checking transferability…" : undefined}
+          loading={simulation.isLoading ? "Checking transferability..." : undefined}
           sm
         >
-          {simulation.error ? "Non-transferable NFT" : "Transfer"}
+          {simulation.error ? "Non-transferable NFT" : "Send"}
         </Button.White>
       </Footer>
 
