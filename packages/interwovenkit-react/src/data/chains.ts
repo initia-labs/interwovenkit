@@ -2,12 +2,13 @@ import ky from "ky"
 import { descend, path } from "ramda"
 import { queryOptions, useQueries, useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
-import type { Chain, SecureEndpoint } from "@initia/initia-registry-types"
+import type { Chain, ChainProfile, SecureEndpoint } from "@initia/initia-registry-types"
 import { useConfig } from "./config"
 import { STALE_TIMES } from "./http"
 
 export const chainQueryKeys = createQueryKeys("interwovenkit:chain", {
   list: (registryUrl: string) => [registryUrl],
+  profiles: (registryUrl: string) => [registryUrl],
   prices: (chainId: string) => [chainId],
   gasPrices: (chain: NormalizedChain) => [chain],
 })
@@ -50,12 +51,46 @@ export function useInitiaRegistry() {
   return data
 }
 
+export function useProfilesRegistry() {
+  const { registryUrl } = useConfig()
+  const { data } = useSuspenseQuery({
+    queryKey: chainQueryKeys.profiles(registryUrl).queryKey,
+    queryFn: () =>
+      ky.create({ prefixUrl: registryUrl }).get("profiles.json").json<ChainProfile[]>(),
+    staleTime: STALE_TIMES.MINUTE,
+  })
+  return data
+}
+
 export function useFindChain() {
+  const layer1 = useLayer1()
   const chains = useInitiaRegistry()
+  const profiles = useProfilesRegistry()
   return (chainId: string) => {
     const chain = chains.find((chain) => chain.chain_id === chainId)
-    if (!chain) throw new Error(`Chain not found: ${chainId}`)
-    return chain
+    if (chain) return chain
+
+    // Fallback to profiles.json for deleted chains
+    const profile = profiles.find((profile) => profile.chain_id === chainId)
+    if (!profile) throw new Error(`Chain not found: ${chainId}`)
+
+    // Return a minimal chain object with display metadata from profile
+    return {
+      chain_id: profile.chain_id,
+      chain_name: profile.name,
+      pretty_name: profile.pretty_name,
+      network_type: layer1.network_type,
+      bech32_prefix: "init" as const,
+      fees: { fee_tokens: [] },
+      apis: { rpc: [], rest: [], indexer: [] },
+      chainId,
+      name: profile.pretty_name,
+      logoUrl: profile.logo,
+      rpcUrl: "",
+      restUrl: "",
+      indexerUrl: "",
+      jsonRpcUrl: "",
+    } as NormalizedChain
   }
 }
 
