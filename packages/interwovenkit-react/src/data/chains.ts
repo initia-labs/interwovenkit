@@ -75,7 +75,6 @@ export function useFindChain() {
     if (!profile) throw new Error(`Chain not found: ${chainId}`)
 
     // Return a minimal chain object with display metadata from profile
-    // Use Layer1's API endpoints to prevent runtime errors
     return {
       chain_id: profile.chain_id,
       chain_name: profile.name,
