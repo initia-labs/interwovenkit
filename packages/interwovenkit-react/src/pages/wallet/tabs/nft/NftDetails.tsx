@@ -10,12 +10,12 @@ import styles from "./NftDetails.module.css"
 const NftDetails = () => {
   const navigate = useNavigate()
   const normalizedNft = useLocationState<NormalizedNft>()
-  const { collection_name, image, name, attributes, chain } = normalizedNft
+  const { collection_name, name, attributes, chain } = normalizedNft
 
   return (
     <Page title="NFT details">
       <header className={styles.header}>
-        {image && <NftThumbnail nftInfo={normalizedNft} />}
+        <NftThumbnail nftInfo={normalizedNft} />
         <div>
           <div className={styles.collectionName}>{collection_name}</div>
           <h2 className={styles.name}>{name}</h2>

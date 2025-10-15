@@ -30,7 +30,7 @@ const queryKeys = createQueryKeys("interwovenkit:send-nft", {
 const SendNftFields = () => {
   const chains = useInitiaRegistry()
   const nft = useLocationState<NormalizedNft>()
-  const { chain: srcChain, collection_addr, collection_name, image, name } = nft
+  const { chain: srcChain, collection_addr, collection_name, name } = nft
 
   const { routerApiUrl } = useConfig()
   const aminoTypes = useAminoTypes()
@@ -86,7 +86,7 @@ const SendNftFields = () => {
   return (
     <form onSubmit={handleSubmit(() => mutate())}>
       <header className={styles.header}>
-        {image && <NftThumbnail nftInfo={nft} size={80} />}
+        <NftThumbnail nftInfo={nft} size={80} />
         <div className={styles.name}>
           <div className={styles.collection}>{collection_name}</div>
           <div className={styles.nft}>{name}</div>
