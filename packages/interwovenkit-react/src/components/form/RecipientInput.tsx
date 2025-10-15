@@ -95,9 +95,6 @@ const RecipientInput = ({ mode = "onChange", myAddress, ...props }: Props) => {
     if (mode === "onSubmit" && inputValue && !resolvedAddress) {
       return <InputHelp level="error">Invalid address</InputHelp>
     }
-    if (mode === "onChange") {
-      return <InputHelp level="error">{formState.errors.recipient?.message}</InputHelp>
-    }
   }
 
   return (
