@@ -1,13 +1,15 @@
 import clsx from "clsx"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Popover } from "@base-ui-components/react/popover"
-import { IconCheck, IconChevronDown } from "@initia/icons-react"
+import { IconChevronDown } from "@initia/icons-react"
 import { useAutoFocus } from "@/components/form/hooks"
 import SearchInput from "@/components/form/SearchInput"
 import Image from "@/components/Image"
 import Status from "@/components/Status"
 import type { NormalizedChain } from "@/data/chains"
 import { useInitiaRegistry } from "@/data/chains"
+import type { PortfolioChainItem } from "@/data/portfolio"
+import { formatValue } from "@/lib/format"
 import { usePortal } from "@/public/app/PortalContext"
 import { usePortalCssVariable } from "@/public/app/PortalContext"
 import styles from "./ChainSelect.module.css"
@@ -16,10 +18,11 @@ interface Props {
   value: string
   onChange: (value: string) => void
   chainIds: string[]
+  chainValues?: PortfolioChainItem[]
   fullWidth?: boolean
 }
 
-const ChainSelect = ({ value, onChange, chainIds, fullWidth }: Props) => {
+const ChainSelect = ({ value, onChange, chainIds, chainValues, fullWidth }: Props) => {
   const [searchQuery, setSearchQuery] = useState("")
   const [isOpen, setIsOpen] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(0)
@@ -68,6 +71,12 @@ const ChainSelect = ({ value, onChange, chainIds, fullWidth }: Props) => {
 
   // Determine currently selected chain, defaulting to "All" if not found
   const selectedChain = chains.find((chain) => chain.chainId === value) || allChainsOption
+
+  // Helper function to get chain value
+  const getChainValue = (chainId: string) => {
+    if (!chainValues) return undefined
+    return chainValues.find((chain) => chain.chainId === chainId)?.value
+  }
 
   // Get the offset from the portal css variable
   const offset = parseInt(usePortalCssVariable("--drawer-offset"))
@@ -186,38 +195,42 @@ const ChainSelect = ({ value, onChange, chainIds, fullWidth }: Props) => {
               {options.length === 0 ? (
                 <Status>No appchains found</Status>
               ) : (
-                options.map(({ chainId, name, logoUrl }, index) => (
-                  <div
-                    className={clsx(styles.item, {
-                      [styles.highlighted]: index === highlightedIndex,
-                    })}
-                    onClick={() => handleItemClick(chainId)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault()
-                        handleItemClick(chainId)
-                      }
-                    }}
-                    onMouseEnter={() => setHighlightedIndex(index)}
-                    role="option"
-                    aria-selected={value === chainId}
-                    tabIndex={-1}
-                    ref={(el) => {
-                      if (el) itemsRef.current[index] = el
-                    }}
-                    key={chainId}
-                  >
-                    <div className={styles.itemContent}>
+                options.map(({ chainId, name, logoUrl }, index) => {
+                  const chainValue = getChainValue(chainId)
+                  return (
+                    <div
+                      className={clsx(styles.item, {
+                        [styles.highlighted]: index === highlightedIndex,
+                        [styles.active]: value === chainId,
+                      })}
+                      onClick={() => handleItemClick(chainId)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault()
+                          handleItemClick(chainId)
+                        }
+                      }}
+                      onMouseEnter={() => setHighlightedIndex(index)}
+                      role="option"
+                      aria-selected={value === chainId}
+                      tabIndex={-1}
+                      ref={(el) => {
+                        if (el) itemsRef.current[index] = el
+                      }}
+                      key={chainId}
+                    >
                       {typeof logoUrl === "string" ? (
                         <Image src={logoUrl} width={16} height={16} logo />
                       ) : (
                         logoUrl(16)
                       )}
-                      <span>{name}</span>
+                      <span className={styles.name}>{name}</span>
+                      {chainValue !== undefined && (
+                        <span className={styles.value}>{formatValue(chainValue)}</span>
+                      )}
                     </div>
-                    {value === chainId && <IconCheck size={16} />}
-                  </div>
-                ))
+                  )
+                })
               )}
             </div>
           </Popover.Popup>

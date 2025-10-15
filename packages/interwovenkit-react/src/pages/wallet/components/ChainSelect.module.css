@@ -53,30 +53,14 @@
   right: 1px;
   bottom: 1px;
 
-  animation: fadeIn var(--transition) ease-out;
   background: rgba(0, 0, 0, 0.8);
   border-radius: var(--border-radius);
   z-index: 9999;
 
+  transition: opacity var(--transition) ease-out;
+
+  &[data-starting-style],
   &[data-ending-style] {
-    animation: fadeOut var(--transition) ease-out;
-  }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes fadeOut {
-  from {
-    opacity: 1;
-  }
-  to {
     opacity: 0;
   }
 }
@@ -89,40 +73,20 @@
   display: flex;
   flex-direction: column;
 
-  animation: slideDown var(--transition) ease-out;
   background: var(--gray-8);
   border-radius: 8px;
   border: 1px solid var(--gray-6);
   box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.2);
   overflow: hidden;
-  width: 240px;
+  width: calc(var(--drawer-width) - 2 * var(--padding));
 
+  transition:
+    transform var(--transition) ease-out,
+    opacity var(--transition) ease-out;
+  will-change: transform, opacity;
+
+  &[data-starting-style],
   &[data-ending-style] {
-    animation: slideUp var(--transition) ease-out;
-  }
-
-  &.full {
-    width: var(--anchor-width);
-  }
-}
-
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  to {
     opacity: 0;
     transform: translateY(-10px);
   }
@@ -141,7 +105,7 @@
 .item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
 
   color: var(--gray-0);
   cursor: pointer;
@@ -155,10 +119,18 @@
   &.highlighted {
     background: var(--gray-7);
   }
+
+  &.active {
+    background: var(--gray-6);
+  }
 }
 
-.itemContent {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.name {
+  flex: 1;
+}
+
+.value {
+  color: var(--gray-2);
+  font-size: 12px;
+  font-weight: 500;
 }
