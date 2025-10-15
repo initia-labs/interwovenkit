@@ -270,6 +270,7 @@ const BridgeFields = () => {
                 { shouldValidate: true },
               )
             }
+            disabled={BigNumber(srcBalance?.amount ?? "0").isZero()}
           >
             {formatAmount(srcBalance?.amount ?? "0", { decimals: srcAsset.decimals })}
           </BalanceButton>
