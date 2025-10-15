@@ -6,7 +6,6 @@ import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import Image from "@/components/Image"
 import Page from "@/components/Page"
-import { useChain } from "@/data/chains"
 import { useLayer1 } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import { STALE_TIMES } from "@/data/http"
@@ -37,7 +36,6 @@ const NftDetails = () => {
   const aminoTypes = useAminoTypes()
   const layer1 = useLayer1()
   const { initiaAddress: sender } = useInterwovenKit()
-  const dstChain = useChain(chain.chainId)
   const { simulateTx } = useTx()
 
   // Two-step validation: 1) Get messages from router API, 2) Simulate on chain
@@ -50,7 +48,7 @@ const NftDetails = () => {
       sender,
       recipient: sender,
       srcChain: chain,
-      dstChain,
+      dstChain: chain,
       layer1,
       routerApiUrl,
     }).queryKey,
