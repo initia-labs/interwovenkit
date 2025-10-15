@@ -65,6 +65,8 @@ const BridgeFields = () => {
   const { data: balances } = useSkipBalancesQuery(sender, srcChainId)
   const srcBalance = useSkipBalance(sender, srcChainId, srcDenom)
 
+  const hasZeroBalance = !srcBalance?.amount || BigNumber(srcBalance.amount).isZero()
+
   // simulation
   // Avoid hitting the simulation API on every keystroke.  Wait a short period
   // after the user stops typing before updating the debounced value.
@@ -270,6 +272,7 @@ const BridgeFields = () => {
                 { shouldValidate: true },
               )
             }
+            disabled={hasZeroBalance}
           >
             {formatAmount(srcBalance?.amount ?? "0", { decimals: srcAsset.decimals })}
           </BalanceButton>

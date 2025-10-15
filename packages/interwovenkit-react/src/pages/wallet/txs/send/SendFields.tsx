@@ -70,6 +70,11 @@ export const SendFields = () => {
   const gas = Math.ceil(estimatedGas * DEFAULT_GAS_ADJUSTMENT)
   const maxAmount = calcMaxAmount({ denom, balances, gasPrices, lastFeeDenom, gas })
 
+  const hasZeroBalance = BigNumber(balance).isZero()
+  const isFeeToken = gasPrices.some(({ denom: feeDenom }) => feeDenom === denom)
+  const isEstimatingGas = isFeeToken && isLoading
+  const isMaxButtonDisabled = hasZeroBalance || isEstimatingGas
+
   const { mutate, isPending } = useMutation({
     mutationFn: ({ chainId, denom, quantity, recipient, memo }: FormValues) => {
       const amount = toBaseUnit(quantity, { decimals })
@@ -117,7 +122,7 @@ export const SendFields = () => {
                     shouldValidate: true,
                   })
                 }
-                disabled={gasPrices.some(({ denom: feeDenom }) => feeDenom === denom) && isLoading}
+                disabled={isMaxButtonDisabled}
               >
                 {formatAmount(balance ?? "0", { decimals })}
               </BalanceButton>
