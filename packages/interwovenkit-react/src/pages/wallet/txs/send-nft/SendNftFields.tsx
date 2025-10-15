@@ -2,6 +2,7 @@ import type { AminoMsg } from "@cosmjs/amino"
 import clsx from "clsx"
 import ky from "ky"
 import { VisuallyHidden } from "radix-ui"
+import { useMemo } from "react"
 import { useFormContext } from "react-hook-form"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
@@ -38,6 +39,7 @@ const SendNftFields = () => {
   const { address, initiaAddress: sender, requestTxSync } = useInterwovenKit()
 
   const { watch, setValue, handleSubmit, formState } = useFormContext<FormValues>()
+  const { errors } = formState
   const values = watch()
   const { recipient, dstChainId } = values
   const dstChain = useChain(dstChainId)
@@ -83,6 +85,12 @@ const SendNftFields = () => {
     },
   })
 
+  const disabledMessage = useMemo(() => {
+    if (!recipient) return "Enter recipient address"
+    if (errors.recipient) return errors.recipient.message
+    if (error) return "Route not found"
+  }, [recipient, errors.recipient, error])
+
   return (
     <form onSubmit={handleSubmit(() => mutate())}>
       <header className={styles.header}>
@@ -124,8 +132,11 @@ const SendNftFields = () => {
       </div>
 
       <Footer>
-        <Button.White loading={isLoading || isPending} disabled={!formState.isValid || !!error}>
-          {error ? "Route not found" : "Confirm"}
+        <Button.White
+          loading={(isLoading ? "Finding route..." : false) || isPending}
+          disabled={!!disabledMessage}
+        >
+          {disabledMessage ?? "Confirm"}
         </Button.White>
       </Footer>
     </form>

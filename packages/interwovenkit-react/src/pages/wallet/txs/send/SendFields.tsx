@@ -1,5 +1,6 @@
 import BigNumber from "bignumber.js"
 import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
+import { useMemo } from "react"
 import { useFormContext } from "react-hook-form"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
@@ -10,7 +11,6 @@ import AssetOnChainButton from "@/components/form/AssetOnChainButton"
 import BalanceButton from "@/components/form/BalanceButton"
 import ChainAssetQuantityLayout from "@/components/form/ChainAssetQuantityLayout"
 import FormHelp from "@/components/form/FormHelp"
-import InputHelp from "@/components/form/InputHelp"
 import QuantityInput from "@/components/form/QuantityInput"
 import RecipientInput from "@/components/form/RecipientInput"
 import ModalTrigger from "@/components/ModalTrigger"
@@ -36,6 +36,7 @@ export const SendFields = () => {
   const { address, initiaAddress, estimateGas, requestTxSync } = useInterwovenKit()
 
   const { register, watch, setValue, handleSubmit, formState } = useFormContext<FormValues>()
+  const { errors } = formState
   const { chainId, denom, recipient, quantity, memo } = watch()
 
   const chain = useChain(chainId)
@@ -96,6 +97,15 @@ export const SendFields = () => {
     },
   })
 
+  const disabledMessage = useMemo(() => {
+    if (!quantity) return "Enter amount"
+    if (errors.quantity) return errors.quantity.message
+    if (!recipient) return "Enter recipient address"
+    if (errors.recipient) return errors.recipient.message
+    if (errors.memo) return errors.memo.message
+    // Destructure error fields in deps to properly track each field change
+  }, [quantity, recipient, errors.quantity, errors.recipient, errors.memo])
+
   return (
     <Page title="Send">
       <form onSubmit={handleSubmit((values) => mutate(values))}>
@@ -123,7 +133,6 @@ export const SendFields = () => {
               </BalanceButton>
             }
             value={!quantity ? "$0" : !price ? "$-" : formatValue(BigNumber(quantity).times(price))}
-            errorMessage={formState.errors.quantity?.message}
           />
 
           <div className={styles.divider} />
@@ -139,7 +148,6 @@ export const SendFields = () => {
               id="memo"
               autoComplete="off"
             />
-            <InputHelp level="error">{formState.errors.memo?.message}</InputHelp>
           </div>
 
           <FormHelp.Stack>
@@ -152,10 +160,10 @@ export const SendFields = () => {
         <Footer>
           <Button.White
             type="submit"
-            loading={isLoading || isPending}
-            disabled={!formState.isValid}
+            loading={(isLoading ? "Estimating gas..." : false) || isPending}
+            disabled={!!disabledMessage}
           >
-            Confirm
+            {disabledMessage ?? "Confirm"}
           </Button.White>
         </Footer>
       </form>
