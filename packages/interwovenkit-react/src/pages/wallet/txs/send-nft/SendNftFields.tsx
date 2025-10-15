@@ -4,6 +4,7 @@ import ky from "ky"
 import { VisuallyHidden } from "radix-ui"
 import { useFormContext } from "react-hook-form"
 import { useMutation, useQuery } from "@tanstack/react-query"
+import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { InitiaAddress } from "@initia/utils"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
@@ -19,9 +20,12 @@ import { useLocationState } from "@/lib/router"
 import { useInterwovenKit } from "@/public/data/hooks"
 import NftThumbnail from "../../tabs/nft/NftThumbnail"
 import type { NormalizedNft } from "../../tabs/nft/queries"
-import { sendNftQueryKeys } from "./queries"
 import type { FormValues } from "./SendNft"
 import styles from "./SendNftFields.module.css"
+
+const queryKeys = createQueryKeys("interwovenkit:send-nft", {
+  simulation: (params) => [params],
+})
 
 const SendNftFields = () => {
   const chains = useInitiaRegistry()
@@ -39,7 +43,7 @@ const SendNftFields = () => {
   const dstChain = useChain(dstChainId)
 
   const simulation = useQuery({
-    queryKey: sendNftQueryKeys.simulation({
+    queryKey: queryKeys.simulation({
       collection_addr,
       nft,
       sender,

@@ -1,6 +1,7 @@
 import type { AminoMsg } from "@cosmjs/amino"
 import ky from "ky"
 import { useQuery } from "@tanstack/react-query"
+import { createQueryKeys } from "@lukemorales/query-key-factory"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import Image from "@/components/Image"
@@ -8,14 +9,23 @@ import Page from "@/components/Page"
 import { useChain } from "@/data/chains"
 import { useLayer1 } from "@/data/chains"
 import { useConfig } from "@/data/config"
+import { STALE_TIMES } from "@/data/http"
 import { useAminoTypes } from "@/data/signer"
 import { useTx } from "@/data/tx"
 import { useLocationState, useNavigate } from "@/lib/router"
 import { useInterwovenKit } from "@/public/data/hooks"
-import { sendNftQueryKeys } from "../../txs/send-nft/queries"
 import NftThumbnail from "./NftThumbnail"
 import type { NormalizedNft } from "./queries"
 import styles from "./NftDetails.module.css"
+
+/**
+ * Query key for NFT transfer validation with on-chain simulation.
+ * Not using a shared query key because this validation includes simulateTx,
+ * which is separate from the route fetching query in SendNftFields.
+ */
+const nftValidationQueryKeys = createQueryKeys("interwovenkit:nft-details", {
+  validation: (params) => [params],
+})
 
 const NftDetails = () => {
   const navigate = useNavigate()
@@ -30,9 +40,9 @@ const NftDetails = () => {
   const dstChain = useChain(chain.chainId)
   const { simulateTx } = useTx()
 
-  // Two-step simulation: 1) Get messages from router API, 2) Simulate on chain
+  // Two-step validation: 1) Get messages from router API, 2) Simulate on chain
   const simulation = useQuery({
-    queryKey: sendNftQueryKeys.simulation({
+    queryKey: nftValidationQueryKeys.validation({
       collection_addr,
       nft: normalizedNft,
       token_id,
@@ -66,6 +76,7 @@ const NftDetails = () => {
       // Step 2: Simulate on chain to verify the transaction can be executed
       return await simulateTx({ messages, chainId: chain.chainId })
     },
+    staleTime: STALE_TIMES.INFINITY,
   })
 
   return (
