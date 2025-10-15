@@ -1,7 +1,7 @@
 import clsx from "clsx"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Popover } from "@base-ui-components/react/popover"
-import { IconCheck, IconChevronDown } from "@initia/icons-react"
+import { IconChevronDown } from "@initia/icons-react"
 import { useAutoFocus } from "@/components/form/hooks"
 import SearchInput from "@/components/form/SearchInput"
 import Image from "@/components/Image"
@@ -16,10 +16,11 @@ interface Props {
   value: string
   onChange: (value: string) => void
   chainIds: string[]
+  renderExtra?: (chainId: string) => React.ReactNode
   fullWidth?: boolean
 }
 
-const ChainSelect = ({ value, onChange, chainIds, fullWidth }: Props) => {
+const ChainSelect = ({ value, onChange, chainIds, renderExtra, fullWidth }: Props) => {
   const [searchQuery, setSearchQuery] = useState("")
   const [isOpen, setIsOpen] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(0)
@@ -190,6 +191,7 @@ const ChainSelect = ({ value, onChange, chainIds, fullWidth }: Props) => {
                   <div
                     className={clsx(styles.item, {
                       [styles.highlighted]: index === highlightedIndex,
+                      [styles.active]: value === chainId,
                     })}
                     onClick={() => handleItemClick(chainId)}
                     onKeyDown={(e) => {
@@ -207,15 +209,13 @@ const ChainSelect = ({ value, onChange, chainIds, fullWidth }: Props) => {
                     }}
                     key={chainId}
                   >
-                    <div className={styles.itemContent}>
-                      {typeof logoUrl === "string" ? (
-                        <Image src={logoUrl} width={16} height={16} logo />
-                      ) : (
-                        logoUrl(16)
-                      )}
-                      <span>{name}</span>
-                    </div>
-                    {value === chainId && <IconCheck size={16} />}
+                    {typeof logoUrl === "string" ? (
+                      <Image src={logoUrl} width={16} height={16} logo />
+                    ) : (
+                      logoUrl(16)
+                    )}
+                    <span className={styles.name}>{name}</span>
+                    {renderExtra && <span className={styles.extra}>{renderExtra(chainId)}</span>}
                   </div>
                 ))
               )}

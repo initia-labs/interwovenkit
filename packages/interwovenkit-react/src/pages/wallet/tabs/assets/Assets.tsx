@@ -2,6 +2,7 @@ import { useMemo } from "react"
 import { useAtom } from "jotai"
 import Status from "@/components/Status"
 import { usePortfolio } from "@/data/portfolio"
+import { formatValue } from "@/lib/format"
 import ChainSelect from "../../components/ChainSelect"
 import HomeContainer from "../../components/HomeContainer"
 import Version from "../../components/Version"
@@ -13,7 +14,7 @@ import styles from "./Assets.module.css"
 const Assets = () => {
   const [searchQuery, setSearchQuery] = useAtom(assetsSearchAtom)
   const [selectedChain, setSelectedChain] = useAtom(assetsChainAtom)
-  const { assetGroups, unlistedAssets, chainsByValue, isLoading } = usePortfolio()
+  const { assetGroups, unlistedAssets, chainsByValue, totalValue, isLoading } = usePortfolio()
   const chainIds = chainsByValue.map(({ chainId }) => chainId)
 
   // Filter assets based on selected chain and search query
@@ -88,7 +89,17 @@ const Assets = () => {
             onClear={() => setSearchQuery("")}
             placeholder="Search assets"
           />
-          <ChainSelect value={selectedChain} onChange={setSelectedChain} chainIds={chainIds} />
+          <ChainSelect
+            value={selectedChain}
+            onChange={setSelectedChain}
+            chainIds={chainIds}
+            renderExtra={(chainId) => {
+              // Show total value for "All" option (empty chainId)
+              if (!chainId) return formatValue(totalValue)
+              const chain = chainsByValue.find((c) => c.chainId === chainId)
+              return chain ? formatValue(chain.value) : null
+            }}
+          />
         </HomeContainer.Controls>
 
         <div>

@@ -74,10 +74,18 @@ export const useAllNfts = () => {
   const results = queries.map(prop("data"))
   const nftInfos = aggregateNfts(chains, results)
 
+  // Calculate NFT count per chain
+  const chainCounts = nftInfos.reduce<Record<string, number>>(
+    (acc, { chain }) => ({ ...acc, [chain.chainId]: (acc[chain.chainId] || 0) + 1 }),
+    {},
+  )
+
+  const totalCount = Object.values(chainCounts).reduce((sum, count) => sum + count, 0)
+
   // Aggregate loading state - true if any chain is still loading
   const isLoading = queries.some((query) => query.isLoading)
 
-  return { nftInfos, isLoading }
+  return { nftInfos, chainCounts, totalCount, isLoading }
 }
 
 export function useNftMetataQuery(url?: string) {
