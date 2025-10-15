@@ -18,7 +18,7 @@ const SendNft = () => {
   })
 
   return (
-    <Page title="Send NFT">
+    <Page title="Transfer NFT">
       <FormProvider {...form}>
         <SendNftFields />
       </FormProvider>
