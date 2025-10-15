@@ -12,7 +12,7 @@ import styles from "./Nfts.module.css"
 const Nfts = () => {
   const [searchQuery, setSearchQuery] = useAtom(nftsSearchAtom)
   const [selectedChain, setSelectedChain] = useAtom(nftsChainAtom)
-  const { nftInfos, isLoading } = useAllNfts()
+  const { nftInfos, chainCounts, totalCount, isLoading } = useAllNfts()
 
   // Filter NFTs based on chain selection and search query
   const filteredNfts = useMemo(() => {
@@ -63,6 +63,11 @@ const Nfts = () => {
           value={selectedChain}
           onChange={setSelectedChain}
           chainIds={relevantChainIds}
+          renderExtra={(chainId) => {
+            // Show total count for "All" option (empty chainId)
+            if (!chainId) return totalCount
+            return chainCounts[chainId] || 0
+          }}
         />
       </HomeContainer.Controls>
 
