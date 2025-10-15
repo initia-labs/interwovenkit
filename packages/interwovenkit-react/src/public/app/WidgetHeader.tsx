@@ -2,21 +2,19 @@ import { animated, useSpring } from "@react-spring/web"
 import clsx from "clsx"
 import { useAccount } from "wagmi"
 import { useEffect, useRef, useState } from "react"
-import { IconCopy, IconQrCode, IconSignOut } from "@initia/icons-react"
+import { IconCopy, IconSettingFilled, IconSignOut } from "@initia/icons-react"
 import { truncate } from "@initia/utils"
 import CopyButton from "@/components/CopyButton"
 import Image from "@/components/Image"
-import ModalTrigger from "@/components/ModalTrigger"
-import { useDefaultChain } from "@/data/chains"
 import { useDisconnect } from "@/data/ui"
+import { useNavigate } from "@/lib/router"
 import { useInterwovenKit } from "@/public/data/hooks"
-import AddressQr from "./AddressQr"
 import styles from "./WidgetHeader.module.css"
 
 const WidgetHeader = () => {
-  const deafultChain = useDefaultChain()
   const { connector } = useAccount()
   const disconnect = useDisconnect()
+  const navigate = useNavigate()
   const { address, username } = useInterwovenKit()
   const name = username ?? address
 
@@ -27,6 +25,11 @@ const WidgetHeader = () => {
     width: isExpanded ? 140 : 52,
     config: { tension: 500, friction: 30, clamp: true },
   })
+
+  const icon =
+    connector?.id === "io.privy.wallet"
+      ? "https://assets.initia.xyz/images/wallets/Privy.webp"
+      : connector?.icon
 
   const handleDisconnectClick = () => {
     if (!isExpanded) {
@@ -68,7 +71,7 @@ const WidgetHeader = () => {
       <CopyButton value={address}>
         {({ copy, copied }) => (
           <button className={clsx(styles.account, { [styles.copied]: copied })} onClick={copy}>
-            <Image src={connector.icon} width={18} height={18} />
+            <Image src={icon} width={18} height={18} />
             <div className={styles.address}>{truncate(address)}</div>
             <div className={styles.name}>{truncate(name)}</div>
             <IconCopy className={styles.icon} size={12} />
@@ -77,15 +80,9 @@ const WidgetHeader = () => {
         )}
       </CopyButton>
 
-      {deafultChain.metadata?.is_l1 && (
-        <ModalTrigger
-          title="Initia address"
-          content={() => <AddressQr />}
-          className={clsx(styles.button, styles.qr)}
-        >
-          <IconQrCode size={16} />
-        </ModalTrigger>
-      )}
+      <button className={clsx(styles.button, styles.qr)} onClick={() => navigate("/settings")}>
+        <IconSettingFilled size={16} />
+      </button>
 
       <animated.button
         className={clsx(styles.button, styles.disconnect, { [styles.expanded]: isExpanded })}
