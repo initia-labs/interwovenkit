@@ -14,8 +14,8 @@
 .preset {
   border: 1px solid transparent;
   border-radius: 24px;
+  width: 66px;
   height: 48px;
-  padding: 0 16px;
 
   background-color: var(--gray-7);
   color: var(--dimmed);
@@ -44,6 +44,12 @@
 
 .wrapper {
   position: relative;
+  flex: 1;
+
+  input {
+    font-family: var(--font-family);
+    width: 100%;
+  }
 
   .percent {
     position: absolute;
@@ -51,6 +57,6 @@
     top: 50%;
     transform: translateY(-50%);
 
-    font-family: var(--monospace);
+    font-family: var(--font-family);
   }
 }
