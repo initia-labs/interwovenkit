@@ -17,9 +17,9 @@ async function fetchCollectionNameMiniwasm(contractAddr: string, restUrl: string
 }
 
 // collection creator address를 조회하여 이 chain이 original creator인지 판별
-async function fetchCollectionCreatorAddress(collectionAddr: string, restUrl: string) {
+async function fetchCollectionCreatorAddress(collectionAddr: string, indexerUrl: string) {
   const { collection } = await ky
-    .create({ prefixUrl: restUrl })
+    .create({ prefixUrl: indexerUrl })
     .get(`indexer/nft/v1/collections/${collectionAddr}`)
     .json<{ collection: { collection: { creator: string } } }>()
 
@@ -67,7 +67,7 @@ export async function handleMiniwasm(
   const classId = ibcClassId ?? contractAddr
 
   // Step 3: collection creator 확인하여 origin chain 판별
-  const creatorAddr = await fetchCollectionCreatorAddress(collectionAddr, srcChain.restUrl)
+  const creatorAddr = await fetchCollectionCreatorAddress(collectionAddr, srcChain.indexerUrl)
 
   // Case 1: intermediary chain (creator가 ICS721 contract가 아님)
   if (ibcClassId && creatorAddr !== portId.replace("wasm.", "")) {
