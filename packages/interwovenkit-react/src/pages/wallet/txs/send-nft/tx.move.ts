@@ -24,7 +24,7 @@ async function fetchCollectionNameMinimove(collectionAddr: string, restUrl: stri
 
 // MiniMove NFT transfer를 위한 class_id와 class_trace 결정
 export async function handleMinimove(
-  { object_addr: collectionAddr }: NormalizedNft,
+  { object_addr: objectAddr, collection_addr: collectionAddr }: NormalizedNft,
   { restUrl }: NormalizedChain,
 ) {
   const collectionName = await fetchCollectionNameMinimove(collectionAddr, restUrl)
@@ -38,7 +38,7 @@ export async function handleMinimove(
   }
 
   // Case 2: 이 chain이 root creator (address 0x1이 IBC name으로 생성한 object address와 일치)
-  if (InitiaAddress.equals(createObjectAddress("0x1", collectionName), collectionAddr)) {
+  if (InitiaAddress.equals(createObjectAddress("0x1", collectionName), objectAddr)) {
     return {
       class_id: collectionName,
       class_trace: await fetchIbcClassTrace(collectionName, restUrl),
@@ -47,7 +47,7 @@ export async function handleMinimove(
 
   // Case 3: 이 chain이 intermediary (NFT가 local Move object address로 wrapping됨)
   return {
-    class_id: `move/${collectionAddr.replace("0x", "").padStart(64, "0")}`,
+    class_id: `move/${objectAddr.replace("0x", "").padStart(64, "0")}`,
     class_trace: await fetchIbcClassTrace(collectionName, restUrl),
   }
 }

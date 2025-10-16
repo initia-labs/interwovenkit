@@ -17,10 +17,10 @@ async function fetchCollectionNameMiniwasm(contractAddr: string, restUrl: string
 }
 
 // collection creator address를 조회하여 이 chain이 original creator인지 판별
-async function fetchCollectionCreatorAddress(collectionAddr: string, indexerUrl: string) {
+async function fetchCollectionCreatorAddress(objectAddr: string, indexerUrl: string) {
   const { collection } = await ky
     .create({ prefixUrl: indexerUrl })
-    .get(`indexer/nft/v1/collections/${collectionAddr}`)
+    .get(`indexer/nft/v1/collections/${objectAddr}`)
     .json<{ collection: { collection: { creator: string } } }>()
 
   return collection.collection.creator
@@ -41,7 +41,7 @@ function parseIbcPath(ibcPath: string) {
 // MiniWasm NFT transfer를 위한 class_id와 class_trace 결정
 // MiniWasm은 ICS721 (CosmWasm NFT standard)을 사용하므로 IBC transfer contract를 통한 class ID mapping 필요
 export async function handleMiniwasm(
-  { object_addr: contractAddr, collection_addr: collectionAddr }: NormalizedNft,
+  { object_addr: contractAddr, collection_addr: objectAddr }: NormalizedNft,
   srcChain: NormalizedChain,
   intermediaryChain: NormalizedChain,
 ) {
@@ -67,7 +67,7 @@ export async function handleMiniwasm(
   const classId = ibcClassId ?? contractAddr
 
   // Step 3: collection creator 확인하여 origin chain 판별
-  const creatorAddr = await fetchCollectionCreatorAddress(collectionAddr, srcChain.indexerUrl)
+  const creatorAddr = await fetchCollectionCreatorAddress(objectAddr, srcChain.indexerUrl)
 
   // Case 1: intermediary chain (creator가 ICS721 contract가 아님)
   if (ibcClassId && creatorAddr !== portId.replace("wasm.", "")) {
