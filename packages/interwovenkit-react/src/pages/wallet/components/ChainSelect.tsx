@@ -165,6 +165,7 @@ const ChainSelect = ({ value, onChange, chainIds, renderExtra, fullWidth }: Prop
           align="end"
           side="bottom"
           sideOffset={sideOffset}
+          collisionAvoidance={{ side: "none" }}
         >
           <Popover.Popup
             className={clsx(styles.popoverPopup, { [styles.full]: fullWidth })}
