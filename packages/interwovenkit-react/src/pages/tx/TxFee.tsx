@@ -1,13 +1,10 @@
 import type { StdFee } from "@cosmjs/amino"
 import BigNumber from "bignumber.js"
-import { Select } from "@base-ui-components/react/select"
-import { IconChevronDown } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
+import Dropdown, { type DropdownOption } from "@/components/Dropdown"
 import { useFindAsset } from "@/data/assets"
 import { useChain } from "@/data/chains"
 import { useTxRequestHandler } from "@/data/tx"
-import { usePortal } from "@/public/app/PortalContext"
-import styles from "./TxFee.module.css"
 
 interface Props {
   options: StdFee[]
@@ -16,7 +13,6 @@ interface Props {
 }
 
 const TxFee = ({ options, value, onChange }: Props) => {
-  const portalContainer = usePortal()
   const { txRequest } = useTxRequestHandler()
   const chain = useChain(txRequest.chainId)
   const findAsset = useFindAsset(chain)
@@ -33,6 +29,19 @@ const TxFee = ({ options, value, onChange }: Props) => {
     return `${formatAmount(amount, { decimals, dp })} ${symbol}`
   }
 
+  // Convert StdFee options to DropdownOption format
+  const dropdownOptions: DropdownOption<string>[] = options.map((option) => {
+    const [{ denom }] = option.amount
+    const { symbol } = findAsset(denom)
+
+    return {
+      value: denom,
+      label: getLabel(option),
+      displayLabel: symbol, // Show only symbol in trigger when selected
+    }
+  })
+
+  // For single option, just display it
   if (options.length === 1) {
     return <span className="monospace">{getLabel(options[0])}</span>
   }
@@ -40,41 +49,16 @@ const TxFee = ({ options, value, onChange }: Props) => {
   const selected = options.find((o) => o.amount[0].denom === value)
   if (!selected) throw new Error("Fee option not found")
   const [{ amount, denom }] = selected.amount
-  const { decimals, symbol } = findAsset(denom)
+  const { decimals } = findAsset(denom)
   const dp = getDp(amount, decimals)
 
   return (
-    <Select.Root value={value} onValueChange={onChange} modal={false}>
-      <div className={styles.value}>
-        <span className="monospace">{formatAmount(amount, { decimals, dp })}</span>
-        <Select.Trigger className={styles.trigger}>
-          <Select.Value>{symbol}</Select.Value>
-          <Select.Icon className={styles.icon}>
-            <IconChevronDown size={16} />
-          </Select.Icon>
-        </Select.Trigger>
-      </div>
-
-      <Select.Portal container={portalContainer}>
-        <Select.Positioner
-          className={styles.content}
-          alignItemWithTrigger={false}
-          sideOffset={6}
-          align="end"
-        >
-          <Select.Popup>
-            {options.map((option) => {
-              const [{ denom }] = option.amount
-              return (
-                <Select.Item className={styles.item} value={denom} key={denom}>
-                  <Select.ItemText>{getLabel(option)}</Select.ItemText>
-                </Select.Item>
-              )
-            })}
-          </Select.Popup>
-        </Select.Positioner>
-      </Select.Portal>
-    </Select.Root>
+    <Dropdown
+      options={dropdownOptions}
+      value={value}
+      onChange={onChange}
+      prefix={<span className="monospace">{formatAmount(amount, { decimals, dp })}</span>}
+    />
   )
 }
 

@@ -11,7 +11,9 @@ import { migrateLocalStorage } from "@/data/migration"
 import { MemoryRouter } from "@/lib/router"
 import { useSkipAssets } from "@/pages/bridge/data/assets"
 import { useSkipChains } from "@/pages/bridge/data/chains"
+import { useEmbeddedWalletAddress, useGhostWalletState } from "@/pages/ghost-wallet/hooks"
 import { MAINNET } from "../data/constants"
+import { useInitiaAddress } from "../data/hooks"
 import Analytics from "./Analytics"
 import Drawer from "./Drawer"
 import ModalProvider from "./ModalProvider"
@@ -45,6 +47,15 @@ const Prefetch = () => {
   useSkipChains()
   useSkipAssets(localStorage.getItem(LocalStorageKey.BRIDGE_SRC_CHAIN_ID) ?? layer1.chainId)
   useSkipAssets(localStorage.getItem(LocalStorageKey.BRIDGE_DST_CHAIN_ID) ?? layer1.chainId)
+
+  const ghostWalletState = useGhostWalletState()
+  const address = useInitiaAddress()
+  const embeddedWalletAddress = useEmbeddedWalletAddress()
+
+  useEffect(() => {
+    if (!embeddedWalletAddress || !address) return
+    ghostWalletState.checkGhostWallet()
+  }, [address, embeddedWalletAddress]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return null
 }

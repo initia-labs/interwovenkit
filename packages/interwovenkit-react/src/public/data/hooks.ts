@@ -1,13 +1,17 @@
 import { useAccount } from "wagmi"
+import { useAtomValue } from "jotai"
 import { useQuery } from "@tanstack/react-query"
 import { InitiaAddress } from "@initia/utils"
 import { accountQueryKeys, useUsernameClient } from "@/data/account"
 import { useDefaultChain } from "@/data/chains"
+import { useConfig } from "@/data/config"
+import { useSetGhostWalletRequestHandler } from "@/data/ghost-wallet"
 import { STALE_TIMES } from "@/data/http"
 import { useOfflineSigner } from "@/data/signer"
 import { useTx } from "@/data/tx"
 import { useDisconnect, useDrawer } from "@/data/ui"
 import type { FormValues } from "@/pages/bridge/data/form"
+import { ghostWalletLoadingAtom, useGhostWalletState } from "@/pages/ghost-wallet/hooks"
 
 export { usePortfolio } from "@/data/portfolio"
 
@@ -45,12 +49,15 @@ export function useUsernameQuery() {
 }
 
 export function useInterwovenKit() {
+  const config = useConfig()
   const address = useAddress()
   const initiaAddress = useInitiaAddress()
   const hexAddress = useHexAddress()
   const { data: username } = useUsernameQuery()
   const offlineSigner = useOfflineSigner()
   const disconnect = useDisconnect()
+  const ghostWalletState = useGhostWalletState()
+  const ghostWalletLoading = useAtomValue(ghostWalletLoadingAtom)
 
   const { isDrawerOpen: isOpen, openDrawer } = useDrawer()
 
@@ -59,11 +66,33 @@ export function useInterwovenKit() {
   }
 
   const openConnect = () => {
-    openDrawer("/connect")
+    if (config.privy) {
+      config.privy.login()
+    } else {
+      openDrawer("/connect")
+    }
   }
 
   const openBridge = (defaultValues?: Partial<FormValues>) => {
     openDrawer("/bridge", defaultValues)
+  }
+
+  const setGhostWalletRequestHandler = useSetGhostWalletRequestHandler()
+
+  const createGhostWallet = async (chainId: string): Promise<void> => {
+    if (!config.ghostWalletPermissions?.[chainId]?.length)
+      throw new Error("Ghost wallet permissions are required to create a ghost wallet")
+
+    if (ghostWalletState.isEnabled[chainId]) throw new Error("Ghost wallet is already enabled")
+
+    return new Promise<void>((resolve, reject) => {
+      setGhostWalletRequestHandler({
+        resolve,
+        reject,
+      })
+
+      openDrawer("/ghost-wallet", { chainId })
+    })
   }
 
   const tx = useTx()
@@ -82,6 +111,11 @@ export function useInterwovenKit() {
     openWallet,
     openBridge,
     disconnect,
+    ghostWallet: {
+      enabled: ghostWalletState.isEnabled,
+      create: createGhostWallet,
+      loading: ghostWalletLoading,
+    },
     ...tx,
   }
 }

@@ -5,8 +5,9 @@
 }
 
 .trigger {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px;
 
   background-color: var(--gray-7);
   border-radius: 6px;
@@ -15,8 +16,13 @@
   padding: 4px 8px;
   transition: background-color var(--transition) ease;
 
-  &:hover {
+  &:hover:not(.disabled) {
     background-color: var(--gray-6);
+  }
+
+  &.disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
   }
 }
 
@@ -45,7 +51,6 @@
   font-weight: 500;
   text-align: right;
   padding: 4px 12px;
-  width: 152px;
 
   transition: background-color var(--transition) ease;
 

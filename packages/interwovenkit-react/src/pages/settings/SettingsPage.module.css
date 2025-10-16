@@ -1,0 +1,32 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.link {
+  background-color: var(--gray-8);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.subtitle {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-2);
+  margin-top: 4px;
+}
+
+.icon {
+  color: var(--gray-3);
+  flex-shrink: 0;
+}

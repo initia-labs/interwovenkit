@@ -2,6 +2,7 @@ import { useDisconnect as useDisconnectWagmi } from "wagmi"
 import { atom, useAtom } from "jotai"
 import { useAnalyticsTrack } from "@/data/analytics"
 import { useNavigate, useReset } from "@/lib/router"
+import { useConfig } from "./config"
 import { LocalStorageKey } from "./constants"
 
 const isDrawerOpenAtom = atom<boolean>(false)
@@ -31,11 +32,13 @@ export function useDisconnect() {
   const navigate = useNavigate()
   const { closeDrawer } = useDrawer()
   const { disconnect } = useDisconnectWagmi()
+  const config = useConfig()
 
   return () => {
     navigate("/blank")
     closeDrawer()
     disconnect()
+    config.privy?.logout()
 
     // Clear bridge form values on disconnect
     localStorage.removeItem(LocalStorageKey.BRIDGE_SRC_CHAIN_ID)

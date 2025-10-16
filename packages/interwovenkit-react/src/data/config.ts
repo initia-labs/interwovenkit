@@ -1,5 +1,6 @@
 import type { GeneratedType } from "@cosmjs/proto-signing"
 import type { AminoConverters } from "@cosmjs/stargate"
+import type { useCreateWallet, useLogin, useLogout, useWallets } from "@privy-io/react-auth"
 import { createContext, useContext } from "react"
 import type { Chain } from "@initia/initia-registry-types"
 
@@ -17,6 +18,13 @@ export interface Config {
   theme: "light" | "dark"
   container?: HTMLElement
   disableAnalytics?: boolean
+  ghostWalletPermissions?: Record<string, string[]>
+  privy?: {
+    logout: ReturnType<typeof useLogout>["logout"]
+    login: ReturnType<typeof useLogin>["login"]
+    createWallet: ReturnType<typeof useCreateWallet>["createWallet"]
+    wallets: ReturnType<typeof useWallets>["wallets"]
+  }
 }
 
 export const ConfigContext = createContext<Config | null>(null)
