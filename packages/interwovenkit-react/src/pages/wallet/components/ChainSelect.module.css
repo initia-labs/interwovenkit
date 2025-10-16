@@ -79,6 +79,7 @@
   box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.2);
   overflow: hidden;
   width: calc(var(--drawer-width) - 2 * var(--padding));
+  max-width: calc(100vw - 2 * var(--padding));
 
   transition:
     transform var(--transition) ease-out,
