@@ -89,7 +89,7 @@ const RevokeGrantsItem = ({ grantee, expiration }: RevokeGrantsItemProps) => {
 
     await requestTxBlock({
       messages,
-      internal: "/revoke-grants",
+      internal: "/settings/revoke",
     })
 
     // Invalidate the grants query to refresh the data
@@ -105,6 +105,11 @@ const RevokeGrantsItem = ({ grantee, expiration }: RevokeGrantsItemProps) => {
 
   // Don't render the item if it has expired
   if (hasExpired) {
+    // Invalidate the grants query to refresh the data
+    queryClient.invalidateQueries({
+      queryKey: ghostWalletQueryKeys.grantsByGranter._def,
+    })
+
     return null
   }
 
