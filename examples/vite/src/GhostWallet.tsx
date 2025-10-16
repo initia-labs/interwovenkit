@@ -3,8 +3,10 @@ import { useInterwovenKit } from "@initia/interwovenkit-react"
 import styles from "./GhostWallet.module.css"
 
 const GhostWallet = () => {
-  const { ghostWallet } = useInterwovenKit()
+  const { ghostWallet, address } = useInterwovenKit()
   const [isCreating, setIsCreating] = useState(false)
+
+  if (!address) return null // Not connected
 
   const handleCreateGhostWallet = async () => {
     try {

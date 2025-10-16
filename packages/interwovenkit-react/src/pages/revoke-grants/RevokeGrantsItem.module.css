@@ -32,9 +32,13 @@
 }
 
 .revokeButton {
-  background-color: var(--gray-5);
+  background-color: var(--gray-6);
   border-radius: 6px;
   padding: 4px 8px;
   font-size: 12px;
   font-weight: 600;
+}
+
+.revokeButton:hover {
+  background-color: var(--gray-5);
 }

@@ -11,7 +11,7 @@ export const DURATION_OPTIONS: DropdownOption<number>[] = [
   { value: HOUR_IN_MS, label: "for 1 hour" },
   { value: DAY_IN_MS, label: "for 1 day" },
   { value: 7 * DAY_IN_MS, label: "for 7 days" },
-  { value: 100 * YEAR_IN_MS, label: "Until Revoked" },
+  { value: 100 * YEAR_IN_MS, label: "Until revoked" },
 ]
 
 export const DEFAULT_DURATION = DURATION_OPTIONS[0].value
