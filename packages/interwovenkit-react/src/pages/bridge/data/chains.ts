@@ -2,7 +2,7 @@ import type { ChainJson } from "@skip-go/client"
 import { ascend, descend, sortWith } from "ramda"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import type { Chain } from "@initia/initia-registry-types"
-import { useInitiaRegistry } from "@/data/chains"
+import { useInitiaRegistry, useProfilesRegistry } from "@/data/chains"
 import { STALE_TIMES } from "@/data/http"
 import { skipQueryKeys, useSkip } from "./skip"
 
@@ -55,10 +55,25 @@ export function useSkipChains() {
 
 export function useFindSkipChain() {
   const chains = useSkipChains()
+  const profiles = useProfilesRegistry()
   return (chainId: string) => {
     const chain = chains.find((chain) => chain.chain_id === chainId)
-    if (!chain) throw new Error(`Chain not found: ${chainId}`)
-    return chain
+    if (chain) return chain
+
+    // Fallback to profiles.json for chains not found from Skip
+    const profile = profiles.find((profile) => profile.chain_id === chainId)
+    if (!profile) throw new Error(`Chain not found: ${chainId}`)
+
+    // Return a minimal RouterChainJson object with display metadata from profile
+    return {
+      chain_id: profile.chain_id,
+      chain_name: profile.name,
+      pretty_name: profile.pretty_name,
+      logo_uri: profile.logo,
+      chain_type: "cosmos",
+      rpc: "",
+      rest: "",
+    } as RouterChainJson
   }
 }
 
