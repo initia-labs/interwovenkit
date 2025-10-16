@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.0.6](https://github.com/initia-labs/interwovenkit/compare/v2.0.5...v2.0.6) (2025-10-16)
+
+### Features
+
+- **chains:** add profiles.json fallback for deleted chains ([6e3c113](https://github.com/initia-labs/interwovenkit/commit/6e3c113ab3dc8172e98512850a0897f062d8719a))
+- **nft:** validate NFT transferability before sending ([c86e6f2](https://github.com/initia-labs/interwovenkit/commit/c86e6f2ba8ea0b311c3098183e57630cc143cf3b))
+- **signer:** fetch public key from REST API first ([7b1ef07](https://github.com/initia-labs/interwovenkit/commit/7b1ef070529411e485222eda6b60b3eb2d5d4463))
+- **wallet:** display chain value and NFT count in ChainSelect ([ab4cedc](https://github.com/initia-labs/interwovenkit/commit/ab4cedca1b3041a1c77ee8e273cc3d00037f15b4))
+- **wallet:** display disabled message on send forms ([0d3bd71](https://github.com/initia-labs/interwovenkit/commit/0d3bd71c4980ac70088071e3fa83f152ab6e228e))
+
+### Bug Fixes
+
+- **balance:** disable max button when balance is zero ([db2dab2](https://github.com/initia-labs/interwovenkit/commit/db2dab21a1a42e190ca854bbaa61b3f5edbb7c7a))
+- **nft:** remove conditional rendering for NFT thumbnails ([5f88909](https://github.com/initia-labs/interwovenkit/commit/5f8890921e65f3fda393d5c88ac778fc95665e38))
+- **send:** throw error only when assetlist is missing ([892c7bf](https://github.com/initia-labs/interwovenkit/commit/892c7bf14e2b997a381d476a99b8e132f09142e8))
+
 ## [2.0.5](https://github.com/initia-labs/interwovenkit/compare/v2.0.4...v2.0.5) (2025-10-02)
 
 ### Features
