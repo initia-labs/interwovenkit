@@ -1,5 +1,9 @@
 import type { StdFee } from "@cosmjs/amino"
+import { Secp256k1 } from "@cosmjs/crypto"
+import { fromHex, toBase64, toHex, toUtf8 } from "@cosmjs/encoding"
 import type { EncodeObject } from "@cosmjs/proto-signing"
+import { ethers } from "ethers"
+import ky from "ky"
 import { useEffect, useState } from "react"
 import { atom, useAtomValue, useSetAtom } from "jotai"
 import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
@@ -10,7 +14,7 @@ import { useConfig } from "@/data/config"
 import { OfflineSigner, useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { checkGhostWalletEnabled } from "./queries"
-import { canGhostWalletHandleTxRequest } from "./utils"
+import { canGhostWalletHandleTxRequest, getPageInfo } from "./utils"
 
 export function useEmbeddedWallet() {
   const { privy } = useConfig()
@@ -207,5 +211,54 @@ export function useTrySignWithGhostWallet() {
 
     // Sign with ghost wallet
     return await signWithGhostWallet(chainId, messages, fee, memo)
+  }
+}
+
+/**
+ * Hook that returns a function to register a ghost wallet with a site
+ */
+export function useRegisterGhostWallet() {
+  const address = useInitiaAddress()
+  const wallet = useEmbeddedWallet()
+  const granterAddress = useEmbeddedWalletAddress()
+
+  const { icon } = getPageInfo()
+
+  return async () => {
+    if (!address || !wallet) {
+      throw new Error("Wallet not connected")
+    }
+
+    const message = toBase64(
+      toUtf8(
+        JSON.stringify({
+          address,
+          granterAddress,
+          domainAddress: window.location.hostname,
+          createdAt: Date.now(),
+          metadata: {
+            icon,
+          },
+        }),
+      ),
+    )
+
+    const signature = await wallet.sign(message)
+
+    // Extract public key from signature (following EIP-191 recovery)
+    const messageHash = ethers.hashMessage(message)
+    const uncompressedPublicKey = ethers.SigningKey.recoverPublicKey(messageHash, signature)
+    const compressedPublicKey = toHex(
+      Secp256k1.compressPubkey(fromHex(uncompressedPublicKey.replace("0x", ""))),
+    )
+
+    // Send POST request to register the domain
+    await ky.post("https://interwovenkit-api.initia.xyz/allow-domain", {
+      json: {
+        pubkey: compressedPublicKey,
+        signature,
+        message,
+      },
+    })
   }
 }

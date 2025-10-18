@@ -17,8 +17,9 @@ import { useLocationState } from "@/lib/router"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { DEFAULT_DURATION } from "./constants"
 import DurationSelector from "./DurationSelector"
-import { ghostWalletExpirationAtom, useEmbeddedWallet } from "./hooks"
+import { ghostWalletExpirationAtom, useEmbeddedWallet, useRegisterGhostWallet } from "./hooks"
 import { ghostWalletQueryKeys } from "./queries"
+import { getPageInfo } from "./utils"
 import styles from "./CreateGhostWalletPage.module.css"
 
 interface GhostWalletLocationState {
@@ -33,13 +34,14 @@ const CreateGhostWalletPage = () => {
   const setGhostWalletExpiration = useSetAtom(ghostWalletExpirationAtom)
   const ghostWalletRequestHandler = useGhostWalletRequestHandler()
   const setGhostWalletRequestHandler = useSetGhostWalletRequestHandler()
+  const registerGhostWallet = useRegisterGhostWallet()
   const [selectedDuration, setSelectedDuration] = useState<number>(DEFAULT_DURATION)
   const { chainId: locationChainId } = useLocationState<GhostWalletLocationState>()
   const chainId = locationChainId || config.defaultChainId
   const chain = useChain(chainId)
   const queryClient = useQueryClient()
 
-  const appIcon = (document.querySelector("link[rel~='icon']") as HTMLLinkElement | null)?.href
+  const { icon: appIcon, name: appName } = getPageInfo()
 
   const { mutate: createGhostWallet, isPending } = useMutation({
     mutationFn: async () => {
@@ -84,6 +86,7 @@ const CreateGhostWalletPage = () => {
           },
         })),
       ]
+      await registerGhostWallet()
 
       await requestTxBlock({ messages, chainId, internal: "/ghost-wallet" })
       return expiration
@@ -127,18 +130,12 @@ const CreateGhostWalletPage = () => {
         <p className={styles.label}>Requested by</p>
         <div className={clsx(styles.container, styles.appInfo)}>
           {appIcon ? (
-            <img
-              src={appIcon}
-              alt={document.title}
-              className={styles.icon}
-              width={28}
-              height={28}
-            />
+            <img src={appIcon} alt={appName} className={styles.icon} width={28} height={28} />
           ) : (
             <div className={styles.iconPlaceholder} />
           )}
 
-          <p className={styles.appName}>{document.title}</p>
+          <p className={styles.appName}>{appName}</p>
           <p className={styles.host}>{window.location.host}</p>
         </div>
 
