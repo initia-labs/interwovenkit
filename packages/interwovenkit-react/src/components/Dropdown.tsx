@@ -1,7 +1,7 @@
 import clsx from "clsx"
 import React from "react"
 import { Select } from "@base-ui-components/react/select"
-import { IconChevronDown } from "@initia/icons-react"
+import { IconCheck, IconChevronDown } from "@initia/icons-react"
 import { usePortal } from "@/public/app/PortalContext"
 import styles from "./Dropdown.module.css"
 
@@ -92,7 +92,12 @@ function Dropdown<T extends string | number = string>({
                 value={String(option.value)}
                 key={String(option.value)}
               >
-                <Select.ItemText>{option.label}</Select.ItemText>
+                <Select.ItemText>
+                  <span className={styles.itemContent}>
+                    {option.label}
+                    {option.value === value && <IconCheck size={12} />}
+                  </span>
+                </Select.ItemText>
               </Select.Item>
             ))}
           </Select.Popup>

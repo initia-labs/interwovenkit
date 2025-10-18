@@ -7,6 +7,7 @@
 .trigger {
   display: grid;
   grid-template-columns: 1fr auto;
+  align-items: center;
   gap: 4px;
 
   background-color: var(--gray-7);
@@ -44,21 +45,25 @@
 }
 
 .item {
-  color: var(--gray-2);
+  color: var(--gray-0);
   cursor: pointer;
   font-family: var(--monospace);
   font-size: 12px;
   font-weight: 500;
   text-align: right;
-  padding: 4px 12px;
+  padding: 4px 8px;
 
   transition: background-color var(--transition) ease;
 
   &:hover {
     background-color: var(--gray-7);
   }
+}
 
-  &[data-selected] {
-    color: var(--gray-0);
-  }
+.itemContent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+  width: 100%;
 }

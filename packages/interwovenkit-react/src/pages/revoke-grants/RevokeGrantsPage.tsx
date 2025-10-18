@@ -5,7 +5,7 @@ import RevokeGrantsItem from "./RevokeGrantsItem"
 import styles from "./RevokeGrantsItem.module.css"
 
 const RevokeGrantsPage = () => {
-  const { data: grants, isLoading } = useAllGrants()
+  const { data: grants, isLoading, isFetching } = useAllGrants()
 
   // Use functional approach to get unique grants by grantee
   const uniqueGrants = useMemo(() => {
@@ -28,7 +28,7 @@ const RevokeGrantsPage = () => {
 
   // Render content based on state
   const renderContent = () => {
-    if (isLoading) {
+    if (isLoading || isFetching) {
       return <p className={styles.empty}>Loading...</p>
     }
 
