@@ -8,9 +8,10 @@ import {
 import { createConfig, WagmiProvider } from "@privy-io/wagmi"
 import { http } from "wagmi"
 import { mainnet } from "wagmi/chains"
+import { type PropsWithChildren, useEffect } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import {
-  initiaPrivyWalletConnector,
+  injectEip6369Wallet,
   injectStyles,
   InterwovenKitProvider,
   TESTNET,
@@ -18,11 +19,9 @@ import {
 import css from "@initia/interwovenkit-react/styles.css?inline"
 import { isTestnet, routerApiUrl, useTheme } from "./data"
 
-import type { PropsWithChildren } from "react"
-
 injectStyles(css)
 const wagmiConfig = createConfig({
-  connectors: [initiaPrivyWalletConnector],
+  //connectors: [initiaPrivyWalletConnector],
   chains: [mainnet],
   transports: { [mainnet.id]: http() },
 })
@@ -34,6 +33,10 @@ const InnerProviders = ({ children }: PropsWithChildren) => {
   const { logout } = useLogout()
   const { createWallet } = useCreateWallet()
   const { wallets } = useWallets()
+
+  useEffect(() => {
+    return injectEip6369Wallet()
+  }, [])
 
   return (
     <InterwovenKitProvider
@@ -64,7 +67,7 @@ const Providers = ({ children }: PropsWithChildren) => {
           showWalletUIs: false,
         },
         loginMethodsAndOrder: {
-          primary: ["detected_ethereum_wallets", "privy:cmbq1ozyc006al70lx4uciz0q"],
+          primary: ["detected_ethereum_wallets"],
         },
       }}
     >
