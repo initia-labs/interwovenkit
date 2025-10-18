@@ -23,3 +23,27 @@ export function canGhostWalletHandleTxRequest(
 
   return txRequest.messages.every((message) => allowedMessageTypes.includes(message.typeUrl))
 }
+
+/**
+ * Gets the current page information including icon and name
+ * @returns Object containing the page's icon URL and name
+ */
+export function getPageInfo() {
+  const iconHref = (document.querySelector("link[rel~='icon']") as HTMLLinkElement | null)?.href
+
+  const getValidIconUrl = (href: string | undefined): string | undefined => {
+    if (!href) return undefined
+
+    try {
+      new URL(href)
+      return href
+    } catch {
+      return undefined
+    }
+  }
+
+  return {
+    icon: getValidIconUrl(iconHref),
+    name: document.title,
+  }
+}
