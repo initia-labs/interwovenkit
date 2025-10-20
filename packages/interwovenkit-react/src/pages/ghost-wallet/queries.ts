@@ -1,12 +1,14 @@
 import ky from "ky"
-import { useQuery } from "@tanstack/react-query"
+import { useQueries, useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
-import { useDefaultChain } from "@/data/chains"
+import { useInitiaRegistry } from "@/data/chains"
 import { STALE_TIMES } from "@/data/http"
 import { useInitiaAddress } from "@/public/data/hooks"
+import { INTERWOVENKIT_API_URL } from "./constants"
 
 export const ghostWalletQueryKeys = createQueryKeys("interwovenkit:ghost-wallet", {
   grantsByGranter: (restUrl: string, granter: string) => [restUrl, granter],
+  permissions: (address: string) => [address],
 })
 
 export async function checkGhostWalletEnabled(
@@ -80,15 +82,58 @@ export interface GrantsResponse {
   }
 }
 
+export interface GrantsResponseWithChain extends GrantsResponse {
+  chainId: string
+}
+
 export function useAllGrants() {
   const address = useInitiaAddress()
-  const defaultChain = useDefaultChain()
+  const chains = useInitiaRegistry()
+
+  return useQueries({
+    queries: chains.map((chain) => ({
+      queryKey: ghostWalletQueryKeys.grantsByGranter(chain.restUrl, address).queryKey,
+      queryFn: async (): Promise<GrantsResponseWithChain> => {
+        const client = ky.create({ prefixUrl: chain.restUrl })
+        const response = await client
+          .get(`cosmos/authz/v1beta1/grants/granter/${address}`)
+          .json<GrantsResponse>()
+        return {
+          ...response,
+          chainId: chain.chain_id,
+        }
+      },
+      enabled: !!address,
+      staleTime: STALE_TIMES.MINUTE,
+    })),
+  })
+}
+
+export interface Permission {
+  address: string
+  granterAddress: string
+  domainAddress: string
+  metadata: {
+    icon: string
+  }
+}
+
+export function useGranteeAddressDomain() {
+  const address = useInitiaAddress()
 
   return useQuery({
-    queryKey: ghostWalletQueryKeys.grantsByGranter(defaultChain.restUrl, address).queryKey,
-    queryFn: async (): Promise<GrantsResponse> => {
-      const client = ky.create({ prefixUrl: defaultChain.restUrl })
-      return client.get(`cosmos/authz/v1beta1/grants/granter/${address}`).json<GrantsResponse>()
+    queryKey: ghostWalletQueryKeys.permissions(address).queryKey,
+    queryFn: async (): Promise<Permission[]> => {
+      const response = await ky
+        .get(`get-address/${address}`, {
+          prefixUrl: INTERWOVENKIT_API_URL,
+        })
+        .json<{
+          message: string
+          permissions: Permission[]
+        }>()
+
+      return response.permissions
     },
     enabled: !!address,
     staleTime: STALE_TIMES.MINUTE,
