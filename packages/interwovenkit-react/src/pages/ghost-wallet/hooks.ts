@@ -1,8 +1,6 @@
 import type { StdFee } from "@cosmjs/amino"
-import { Secp256k1 } from "@cosmjs/crypto"
-import { fromHex, toBase64, toHex, toUtf8 } from "@cosmjs/encoding"
+import { toBase64, toUtf8 } from "@cosmjs/encoding"
 import type { EncodeObject } from "@cosmjs/proto-signing"
-import { ethers } from "ethers"
 import ky from "ky"
 import { useEffect, useState } from "react"
 import { atom, useAtomValue, useSetAtom } from "jotai"
@@ -13,6 +11,7 @@ import { useDefaultChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import { OfflineSigner, useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
 import { useInitiaAddress } from "@/public/data/hooks"
+import { INTERWOVENKIT_API_URL } from "./constants"
 import { checkGhostWalletEnabled } from "./queries"
 import { canGhostWalletHandleTxRequest, getPageInfo } from "./utils"
 
@@ -245,17 +244,10 @@ export function useRegisterGhostWallet() {
 
     const signature = await wallet.sign(message)
 
-    // Extract public key from signature (following EIP-191 recovery)
-    const messageHash = ethers.hashMessage(message)
-    const uncompressedPublicKey = ethers.SigningKey.recoverPublicKey(messageHash, signature)
-    const compressedPublicKey = toHex(
-      Secp256k1.compressPubkey(fromHex(uncompressedPublicKey.replace("0x", ""))),
-    )
-
     // Send POST request to register the domain
-    await ky.post("https://interwovenkit-api.initia.xyz/allow-domain", {
+    await ky.post("register", {
+      prefixUrl: INTERWOVENKIT_API_URL,
       json: {
-        pubkey: compressedPublicKey,
         signature,
         message,
       },

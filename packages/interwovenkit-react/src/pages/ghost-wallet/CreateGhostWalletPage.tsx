@@ -97,6 +97,10 @@ const CreateGhostWalletPage = () => {
       queryClient.invalidateQueries({
         queryKey: ghostWalletQueryKeys.grantsByGranter(chain.restUrl, initiaAddress).queryKey,
       })
+      // Invalidate permissions query to refresh domain data
+      queryClient.invalidateQueries({
+        queryKey: ghostWalletQueryKeys.permissions(initiaAddress).queryKey,
+      })
       // Resolve the promise if there's a pending request
       ghostWalletRequestHandler?.resolve()
       setGhostWalletRequestHandler(null)
