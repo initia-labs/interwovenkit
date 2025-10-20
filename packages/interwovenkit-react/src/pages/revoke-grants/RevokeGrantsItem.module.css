@@ -5,6 +5,12 @@
   text-align: center;
 }
 
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .container {
   background-color: var(--gray-8);
   border-radius: 8px;
@@ -41,4 +47,39 @@
 
 .revokeButton:hover {
   background-color: var(--gray-5);
+}
+
+.grantContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.domainHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.domainIcon {
+  width: 16px;
+  height: 16px;
+  object-fit: cover;
+}
+
+.domainName {
+  color: var(--gray-0);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.domainGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.domainGroup:last-child {
+  margin-bottom: 0;
 }
