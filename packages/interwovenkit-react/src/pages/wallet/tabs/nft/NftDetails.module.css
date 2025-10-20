@@ -1,6 +1,8 @@
 .header {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
+  word-break: break-all;
 }
 
 .collectionName {
@@ -12,7 +14,6 @@
 .name {
   font-size: 24px;
   font-weight: 600;
-  word-break: break-all;
 }
 
 .chainInfo {
