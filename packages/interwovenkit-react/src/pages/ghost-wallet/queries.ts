@@ -125,7 +125,7 @@ export function useGranteeAddressDomain() {
     queryKey: ghostWalletQueryKeys.permissions(address).queryKey,
     queryFn: async (): Promise<Permission[]> => {
       const response = await ky
-        .get(`get-address/${address}`, {
+        .get(`auto-sign/get-address/${address}`, {
           prefixUrl: INTERWOVENKIT_API_URL,
         })
         .json<{

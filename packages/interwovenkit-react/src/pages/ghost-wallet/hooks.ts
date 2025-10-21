@@ -244,13 +244,15 @@ export function useRegisterGhostWallet() {
 
     const signature = await wallet.sign(message)
 
-    // Send POST request to register the domain
-    await ky.post("register", {
-      prefixUrl: INTERWOVENKIT_API_URL,
-      json: {
-        signature,
-        message,
-      },
-    })
+    try {
+      // Send POST request to register the domain
+      await ky.post("auto-sign/register", {
+        prefixUrl: INTERWOVENKIT_API_URL,
+        json: {
+          signature,
+          message,
+        },
+      })
+    } catch {} // eslint-disable-line no-empty
   }
 }
