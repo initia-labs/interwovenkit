@@ -246,7 +246,7 @@ export function useRegisterGhostWallet() {
 
     try {
       // Send POST request to register the domain
-      await ky.post("auto-sign/register", {
+      await ky.post("auto-signing/register", {
         prefixUrl: INTERWOVENKIT_API_URL,
         json: {
           signature,
