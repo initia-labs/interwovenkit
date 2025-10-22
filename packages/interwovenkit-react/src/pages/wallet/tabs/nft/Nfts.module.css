@@ -3,3 +3,32 @@
   grid-template-columns: repeat(2, 1fr);
   gap: 20px 10px;
 }
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  overflow: hidden;
+}
+
+.collectionName {
+  font-size: 12px;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nftName {
+  color: var(--gray-0);
+  font-size: 16px;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chainInfo {
+  font-size: 12px;
+}

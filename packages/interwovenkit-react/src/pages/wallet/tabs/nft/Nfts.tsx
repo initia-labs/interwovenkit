@@ -1,10 +1,11 @@
 import { useMemo } from "react"
 import { useAtom } from "jotai"
 import Status from "@/components/Status"
+import { useNavigate } from "@/lib/router"
 import ChainSelect from "../../components/ChainSelect"
 import HomeContainer from "../../components/HomeContainer"
 import { nftsChainAtom, nftsSearchAtom } from "../state"
-import NftItem from "./NftItem"
+import NftHeader from "./NftHeader"
 import { useAllNfts } from "./queries"
 import WithNormalizedNft from "./WithNormalizedNft"
 import styles from "./Nfts.module.css"
@@ -13,6 +14,7 @@ const Nfts = () => {
   const [searchQuery, setSearchQuery] = useAtom(nftsSearchAtom)
   const [selectedChain, setSelectedChain] = useAtom(nftsChainAtom)
   const { nftInfos, chainCounts, totalCount, isLoading } = useAllNfts()
+  const navigate = useNavigate()
 
   // Filter NFTs based on chain selection and search query
   const filteredNfts = useMemo(() => {
@@ -79,7 +81,13 @@ const Nfts = () => {
             const { collection_addr, nft } = nftInfo
             return (
               <WithNormalizedNft nftInfo={nftInfo} key={collection_addr + nft.token_id}>
-                {(normalizedNft) => <NftItem normalizedNft={normalizedNft} />}
+                {(normalizedNft) => (
+                  <NftHeader
+                    normalizedNft={normalizedNft}
+                    onThumbnailClick={() => navigate("/nft", normalizedNft)}
+                    classNames={styles}
+                  />
+                )}
               </WithNormalizedNft>
             )
           })}

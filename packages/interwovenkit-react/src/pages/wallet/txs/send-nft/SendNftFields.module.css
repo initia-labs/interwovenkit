@@ -1,24 +1,23 @@
-.header {
+.root {
   display: flex;
   align-items: flex-start;
   gap: 16px;
   margin-bottom: 24px;
-}
-
-.name {
-  display: grid;
-  gap: 8px;
-  font-weight: 600;
   word-break: break-all;
 }
 
-.collection {
+.collectionName {
   color: var(--gray-1);
   font-size: 12px;
 }
 
-.nft {
+.nftName {
   font-size: 20px;
+}
+
+.chainInfo {
+  font-size: 12px;
+  margin-top: 4px;
 }
 
 .fields {

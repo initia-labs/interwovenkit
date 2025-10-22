@@ -1,4 +1,4 @@
-.header {
+.root {
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -6,24 +6,15 @@
 }
 
 .collectionName {
-  color: var(--gray-2);
   font-size: 14px;
-  font-weight: 600;
 }
 
-.name {
+.nftName {
   font-size: 24px;
-  font-weight: 600;
 }
 
 .chainInfo {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-
-  color: var(--dimmed);
   font-size: 14px;
-  font-weight: 600;
 }
 
 .attributes {
