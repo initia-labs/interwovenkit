@@ -1,7 +1,6 @@
 import type { AminoMsg } from "@cosmjs/amino"
 import clsx from "clsx"
 import ky from "ky"
-import { VisuallyHidden } from "radix-ui"
 import { useMemo } from "react"
 import { useFormContext } from "react-hook-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -22,6 +21,7 @@ import { useInterwovenKit } from "@/public/data/hooks"
 import NftHeader from "../../tabs/nft/NftHeader"
 import { nftQueryKeys, type NormalizedNft } from "../../tabs/nft/queries"
 import type { FormValues } from "./SendNft"
+import { createNftTransferParams } from "./tx"
 import styles from "./SendNftFields.module.css"
 
 const queryKeys = createQueryKeys("interwovenkit:send-nft", {
@@ -56,15 +56,19 @@ const SendNftFields = () => {
       routerApiUrl,
     }).queryKey,
     queryFn: async () => {
-      const params = {
-        from_address: sender,
-        from_chain_id: srcChain.chainId,
-        to_address: InitiaAddress(recipient).bech32,
-        to_chain_id: dstChain.chainId,
-        collection_address: collection_addr,
-        token_ids: [nft.token_id],
-        object_addresses: [nft.object_addr],
-      }
+      const params = Object.assign(
+        {
+          from_address: sender,
+          from_chain_id: srcChain.chainId,
+          to_address: InitiaAddress(recipient).bech32,
+          to_chain_id: dstChain.chainId,
+          collection_address: collection_addr,
+          token_ids: [nft.token_id],
+          object_addresses: [nft.object_addr],
+        },
+        srcChain.chainId !== dstChain.chainId &&
+          (await createNftTransferParams({ nft, srcChain, intermediaryChain: layer1 })),
+      )
 
       const { msgs } = await ky
         .create({ prefixUrl: routerApiUrl })
@@ -100,31 +104,29 @@ const SendNftFields = () => {
       <NftHeader normalizedNft={nft} thumbnailSize={80} classNames={styles} />
 
       <div className={styles.fields}>
-        <VisuallyHidden.Root>
-          <div>
-            <div className="label">Destination appchain</div>
+        <div>
+          <div className="label">Destination appchain</div>
 
-            <ModalTrigger
-              title="Destination appchain"
-              content={(close) => (
-                <List
-                  onSelect={({ chainId }) => {
-                    setValue("dstChainId", chainId)
-                    close()
-                  }}
-                  list={chains}
-                  getImage={(item) => item.logoUrl}
-                  getName={(item) => item.name}
-                  getKey={(item) => item.chainId}
-                />
-              )}
-              className={clsx("input", styles.chain)}
-            >
-              <Image src={dstChain.logoUrl} width={20} height={20} logo />
-              <span>{dstChain.name}</span>
-            </ModalTrigger>
-          </div>
-        </VisuallyHidden.Root>
+          <ModalTrigger
+            title="Destination appchain"
+            content={(close) => (
+              <List
+                onSelect={({ chainId }) => {
+                  setValue("dstChainId", chainId)
+                  close()
+                }}
+                list={chains}
+                getImage={(item) => item.logoUrl}
+                getName={(item) => item.name}
+                getKey={(item) => item.chainId}
+              />
+            )}
+            className={clsx("input", styles.chain)}
+          >
+            <Image src={dstChain.logoUrl} width={20} height={20} logo />
+            <span>{dstChain.name}</span>
+          </ModalTrigger>
+        </div>
 
         <RecipientInput myAddress={address} ref={useAutoFocus()} />
       </div>
