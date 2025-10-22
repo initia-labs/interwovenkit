@@ -1,4 +1,5 @@
 import { useAtom } from "jotai"
+import AutoSign from "./AutoSign"
 import Bridge from "./Bridge"
 import Connection from "./Connection"
 import { isTestnet, themeAtom } from "./data"
@@ -28,6 +29,8 @@ const App = () => {
       </header>
 
       <Send />
+      <AutoSign />
+
       <Bridge />
     </div>
   )
