@@ -6,7 +6,7 @@ export const DEFAULT_GAS_PRICE_MULTIPLIER = 1.05
 export const MAINNET: Config = {
   defaultChainId: "interwoven-1",
   registryUrl: "https://registry.initia.xyz",
-  routerApiUrl: "https://router-api.initia.xyz",
+  routerApiUrl: "https://router-api.staging.initia.xyz",
   glyphUrl: "https://glyph.initia.xyz",
   usernamesModuleAddress: "0x72ed9b26ecdcd6a21d304df50f19abfdbe31d2c02f60c84627844620a45940ef",
   theme: "dark",
