@@ -5,6 +5,9 @@
   "author": "Initia (https://initia.xyz)",
   "repository": "github:initia-labs/interwovenkit",
   "license": "MIT",
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -12,7 +15,11 @@
       "import": "./dist/index.js"
     },
     "./styles.css": "./dist/styles.css",
-    "./styles.js": "./dist/styles.js"
+    "./styles.js": {
+      "types": "./dist/styles.d.ts",
+      "require": "./dist/styles.cjs",
+      "import": "./dist/styles.js"
+    }
   },
   "files": [
     "dist"

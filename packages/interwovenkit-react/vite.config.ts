@@ -1,9 +1,9 @@
 /* eslint-disable no-console */
+import react from "@vitejs/plugin-react-swc"
 import fs from "fs"
 import path from "path"
 import type { Plugin } from "vite"
 import { defineConfig } from "vite"
-import react from "@vitejs/plugin-react-swc"
 import dts from "vite-plugin-dts"
 
 function emitCssAsJsString(): Plugin {
@@ -14,13 +14,22 @@ function emitCssAsJsString(): Plugin {
       const outDir = path.resolve(__dirname, "dist")
       const cssPath = path.join(outDir, "styles.css")
       const jsPath = path.join(outDir, "styles.js")
+      const cjsPath = path.join(outDir, "styles.cjs")
       const dtsPath = path.join(outDir, "styles.d.ts")
 
       if (fs.existsSync(cssPath)) {
         const cssContent = fs.readFileSync(cssPath, "utf-8")
-        const jsModule = `export default ${JSON.stringify(cssContent)};`
-        fs.writeFileSync(jsPath, jsModule)
-        console.log("✅ Generated styles.js")
+
+        // ESM format
+        const esmModule = `export default ${JSON.stringify(cssContent)};`
+        fs.writeFileSync(jsPath, esmModule)
+        console.log("✅ Generated styles.js (ESM)")
+
+        // CJS format
+        const cjsModule = `module.exports = ${JSON.stringify(cssContent)};`
+        fs.writeFileSync(cjsPath, cjsModule)
+        console.log("✅ Generated styles.cjs (CJS)")
+
         const dtsContent = "declare const styles: string\nexport default styles\n"
         fs.writeFileSync(dtsPath, dtsContent)
         console.log("✅ Generated styles.d.ts")
