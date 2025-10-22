@@ -8,6 +8,7 @@ import type { Config } from "@/data/config"
 import { ConfigContext } from "@/data/config"
 import { LocalStorageKey } from "@/data/constants"
 import { migrateLocalStorage } from "@/data/migration"
+import { InjectWagmiConnector } from "@/lib/privy/InjectWagmiConnector"
 import { MemoryRouter } from "@/lib/router"
 import { useSkipAssets } from "@/pages/bridge/data/assets"
 import { useSkipChains } from "@/pages/bridge/data/chains"
@@ -76,28 +77,33 @@ const InterwovenKitProvider = ({ children, ...config }: PropsWithChildren<Partia
       <Fonts />
 
       <ConfigContext.Provider value={{ ...MAINNET, ...config }}>
-        <MemoryRouter>
-          <PortalProvider>
-            <Tooltip.Provider delayDuration={0} skipDelayDuration={0}>
-              <NotificationProvider>
-                <ModalProvider>
-                  {children}
+        <InjectWagmiConnector>
+          <MemoryRouter>
+            <PortalProvider>
+              <Tooltip.Provider delayDuration={0} skipDelayDuration={0}>
+                <NotificationProvider>
+                  <ModalProvider>
+                    {children}
 
-                  <QueryClientProvider client={queryClient}>
-                    <Analytics />
-                    <AsyncBoundary suspenseFallback={null} errorBoundaryProps={{ fallback: null }}>
-                      <Prefetch />
-                    </AsyncBoundary>
+                    <QueryClientProvider client={queryClient}>
+                      <Analytics />
+                      <AsyncBoundary
+                        suspenseFallback={null}
+                        errorBoundaryProps={{ fallback: null }}
+                      >
+                        <Prefetch />
+                      </AsyncBoundary>
 
-                    <Drawer>
-                      <Routes />
-                    </Drawer>
-                  </QueryClientProvider>
-                </ModalProvider>
-              </NotificationProvider>
-            </Tooltip.Provider>
-          </PortalProvider>
-        </MemoryRouter>
+                      <Drawer>
+                        <Routes />
+                      </Drawer>
+                    </QueryClientProvider>
+                  </ModalProvider>
+                </NotificationProvider>
+              </Tooltip.Provider>
+            </PortalProvider>
+          </MemoryRouter>
+        </InjectWagmiConnector>
       </ConfigContext.Provider>
     </>
   )

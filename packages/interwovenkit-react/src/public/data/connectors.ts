@@ -2,7 +2,7 @@ import { toPrivyWalletProvider } from "@privy-io/cross-app-connect"
 import { toPrivyWallet, toPrivyWalletConnector } from "@privy-io/cross-app-connect/rainbow-kit"
 import { mainnet } from "wagmi/chains"
 
-const INITIA_APP_ID = "cmbq1ozyc006al70lx4uciz0q"
+export const INITIA_APP_ID = "cmbq1ozyc006al70lx4uciz0q"
 
 export const initiaPrivyWalletOptions = {
   id: INITIA_APP_ID,

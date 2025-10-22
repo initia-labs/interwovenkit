@@ -1,6 +1,7 @@
 import type { GeneratedType } from "@cosmjs/proto-signing"
 import type { AminoConverters } from "@cosmjs/stargate"
-import type { useCreateWallet, useLogin, useLogout, useWallets } from "@privy-io/react-auth"
+import type { useCrossAppAccounts } from "@privy-io/react-auth"
+import { type useCreateWallet, type usePrivy, type useWallets } from "@privy-io/react-auth"
 import { createContext, useContext } from "react"
 import type { Chain } from "@initia/initia-registry-types"
 
@@ -19,9 +20,8 @@ export interface Config {
   container?: HTMLElement
   disableAnalytics?: boolean
   ghostWalletPermissions?: Record<string, string[]>
-  privy?: {
-    logout: ReturnType<typeof useLogout>["logout"]
-    login: ReturnType<typeof useLogin>["login"]
+  privy?: ReturnType<typeof usePrivy> & {
+    crossAppAccounts: ReturnType<typeof useCrossAppAccounts>
     createWallet: ReturnType<typeof useCreateWallet>["createWallet"]
     wallets: ReturnType<typeof useWallets>["wallets"]
   }

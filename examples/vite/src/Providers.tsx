@@ -1,17 +1,17 @@
 import {
   PrivyProvider,
   useCreateWallet,
-  useLogin,
-  useLogout,
+  useCrossAppAccounts,
+  usePrivy,
   useWallets,
 } from "@privy-io/react-auth"
-import { createConfig, WagmiProvider } from "@privy-io/wagmi"
+import { createConfig, WagmiProvider } from "wagmi"
 import { http } from "wagmi"
 import { mainnet } from "wagmi/chains"
-import { type PropsWithChildren, useEffect } from "react"
+import { type PropsWithChildren } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import {
-  injectEip6369Wallet,
+  INITIA_APP_ID,
   injectStyles,
   InterwovenKitProvider,
   TESTNET,
@@ -21,7 +21,7 @@ import { isTestnet, routerApiUrl, useTheme } from "./data"
 
 injectStyles(css)
 const wagmiConfig = createConfig({
-  //connectors: [initiaPrivyWalletConnector],
+  multiInjectedProviderDiscovery: false,
   chains: [mainnet],
   transports: { [mainnet.id]: http() },
 })
@@ -29,19 +29,15 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false 
 
 const InnerProviders = ({ children }: PropsWithChildren) => {
   const theme = useTheme()
-  const { login } = useLogin()
-  const { logout } = useLogout()
+  const privy = usePrivy()
+  const crossAppAccounts = useCrossAppAccounts()
   const { createWallet } = useCreateWallet()
   const { wallets } = useWallets()
-
-  useEffect(() => {
-    return injectEip6369Wallet()
-  }, [])
 
   return (
     <InterwovenKitProvider
       ghostWalletPermissions={{ "interwoven-1": ["/cosmos.bank.v1beta1.MsgSend"] }}
-      privy={{ logout, login, createWallet, wallets }}
+      privy={{ ...privy, crossAppAccounts, createWallet, wallets }}
       {...(isTestnet ? TESTNET : {})}
       {...(routerApiUrl ? { routerApiUrl } : {})}
       theme={theme}
@@ -58,7 +54,7 @@ const Providers = ({ children }: PropsWithChildren) => {
       appId="cmbqs2wzv007qky0m8kxyqn7r"
       config={{
         appearance: {
-          theme: "light",
+          theme: "dark",
         },
         embeddedWallets: {
           ethereum: {
@@ -67,7 +63,7 @@ const Providers = ({ children }: PropsWithChildren) => {
           showWalletUIs: false,
         },
         loginMethodsAndOrder: {
-          primary: ["detected_ethereum_wallets"],
+          primary: [`privy:${INITIA_APP_ID}`, "detected_ethereum_wallets"],
         },
       }}
     >
