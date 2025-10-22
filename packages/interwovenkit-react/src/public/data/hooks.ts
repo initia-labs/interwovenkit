@@ -79,11 +79,11 @@ export function useInterwovenKit() {
 
   const setGhostWalletRequestHandler = useSetGhostWalletRequestHandler()
 
-  const createGhostWallet = async (chainId: string): Promise<void> => {
-    if (!config.ghostWalletPermissions?.[chainId]?.length)
-      throw new Error("Ghost wallet permissions are required to create a ghost wallet")
+  const setupAutoSign = async (chainId: string): Promise<void> => {
+    if (!config.autoSignPermissions?.[chainId]?.length)
+      throw new Error("Auto sign permissions are required for the setup")
 
-    if (ghostWalletState.isEnabled[chainId]) throw new Error("Ghost wallet is already enabled")
+    if (ghostWalletState.isEnabled[chainId]) throw new Error("Auto sign is already enabled")
 
     return new Promise<void>((resolve, reject) => {
       setGhostWalletRequestHandler({
@@ -111,9 +111,9 @@ export function useInterwovenKit() {
     openWallet,
     openBridge,
     disconnect,
-    ghostWallet: {
+    autosign: {
       enabled: ghostWalletState.isEnabled,
-      create: createGhostWallet,
+      setup: setupAutoSign,
       loading: ghostWalletLoading,
     },
     ...tx,

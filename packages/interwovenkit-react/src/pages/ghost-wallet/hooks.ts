@@ -92,7 +92,7 @@ export function useGhostWalletState() {
   const embeddedWalletAddress = useEmbeddedWalletAddress()
 
   const checkGhostWallet = async (): Promise<Record<string, boolean>> => {
-    if (!embeddedWalletAddress || !address || !config.ghostWalletPermissions) {
+    if (!embeddedWalletAddress || !address || !config.autoSignPermissions) {
       setLoading(false)
       return {}
     }
@@ -106,7 +106,7 @@ export function useGhostWalletState() {
     try {
       // Perform the actual check
       const result = await Promise.all(
-        Object.entries(config.ghostWalletPermissions).map(
+        Object.entries(config.autoSignPermissions).map(
           async ([chainId, permission]) =>
             [
               chainId,
@@ -189,7 +189,7 @@ export function useTrySignWithGhostWallet() {
   const config = useConfig()
   const ghostWalletState = useGhostWalletState()
   const signWithGhostWallet = useSignWithGhostWallet()
-  const ghostWalletPermissions = config.ghostWalletPermissions
+  const autoSignPermissions = config.autoSignPermissions
 
   return async (
     chainId: string,
@@ -198,7 +198,7 @@ export function useTrySignWithGhostWallet() {
     memo: string,
   ): Promise<TxRaw | null> => {
     // Check if ghost wallet can handle this transaction type
-    if (!canGhostWalletHandleTxRequest({ messages, chainId }, ghostWalletPermissions)) {
+    if (!canGhostWalletHandleTxRequest({ messages, chainId }, autoSignPermissions)) {
       return null
     }
 
