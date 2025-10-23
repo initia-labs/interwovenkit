@@ -29,7 +29,10 @@ const App = () => {
       </header>
 
       <Send />
-      <AutoSign />
+      <AutoSign chainId="interwoven-1" />
+      <AutoSign chainId="civitia-1" />
+      <AutoSign chainId="echelon-1" />
+      <AutoSign chainId="moo-1" />
 
       <Bridge />
     </div>

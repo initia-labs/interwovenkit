@@ -36,7 +36,12 @@ const InnerProviders = ({ children }: PropsWithChildren) => {
 
   return (
     <InterwovenKitProvider
-      autoSignPermissions={{ "interwoven-1": ["/cosmos.bank.v1beta1.MsgSend"] }}
+      autoSignPermissions={{
+        "interwoven-1": ["/cosmos.bank.v1beta1.MsgSend"],
+        "civitia-1": ["/cosmos.bank.v1beta1.MsgSend"],
+        "echelon-1": ["/cosmos.bank.v1beta1.MsgSend"],
+        "moo-1": ["/cosmos.bank.v1beta1.MsgSend"],
+      }}
       privy={{ ...privy, crossAppAccounts, createWallet, wallets }}
       {...(isTestnet ? TESTNET : {})}
       {...(routerApiUrl ? { routerApiUrl } : {})}
