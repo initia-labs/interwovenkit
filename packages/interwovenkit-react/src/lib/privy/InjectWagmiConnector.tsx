@@ -51,8 +51,6 @@ const WagmiInjector = (props: PropsWithChildren) => {
 
 export const InjectWagmiConnector = (props: PropsWithChildren) => {
   const { privy } = useConfig()
-  if (!privy) {
-    return <>{props.children}</>
-  }
+  if (!privy) return <>{props.children}</>
   return <WagmiInjector {...props} />
 }

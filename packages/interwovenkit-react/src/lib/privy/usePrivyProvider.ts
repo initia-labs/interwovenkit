@@ -31,12 +31,11 @@ interface UsePrivyCrossAppEIP1193Props {
 
 export const usePrivyProvider = ({
   chain,
-  transport = http(undefined, {
-    batch: true,
-  }),
+  transport = http(undefined, { batch: true }),
 }: UsePrivyCrossAppEIP1193Props) => {
-  const { user, authenticated, ready, login, logout, wallets, crossAppAccounts } =
-    useConfig().privy!
+  const { privy } = useConfig()
+  if (!privy) throw new Error("Privy not found")
+  const { user, authenticated, ready, login, logout, wallets, crossAppAccounts } = privy
   const { sendTransaction, signMessage, signTypedData } = crossAppAccounts
   const config = useWagmiConfig()
 
