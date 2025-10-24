@@ -20,6 +20,7 @@ import DurationSelector from "./DurationSelector"
 import { ghostWalletExpirationAtom, useEmbeddedWallet, useRegisterGhostWallet } from "./hooks"
 import { ghostWalletQueryKeys } from "./queries"
 import { getPageInfo } from "./utils"
+import WebsiteWarning from "./WebsiteWarning"
 import styles from "./CreateGhostWalletPage.module.css"
 
 interface GhostWalletLocationState {
@@ -142,6 +143,8 @@ const CreateGhostWalletPage = () => {
           <p className={styles.appName}>{appName}</p>
           <p className={styles.host}>{window.location.host}</p>
         </div>
+
+        <WebsiteWarning />
 
         <p className={styles.label}>Applies to</p>
 
