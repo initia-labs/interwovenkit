@@ -3,9 +3,9 @@ import { mainnet } from "viem/chains"
 import { http, useConfig as useWagmiConfig, useReconnect } from "wagmi"
 import { injected } from "wagmi/connectors"
 import { type PropsWithChildren, useEffect, useState } from "react"
-import { useConfig } from "@/data/config.js"
-import { initiaPrivyWalletOptions } from "@/public/data/connectors.js"
-import { usePrivyProvider } from "./usePrivyProvider.js"
+import { useConfig } from "@/data/config"
+import { initiaPrivyWalletOptions } from "@/public/data/connectors"
+import { usePrivyProvider } from "./usePrivyProvider"
 
 const WagmiInjector = (props: PropsWithChildren) => {
   const { children } = props
@@ -32,25 +32,22 @@ const WagmiInjector = (props: PropsWithChildren) => {
       await config.storage?.setItem("recentConnectorId", id)
       config._internal.connectors.setState([connector])
 
-      return connector
+      if (connector) {
+        reconnect({ connectors: [connector] })
+        setIsSetup(true)
+      }
     }
 
     if (ready && (!isSetup || config.connectors.length === 0)) {
-      setup(provider).then((connector) => {
-        if (connector) {
-          reconnect({ connectors: [connector] })
-          setIsSetup(true)
-        }
-      })
+      setup(provider)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [provider, ready, isSetup, config, reconnect])
+  }, [provider, ready, isSetup, config, reconnect, meta])
 
-  return <>{children}</>
+  return children
 }
 
 export const InjectWagmiConnector = (props: PropsWithChildren) => {
   const { privy } = useConfig()
-  if (!privy) return <>{props.children}</>
+  if (!privy) return props.children
   return <WagmiInjector {...props} />
 }
