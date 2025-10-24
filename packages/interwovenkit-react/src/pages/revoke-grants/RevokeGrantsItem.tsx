@@ -91,6 +91,7 @@ const RevokeGrantsItem = ({ grantee, expiration, chainId }: RevokeGrantsItemProp
     const messages = [...authzMessages, revokeAllowanceMessage]
 
     await requestTxBlock({
+      chainId,
       messages,
       internal: "/settings/revoke",
     })
