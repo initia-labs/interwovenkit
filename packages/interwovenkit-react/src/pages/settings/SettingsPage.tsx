@@ -2,6 +2,7 @@ import { useAccount } from "wagmi"
 import { IconChevronRight, IconExternalLink } from "@initia/icons-react"
 import Page from "@/components/Page"
 import { useNavigate } from "@/lib/router"
+import { INITIA_APP_ID } from "@/public/data/connectors"
 import styles from "./SettingsPage.module.css"
 
 const SettingsPage = () => {
@@ -14,12 +15,12 @@ const SettingsPage = () => {
         <button className={styles.link} onClick={() => navigate("/settings/revoke")}>
           <div>
             <p className={styles.title}>Manage auto-signing</p>
-            <p className={styles.subtitle}>Manage which websites have auto-signing permissions</p>
+            <p className={styles.subtitle}>Manage chain auto-signing permissions by apps</p>
           </div>
           <IconChevronRight className={styles.icon} size={16} />
         </button>
 
-        {connector && ["io.privy.wallet", "cmbq1ozyc006al70lx4uciz0q"].includes(connector.id) && (
+        {connector?.id === INITIA_APP_ID && (
           <button
             className={styles.link}
             onClick={() =>
