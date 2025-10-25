@@ -88,7 +88,9 @@ const TxRequest = () => {
       if (!fee) throw new Error("Fee not found")
 
       // Try to sign with ghost wallet first
-      const ghostSignedTx = await trySignWithGhostWallet(chainId, messages, fee, memo || "")
+      const ghostSignedTx =
+        !txRequest.disableAutoSign &&
+        (await trySignWithGhostWallet(chainId, messages, fee, memo || ""))
 
       if (ghostSignedTx) {
         await resolve(ghostSignedTx)

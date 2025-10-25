@@ -40,6 +40,7 @@ export interface TxRequest {
 
   /** Internal use only */
   internal?: boolean | string | number // number for disabling notification
+  disableAutoSign?: boolean
 }
 
 interface TxRequestHandler {
