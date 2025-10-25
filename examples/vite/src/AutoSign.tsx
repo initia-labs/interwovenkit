@@ -3,7 +3,7 @@ import { useInterwovenKit } from "@initia/interwovenkit-react"
 import styles from "./GhostWallet.module.css"
 
 const AutoSign = ({ chainId }: { chainId: string }) => {
-  const { autosign, address } = useInterwovenKit()
+  const { autoSign, address } = useInterwovenKit()
   const [isCreating, setIsCreating] = useState(false)
 
   if (!address) return null // Not connected
@@ -11,7 +11,7 @@ const AutoSign = ({ chainId }: { chainId: string }) => {
   const handleSetupAutoSign = async () => {
     try {
       setIsCreating(true)
-      await autosign.setup(chainId)
+      await autoSign.setup(chainId)
       // Auto sign enabled successfully
     } finally {
       setIsCreating(false)
@@ -20,14 +20,16 @@ const AutoSign = ({ chainId }: { chainId: string }) => {
 
   return (
     <div className={styles.container}>
-      {autosign.loading ? (
+      {autoSign.isLoading ? (
         <p className={styles.enabled}>Loading...</p>
-      ) : !autosign.enabled[chainId] ? (
+      ) : !autoSign.isEnabled[chainId] ? (
         <button className={styles.button} onClick={handleSetupAutoSign} disabled={isCreating}>
           {isCreating ? "Setting up auto sign..." : `Enable auto sign on ${chainId}`}
         </button>
       ) : (
-        <p className={styles.enabled}>Auto sign is enabled on {chainId}!</p>
+        <p className={styles.enabled}>
+          Auto sign is enabled on {chainId}! <button onClick={autoSign.openRevoke}>Revoke</button>
+        </p>
       )}
     </div>
   )

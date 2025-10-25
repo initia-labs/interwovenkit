@@ -3,11 +3,11 @@ import { toBase64, toUtf8 } from "@cosmjs/encoding"
 import type { EncodeObject } from "@cosmjs/proto-signing"
 import ky from "ky"
 import { useEffect, useState } from "react"
-import { atom, useAtomValue, useSetAtom } from "jotai"
+import { atom, useAtom, useAtomValue, useSetAtom } from "jotai"
 import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
 import { InitiaAddress } from "@initia/utils"
-import { useDefaultChain } from "@/data/chains"
+import { useDefaultChain, useFindChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import { OfflineSigner, useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
 import { useInitiaAddress } from "@/public/data/hooks"
@@ -84,11 +84,11 @@ export function useSignWithGhostWallet() {
 
 export function useGhostWalletState() {
   const isEnabled = useIsGhostWalletEnabled()
-  const setExpiration = useSetAtom(ghostWalletExpirationAtom)
+  const [expirations, setExpirations] = useAtom(ghostWalletExpirationAtom)
   const setLoading = useSetAtom(ghostWalletLoadingAtom)
   const address = useInitiaAddress()
   const config = useConfig()
-  const defaultChain = useDefaultChain()
+  const findChain = useFindChain()
   const embeddedWalletAddress = useEmbeddedWalletAddress()
 
   const checkGhostWallet = async (): Promise<Record<string, boolean>> => {
@@ -114,13 +114,13 @@ export function useGhostWalletState() {
                 address,
                 embeddedWalletAddress,
                 permission,
-                defaultChain.restUrl,
+                findChain(chainId).restUrl,
               ),
             ] as [string, { enabled: boolean; expiresAt?: number }],
         ),
       )
 
-      setExpiration(
+      setExpirations(
         Object.fromEntries(
           result.map(([chainId, res]) => [chainId, res.enabled ? res.expiresAt : undefined]),
         ),
@@ -133,6 +133,7 @@ export function useGhostWalletState() {
   }
 
   return {
+    expirations,
     isEnabled,
     checkGhostWallet,
   }

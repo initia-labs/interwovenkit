@@ -95,6 +95,10 @@ export function useInterwovenKit() {
     })
   }
 
+  const openRevoke = () => {
+    openDrawer("/settings/revoke")
+  }
+
   const tx = useTx()
 
   const isConnected = !!address
@@ -111,10 +115,12 @@ export function useInterwovenKit() {
     openWallet,
     openBridge,
     disconnect,
-    autosign: {
-      enabled: ghostWalletState.isEnabled,
+    autoSign: {
+      expirationTimes: ghostWalletState.expirations,
+      isEnabled: ghostWalletState.isEnabled,
       setup: setupAutoSign,
-      loading: ghostWalletLoading,
+      isLoading: ghostWalletLoading,
+      openRevoke,
     },
     ...tx,
   }

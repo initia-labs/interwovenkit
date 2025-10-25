@@ -114,7 +114,11 @@ const RevokeGrantsPage = () => {
     )
   }
 
-  return <Page title="Manage auto-signing">{renderContent()}</Page>
+  return (
+    <Page title="Manage auto-signing" backButton="/settings">
+      {renderContent()}
+    </Page>
+  )
 }
 
 export default RevokeGrantsPage

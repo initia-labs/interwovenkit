@@ -10,7 +10,7 @@ const SettingsPage = () => {
   const { connector } = useAccount()
 
   return (
-    <Page title="Settings">
+    <Page title="Settings" backButton="/">
       <div className={styles.container}>
         <button className={styles.link} onClick={() => navigate("/settings/revoke")}>
           <div>

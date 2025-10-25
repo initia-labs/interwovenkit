@@ -120,6 +120,7 @@ export function useTx() {
       gasPrices: null,
       spendCoins: [],
       internal: false,
+      disableAutoSign: false,
     }
 
     const txRequest = { ...defaultTxRequest, ...rawTxRequest }
