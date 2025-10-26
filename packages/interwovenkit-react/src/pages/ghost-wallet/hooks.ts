@@ -2,7 +2,7 @@ import type { StdFee } from "@cosmjs/amino"
 import { toBase64, toUtf8 } from "@cosmjs/encoding"
 import type { EncodeObject } from "@cosmjs/proto-signing"
 import ky from "ky"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { atom, useAtom, useAtomValue, useSetAtom } from "jotai"
 import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
@@ -175,18 +175,21 @@ export const ghostWalletLoadingAtom = atom<boolean>(true)
 
 export function useIsGhostWalletEnabled() {
   const expirations = useAtomValue(ghostWalletExpirationAtom)
-  const [isEnabled, setIsEnabled] = useState(parseExpirationTimes(expirations))
+  const [tick, setTick] = useState(0)
+
+  const isEnabled = useMemo(
+    () => parseExpirationTimes(expirations),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- tick is used to force re-evaluation when expiration timer fires
+    [expirations, tick],
+  )
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsEnabled(parseExpirationTimes(expirations))
-
     const expiration = getEarliestExpiration(expirations)
     if (!expiration) return
 
     // Set up timer to disable when expiration is reached
     const timeoutId = setTimeout(() => {
-      setIsEnabled(parseExpirationTimes(expirations))
+      setTick((t) => t + 1)
     }, expiration - Date.now())
 
     return () => clearTimeout(timeoutId)
@@ -275,15 +278,15 @@ export function useRegisterGhostWallet() {
 
     const signature = await wallet.sign(message)
 
-    try {
-      // Send POST request to register the domain
-      await ky.post("auto-signing/register", {
+    // Send POST request to register the domain
+    await ky
+      .post("auto-signing/register", {
         prefixUrl: INTERWOVENKIT_API_URL,
         json: {
           signature,
           message,
         },
       })
-    } catch {} // eslint-disable-line no-empty
+      .catch(() => {})
   }
 }

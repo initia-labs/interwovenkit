@@ -34,8 +34,8 @@ const RevokeGrantsItem = ({ grantee, expiration, chainId }: RevokeGrantsItemProp
   // Calculate if it's a long-term expiration (doesn't change)
   const isLongTerm = useMemo(() => {
     const expirationTime = new Date(expiration).getTime()
-    // eslint-disable-next-line react-hooks/purity
-    const initialRemainingTime = expirationTime - Date.now()
+    // we don't care about updates to this value, so it's safe to read current time only once
+    const initialRemainingTime = expirationTime - Date.now() // eslint-disable-line react-hooks/purity
     return initialRemainingTime > YEAR_IN_MS
   }, [expiration])
 

@@ -56,6 +56,8 @@ const Prefetch = () => {
   useEffect(() => {
     if (!embeddedWalletAddress || !address) return
     ghostWalletState.checkGhostWallet()
+    // we want to run this effect only when address or embeddedWalletAddress changes since these are the only two
+    // variables that affect the ghost wallet state on startup
   }, [address, embeddedWalletAddress]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return null
