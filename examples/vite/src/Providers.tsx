@@ -27,7 +27,7 @@ const wagmiConfig = createConfig({
 })
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-const InnerProviders = ({ children }: PropsWithChildren) => {
+const InterwovenKitWrapper = ({ children }: PropsWithChildren) => {
   const theme = useTheme()
   const privy = usePrivy()
   const crossAppAccounts = useCrossAppAccounts()
@@ -74,7 +74,7 @@ const Providers = ({ children }: PropsWithChildren) => {
     >
       <QueryClientProvider client={queryClient}>
         <WagmiProvider config={wagmiConfig}>
-          <InnerProviders>{children}</InnerProviders>
+          <InterwovenKitWrapper>{children}</InterwovenKitWrapper>
         </WagmiProvider>
       </QueryClientProvider>
     </PrivyProvider>

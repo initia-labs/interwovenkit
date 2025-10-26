@@ -1,7 +1,7 @@
 import type { GeneratedType } from "@cosmjs/proto-signing"
 import type { AminoConverters } from "@cosmjs/stargate"
 import type { useCrossAppAccounts } from "@privy-io/react-auth"
-import { type useCreateWallet, type usePrivy, type useWallets } from "@privy-io/react-auth"
+import type { useCreateWallet, usePrivy, useWallets } from "@privy-io/react-auth"
 import { createContext, useContext } from "react"
 import type { Chain } from "@initia/initia-registry-types"
 

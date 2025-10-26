@@ -63,8 +63,7 @@ const CreateGhostWalletPage = () => {
       const { address: ghostWalletAddress } =
         embeddedWallet || (await config.privy.createWallet({ createAdditional: false }))
 
-      const selectedDurationMs = selectedDuration
-      const expiration = new Date(Date.now() + selectedDurationMs)
+      const expiration = new Date(Date.now() + selectedDuration)
 
       const messages = [
         {
