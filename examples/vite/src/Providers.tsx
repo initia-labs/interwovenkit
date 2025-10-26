@@ -36,7 +36,7 @@ const InnerProviders = ({ children }: PropsWithChildren) => {
 
   return (
     <InterwovenKitProvider
-      autoSignPermissions={{
+      enableAutoSign={{
         "interwoven-1": ["/cosmos.bank.v1beta1.MsgSend"],
         "civitia-1": ["/cosmos.bank.v1beta1.MsgSend"],
         "echelon-1": ["/cosmos.bank.v1beta1.MsgSend"],

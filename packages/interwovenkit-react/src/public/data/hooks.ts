@@ -11,7 +11,11 @@ import { useOfflineSigner } from "@/data/signer"
 import { useTx } from "@/data/tx"
 import { useDisconnect, useDrawer } from "@/data/ui"
 import type { FormValues } from "@/pages/bridge/data/form"
-import { ghostWalletLoadingAtom, useGhostWalletState } from "@/pages/ghost-wallet/hooks"
+import {
+  ghostWalletLoadingAtom,
+  useAutoSignPermissions,
+  useGhostWalletState,
+} from "@/pages/ghost-wallet/hooks"
 
 export { usePortfolio } from "@/data/portfolio"
 
@@ -50,6 +54,7 @@ export function useUsernameQuery() {
 
 export function useInterwovenKit() {
   const config = useConfig()
+  const autoSignPermissions = useAutoSignPermissions()
   const address = useAddress()
   const initiaAddress = useInitiaAddress()
   const hexAddress = useHexAddress()
@@ -80,7 +85,7 @@ export function useInterwovenKit() {
   const setGhostWalletRequestHandler = useSetGhostWalletRequestHandler()
 
   const setupAutoSign = async (chainId: string): Promise<void> => {
-    if (!config.autoSignPermissions?.[chainId]?.length)
+    if (!autoSignPermissions?.[chainId]?.length)
       throw new Error("Auto sign permissions are required for the setup")
 
     if (ghostWalletState.isEnabled[chainId]) throw new Error("Auto sign is already enabled")

@@ -25,6 +25,37 @@ export function useEmbeddedWalletAddress() {
   return wallet?.address ? InitiaAddress(wallet.address).bech32 : undefined
 }
 
+function parseChainTypeToMsg(type?: string) {
+  switch (type) {
+    case "minievm":
+      return "/minievm.evm.v1.MsgCall"
+    case "minimove":
+      return "/initia.move.v1.MsgExecute"
+    case "miniwasm":
+      return "/cosmwasm.wasm.v1.MsgExecuteContract"
+    default:
+      return null
+  }
+}
+
+export function useAutoSignPermissions() {
+  const { enableAutoSign } = useConfig()
+  const defaultChain = useDefaultChain()
+
+  if (!enableAutoSign) return {}
+
+  if (enableAutoSign === true) {
+    const msgType = parseChainTypeToMsg(defaultChain.metadata?.minitia?.type)
+    if (!msgType) return {}
+
+    return {
+      [defaultChain.chainId]: [msgType],
+    }
+  }
+
+  return enableAutoSign
+}
+
 export function useSignWithGhostWallet() {
   const embeddedWallet = useEmbeddedWallet()
   const embeddedWalletAddress = useEmbeddedWalletAddress()
@@ -87,12 +118,12 @@ export function useGhostWalletState() {
   const [expirations, setExpirations] = useAtom(ghostWalletExpirationAtom)
   const setLoading = useSetAtom(ghostWalletLoadingAtom)
   const address = useInitiaAddress()
-  const config = useConfig()
   const findChain = useFindChain()
   const embeddedWalletAddress = useEmbeddedWalletAddress()
+  const autoSignPermissions = useAutoSignPermissions()
 
   const checkGhostWallet = async (): Promise<Record<string, boolean>> => {
-    if (!embeddedWalletAddress || !address || !config.autoSignPermissions) {
+    if (!embeddedWalletAddress || !address || !autoSignPermissions) {
       setLoading(false)
       return {}
     }
@@ -106,7 +137,7 @@ export function useGhostWalletState() {
     try {
       // Perform the actual check
       const result = await Promise.all(
-        Object.entries(config.autoSignPermissions).map(
+        Object.entries(autoSignPermissions).map(
           async ([chainId, permission]) =>
             [
               chainId,
@@ -187,10 +218,9 @@ function getEarliestExpiration(expirations: Record<string, number | undefined>) 
  * with all ghost wallet dependencies already injected.
  */
 export function useTrySignWithGhostWallet() {
-  const config = useConfig()
   const ghostWalletState = useGhostWalletState()
   const signWithGhostWallet = useSignWithGhostWallet()
-  const autoSignPermissions = config.autoSignPermissions
+  const autoSignPermissions = useAutoSignPermissions()
 
   return async (
     chainId: string,

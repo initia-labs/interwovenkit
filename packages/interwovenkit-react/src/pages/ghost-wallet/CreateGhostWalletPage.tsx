@@ -17,7 +17,12 @@ import { useLocationState } from "@/lib/router"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { DEFAULT_DURATION } from "./constants"
 import DurationSelector from "./DurationSelector"
-import { ghostWalletExpirationAtom, useEmbeddedWallet, useRegisterGhostWallet } from "./hooks"
+import {
+  ghostWalletExpirationAtom,
+  useAutoSignPermissions,
+  useEmbeddedWallet,
+  useRegisterGhostWallet,
+} from "./hooks"
 import { ghostWalletQueryKeys } from "./queries"
 import { getPageInfo } from "./utils"
 import WebsiteWarning from "./WebsiteWarning"
@@ -31,6 +36,7 @@ const CreateGhostWalletPage = () => {
   const { closeDrawer } = useDrawer()
   const { initiaAddress, username, requestTxBlock } = useInterwovenKit()
   const config = useConfig()
+  const autoSignPermissions = useAutoSignPermissions()
   const embeddedWallet = useEmbeddedWallet()
   const setGhostWalletExpiration = useSetAtom(ghostWalletExpirationAtom)
   const ghostWalletRequestHandler = useGhostWalletRequestHandler()
@@ -50,7 +56,7 @@ const CreateGhostWalletPage = () => {
         throw new Error("Privy hooks must be configured")
       }
 
-      if (!config.autoSignPermissions?.[chainId]?.length) {
+      if (!autoSignPermissions?.[chainId]?.length) {
         throw new Error("Ghost wallet permissions must be configured")
       }
 
@@ -72,7 +78,7 @@ const CreateGhostWalletPage = () => {
             },
           },
         },
-        ...config.autoSignPermissions[chainId].map((msg) => ({
+        ...autoSignPermissions[chainId].map((msg) => ({
           typeUrl: "/cosmos.authz.v1beta1.MsgGrant",
           value: {
             granter: initiaAddress,

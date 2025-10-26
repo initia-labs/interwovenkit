@@ -19,7 +19,7 @@ export interface Config {
   theme: "light" | "dark"
   container?: HTMLElement
   disableAnalytics?: boolean
-  autoSignPermissions?: Record<string, string[]>
+  enableAutoSign?: boolean | Record<string, string[]>
   privy?: ReturnType<typeof usePrivy> & {
     crossAppAccounts: ReturnType<typeof useCrossAppAccounts>
     createWallet: ReturnType<typeof useCreateWallet>["createWallet"]
