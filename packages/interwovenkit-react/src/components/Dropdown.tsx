@@ -8,20 +8,23 @@ import styles from "./Dropdown.module.css"
 export interface DropdownOption<T = string> {
   value: T
   label: string
-  displayLabel?: string // Optional different label for the trigger display
+  triggerLabel?: string // Optional different label for the trigger display
 }
 
-interface DropdownProps<T = string>
-  extends Omit<
-    Select.Root.Props<string>,
-    "value" | "onValueChange" | "defaultValue" | "multiple" | "children" | "items"
-  > {
+interface DropdownProps<T = string> {
   options: DropdownOption<T>[]
   value: T
   onChange: (value: T) => void
   prefix?: React.ReactNode
   width?: string | number
-  style?: React.CSSProperties
+  triggerClassName?: string
+  classNames?: {
+    root?: string
+    trigger?: string
+    content?: string
+    popup?: string
+    item?: string
+  }
 }
 
 function Dropdown<T extends string | number = string>({
@@ -30,8 +33,8 @@ function Dropdown<T extends string | number = string>({
   onChange,
   prefix,
   width,
-  style,
-  ...selectRootProps
+  triggerClassName,
+  classNames,
 }: DropdownProps<T>) {
   const portalContainer = usePortal()
 
@@ -53,12 +56,10 @@ function Dropdown<T extends string | number = string>({
 
   const defaultTrigger = (
     <Select.Trigger
-      className={clsx(styles.trigger, {
-        [styles.disabled]: selectRootProps.disabled,
-      })}
-      style={{ ...style, ...(width ? { width } : {}) }}
+      className={clsx(styles.trigger, triggerClassName, classNames?.trigger)}
+      style={width ? { width } : undefined}
     >
-      <Select.Value>{selectedOption.displayLabel || selectedOption.label}</Select.Value>
+      <Select.Value>{selectedOption.triggerLabel || selectedOption.label}</Select.Value>
       <Select.Icon className={styles.icon}>
         <IconChevronDown size={16} />
       </Select.Icon>
@@ -66,36 +67,34 @@ function Dropdown<T extends string | number = string>({
   )
 
   return (
-    <Select.Root
-      {...selectRootProps}
-      value={String(value)}
-      onValueChange={handleChange}
-      modal={selectRootProps.modal ?? false}
-    >
-      <div className={styles.value}>
+    <Select.Root value={String(value)} onValueChange={handleChange} modal={false}>
+      <div className={clsx(styles.value, classNames?.root)}>
         {prefix}
         {defaultTrigger}
       </div>
 
       <Select.Portal container={portalContainer}>
         <Select.Positioner
-          className={clsx(styles.content)}
+          className={clsx(styles.content, classNames?.content)}
           alignItemWithTrigger={false}
           sideOffset={6}
           align={"end"}
         >
-          <Select.Popup className={clsx(styles.popup)}>
+          <Select.Popup className={clsx(styles.popup, classNames?.popup)}>
             {options.map((option) => (
               <Select.Item
-                className={clsx(styles.item)}
-                style={{ ...style, minWidth: width || 152 }}
+                className={styles.item}
+                style={{ minWidth: width || 152 }}
                 value={String(option.value)}
                 key={String(option.value)}
               >
                 <Select.ItemText>
-                  <span className={styles.itemContent}>
+                  <span className={clsx(styles.itemContent, classNames?.item)}>
                     {option.label}
-                    {option.value === value && <IconCheck size={12} />}
+                    <IconCheck
+                      size={12}
+                      className={clsx({ [styles.iconHidden]: option.value !== value })}
+                    />
                   </span>
                 </Select.ItemText>
               </Select.Item>

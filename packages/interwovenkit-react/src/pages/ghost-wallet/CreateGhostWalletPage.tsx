@@ -167,11 +167,7 @@ const CreateGhostWalletPage = () => {
 
           <p className={styles.detailLabel}>Duration</p>
           <div className={styles.detailValue}>
-            <DurationSelector
-              value={selectedDuration}
-              onChange={setSelectedDuration}
-              disabled={isPending}
-            />
+            <DurationSelector value={selectedDuration} onChange={setSelectedDuration} />
           </div>
         </div>
 

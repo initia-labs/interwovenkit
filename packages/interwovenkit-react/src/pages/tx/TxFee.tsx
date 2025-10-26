@@ -5,6 +5,7 @@ import Dropdown, { type DropdownOption } from "@/components/Dropdown"
 import { useFindAsset } from "@/data/assets"
 import { useChain } from "@/data/chains"
 import { useTxRequestHandler } from "@/data/tx"
+import styles from "./TxFee.module.css"
 
 interface Props {
   options: StdFee[]
@@ -37,7 +38,7 @@ const TxFee = ({ options, value, onChange }: Props) => {
     return {
       value: denom,
       label: getLabel(option),
-      displayLabel: symbol, // Show only symbol in trigger when selected
+      triggerLabel: symbol, // Show only symbol in trigger when selected
     }
   })
 
@@ -58,6 +59,7 @@ const TxFee = ({ options, value, onChange }: Props) => {
       value={value}
       onChange={onChange}
       prefix={<span className="monospace">{formatAmount(amount, { decimals, dp })}</span>}
+      classNames={{ item: styles.item }}
     />
   )
 }

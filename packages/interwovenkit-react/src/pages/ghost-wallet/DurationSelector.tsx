@@ -4,23 +4,16 @@ import { DURATION_OPTIONS } from "./constants"
 interface Props {
   value: number
   onChange: (value: number) => void
-  disabled?: boolean
 }
 
-const DurationSelector = ({ value, onChange, disabled = false }: Props) => {
+const DurationSelector = ({ value, onChange }: Props) => {
   return (
     <Dropdown
       options={DURATION_OPTIONS}
       value={value}
       onChange={onChange}
-      disabled={disabled}
       width={140}
-      style={{
-        fontFamily: "var(--font-family)",
-        textAlign: "start",
-        fontSize: 12,
-        fontWeight: 500,
-      }}
+      triggerClassName="duration-selector-trigger"
     />
   )
 }
