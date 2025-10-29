@@ -19,9 +19,8 @@ const RevokeGrantsPage = () => {
     type GrantWithPermission = Grant & {
       permission?: {
         domainAddress: string
-        metadata?: { icon: string }
-        granterAddress: string
-        address: string
+        icon?: { icon: string }
+        granteeAddress: string
       }
     }
 
@@ -48,7 +47,9 @@ const RevokeGrantsPage = () => {
           }
 
           // Find the permission where granterAddress matches the grantee (backend naming issue)
-          const permission = permissions?.find((p) => p.granterAddress === grant.grantee)
+          const permission = permissions?.find(
+            ({ granteeAddress }) => granteeAddress === grant.grantee,
+          )
 
           if (permission) {
             const domain = permission.domainAddress
@@ -81,7 +82,7 @@ const RevokeGrantsPage = () => {
         {Array.from(groupedGrants.withDomain.entries()).map(([domain, grants]) => (
           <div key={domain} className={styles.domainGroup}>
             {/* Show domain header once for the group */}
-            <GranteeDomain domainName={domain} domainIcon={grants[0]?.permission?.metadata?.icon} />
+            <GranteeDomain domainName={domain} domainIcon={grants[0]?.permission?.icon?.icon} />
             {/* Render all grants for this domain */}
             {grants.map((grant) => (
               <RevokeGrantsItem

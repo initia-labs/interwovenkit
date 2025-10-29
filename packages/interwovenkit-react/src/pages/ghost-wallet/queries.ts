@@ -3,8 +3,8 @@ import { useQueries, useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { useInitiaRegistry } from "@/data/chains"
 import { STALE_TIMES } from "@/data/http"
+import { useBackend } from "@/lib/backend"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { INTERWOVENKIT_API_URL } from "./constants"
 
 export const ghostWalletQueryKeys = createQueryKeys("interwovenkit:ghost-wallet", {
   grantsByGranter: (restUrl: string, granter: string) => [restUrl, granter],
@@ -110,28 +110,25 @@ export function useAllGrants() {
 }
 
 export interface Permission {
-  address: string
-  granterAddress: string
+  granteeAddress: string
   domainAddress: string
-  metadata: {
+  icon: {
     icon: string
   }
 }
 
 export function useGranteeAddressDomain() {
   const address = useInitiaAddress()
+  const { getClient } = useBackend()
 
   return useQuery({
     queryKey: ghostWalletQueryKeys.permissions(address).queryKey,
     queryFn: async (): Promise<Permission[]> => {
-      const response = await ky
-        .get(`auto-signing/get-address/${address}`, {
-          prefixUrl: INTERWOVENKIT_API_URL,
-        })
-        .json<{
-          message: string
-          permissions: Permission[]
-        }>()
+      const client = await getClient()
+      const response = await client.get(`auto-sign/get-address/${address}`).json<{
+        message: string
+        permissions: Permission[]
+      }>()
 
       return response.permissions
     },

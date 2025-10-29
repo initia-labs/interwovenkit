@@ -10,10 +10,12 @@ const GranteeDomain = ({ domainName, domainIcon }: GranteeDomainProps) => {
     return null
   }
 
+  const { hostname } = new URL(domainName)
+
   return (
     <div className={styles.domainHeader}>
       {domainIcon && <img src={domainIcon} alt={domainName} className={styles.domainIcon} />}
-      <span className={styles.domainName}>{domainName}</span>
+      <span className={styles.domainName}>{hostname}</span>
     </div>
   )
 }
