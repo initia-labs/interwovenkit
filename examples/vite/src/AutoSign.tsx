@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useInterwovenKit } from "@initia/interwovenkit-react"
-import styles from "./GhostWallet.module.css"
+import styles from "./AutoSign.module.css"
 
 const AutoSign = ({ chainId }: { chainId: string }) => {
   const { autoSign, address } = useInterwovenKit()
@@ -28,7 +28,10 @@ const AutoSign = ({ chainId }: { chainId: string }) => {
         </button>
       ) : (
         <p className={styles.enabled}>
-          Auto sign is enabled on {chainId}! <button onClick={autoSign.openRevoke}>Revoke</button>
+          <span>Auto sign is enabled on {chainId}!</span>
+          <button className={styles.button} onClick={() => autoSign.revoke(chainId)}>
+            Revoke
+          </button>
         </p>
       )}
     </div>

@@ -45,7 +45,15 @@
 
 .enabled {
   font-size: 14px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-content: center;
+}
+
+.enabled .button {
+  padding: 8px 24px;
+  width: auto;
 }
 
 [data-theme="dark"] .enabled {

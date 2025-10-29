@@ -2,15 +2,17 @@ import type { StdFee } from "@cosmjs/amino"
 import type { EncodeObject } from "@cosmjs/proto-signing"
 import { useEffect, useMemo, useState } from "react"
 import { atom, useAtom, useAtomValue, useSetAtom } from "jotai"
+import { useQueryClient } from "@tanstack/react-query"
 import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
 import { InitiaAddress } from "@initia/utils"
 import { useDefaultChain, useFindChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import { OfflineSigner, useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
+import { useTx } from "@/data/tx"
 import { useBackend } from "@/lib/backend"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { checkGhostWalletEnabled } from "./queries"
+import { checkGhostWalletEnabled, ghostWalletQueryKeys } from "./queries"
 import { canGhostWalletHandleTxRequest, getPageInfo } from "./utils"
 
 export function useEmbeddedWallet() {
@@ -267,5 +269,49 @@ export function useRegisterGhostWallet() {
         },
       })
       .catch(() => {})
+  }
+}
+
+export function useRevokeAutoSign() {
+  const queryClient = useQueryClient()
+  const granteeAddress = useEmbeddedWalletAddress()
+  const initiaAddress = useInitiaAddress()
+  const permissions = useAutoSignPermissions()
+  const ghostWalletState = useGhostWalletState()
+  const setGhostWalletExpiration = useSetAtom(ghostWalletExpirationAtom)
+  const { requestTxBlock } = useTx()
+
+  return async (chainId: string) => {
+    if (!permissions[chainId]) throw new Error("No auto sign permissions found for this chain")
+    if (!ghostWalletState.isEnabled[chainId])
+      throw new Error("Ghost wallet is not enabled for this chain")
+
+    await requestTxBlock({
+      messages: [
+        {
+          typeUrl: "/cosmos.feegrant.v1beta1.MsgRevokeAllowance",
+          value: {
+            granter: initiaAddress,
+            grantee: granteeAddress,
+          },
+        },
+        ...permissions[chainId].map((msg) => ({
+          typeUrl: "/cosmos.authz.v1beta1.MsgRevoke",
+          value: {
+            granter: initiaAddress,
+            grantee: granteeAddress!,
+            msgTypeUrl: msg,
+          },
+        })),
+      ],
+      chainId,
+    })
+
+    // Invalidate the grants query to refresh the data
+    queryClient.invalidateQueries({
+      queryKey: ghostWalletQueryKeys.grantsByGranter._def,
+    })
+
+    setGhostWalletExpiration((exp) => ({ ...exp, [chainId]: undefined }))
   }
 }

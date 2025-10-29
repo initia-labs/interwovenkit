@@ -15,6 +15,7 @@ import {
   ghostWalletLoadingAtom,
   useAutoSignPermissions,
   useGhostWalletState,
+  useRevokeAutoSign,
 } from "@/pages/ghost-wallet/hooks"
 
 export { usePortfolio } from "@/data/portfolio"
@@ -63,6 +64,7 @@ export function useInterwovenKit() {
   const disconnect = useDisconnect()
   const ghostWalletState = useGhostWalletState()
   const ghostWalletLoading = useAtomValue(ghostWalletLoadingAtom)
+  const revokeAutoSign = useRevokeAutoSign()
 
   const { isDrawerOpen: isOpen, openDrawer } = useDrawer()
 
@@ -100,10 +102,6 @@ export function useInterwovenKit() {
     })
   }
 
-  const openRevoke = () => {
-    openDrawer("/settings/revoke")
-  }
-
   const tx = useTx()
 
   const isConnected = !!address
@@ -124,8 +122,8 @@ export function useInterwovenKit() {
       expirationTimes: ghostWalletState.expirations,
       isEnabled: ghostWalletState.isEnabled,
       setup: setupAutoSign,
+      revoke: revokeAutoSign,
       isLoading: ghostWalletLoading,
-      openRevoke,
     },
     ...tx,
   }
