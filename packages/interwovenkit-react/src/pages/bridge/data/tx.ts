@@ -100,7 +100,6 @@ export function useBridgeTx(tx: TxJson) {
               messages,
               chainId: srcChainId,
               internal: 1,
-              disableAutoSign: true,
               spendCoins: [{ denom: srcDenom, amount: toBaseUnit(quantity, { decimals }) }],
             })
             const wait = waitForTxConfirmation({ txHash, chainId: srcChainId })

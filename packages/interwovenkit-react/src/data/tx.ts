@@ -40,7 +40,6 @@ export interface TxRequest {
 
   /** Internal use only */
   internal?: boolean | string | number // number for disabling notification
-  disableAutoSign?: boolean
 }
 
 interface TxRequestHandler {
@@ -120,7 +119,6 @@ export function useTx() {
       gasPrices: null,
       spendCoins: [],
       internal: false,
-      disableAutoSign: false,
     }
 
     const txRequest = { ...defaultTxRequest, ...rawTxRequest }

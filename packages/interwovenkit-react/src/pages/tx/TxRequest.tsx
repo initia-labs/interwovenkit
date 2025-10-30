@@ -89,8 +89,7 @@ const TxRequest = () => {
 
       // Try to sign with ghost wallet first
       const ghostSignedTx =
-        !txRequest.disableAutoSign &&
-        (await trySignWithGhostWallet(chainId, messages, fee, memo || ""))
+        !txRequest.internal && (await trySignWithGhostWallet(chainId, messages, fee, memo || ""))
 
       if (ghostSignedTx) {
         await resolve(ghostSignedTx)
