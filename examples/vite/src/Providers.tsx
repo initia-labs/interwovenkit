@@ -11,9 +11,9 @@ import { mainnet } from "wagmi/chains"
 import { type PropsWithChildren } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import {
-  INITIA_APP_ID,
   injectStyles,
   InterwovenKitProvider,
+  PRIVY_APP_ID,
   TESTNET,
 } from "@initia/interwovenkit-react"
 import css from "@initia/interwovenkit-react/styles.css?inline"
@@ -68,7 +68,7 @@ const Providers = ({ children }: PropsWithChildren) => {
           showWalletUIs: false,
         },
         loginMethodsAndOrder: {
-          primary: [`privy:${INITIA_APP_ID}`, "detected_ethereum_wallets"],
+          primary: [`privy:${PRIVY_APP_ID}`, "detected_ethereum_wallets"],
         },
       }}
     >

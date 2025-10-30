@@ -2,7 +2,7 @@ import { useAccount } from "wagmi"
 import { IconChevronRight, IconExternalLink } from "@initia/icons-react"
 import Page from "@/components/Page"
 import { useNavigate } from "@/lib/router"
-import { INITIA_APP_ID } from "@/public/data/connectors"
+import { PRIVY_APP_ID } from "@/public/data/connectors"
 import styles from "./SettingsPage.module.css"
 
 const SettingsPage = () => {
@@ -20,7 +20,7 @@ const SettingsPage = () => {
           <IconChevronRight className={styles.icon} size={16} />
         </button>
 
-        {connector?.id === INITIA_APP_ID && (
+        {connector?.id === PRIVY_APP_ID && (
           <button
             className={styles.link}
             onClick={() =>

@@ -15,7 +15,7 @@ import {
 import { useConfig as useWagmiConfig } from "wagmi"
 import { useCallback, useMemo } from "react"
 import { useConfig } from "@/data/config"
-import { INITIA_APP_ID } from "@/public/data/connectors"
+import { PRIVY_APP_ID } from "@/public/data/connectors"
 
 type RpcMethodNames<rpcSchema extends RpcSchema> = rpcSchema[keyof rpcSchema] extends {
   Method: string
@@ -97,7 +97,7 @@ export const usePrivyProvider = ({
       return { address: undefined, isCrossApp: false }
     }
     const crossAppAccount = user.linkedAccounts.find(
-      (account) => account.type === "cross_app" && account.providerApp.id === INITIA_APP_ID,
+      (account) => account.type === "cross_app" && account.providerApp.id === PRIVY_APP_ID,
     ) as CrossAppAccount | undefined
 
     const crossAppAddress = crossAppAccount?.embeddedWallets?.[0]?.address
