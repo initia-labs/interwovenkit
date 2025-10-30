@@ -9,8 +9,8 @@ import { OfflineSigner, useRegistry, useSignWithEthSecp256k1 } from "@/data/sign
 import { useInitiaAddress } from "@/public/data/hooks"
 
 export function useEmbeddedWallet() {
-  const { privy } = useConfig()
-  return privy?.wallets.find((w) => w.connectorType === "embedded")
+  const { privyContext } = useConfig()
+  return privyContext?.wallets.find((w) => w.connectorType === "embedded")
 }
 
 export function useEmbeddedWalletAddress() {

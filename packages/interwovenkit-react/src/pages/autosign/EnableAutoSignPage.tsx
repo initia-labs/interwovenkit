@@ -1,6 +1,6 @@
 import clsx from "clsx"
 import { useState } from "react"
-import { useSetAtom } from "jotai"
+import { useAtom, useSetAtom } from "jotai"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { IconCheckCircle, IconWallet } from "@initia/icons-react"
 import { GenericAuthorization } from "@initia/initia.proto/cosmos/authz/v1beta1/authz"
@@ -19,11 +19,7 @@ import { useRegisterAutoSign } from "./data/actions"
 import { DEFAULT_DURATION, DURATION_OPTIONS } from "./data/constants"
 import { useAutoSignPermissions } from "./data/permissions"
 import { autoSignQueryKeys } from "./data/queries"
-import {
-  autoSignExpirationAtom,
-  useAutoSignRequestHandler,
-  useSetAutoSignRequestHandler,
-} from "./data/state"
+import { autoSignExpirationAtom, pendingAutoSignRequestAtom } from "./data/state"
 import { getPageInfo } from "./data/utils"
 import { useEmbeddedWallet } from "./data/wallet"
 import WebsiteWarning from "./WebsiteWarning"
@@ -36,16 +32,15 @@ interface AutoSignLocationState {
 const EnableAutoSignPage = () => {
   const { closeDrawer } = useDrawer()
   const { initiaAddress, username, requestTxBlock } = useInterwovenKit()
-  const config = useConfig()
+  const { privyContext, defaultChainId } = useConfig()
   const autoSignPermissions = useAutoSignPermissions()
   const embeddedWallet = useEmbeddedWallet()
   const setAutoSignExpiration = useSetAtom(autoSignExpirationAtom)
-  const autoSignRequestHandler = useAutoSignRequestHandler()
-  const setAutoSignRequestHandler = useSetAutoSignRequestHandler()
+  const [pendingAutoSignRequest, setPendingAutoSignRequest] = useAtom(pendingAutoSignRequestAtom)
   const registerAutoSign = useRegisterAutoSign()
   const [selectedDuration, setSelectedDuration] = useState<number>(DEFAULT_DURATION)
   const { chainId: locationChainId } = useLocationState<AutoSignLocationState>()
-  const chainId = locationChainId || config.defaultChainId
+  const chainId = locationChainId || defaultChainId
   const chain = useChain(chainId)
   const queryClient = useQueryClient()
 
@@ -53,7 +48,7 @@ const EnableAutoSignPage = () => {
 
   const { mutate: createAutoSign, isPending } = useMutation({
     mutationFn: async () => {
-      if (!config.privy) {
+      if (!privyContext) {
         throw new Error("Privy hooks must be configured")
       }
 
@@ -62,7 +57,7 @@ const EnableAutoSignPage = () => {
       }
 
       const { address: embeddedWalletAddress } =
-        embeddedWallet || (await config.privy.createWallet({ createAdditional: false }))
+        embeddedWallet || (await privyContext.createWallet({ createAdditional: false }))
 
       const expiration = new Date(Date.now() + selectedDuration)
 
@@ -99,7 +94,10 @@ const EnableAutoSignPage = () => {
       return expiration
     },
     onSuccess: (expiration) => {
-      setAutoSignExpiration((exp) => ({ ...exp, [chainId]: expiration.getTime() }))
+      setAutoSignExpiration((expirationMap) => ({
+        ...expirationMap,
+        [chainId]: expiration.getTime(),
+      }))
       // Invalidate grants queries to refresh the data
       queryClient.invalidateQueries({
         queryKey: autoSignQueryKeys.grantsByGranter(chain.restUrl, initiaAddress).queryKey,
@@ -109,22 +107,22 @@ const EnableAutoSignPage = () => {
         queryKey: autoSignQueryKeys.permissions(initiaAddress).queryKey,
       })
       // Resolve the promise if there's a pending request
-      autoSignRequestHandler?.resolve()
-      setAutoSignRequestHandler(null)
+      pendingAutoSignRequest?.resolve()
+      setPendingAutoSignRequest(null)
       closeDrawer()
     },
     onError: (error) => {
       // Reject the promise if there's a pending request
-      autoSignRequestHandler?.reject(error as Error)
-      setAutoSignRequestHandler(null)
+      pendingAutoSignRequest?.reject(error as Error)
+      setPendingAutoSignRequest(null)
       closeDrawer()
     },
   })
 
   const handleReject = () => {
     // Reject the promise if there's a pending request
-    autoSignRequestHandler?.reject(new Error("User rejected auto sign setup"))
-    setAutoSignRequestHandler(null)
+    pendingAutoSignRequest?.reject(new Error("User rejected auto sign setup"))
+    setPendingAutoSignRequest(null)
     closeDrawer()
   }
 
@@ -185,7 +183,7 @@ const EnableAutoSignPage = () => {
             "Protected by Privy embedded wallet",
             "Revoke permissions any time in settings",
           ].map((text) => (
-            <li className={styles.listItem}>
+            <li className={styles.listItem} key={text}>
               <IconCheckCircle size={12} />
               <span>{text}</span>
             </li>

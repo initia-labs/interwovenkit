@@ -1,17 +1,14 @@
-import { type CrossAppAccount, type SignTypedDataParams, type User } from "@privy-io/react-auth"
-import {
-  type Address,
-  type Chain,
-  createPublicClient,
-  type EIP1193Provider,
-  type EIP1193RequestFn,
-  type EIP1474Methods,
-  fromHex,
-  http,
-  type RpcSchema,
-  toHex,
-  type Transport,
+import type { CrossAppAccount, SignTypedDataParams, User } from "@privy-io/react-auth"
+import type {
+  Address,
+  Chain,
+  EIP1193Provider,
+  EIP1193RequestFn,
+  EIP1474Methods,
+  RpcSchema,
+  Transport,
 } from "viem"
+import { createPublicClient, fromHex, http, toHex } from "viem"
 import { useConfig as useWagmiConfig } from "wagmi"
 import { useCallback, useMemo } from "react"
 import { useConfig } from "@/data/config"
@@ -33,9 +30,10 @@ export const usePrivyProvider = ({
   chain,
   transport = http(undefined, { batch: true }),
 }: UsePrivyCrossAppEIP1193Props) => {
-  const { privy } = useConfig()
-  if (!privy) throw new Error("Privy not found")
-  const { user, authenticated, ready, login, logout, wallets, crossAppAccounts } = privy
+  const { privyContext } = useConfig()
+  if (!privyContext) throw new Error("Privy context not found")
+  const { privy, wallets, crossAppAccounts } = privyContext
+  const { user, authenticated, ready, login, logout } = privy
   const { sendTransaction, signMessage, signTypedData } = crossAppAccounts
   const config = useWagmiConfig()
 

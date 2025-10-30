@@ -1,5 +1,6 @@
 import { useInterwovenKit } from "@initia/interwovenkit-react"
 import { truncate } from "@initia/utils"
+import ToggleAutoSign from "./ToggleAutoSign"
 import styles from "./Connection.module.css"
 
 const Connection = () => {
@@ -14,9 +15,12 @@ const Connection = () => {
   }
 
   return (
-    <button className={styles.button} onClick={openWallet}>
-      {truncate(username ?? address)}
-    </button>
+    <>
+      <ToggleAutoSign />
+      <button className={styles.button} onClick={openWallet}>
+        {truncate(username ?? address)}
+      </button>
+    </>
   )
 }
 

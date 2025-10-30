@@ -17,7 +17,7 @@ import {
   TESTNET,
 } from "@initia/interwovenkit-react"
 import css from "@initia/interwovenkit-react/styles.css?inline"
-import { isTestnet, routerApiUrl, useTheme } from "./data"
+import { chainId, isTestnet, routerApiUrl, useTheme } from "./data"
 
 injectStyles(css)
 const wagmiConfig = createConfig({
@@ -36,17 +36,12 @@ const InterwovenKitWrapper = ({ children }: PropsWithChildren) => {
 
   return (
     <InterwovenKitProvider
-      enableAutoSign={{
-        "interwoven-1": ["/cosmos.bank.v1beta1.MsgSend"],
-        "civitia-1": ["/cosmos.bank.v1beta1.MsgSend"],
-        "echelon-1": ["/cosmos.bank.v1beta1.MsgSend"],
-        "moo-1": ["/cosmos.bank.v1beta1.MsgSend"],
-      }}
-      privy={{ ...privy, crossAppAccounts, createWallet, wallets }}
       {...(isTestnet ? TESTNET : {})}
       {...(routerApiUrl ? { routerApiUrl } : {})}
       theme={theme}
       container={import.meta.env.DEV ? document.body : undefined}
+      privyContext={{ privy, crossAppAccounts, createWallet, wallets }}
+      enableAutoSign={{ [chainId]: ["/cosmos.bank.v1beta1.MsgSend"] }}
     >
       {children}
     </InterwovenKitProvider>
@@ -62,9 +57,7 @@ const Providers = ({ children }: PropsWithChildren) => {
           theme: "dark",
         },
         embeddedWallets: {
-          ethereum: {
-            createOnLogin: "all-users",
-          },
+          ethereum: { createOnLogin: "all-users" },
           showWalletUIs: false,
         },
         loginMethodsAndOrder: {

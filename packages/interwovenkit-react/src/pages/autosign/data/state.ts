@@ -6,21 +6,12 @@ import { useAutoSignPermissions } from "./permissions"
 import { checkAutoSignEnabled } from "./queries"
 import { useEmbeddedWalletAddress } from "./wallet"
 
-interface AutoSignRequestHandler {
+interface PendingAutoSignRequest {
   resolve: () => void
   reject: (error: Error) => void
 }
 
-// Internal atom - not exported from public API
-const autoSignRequestHandlerAtom = atom<AutoSignRequestHandler | null>(null)
-
-export function useAutoSignRequestHandler() {
-  return useAtomValue(autoSignRequestHandlerAtom)
-}
-
-export function useSetAutoSignRequestHandler() {
-  return useSetAtom(autoSignRequestHandlerAtom)
-}
+export const pendingAutoSignRequestAtom = atom<PendingAutoSignRequest | null>(null)
 
 export const autoSignExpirationAtom = atom<Record<string, number | undefined>>({})
 export const autoSignLoadingAtom = atom<boolean>(true)
@@ -84,12 +75,12 @@ export function useAutoSignState() {
 
 export function useIsAutoSignEnabled() {
   const expirations = useAtomValue(autoSignExpirationAtom)
-  const [tick, setTick] = useState(0)
+  const [expirationCheckTick, setExpirationCheckTick] = useState(0)
 
   const isEnabled = useMemo(
     () => parseExpirationTimes(expirations),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- tick is used to force re-evaluation when expiration timer fires
-    [expirations, tick],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- expirationCheckTick is used to force re-evaluation when expiration timer fires
+    [expirations, expirationCheckTick],
   )
 
   useEffect(() => {
@@ -98,7 +89,7 @@ export function useIsAutoSignEnabled() {
 
     // Set up timer to disable when expiration is reached
     const timeoutId = setTimeout(() => {
-      setTick((t) => t + 1)
+      setExpirationCheckTick((currentTick) => currentTick + 1)
     }, expiration - Date.now())
 
     return () => clearTimeout(timeoutId)
@@ -107,8 +98,10 @@ export function useIsAutoSignEnabled() {
   return isEnabled
 }
 
-/* utils */
-function parseExpirationTimes(expirations: Record<string, number | undefined>) {
+/**
+ * Parse expiration times and check if they're still valid
+ */
+export function parseExpirationTimes(expirations: Record<string, number | undefined>) {
   return Object.fromEntries(
     Object.entries(expirations).map(([chainId, expirationTime]) => {
       return [chainId, !!expirationTime && expirationTime > Date.now()]
@@ -116,7 +109,10 @@ function parseExpirationTimes(expirations: Record<string, number | undefined>) {
   )
 }
 
-function getEarliestExpiration(expirations: Record<string, number | undefined>) {
+/**
+ * Get the earliest expiration time from a record of expirations
+ */
+export function getEarliestExpiration(expirations: Record<string, number | undefined>) {
   const validExpirations = Object.values(expirations).filter(
     (expiration) => !!expiration && expiration > Date.now(),
   ) as number[]

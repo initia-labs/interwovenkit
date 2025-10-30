@@ -1,5 +1,5 @@
 import { useAccount } from "wagmi"
-import { useAtomValue } from "jotai"
+import { useAtomValue, useSetAtom } from "jotai"
 import { useQuery } from "@tanstack/react-query"
 import { InitiaAddress } from "@initia/utils"
 import { accountQueryKeys, useUsernameClient } from "@/data/account"
@@ -13,8 +13,8 @@ import { useRevokeAutoSign } from "@/pages/autosign/data/actions"
 import { useAutoSignPermissions } from "@/pages/autosign/data/permissions"
 import {
   autoSignLoadingAtom,
+  pendingAutoSignRequestAtom,
   useAutoSignState,
-  useSetAutoSignRequestHandler,
 } from "@/pages/autosign/data/state"
 import type { FormValues } from "@/pages/bridge/data/form"
 
@@ -54,7 +54,7 @@ export function useUsernameQuery() {
 }
 
 export function useInterwovenKit() {
-  const config = useConfig()
+  const { privyContext } = useConfig()
   const autoSignPermissions = useAutoSignPermissions()
   const address = useAddress()
   const initiaAddress = useInitiaAddress()
@@ -73,8 +73,8 @@ export function useInterwovenKit() {
   }
 
   const openConnect = () => {
-    if (config.privy) {
-      config.privy.login()
+    if (privyContext) {
+      privyContext.privy.login()
     } else {
       openDrawer("/connect")
     }
@@ -84,16 +84,19 @@ export function useInterwovenKit() {
     openDrawer("/bridge", defaultValues)
   }
 
-  const setAutoSignRequestHandler = useSetAutoSignRequestHandler()
+  const setPendingAutoSignRequest = useSetAtom(pendingAutoSignRequestAtom)
 
   const setupAutoSign = async (chainId: string): Promise<void> => {
-    if (!autoSignPermissions?.[chainId]?.length)
+    if (!autoSignPermissions?.[chainId]?.length) {
       throw new Error("Auto sign permissions are required for the setup")
+    }
 
-    if (autoSignState.isEnabled[chainId]) throw new Error("Auto sign is already enabled")
+    if (autoSignState.isEnabled[chainId]) {
+      throw new Error("Auto sign is already enabled")
+    }
 
     return new Promise<void>((resolve, reject) => {
-      setAutoSignRequestHandler({
+      setPendingAutoSignRequest({
         resolve,
         reject,
       })

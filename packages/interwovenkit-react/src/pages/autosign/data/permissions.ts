@@ -1,16 +1,14 @@
 import { useDefaultChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
 
-function parseChainTypeToMsg(type?: string) {
-  switch (type) {
+function mapChainTypeToMessageType(chainType?: string) {
+  switch (chainType) {
     case "minievm":
       return "/minievm.evm.v1.MsgCall"
-    case "minimove":
-      return "/initia.move.v1.MsgExecute"
     case "miniwasm":
       return "/cosmwasm.wasm.v1.MsgExecuteContract"
     default:
-      return null
+      return "/initia.move.v1.MsgExecute"
   }
 }
 
@@ -18,14 +16,16 @@ export function useAutoSignPermissions() {
   const { enableAutoSign } = useConfig()
   const defaultChain = useDefaultChain()
 
-  if (!enableAutoSign) return {}
+  if (!enableAutoSign) {
+    return {}
+  }
 
-  if (enableAutoSign === true) {
-    const msgType = parseChainTypeToMsg(defaultChain.metadata?.minitia?.type)
-    if (!msgType) return {}
+  if (typeof enableAutoSign === "boolean" && enableAutoSign) {
+    const messageType = mapChainTypeToMessageType(defaultChain.metadata?.minitia?.type)
+    if (!messageType) return {}
 
     return {
-      [defaultChain.chainId]: [msgType],
+      [defaultChain.chainId]: [messageType],
     }
   }
 

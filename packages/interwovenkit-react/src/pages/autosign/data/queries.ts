@@ -1,7 +1,7 @@
 import ky from "ky"
 import { useQueries, useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
-import { useBackend } from "@/data/api"
+import { useInterwovenKitApi } from "@/data/api"
 import { useInitiaRegistry } from "@/data/chains"
 import { STALE_TIMES } from "@/data/http"
 import { useInitiaAddress } from "@/public/data/hooks"
@@ -11,6 +11,9 @@ export const autoSignQueryKeys = createQueryKeys("interwovenkit:auto-sign", {
   permissions: (address: string) => [address],
 })
 
+/**
+ * Check if auto sign is enabled by verifying feegrant and authz grants
+ */
 export async function checkAutoSignEnabled(
   granter: string,
   grantee: string,
@@ -52,7 +55,7 @@ export async function checkAutoSignEnabled(
       feegrantResponse.allowance?.allowance?.expiration,
     ]
       .filter(Boolean)
-      .map((exp) => new Date(exp!).getTime())
+      .map((expirationString) => new Date(expirationString!).getTime())
 
     const earliestExpiration = expirations.length > 0 ? Math.min(...expirations) : undefined
 
@@ -109,7 +112,7 @@ export function useAllGrants() {
   })
 }
 
-export interface Permission {
+export interface AutoSignDomainPermission {
   granteeAddress: string
   domainAddress: string
   icon: {
@@ -119,15 +122,14 @@ export interface Permission {
 
 export function useGranteeAddressDomain() {
   const address = useInitiaAddress()
-  const { getClient } = useBackend()
+  const { interwovenkitApi } = useInterwovenKitApi()
 
   return useQuery({
     queryKey: autoSignQueryKeys.permissions(address).queryKey,
-    queryFn: async (): Promise<Permission[]> => {
-      const client = await getClient()
-      const response = await client.get(`auto-sign/get-address/${address}`).json<{
+    queryFn: async (): Promise<AutoSignDomainPermission[]> => {
+      const response = await interwovenkitApi.get(`auto-sign/get-address/${address}`).json<{
         message: string
-        permissions: Permission[]
+        permissions: AutoSignDomainPermission[]
       }>()
 
       return response.permissions

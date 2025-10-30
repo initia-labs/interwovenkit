@@ -1,7 +1,9 @@
 import { useEffect } from "react"
 import { atom, useAtomValue } from "jotai"
+import { MAINNET, TESTNET } from "@initia/interwovenkit-react"
 
 export const isTestnet = import.meta.env.INITIA_NETWORK_TYPE === "testnet"
+export const chainId = isTestnet ? TESTNET.defaultChainId : MAINNET.defaultChainId
 export const routerApiUrl = import.meta.env.INITIA_ROUTER_API_URL
 export const themeAtom = atom<"light" | "dark">("dark")
 export function useTheme() {
