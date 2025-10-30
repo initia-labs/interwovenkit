@@ -1,7 +1,10 @@
 import ky from "ky"
 import { useSignMessage } from "wagmi"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { AUTH_SESSION_STORAGE_KEY, INTERWOVENKIT_API_URL, SESSION_DURATION } from "./constants"
+
+const AUTH_SESSION_STORAGE_KEY = "interwovenkit:backend-auth"
+const SESSION_DURATION = 24 * 60 * 60 * 1000 // 24 hours
+const INTERWOVENKIT_API_URL = "https://interwovenkit-api.initia.xyz"
 
 interface AuthSession {
   signature: string
