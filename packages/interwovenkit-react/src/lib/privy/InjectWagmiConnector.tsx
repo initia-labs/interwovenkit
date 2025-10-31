@@ -1,5 +1,4 @@
 import type { EIP1193Provider } from "viem"
-import { mainnet } from "viem/chains"
 import { http, useConfig as useWagmiConfig, useReconnect } from "wagmi"
 import { injected } from "wagmi/connectors"
 import { type PropsWithChildren, useEffect, useState } from "react"
@@ -12,7 +11,7 @@ const WagmiInjector = (props: PropsWithChildren) => {
 
   const config = useWagmiConfig()
   const { reconnect } = useReconnect()
-  const { provider, ready, meta } = usePrivyProvider({ chain: mainnet, transport: http() })
+  const { provider, ready, meta } = usePrivyProvider({ chain: config.chains[0], transport: http() })
   const [isSetup, setIsSetup] = useState(false)
 
   useEffect(() => {
