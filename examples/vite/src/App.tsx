@@ -1,9 +1,9 @@
 import { useAtom } from "jotai"
-import AutoSign from "./AutoSign"
 import Bridge from "./Bridge"
 import Connection from "./Connection"
 import { isTestnet, themeAtom } from "./data"
 import Send from "./Send"
+import ToggleAutoSign from "./ToggleAutoSign"
 import styles from "./App.module.css"
 
 const App = () => {
@@ -29,10 +29,10 @@ const App = () => {
       </header>
 
       <Send />
-      <AutoSign chainId="interwoven-1" />
-      <AutoSign chainId="civitia-1" />
-      <AutoSign chainId="echelon-1" />
-      <AutoSign chainId="moo-1" />
+      <ToggleAutoSign chainId="interwoven-1" />
+      <ToggleAutoSign chainId="civitia-1" />
+      <ToggleAutoSign chainId="echelon-1" />
+      <ToggleAutoSign chainId="moo-1" />
 
       <Bridge />
     </div>

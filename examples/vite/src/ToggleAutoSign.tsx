@@ -1,8 +1,8 @@
 import { useState } from "react"
 import { useInterwovenKit } from "@initia/interwovenkit-react"
-import styles from "./AutoSign.module.css"
+import styles from "./ToggleAutoSign.module.css"
 
-const AutoSign = ({ chainId }: { chainId: string }) => {
+const ToggleAutoSign = ({ chainId }: { chainId: string }) => {
   const { autoSign, address } = useInterwovenKit()
   const [isCreating, setIsCreating] = useState(false)
 
@@ -38,4 +38,4 @@ const AutoSign = ({ chainId }: { chainId: string }) => {
   )
 }
 
-export default AutoSign
+export default ToggleAutoSign
