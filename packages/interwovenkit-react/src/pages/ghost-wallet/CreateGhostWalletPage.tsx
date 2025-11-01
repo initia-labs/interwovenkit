@@ -7,6 +7,7 @@ import { GenericAuthorization } from "@initia/initia.proto/cosmos/authz/v1beta1/
 import { BasicAllowance } from "@initia/initia.proto/cosmos/feegrant/v1beta1/feegrant"
 import { InitiaAddress, truncate } from "@initia/utils"
 import Button from "@/components/Button"
+import Dropdown from "@/components/Dropdown"
 import Footer from "@/components/Footer"
 import Scrollable from "@/components/Scrollable"
 import { useChain } from "@/data/chains"
@@ -15,8 +16,7 @@ import { useGhostWalletRequestHandler, useSetGhostWalletRequestHandler } from "@
 import { useDrawer } from "@/data/ui"
 import { useLocationState } from "@/lib/router"
 import { useInterwovenKit } from "@/public/data/hooks"
-import { DEFAULT_DURATION } from "./constants"
-import DurationSelector from "./DurationSelector"
+import { DEFAULT_DURATION, DURATION_OPTIONS } from "./constants"
 import {
   ghostWalletExpirationAtom,
   useAutoSignPermissions,
@@ -167,7 +167,12 @@ const CreateGhostWalletPage = () => {
 
           <p className={styles.detailLabel}>Duration</p>
           <div className={styles.detailValue}>
-            <DurationSelector value={selectedDuration} onChange={setSelectedDuration} />
+            <Dropdown
+              options={DURATION_OPTIONS}
+              value={selectedDuration}
+              onChange={setSelectedDuration}
+              classNames={{ trigger: styles.trigger, item: styles.item }}
+            />
           </div>
         </div>
 
