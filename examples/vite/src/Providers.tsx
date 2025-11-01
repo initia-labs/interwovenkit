@@ -1,40 +1,83 @@
-import { createConfig, http, WagmiProvider } from "wagmi"
+import {
+  PrivyProvider,
+  useCreateWallet,
+  useCrossAppAccounts,
+  usePrivy,
+  useWallets,
+} from "@privy-io/react-auth"
+import { createConfig, WagmiProvider } from "wagmi"
+import { http } from "wagmi"
 import { mainnet } from "wagmi/chains"
+import { type PropsWithChildren } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import {
-  initiaPrivyWalletConnector,
   injectStyles,
   InterwovenKitProvider,
+  PRIVY_APP_ID,
   TESTNET,
 } from "@initia/interwovenkit-react"
 import css from "@initia/interwovenkit-react/styles.css?inline"
 import { isTestnet, routerApiUrl, useTheme } from "./data"
 
-import type { PropsWithChildren } from "react"
-
 injectStyles(css)
 const wagmiConfig = createConfig({
-  connectors: [initiaPrivyWalletConnector],
+  multiInjectedProviderDiscovery: false,
   chains: [mainnet],
   transports: { [mainnet.id]: http() },
 })
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
-const Providers = ({ children }: PropsWithChildren) => {
+const InterwovenKitWrapper = ({ children }: PropsWithChildren) => {
   const theme = useTheme()
+  const privy = usePrivy()
+  const crossAppAccounts = useCrossAppAccounts()
+  const { createWallet } = useCreateWallet()
+  const { wallets } = useWallets()
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <WagmiProvider config={wagmiConfig}>
-        <InterwovenKitProvider
-          {...(isTestnet ? TESTNET : {})}
-          {...(routerApiUrl ? { routerApiUrl } : {})}
-          theme={theme}
-          container={import.meta.env.DEV ? document.body : undefined}
-        >
-          {children}
-        </InterwovenKitProvider>
-      </WagmiProvider>
-    </QueryClientProvider>
+    <InterwovenKitProvider
+      enableAutoSign={{
+        "interwoven-1": ["/cosmos.bank.v1beta1.MsgSend"],
+        "civitia-1": ["/cosmos.bank.v1beta1.MsgSend"],
+        "echelon-1": ["/cosmos.bank.v1beta1.MsgSend"],
+        "moo-1": ["/cosmos.bank.v1beta1.MsgSend"],
+      }}
+      privy={{ ...privy, crossAppAccounts, createWallet, wallets }}
+      {...(isTestnet ? TESTNET : {})}
+      {...(routerApiUrl ? { routerApiUrl } : {})}
+      theme={theme}
+      container={import.meta.env.DEV ? document.body : undefined}
+    >
+      {children}
+    </InterwovenKitProvider>
+  )
+}
+
+const Providers = ({ children }: PropsWithChildren) => {
+  return (
+    <PrivyProvider
+      appId="cmbqs2wzv007qky0m8kxyqn7r"
+      config={{
+        appearance: {
+          theme: "dark",
+        },
+        embeddedWallets: {
+          ethereum: {
+            createOnLogin: "all-users",
+          },
+          showWalletUIs: false,
+        },
+        loginMethodsAndOrder: {
+          primary: [`privy:${PRIVY_APP_ID}`, "detected_ethereum_wallets"],
+        },
+      }}
+    >
+      <QueryClientProvider client={queryClient}>
+        <WagmiProvider config={wagmiConfig}>
+          <InterwovenKitWrapper>{children}</InterwovenKitWrapper>
+        </WagmiProvider>
+      </QueryClientProvider>
+    </PrivyProvider>
   )
 }
 

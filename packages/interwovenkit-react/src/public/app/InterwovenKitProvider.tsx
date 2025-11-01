@@ -8,10 +8,13 @@ import type { Config } from "@/data/config"
 import { ConfigContext } from "@/data/config"
 import { LocalStorageKey } from "@/data/constants"
 import { migrateLocalStorage } from "@/data/migration"
+import { InjectWagmiConnector } from "@/lib/privy/InjectWagmiConnector"
 import { MemoryRouter } from "@/lib/router"
+import { useAutoSignState, useEmbeddedWalletAddress } from "@/pages/autosign/hooks"
 import { useSkipAssets } from "@/pages/bridge/data/assets"
 import { useSkipChains } from "@/pages/bridge/data/chains"
 import { MAINNET } from "../data/constants"
+import { useInitiaAddress } from "../data/hooks"
 import Analytics from "./Analytics"
 import Drawer from "./Drawer"
 import ModalProvider from "./ModalProvider"
@@ -46,6 +49,17 @@ const Prefetch = () => {
   useSkipAssets(localStorage.getItem(LocalStorageKey.BRIDGE_SRC_CHAIN_ID) ?? layer1.chainId)
   useSkipAssets(localStorage.getItem(LocalStorageKey.BRIDGE_DST_CHAIN_ID) ?? layer1.chainId)
 
+  const autoSignState = useAutoSignState()
+  const address = useInitiaAddress()
+  const embeddedWalletAddress = useEmbeddedWalletAddress()
+
+  useEffect(() => {
+    if (!embeddedWalletAddress || !address) return
+    autoSignState.checkAutoSign()
+    // we want to run this effect only when address or embeddedWalletAddress changes since these are the only two
+    // variables that affect the auto sign state on startup
+  }, [address, embeddedWalletAddress]) // eslint-disable-line react-hooks/exhaustive-deps
+
   return null
 }
 
@@ -65,28 +79,33 @@ const InterwovenKitProvider = ({ children, ...config }: PropsWithChildren<Partia
       <Fonts />
 
       <ConfigContext.Provider value={{ ...MAINNET, ...config }}>
-        <MemoryRouter>
-          <PortalProvider>
-            <Tooltip.Provider delayDuration={0} skipDelayDuration={0}>
-              <NotificationProvider>
-                <ModalProvider>
-                  {children}
+        <InjectWagmiConnector>
+          <MemoryRouter>
+            <PortalProvider>
+              <Tooltip.Provider delayDuration={0} skipDelayDuration={0}>
+                <NotificationProvider>
+                  <ModalProvider>
+                    {children}
 
-                  <QueryClientProvider client={queryClient}>
-                    <Analytics />
-                    <AsyncBoundary suspenseFallback={null} errorBoundaryProps={{ fallback: null }}>
-                      <Prefetch />
-                    </AsyncBoundary>
+                    <QueryClientProvider client={queryClient}>
+                      <Analytics />
+                      <AsyncBoundary
+                        suspenseFallback={null}
+                        errorBoundaryProps={{ fallback: null }}
+                      >
+                        <Prefetch />
+                      </AsyncBoundary>
 
-                    <Drawer>
-                      <Routes />
-                    </Drawer>
-                  </QueryClientProvider>
-                </ModalProvider>
-              </NotificationProvider>
-            </Tooltip.Provider>
-          </PortalProvider>
-        </MemoryRouter>
+                      <Drawer>
+                        <Routes />
+                      </Drawer>
+                    </QueryClientProvider>
+                  </ModalProvider>
+                </NotificationProvider>
+              </Tooltip.Provider>
+            </PortalProvider>
+          </MemoryRouter>
+        </InjectWagmiConnector>
       </ConfigContext.Provider>
     </>
   )

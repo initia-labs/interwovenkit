@@ -1,12 +1,21 @@
 import { useAccount } from "wagmi"
+import { useAtomValue } from "jotai"
 import { useQuery } from "@tanstack/react-query"
 import { InitiaAddress } from "@initia/utils"
 import { accountQueryKeys, useUsernameClient } from "@/data/account"
+import { useSetAutoSignRequestHandler } from "@/data/autosign"
 import { useDefaultChain } from "@/data/chains"
+import { useConfig } from "@/data/config"
 import { STALE_TIMES } from "@/data/http"
 import { useOfflineSigner } from "@/data/signer"
 import { useTx } from "@/data/tx"
 import { useDisconnect, useDrawer } from "@/data/ui"
+import {
+  autoSignLoadingAtom,
+  useAutoSignPermissions,
+  useAutoSignState,
+  useRevokeAutoSign,
+} from "@/pages/autosign/hooks"
 import type { FormValues } from "@/pages/bridge/data/form"
 
 export { usePortfolio } from "@/data/portfolio"
@@ -45,12 +54,17 @@ export function useUsernameQuery() {
 }
 
 export function useInterwovenKit() {
+  const config = useConfig()
+  const autoSignPermissions = useAutoSignPermissions()
   const address = useAddress()
   const initiaAddress = useInitiaAddress()
   const hexAddress = useHexAddress()
   const { data: username } = useUsernameQuery()
   const offlineSigner = useOfflineSigner()
   const disconnect = useDisconnect()
+  const autoSignState = useAutoSignState()
+  const autoSignLoading = useAtomValue(autoSignLoadingAtom)
+  const revokeAutoSign = useRevokeAutoSign()
 
   const { isDrawerOpen: isOpen, openDrawer } = useDrawer()
 
@@ -59,11 +73,33 @@ export function useInterwovenKit() {
   }
 
   const openConnect = () => {
-    openDrawer("/connect")
+    if (config.privy) {
+      config.privy.login()
+    } else {
+      openDrawer("/connect")
+    }
   }
 
   const openBridge = (defaultValues?: Partial<FormValues>) => {
     openDrawer("/bridge", defaultValues)
+  }
+
+  const setAutoSignRequestHandler = useSetAutoSignRequestHandler()
+
+  const setupAutoSign = async (chainId: string): Promise<void> => {
+    if (!autoSignPermissions?.[chainId]?.length)
+      throw new Error("Auto sign permissions are required for the setup")
+
+    if (autoSignState.isEnabled[chainId]) throw new Error("Auto sign is already enabled")
+
+    return new Promise<void>((resolve, reject) => {
+      setAutoSignRequestHandler({
+        resolve,
+        reject,
+      })
+
+      openDrawer("/autosign/enable", { chainId })
+    })
   }
 
   const tx = useTx()
@@ -82,6 +118,13 @@ export function useInterwovenKit() {
     openWallet,
     openBridge,
     disconnect,
+    autoSign: {
+      expirationTimes: autoSignState.expirations,
+      isEnabled: autoSignState.isEnabled,
+      setup: setupAutoSign,
+      revoke: revokeAutoSign,
+      isLoading: autoSignLoading,
+    },
     ...tx,
   }
 }

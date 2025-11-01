@@ -2,11 +2,15 @@ import { useEffect } from "react"
 import { useAnalyticsTrack } from "@/data/analytics"
 import { useDrawer } from "@/data/ui"
 import { useNavigate, usePath } from "@/lib/router"
+import EnableAutoSignPage from "@/pages/autosign/EnableAutoSignPage"
 import BridgeForm from "@/pages/bridge/BridgeForm"
 import BridgeHistory from "@/pages/bridge/BridgeHistory"
 import BridgePreview from "@/pages/bridge/BridgePreview"
 import Withdrawals from "@/pages/bridge/op/Withdrawals"
 import Connect from "@/pages/connect/Connect"
+import AddressQrPage from "@/pages/receive/AddressQrPage"
+import RevokeGrantsPage from "@/pages/settings/autosign/RevokeGrantsPage"
+import SettingsPage from "@/pages/settings/SettingsPage"
 import TxRequest from "@/pages/tx/TxRequest"
 import Home from "@/pages/wallet/tabs/Home"
 import NftDetails from "@/pages/wallet/tabs/nft/NftDetails"
@@ -78,6 +82,14 @@ const Routes = () => {
       return <Withdrawals />
     case "/tx":
       return <TxRequest />
+    case "/receive":
+      return <AddressQrPage />
+    case "/settings":
+      return <SettingsPage />
+    case "/settings/revoke":
+      return <RevokeGrantsPage />
+    case "/autosign/enable":
+      return <EnableAutoSignPage />
   }
 }
 

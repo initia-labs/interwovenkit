@@ -15,6 +15,7 @@ import { useChain } from "@/data/chains"
 import { useGasPrices, useLastFeeDenom } from "@/data/fee"
 import { useOfflineSigner, useSignWithEthSecp256k1 } from "@/data/signer"
 import { TX_APPROVAL_MUTATION_KEY, useTxRequestHandler } from "@/data/tx"
+import { useTryAutoSign } from "@/pages/autosign/hooks"
 import { useInitiaAddress } from "@/public/data/hooks"
 import TxFee from "./TxFee"
 import TxFeeInsufficient from "./TxFeeInsufficient"
@@ -35,6 +36,7 @@ const TxRequest = () => {
   const gasPrices = useGasPrices(chain)
   const lastUsedFeeDenom = useLastFeeDenom(chain)
   const findAsset = useFindAsset(chain)
+  const tryAutoSign = useTryAutoSign()
 
   const feeOptions = (txRequest.gasPrices ?? gasPrices).map(({ amount, denom }) =>
     calculateFee(Math.ceil(gas * gasAdjustment), GasPrice.fromString(amount + denom)),
@@ -85,6 +87,17 @@ const TxRequest = () => {
     mutationFn: async () => {
       const fee = feeOptions.find((fee) => fee.amount[0].denom === feeDenom)
       if (!fee) throw new Error("Fee not found")
+
+      // Try to sign with auto sign first
+      const autoSignedTx =
+        !txRequest.internal && (await tryAutoSign(chainId, messages, fee, memo || ""))
+
+      if (autoSignedTx) {
+        await resolve(autoSignedTx)
+        return
+      }
+
+      // Fall back to normal signing
       if (!signer) throw new Error("Signer not initialized")
       const signedTx = await signWithEthSecp256k1(chainId, address, messages, fee, memo)
       await resolve(signedTx)

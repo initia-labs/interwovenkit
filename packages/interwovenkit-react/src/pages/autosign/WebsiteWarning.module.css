@@ -1,0 +1,25 @@
+.warning {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  color: var(--warning);
+  border: 1px solid var(--warning-dark);
+  border-radius: 8px;
+  background-color: var(--warning-bg);
+  margin-top: -14px;
+  margin-bottom: 20px;
+}
+
+.warning p {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.warning button {
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: underline;
+}
