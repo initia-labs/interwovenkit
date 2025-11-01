@@ -3,19 +3,19 @@ import { useAtomValue } from "jotai"
 import { useQuery } from "@tanstack/react-query"
 import { InitiaAddress } from "@initia/utils"
 import { accountQueryKeys, useUsernameClient } from "@/data/account"
-import { useSetAutoSignRequestHandler } from "@/data/autosign"
 import { useDefaultChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import { STALE_TIMES } from "@/data/http"
 import { useOfflineSigner } from "@/data/signer"
 import { useTx } from "@/data/tx"
 import { useDisconnect, useDrawer } from "@/data/ui"
+import { useRevokeAutoSign } from "@/pages/autosign/data/actions"
+import { useAutoSignPermissions } from "@/pages/autosign/data/permissions"
 import {
   autoSignLoadingAtom,
-  useAutoSignPermissions,
   useAutoSignState,
-  useRevokeAutoSign,
-} from "@/pages/autosign/hooks"
+  useSetAutoSignRequestHandler,
+} from "@/pages/autosign/data/state"
 import type { FormValues } from "@/pages/bridge/data/form"
 
 export { usePortfolio } from "@/data/portfolio"

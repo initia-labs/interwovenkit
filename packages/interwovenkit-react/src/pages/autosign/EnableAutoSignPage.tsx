@@ -10,21 +10,22 @@ import Button from "@/components/Button"
 import Dropdown from "@/components/Dropdown"
 import Footer from "@/components/Footer"
 import Scrollable from "@/components/Scrollable"
-import { useAutoSignRequestHandler, useSetAutoSignRequestHandler } from "@/data/autosign"
 import { useChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import { useDrawer } from "@/data/ui"
 import { useLocationState } from "@/lib/router"
 import { useInterwovenKit } from "@/public/data/hooks"
-import { DEFAULT_DURATION, DURATION_OPTIONS } from "./constants"
+import { useRegisterAutoSign } from "./data/actions"
+import { DEFAULT_DURATION, DURATION_OPTIONS } from "./data/constants"
+import { useAutoSignPermissions } from "./data/permissions"
+import { autoSignQueryKeys } from "./data/queries"
 import {
   autoSignExpirationAtom,
-  useAutoSignPermissions,
-  useEmbeddedWallet,
-  useRegisterAutoSign,
-} from "./hooks"
-import { autoSignQueryKeys } from "./queries"
-import { getPageInfo } from "./utils"
+  useAutoSignRequestHandler,
+  useSetAutoSignRequestHandler,
+} from "./data/state"
+import { getPageInfo } from "./data/utils"
+import { useEmbeddedWallet } from "./data/wallet"
 import WebsiteWarning from "./WebsiteWarning"
 import styles from "./EnableAutoSignPage.module.css"
 
