@@ -1,14 +1,14 @@
 import type { TxRequest } from "@/data/tx"
 
 /**
- * Checks if all messages in a transaction request can be handled by the ghost wallet
+ * Checks if all messages in a transaction request can be handled by auto sign
  * based on the configured permissions for the specific chain.
  *
  * @param txRequest The transaction request to check
  * @param autoSignPermissions The configured permissions mapping chain IDs to allowed message types
  * @returns true if all messages can be handled, false otherwise
  */
-export function canGhostWalletHandleTxRequest(
+export function canAutoSignHandleRequest(
   txRequest: TxRequest,
   autoSignPermissions?: Record<string, string[]>,
 ): boolean {

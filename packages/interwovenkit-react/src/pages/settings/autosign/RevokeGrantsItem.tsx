@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react"
 import { useSetAtom } from "jotai"
 import { useQueryClient } from "@tanstack/react-query"
+import { YEAR_IN_MS } from "@/pages/autosign/constants"
+import { autoSignExpirationAtom, useEmbeddedWalletAddress } from "@/pages/autosign/hooks"
+import { autoSignQueryKeys, useAllGrants } from "@/pages/autosign/queries"
 import { formatDuration } from "@/pages/bridge/data/format"
-import { YEAR_IN_MS } from "@/pages/ghost-wallet/constants"
-import { ghostWalletExpirationAtom, useEmbeddedWalletAddress } from "@/pages/ghost-wallet/hooks"
-import { ghostWalletQueryKeys, useAllGrants } from "@/pages/ghost-wallet/queries"
 import { useInterwovenKit } from "@/public/data/hooks"
 import styles from "./RevokeGrantsItem.module.css"
 
@@ -18,7 +18,7 @@ const RevokeGrantsItem = ({ grantee, expiration, chainId }: RevokeGrantsItemProp
   const { initiaAddress, requestTxBlock } = useInterwovenKit()
   const allGrantsQueries = useAllGrants()
   const queryClient = useQueryClient()
-  const setGhostWalletExpiration = useSetAtom(ghostWalletExpirationAtom)
+  const setAutoSignExpiration = useSetAtom(autoSignExpirationAtom)
   const embeddedWalletAddress = useEmbeddedWalletAddress()
 
   // Get grants for the current chain and grantee
@@ -98,12 +98,12 @@ const RevokeGrantsItem = ({ grantee, expiration, chainId }: RevokeGrantsItemProp
 
     // Invalidate the grants query to refresh the data
     queryClient.invalidateQueries({
-      queryKey: ghostWalletQueryKeys.grantsByGranter._def,
+      queryKey: autoSignQueryKeys.grantsByGranter._def,
     })
 
-    // Reset ghost wallet expiration if this is the embedded wallet address
+    // Reset auto sign expiration if this is the embedded wallet address
     if (grantee === embeddedWalletAddress) {
-      setGhostWalletExpiration((exp) => ({ ...exp, [chainId]: undefined }))
+      setAutoSignExpiration((exp) => ({ ...exp, [chainId]: undefined }))
     }
   }
 
@@ -111,7 +111,7 @@ const RevokeGrantsItem = ({ grantee, expiration, chainId }: RevokeGrantsItemProp
   if (hasExpired) {
     // Invalidate the grants query to refresh the data
     queryClient.invalidateQueries({
-      queryKey: ghostWalletQueryKeys.grantsByGranter._def,
+      queryKey: autoSignQueryKeys.grantsByGranter._def,
     })
 
     return null

@@ -6,7 +6,7 @@ import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import { atom, useAtomValue, useSetAtom } from "jotai"
 import { useNavigate } from "@/lib/router"
-import { useTrySignWithGhostWallet } from "@/pages/ghost-wallet/hooks"
+import { useTryAutoSign } from "@/pages/autosign/hooks"
 import { useModal } from "@/public/app/ModalContext"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useInitiaAddress } from "@/public/data/hooks"
@@ -78,7 +78,7 @@ export function useTx() {
   const createSigningStargateClient = useCreateSigningStargateClient()
   const offlineSigner = useOfflineSigner()
   const registry = useRegistry()
-  const trySignWithGhostWallet = useTrySignWithGhostWallet()
+  const tryAutoSign = useTryAutoSign()
   const signWithEthSecp256k1 = useSignWithEthSecp256k1()
 
   const estimateGas = async ({ messages, memo, chainId = defaultChainId }: TxRequest) => {
@@ -219,7 +219,7 @@ export function useTx() {
       const { messages, memo = "", fee } = txParams
       const client = await createSigningStargateClient(chainId)
       const signedTx =
-        (await trySignWithGhostWallet(chainId, messages, fee, memo)) ||
+        (await tryAutoSign(chainId, messages, fee, memo)) ||
         (await signWithEthSecp256k1(chainId, address, messages, fee, memo))
       return await client.broadcastTxSync(TxRaw.encode(signedTx).finish())
     } catch (error) {
@@ -237,7 +237,7 @@ export function useTx() {
       const { messages, memo = "", fee } = txParams
       const client = await createSigningStargateClient(chainId)
       const signedTx =
-        (await trySignWithGhostWallet(chainId, messages, fee, memo)) ||
+        (await tryAutoSign(chainId, messages, fee, memo)) ||
         (await signWithEthSecp256k1(chainId, address, messages, fee, memo))
       const response = await client.broadcastTx(
         TxRaw.encode(signedTx).finish(),

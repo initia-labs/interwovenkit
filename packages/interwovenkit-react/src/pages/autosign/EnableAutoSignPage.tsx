@@ -10,57 +10,57 @@ import Button from "@/components/Button"
 import Dropdown from "@/components/Dropdown"
 import Footer from "@/components/Footer"
 import Scrollable from "@/components/Scrollable"
+import { useAutoSignRequestHandler, useSetAutoSignRequestHandler } from "@/data/autosign"
 import { useChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
-import { useGhostWalletRequestHandler, useSetGhostWalletRequestHandler } from "@/data/ghost-wallet"
 import { useDrawer } from "@/data/ui"
 import { useLocationState } from "@/lib/router"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { DEFAULT_DURATION, DURATION_OPTIONS } from "./constants"
 import {
-  ghostWalletExpirationAtom,
+  autoSignExpirationAtom,
   useAutoSignPermissions,
   useEmbeddedWallet,
-  useRegisterGhostWallet,
+  useRegisterAutoSign,
 } from "./hooks"
-import { ghostWalletQueryKeys } from "./queries"
+import { autoSignQueryKeys } from "./queries"
 import { getPageInfo } from "./utils"
 import WebsiteWarning from "./WebsiteWarning"
-import styles from "./CreateGhostWalletPage.module.css"
+import styles from "./EnableAutoSignPage.module.css"
 
-interface GhostWalletLocationState {
+interface AutoSignLocationState {
   chainId?: string
 }
 
-const CreateGhostWalletPage = () => {
+const EnableAutoSignPage = () => {
   const { closeDrawer } = useDrawer()
   const { initiaAddress, username, requestTxBlock } = useInterwovenKit()
   const config = useConfig()
   const autoSignPermissions = useAutoSignPermissions()
   const embeddedWallet = useEmbeddedWallet()
-  const setGhostWalletExpiration = useSetAtom(ghostWalletExpirationAtom)
-  const ghostWalletRequestHandler = useGhostWalletRequestHandler()
-  const setGhostWalletRequestHandler = useSetGhostWalletRequestHandler()
-  const registerGhostWallet = useRegisterGhostWallet()
+  const setAutoSignExpiration = useSetAtom(autoSignExpirationAtom)
+  const autoSignRequestHandler = useAutoSignRequestHandler()
+  const setAutoSignRequestHandler = useSetAutoSignRequestHandler()
+  const registerAutoSign = useRegisterAutoSign()
   const [selectedDuration, setSelectedDuration] = useState<number>(DEFAULT_DURATION)
-  const { chainId: locationChainId } = useLocationState<GhostWalletLocationState>()
+  const { chainId: locationChainId } = useLocationState<AutoSignLocationState>()
   const chainId = locationChainId || config.defaultChainId
   const chain = useChain(chainId)
   const queryClient = useQueryClient()
 
   const { icon: appIcon, name: appName } = getPageInfo()
 
-  const { mutate: createGhostWallet, isPending } = useMutation({
+  const { mutate: createAutoSign, isPending } = useMutation({
     mutationFn: async () => {
       if (!config.privy) {
         throw new Error("Privy hooks must be configured")
       }
 
       if (!autoSignPermissions?.[chainId]?.length) {
-        throw new Error("Ghost wallet permissions must be configured")
+        throw new Error("Auto sign permissions must be configured")
       }
 
-      const { address: ghostWalletAddress } =
+      const { address: embeddedWalletAddress } =
         embeddedWallet || (await config.privy.createWallet({ createAdditional: false }))
 
       const expiration = new Date(Date.now() + selectedDuration)
@@ -70,7 +70,7 @@ const CreateGhostWalletPage = () => {
           typeUrl: "/cosmos.feegrant.v1beta1.MsgGrantAllowance",
           value: {
             granter: initiaAddress,
-            grantee: InitiaAddress(ghostWalletAddress).bech32,
+            grantee: InitiaAddress(embeddedWalletAddress).bech32,
             allowance: {
               typeUrl: "/cosmos.feegrant.v1beta1.BasicAllowance",
               value: BasicAllowance.encode(BasicAllowance.fromPartial({ expiration })).finish(),
@@ -81,7 +81,7 @@ const CreateGhostWalletPage = () => {
           typeUrl: "/cosmos.authz.v1beta1.MsgGrant",
           value: {
             granter: initiaAddress,
-            grantee: InitiaAddress(ghostWalletAddress).bech32,
+            grantee: InitiaAddress(embeddedWalletAddress).bech32,
             grant: {
               authorization: {
                 typeUrl: "/cosmos.authz.v1beta1.GenericAuthorization",
@@ -92,43 +92,43 @@ const CreateGhostWalletPage = () => {
           },
         })),
       ]
-      await registerGhostWallet()
+      await registerAutoSign()
 
-      await requestTxBlock({ messages, chainId, internal: "/ghost-wallet" })
+      await requestTxBlock({ messages, chainId, internal: "/autosign/enable" })
       return expiration
     },
     onSuccess: (expiration) => {
-      setGhostWalletExpiration((exp) => ({ ...exp, [chainId]: expiration.getTime() }))
+      setAutoSignExpiration((exp) => ({ ...exp, [chainId]: expiration.getTime() }))
       // Invalidate grants queries to refresh the data
       queryClient.invalidateQueries({
-        queryKey: ghostWalletQueryKeys.grantsByGranter(chain.restUrl, initiaAddress).queryKey,
+        queryKey: autoSignQueryKeys.grantsByGranter(chain.restUrl, initiaAddress).queryKey,
       })
       // Invalidate permissions query to refresh domain data
       queryClient.invalidateQueries({
-        queryKey: ghostWalletQueryKeys.permissions(initiaAddress).queryKey,
+        queryKey: autoSignQueryKeys.permissions(initiaAddress).queryKey,
       })
       // Resolve the promise if there's a pending request
-      ghostWalletRequestHandler?.resolve()
-      setGhostWalletRequestHandler(null)
+      autoSignRequestHandler?.resolve()
+      setAutoSignRequestHandler(null)
       closeDrawer()
     },
     onError: (error) => {
       // Reject the promise if there's a pending request
-      ghostWalletRequestHandler?.reject(error as Error)
-      setGhostWalletRequestHandler(null)
+      autoSignRequestHandler?.reject(error as Error)
+      setAutoSignRequestHandler(null)
       closeDrawer()
     },
   })
 
   const handleReject = () => {
     // Reject the promise if there's a pending request
-    ghostWalletRequestHandler?.reject(new Error("User rejected ghost wallet creation"))
-    setGhostWalletRequestHandler(null)
+    autoSignRequestHandler?.reject(new Error("User rejected auto sign setup"))
+    setAutoSignRequestHandler(null)
     closeDrawer()
   }
 
   const handleConfirm = () => {
-    createGhostWallet()
+    createAutoSign()
   }
 
   return (
@@ -204,4 +204,4 @@ const CreateGhostWalletPage = () => {
   )
 }
 
-export default CreateGhostWalletPage
+export default EnableAutoSignPage

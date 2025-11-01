@@ -12,8 +12,8 @@ import { useConfig } from "@/data/config"
 import { OfflineSigner, useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
 import { useTx } from "@/data/tx"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { checkGhostWalletEnabled, ghostWalletQueryKeys } from "./queries"
-import { canGhostWalletHandleTxRequest, getPageInfo } from "./utils"
+import { autoSignQueryKeys, checkAutoSignEnabled } from "./queries"
+import { canAutoSignHandleRequest, getPageInfo } from "./utils"
 
 export function useEmbeddedWallet() {
   const { privy } = useConfig()
@@ -56,7 +56,7 @@ export function useAutoSignPermissions() {
   return enableAutoSign
 }
 
-export function useSignWithGhostWallet() {
+export function useSignWithEmbeddedWallet() {
   const embeddedWallet = useEmbeddedWallet()
   const embeddedWalletAddress = useEmbeddedWalletAddress()
   const signWithEthSecp256k1 = useSignWithEthSecp256k1()
@@ -71,7 +71,7 @@ export function useSignWithGhostWallet() {
     memo: string,
   ): Promise<TxRaw> => {
     if (!embeddedWallet || !embeddedWalletAddress) {
-      throw new Error("Ghost wallet not available")
+      throw new Error("Embedded wallet not available")
     }
 
     // Wrap all messages in a MsgExec for authz execution
@@ -113,16 +113,16 @@ export function useSignWithGhostWallet() {
   }
 }
 
-export function useGhostWalletState() {
-  const isEnabled = useIsGhostWalletEnabled()
-  const [expirations, setExpirations] = useAtom(ghostWalletExpirationAtom)
-  const setLoading = useSetAtom(ghostWalletLoadingAtom)
+export function useAutoSignState() {
+  const isEnabled = useIsAutoSignEnabled()
+  const [expirations, setExpirations] = useAtom(autoSignExpirationAtom)
+  const setLoading = useSetAtom(autoSignLoadingAtom)
   const address = useInitiaAddress()
   const findChain = useFindChain()
   const embeddedWalletAddress = useEmbeddedWalletAddress()
   const autoSignPermissions = useAutoSignPermissions()
 
-  const checkGhostWallet = async (): Promise<Record<string, boolean>> => {
+  const checkAutoSign = async (): Promise<Record<string, boolean>> => {
     if (!embeddedWalletAddress || !address || !autoSignPermissions) {
       setLoading(false)
       return {}
@@ -141,7 +141,7 @@ export function useGhostWalletState() {
           async ([chainId, permission]) =>
             [
               chainId,
-              await checkGhostWalletEnabled(
+              await checkAutoSignEnabled(
                 address,
                 embeddedWalletAddress,
                 permission,
@@ -166,15 +166,15 @@ export function useGhostWalletState() {
   return {
     expirations,
     isEnabled,
-    checkGhostWallet,
+    checkAutoSign,
   }
 }
 
-export const ghostWalletExpirationAtom = atom<Record<string, number | undefined>>({})
-export const ghostWalletLoadingAtom = atom<boolean>(true)
+export const autoSignExpirationAtom = atom<Record<string, number | undefined>>({})
+export const autoSignLoadingAtom = atom<boolean>(true)
 
-export function useIsGhostWalletEnabled() {
-  const expirations = useAtomValue(ghostWalletExpirationAtom)
+export function useIsAutoSignEnabled() {
+  const expirations = useAtomValue(autoSignExpirationAtom)
   const [tick, setTick] = useState(0)
 
   const isEnabled = useMemo(
@@ -217,12 +217,12 @@ function getEarliestExpiration(expirations: Record<string, number | undefined>) 
 }
 
 /**
- * Hook that returns a simplified trySignWithGhostWallet function
- * with all ghost wallet dependencies already injected.
+ * Hook that returns a simplified tryAutoSign function
+ * with all auto sign dependencies already injected.
  */
-export function useTrySignWithGhostWallet() {
-  const ghostWalletState = useGhostWalletState()
-  const signWithGhostWallet = useSignWithGhostWallet()
+export function useTryAutoSign() {
+  const autoSignState = useAutoSignState()
+  const signWithEmbeddedWallet = useSignWithEmbeddedWallet()
   const autoSignPermissions = useAutoSignPermissions()
 
   return async (
@@ -231,26 +231,26 @@ export function useTrySignWithGhostWallet() {
     fee: StdFee,
     memo: string,
   ): Promise<TxRaw | null> => {
-    // Check if ghost wallet can handle this transaction type
-    if (!canGhostWalletHandleTxRequest({ messages, chainId }, autoSignPermissions)) {
+    // Check if auto sign can handle this transaction type
+    if (!canAutoSignHandleRequest({ messages, chainId }, autoSignPermissions)) {
       return null
     }
 
-    // Check if ghost wallet is enabled for this chain
-    const isGhostWalletEnabled = await ghostWalletState.checkGhostWallet()
-    if (!isGhostWalletEnabled[chainId]) {
+    // Check if auto sign is enabled for this chain
+    const isAutoSignEnabled = await autoSignState.checkAutoSign()
+    if (!isAutoSignEnabled[chainId]) {
       return null
     }
 
-    // Sign with ghost wallet
-    return await signWithGhostWallet(chainId, messages, fee, memo)
+    // Sign with embedded wallet
+    return await signWithEmbeddedWallet(chainId, messages, fee, memo)
   }
 }
 
 /**
- * Hook that returns a function to register a ghost wallet with a site
+ * Hook that returns a function to register auto sign with a site
  */
-export function useRegisterGhostWallet() {
+export function useRegisterAutoSign() {
   const granteeAddress = useEmbeddedWalletAddress()
   const { getAuthClient } = useBackend()
 
@@ -277,14 +277,14 @@ export function useRevokeAutoSign() {
   const granteeAddress = useEmbeddedWalletAddress()
   const initiaAddress = useInitiaAddress()
   const permissions = useAutoSignPermissions()
-  const ghostWalletState = useGhostWalletState()
-  const setGhostWalletExpiration = useSetAtom(ghostWalletExpirationAtom)
+  const autoSignState = useAutoSignState()
+  const setAutoSignExpiration = useSetAtom(autoSignExpirationAtom)
   const { requestTxBlock } = useTx()
 
   return async (chainId: string) => {
     if (!permissions[chainId]) throw new Error("No auto sign permissions found for this chain")
-    if (!ghostWalletState.isEnabled[chainId])
-      throw new Error("Ghost wallet is not enabled for this chain")
+    if (!autoSignState.isEnabled[chainId])
+      throw new Error("Auto sign is not enabled for this chain")
 
     await requestTxBlock({
       messages: [
@@ -309,9 +309,9 @@ export function useRevokeAutoSign() {
 
     // Invalidate the grants query to refresh the data
     queryClient.invalidateQueries({
-      queryKey: ghostWalletQueryKeys.grantsByGranter._def,
+      queryKey: autoSignQueryKeys.grantsByGranter._def,
     })
 
-    setGhostWalletExpiration((exp) => ({ ...exp, [chainId]: undefined }))
+    setAutoSignExpiration((exp) => ({ ...exp, [chainId]: undefined }))
   }
 }

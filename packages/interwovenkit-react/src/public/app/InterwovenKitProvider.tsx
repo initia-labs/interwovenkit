@@ -10,9 +10,9 @@ import { LocalStorageKey } from "@/data/constants"
 import { migrateLocalStorage } from "@/data/migration"
 import { InjectWagmiConnector } from "@/lib/privy/InjectWagmiConnector"
 import { MemoryRouter } from "@/lib/router"
+import { useAutoSignState, useEmbeddedWalletAddress } from "@/pages/autosign/hooks"
 import { useSkipAssets } from "@/pages/bridge/data/assets"
 import { useSkipChains } from "@/pages/bridge/data/chains"
-import { useEmbeddedWalletAddress, useGhostWalletState } from "@/pages/ghost-wallet/hooks"
 import { MAINNET } from "../data/constants"
 import { useInitiaAddress } from "../data/hooks"
 import Analytics from "./Analytics"
@@ -49,15 +49,15 @@ const Prefetch = () => {
   useSkipAssets(localStorage.getItem(LocalStorageKey.BRIDGE_SRC_CHAIN_ID) ?? layer1.chainId)
   useSkipAssets(localStorage.getItem(LocalStorageKey.BRIDGE_DST_CHAIN_ID) ?? layer1.chainId)
 
-  const ghostWalletState = useGhostWalletState()
+  const autoSignState = useAutoSignState()
   const address = useInitiaAddress()
   const embeddedWalletAddress = useEmbeddedWalletAddress()
 
   useEffect(() => {
     if (!embeddedWalletAddress || !address) return
-    ghostWalletState.checkGhostWallet()
+    autoSignState.checkAutoSign()
     // we want to run this effect only when address or embeddedWalletAddress changes since these are the only two
-    // variables that affect the ghost wallet state on startup
+    // variables that affect the auto sign state on startup
   }, [address, embeddedWalletAddress]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return null

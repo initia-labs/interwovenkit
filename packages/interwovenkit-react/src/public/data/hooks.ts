@@ -3,20 +3,20 @@ import { useAtomValue } from "jotai"
 import { useQuery } from "@tanstack/react-query"
 import { InitiaAddress } from "@initia/utils"
 import { accountQueryKeys, useUsernameClient } from "@/data/account"
+import { useSetAutoSignRequestHandler } from "@/data/autosign"
 import { useDefaultChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
-import { useSetGhostWalletRequestHandler } from "@/data/ghost-wallet"
 import { STALE_TIMES } from "@/data/http"
 import { useOfflineSigner } from "@/data/signer"
 import { useTx } from "@/data/tx"
 import { useDisconnect, useDrawer } from "@/data/ui"
-import type { FormValues } from "@/pages/bridge/data/form"
 import {
-  ghostWalletLoadingAtom,
+  autoSignLoadingAtom,
   useAutoSignPermissions,
-  useGhostWalletState,
+  useAutoSignState,
   useRevokeAutoSign,
-} from "@/pages/ghost-wallet/hooks"
+} from "@/pages/autosign/hooks"
+import type { FormValues } from "@/pages/bridge/data/form"
 
 export { usePortfolio } from "@/data/portfolio"
 
@@ -62,8 +62,8 @@ export function useInterwovenKit() {
   const { data: username } = useUsernameQuery()
   const offlineSigner = useOfflineSigner()
   const disconnect = useDisconnect()
-  const ghostWalletState = useGhostWalletState()
-  const ghostWalletLoading = useAtomValue(ghostWalletLoadingAtom)
+  const autoSignState = useAutoSignState()
+  const autoSignLoading = useAtomValue(autoSignLoadingAtom)
   const revokeAutoSign = useRevokeAutoSign()
 
   const { isDrawerOpen: isOpen, openDrawer } = useDrawer()
@@ -84,21 +84,21 @@ export function useInterwovenKit() {
     openDrawer("/bridge", defaultValues)
   }
 
-  const setGhostWalletRequestHandler = useSetGhostWalletRequestHandler()
+  const setAutoSignRequestHandler = useSetAutoSignRequestHandler()
 
   const setupAutoSign = async (chainId: string): Promise<void> => {
     if (!autoSignPermissions?.[chainId]?.length)
       throw new Error("Auto sign permissions are required for the setup")
 
-    if (ghostWalletState.isEnabled[chainId]) throw new Error("Auto sign is already enabled")
+    if (autoSignState.isEnabled[chainId]) throw new Error("Auto sign is already enabled")
 
     return new Promise<void>((resolve, reject) => {
-      setGhostWalletRequestHandler({
+      setAutoSignRequestHandler({
         resolve,
         reject,
       })
 
-      openDrawer("/ghost-wallet", { chainId })
+      openDrawer("/autosign/enable", { chainId })
     })
   }
 
@@ -119,11 +119,11 @@ export function useInterwovenKit() {
     openBridge,
     disconnect,
     autoSign: {
-      expirationTimes: ghostWalletState.expirations,
-      isEnabled: ghostWalletState.isEnabled,
+      expirationTimes: autoSignState.expirations,
+      isEnabled: autoSignState.isEnabled,
       setup: setupAutoSign,
       revoke: revokeAutoSign,
-      isLoading: ghostWalletLoading,
+      isLoading: autoSignLoading,
     },
     ...tx,
   }

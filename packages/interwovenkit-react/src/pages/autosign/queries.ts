@@ -6,12 +6,12 @@ import { useInitiaRegistry } from "@/data/chains"
 import { STALE_TIMES } from "@/data/http"
 import { useInitiaAddress } from "@/public/data/hooks"
 
-export const ghostWalletQueryKeys = createQueryKeys("interwovenkit:ghost-wallet", {
+export const autoSignQueryKeys = createQueryKeys("interwovenkit:auto-sign", {
   grantsByGranter: (restUrl: string, granter: string) => [restUrl, granter],
   permissions: (address: string) => [address],
 })
 
-export async function checkGhostWalletEnabled(
+export async function checkAutoSignEnabled(
   granter: string,
   grantee: string,
   permissions: string[],
@@ -92,7 +92,7 @@ export function useAllGrants() {
 
   return useQueries({
     queries: chains.map((chain) => ({
-      queryKey: ghostWalletQueryKeys.grantsByGranter(chain.restUrl, address).queryKey,
+      queryKey: autoSignQueryKeys.grantsByGranter(chain.restUrl, address).queryKey,
       queryFn: async (): Promise<GrantsResponseWithChain> => {
         const client = ky.create({ prefixUrl: chain.restUrl })
         const response = await client
@@ -122,7 +122,7 @@ export function useGranteeAddressDomain() {
   const { getClient } = useBackend()
 
   return useQuery({
-    queryKey: ghostWalletQueryKeys.permissions(address).queryKey,
+    queryKey: autoSignQueryKeys.permissions(address).queryKey,
     queryFn: async (): Promise<Permission[]> => {
       const client = await getClient()
       const response = await client.get(`auto-sign/get-address/${address}`).json<{
