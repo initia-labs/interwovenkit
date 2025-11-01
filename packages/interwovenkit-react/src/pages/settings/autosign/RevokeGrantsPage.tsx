@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 import Page from "@/components/Page"
-import { useAllGrants, useGranteeAddressDomain } from "@/pages/autosign/queries"
+import { useAllGrants, useGranteeAddressDomain } from "@/pages/autosign/data/queries"
 import GranteeDomain from "./GranteeDomain"
 import RevokeGrantsItem from "./RevokeGrantsItem"
 import styles from "./RevokeGrantsItem.module.css"
