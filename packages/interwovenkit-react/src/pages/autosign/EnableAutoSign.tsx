@@ -11,7 +11,7 @@ import Dropdown from "@/components/Dropdown"
 import Footer from "@/components/Footer"
 import Image from "@/components/Image"
 import Scrollable from "@/components/Scrollable"
-import { useChain } from "@/data/chains"
+import { useChain, useInitiaRegistry } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import { useDrawer } from "@/data/ui"
 import { useLocationState } from "@/lib/router"
@@ -40,12 +40,31 @@ const EnableAutoSignPage = () => {
   const [pendingAutoSignRequest, setPendingAutoSignRequest] = useAtom(pendingAutoSignRequestAtom)
   const registerAutoSign = useRegisterAutoSign()
   const [selectedDuration, setSelectedDuration] = useState<number>(DEFAULT_DURATION)
+  const [warningIgnored, setWarningIgnored] = useState(false)
   const { chainId: locationChainId } = useLocationState<AutoSignLocationState>()
   const chainId = locationChainId || defaultChainId
   const chain = useChain(chainId)
   const queryClient = useQueryClient()
 
   const { icon: dappIcon, name: dappName } = getPageInfo()
+
+  const chains = useInitiaRegistry()
+  const trustedWebsites = chains
+    .map(({ website }) => {
+      try {
+        const url = new URL(website || "")
+        return url.host.replace("www.", "")
+      } catch {
+        return null
+      }
+    })
+    .filter((host): host is string => !!host)
+
+  const isTrusted = trustedWebsites.some(
+    (host) => window.location.host === host || window.location.host.endsWith(`.${host}`),
+  )
+
+  const showWarning = !isTrusted && !warningIgnored
 
   const { mutate: createAutoSign, isPending } = useMutation({
     mutationFn: async () => {
@@ -151,7 +170,7 @@ const EnableAutoSignPage = () => {
           <p className={styles.host}>{window.location.host}</p>
         </div>
 
-        <WebsiteWarning />
+        {showWarning && <WebsiteWarning onIgnore={() => setWarningIgnored(true)} />}
 
         <p className={styles.label}>Applies to</p>
 
@@ -198,7 +217,7 @@ const EnableAutoSignPage = () => {
         <Button.Outline onClick={handleReject} disabled={isPending}>
           Reject
         </Button.Outline>
-        <Button.White onClick={handleConfirm} loading={isPending}>
+        <Button.White onClick={handleConfirm} loading={isPending} disabled={showWarning}>
           Confirm
         </Button.White>
       </Footer>
