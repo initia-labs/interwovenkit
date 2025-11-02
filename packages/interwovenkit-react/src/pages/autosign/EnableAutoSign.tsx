@@ -27,7 +27,7 @@ import {
 import { getPageInfo } from "./data/utils"
 import { useEmbeddedWallet } from "./data/wallet"
 import WebsiteWarning from "./WebsiteWarning"
-import styles from "./EnableAutoSignPage.module.css"
+import styles from "./EnableAutoSign.module.css"
 
 interface AutoSignLocationState {
   chainId?: string

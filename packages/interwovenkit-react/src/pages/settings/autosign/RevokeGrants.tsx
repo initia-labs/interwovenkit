@@ -3,9 +3,9 @@ import Page from "@/components/Page"
 import { useAllGrants, useGranteeAddressDomain } from "@/pages/autosign/data/queries"
 import GranteeDomain from "./GranteeDomain"
 import RevokeGrantsItem from "./RevokeGrantsItem"
-import styles from "./RevokeGrantsItem.module.css"
+import styles from "./RevokeGrants.module.css"
 
-const RevokeGrantsPage = () => {
+const RevokeGrants = () => {
   const allGrantsQueries = useAllGrants()
   const { data: permissions, isLoading: isPermissionsLoading } = useGranteeAddressDomain()
 
@@ -122,4 +122,4 @@ const RevokeGrantsPage = () => {
   )
 }
 
-export default RevokeGrantsPage
+export default RevokeGrants

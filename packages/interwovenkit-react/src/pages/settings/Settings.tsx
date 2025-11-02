@@ -3,9 +3,9 @@ import { IconChevronRight, IconExternalLink } from "@initia/icons-react"
 import Page from "@/components/Page"
 import { useNavigate } from "@/lib/router"
 import { PRIVY_APP_ID } from "@/public/data/connectors"
-import styles from "./SettingsPage.module.css"
+import styles from "./Settings.module.css"
 
-const SettingsPage = () => {
+const Settings = () => {
   const navigate = useNavigate()
   const { connector } = useAccount()
 
@@ -42,4 +42,4 @@ const SettingsPage = () => {
   )
 }
 
-export default SettingsPage
+export default Settings

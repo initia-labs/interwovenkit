@@ -7,9 +7,9 @@ import CopyButton from "@/components/CopyButton"
 import Page from "@/components/Page"
 import { usePortalCssVariable } from "@/public/app/PortalContext"
 import { useInterwovenKit } from "@/public/data/hooks"
-import styles from "./AddressQrPage.module.css"
+import styles from "./Receive.module.css"
 
-const AddressQrPage = () => {
+const Receive = () => {
   const ref = useRef<HTMLDivElement>(null)
   const qrCode = useRef<QRCodeStyling | null>(null)
 
@@ -79,4 +79,4 @@ const AddressQrPage = () => {
   )
 }
 
-export default AddressQrPage
+export default Receive

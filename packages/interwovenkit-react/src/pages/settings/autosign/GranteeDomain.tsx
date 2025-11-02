@@ -1,4 +1,4 @@
-import styles from "./RevokeGrantsItem.module.css"
+import styles from "./RevokeGrants.module.css"
 
 interface GranteeDomainProps {
   domainName?: string
