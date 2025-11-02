@@ -38,7 +38,7 @@ const TxFee = ({ options, value, onChange }: Props) => {
     return {
       value: denom,
       label: getLabel(option),
-      triggerLabel: symbol, // Show only symbol in trigger when selected
+      triggerLabel: symbol,
     }
   })
 
@@ -49,18 +49,16 @@ const TxFee = ({ options, value, onChange }: Props) => {
 
   const selected = options.find((o) => o.amount[0].denom === value)
   if (!selected) throw new Error("Fee option not found")
+
   const [{ amount, denom }] = selected.amount
   const { decimals } = findAsset(denom)
   const dp = getDp(amount, decimals)
 
   return (
-    <Dropdown
-      options={dropdownOptions}
-      value={value}
-      onChange={onChange}
-      prefix={<span className="monospace">{formatAmount(amount, { decimals, dp })}</span>}
-      classNames={{ item: styles.item }}
-    />
+    <div className={styles.root}>
+      <span className="monospace">{formatAmount(amount, { decimals, dp })}</span>
+      <Dropdown options={dropdownOptions} value={value} onChange={onChange} classNames={styles} />
+    </div>
   )
 }
 

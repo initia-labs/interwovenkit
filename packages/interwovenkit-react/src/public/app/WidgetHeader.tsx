@@ -7,14 +7,13 @@ import { truncate } from "@initia/utils"
 import CopyButton from "@/components/CopyButton"
 import Image from "@/components/Image"
 import { useDisconnect } from "@/data/ui"
-import { useNavigate } from "@/lib/router"
+import { Link } from "@/lib/router"
 import { useInterwovenKit } from "@/public/data/hooks"
 import styles from "./WidgetHeader.module.css"
 
 const WidgetHeader = () => {
   const { connector } = useAccount()
   const disconnect = useDisconnect()
-  const navigate = useNavigate()
   const { address, username } = useInterwovenKit()
   const name = username ?? address
 
@@ -25,11 +24,6 @@ const WidgetHeader = () => {
     width: isExpanded ? 140 : 52,
     config: { tension: 500, friction: 30, clamp: true },
   })
-
-  const icon =
-    connector?.id === "io.privy.wallet"
-      ? "https://assets.initia.xyz/images/wallets/Privy.webp"
-      : connector?.icon
 
   const handleDisconnectClick = () => {
     if (!isExpanded) {
@@ -66,6 +60,11 @@ const WidgetHeader = () => {
     return null
   }
 
+  const icon =
+    connector.id === "io.privy.wallet"
+      ? "https://assets.initia.xyz/images/wallets/Privy.webp"
+      : connector.icon
+
   return (
     <header className={styles.header}>
       <CopyButton value={address}>
@@ -80,9 +79,9 @@ const WidgetHeader = () => {
         )}
       </CopyButton>
 
-      <button className={clsx(styles.button, styles.qr)} onClick={() => navigate("/settings")}>
+      <Link to="/settings" className={clsx(styles.button, styles.settings)}>
         <IconSettingFilled size={16} />
-      </button>
+      </Link>
 
       <animated.button
         className={clsx(styles.button, styles.disconnect, { [styles.expanded]: isExpanded })}

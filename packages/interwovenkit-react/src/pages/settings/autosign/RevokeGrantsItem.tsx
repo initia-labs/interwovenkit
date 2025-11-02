@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useSetAtom } from "jotai"
 import { useQueryClient } from "@tanstack/react-query"
-import { YEAR_IN_MS } from "@/pages/autosign/data/constants"
+import { YEAR_IN_MS } from "@/data/constants"
 import { autoSignQueryKeys, useAllGrants } from "@/pages/autosign/data/queries"
 import { autoSignExpirationAtom } from "@/pages/autosign/data/state"
 import { useEmbeddedWalletAddress } from "@/pages/autosign/data/wallet"
@@ -29,43 +29,43 @@ const RevokeGrantsItem = ({ grantee, expiration, chainId }: RevokeGrantsItemProp
     return query.data.grants.filter((grant) => grant.grantee === grantee)
   }, [allGrantsQueries, chainId, grantee])
 
-  // Track current time to trigger re-renders every second
-  const [currentTime, setCurrentTime] = useState(() => Date.now())
+  // Track current timestamp to trigger re-renders every second
+  const [currentTimestamp, setCurrentTimestamp] = useState(() => Date.now())
 
   // Calculate if it's a long-term expiration (doesn't change)
-  const isLongTerm = useMemo(() => {
-    const expirationTime = new Date(expiration).getTime()
+  const hasLongTermExpiration = useMemo(() => {
+    const expirationTimestamp = new Date(expiration).getTime()
     // we don't care about updates to this value, so it's safe to read current time only once
-    const initialRemainingTime = expirationTime - Date.now() // eslint-disable-line react-hooks/purity
-    return initialRemainingTime > YEAR_IN_MS
+    const initialRemainingMilliseconds = expirationTimestamp - Date.now() // eslint-disable-line react-hooks/purity
+    return initialRemainingMilliseconds > YEAR_IN_MS
   }, [expiration])
 
-  // Calculate the formatted duration based on current time
-  const formattedDuration = useMemo(() => {
-    if (isLongTerm) return null
+  // Calculate the formatted duration based on current timestamp
+  const expirationCountdownText = useMemo(() => {
+    if (hasLongTermExpiration) return null
 
-    const expirationTime = new Date(expiration).getTime()
-    const remainingTime = Math.max(0, expirationTime - currentTime)
-    return formatDuration(Math.floor(remainingTime / 1000))
-  }, [expiration, currentTime, isLongTerm])
+    const expirationTimestamp = new Date(expiration).getTime()
+    const remainingMilliseconds = Math.max(0, expirationTimestamp - currentTimestamp)
+    return formatDuration(Math.floor(remainingMilliseconds / 1000))
+  }, [expiration, currentTimestamp, hasLongTermExpiration])
 
   // Check if the grant has expired
-  const hasExpired = useMemo(() => {
-    if (isLongTerm) return false
-    const expirationTime = new Date(expiration).getTime()
-    return currentTime >= expirationTime
-  }, [expiration, currentTime, isLongTerm])
+  const isGrantExpired = useMemo(() => {
+    if (hasLongTermExpiration) return false
+    const expirationTimestamp = new Date(expiration).getTime()
+    return currentTimestamp >= expirationTimestamp
+  }, [expiration, currentTimestamp, hasLongTermExpiration])
 
-  // Update the current time every second to trigger countdown updates
+  // Update the current timestamp every second to trigger countdown updates
   useEffect(() => {
-    if (isLongTerm) return // No need to update for long-term expirations
+    if (hasLongTermExpiration) return // No need to update for long-term expirations
 
     const timer = setInterval(() => {
-      setCurrentTime(Date.now())
+      setCurrentTimestamp(Date.now())
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [isLongTerm])
+  }, [hasLongTermExpiration])
 
   const handleRevoke = async () => {
     if (currentGrants.length === 0 || !initiaAddress) return
@@ -94,7 +94,7 @@ const RevokeGrantsItem = ({ grantee, expiration, chainId }: RevokeGrantsItemProp
     await requestTxBlock({
       chainId,
       messages,
-      internal: "/settings/revoke",
+      internal: "/settings/autosign",
     })
 
     // Invalidate the grants query to refresh the data
@@ -104,12 +104,12 @@ const RevokeGrantsItem = ({ grantee, expiration, chainId }: RevokeGrantsItemProp
 
     // Reset auto sign expiration if this is the embedded wallet address
     if (grantee === embeddedWalletAddress) {
-      setAutoSignExpiration((exp) => ({ ...exp, [chainId]: undefined }))
+      setAutoSignExpiration((expirationMap) => ({ ...expirationMap, [chainId]: null }))
     }
   }
 
   // Don't render the item if it has expired
-  if (hasExpired) {
+  if (isGrantExpired) {
     // Invalidate the grants query to refresh the data
     queryClient.invalidateQueries({
       queryKey: autoSignQueryKeys.grantsByGranter._def,
@@ -123,11 +123,11 @@ const RevokeGrantsItem = ({ grantee, expiration, chainId }: RevokeGrantsItemProp
       <div className={styles.textContainer}>
         <div className={styles.chain}>{chainId}</div>
         <div className={styles.expiration}>
-          {isLongTerm ? (
+          {hasLongTermExpiration ? (
             "Until revoked"
           ) : (
             <>
-              Expires in <span className={styles.expirationTime}>{formattedDuration}</span>
+              Expires in <span className={styles.expirationTime}>{expirationCountdownText}</span>
             </>
           )}
         </div>

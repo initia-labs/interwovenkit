@@ -1,78 +1,68 @@
+import { addWeeks, isFuture } from "date-fns"
 import ky from "ky"
 import { useSignMessage } from "wagmi"
+import { useCallback, useMemo } from "react"
+import { useLocalStorage } from "usehooks-ts"
 import { useInitiaAddress } from "@/public/data/hooks"
+import { useConfig } from "./config"
+import { LocalStorageKey } from "./constants"
 
-const AUTH_SESSION_STORAGE_KEY = "interwovenkit:backend-auth"
-const SESSION_DURATION = 24 * 60 * 60 * 1000 // 24 hours
-const INTERWOVENKIT_API_URL = "https://interwovenkit-api.initia.xyz"
-
-interface AuthSession {
+interface ApiAuthCredentials {
   signature: string
   expiresAt: string
 }
 
-// generate ky client for backend requests
-export function useBackend() {
+export function useInterwovenKitApi() {
+  const { interwovenkitApiUrl } = useConfig()
   const initiaAddress = useInitiaAddress()
+  const localStorageKey = `${LocalStorageKey.API_AUTH_SESSION}:${initiaAddress}`
   const { signMessageAsync } = useSignMessage()
-  const localStorageKey = `${AUTH_SESSION_STORAGE_KEY}:${initiaAddress}`
+  const [cachedCredentials, setCachedCredentials] = useLocalStorage<ApiAuthCredentials | null>(
+    localStorageKey,
+    null,
+  )
 
-  function getStoredAuthSession(): AuthSession | null {
-    if (localStorage.getItem(localStorageKey)) {
-      const session = JSON.parse(localStorage.getItem(localStorageKey)!) as AuthSession
-      if (new Date(session.expiresAt).getTime() > Date.now()) {
-        return session
-      }
+  const interwovenkitApi = useMemo(
+    () => ky.create({ prefixUrl: interwovenkitApiUrl }),
+    [interwovenkitApiUrl],
+  )
+
+  const getOrRefreshCredentials = useCallback(async (): Promise<ApiAuthCredentials> => {
+    if (cachedCredentials && isFuture(new Date(cachedCredentials.expiresAt))) {
+      return cachedCredentials
     }
-    return null
-  }
 
-  async function getAuthSession(): Promise<AuthSession> {
-    const storedSession = getStoredAuthSession()
-    if (storedSession) return storedSession
-
-    const expiration = new Date(Date.now() + SESSION_DURATION).toISOString()
-
-    const { message } = await ky
+    const expiresAt = addWeeks(new Date(), 2).toISOString()
+    const { message } = await interwovenkitApi
       .get("auto-sign/get-message", {
-        prefixUrl: INTERWOVENKIT_API_URL,
         headers: {
-          "x-expiration": expiration,
+          "x-expiration": expiresAt,
         },
       })
       .json<{ message: string }>()
 
     const signature = await signMessageAsync({ message })
+    const refreshedCredentials = { signature, expiresAt }
 
-    const sessions = {
-      signature,
-      expiresAt: expiration,
-    }
+    setCachedCredentials(refreshedCredentials)
 
-    localStorage.setItem(localStorageKey, JSON.stringify(sessions))
-    return sessions
-  }
+    return refreshedCredentials
+  }, [cachedCredentials, interwovenkitApi, setCachedCredentials, signMessageAsync])
 
-  // client for authenticated requests
-  async function getAuthClient() {
-    const { signature, expiresAt } = await getAuthSession()
+  const createAuthenticatedInterwovenkitApi = useCallback(async () => {
+    const { signature, expiresAt } = await getOrRefreshCredentials()
 
-    return ky.create({
-      prefixUrl: INTERWOVENKIT_API_URL,
+    return interwovenkitApi.extend({
       headers: {
         "user-address": initiaAddress,
         "auth-signature": signature,
         "x-expiration": expiresAt,
       },
     })
-  }
+  }, [getOrRefreshCredentials, initiaAddress, interwovenkitApi])
 
-  // simple client for requests that don't require authentication
-  async function getClient() {
-    return ky.create({
-      prefixUrl: INTERWOVENKIT_API_URL,
-    })
-  }
-
-  return { getAuthClient, getClient }
+  return useMemo(
+    () => ({ interwovenkitApi, createAuthenticatedInterwovenkitApi }),
+    [createAuthenticatedInterwovenkitApi, interwovenkitApi],
+  )
 }

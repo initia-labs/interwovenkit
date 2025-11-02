@@ -9,7 +9,7 @@ import BridgePreview from "@/pages/bridge/BridgePreview"
 import Withdrawals from "@/pages/bridge/op/Withdrawals"
 import Connect from "@/pages/connect/Connect"
 import Receive from "@/pages/receive/Receive"
-import RevokeGrants from "@/pages/settings/autosign/RevokeGrants"
+import ManageAutoSign from "@/pages/settings/autosign/ManageAutoSign"
 import Settings from "@/pages/settings/Settings"
 import TxRequest from "@/pages/tx/TxRequest"
 import Home from "@/pages/wallet/tabs/Home"
@@ -88,8 +88,8 @@ const Routes = () => {
       return <EnableAutoSign />
     case "/settings":
       return <Settings />
-    case "/settings/revoke":
-      return <RevokeGrants />
+    case "/settings/autosign":
+      return <ManageAutoSign />
   }
 }
 

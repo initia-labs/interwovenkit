@@ -5,6 +5,8 @@ import { useNavigate } from "@/lib/router"
 import { PRIVY_APP_ID } from "@/public/data/connectors"
 import styles from "./Settings.module.css"
 
+const PRIVY_EXPORT_URL = "https://export.initia.xyz/"
+
 const Settings = () => {
   const navigate = useNavigate()
   const { connector } = useAccount()
@@ -12,7 +14,7 @@ const Settings = () => {
   return (
     <Page title="Settings" backButton="/">
       <div className={styles.container}>
-        <button className={styles.link} onClick={() => navigate("/settings/revoke")}>
+        <button className={styles.link} onClick={() => navigate("/settings/autosign")}>
           <div>
             <p className={styles.title}>Manage auto-signing</p>
             <p className={styles.subtitle}>Manage chain auto-signing permissions by apps</p>
@@ -25,9 +27,9 @@ const Settings = () => {
             className={styles.link}
             onClick={() =>
               window.open(
-                "https://privy-export.staging.initia.xyz/",
-                "exportPopup",
-                "width=600,height=700,scrollbars=yes,resizable=yes",
+                PRIVY_EXPORT_URL,
+                "_blank",
+                "width=600,height=768,scrollbars=yes,resizable=yes",
               )
             }
           >

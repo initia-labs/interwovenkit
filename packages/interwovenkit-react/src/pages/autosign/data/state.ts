@@ -1,30 +1,26 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { atom, useAtom, useAtomValue, useSetAtom } from "jotai"
 import { useFindChain } from "@/data/chains"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useAutoSignPermissions } from "./permissions"
-import { checkAutoSignEnabled } from "./queries"
+import { checkAutoSignExpiration } from "./queries"
 import { useEmbeddedWalletAddress } from "./wallet"
 
-interface AutoSignRequestHandler {
+interface PendingAutoSignRequest {
   resolve: () => void
   reject: (error: Error) => void
 }
 
-// Internal atom - not exported from public API
-const autoSignRequestHandlerAtom = atom<AutoSignRequestHandler | null>(null)
+export const pendingAutoSignRequestAtom = atom<PendingAutoSignRequest | null>(null)
 
-export function useAutoSignRequestHandler() {
-  return useAtomValue(autoSignRequestHandlerAtom)
-}
-
-export function useSetAutoSignRequestHandler() {
-  return useSetAtom(autoSignRequestHandlerAtom)
-}
-
-export const autoSignExpirationAtom = atom<Record<string, number | undefined>>({})
+export const autoSignExpirationAtom = atom<Record<string, number | null>>({})
 export const autoSignLoadingAtom = atom<boolean>(true)
 
+/**
+ * Hook that manages the complete auto-sign state including enabled status and expiration times.
+ * Provides functionality to check auto-sign permissions across multiple chains and tracks their expiration.
+ * Handles loading states and caches enabled status to avoid redundant API calls.
+ */
 export function useAutoSignState() {
   const isEnabled = useIsAutoSignEnabled()
   const [expirations, setExpirations] = useAtom(autoSignExpirationAtom)
@@ -47,58 +43,45 @@ export function useAutoSignState() {
     }
 
     try {
-      // Perform the actual check
-      const result = await Promise.all(
-        Object.entries(autoSignPermissions).map(
-          async ([chainId, permission]) =>
-            [
-              chainId,
-              await checkAutoSignEnabled(
-                address,
-                embeddedWalletAddress,
-                permission,
-                findChain(chainId).restUrl,
-              ),
-            ] as [string, { enabled: boolean; expiresAt?: number }],
-        ),
+      const results = await Promise.all(
+        Object.entries(autoSignPermissions).map(async ([chainId, permission]) => {
+          const { restUrl } = findChain(chainId)
+          const result = await checkAutoSignExpiration(
+            address,
+            embeddedWalletAddress,
+            permission,
+            restUrl,
+          )
+          return [chainId, result] as const
+        }),
       )
 
-      setExpirations(
-        Object.fromEntries(
-          result.map(([chainId, res]) => [chainId, res.enabled ? res.expiresAt : undefined]),
-        ),
-      )
+      setExpirations(Object.fromEntries(results.map(([chainId, result]) => [chainId, result])))
 
-      return Object.fromEntries(result.map(([chainId, res]) => [chainId, res.enabled]))
+      return Object.fromEntries(results.map(([chainId, result]) => [chainId, !!result]))
     } finally {
       setLoading(false)
     }
   }
 
-  return {
-    expirations,
-    isEnabled,
-    checkAutoSign,
-  }
+  return { expirations, isEnabled, checkAutoSign }
 }
 
+/**
+ * Hook that determines whether auto-sign is currently enabled for each chain.
+ * Automatically re-evaluates when permissions expire by setting up timers.
+ * Ensures UI updates immediately when auto-sign permissions expire.
+ */
 export function useIsAutoSignEnabled() {
   const expirations = useAtomValue(autoSignExpirationAtom)
-  const [tick, setTick] = useState(0)
-
-  const isEnabled = useMemo(
-    () => parseExpirationTimes(expirations),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- tick is used to force re-evaluation when expiration timer fires
-    [expirations, tick],
-  )
+  const [isEnabled, setIsEnabled] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     const expiration = getEarliestExpiration(expirations)
     if (!expiration) return
 
-    // Set up timer to disable when expiration is reached
     const timeoutId = setTimeout(() => {
-      setTick((t) => t + 1)
+      setIsEnabled(parseExpirationTimes(expirations))
     }, expiration - Date.now())
 
     return () => clearTimeout(timeoutId)
@@ -107,8 +90,11 @@ export function useIsAutoSignEnabled() {
   return isEnabled
 }
 
-/* utils */
-function parseExpirationTimes(expirations: Record<string, number | undefined>) {
+/**
+ * Parses expiration times and determines validity status for each chain.
+ * Converts Unix timestamp expirations to boolean enabled/disabled status based on current time.
+ */
+export function parseExpirationTimes(expirations: Record<string, number | null>) {
   return Object.fromEntries(
     Object.entries(expirations).map(([chainId, expirationTime]) => {
       return [chainId, !!expirationTime && expirationTime > Date.now()]
@@ -116,7 +102,12 @@ function parseExpirationTimes(expirations: Record<string, number | undefined>) {
   )
 }
 
-function getEarliestExpiration(expirations: Record<string, number | undefined>) {
+/**
+ * Finds the earliest valid expiration time from multiple chain expirations.
+ * Filters out expired or undefined values and returns the minimum future timestamp.
+ * Used to determine when the next permission will expire for timer setup.
+ */
+export function getEarliestExpiration(expirations: Record<string, number | null>) {
   const validExpirations = Object.values(expirations).filter(
     (expiration) => !!expiration && expiration > Date.now(),
   ) as number[]

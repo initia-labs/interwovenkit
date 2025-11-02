@@ -1,10 +1,5 @@
 import type { DropdownOption } from "@/components/Dropdown"
-
-const SECOND_IN_MS = 1000
-const MINUTE_IN_MS = 60 * SECOND_IN_MS
-const HOUR_IN_MS = 60 * MINUTE_IN_MS
-const DAY_IN_MS = 24 * HOUR_IN_MS
-export const YEAR_IN_MS = 365 * DAY_IN_MS
+import { DAY_IN_MS, HOUR_IN_MS, MINUTE_IN_MS, YEAR_IN_MS } from "@/data/constants"
 
 export const DURATION_OPTIONS: DropdownOption<number>[] = [
   { value: 10 * MINUTE_IN_MS, label: "for 10 minutes" },

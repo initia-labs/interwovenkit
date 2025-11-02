@@ -1,3 +1,18 @@
+.root {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.trigger {
+  font-family: var(--monospace);
+}
+
 .item {
   justify-content: flex-end;
+  width: 152px;
+}
+
+.itemText {
+  font-family: var(--monospace);
 }

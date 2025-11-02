@@ -159,7 +159,7 @@ export function useSignWithEthSecp256k1() {
     memo: string,
     options?: { incrementSequence?: number; customSigner?: OfflineAminoSigner },
   ): Promise<TxRaw> {
-    const signer = options?.customSigner || offlineSigner
+    const signer = options?.customSigner ?? offlineSigner
     if (!signer) throw new Error("Signer not initialized")
     const client = await createSigningStargateClient(chainId)
     const { accountNumber, ...account } = await client.getSequence(signerAddress)

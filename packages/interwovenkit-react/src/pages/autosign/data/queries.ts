@@ -1,7 +1,7 @@
 import ky from "ky"
 import { useQueries, useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
-import { useBackend } from "@/data/api"
+import { useInterwovenKitApi } from "@/data/api"
 import { useInitiaRegistry } from "@/data/chains"
 import { STALE_TIMES } from "@/data/http"
 import { useInitiaAddress } from "@/public/data/hooks"
@@ -11,18 +11,22 @@ export const autoSignQueryKeys = createQueryKeys("interwovenkit:auto-sign", {
   permissions: (address: string) => [address],
 })
 
-export async function checkAutoSignEnabled(
+/**
+ * Checks if auto-sign is enabled for a specific grantee by verifying both feegrant and authz grants.
+ * Validates that all required permissions are granted and determines the earliest expiration time.
+ */
+export async function checkAutoSignExpiration(
   granter: string,
   grantee: string,
   permissions: string[],
   restUrl: string,
-): Promise<{ enabled: boolean; expiresAt?: number }> {
-  if (!grantee) return { enabled: false }
-  if (!permissions?.length) return { enabled: false }
-
-  const client = ky.create({ prefixUrl: restUrl })
-
+): Promise<number | null> {
   try {
+    if (!grantee) return null
+    if (!permissions?.length) return null
+
+    const client = ky.create({ prefixUrl: restUrl })
+
     // Check feegrant allowance
     const feegrantResponse = await client
       .get(`cosmos/feegrant/v1beta1/allowance/${granter}/${grantee}`)
@@ -43,25 +47,21 @@ export async function checkAutoSignEnabled(
     )
 
     if (!hasAllGrants) {
-      return { enabled: false }
+      return null
     }
 
-    // Find the earliest expiration from all grants and feegrant
     const expirations = [
       ...relevantGrants.map((grant) => grant.expiration).filter(Boolean),
       feegrantResponse.allowance?.allowance?.expiration,
     ]
-      .filter(Boolean)
-      .map((exp) => new Date(exp!).getTime())
+      .filter((expiration): expiration is string => !!expiration)
+      .map((expirationString) => new Date(expirationString).getTime())
 
-    const earliestExpiration = expirations.length > 0 ? Math.min(...expirations) : undefined
+    const earliestExpiration = expirations.length > 0 ? Math.min(...expirations) : null
 
-    return {
-      enabled: true,
-      expiresAt: earliestExpiration,
-    }
+    return earliestExpiration
   } catch {
-    return { enabled: false }
+    return null
   }
 }
 
@@ -86,6 +86,10 @@ export interface GrantsResponseWithChain extends GrantsResponse {
   chainId: string
 }
 
+/**
+ * Hook that fetches all authz grants across all registered chains where the current user is the granter.
+ * Uses parallel queries to retrieve grants from multiple chains simultaneously.
+ */
 export function useAllGrants() {
   const address = useInitiaAddress()
   const chains = useInitiaRegistry()
@@ -109,7 +113,7 @@ export function useAllGrants() {
   })
 }
 
-export interface Permission {
+export interface AutoSignDomainPermission {
   granteeAddress: string
   domainAddress: string
   icon: {
@@ -117,17 +121,21 @@ export interface Permission {
   }
 }
 
+/**
+ * Hook that retrieves auto-sign domain permissions for the current user.
+ * Fetches the list of grantee addresses and their associated domains/icons
+ * that have been registered for auto-sign functionality.
+ */
 export function useGranteeAddressDomain() {
   const address = useInitiaAddress()
-  const { getClient } = useBackend()
+  const { interwovenkitApi } = useInterwovenKitApi()
 
   return useQuery({
     queryKey: autoSignQueryKeys.permissions(address).queryKey,
-    queryFn: async (): Promise<Permission[]> => {
-      const client = await getClient()
-      const response = await client.get(`auto-sign/get-address/${address}`).json<{
+    queryFn: async (): Promise<AutoSignDomainPermission[]> => {
+      const response = await interwovenkitApi.get(`auto-sign/get-address/${address}`).json<{
         message: string
-        permissions: Permission[]
+        permissions: AutoSignDomainPermission[]
       }>()
 
       return response.permissions

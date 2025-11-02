@@ -6,28 +6,40 @@ import { InitiaAddress } from "@initia/utils"
 import { useDefaultChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import { OfflineSigner, useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
-import { useInitiaAddress } from "@/public/data/hooks"
 
+/**
+ * Hook that retrieves the embedded wallet instance from Privy context.
+ * The embedded wallet is used for auto-sign functionality as a delegate signer.
+ */
 export function useEmbeddedWallet() {
-  const { privy } = useConfig()
-  return privy?.wallets.find((w) => w.connectorType === "embedded")
+  const { privyContext } = useConfig()
+  return privyContext?.wallets.find((wallet) => wallet.connectorType === "embedded")
 }
 
+/**
+ * Hook that extracts and formats the embedded wallet's Bech32 address.
+ * Converts the raw wallet address to Initia's Bech32 format for use in transactions.
+ */
 export function useEmbeddedWalletAddress() {
   const wallet = useEmbeddedWallet()
   return wallet?.address ? InitiaAddress(wallet.address).bech32 : undefined
 }
 
+/**
+ * Hook that provides a signing function for auto-sign transactions using the embedded wallet.
+ * Wraps messages in MsgExec for authz execution and sets up fee granter delegation.
+ * Creates a custom signer instance for the embedded wallet to sign on behalf of the main wallet.
+ */
 export function useSignWithEmbeddedWallet() {
   const embeddedWallet = useEmbeddedWallet()
   const embeddedWalletAddress = useEmbeddedWalletAddress()
   const signWithEthSecp256k1 = useSignWithEthSecp256k1()
-  const userAddress = useInitiaAddress()
   const registry = useRegistry()
   const defaultChain = useDefaultChain()
 
   return async (
     chainId: string,
+    address: string,
     messages: EncodeObject[],
     fee: StdFee,
     memo: string,
@@ -53,7 +65,7 @@ export function useSignWithEmbeddedWallet() {
     // Modify the fee to set the granter as the user's main wallet
     const feeWithGranter: StdFee = {
       ...fee,
-      granter: userAddress,
+      granter: address,
     }
 
     // Create a custom signer for the embedded wallet using ethers

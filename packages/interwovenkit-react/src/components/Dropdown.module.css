@@ -1,29 +1,17 @@
-.value {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .trigger {
-  display: grid;
-  grid-template-columns: 1fr auto;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
   gap: 4px;
 
   background-color: var(--gray-7);
   border-radius: 6px;
   cursor: pointer;
-  font-family: var(--monospace);
   padding: 4px 8px;
   transition: background-color var(--transition) ease;
 
-  &:hover:not(.disabled) {
+  &:hover {
     background-color: var(--gray-6);
-  }
-
-  &.disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
   }
 }
 
@@ -45,14 +33,14 @@
 }
 
 .item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+
   color: var(--gray-0);
   cursor: pointer;
-  font-family: var(--monospace);
-  font-size: 12px;
-  font-weight: 500;
-  text-align: right;
   padding: 4px 8px;
-
   transition: background-color var(--transition) ease;
 
   &:hover {
@@ -60,14 +48,15 @@
   }
 }
 
-.itemContent {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  justify-content: space-between;
-  width: 100%;
+.itemText {
+  font-size: 12px;
+  font-weight: 500;
 }
 
-.iconHidden {
+.itemIndicator {
   opacity: 0;
+
+  &.active {
+    opacity: 1;
+  }
 }

@@ -37,15 +37,15 @@ const Home = () => {
             <span>Send</span>
           </Link>
 
-          <button className={styles.item} onClick={() => navigate("/bridge")}>
+          <Link to="/bridge" className={styles.item}>
             <IconSwap size={16} />
             <span>Bridge/Swap</span>
-          </button>
+          </Link>
 
-          <button className={styles.item} onClick={() => navigate("/receive")}>
+          <Link to="/receive" className={styles.item}>
             <IconQrCode size={16} />
             <span>Receive</span>
-          </button>
+          </Link>
         </div>
 
         <Tabs.Root value={path} onValueChange={navigate}>

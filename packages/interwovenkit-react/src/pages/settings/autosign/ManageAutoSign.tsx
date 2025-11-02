@@ -1,11 +1,11 @@
 import { useMemo } from "react"
 import Page from "@/components/Page"
+import type { AutoSignDomainPermission } from "@/pages/autosign/data/queries"
 import { useAllGrants, useGranteeAddressDomain } from "@/pages/autosign/data/queries"
-import GranteeDomain from "./GranteeDomain"
 import RevokeGrantsItem from "./RevokeGrantsItem"
-import styles from "./RevokeGrants.module.css"
+import styles from "./ManageAutoSign.module.css"
 
-const RevokeGrants = () => {
+const ManageAutoSign = () => {
   const allGrantsQueries = useAllGrants()
   const { data: permissions, isLoading: isPermissionsLoading } = useGranteeAddressDomain()
 
@@ -15,18 +15,12 @@ const RevokeGrants = () => {
 
   // Group grants by domain
   const groupedGrants = useMemo(() => {
-    type Grant = { grantee: string; expiration: string; chainId: string }
-    type GrantWithPermission = Grant & {
-      permission?: {
-        domainAddress: string
-        icon?: { icon: string }
-        granteeAddress: string
-      }
-    }
+    type GrantInfo = { grantee: string; expiration: string; chainId: string }
+    type GrantWithDomainInfo = GrantInfo & { permission?: AutoSignDomainPermission }
 
-    const withDomain = new Map<string, GrantWithPermission[]>()
-    const unknown: Grant[] = []
-    const seen = new Set<string>()
+    const grantsGroupedByDomain = new Map<string, GrantWithDomainInfo[]>()
+    const grantsWithoutDomainMapping: GrantInfo[] = []
+    const processedGrantKeys = new Set<string>()
 
     // Process all grants from all chains
     allGrantsQueries
@@ -37,8 +31,8 @@ const RevokeGrants = () => {
         query.data!.grants.forEach((grant) => {
           // Skip duplicates based on grantee+chainId
           const key = `${grant.grantee}-${chainId}`
-          if (seen.has(key)) return
-          seen.add(key)
+          if (processedGrantKeys.has(key)) return
+          processedGrantKeys.add(key)
 
           const grantData = {
             grantee: grant.grantee,
@@ -53,36 +47,50 @@ const RevokeGrants = () => {
 
           if (permission) {
             const domain = permission.domainAddress
-            if (!withDomain.has(domain)) {
-              withDomain.set(domain, [])
+            if (!grantsGroupedByDomain.has(domain)) {
+              grantsGroupedByDomain.set(domain, [])
             }
-            withDomain.get(domain)!.push({ ...grantData, permission })
+            grantsGroupedByDomain.get(domain)!.push({ ...grantData, permission })
           } else {
-            unknown.push(grantData)
+            grantsWithoutDomainMapping.push(grantData)
           }
         })
       })
 
-    return { withDomain, unknown }
+    return { grantsGroupedByDomain, grantsWithoutDomainMapping }
   }, [allGrantsQueries, permissions])
 
+  const renderGranteeDomain = ({ domain, icon }: { domain: string; icon?: string }) => {
+    if (!domain) return null
+    const { hostname } = new URL(domain)
+    return (
+      <div className={styles.domainHeader}>
+        {icon && <img src={icon} alt={domain} className={styles.domainIcon} />}
+        <span className={styles.domainName}>{hostname}</span>
+      </div>
+    )
+  }
+
   // Render content based on state
-  const renderContent = () => {
+  const renderGrantsList = () => {
     if (isLoading || isFetching) {
       return <p className={styles.empty}>Loading...</p>
     }
 
-    if (groupedGrants.withDomain.size === 0 && groupedGrants.unknown.length === 0) {
+    if (
+      groupedGrants.grantsGroupedByDomain.size === 0 &&
+      groupedGrants.grantsWithoutDomainMapping.length === 0
+    ) {
       return <p className={styles.empty}>Nothing found</p>
     }
 
     return (
       <div className={styles.list}>
         {/* Render grants grouped by domain */}
-        {Array.from(groupedGrants.withDomain.entries()).map(([domain, grants]) => (
+        {Array.from(groupedGrants.grantsGroupedByDomain.entries()).map(([domain, grants]) => (
           <div key={domain} className={styles.domainGroup}>
             {/* Show domain header once for the group */}
-            <GranteeDomain domainName={domain} domainIcon={grants[0]?.permission?.icon?.icon} />
+            {renderGranteeDomain({ domain, icon: grants[0]?.permission?.icon?.icon })}
             {/* Render all grants for this domain */}
             {grants.map((grant) => (
               <RevokeGrantsItem
@@ -96,12 +104,12 @@ const RevokeGrants = () => {
         ))}
 
         {/* Render unknown grants at the bottom */}
-        {groupedGrants.unknown.length > 0 && (
+        {groupedGrants.grantsWithoutDomainMapping.length > 0 && (
           <div className={styles.domainGroup}>
             <div className={styles.domainHeader}>
               <span className={styles.domainName}>Unknown</span>
             </div>
-            {groupedGrants.unknown.map((grant) => (
+            {groupedGrants.grantsWithoutDomainMapping.map((grant) => (
               <RevokeGrantsItem
                 key={`${grant.grantee}-${grant.chainId}`}
                 grantee={grant.grantee}
@@ -117,9 +125,9 @@ const RevokeGrants = () => {
 
   return (
     <Page title="Manage auto-signing" backButton="/settings">
-      {renderContent()}
+      {renderGrantsList()}
     </Page>
   )
 }
 
-export default RevokeGrants
+export default ManageAutoSign

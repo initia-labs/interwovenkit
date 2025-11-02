@@ -1,40 +1,41 @@
-import { useState } from "react"
+import { useMutation } from "@tanstack/react-query"
 import { useInterwovenKit } from "@initia/interwovenkit-react"
+import { chainId } from "./data"
 import styles from "./ToggleAutoSign.module.css"
 
-const ToggleAutoSign = ({ chainId }: { chainId: string }) => {
-  const { autoSign, address } = useInterwovenKit()
-  const [isCreating, setIsCreating] = useState(false)
+const ToggleAutoSign = () => {
+  const { autoSign } = useInterwovenKit()
 
-  if (!address) return null // Not connected
+  const enable = useMutation({
+    mutationFn: () => autoSign.enable(chainId),
+    onError: (error) => window.alert(error),
+  })
 
-  const handleSetupAutoSign = async () => {
-    try {
-      setIsCreating(true)
-      await autoSign.setup(chainId)
-      // Auto sign enabled successfully
-    } finally {
-      setIsCreating(false)
-    }
+  const disable = useMutation({
+    mutationFn: () => autoSign.disable(chainId),
+    onError: (error) => window.alert(error),
+  })
+
+  if (autoSign.expirations[chainId]) {
+    return (
+      <button
+        className={styles.button}
+        onClick={() => disable.mutate()}
+        disabled={disable.isPending}
+      >
+        Disable auto sign
+      </button>
+    )
   }
 
   return (
-    <div className={styles.container}>
-      {autoSign.isLoading ? (
-        <p className={styles.enabled}>Loading...</p>
-      ) : !autoSign.isEnabled[chainId] ? (
-        <button className={styles.button} onClick={handleSetupAutoSign} disabled={isCreating}>
-          {isCreating ? "Setting up auto sign..." : `Enable auto sign on ${chainId}`}
-        </button>
-      ) : (
-        <p className={styles.enabled}>
-          <span>Auto sign is enabled on {chainId}!</span>
-          <button className={styles.button} onClick={() => autoSign.revoke(chainId)}>
-            Revoke
-          </button>
-        </p>
-      )}
-    </div>
+    <button
+      className={styles.button}
+      onClick={() => enable.mutate()}
+      disabled={autoSign.isLoading || enable.isPending}
+    >
+      Enable auto sign
+    </button>
   )
 }
 
