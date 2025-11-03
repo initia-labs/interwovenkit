@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react"
-import { atom, useAtom, useAtomValue, useSetAtom } from "jotai"
+import { isPast } from "date-fns"
+import { atom, useAtom, useSetAtom } from "jotai"
 import { useFindChain } from "@/data/chains"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useAutoSignPermissions } from "./permissions"
@@ -22,7 +22,6 @@ export const autoSignLoadingAtom = atom<boolean>(true)
  * Handles loading states and caches enabled status to avoid redundant API calls.
  */
 export function useAutoSignState() {
-  const isEnabled = useIsAutoSignEnabled()
   const [expirations, setExpirations] = useAtom(autoSignExpirationAtom)
   const setLoading = useSetAtom(autoSignLoadingAtom)
   const address = useInitiaAddress()
@@ -37,9 +36,9 @@ export function useAutoSignState() {
     }
 
     // If already enabled and not expired, return true
-    if (Object.values(isEnabled).some((v) => v)) {
+    if (Object.values(expirations).some((v) => v && isPast(new Date(v)))) {
       setLoading(false)
-      return isEnabled
+      return parseExpirationTimes(expirations)
     }
 
     try {
@@ -64,30 +63,7 @@ export function useAutoSignState() {
     }
   }
 
-  return { expirations, isEnabled, checkAutoSign }
-}
-
-/**
- * Hook that determines whether auto-sign is currently enabled for each chain.
- * Automatically re-evaluates when permissions expire by setting up timers.
- * Ensures UI updates immediately when auto-sign permissions expire.
- */
-export function useIsAutoSignEnabled() {
-  const expirations = useAtomValue(autoSignExpirationAtom)
-  const [isEnabled, setIsEnabled] = useState<Record<string, boolean>>({})
-
-  useEffect(() => {
-    const expiration = getEarliestExpiration(expirations)
-    if (!expiration) return
-
-    const timeoutId = setTimeout(() => {
-      setIsEnabled(parseExpirationTimes(expirations))
-    }, expiration - Date.now())
-
-    return () => clearTimeout(timeoutId)
-  }, [expirations])
-
-  return isEnabled
+  return { expirations, checkAutoSign }
 }
 
 /**

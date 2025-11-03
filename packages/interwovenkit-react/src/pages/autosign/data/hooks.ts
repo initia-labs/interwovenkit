@@ -1,5 +1,7 @@
+import { isPast } from "date-fns"
 import { useEffect } from "react"
 import { useAtomValue, useSetAtom } from "jotai"
+import { useConfig } from "@/data/config"
 import { useDrawer } from "@/data/ui"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useRevokeAutoSign } from "./actions"
@@ -13,6 +15,7 @@ import { useEmbeddedWalletAddress } from "./wallet"
  * Handles the complete lifecycle of auto-sign operations including UI interactions.
  */
 export function useAutoSign() {
+  const { defaultChainId } = useConfig()
   const autoSignPermissions = useAutoSignPermissions()
   const autoSignState = useAutoSignState()
   const autoSignLoading = useAtomValue(autoSignLoadingAtom)
@@ -20,12 +23,13 @@ export function useAutoSign() {
   const { openDrawer } = useDrawer()
   const setPendingAutoSignRequest = useSetAtom(pendingAutoSignRequestAtom)
 
-  const enableAutoSign = async (chainId: string): Promise<void> => {
+  const enableAutoSign = async (chainId = defaultChainId): Promise<void> => {
     if (!autoSignPermissions?.[chainId]?.length) {
       throw new Error("Auto sign permissions are required for the setup")
     }
 
-    if (autoSignState.isEnabled[chainId]) {
+    const expiration = autoSignState.expirations[chainId]
+    if (expiration && isPast(new Date(expiration))) {
       throw new Error("Auto sign is already enabled")
     }
 
@@ -43,6 +47,9 @@ export function useAutoSign() {
     isLoading: autoSignLoading,
     enable: enableAutoSign,
     disable: disableAutoSign,
+    expiration: autoSignState.expirations[defaultChainId]
+      ? new Date(autoSignState.expirations[defaultChainId])
+      : null,
     expirations: autoSignState.expirations,
   }
 }

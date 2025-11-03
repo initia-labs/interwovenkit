@@ -16,7 +16,7 @@ const ToggleAutoSign = () => {
     onError: (error) => window.alert(error),
   })
 
-  if (autoSign.expirations[chainId]) {
+  if (autoSign.expiration && autoSign.expiration > new Date()) {
     return (
       <button
         className={styles.button}

@@ -30,6 +30,7 @@
     "@vitejs/plugin-react-swc": "^4.1.0",
     "eslint": "^9.37.0",
     "typescript": "^5.9.3",
-    "vite": "^7.1.9"
+    "vite": "^7.1.9",
+    "vite-plugin-node-polyfills": "^0.24.0"
   }
 }

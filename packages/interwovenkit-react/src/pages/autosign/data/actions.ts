@@ -1,6 +1,8 @@
+import { isPast } from "date-fns"
 import { useSetAtom } from "jotai"
 import { useQueryClient } from "@tanstack/react-query"
 import { useInterwovenKitApi } from "@/data/api"
+import { useConfig } from "@/data/config"
 import { useTx } from "@/data/tx"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useAutoSignPermissions } from "./permissions"
@@ -38,6 +40,7 @@ export function useRegisterAutoSign() {
  * Invalidates cached queries and clears expiration data after successful revocation.
  */
 export function useRevokeAutoSign() {
+  const { defaultChainId } = useConfig()
   const queryClient = useQueryClient()
   const initiaAddress = useInitiaAddress()
   const embeddedWalletAddress = useEmbeddedWalletAddress()
@@ -46,13 +49,14 @@ export function useRevokeAutoSign() {
   const setAutoSignExpiration = useSetAtom(autoSignExpirationAtom)
   const { requestTxBlock } = useTx()
 
-  return async (chainId: string) => {
+  return async (chainId = defaultChainId) => {
     if (!autoSignPermissions[chainId]) {
       throw new Error("No auto sign permissions found for this chain")
     }
 
-    if (!autoSignState.isEnabled[chainId]) {
-      throw new Error("Auto sign is not enabled for this chain")
+    const expiration = autoSignState.expirations[chainId]
+    if (expiration && isPast(new Date(expiration))) {
+      throw new Error("Auto sign is not active for this chain")
     }
 
     await requestTxBlock({
