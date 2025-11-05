@@ -140,17 +140,15 @@ export async function checkAutoSignExpiration(
       .json<{ allowance: { allowance?: { expiration?: string } } }>()
 
     // Check authz grants
-    const grantsResponse = await client.get(`cosmos/authz/v1beta1/grants/grantee/${grantee}`).json<{
-      grants: Array<{ granter: string; authorization: { msg: string }; expiration?: string }>
-    }>()
+    const { grants } = await client
+      .get("cosmos/authz/v1beta1/grants", { searchParams: { granter, grantee } })
+      .json<{
+        grants: Array<{ authorization: { msg: string }; expiration?: string }>
+      }>()
 
-    // Check that all required permissions have grants from the correct granter
-    const relevantGrants = grantsResponse.grants.filter(
-      (grant) => grant.granter === granter && permissions.includes(grant.authorization.msg),
-    )
-
+    // Check that all required permissions have grants
     const hasAllGrants = permissions.every((permission) =>
-      relevantGrants.some((grant) => grant.authorization.msg === permission),
+      grants.some((grant) => grant.authorization.msg === permission),
     )
 
     if (!hasAllGrants) {
@@ -158,7 +156,7 @@ export async function checkAutoSignExpiration(
     }
 
     const expirations = [
-      ...relevantGrants.map((grant) => grant.expiration).filter(Boolean),
+      ...grants.map((grant) => grant.expiration).filter(Boolean),
       feegrantResponse.allowance?.allowance?.expiration,
     ]
       .filter((expiration): expiration is string => !!expiration)

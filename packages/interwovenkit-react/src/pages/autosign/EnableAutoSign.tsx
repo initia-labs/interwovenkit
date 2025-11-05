@@ -1,4 +1,5 @@
 import clsx from "clsx"
+import ky from "ky"
 import { useState } from "react"
 import { useAtom, useSetAtom } from "jotai"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
@@ -79,24 +80,72 @@ const EnableAutoSignPage = () => {
         embeddedWallet || (await privyContext.createWallet({ createAdditional: false }))
 
       const expiration = new Date(Date.now() + selectedDuration)
+      const granteeAddress = InitiaAddress(embeddedWalletAddress).bech32
+
+      // Check for existing grants
+      const client = ky.create({ prefixUrl: chain.restUrl })
+
+      // Check if feegrant already exists
+      const feegrantExists = await client
+        .get(`cosmos/feegrant/v1beta1/allowance/${initiaAddress}/${granteeAddress}`)
+        .json()
+        .then(() => true)
+        .catch(() => false)
+
+      // Check which authz grants already exist
+      const { grants = [] } = await client
+        .get("cosmos/authz/v1beta1/grants", {
+          searchParams: { granter: initiaAddress, grantee: granteeAddress }
+        })
+        .json<{
+          grants: Array<{ authorization: { msg: string }; expiration?: string }>
+        }>()
+        .catch(() => ({ grants: [] }))
+
+      const existingGrantMessages = grants.map((grant) => grant.authorization.msg)
 
       const messages = [
+        // Add revoke message for feegrant if it exists
+        ...(feegrantExists
+          ? [
+              {
+                typeUrl: "/cosmos.feegrant.v1beta1.MsgRevokeAllowance",
+                value: {
+                  granter: initiaAddress,
+                  grantee: granteeAddress,
+                },
+              },
+            ]
+          : []),
+        // Add feegrant message
         {
           typeUrl: "/cosmos.feegrant.v1beta1.MsgGrantAllowance",
           value: {
             granter: initiaAddress,
-            grantee: InitiaAddress(embeddedWalletAddress).bech32,
+            grantee: granteeAddress,
             allowance: {
               typeUrl: "/cosmos.feegrant.v1beta1.BasicAllowance",
               value: BasicAllowance.encode(BasicAllowance.fromPartial({ expiration })).finish(),
             },
           },
         },
+        // Add revoke messages for existing authz grants
+        ...existingGrantMessages
+          .filter((msg) => autoSignPermissions[chainId].includes(msg))
+          .map((msg) => ({
+            typeUrl: "/cosmos.authz.v1beta1.MsgRevoke",
+            value: {
+              granter: initiaAddress,
+              grantee: granteeAddress,
+              msgTypeUrl: msg,
+            },
+          })),
+        // Add grant messages for all permissions
         ...autoSignPermissions[chainId].map((msg) => ({
           typeUrl: "/cosmos.authz.v1beta1.MsgGrant",
           value: {
             granter: initiaAddress,
-            grantee: InitiaAddress(embeddedWalletAddress).bech32,
+            grantee: granteeAddress,
             grant: {
               authorization: {
                 typeUrl: "/cosmos.authz.v1beta1.GenericAuthorization",
