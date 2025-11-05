@@ -3,6 +3,7 @@ import BigNumber from "bignumber.js"
 import { sentenceCase } from "change-case"
 import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
+import { IconClose } from "@initia/icons-react"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import FormHelp from "@/components/form/FormHelp"
@@ -134,8 +135,12 @@ const TxRequest = () => {
       </Scrollable>
 
       <Footer className={styles.footer}>
-        <Button.Outline onClick={() => reject(new Error("User rejected"))} disabled={isPending}>
-          Reject
+        <Button.Outline
+          onClick={() => reject(new Error("User rejected"))}
+          disabled={isPending}
+          className={styles.rejectButton}
+        >
+          <IconClose size={16} />
         </Button.Outline>
         <Button.White onClick={() => approve()} disabled={isInsufficient} loading={isPending}>
           Approve

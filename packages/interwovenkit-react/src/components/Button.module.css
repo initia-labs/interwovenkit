@@ -1,4 +1,6 @@
 .button {
+  --button-height: 56px;
+
   gap: 8px;
 
   background-color: var(--button-bg);
@@ -6,7 +8,7 @@
   color: var(--button-text);
   font-size: 16px;
   font-weight: 600;
-  height: 56px;
+  height: var(--button-height);
   padding: 0 16px;
 
   transition: background-color var(--transition) ease;

@@ -4,7 +4,7 @@ import ky from "ky"
 import { VisuallyHidden } from "radix-ui"
 import { useMemo } from "react"
 import { useFormContext } from "react-hook-form"
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { InitiaAddress } from "@initia/utils"
 import Button from "@/components/Button"
@@ -19,8 +19,8 @@ import { useConfig } from "@/data/config"
 import { useAminoTypes } from "@/data/signer"
 import { useLocationState } from "@/lib/router"
 import { useInterwovenKit } from "@/public/data/hooks"
-import NftThumbnail from "../../tabs/nft/NftThumbnail"
-import type { NormalizedNft } from "../../tabs/nft/queries"
+import NftHeader from "../../tabs/nft/NftHeader"
+import { nftQueryKeys, type NormalizedNft } from "../../tabs/nft/queries"
 import type { FormValues } from "./SendNft"
 import styles from "./SendNftFields.module.css"
 
@@ -31,7 +31,7 @@ const queryKeys = createQueryKeys("interwovenkit:send-nft", {
 const SendNftFields = () => {
   const chains = useInitiaRegistry()
   const nft = useLocationState<NormalizedNft>()
-  const { chain: srcChain, collection_addr, collection_name, name } = nft
+  const { chain: srcChain, collection_addr } = nft
 
   const { routerApiUrl } = useConfig()
   const aminoTypes = useAminoTypes()
@@ -78,10 +78,14 @@ const SendNftFields = () => {
 
   const { data: messages, isLoading, error } = simulation
 
+  const queryClient = useQueryClient()
   const { mutate, isPending } = useMutation({
     mutationFn: async () => {
       if (!messages) throw new Error("Route not found")
       await requestTxSync({ messages, chainId: srcChain.chainId, internal: "/nfts" })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: nftQueryKeys.nfts._def })
     },
   })
 
@@ -93,13 +97,7 @@ const SendNftFields = () => {
 
   return (
     <form onSubmit={handleSubmit(() => mutate())}>
-      <header className={styles.header}>
-        <NftThumbnail nftInfo={nft} size={80} />
-        <div className={styles.name}>
-          <div className={styles.collection}>{collection_name}</div>
-          <div className={styles.nft}>{name}</div>
-        </div>
-      </header>
+      <NftHeader normalizedNft={nft} thumbnailSize={80} classNames={styles} />
 
       <div className={styles.fields}>
         <VisuallyHidden.Root>

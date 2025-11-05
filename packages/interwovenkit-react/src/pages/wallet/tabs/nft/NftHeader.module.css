@@ -1,0 +1,16 @@
+.collectionName {
+  color: var(--gray-2);
+  font-weight: 600;
+}
+
+.nftName {
+  font-weight: 600;
+}
+
+.chainInfo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--dimmed);
+  font-weight: 600;
+}

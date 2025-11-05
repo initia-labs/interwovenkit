@@ -14,3 +14,9 @@
 .footer {
   padding: var(--padding);
 }
+
+/* Override flex: 1 from Footer.actions button with higher specificity to maintain fixed width */
+.footer .rejectButton {
+  flex: none;
+  width: var(--button-height);
+}

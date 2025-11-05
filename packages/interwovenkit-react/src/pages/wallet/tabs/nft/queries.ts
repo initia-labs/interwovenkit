@@ -7,7 +7,7 @@ import { STALE_TIMES } from "@/data/http"
 import { fetchAllPages } from "@/data/pagination"
 import { useInitiaAddress } from "@/public/data/hooks"
 
-const nftQueryKeys = createQueryKeys("interwovenkit:nft", {
+export const nftQueryKeys = createQueryKeys("interwovenkit:nft", {
   nfts: (indexerUrl: string, address: string) => [indexerUrl, address],
   metadata: (url?: string) => [url],
 })
