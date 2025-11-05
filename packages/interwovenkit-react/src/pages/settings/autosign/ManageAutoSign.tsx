@@ -2,7 +2,7 @@ import { useMemo } from "react"
 import Page from "@/components/Page"
 import type { AutoSignDomainPermission } from "@/pages/autosign/data/queries"
 import { useAllGrants, useGranteeAddressDomain } from "@/pages/autosign/data/queries"
-import RevokeGrantsItem from "./RevokeGrantsItem"
+import GrantItem from "./GrantItem"
 import styles from "./ManageAutoSign.module.css"
 
 const ManageAutoSign = () => {
@@ -93,7 +93,7 @@ const ManageAutoSign = () => {
             {renderGranteeDomain({ domain, icon: grants[0]?.permission?.icon?.icon })}
             {/* Render all grants for this domain */}
             {grants.map((grant) => (
-              <RevokeGrantsItem
+              <GrantItem
                 key={`${grant.grantee}-${grant.chainId}`}
                 grantee={grant.grantee}
                 expiration={grant.expiration}
@@ -110,7 +110,7 @@ const ManageAutoSign = () => {
               <span className={styles.domainName}>Unknown</span>
             </div>
             {groupedGrants.grantsWithoutDomainMapping.map((grant) => (
-              <RevokeGrantsItem
+              <GrantItem
                 key={`${grant.grantee}-${grant.chainId}`}
                 grantee={grant.grantee}
                 expiration={grant.expiration}

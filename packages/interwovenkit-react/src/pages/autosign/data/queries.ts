@@ -11,60 +11,6 @@ export const autoSignQueryKeys = createQueryKeys("interwovenkit:auto-sign", {
   permissions: (address: string) => [address],
 })
 
-/**
- * Checks if auto-sign is enabled for a specific grantee by verifying both feegrant and authz grants.
- * Validates that all required permissions are granted and determines the earliest expiration time.
- */
-export async function checkAutoSignExpiration(
-  granter: string,
-  grantee: string,
-  permissions: string[],
-  restUrl: string,
-): Promise<number | null> {
-  try {
-    if (!grantee) return null
-    if (!permissions?.length) return null
-
-    const client = ky.create({ prefixUrl: restUrl })
-
-    // Check feegrant allowance
-    const feegrantResponse = await client
-      .get(`cosmos/feegrant/v1beta1/allowance/${granter}/${grantee}`)
-      .json<{ allowance: { allowance?: { expiration?: string } } }>()
-
-    // Check authz grants
-    const grantsResponse = await client.get(`cosmos/authz/v1beta1/grants/grantee/${grantee}`).json<{
-      grants: Array<{ granter: string; authorization: { msg: string }; expiration?: string }>
-    }>()
-
-    // Check that all required permissions have grants from the correct granter
-    const relevantGrants = grantsResponse.grants.filter(
-      (grant) => grant.granter === granter && permissions.includes(grant.authorization.msg),
-    )
-
-    const hasAllGrants = permissions.every((permission) =>
-      relevantGrants.some((grant) => grant.authorization.msg === permission),
-    )
-
-    if (!hasAllGrants) {
-      return null
-    }
-
-    const expirations = [
-      ...relevantGrants.map((grant) => grant.expiration).filter(Boolean),
-      feegrantResponse.allowance?.allowance?.expiration,
-    ]
-      .filter((expiration): expiration is string => !!expiration)
-      .map((expirationString) => new Date(expirationString).getTime())
-
-    const earliestExpiration = expirations.length > 0 ? Math.min(...expirations) : null
-
-    return earliestExpiration
-  } catch {
-    return null
-  }
-}
-
 export interface AuthzGrant {
   grantee: string
   authorization: {

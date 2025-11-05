@@ -7,7 +7,7 @@ import { STALE_TIMES } from "@/data/http"
 import { useOfflineSigner } from "@/data/signer"
 import { useTx } from "@/data/tx"
 import { useDisconnect, useDrawer } from "@/data/ui"
-import { useAutoSign } from "@/pages/autosign/data/hooks"
+import { useAutoSign } from "@/pages/autosign/data/public"
 import type { FormValues } from "@/pages/bridge/data/form"
 
 export { usePortfolio } from "@/data/portfolio"

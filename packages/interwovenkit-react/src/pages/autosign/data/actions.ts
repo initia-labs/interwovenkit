@@ -5,10 +5,9 @@ import { useInterwovenKitApi } from "@/data/api"
 import { useConfig } from "@/data/config"
 import { useTx } from "@/data/tx"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { useAutoSignPermissions } from "./permissions"
+import { getPageInfo } from "../EnableAutoSign"
 import { autoSignQueryKeys } from "./queries"
-import { autoSignExpirationAtom, useAutoSignState } from "./state"
-import { getPageInfo } from "./utils"
+import { autoSignExpirationAtom, useAutoSignPermissions, useAutoSignState } from "./validation"
 import { useEmbeddedWalletAddress } from "./wallet"
 
 /**

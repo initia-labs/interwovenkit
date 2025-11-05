@@ -18,10 +18,9 @@ import { useLocationState } from "@/lib/router"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useRegisterAutoSign } from "./data/actions"
 import { DEFAULT_DURATION, DURATION_OPTIONS } from "./data/constants"
-import { useAutoSignPermissions } from "./data/permissions"
 import { autoSignQueryKeys } from "./data/queries"
-import { autoSignExpirationAtom, pendingAutoSignRequestAtom } from "./data/state"
-import { getPageInfo } from "./data/utils"
+import { pendingAutoSignRequestAtom } from "./data/store"
+import { autoSignExpirationAtom, useAutoSignPermissions } from "./data/validation"
 import { useEmbeddedWallet } from "./data/wallet"
 import WebsiteWarning from "./WebsiteWarning"
 import styles from "./EnableAutoSign.module.css"
@@ -226,3 +225,28 @@ const EnableAutoSignPage = () => {
 }
 
 export default EnableAutoSignPage
+
+/**
+ * Extracts metadata about the current web page for auto-sign registration.
+ * Retrieves the page's favicon URL and title to identify the requesting application.
+ * Validates icon URLs to ensure they are properly formatted before returning.
+ */
+export function getPageInfo() {
+  const iconHref = (document.querySelector("link[rel~='icon']") as HTMLLinkElement | null)?.href
+
+  const getValidIconUrl = (href: string | undefined): string | undefined => {
+    if (!href) return undefined
+
+    try {
+      new URL(href)
+      return href
+    } catch {
+      return undefined
+    }
+  }
+
+  return {
+    icon: getValidIconUrl(iconHref),
+    name: document.title,
+  }
+}

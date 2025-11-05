@@ -3,19 +3,19 @@ import { useSetAtom } from "jotai"
 import { useQueryClient } from "@tanstack/react-query"
 import { YEAR_IN_MS } from "@/data/constants"
 import { autoSignQueryKeys, useAllGrants } from "@/pages/autosign/data/queries"
-import { autoSignExpirationAtom } from "@/pages/autosign/data/state"
+import { autoSignExpirationAtom } from "@/pages/autosign/data/validation"
 import { useEmbeddedWalletAddress } from "@/pages/autosign/data/wallet"
 import { formatDuration } from "@/pages/bridge/data/format"
 import { useInterwovenKit } from "@/public/data/hooks"
-import styles from "./RevokeGrantsItem.module.css"
+import styles from "./GrantItem.module.css"
 
-interface RevokeGrantsItemProps {
+interface GrantItemProps {
   grantee: string
   expiration: string
   chainId: string
 }
 
-const RevokeGrantsItem = ({ grantee, expiration, chainId }: RevokeGrantsItemProps) => {
+const GrantItem = ({ grantee, expiration, chainId }: GrantItemProps) => {
   const { initiaAddress, requestTxBlock } = useInterwovenKit()
   const allGrantsQueries = useAllGrants()
   const queryClient = useQueryClient()
@@ -140,4 +140,4 @@ const RevokeGrantsItem = ({ grantee, expiration, chainId }: RevokeGrantsItemProp
   )
 }
 
-export default RevokeGrantsItem
+export default GrantItem
