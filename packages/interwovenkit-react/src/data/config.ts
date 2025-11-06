@@ -16,7 +16,6 @@ export interface Config {
   aminoConverters?: AminoConverters
 
   registryUrl: string
-  interwovenkitApiUrl: string
   routerApiUrl: string
   glyphUrl: string
   usernamesModuleAddress: string

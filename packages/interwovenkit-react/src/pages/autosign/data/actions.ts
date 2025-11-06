@@ -1,89 +1,154 @@
-import { isPast } from "date-fns"
-import { useSetAtom } from "jotai"
-import { useQueryClient } from "@tanstack/react-query"
-import { useInterwovenKitApi } from "@/data/api"
+import { addMilliseconds } from "date-fns"
+import { useAtom } from "jotai"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { GenericAuthorization } from "@initia/initia.proto/cosmos/authz/v1beta1/authz"
+import { MsgGrant, MsgRevoke } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
+import { BasicAllowance } from "@initia/initia.proto/cosmos/feegrant/v1beta1/feegrant"
+import {
+  MsgGrantAllowance,
+  MsgRevokeAllowance,
+} from "@initia/initia.proto/cosmos/feegrant/v1beta1/tx"
+import { InitiaAddress } from "@initia/utils"
 import { useConfig } from "@/data/config"
 import { useTx } from "@/data/tx"
+import { useDrawer } from "@/data/ui"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { getPageInfo } from "../EnableAutoSign"
-import { autoSignQueryKeys } from "./queries"
-import { autoSignExpirationAtom, useAutoSignPermissions, useAutoSignState } from "./validation"
+import { pendingAutoSignRequestAtom } from "./store"
+import { autoSignQueryKeys, useAutoSignMessageTypes } from "./validation"
 import { useEmbeddedWalletAddress } from "./wallet"
 
-/**
- * Hook that provides a function to register auto-sign permissions for the current website.
- * Registers the embedded wallet address as the grantee with the current site's domain and icon.
- * This allows the embedded wallet to automatically sign transactions on behalf of the user.
- */
-export function useRegisterAutoSign() {
-  const embeddedWalletAddress = useEmbeddedWalletAddress()
-  const { createAuthenticatedInterwovenkitApi } = useInterwovenKitApi()
-
-  const { icon } = getPageInfo()
-
-  return async () => {
-    const authenticatedInterwovenkitApi = await createAuthenticatedInterwovenkitApi()
-    await authenticatedInterwovenkitApi.post("auto-sign/register", {
-      json: {
-        granteeAddress: embeddedWalletAddress,
-        domain: window.location.origin,
-        icon,
-      },
-    })
-  }
-}
-
-/**
- * Hook that provides a function to revoke auto-sign permissions for a specific chain.
- * Removes both fee grant allowances and authorization permissions for all message types.
- * Invalidates cached queries and clears expiration data after successful revocation.
- */
-export function useRevokeAutoSign() {
-  const { defaultChainId } = useConfig()
-  const queryClient = useQueryClient()
+/* Enable AutoSign by granting permissions to embedded wallet for fee delegation and message execution */
+export function useEnableAutoSign() {
+  const config = useConfig()
+  const { privyContext } = config
   const initiaAddress = useInitiaAddress()
   const embeddedWalletAddress = useEmbeddedWalletAddress()
-  const autoSignPermissions = useAutoSignPermissions()
-  const autoSignState = useAutoSignState()
-  const setAutoSignExpiration = useSetAtom(autoSignExpirationAtom)
+  const messageTypes = useAutoSignMessageTypes()
   const { requestTxBlock } = useTx()
+  const queryClient = useQueryClient()
+  const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
+  const { closeDrawer } = useDrawer()
 
-  return async (chainId = defaultChainId) => {
-    if (!autoSignPermissions[chainId]) {
-      throw new Error("No auto sign permissions found for this chain")
-    }
-
-    const expiration = autoSignState.expirations[chainId]
-    if (expiration && isPast(new Date(expiration))) {
-      throw new Error("Auto sign is not active for this chain")
-    }
-
-    await requestTxBlock({
-      messages: [
-        {
-          typeUrl: "/cosmos.feegrant.v1beta1.MsgRevokeAllowance",
-          value: {
-            granter: initiaAddress,
-            grantee: embeddedWalletAddress,
-          },
-        },
-        ...autoSignPermissions[chainId].map((messageType) => ({
-          typeUrl: "/cosmos.authz.v1beta1.MsgRevoke",
-          value: {
-            granter: initiaAddress,
-            grantee: embeddedWalletAddress,
-            msgTypeUrl: messageType,
-          },
-        })),
-      ],
-      chainId,
-    })
-
-    // Invalidate the grants query to refresh the data
-    queryClient.invalidateQueries({
-      queryKey: autoSignQueryKeys.grantsByGranter._def,
-    })
-
-    setAutoSignExpiration((expirationMap) => ({ ...expirationMap, [chainId]: null }))
+  // Get or create embedded wallet address
+  const resolveEmbeddedWalletAddress = async (): Promise<string> => {
+    if (embeddedWalletAddress) return embeddedWalletAddress
+    if (!privyContext) throw new Error("Privy context not available")
+    const newWallet = await privyContext.createWallet({ createAdditional: false })
+    return InitiaAddress(newWallet.address).bech32
   }
+
+  return useMutation({
+    mutationFn: async (durationInMs: number) => {
+      if (!pendingRequest) {
+        throw new Error("No pending request")
+      }
+
+      const { chainId } = pendingRequest
+
+      const embeddedWalletAddress = await resolveEmbeddedWalletAddress()
+
+      if (!initiaAddress || !embeddedWalletAddress) {
+        throw new Error("Wallets not initialized")
+      }
+
+      const expiration = durationInMs === 0 ? undefined : addMilliseconds(new Date(), durationInMs)
+
+      const feegrantMessage = {
+        typeUrl: "/cosmos.feegrant.v1beta1.MsgGrantAllowance",
+        value: MsgGrantAllowance.fromPartial({
+          granter: initiaAddress,
+          grantee: embeddedWalletAddress,
+          allowance: {
+            typeUrl: "/cosmos.feegrant.v1beta1.BasicAllowance",
+            value: BasicAllowance.encode(BasicAllowance.fromPartial({ expiration })).finish(),
+          },
+        }),
+      }
+
+      const authzMessages = messageTypes[chainId].map((msgType) => ({
+        typeUrl: "/cosmos.authz.v1beta1.MsgGrant",
+        value: MsgGrant.fromPartial({
+          granter: initiaAddress,
+          grantee: embeddedWalletAddress,
+          grant: {
+            authorization: {
+              typeUrl: "/cosmos.authz.v1beta1.GenericAuthorization",
+              value: GenericAuthorization.encode(
+                GenericAuthorization.fromPartial({ msg: msgType }),
+              ).finish(),
+            },
+            expiration,
+          },
+        }),
+      }))
+
+      const messages = [feegrantMessage, ...authzMessages]
+      await requestTxBlock({ messages, chainId, internal: true })
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: autoSignQueryKeys.expirations._def,
+      })
+
+      pendingRequest?.resolve()
+    },
+    onError: (error: Error) => {
+      pendingRequest?.reject(error)
+    },
+    onSettled: () => {
+      setPendingRequest(null)
+      closeDrawer()
+    },
+  })
+}
+
+/* Revoke AutoSign permissions by removing fee grants and authz delegations for embedded wallet */
+export function useDisableAutoSign(options?: {
+  grantee: string
+  messageTypes: Record<string, string[]>
+  internal: boolean
+}) {
+  const config = useConfig()
+  const initiaAddress = useInitiaAddress()
+  const embeddedWalletAddress = useEmbeddedWalletAddress()
+  const grantee = options?.grantee || embeddedWalletAddress
+  const messageTypes = useAutoSignMessageTypes()
+  const messageTypeUrls = options?.messageTypes || messageTypes
+  const { requestTxBlock } = useTx()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (chainId: string = config.defaultChainId) => {
+      if (!initiaAddress || !grantee) {
+        throw new Error("Wallets not initialized")
+      }
+
+      const feegrantRevokeMessage = {
+        typeUrl: "/cosmos.feegrant.v1beta1.MsgRevokeAllowance",
+        value: MsgRevokeAllowance.fromPartial({
+          granter: initiaAddress,
+          grantee: grantee,
+        }),
+      }
+
+      const authzRevokeMessages = messageTypeUrls[chainId].map((msgType) => ({
+        typeUrl: "/cosmos.authz.v1beta1.MsgRevoke",
+        value: MsgRevoke.fromPartial({
+          granter: initiaAddress,
+          grantee: grantee,
+          msgTypeUrl: msgType,
+        }),
+      }))
+
+      const messages = [feegrantRevokeMessage, ...authzRevokeMessages]
+      await requestTxBlock({ messages, chainId, internal: options?.internal })
+    },
+    onSuccess: async () => {
+      const queryKeys = [autoSignQueryKeys.expirations._def, autoSignQueryKeys.grants._def]
+
+      for (const queryKey of queryKeys) {
+        await queryClient.invalidateQueries({ queryKey })
+      }
+    },
+  })
 }

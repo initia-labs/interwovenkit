@@ -16,12 +16,12 @@ const ToggleAutoSign = () => {
     onError: (error) => window.alert(error),
   })
 
-  if (autoSign.expiration && autoSign.expiration > new Date()) {
+  if (autoSign.isEnabledByChain[chainId]) {
     return (
       <button
         className={styles.button}
         onClick={() => disable.mutate()}
-        disabled={disable.isPending}
+        disabled={autoSign.isLoading || disable.isPending}
       >
         Disable auto sign
       </button>

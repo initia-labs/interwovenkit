@@ -1,17 +1,22 @@
+// https://github.com/Abstract-Foundation/agw-sdk/blob/main/packages/agw-react/src/privy/usePrivyCrossAppProvider.ts
+
 import type { CrossAppAccount, SignTypedDataParams, User } from "@privy-io/react-auth"
-import type {
-  Address,
-  Chain,
-  EIP1193Provider,
-  EIP1193RequestFn,
-  EIP1474Methods,
-  RpcSchema,
-  Transport,
+import {
+  type Address,
+  type Chain,
+  createPublicClient,
+  type EIP1193Provider,
+  type EIP1193RequestFn,
+  type EIP1474Methods,
+  fromHex,
+  http,
+  type RpcSchema,
+  toHex,
+  type Transport,
 } from "viem"
-import { createPublicClient, fromHex, http, toHex } from "viem"
-import { useConfig as useWagmiConfig } from "wagmi"
+import { useConfig } from "wagmi"
 import { useCallback, useMemo } from "react"
-import { useConfig } from "@/data/config"
+import { useConfig as useWidgetConfig } from "@/data/config"
 import { PRIVY_APP_ID } from "@/public/data/connectors"
 
 type RpcMethodNames<rpcSchema extends RpcSchema> = rpcSchema[keyof rpcSchema] extends {
@@ -26,18 +31,18 @@ interface UsePrivyCrossAppEIP1193Props {
   transport?: Transport
 }
 
-export const usePrivyProvider = ({
+export const usePrivyCrossAppProvider = ({
   chain,
   transport = http(undefined, { batch: true }),
 }: UsePrivyCrossAppEIP1193Props) => {
-  const { privyContext } = useConfig()
+  const { privyContext } = useWidgetConfig()
   if (!privyContext) throw new Error("Privy context not found")
   const { privy, wallets, crossAppAccounts } = privyContext
-  const { user, authenticated, ready, login, logout } = privy
+  const { user, authenticated, ready: privyReady, login, logout } = privy
   const { sendTransaction, signMessage, signTypedData } = crossAppAccounts
-  const config = useWagmiConfig()
+  const config = useConfig()
 
-  const wallet = wallets.find((w) => w.connectorType === "injected")
+  const wallet = wallets.find((wallet) => wallet.connectorType === "injected")
 
   const passthroughMethods = {
     web3_clientVersion: true,
@@ -88,28 +93,29 @@ export const usePrivyProvider = ({
     transport,
   })
 
-  const getAddressesFromUser = (
-    user: User | null,
-  ): { address: Address | undefined; isCrossApp: boolean } => {
-    if (!user) {
-      return { address: undefined, isCrossApp: false }
-    }
-    const crossAppAccount = user.linkedAccounts.find(
-      (account) => account.type === "cross_app" && account.providerApp.id === PRIVY_APP_ID,
-    ) as CrossAppAccount | undefined
+  const getAddressesFromUser = useCallback(
+    (user: User | null): { address: Address | undefined; isCrossApp: boolean } => {
+      if (!user) {
+        return { address: undefined, isCrossApp: false }
+      }
+      const crossAppAccount = user.linkedAccounts.find(
+        (account) => account.type === "cross_app" && account.providerApp.id === PRIVY_APP_ID,
+      ) as CrossAppAccount | undefined
 
-    const crossAppAddress = crossAppAccount?.embeddedWallets?.[0]?.address
-    const walletAddress = wallet?.address
+      const crossAppAddress = crossAppAccount?.embeddedWallets?.[0]?.address
+      const walletAddress = wallet?.address
 
-    return {
-      address: (crossAppAddress || walletAddress) as Address | undefined,
-      isCrossApp: !!crossAppAddress,
-    }
-  }
+      return {
+        address: (crossAppAddress || walletAddress) as Address | undefined,
+        isCrossApp: !!crossAppAddress,
+      }
+    },
+    [wallet?.address],
+  )
 
   const getAccounts = useCallback(
     async (promptLogin: boolean) => {
-      if (!ready || !authenticated) {
+      if (!privyReady || !authenticated) {
         return []
       }
       if (promptLogin) {
@@ -122,8 +128,7 @@ export const usePrivyProvider = ({
         return []
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [user, authenticated, ready, login],
+    [privyReady, authenticated, getAddressesFromUser, user, login],
   )
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -219,9 +224,11 @@ export const usePrivyProvider = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handleRequest])
 
+  const ready = useMemo(() => !!getAddressesFromUser(user).address, [getAddressesFromUser, user])
+
   return {
+    ready,
     provider,
-    ready: !!getAddressesFromUser(user).address,
     meta: getAddressesFromUser(user).isCrossApp ? undefined : wallet?.meta,
   }
 }

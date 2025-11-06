@@ -38,7 +38,7 @@
     "@cosmjs/proto-signing": "^0.36.1",
     "@cosmjs/stargate": "^0.36.1",
     "@cosmjs/tendermint-rpc": "^0.36.1",
-    "@initia/amino-converter": "^1.0.9",
+    "@initia/amino-converter": "^1.0.12",
     "@initia/icons-react": "^1.0.0",
     "@initia/initia.proto": "^1.0.3",
     "@initia/utils": "2.0.0",

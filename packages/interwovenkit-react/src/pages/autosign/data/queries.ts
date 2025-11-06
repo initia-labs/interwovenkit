@@ -1,92 +1,46 @@
 import ky from "ky"
-import { useQueries, useQuery } from "@tanstack/react-query"
-import { createQueryKeys } from "@lukemorales/query-key-factory"
-import { useInterwovenKitApi } from "@/data/api"
+import { useQueries } from "@tanstack/react-query"
 import { useInitiaRegistry } from "@/data/chains"
 import { STALE_TIMES } from "@/data/http"
 import { useInitiaAddress } from "@/public/data/hooks"
+import { autoSignQueryKeys } from "./validation"
 
-export const autoSignQueryKeys = createQueryKeys("interwovenkit:auto-sign", {
-  grantsByGranter: (restUrl: string, granter: string) => [restUrl, granter],
-  permissions: (address: string) => [address],
-})
-
-export interface AuthzGrant {
+export interface Grant {
+  granter: string
   grantee: string
   authorization: {
     "@type": string
     msg: string
   }
-  expiration: string
+  expiration?: string
 }
 
-export interface GrantsResponse {
-  grants: AuthzGrant[]
+interface GrantsResponse {
+  grants: Grant[]
   pagination: {
     next_key: string | null
     total: string
   }
 }
 
-export interface GrantsResponseWithChain extends GrantsResponse {
-  chainId: string
-}
-
-/**
- * Hook that fetches all authz grants across all registered chains where the current user is the granter.
- * Uses parallel queries to retrieve grants from multiple chains simultaneously.
- */
+/* Fetch authz grants from all chains in the registry for the current user */
 export function useAllGrants() {
-  const address = useInitiaAddress()
-  const chains = useInitiaRegistry()
+  const initiaAddress = useInitiaAddress()
+  const registry = useInitiaRegistry()
 
   return useQueries({
-    queries: chains.map((chain) => ({
-      queryKey: autoSignQueryKeys.grantsByGranter(chain.restUrl, address).queryKey,
-      queryFn: async (): Promise<GrantsResponseWithChain> => {
-        const client = ky.create({ prefixUrl: chain.restUrl })
-        const response = await client
-          .get(`cosmos/authz/v1beta1/grants/granter/${address}`)
+    queries: registry.map((chain) => ({
+      queryKey: autoSignQueryKeys.grants(chain.chainId, initiaAddress).queryKey,
+      queryFn: async () => {
+        const { grants } = await ky
+          .create({ prefixUrl: chain.restUrl })
+          .get(`cosmos/authz/v1beta1/grants/granter/${initiaAddress}`)
           .json<GrantsResponse>()
-        return {
-          ...response,
-          chainId: chain.chain_id,
-        }
+        return { chainId: chain.chainId, grants }
       },
-      enabled: !!address,
-      staleTime: STALE_TIMES.MINUTE,
+      enabled: !!initiaAddress,
+      staleTime: STALE_TIMES.SECOND,
+      retry: false,
     })),
-  })
-}
-
-export interface AutoSignDomainPermission {
-  granteeAddress: string
-  domainAddress: string
-  icon: {
-    icon: string
-  }
-}
-
-/**
- * Hook that retrieves auto-sign domain permissions for the current user.
- * Fetches the list of grantee addresses and their associated domains/icons
- * that have been registered for auto-sign functionality.
- */
-export function useGranteeAddressDomain() {
-  const address = useInitiaAddress()
-  const { interwovenkitApi } = useInterwovenKitApi()
-
-  return useQuery({
-    queryKey: autoSignQueryKeys.permissions(address).queryKey,
-    queryFn: async (): Promise<AutoSignDomainPermission[]> => {
-      const response = await interwovenkitApi.get(`auto-sign/get-address/${address}`).json<{
-        message: string
-        permissions: AutoSignDomainPermission[]
-      }>()
-
-      return response.permissions
-    },
-    enabled: !!address,
-    staleTime: STALE_TIMES.MINUTE,
   })
 }

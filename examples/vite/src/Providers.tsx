@@ -41,7 +41,7 @@ const InterwovenKitWrapper = ({ children }: PropsWithChildren) => {
       theme={theme}
       container={import.meta.env.DEV ? document.body : undefined}
       privyContext={{ privy, crossAppAccounts, createWallet, wallets }}
-      enableAutoSign={{ [chainId]: ["/cosmos.bank.v1beta1.MsgSend"] }}
+      enableAutoSign={{ [chainId]: ["/cosmos.bank.v1beta1.MsgSend", "/initia.move.v1.MsgExecute"] }}
     >
       {children}
     </InterwovenKitProvider>

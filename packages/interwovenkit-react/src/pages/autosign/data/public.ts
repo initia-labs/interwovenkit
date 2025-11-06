@@ -1,52 +1,28 @@
-import { isPast } from "date-fns"
-import { useAtomValue, useSetAtom } from "jotai"
+import { useSetAtom } from "jotai"
 import { useConfig } from "@/data/config"
 import { useDrawer } from "@/data/ui"
-import { useRevokeAutoSign } from "./actions"
+import { useDisableAutoSign } from "./actions"
 import { pendingAutoSignRequestAtom } from "./store"
-import { autoSignLoadingAtom, useAutoSignPermissions, useAutoSignState } from "./validation"
+import { useAutoSignStatus } from "./validation"
 
-/**
- * Main hook for managing auto-sign functionality across different chains.
- * Provides methods to setup, revoke, and monitor auto-sign permissions and status.
- * Handles the complete lifecycle of auto-sign operations including UI interactions.
- */
+/* Public hook for enabling and disabling AutoSign across chains with status tracking */
 export function useAutoSign() {
   const { defaultChainId } = useConfig()
-  const autoSignPermissions = useAutoSignPermissions()
-  const autoSignState = useAutoSignState()
-  const autoSignLoading = useAtomValue(autoSignLoadingAtom)
-  const disableAutoSign = useRevokeAutoSign()
   const { openDrawer } = useDrawer()
   const setPendingAutoSignRequest = useSetAtom(pendingAutoSignRequestAtom)
+  const disableAutoSign = useDisableAutoSign()
+  const { data = { expiredAtByChain: {}, isEnabledByChain: {} }, isLoading } = useAutoSignStatus()
 
-  const enableAutoSign = async (chainId = defaultChainId): Promise<void> => {
-    if (!autoSignPermissions?.[chainId]?.length) {
-      throw new Error("Auto sign permissions are required for the setup")
-    }
-
-    const expiration = autoSignState.expirations[chainId]
-    if (expiration && isPast(new Date(expiration))) {
-      throw new Error("Auto sign is already enabled")
-    }
-
+  const enable = async (chainId: string = defaultChainId) => {
     return new Promise<void>((resolve, reject) => {
-      setPendingAutoSignRequest({
-        resolve,
-        reject,
-      })
-
-      openDrawer("/autosign/enable", { chainId })
+      setPendingAutoSignRequest({ chainId, resolve, reject })
+      openDrawer("/autosign/enable")
     })
   }
 
-  return {
-    isLoading: autoSignLoading,
-    enable: enableAutoSign,
-    disable: disableAutoSign,
-    expiration: autoSignState.expirations[defaultChainId]
-      ? new Date(autoSignState.expirations[defaultChainId])
-      : null,
-    expirations: autoSignState.expirations,
+  const disable = async (chainId: string = defaultChainId) => {
+    await disableAutoSign.mutateAsync(chainId)
   }
+
+  return { ...data, isLoading, enable, disable }
 }

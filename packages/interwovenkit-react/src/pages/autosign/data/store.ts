@@ -1,6 +1,7 @@
 import { atom } from "jotai"
 
 interface PendingAutoSignRequest {
+  chainId: string
   resolve: () => void
   reject: (error: Error) => void
 }

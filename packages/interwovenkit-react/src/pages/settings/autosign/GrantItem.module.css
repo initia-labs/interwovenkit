@@ -1,43 +1,53 @@
 .container {
-  background-color: var(--gray-8);
-  border-radius: 8px;
-  padding: 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+
+  background-color: var(--gray-8);
+  border-radius: 8px;
+  padding: 16px;
 }
 
-.chain {
-  font-size: 12px;
-  font-weight: 500;
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chainName {
+  color: var(--gray-0);
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .expiration {
-  font-size: 12px;
-  font-weight: 400;
   color: var(--gray-2);
-}
-
-.expirationTime {
-  font-family: var(--monospace);
-  color: var(--gray-0);
-  margin-left: 2px;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .revokeButton {
   background-color: var(--gray-6);
   border-radius: 6px;
-  padding: 4px 8px;
+  color: var(--gray-1);
   font-size: 12px;
   font-weight: 600;
+  padding: 4px 8px;
+  transition: background-color var(--transition) ease;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background-color: var(--gray-5);
   }
-}
 
-.grantContainer {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  &:disabled {
+    background-color: var(--gray-7);
+    color: var(--gray-4);
+    cursor: not-allowed;
+  }
 }

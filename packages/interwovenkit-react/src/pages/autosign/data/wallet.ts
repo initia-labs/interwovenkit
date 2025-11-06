@@ -7,35 +7,25 @@ import { useDefaultChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import { OfflineSigner, useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
 
-/**
- * Hook that retrieves the embedded wallet instance from Privy context.
- * The embedded wallet is used for auto-sign functionality as a delegate signer.
- */
+/* Retrieve embedded wallet instance from Privy context for auto-sign delegation */
 export function useEmbeddedWallet() {
   const { privyContext } = useConfig()
   return privyContext?.wallets.find((wallet) => wallet.connectorType === "embedded")
 }
 
-/**
- * Hook that extracts and formats the embedded wallet's Bech32 address.
- * Converts the raw wallet address to Initia's Bech32 format for use in transactions.
- */
+/* Extract embedded wallet address and convert to Initia Bech32 format */
 export function useEmbeddedWalletAddress() {
   const wallet = useEmbeddedWallet()
   return wallet?.address ? InitiaAddress(wallet.address).bech32 : undefined
 }
 
-/**
- * Hook that provides a signing function for auto-sign transactions using the embedded wallet.
- * Wraps messages in MsgExec for authz execution and sets up fee granter delegation.
- * Creates a custom signer instance for the embedded wallet to sign on behalf of the main wallet.
- */
+/* Sign auto-sign transactions with embedded wallet by wrapping messages in MsgExec and delegating fees */
 export function useSignWithEmbeddedWallet() {
   const embeddedWallet = useEmbeddedWallet()
   const embeddedWalletAddress = useEmbeddedWalletAddress()
-  const signWithEthSecp256k1 = useSignWithEthSecp256k1()
   const registry = useRegistry()
   const defaultChain = useDefaultChain()
+  const signWithEthSecp256k1 = useSignWithEthSecp256k1()
 
   return async (
     chainId: string,
@@ -45,11 +35,11 @@ export function useSignWithEmbeddedWallet() {
     memo: string,
   ): Promise<TxRaw> => {
     if (!embeddedWallet || !embeddedWalletAddress) {
-      throw new Error("Embedded wallet not available")
+      throw new Error("Embedded wallet not initialized")
     }
 
-    // Wrap all messages in a MsgExec for authz execution
-    const wrappedMessages: EncodeObject[] = [
+    // Wrap messages in MsgExec for authz delegation
+    const authzExecuteMessage: EncodeObject[] = [
       {
         typeUrl: "/cosmos.authz.v1beta1.MsgExec",
         value: MsgExec.fromPartial({
@@ -62,27 +52,27 @@ export function useSignWithEmbeddedWallet() {
       },
     ]
 
-    // Modify the fee to set the granter as the user's main wallet
-    const feeWithGranter: StdFee = {
+    // Set fee granter for delegated transaction
+    const delegatedFee: StdFee = {
       ...fee,
       granter: address,
     }
 
-    // Create a custom signer for the embedded wallet using ethers
-    const embeddedSigner = new OfflineSigner(
+    // Create signer instance for delegate wallet
+    const delegateSigner = new OfflineSigner(
       embeddedWalletAddress,
       embeddedWallet.sign,
       defaultChain.restUrl,
     )
 
-    // Use the existing signing function but with the embedded wallet signer
+    // Sign transaction with delegate wallet
     return await signWithEthSecp256k1(
       chainId,
       embeddedWalletAddress,
-      wrappedMessages,
-      feeWithGranter,
+      authzExecuteMessage,
+      delegatedFee,
       memo,
-      { customSigner: embeddedSigner },
+      { customSigner: delegateSigner },
     )
   }
 }

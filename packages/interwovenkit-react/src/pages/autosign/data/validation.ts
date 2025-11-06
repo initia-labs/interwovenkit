@@ -1,239 +1,208 @@
 import type { EncodeObject } from "@cosmjs/proto-signing"
-import { isPast } from "date-fns"
+import { isFuture } from "date-fns"
 import ky from "ky"
 import { useEffect } from "react"
-import { atom, useAtom, useSetAtom } from "jotai"
+import { useQuery } from "@tanstack/react-query"
+import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { useDefaultChain, useFindChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
-import type { TxRequest } from "@/data/tx"
+import { STALE_TIMES } from "@/data/http"
 import { useInitiaAddress } from "@/public/data/hooks"
+import type { Grant } from "./queries"
 import { useEmbeddedWalletAddress } from "./wallet"
 
-/**
- * Maps a chain type to its corresponding Cosmos message type URL.
- * Determines the appropriate message type for transaction execution based on the chain's VM type.
- */
-function mapChainTypeToMessageType(chainType?: string) {
-  switch (chainType) {
-    case "minievm":
-      return "/minievm.evm.v1.MsgCall"
-    case "miniwasm":
-      return "/cosmwasm.wasm.v1.MsgExecuteContract"
-    default:
-      return "/initia.move.v1.MsgExecute"
-  }
-}
+export const autoSignQueryKeys = createQueryKeys("interwovenkit:autosign", {
+  expirations: (address: string | undefined, embeddedWalletAddress: string | undefined) => [
+    address,
+    embeddedWalletAddress,
+  ],
+  grants: (chainId: string, address: string | undefined) => [chainId, address],
+})
 
-/**
- * Hook that retrieves auto-sign permissions configuration for each chain.
- * Returns a mapping of chain IDs to allowed message types based on the app configuration.
- * Handles both boolean and detailed permission configurations, automatically determining
- * message types based on chain characteristics when using boolean config.
- */
-export function useAutoSignPermissions() {
-  const { enableAutoSign } = useConfig()
+/* Get configured AutoSign message types for the default chain based on chain type */
+export function useAutoSignMessageTypes() {
+  const config = useConfig()
   const defaultChain = useDefaultChain()
+  const { enableAutoSign, defaultChainId } = config
 
-  if (!enableAutoSign) {
-    return {}
+  // If AutoSign is not enabled, return empty object
+  if (!enableAutoSign) return { [defaultChainId]: [] }
+
+  // If specific config provided, return as-is
+  if (typeof enableAutoSign !== "boolean") return enableAutoSign
+
+  // If true, return default message type based on chain type
+  const minitiaType = defaultChain.metadata?.minitia?.type
+
+  switch (minitiaType) {
+    case "minievm":
+      return { [defaultChainId]: ["/minievm.evm.v1.MsgCall"] }
+    case "miniwasm":
+      return { [defaultChainId]: ["/cosmwasm.wasm.v1.MsgExecuteContract"] }
+    default:
+      return { [defaultChainId]: ["/initia.move.v1.MsgExecute"] }
   }
-
-  if (typeof enableAutoSign === "boolean" && enableAutoSign) {
-    const messageType = mapChainTypeToMessageType(defaultChain.metadata?.minitia?.type)
-    return { [defaultChain.chainId]: [messageType] }
-  }
-
-  return enableAutoSign
 }
 
-/**
- * Hook that initializes auto-sign state when the component mounts.
- * Automatically checks and updates auto-sign status whenever the main wallet address
- * or embedded wallet address changes. Ensures auto-sign state is synchronized
- * with the current wallet configuration.
- */
-export function useInitializeAutoSign() {
-  const autoSignState = useAutoSignState()
-  const address = useInitiaAddress()
+/* Validate whether a transaction can be auto-signed by checking enabled status and message types */
+export function useValidateAutoSign() {
+  const { data } = useAutoSignStatus()
+  const messageTypes = useAutoSignMessageTypes()
+
+  return async (chainId: string, messages: EncodeObject[]) => {
+    // Check condition 1: All messages must be in allowed types
+    const allMessagesAllowed = messages.every((msg) => {
+      const chainMessageTypes = messageTypes[chainId]
+      return chainMessageTypes.includes(msg.typeUrl)
+    })
+
+    // Check condition 2: AutoSign must be enabled for the chain
+    const isAutoSignEnabled = data?.isEnabledByChain[chainId] ?? false
+
+    return allMessagesAllowed && isAutoSignEnabled
+  }
+}
+
+// Query interface for grant and feegrant responses
+interface FeegrantResponse {
+  allowance: {
+    granter: string
+    grantee: string
+    allowance: {
+      "@type": string
+      expiration: string
+    }
+  }
+}
+
+/* Get current AutoSign status including enabled state and expiration dates by chain */
+export function useAutoSignStatus() {
+  const initiaAddress = useInitiaAddress()
   const embeddedWalletAddress = useEmbeddedWalletAddress()
-
-  useEffect(() => {
-    if (!embeddedWalletAddress || !address) return
-    autoSignState.checkAutoSign()
-    // we want to run this effect only when address or embeddedWalletAddress changes since these are the only two
-    // variables that affect the auto sign state on startup
-  }, [address, embeddedWalletAddress]) // eslint-disable-line react-hooks/exhaustive-deps
-}
-
-export const autoSignExpirationAtom = atom<Record<string, number | null>>({})
-export const autoSignLoadingAtom = atom<boolean>(true)
-
-/**
- * Hook that manages the complete auto-sign state including enabled status and expiration times.
- * Provides functionality to check auto-sign permissions across multiple chains and tracks their expiration.
- * Handles loading states and caches enabled status to avoid redundant API calls.
- */
-export function useAutoSignState() {
-  const [expirations, setExpirations] = useAtom(autoSignExpirationAtom)
-  const setLoading = useSetAtom(autoSignLoadingAtom)
-  const address = useInitiaAddress()
   const findChain = useFindChain()
-  const embeddedWalletAddress = useEmbeddedWalletAddress()
-  const autoSignPermissions = useAutoSignPermissions()
+  const messageTypes = useAutoSignMessageTypes()
 
-  const checkAutoSign = async (): Promise<Record<string, boolean>> => {
-    if (!embeddedWalletAddress || !address || !autoSignPermissions) {
-      setLoading(false)
-      return {}
-    }
+  return useQuery({
+    queryKey: autoSignQueryKeys.expirations(initiaAddress, embeddedWalletAddress).queryKey,
+    queryFn: async () => {
+      if (!initiaAddress || !embeddedWalletAddress) {
+        return {
+          expiredAtByChain: {},
+          isEnabledByChain: {},
+        }
+      }
 
-    // If already enabled and not expired, return true
-    if (Object.values(expirations).some((v) => v && isPast(new Date(v)))) {
-      setLoading(false)
-      return parseExpirationTimes(expirations)
-    }
+      // Track expiration dates for each chain
+      const expiredAtByChain: Record<string, Date | null | undefined> = {}
 
-    try {
-      const results = await Promise.all(
-        Object.entries(autoSignPermissions).map(async ([chainId, permission]) => {
-          const { restUrl } = findChain(chainId)
-          const result = await checkAutoSignExpiration(
-            address,
-            embeddedWalletAddress,
-            permission,
-            restUrl,
+      // Check each chain's grants and feegrants
+      for (const [chainId, msgTypes] of Object.entries(messageTypes)) {
+        try {
+          const chain = findChain(chainId)
+          const api = ky.create({ prefixUrl: chain.restUrl })
+
+          // Query authz grants
+          const grantsResponse = await api
+            .get("cosmos/authz/v1beta1/grants", {
+              searchParams: { granter: initiaAddress, grantee: embeddedWalletAddress },
+            })
+            .json<{ grants: Grant[] }>()
+
+          // Check if all required message types are granted
+          const allTypesGranted = msgTypes.every((msgType) =>
+            grantsResponse.grants.some((grant) => grant.authorization?.msg === msgType),
           )
-          return [chainId, result] as const
-        }),
-      )
 
-      setExpirations(Object.fromEntries(results.map(([chainId, result]) => [chainId, result])))
+          if (!allTypesGranted) {
+            // No permission for this chain
+            expiredAtByChain[chainId] = null
+            continue
+          }
 
-      return Object.fromEntries(results.map(([chainId, result]) => [chainId, !!result]))
-    } finally {
-      setLoading(false)
-    }
-  }
+          // Query feegrant allowance
+          const feegrantResponse = await api
+            .get(`cosmos/feegrant/v1beta1/allowance/${initiaAddress}/${embeddedWalletAddress}`)
+            .json<FeegrantResponse>()
 
-  return { expirations, checkAutoSign }
+          // Extract expiration dates from grants and feegrant
+          const grantExpirations = grantsResponse.grants
+            .filter((grant) => msgTypes.includes(grant.authorization.msg))
+            .map((grant) => grant.expiration)
+
+          const feegrantExpiration = feegrantResponse.allowance.allowance.expiration
+
+          // Find the earliest expiration (most restrictive)
+          const allExpirations = [...grantExpirations, feegrantExpiration]
+
+          const earliestExpiration = findEarliestDate(allExpirations)
+          expiredAtByChain[chainId] = earliestExpiration ? new Date(earliestExpiration) : undefined
+        } catch {
+          // No permission for this chain (error in fetching)
+          expiredAtByChain[chainId] = null
+        }
+      }
+
+      // Calculate isEnabledByChain based on expiration dates
+      const isEnabledByChain: Record<string, boolean> = {}
+
+      for (const [chainId, expiration] of Object.entries(expiredAtByChain)) {
+        switch (expiration) {
+          case null:
+            isEnabledByChain[chainId] = false
+            break
+          case undefined:
+            isEnabledByChain[chainId] = true
+            break
+          default:
+            isEnabledByChain[chainId] = isFuture(expiration)
+            break
+        }
+      }
+
+      return {
+        expiredAtByChain,
+        isEnabledByChain,
+      }
+    },
+    staleTime: STALE_TIMES.INFINITY,
+    retry: false,
+  })
 }
 
-/**
- * Checks if auto-sign is enabled for a specific grantee by verifying both feegrant and authz grants.
- * Validates that all required permissions are granted and determines the earliest expiration time.
- */
-export async function checkAutoSignExpiration(
-  granter: string,
-  grantee: string,
-  permissions: string[],
-  restUrl: string,
-): Promise<number | null> {
-  try {
-    if (!grantee) return null
-    if (!permissions?.length) return null
+/* Initialize AutoSign by querying grants and feegrants to determine enabled status and expiration */
+export function useInitializeAutoSign() {
+  const { data, refetch } = useAutoSignStatus()
 
-    const client = ky.create({ prefixUrl: restUrl })
+  // Update status when the earliest future expiration is reached
+  useEffect(() => {
+    if (!data) return
 
-    // Check feegrant allowance
-    const feegrantResponse = await client
-      .get(`cosmos/feegrant/v1beta1/allowance/${granter}/${grantee}`)
-      .json<{ allowance: { allowance?: { expiration?: string } } }>()
+    const now = new Date()
 
-    // Check authz grants
-    const { grants } = await client
-      .get("cosmos/authz/v1beta1/grants", { searchParams: { granter, grantee } })
-      .json<{
-        grants: Array<{ authorization: { msg: string }; expiration?: string }>
-      }>()
-
-    // Check that all required permissions have grants
-    const hasAllGrants = permissions.every((permission) =>
-      grants.some((grant) => grant.authorization.msg === permission),
+    // Filter only future expirations with Date values
+    // Exclude null (no permission) and undefined (permanent permission)
+    const futureExpirations = Object.values(data.expiredAtByChain).filter(
+      (expiration): expiration is Date => expiration instanceof Date && isFuture(expiration),
     )
 
-    if (!hasAllGrants) {
-      return null
-    }
+    if (futureExpirations.length === 0) return
 
-    const expirations = [
-      ...grants.map((grant) => grant.expiration).filter(Boolean),
-      feegrantResponse.allowance?.allowance?.expiration,
-    ]
-      .filter((expiration): expiration is string => !!expiration)
-      .map((expirationString) => new Date(expirationString).getTime())
+    const earliestExpiration = findEarliestDate(futureExpirations)
+    const timeUntilExpiration = earliestExpiration.getTime() - now.getTime()
 
-    const earliestExpiration = expirations.length > 0 ? Math.min(...expirations) : null
+    if (timeUntilExpiration <= 0) return
 
-    return earliestExpiration
-  } catch {
-    return null
-  }
+    const timeoutId = setTimeout(() => {
+      refetch()
+    }, timeUntilExpiration + 100)
+
+    return () => clearTimeout(timeoutId)
+  }, [data, refetch])
 }
 
-/**
- * Hook that provides a validation function for auto-sign eligibility.
- * Performs comprehensive validation including message type authorization and active grant status.
- * Ensures transactions meet all requirements before bypassing manual signing.
- */
-export function useValidateAutoSign() {
-  const autoSignPermissions = useAutoSignPermissions()
-  const autoSignState = useAutoSignState()
-
-  return async (chainId: string, messages: EncodeObject[]): Promise<boolean> => {
-    // Check if auto sign can handle this transaction type
-    if (!canAutoSignHandleRequest({ messages, chainId }, autoSignPermissions)) {
-      return false
-    }
-
-    // Check if auto sign is enabled for this chain
-    const isAutoSignEnabled = await autoSignState.checkAutoSign()
-    return isAutoSignEnabled[chainId] ?? false
-  }
-}
-
-/**
- * Validates whether a transaction request can be automatically signed without user interaction.
- * Verifies that all message types in the request are authorized for auto-signing on the target chain.
- * Used to determine if a transaction should bypass the manual signing flow.
- */
-export function canAutoSignHandleRequest(
-  txRequest: TxRequest,
-  autoSignPermissions?: Record<string, string[]>,
-): boolean {
-  if (!autoSignPermissions || !txRequest.chainId) {
-    return false
-  }
-
-  const allowedMessageTypes = autoSignPermissions[txRequest.chainId]
-  if (!allowedMessageTypes || allowedMessageTypes.length === 0) {
-    return false
-  }
-
-  return txRequest.messages.every((message) => allowedMessageTypes.includes(message.typeUrl))
-}
-
-/**
- * Parses expiration times and determines validity status for each chain.
- * Converts Unix timestamp expirations to boolean enabled/disabled status based on current time.
- */
-export function parseExpirationTimes(expirations: Record<string, number | null>) {
-  return Object.fromEntries(
-    Object.entries(expirations).map(([chainId, expirationTime]) => {
-      return [chainId, !!expirationTime && expirationTime > Date.now()]
-    }),
-  )
-}
-
-/**
- * Finds the earliest valid expiration time from multiple chain expirations.
- * Filters out expired or undefined values and returns the minimum future timestamp.
- * Used to determine when the next permission will expire for timer setup.
- */
-export function getEarliestExpiration(expirations: Record<string, number | null>) {
-  const validExpirations = Object.values(expirations).filter(
-    (expiration) => !!expiration && expiration > Date.now(),
-  ) as number[]
-
-  if (validExpirations.length === 0) return undefined
-  return Math.min(...validExpirations)
+/* Find earliest date from array of dates, handling string and undefined values */
+export function findEarliestDate<T extends Date | string | undefined>(dates: T[]): T {
+  return dates
+    .filter((date) => date !== undefined)
+    .toSorted((a, b) => new Date(a).getTime() - new Date(b).getTime())[0]!
 }

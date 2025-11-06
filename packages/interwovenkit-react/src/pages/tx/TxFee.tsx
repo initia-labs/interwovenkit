@@ -30,7 +30,6 @@ const TxFee = ({ options, value, onChange }: Props) => {
     return `${formatAmount(amount, { decimals, dp })} ${symbol}`
   }
 
-  // Convert StdFee options to DropdownOption format
   const dropdownOptions: DropdownOption<string>[] = options.map((option) => {
     const [{ denom }] = option.amount
     const { symbol } = findAsset(denom)
@@ -42,7 +41,6 @@ const TxFee = ({ options, value, onChange }: Props) => {
     }
   })
 
-  // For single option, just display it
   if (options.length === 1) {
     return <span className="monospace">{getLabel(options[0])}</span>
   }
