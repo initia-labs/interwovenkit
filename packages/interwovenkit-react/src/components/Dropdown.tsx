@@ -43,7 +43,7 @@ function Dropdown<T extends string | number = string>({
       <Select.Trigger className={clsx(styles.trigger, classNames?.trigger)}>
         <Select.Value>{selectedOption.triggerLabel || selectedOption.label}</Select.Value>
         <Select.Icon className={styles.icon}>
-          <IconChevronDown size={16} />
+          <IconChevronDown size={12} />
         </Select.Icon>
       </Select.Trigger>
 
