@@ -14,8 +14,8 @@ import {
   toHex,
   type Transport,
 } from "viem"
-import { useConfig } from "wagmi"
-import { useCallback, useMemo } from "react"
+import { useConfig, useDisconnect } from "wagmi"
+import { useCallback, useEffect, useMemo } from "react"
 import { useConfig as useWidgetConfig } from "@/data/config"
 import { PRIVY_APP_ID } from "@/public/data/connectors"
 
@@ -36,6 +36,7 @@ export const usePrivyCrossAppProvider = ({
   transport = http(undefined, { batch: true }),
 }: UsePrivyCrossAppEIP1193Props) => {
   const { privyContext } = useWidgetConfig()
+  const { disconnect } = useDisconnect()
   if (!privyContext) throw new Error("Privy context not found")
   const { privy, wallets, crossAppAccounts } = privyContext
   const { user, authenticated, ready: privyReady, login, logout } = privy
@@ -103,7 +104,7 @@ export const usePrivyCrossAppProvider = ({
       ) as CrossAppAccount | undefined
 
       const crossAppAddress = crossAppAccount?.embeddedWallets?.[0]?.address
-      const walletAddress = wallet?.address
+      const walletAddress = wallet?.address === user.wallet?.address ? wallet?.address : undefined
 
       return {
         address: (crossAppAddress || walletAddress) as Address | undefined,
@@ -223,6 +224,34 @@ export const usePrivyCrossAppProvider = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handleRequest])
+
+  // handle wallet changed
+  useEffect(() => {
+    const userAddress = user?.wallet?.address
+    const walletAddress = wallet?.address
+    const { isCrossApp } = getAddressesFromUser(user)
+
+    const syncWalletAddress = async () => {
+      if (!isCrossApp && userAddress && userAddress !== walletAddress) {
+        disconnect()
+        config._internal.connectors.setState([])
+        await (
+          await wallet!.getEthereumProvider()
+        ).request({
+          method: "wallet_revokePermissions",
+          params: [
+            {
+              eth_accounts: {},
+            },
+          ],
+        })
+        await logout()
+      }
+    }
+
+    syncWalletAddress()
+    // we want to run this only when user or wallet changes to check for mismatch
+  }, [user, wallet, getAddressesFromUser]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const ready = useMemo(() => !!getAddressesFromUser(user).address, [getAddressesFromUser, user])
 
