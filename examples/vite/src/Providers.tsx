@@ -2,6 +2,7 @@ import {
   PrivyProvider,
   useCreateWallet,
   useCrossAppAccounts,
+  useLoginWithSiwe,
   usePrivy,
   useWallets,
 } from "@privy-io/react-auth"
@@ -21,7 +22,7 @@ import { chainId, isTestnet, routerApiUrl, useTheme } from "./data"
 
 injectStyles(css)
 const wagmiConfig = createConfig({
-  multiInjectedProviderDiscovery: false,
+  //multiInjectedProviderDiscovery: false,
   chains: [mainnet],
   transports: { [mainnet.id]: http() },
 })
@@ -31,6 +32,7 @@ const InterwovenKitWrapper = ({ children }: PropsWithChildren) => {
   const theme = useTheme()
   const privy = usePrivy()
   const crossAppAccounts = useCrossAppAccounts()
+  const siwe = useLoginWithSiwe()
   const { createWallet } = useCreateWallet()
   const { wallets } = useWallets()
 
@@ -40,7 +42,7 @@ const InterwovenKitWrapper = ({ children }: PropsWithChildren) => {
       {...(routerApiUrl ? { routerApiUrl } : {})}
       theme={theme}
       container={import.meta.env.DEV ? document.body : undefined}
-      privyContext={{ privy, crossAppAccounts, createWallet, wallets }}
+      privyContext={{ privy, crossAppAccounts, createWallet, wallets, siwe }}
       enableAutoSign={{ [chainId]: ["/cosmos.bank.v1beta1.MsgSend", "/initia.move.v1.MsgExecute"] }}
     >
       {children}

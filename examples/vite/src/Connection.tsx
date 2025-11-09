@@ -1,16 +1,14 @@
-import { usePrivy } from "@privy-io/react-auth"
 import { useInterwovenKit } from "@initia/interwovenkit-react"
 import { truncate } from "@initia/utils"
 import ToggleAutoSign from "./ToggleAutoSign"
 import styles from "./Connection.module.css"
 
 const Connection = () => {
-  const { address, username, openWallet } = useInterwovenKit()
-  const { login } = usePrivy()
+  const { address, username, openWallet, openConnect } = useInterwovenKit()
 
   if (!address) {
     return (
-      <button className={styles.button} onClick={login}>
+      <button className={styles.button} onClick={openConnect}>
         Connect
       </button>
     )

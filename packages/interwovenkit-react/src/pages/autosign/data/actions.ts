@@ -15,27 +15,17 @@ import { useDrawer } from "@/data/ui"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { pendingAutoSignRequestAtom } from "./store"
 import { autoSignQueryKeys, useAutoSignMessageTypes } from "./validation"
-import { useEmbeddedWalletAddress } from "./wallet"
+import { useEmbeddedWalletAddress, useSetupEmbeddedWallet } from "./wallet"
 
 /* Enable AutoSign by granting permissions to embedded wallet for fee delegation and message execution */
 export function useEnableAutoSign() {
-  const config = useConfig()
-  const { privyContext } = config
   const initiaAddress = useInitiaAddress()
-  const embeddedWalletAddress = useEmbeddedWalletAddress()
+  const setupEmbeddedWallet = useSetupEmbeddedWallet()
   const messageTypes = useAutoSignMessageTypes()
   const { requestTxBlock } = useTx()
   const queryClient = useQueryClient()
   const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
   const { closeDrawer } = useDrawer()
-
-  // Get or create embedded wallet address
-  const resolveEmbeddedWalletAddress = async (): Promise<string> => {
-    if (embeddedWalletAddress) return embeddedWalletAddress
-    if (!privyContext) throw new Error("Privy context not available")
-    const newWallet = await privyContext.createWallet({ createAdditional: false })
-    return InitiaAddress(newWallet.address).bech32
-  }
 
   return useMutation({
     mutationFn: async (durationInMs: number) => {
@@ -45,7 +35,11 @@ export function useEnableAutoSign() {
 
       const { chainId } = pendingRequest
 
-      const embeddedWalletAddress = await resolveEmbeddedWalletAddress()
+      const embeddedWalletAddress = InitiaAddress(
+        await (
+          await setupEmbeddedWallet()
+        ).address,
+      ).bech32
 
       if (!initiaAddress || !embeddedWalletAddress) {
         throw new Error("Wallets not initialized")

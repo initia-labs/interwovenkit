@@ -3,6 +3,7 @@ import type { AminoConverters } from "@cosmjs/stargate"
 import type {
   useCreateWallet,
   useCrossAppAccounts,
+  useLoginWithSiwe,
   usePrivy,
   useWallets,
 } from "@privy-io/react-auth"
@@ -29,6 +30,7 @@ export interface Config {
     crossAppAccounts: ReturnType<typeof useCrossAppAccounts>
     createWallet: ReturnType<typeof useCreateWallet>["createWallet"]
     wallets: ReturnType<typeof useWallets>["wallets"]
+    siwe: ReturnType<typeof useLoginWithSiwe>
   }
 }
 
