@@ -24,7 +24,7 @@ export default function EnableAutoSign() {
   const findChain = useFindChain()
   const chains = useInitiaRegistry()
   const { address, username } = useInterwovenKit()
-  const { mutate } = useEnableAutoSign()
+  const { mutate, isPending } = useEnableAutoSign()
   const { closeDrawer } = useDrawer()
 
   // Get website information
@@ -136,8 +136,8 @@ export default function EnableAutoSign() {
 
       <Footer className={styles.footer}>
         <Button.Outline onClick={handleCancel}>Cancel</Button.Outline>
-        <Button.White onClick={handleEnable} disabled={isEnableDisabled}>
-          Enable
+        <Button.White onClick={handleEnable} disabled={isEnableDisabled || isPending}>
+          {isPending ? "Loading" : "Enable"}
         </Button.White>
       </Footer>
     </>
