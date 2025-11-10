@@ -8,22 +8,21 @@ import {
   MsgGrantAllowance,
   MsgRevokeAllowance,
 } from "@initia/initia.proto/cosmos/feegrant/v1beta1/tx"
-import { InitiaAddress } from "@initia/utils"
 import { useConfig } from "@/data/config"
 import { useTx } from "@/data/tx"
 import { useDrawer } from "@/data/ui"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { pendingAutoSignRequestAtom } from "./store"
 import { autoSignQueryKeys, useAutoSignMessageTypes } from "./validation"
-import { useEmbeddedWalletAddress, useSetupEmbeddedWallet } from "./wallet"
+import { useEmbeddedWalletAddress } from "./wallet"
 
 /* Enable AutoSign by granting permissions to embedded wallet for fee delegation and message execution */
 export function useEnableAutoSign() {
   const initiaAddress = useInitiaAddress()
-  const setupEmbeddedWallet = useSetupEmbeddedWallet()
   const messageTypes = useAutoSignMessageTypes()
   const { requestTxBlock } = useTx()
   const queryClient = useQueryClient()
+  const embeddedWalletAddress = useEmbeddedWalletAddress()
   const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
   const { closeDrawer } = useDrawer()
 
@@ -34,12 +33,6 @@ export function useEnableAutoSign() {
       }
 
       const { chainId } = pendingRequest
-
-      const embeddedWalletAddress = InitiaAddress(
-        await (
-          await setupEmbeddedWallet()
-        ).address,
-      ).bech32
 
       if (!initiaAddress || !embeddedWalletAddress) {
         throw new Error("Wallets not initialized")

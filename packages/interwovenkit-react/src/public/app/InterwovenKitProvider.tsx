@@ -4,10 +4,10 @@ import { useIsClient } from "usehooks-ts"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import { useInitiaRegistry, useLayer1 } from "@/data/chains"
 import type { Config } from "@/data/config"
-import { ConfigContext, useConfig } from "@/data/config"
+import { ConfigContext } from "@/data/config"
 import { LocalStorageKey } from "@/data/constants"
 import { migrateLocalStorage } from "@/data/migration"
-import InjectWagmiConnector from "@/lib/privy/InjectWagmiConnector"
+import UpdatePrivyAuth from "@/lib/privy/UpdatePrivyAuth"
 import { MemoryRouter } from "@/lib/router"
 import { useInitializeAutoSign } from "@/pages/autosign/data/validation"
 import { useSkipAssets } from "@/pages/bridge/data/assets"
@@ -54,12 +54,6 @@ const Prefetch = () => {
   return null
 }
 
-const InjectWagmiConnectorWrapper = ({ children }: PropsWithChildren) => {
-  const { privyContext } = useConfig()
-  if (!privyContext) return children
-  return <InjectWagmiConnector>{children}</InjectWagmiConnector>
-}
-
 const InterwovenKitProvider = ({ children, ...config }: PropsWithChildren<Partial<Config>>) => {
   useEffect(() => {
     migrateLocalStorage()
@@ -74,28 +68,28 @@ const InterwovenKitProvider = ({ children, ...config }: PropsWithChildren<Partia
       <Fonts />
 
       <ConfigContext.Provider value={{ ...MAINNET, ...config }}>
-        <InjectWagmiConnectorWrapper>
-          <MemoryRouter>
-            <PortalProvider>
-              <Tooltip.Provider delayDuration={0} skipDelayDuration={0}>
-                <NotificationProvider>
-                  <ModalProvider>
-                    {children}
+        <MemoryRouter>
+          <UpdatePrivyAuth />
 
-                    <Analytics />
-                    <AsyncBoundary suspenseFallback={null} errorBoundaryProps={{ fallback: null }}>
-                      <Prefetch />
-                    </AsyncBoundary>
+          <PortalProvider>
+            <Tooltip.Provider delayDuration={0} skipDelayDuration={0}>
+              <NotificationProvider>
+                <ModalProvider>
+                  {children}
 
-                    <Drawer>
-                      <Routes />
-                    </Drawer>
-                  </ModalProvider>
-                </NotificationProvider>
-              </Tooltip.Provider>
-            </PortalProvider>
-          </MemoryRouter>
-        </InjectWagmiConnectorWrapper>
+                  <Analytics />
+                  <AsyncBoundary suspenseFallback={null} errorBoundaryProps={{ fallback: null }}>
+                    <Prefetch />
+                  </AsyncBoundary>
+
+                  <Drawer>
+                    <Routes />
+                  </Drawer>
+                </ModalProvider>
+              </NotificationProvider>
+            </Tooltip.Provider>
+          </PortalProvider>
+        </MemoryRouter>
       </ConfigContext.Provider>
     </>
   )
