@@ -8,6 +8,7 @@ import {
   MsgGrantAllowance,
   MsgRevokeAllowance,
 } from "@initia/initia.proto/cosmos/feegrant/v1beta1/tx"
+import { InitiaAddress } from "@initia/utils"
 import { useConfig } from "@/data/config"
 import { useTx } from "@/data/tx"
 import { useDrawer } from "@/data/ui"
@@ -18,6 +19,7 @@ import { useEmbeddedWalletAddress } from "./wallet"
 
 /* Enable AutoSign by granting permissions to embedded wallet for fee delegation and message execution */
 export function useEnableAutoSign() {
+  const { privyContext } = useConfig()
   const initiaAddress = useInitiaAddress()
   const messageTypes = useAutoSignMessageTypes()
   const { requestTxBlock } = useTx()
@@ -26,6 +28,14 @@ export function useEnableAutoSign() {
   const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
   const { closeDrawer } = useDrawer()
 
+  // Get or create embedded wallet address
+  const resolveEmbeddedWalletAddress = async (): Promise<string> => {
+    if (embeddedWalletAddress) return embeddedWalletAddress
+    if (!privyContext) throw new Error("Privy context not available")
+    const newWallet = await privyContext.createWallet({ createAdditional: false })
+    return InitiaAddress(newWallet.address).bech32
+  }
+
   return useMutation({
     mutationFn: async (durationInMs: number) => {
       if (!pendingRequest) {
@@ -33,6 +43,8 @@ export function useEnableAutoSign() {
       }
 
       const { chainId } = pendingRequest
+
+      const embeddedWalletAddress = await resolveEmbeddedWalletAddress()
 
       if (!initiaAddress || !embeddedWalletAddress) {
         throw new Error("Wallets not initialized")
