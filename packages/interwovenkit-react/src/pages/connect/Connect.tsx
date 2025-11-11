@@ -1,8 +1,8 @@
 import clsx from "clsx"
 import { descend } from "ramda"
 import type { Connector } from "wagmi"
-import { useConnect } from "wagmi"
-import { useState } from "react"
+import { useConnect, useDisconnect } from "wagmi"
+import { useAtom } from "jotai"
 import { useReadLocalStorage } from "usehooks-ts"
 import { useMutation } from "@tanstack/react-query"
 import { IconExternalLink } from "@initia/icons-react"
@@ -10,7 +10,9 @@ import Image from "@/components/Image"
 import Loader from "@/components/Loader"
 import Scrollable from "@/components/Scrollable"
 import { normalizeError } from "@/data/http"
+import useLoginPrivy from "@/hooks/privy/useLoginPrivy"
 import { initiaPrivyWalletOptions } from "@/public/data/connectors"
+import { pendingConnectorIdAtom } from "./atoms"
 import styles from "./Connect.module.css"
 
 const recommendedWallets = [
@@ -22,14 +24,20 @@ const recommendedWallets = [
 
 const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
   const { connectors, connectAsync } = useConnect()
+  const { disconnect } = useDisconnect()
+  const loginPrivy = useLoginPrivy()
   const recentConnectorId = useReadLocalStorage<string>("wagmi.recentConnectorId")
-  const [pendingConnectorId, setPendingConnectorId] = useState<string | null>(null)
+  const [pendingConnectorId, setPendingConnectorId] = useAtom(pendingConnectorIdAtom)
+
   const { mutate, isPending } = useMutation({
     mutationFn: async (connector: Connector) => {
       setPendingConnectorId(connector.id)
       try {
         await connectAsync({ connector })
+        await loginPrivy()
       } catch (error) {
+        // make sure to disconnect wallet if login fails
+        disconnect()
         throw await normalizeError(error)
       }
     },
