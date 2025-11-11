@@ -21,10 +21,10 @@ import { useEmbeddedWalletAddress } from "./wallet"
 export function useEnableAutoSign() {
   const { privyContext } = useConfig()
   const initiaAddress = useInitiaAddress()
+  const embeddedWalletAddress = useEmbeddedWalletAddress()
   const messageTypes = useAutoSignMessageTypes()
   const { requestTxBlock } = useTx()
   const queryClient = useQueryClient()
-  const embeddedWalletAddress = useEmbeddedWalletAddress()
   const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
   const { closeDrawer } = useDrawer()
 

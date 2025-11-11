@@ -1,13 +1,16 @@
+import { Secp256k1 } from "@cosmjs/crypto"
+import { fromHex, toHex } from "@cosmjs/encoding"
+import { ethers } from "ethers"
 import { useSignMessage } from "wagmi"
 import { useCallback, useEffect, useRef } from "react"
 import { InitiaAddress } from "@initia/utils"
 import { useConfig } from "@/data/config"
+import { LocalStorageKey } from "@/data/constants"
 import { useDisconnect } from "@/data/ui"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { useStorePubKey } from "./hooks"
 
 /* Hook that updates the privy auth state every time the connected wallet changes */
-function useUpdatePrivyAuth() {
+export function useSyncPrivyAuth() {
   const { privyContext } = useConfig()
   const address = useInitiaAddress()
   const { signMessageAsync } = useSignMessage()
@@ -80,10 +83,17 @@ function useUpdatePrivyAuth() {
   }, [address, isPrivyReady]) // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-const UpdatePrivyAuth = () => {
-  useUpdatePrivyAuth()
+/* Helper function to store pubkey - maybe can be moved somwhere else */
+function useStorePubKey() {
+  const initiaAddress = useInitiaAddress()
 
-  return null
+  return ({ message, signature }: { message: string; signature: string }) => {
+    const storageKey = `${LocalStorageKey.PUBLIC_KEY}:${initiaAddress}`
+
+    const messageHash = ethers.hashMessage(message)
+    const uncompressedPublicKey = ethers.SigningKey.recoverPublicKey(messageHash, signature)
+    const publicKey = Secp256k1.compressPubkey(fromHex(uncompressedPublicKey.replace("0x", "")))
+
+    localStorage.setItem(storageKey, toHex(publicKey))
+  }
 }
-
-export default UpdatePrivyAuth

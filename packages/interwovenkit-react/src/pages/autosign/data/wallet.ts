@@ -13,9 +13,7 @@ export function useEmbeddedWallet() {
   const { privyContext } = useConfig()
   const address = useInitiaAddress()
   const userAddress = privyContext?.privy.user?.wallet?.address
-
   if (!userAddress || InitiaAddress(userAddress).bech32 !== address) return undefined
-
   return privyContext?.wallets.find((wallet) => wallet.connectorType === "embedded")
 }
 
