@@ -22,7 +22,6 @@ export function useInitiaAddress() {
 export function useHexAddress() {
   const { address } = useAccount()
   const isPrivyConnected = useIsPrivyConnected()
-
   // address undefined if privy is needed but not yet connected
   if (!address || !isPrivyConnected) return ""
   return InitiaAddress(address).hex

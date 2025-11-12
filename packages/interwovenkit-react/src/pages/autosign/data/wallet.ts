@@ -12,9 +12,7 @@ import { OfflineSigner, useRegistry, useSignWithEthSecp256k1 } from "@/data/sign
 export function useEmbeddedWallet() {
   const { privyContext } = useConfig()
   const isConnected = useIsPrivyConnected()
-
   if (!privyContext || !isConnected) return undefined
-
   return privyContext.wallets.find((wallet) => wallet.connectorType === "embedded")
 }
 

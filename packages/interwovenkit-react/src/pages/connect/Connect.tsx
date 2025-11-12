@@ -31,7 +31,6 @@ const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
       try {
         await connectAsync({ connector })
       } catch (error) {
-        // make sure to disconnect wallet if login fails
         throw await normalizeError(error)
       }
     },
