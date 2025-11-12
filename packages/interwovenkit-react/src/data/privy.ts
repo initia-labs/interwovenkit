@@ -1,5 +1,5 @@
 import { useAccount, useSignMessage } from "wagmi"
-import { useEffect, useEffectEvent } from "react"
+import { useEffect, useRef } from "react"
 import { InitiaAddress } from "@initia/utils"
 import { useConfig } from "@/data/config"
 import { useDisconnect } from "./ui"
@@ -27,23 +27,34 @@ export function useSyncPrivyAuth() {
 
   const isPrivyReady = !!privyContext?.privy.ready
 
-  const loginPrivyWithSiwe = useEffectEvent(async (address: string) => {
+  // Store privyContext in a ref to access the latest value inside loginPrivyWithSiwe
+  // without including it in the dependency array of the login effect, which would cause
+  // unnecessary re-executions when privyContext changes.
+  const privyContextRef = useRef(privyContext)
+  useEffect(() => {
+    privyContextRef.current = privyContext
+  }, [privyContext])
+
+  const loginPrivyWithSiwe = async (address: string) => {
     try {
-      if (!privyContext) throw new Error("Privy context not found")
-      if (privyContext.privy.authenticated) await privyContext.privy.logout()
-      const message = await privyContext.siwe.generateSiweMessage({ chainId: "eip155:1", address })
+      if (!privyContextRef.current) throw new Error("Privy context not found")
+      const { privy, siwe } = privyContextRef.current
+      if (privy.authenticated) await privy.logout()
+      const message = await siwe.generateSiweMessage({ chainId: "eip155:1", address })
       if (!message) throw new Error("Failed to generate SIWE message")
       const signature = await signMessageAsync({ message })
-      await privyContext.siwe.loginWithSiwe({ signature, message })
+      await siwe.loginWithSiwe({ signature, message })
     } catch {
       disconnect()
     }
-  })
+  }
 
   useEffect(() => {
     if (isPrivyConnected) return
     if (!isPrivyReady) return
     if (!wagmiAddress) return
     loginPrivyWithSiwe(wagmiAddress)
+    // loginPrivyWithSiwe is intentionally excluded from dependencies to avoid infinite loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPrivyConnected, isPrivyReady, wagmiAddress])
 }
