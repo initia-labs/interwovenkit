@@ -19,8 +19,7 @@ import { useEmbeddedWalletAddress } from "./wallet"
 
 /* Enable AutoSign by granting permissions to embedded wallet for fee delegation and message execution */
 export function useEnableAutoSign() {
-  const config = useConfig()
-  const { privyContext } = config
+  const { privyContext } = useConfig()
   const initiaAddress = useInitiaAddress()
   const embeddedWalletAddress = useEmbeddedWalletAddress()
   const messageTypes = useAutoSignMessageTypes()

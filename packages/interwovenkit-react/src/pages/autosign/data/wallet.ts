@@ -5,12 +5,15 @@ import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
 import { InitiaAddress } from "@initia/utils"
 import { useDefaultChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
+import { useIsPrivyConnected } from "@/data/privy"
 import { OfflineSigner, useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
 
 /* Retrieve embedded wallet instance from Privy context for auto-sign delegation */
 export function useEmbeddedWallet() {
   const { privyContext } = useConfig()
-  return privyContext?.wallets.find((wallet) => wallet.connectorType === "embedded")
+  const isConnected = useIsPrivyConnected()
+  if (!privyContext || !isConnected) return undefined
+  return privyContext.wallets.find((wallet) => wallet.connectorType === "embedded")
 }
 
 /* Extract embedded wallet address and convert to Initia Bech32 format */

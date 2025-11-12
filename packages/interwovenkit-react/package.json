@@ -70,6 +70,7 @@
   "devDependencies": {
     "@initia/initia-registry-types": "^1.0.11",
     "@keplr-wallet/types": "^0.12.279",
+    "@privy-io/react-auth": "^3.6.1",
     "@skip-go/client": "^1.5.8",
     "@tanstack/react-query": "^5.90.2",
     "@tsconfig/vite-react": "^7.0.1",
@@ -106,7 +107,6 @@
     "@mysten/bcs": ">=1.0.0",
     "@noble/hashes": ">=1.0.0",
     "@privy-io/cross-app-connect": ">=0.2.0",
-    "@privy-io/react-auth": ">=3.0.0",
     "@rainbow-me/rainbowkit": ">=2.0.0",
     "@react-spring/web": ">=10.0.0",
     "@tanstack/react-query": ">=5.0.0",

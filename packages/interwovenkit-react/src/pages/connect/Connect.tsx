@@ -24,6 +24,7 @@ const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
   const { connectors, connectAsync } = useConnect()
   const recentConnectorId = useReadLocalStorage<string>("wagmi.recentConnectorId")
   const [pendingConnectorId, setPendingConnectorId] = useState<string | null>(null)
+
   const { mutate, isPending } = useMutation({
     mutationFn: async (connector: Connector) => {
       setPendingConnectorId(connector.id)

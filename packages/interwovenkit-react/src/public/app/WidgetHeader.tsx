@@ -56,7 +56,7 @@ const WidgetHeader = () => {
     }
   }, [])
 
-  if (!connector) {
+  if (!connector || !address) {
     return null
   }
 

@@ -1,11 +1,6 @@
 import type { GeneratedType } from "@cosmjs/proto-signing"
 import type { AminoConverters } from "@cosmjs/stargate"
-import type {
-  useCreateWallet,
-  useCrossAppAccounts,
-  usePrivy,
-  useWallets,
-} from "@privy-io/react-auth"
+import type { useCreateWallet, useLoginWithSiwe, usePrivy, useWallets } from "@privy-io/react-auth"
 import { createContext, useContext } from "react"
 import type { Chain } from "@initia/initia-registry-types"
 
@@ -26,9 +21,9 @@ export interface Config {
   enableAutoSign?: boolean | Record<string, string[]>
   privyContext?: {
     privy: ReturnType<typeof usePrivy>
-    crossAppAccounts: ReturnType<typeof useCrossAppAccounts>
     createWallet: ReturnType<typeof useCreateWallet>["createWallet"]
     wallets: ReturnType<typeof useWallets>["wallets"]
+    siwe: ReturnType<typeof useLoginWithSiwe>
   }
 }
 

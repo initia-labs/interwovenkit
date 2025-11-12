@@ -4,6 +4,7 @@ import { InitiaAddress } from "@initia/utils"
 import { accountQueryKeys, useUsernameClient } from "@/data/account"
 import { useDefaultChain } from "@/data/chains"
 import { STALE_TIMES } from "@/data/http"
+import { useIsPrivyConnected } from "@/data/privy"
 import { useOfflineSigner } from "@/data/signer"
 import { useTx } from "@/data/tx"
 import { useDisconnect, useDrawer } from "@/data/ui"
@@ -20,7 +21,9 @@ export function useInitiaAddress() {
 
 export function useHexAddress() {
   const { address } = useAccount()
-  if (!address) return ""
+  const isPrivyConnected = useIsPrivyConnected()
+  // address undefined if privy is needed but not yet connected
+  if (!address || !isPrivyConnected) return ""
   return InitiaAddress(address).hex
 }
 
