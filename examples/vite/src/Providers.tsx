@@ -5,10 +5,8 @@ import {
   usePrivy,
   useWallets,
 } from "@privy-io/react-auth"
-import { createConfig, WagmiProvider } from "wagmi"
-import { http } from "wagmi"
+import { createConfig, http, WagmiProvider } from "wagmi"
 import { mainnet } from "wagmi/chains"
-import { type PropsWithChildren } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import {
   initiaPrivyWalletConnector,
@@ -19,6 +17,8 @@ import {
 } from "@initia/interwovenkit-react"
 import css from "@initia/interwovenkit-react/styles.css?inline"
 import { chainId, isTestnet, routerApiUrl, useTheme } from "./data"
+
+import type { PropsWithChildren } from "react"
 
 injectStyles(css)
 const wagmiConfig = createConfig({
@@ -32,8 +32,8 @@ const InterwovenKitWrapper = ({ children }: PropsWithChildren) => {
   const theme = useTheme()
   const privy = usePrivy()
   const siwe = useLoginWithSiwe()
-  const { createWallet } = useCreateWallet()
   const { wallets } = useWallets()
+  const { createWallet } = useCreateWallet()
 
   return (
     <InterwovenKitProvider
@@ -41,7 +41,7 @@ const InterwovenKitWrapper = ({ children }: PropsWithChildren) => {
       {...(routerApiUrl ? { routerApiUrl } : {})}
       theme={theme}
       container={import.meta.env.DEV ? document.body : undefined}
-      privyContext={{ privy, createWallet, wallets, siwe }}
+      privyContext={{ privy, siwe, wallets, createWallet }}
       enableAutoSign={{ [chainId]: ["/cosmos.bank.v1beta1.MsgSend", "/initia.move.v1.MsgExecute"] }}
     >
       {children}
