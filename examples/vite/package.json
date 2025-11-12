@@ -9,28 +9,28 @@
     "lint": "eslint src --fix"
   },
   "dependencies": {
-    "@cosmjs/stargate": "^0.36.1",
+    "@cosmjs/stargate": "^0.36.2",
     "@initia/interwovenkit-react": "workspace:^",
     "@initia/utils": "2.0.0",
-    "@privy-io/react-auth": "^3.0.1",
-    "@tanstack/react-query": "^5.90.2",
+    "@privy-io/react-auth": "^3.6.1",
+    "@tanstack/react-query": "^5.90.7",
     "cosmjs-types": "^0.10.1",
     "ethers": "^6.15.0",
-    "jotai": "^2.15.0",
+    "jotai": "^2.15.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-hook-form": "^7.64.0",
-    "viem": "^2.38.0",
+    "react-hook-form": "^7.66.0",
+    "viem": "^2.38.6",
     "wagmi": "2.17.2"
   },
   "devDependencies": {
     "@tsconfig/vite-react": "^7.0.1",
     "@types/react": "^19.2.2",
-    "@types/react-dom": "^19.2.1",
-    "@vitejs/plugin-react-swc": "^4.1.0",
-    "eslint": "^9.37.0",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react-swc": "^4.2.1",
+    "eslint": "^9.39.1",
     "typescript": "^5.9.3",
-    "vite": "^7.1.9",
+    "vite": "^7.2.2",
     "vite-plugin-node-polyfills": "^0.24.0"
   }
 }
