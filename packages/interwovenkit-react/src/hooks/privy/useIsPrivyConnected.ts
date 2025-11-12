@@ -9,11 +9,15 @@ function useIsPrivyConnected() {
 
   if (!privyContext) return true // no connection needed if privy is not enabled
 
-  const privyAddress = privyContext.privy.user?.wallet?.address
+  const privyAddresses = privyContext.privy.user?.linkedAccounts
+    .map((account) => "address" in account && account.address)
+    .filter((v) => !!v) as string[] | undefined
 
-  if (!privyAddress || !wagmiAddress) return false
+  if (!privyAddresses?.length || !wagmiAddress) return false
 
-  return InitiaAddress(privyAddress).bech32 === InitiaAddress(wagmiAddress).bech32
+  return privyAddresses.some(
+    (privyAddress) => InitiaAddress(privyAddress).bech32 === InitiaAddress(wagmiAddress).bech32,
+  )
 }
 
 export default useIsPrivyConnected
