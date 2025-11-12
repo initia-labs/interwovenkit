@@ -38,12 +38,14 @@ export function useSyncPrivyAuth() {
   const loginPrivyWithSiwe = async (address: string) => {
     try {
       if (!privyContextRef.current) throw new Error("Privy context not found")
-      const { privy, siwe } = privyContextRef.current
-      if (privy.authenticated) await privy.logout()
-      const message = await siwe.generateSiweMessage({ chainId: "eip155:1", address })
+      if (privyContextRef.current.privy.authenticated) await privyContextRef.current.privy.logout()
+      const message = await privyContextRef.current.siwe.generateSiweMessage({
+        chainId: "eip155:1",
+        address,
+      })
       if (!message) throw new Error("Failed to generate SIWE message")
       const signature = await signMessageAsync({ message })
-      await siwe.loginWithSiwe({ signature, message })
+      await privyContextRef.current.siwe.loginWithSiwe({ signature, message })
     } catch {
       disconnect()
     }
