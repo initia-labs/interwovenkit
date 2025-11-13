@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { useAtom } from "jotai"
-import { IconCheckCircle, IconWallet } from "@initia/icons-react"
+import { IconCheckCircle, IconExternalLink, IconWallet } from "@initia/icons-react"
 import { truncate } from "@initia/utils"
 import Button from "@/components/Button"
 import Dropdown from "@/components/Dropdown"
@@ -131,6 +131,13 @@ export default function EnableAutoSign() {
               </li>
             ))}
           </ul>
+          <a
+            href="https://docs.initia.xyz/user-guides/wallet/autosign/introduction"
+            target="_blank"
+            className={styles.learnMoreLink}
+          >
+            Learn more <IconExternalLink size={12} />
+          </a>
         </section>
       </Scrollable>
 

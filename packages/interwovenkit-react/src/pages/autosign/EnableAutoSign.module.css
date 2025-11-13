@@ -122,6 +122,19 @@
   color: var(--success);
 }
 
+.learnMoreLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  margin-top: 12px;
+
+  color: var(--gray-2);
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: underline;
+}
+
 .footer {
   padding: var(--padding);
 }
