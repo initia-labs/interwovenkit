@@ -13,7 +13,9 @@
     "eslint": "^9.39.1",
     "lint-staged": "^16.2.6",
     "prettier": "^3.6.2",
-    "simple-git-hooks": "^2.13.1"
+    "simple-git-hooks": "^2.13.1",
+    "stylelint": "^16.25.0",
+    "stylelint-order": "^7.0.0"
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm lint-staged"
@@ -23,7 +25,11 @@
       "eslint --fix --max-warnings=0",
       "prettier --write"
     ],
-    "*.{json,css,md}": [
+    "*.css": [
+      "prettier --write",
+      "stylelint --fix"
+    ],
+    "*.{json,md}": [
       "prettier --write"
     ]
   }
