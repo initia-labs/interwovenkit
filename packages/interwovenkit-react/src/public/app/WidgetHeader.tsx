@@ -79,7 +79,11 @@ const WidgetHeader = () => {
         )}
       </CopyButton>
 
-      <Link to="/settings" className={clsx(styles.button, styles.settings)}>
+      <Link
+        to="/settings"
+        className={clsx(styles.button, styles.settings)}
+        aria-label="Open settings"
+      >
         <IconSettingFilled size={16} />
       </Link>
 
