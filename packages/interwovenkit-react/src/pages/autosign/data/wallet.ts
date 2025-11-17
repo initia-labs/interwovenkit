@@ -3,7 +3,7 @@ import type { EncodeObject } from "@cosmjs/proto-signing"
 import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
 import { InitiaAddress } from "@initia/utils"
-import { useDefaultChain } from "@/data/chains"
+import { useFindChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import { useIsPrivyConnected } from "@/data/privy"
 import { OfflineSigner, useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
@@ -27,7 +27,7 @@ export function useSignWithEmbeddedWallet() {
   const embeddedWallet = useEmbeddedWallet()
   const embeddedWalletAddress = useEmbeddedWalletAddress()
   const registry = useRegistry()
-  const defaultChain = useDefaultChain()
+  const findChain = useFindChain()
   const signWithEthSecp256k1 = useSignWithEthSecp256k1()
 
   return async (
@@ -65,7 +65,7 @@ export function useSignWithEmbeddedWallet() {
     const delegateSigner = new OfflineSigner(
       embeddedWalletAddress,
       embeddedWallet.sign,
-      defaultChain.restUrl,
+      findChain(chainId).restUrl,
     )
 
     // Sign transaction with delegate wallet

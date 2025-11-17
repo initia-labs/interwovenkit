@@ -49,7 +49,7 @@ export class OfflineSigner implements OfflineAminoSigner {
   constructor(
     private address: string,
     private signMessage: (message: string) => Promise<string>,
-    private layer1RestUrl: string,
+    private restUrl: string,
   ) {}
 
   // Cache the public key so we don't have to ask the wallet to sign the
@@ -90,7 +90,7 @@ export class OfflineSigner implements OfflineAminoSigner {
   private async getPublicKeyFromRestApi(): Promise<Uint8Array | null> {
     try {
       const data = await ky
-        .create({ prefixUrl: this.layer1RestUrl })
+        .create({ prefixUrl: this.restUrl })
         .get(`cosmos/auth/v1beta1/account_info/${this.address}`)
         .json<{ info: { pub_key: { "@type": string; key: string } | null } }>()
 
