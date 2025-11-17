@@ -53,6 +53,7 @@ export function useValidateAutoSign() {
     // Check condition 1: All messages must be in allowed types
     const allMessagesAllowed = messages.every((msg) => {
       const chainMessageTypes = messageTypes[chainId]
+      if (!chainMessageTypes) return false
       return chainMessageTypes.includes(msg.typeUrl)
     })
 
