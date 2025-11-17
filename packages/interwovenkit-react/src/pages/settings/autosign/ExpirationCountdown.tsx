@@ -1,4 +1,4 @@
-import { differenceInSeconds } from "date-fns"
+import { differenceInSeconds, isPast } from "date-fns"
 import { useState } from "react"
 import { useInterval } from "usehooks-ts"
 import styles from "./ExpirationCountdown.module.css"
@@ -32,7 +32,15 @@ const ExpirationCountdown = ({ expiration }: ExpirationCountdownProps) => {
     setTimeLeft(calculateTimeLeft())
   }, 1000)
 
-  return <span className={styles.countdown}>{timeLeft}</span>
+  if (isPast(expiration)) {
+    return "Expired"
+  }
+
+  return (
+    <>
+      Expires in <span className={styles.countdown}>{timeLeft}</span>
+    </>
+  )
 }
 
 export default ExpirationCountdown

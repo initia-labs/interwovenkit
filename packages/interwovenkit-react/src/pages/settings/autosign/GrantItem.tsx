@@ -1,4 +1,3 @@
-import { isPast } from "date-fns"
 import Image from "@/components/Image"
 import { useChain } from "@/data/chains"
 import { useDisableAutoSign } from "@/pages/autosign/data/actions"
@@ -29,15 +28,7 @@ const GrantItem = ({ chainId, grantee, messageTypes, expiration }: GrantItemProp
           <div className={styles.chainName}>{chain.name}</div>
         </div>
         <div className={styles.expiration}>
-          {!expiration ? (
-            "Until revoked"
-          ) : isPast(expiration) ? (
-            "Expired"
-          ) : (
-            <>
-              Expires in <ExpirationCountdown expiration={expiration} />
-            </>
-          )}
+          {!expiration ? "Until revoked" : <ExpirationCountdown expiration={expiration} />}
         </div>
       </div>
       <button className={styles.revokeButton} onClick={() => mutate(chainId)} disabled={isPending}>
