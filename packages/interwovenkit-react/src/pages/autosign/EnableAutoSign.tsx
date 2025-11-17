@@ -132,7 +132,7 @@ export default function EnableAutoSign() {
             ))}
           </ul>
           <a
-            href="https://docs.initia.xyz/user-guides/wallet/autosign/introduction"
+            href="https://docs.initia.xyz/user-guides/wallet/auto-signing/introduction"
             target="_blank"
             className={styles.learnMoreLink}
           >
