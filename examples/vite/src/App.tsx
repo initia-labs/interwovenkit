@@ -1,8 +1,8 @@
 import { useAtom } from "jotai"
+import { InterwovenKit } from "@initia/interwovenkit-react"
 import Bridge from "./Bridge"
 import Connection from "./Connection"
 import { isTestnet, themeAtom } from "./data"
-import Send from "./Send"
 import styles from "./App.module.css"
 
 const App = () => {
@@ -27,7 +27,7 @@ const App = () => {
         </div>
       </header>
 
-      <Send />
+      <InterwovenKit bridge={{}} />
       <Bridge />
     </div>
   )

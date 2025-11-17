@@ -1,5 +1,5 @@
 import { adjust, take } from "ramda"
-import { useCallback, useState } from "react"
+import { useCallback, useContext, useState } from "react"
 // A deliberately lightweight router used by the widget.  It keeps navigation
 // history entirely in memory so we don't interfere with the host application's
 // URL or history state.  Each navigation pushes or truncates this local array.
@@ -13,6 +13,9 @@ interface MemoryRouterProps {
 }
 
 const MemoryRouter = ({ children, initialEntry }: PropsWithChildren<MemoryRouterProps>) => {
+  const parentContext = useContext(RouterContext)
+  const isTopLevel = parentContext === null
+
   const [history, setHistory] = useState<HistoryEntry[]>([initialEntry ?? { path: "/" }])
   const location = history[history.length - 1]
 
@@ -40,9 +43,17 @@ const MemoryRouter = ({ children, initialEntry }: PropsWithChildren<MemoryRouter
     })
   }, [])
 
-  const reset = useCallback((path: string, state?: object) => {
-    setHistory([{ path, state }])
-  }, [])
+  const reset = useCallback(
+    (path: string, state?: object) => {
+      // Always reset the top-level context
+      if (isTopLevel) {
+        setHistory([{ path, state }])
+      } else {
+        parentContext.reset(path, state)
+      }
+    },
+    [isTopLevel, parentContext],
+  )
 
   return (
     <RouterContext.Provider value={{ location, history, navigate, reset }}>

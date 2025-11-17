@@ -21,8 +21,6 @@ const Modal = ({ title, children, trigger, className, open, onOpenChange }: Prop
   const portal = usePortal()
   const fullscreen = useContext(fullscreenContext)
 
-  if (!portal) return null
-
   return (
     <Dialog.Root
       open={open}

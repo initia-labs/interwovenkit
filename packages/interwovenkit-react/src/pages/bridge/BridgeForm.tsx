@@ -105,7 +105,7 @@ const BridgeForm = () => {
   return (
     <Page
       title="Bridge/Swap"
-      backButton={isBridge ? "/" : undefined}
+      backButton="/"
       extra={
         <>
           <Button.Small onClick={() => navigate("/bridge/history")} unpadded>

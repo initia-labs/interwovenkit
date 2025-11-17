@@ -64,7 +64,7 @@ export function useBridgeTx(tx: TxJson) {
   const { srcChainId, sender, recipient, cosmosWalletName } = values
 
   const getProvider = useGetProvider()
-  const { requestTxSync, waitForTxConfirmation } = useInterwovenKit()
+  const { submitTxSync, waitForTxConfirmation } = useInterwovenKit()
   const { find } = useCosmosWallets()
   const registry = useRegistry()
   const aminoTypes = useAminoTypes()
@@ -96,11 +96,9 @@ export function useBridgeTx(tx: TxJson) {
           if (srcChainType === "initia") {
             const { srcDenom, quantity } = values
             const { decimals } = findAsset(srcDenom)
-            const txHash = await requestTxSync({
+            const txHash = await submitTxSync({
               messages,
               chainId: srcChainId,
-              internal: 1,
-              spendCoins: [{ denom: srcDenom, amount: toBaseUnit(quantity, { decimals }) }],
             })
             const wait = waitForTxConfirmation({ txHash, chainId: srcChainId })
             return { txHash, wait }
@@ -158,7 +156,7 @@ export function useBridgeTx(tx: TxJson) {
     onSuccess: async ({ txHash, wait }) => {
       // Clean up and navigate
       localStorage.removeItem(LocalStorageKey.BRIDGE_QUANTITY)
-      navigate(-1)
+      navigate("/bridge")
       showNotification({
         type: "loading",
         title: "Transaction is pending...",
