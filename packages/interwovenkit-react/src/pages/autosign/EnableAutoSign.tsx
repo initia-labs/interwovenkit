@@ -8,7 +8,8 @@ import Footer from "@/components/Footer"
 import FormHelp from "@/components/form/FormHelp"
 import Image from "@/components/Image"
 import Scrollable from "@/components/Scrollable"
-import { useFindChain, useInitiaRegistry } from "@/data/chains"
+import { useIsAccountCreated } from "@/data/accountInfo"
+import { useFindChain, useInitiaRegistry, useLayer1 } from "@/data/chains"
 import { useDrawer } from "@/data/ui"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useEnableAutoSign } from "./data/actions"
@@ -26,6 +27,11 @@ export default function EnableAutoSign() {
   const { address, username } = useInterwovenKit()
   const { mutate, isPending } = useEnableAutoSign()
   const { closeDrawer } = useDrawer()
+  const { restUrl } = useLayer1()
+  const { data: isAccountCreated, isLoading: isAccountLoading } = useIsAccountCreated(
+    restUrl,
+    address,
+  )
 
   // Get website information
   const websiteInfo = {
@@ -75,17 +81,6 @@ export default function EnableAutoSign() {
               <div className={styles.websiteHost}>{websiteInfo.hostname}</div>
             </div>
           </div>
-
-          {!isVerified && !warningIgnored && (
-            <FormHelp level="warning" mt={8}>
-              <div className={styles.warningContent}>
-                <span>You are on an unverified website</span>
-                <button onClick={() => setWarningIgnored(true)} className={styles.ignoreButton}>
-                  Ignore
-                </button>
-              </div>
-            </FormHelp>
-          )}
         </section>
 
         <section>
@@ -141,9 +136,32 @@ export default function EnableAutoSign() {
         </section>
       </Scrollable>
 
+      <div className={styles.errorContainer}>
+        {!isAccountCreated && !isAccountLoading && (
+          <FormHelp level="error" mt={8}>
+            Insufficient balance
+          </FormHelp>
+        )}
+
+        {!isVerified && !warningIgnored && (
+          <FormHelp level="warning" mt={8}>
+            <div className={styles.warningContent}>
+              <span>You are on an unverified website. To continue, press Ignore.</span>
+              <button onClick={() => setWarningIgnored(true)} className={styles.ignoreButton}>
+                Ignore
+              </button>
+            </div>
+          </FormHelp>
+        )}
+      </div>
+
       <Footer className={styles.footer}>
         <Button.Outline onClick={handleCancel}>Cancel</Button.Outline>
-        <Button.White onClick={handleEnable} disabled={isEnableDisabled} loading={isPending}>
+        <Button.White
+          onClick={handleEnable}
+          disabled={isEnableDisabled || !isAccountCreated}
+          loading={isPending}
+        >
           Enable
         </Button.White>
       </Footer>
