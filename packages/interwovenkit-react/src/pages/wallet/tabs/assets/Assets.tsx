@@ -5,7 +5,6 @@ import { usePortfolio } from "@/data/portfolio"
 import { formatValue } from "@/lib/format"
 import ChainSelect from "../../components/ChainSelect"
 import HomeContainer from "../../components/HomeContainer"
-import Version from "../../components/Version"
 import { assetsChainAtom, assetsSearchAtom } from "../state"
 import AssetGroup from "./AssetGroup"
 import UnlistedAssets from "./UnlistedAssets"
@@ -80,46 +79,42 @@ const Assets = () => {
   }
 
   return (
-    <>
-      <HomeContainer.Root>
-        <HomeContainer.Controls>
-          <HomeContainer.SearchInput
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onClear={() => setSearchQuery("")}
-            placeholder="Search assets"
-          />
-          <ChainSelect
-            value={selectedChain}
-            onChange={setSelectedChain}
-            chainIds={chainIds}
-            renderExtra={(chainId) => {
-              // Show total value for "All" option (empty chainId)
-              if (!chainId) return formatValue(totalValue)
-              const chain = chainsByValue.find((c) => c.chainId === chainId)
-              return chain ? formatValue(chain.value) : null
-            }}
-          />
-        </HomeContainer.Controls>
+    <HomeContainer.Root>
+      <HomeContainer.Controls>
+        <HomeContainer.SearchInput
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onClear={() => setSearchQuery("")}
+          placeholder="Search assets"
+        />
+        <ChainSelect
+          value={selectedChain}
+          onChange={setSelectedChain}
+          chainIds={chainIds}
+          renderExtra={(chainId) => {
+            // Show total value for "All" option (empty chainId)
+            if (!chainId) return formatValue(totalValue)
+            const chain = chainsByValue.find((c) => c.chainId === chainId)
+            return chain ? formatValue(chain.value) : null
+          }}
+        />
+      </HomeContainer.Controls>
 
-        <div>
-          {filteredAssets.length === 0 && filteredUnlistedAssets.length === 0 ? (
-            <Status>No assets found</Status>
-          ) : (
-            <>
-              <div className={styles.list}>
-                {filteredAssets.map((assetGroup) => (
-                  <AssetGroup assetGroup={assetGroup} key={assetGroup.symbol} />
-                ))}
-              </div>
-              <UnlistedAssets unlistedAssets={filteredUnlistedAssets} />
-            </>
-          )}
-        </div>
-      </HomeContainer.Root>
-
-      <Version />
-    </>
+      <div>
+        {filteredAssets.length === 0 && filteredUnlistedAssets.length === 0 ? (
+          <Status>No assets found</Status>
+        ) : (
+          <>
+            <div className={styles.list}>
+              {filteredAssets.map((assetGroup) => (
+                <AssetGroup assetGroup={assetGroup} key={assetGroup.symbol} />
+              ))}
+            </div>
+            <UnlistedAssets unlistedAssets={filteredUnlistedAssets} />
+          </>
+        )}
+      </div>
+    </HomeContainer.Root>
   )
 }
 

@@ -49,7 +49,7 @@ export class OfflineSigner implements OfflineAminoSigner {
   constructor(
     private address: string,
     private signMessage: (message: string) => Promise<string>,
-    private layer1RestUrl: string,
+    private restUrl: string,
   ) {}
 
   // Cache the public key so we don't have to ask the wallet to sign the
@@ -90,7 +90,7 @@ export class OfflineSigner implements OfflineAminoSigner {
   private async getPublicKeyFromRestApi(): Promise<Uint8Array | null> {
     try {
       const data = await ky
-        .create({ prefixUrl: this.layer1RestUrl })
+        .create({ prefixUrl: this.restUrl })
         .get(`cosmos/auth/v1beta1/account_info/${this.address}`)
         .json<{ info: { pub_key: { "@type": string; key: string } | null } }>()
 
@@ -148,7 +148,7 @@ export class OfflineSigner implements OfflineAminoSigner {
 export function useSignWithEthSecp256k1() {
   const registry = useRegistry()
   const aminoTypes = useAminoTypes()
-  const signer = useOfflineSigner()
+  const offlineSigner = useOfflineSigner()
   const createSigningStargateClient = useCreateSigningStargateClient()
 
   return async function (
@@ -157,8 +157,9 @@ export function useSignWithEthSecp256k1() {
     messages: readonly EncodeObject[],
     fee: StdFee,
     memo: string,
-    options?: { incrementSequence?: number },
+    options?: { incrementSequence?: number; customSigner?: OfflineAminoSigner },
   ): Promise<TxRaw> {
+    const signer = options?.customSigner ?? offlineSigner
     if (!signer) throw new Error("Signer not initialized")
     const client = await createSigningStargateClient(chainId)
     const { accountNumber, ...account } = await client.getSequence(signerAddress)

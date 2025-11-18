@@ -13,9 +13,11 @@ import { useBalances } from "@/data/account"
 import { useFindAsset } from "@/data/assets"
 import { useChain } from "@/data/chains"
 import { useGasPrices, useLastFeeDenom } from "@/data/fee"
-import { useOfflineSigner, useSignWithEthSecp256k1 } from "@/data/signer"
+import { useSignWithEthSecp256k1 } from "@/data/signer"
 import { TX_APPROVAL_MUTATION_KEY, useTxRequestHandler } from "@/data/tx"
 import { useInitiaAddress } from "@/public/data/hooks"
+import { useValidateAutoSign } from "../autosign/data/validation"
+import { useSignWithEmbeddedWallet } from "../autosign/data/wallet"
 import TxFee from "./TxFee"
 import TxFeeInsufficient from "./TxFeeInsufficient"
 import TxMessage from "./TxMessage"
@@ -28,13 +30,14 @@ const TxRequest = () => {
   const { messages, memo, chainId, gas, gasAdjustment, spendCoins } = txRequest
 
   const address = useInitiaAddress()
-  const signer = useOfflineSigner()
   const signWithEthSecp256k1 = useSignWithEthSecp256k1()
   const chain = useChain(chainId)
   const balances = useBalances(chain)
   const gasPrices = useGasPrices(chain)
   const lastUsedFeeDenom = useLastFeeDenom(chain)
   const findAsset = useFindAsset(chain)
+  const validateAutoSign = useValidateAutoSign()
+  const signWithEmbeddedWallet = useSignWithEmbeddedWallet()
 
   const feeOptions = (txRequest.gasPrices ?? gasPrices).map(({ amount, denom }) =>
     calculateFee(Math.ceil(gas * gasAdjustment), GasPrice.fromString(amount + denom)),
@@ -85,8 +88,12 @@ const TxRequest = () => {
     mutationFn: async () => {
       const fee = feeOptions.find((fee) => fee.amount[0].denom === feeDenom)
       if (!fee) throw new Error("Fee not found")
-      if (!signer) throw new Error("Signer not initialized")
-      const signedTx = await signWithEthSecp256k1(chainId, address, messages, fee, memo)
+
+      const isAutoSignValid = !txRequest.internal && (await validateAutoSign(chainId, messages))
+      const signedTx = isAutoSignValid
+        ? await signWithEmbeddedWallet(chainId, address, messages, fee, memo || "")
+        : await signWithEthSecp256k1(chainId, address, messages, fee, memo)
+
       await resolve(signedTx)
     },
     onError: async (error: Error) => {

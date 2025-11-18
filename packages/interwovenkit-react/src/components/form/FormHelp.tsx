@@ -7,6 +7,7 @@ import type { PropsWithChildren } from "react"
 
 interface Props {
   level: "info" | "warning" | "error" | "success"
+  mt?: number
 }
 
 const FormHelpStack = ({ children }: PropsWithChildren) => {
@@ -19,8 +20,8 @@ const FormHelpStack = ({ children }: PropsWithChildren) => {
   )
 }
 
-const FormHelp = (props: PropsWithChildren<Props>) => {
-  return <InputHelp {...props} className={clsx(styles.help, styles[props.level])} mt={0} />
+const FormHelp = ({ mt = 0, ...props }: PropsWithChildren<Props>) => {
+  return <InputHelp {...props} className={clsx(styles.help, styles[props.level])} mt={mt} />
 }
 
 FormHelp.Stack = FormHelpStack

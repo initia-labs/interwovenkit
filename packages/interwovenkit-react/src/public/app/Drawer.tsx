@@ -14,6 +14,7 @@ import { TX_APPROVAL_MUTATION_KEY, txRequestHandlerAtom } from "@/data/tx"
 import { useDrawer } from "@/data/ui"
 import { useIsMobile } from "@/hooks/useIsMobile"
 import { useNavigate, usePath } from "@/lib/router"
+import { pendingAutoSignRequestAtom } from "@/pages/autosign/data/store"
 import { usePortalContainer } from "../portal"
 import { PortalContext } from "./PortalContext"
 import ScrollLock from "./ScrollLock"
@@ -32,6 +33,7 @@ const Drawer = ({ children }: PropsWithChildren) => {
   // Currently handled via drawer/modal close instead.
   // Would be nice to fix this properly later.
   const txRequest = useAtomValue(txRequestHandlerAtom)
+  const pendingAutoSignRequest = useAtomValue(pendingAutoSignRequestAtom)
   const isPendingTransaction = useIsMutating({ mutationKey: [TX_APPROVAL_MUTATION_KEY] })
   const handleCloseDrawer = () => {
     const errorMessage = isPendingTransaction
@@ -41,6 +43,7 @@ const Drawer = ({ children }: PropsWithChildren) => {
     // This is because `reject` may re-throw the error after handling it.
     closeDrawer()
     txRequest?.reject(new Error(errorMessage))
+    pendingAutoSignRequest?.reject(new Error("User rejected"))
   }
 
   // Error

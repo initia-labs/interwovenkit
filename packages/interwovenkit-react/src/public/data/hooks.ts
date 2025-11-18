@@ -4,9 +4,11 @@ import { InitiaAddress } from "@initia/utils"
 import { accountQueryKeys, useUsernameClient } from "@/data/account"
 import { useDefaultChain } from "@/data/chains"
 import { STALE_TIMES } from "@/data/http"
+import { useIsPrivyConnected } from "@/data/privy"
 import { useOfflineSigner } from "@/data/signer"
 import { useTx } from "@/data/tx"
 import { useDisconnect, useDrawer } from "@/data/ui"
+import { useAutoSign } from "@/pages/autosign/data/public"
 import type { FormValues } from "@/pages/bridge/data/form"
 
 export { usePortfolio } from "@/data/portfolio"
@@ -19,7 +21,9 @@ export function useInitiaAddress() {
 
 export function useHexAddress() {
   const { address } = useAccount()
-  if (!address) return ""
+  const isPrivyConnected = useIsPrivyConnected()
+  // address undefined if privy is needed but not yet connected
+  if (!address || !isPrivyConnected) return ""
   return InitiaAddress(address).hex
 }
 
@@ -51,6 +55,7 @@ export function useInterwovenKit() {
   const { data: username } = useUsernameQuery()
   const offlineSigner = useOfflineSigner()
   const disconnect = useDisconnect()
+  const autoSign = useAutoSign()
 
   const { isDrawerOpen: isOpen, openDrawer } = useDrawer()
 
@@ -82,6 +87,7 @@ export function useInterwovenKit() {
     openWallet,
     openBridge,
     disconnect,
+    autoSign,
     ...tx,
   }
 }

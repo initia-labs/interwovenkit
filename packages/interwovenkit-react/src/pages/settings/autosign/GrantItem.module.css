@@ -1,0 +1,53 @@
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  background-color: var(--gray-8);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chainName {
+  color: var(--gray-0);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.expiration {
+  color: var(--gray-2);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.revokeButton {
+  background-color: var(--gray-6);
+  border-radius: 6px;
+  color: var(--gray-1);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  transition: background-color var(--transition) ease;
+
+  &:hover:not(:disabled) {
+    background-color: var(--gray-5);
+  }
+
+  &:disabled {
+    background-color: var(--gray-7);
+    color: var(--gray-4);
+    cursor: not-allowed;
+  }
+}

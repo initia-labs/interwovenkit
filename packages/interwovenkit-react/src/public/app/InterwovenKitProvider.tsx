@@ -1,14 +1,15 @@
 import { Tooltip } from "radix-ui"
 import { useEffect } from "react"
 import { useIsClient } from "usehooks-ts"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import { useInitiaRegistry, useLayer1 } from "@/data/chains"
 import type { Config } from "@/data/config"
 import { ConfigContext } from "@/data/config"
 import { LocalStorageKey } from "@/data/constants"
 import { migrateLocalStorage } from "@/data/migration"
+import { useSyncPrivyAuth } from "@/data/privy"
 import { MemoryRouter } from "@/lib/router"
+import { useInitializeAutoSign } from "@/pages/autosign/data/validation"
 import { useSkipAssets } from "@/pages/bridge/data/assets"
 import { useSkipChains } from "@/pages/bridge/data/chains"
 import { MAINNET } from "../data/constants"
@@ -38,6 +39,11 @@ const Fonts = () => {
 // The widget fetches registry information and other essentials before rendering
 // its children.  This keeps the UI responsive when the drawer first opens.
 const Prefetch = () => {
+  // autosign
+  useSyncPrivyAuth()
+  useInitializeAutoSign()
+
+  // initia registry
   useInitiaRegistry()
 
   // bridge
@@ -48,8 +54,6 @@ const Prefetch = () => {
 
   return null
 }
-
-const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 0 } } })
 
 const InterwovenKitProvider = ({ children, ...config }: PropsWithChildren<Partial<Config>>) => {
   useEffect(() => {
@@ -72,16 +76,14 @@ const InterwovenKitProvider = ({ children, ...config }: PropsWithChildren<Partia
                 <ModalProvider>
                   {children}
 
-                  <QueryClientProvider client={queryClient}>
-                    <Analytics />
-                    <AsyncBoundary suspenseFallback={null} errorBoundaryProps={{ fallback: null }}>
-                      <Prefetch />
-                    </AsyncBoundary>
+                  <Analytics />
+                  <AsyncBoundary suspenseFallback={null} errorBoundaryProps={{ fallback: null }}>
+                    <Prefetch />
+                  </AsyncBoundary>
 
-                    <Drawer>
-                      <Routes />
-                    </Drawer>
-                  </QueryClientProvider>
+                  <Drawer>
+                    <Routes />
+                  </Drawer>
                 </ModalProvider>
               </NotificationProvider>
             </Tooltip.Provider>

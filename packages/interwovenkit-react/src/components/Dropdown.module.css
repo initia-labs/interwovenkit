@@ -1,0 +1,62 @@
+.trigger {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+
+  background-color: var(--gray-7);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: background-color var(--transition) ease;
+
+  &:hover {
+    background-color: var(--gray-6);
+  }
+}
+
+.icon {
+  color: var(--dimmed);
+  transition: transform var(--transition);
+
+  .trigger[data-popup-open] & {
+    transform: rotate(180deg);
+  }
+}
+
+.content {
+  background-color: var(--gray-8);
+  border: 1px solid var(--gray-6);
+  border-radius: 6px;
+  overflow: hidden;
+  z-index: var(--z-index);
+}
+
+.item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+
+  color: var(--gray-0);
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: background-color var(--transition) ease;
+
+  &:hover {
+    background-color: var(--gray-7);
+  }
+}
+
+.itemText {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.itemIndicator {
+  opacity: 0;
+
+  &.active {
+    opacity: 1;
+  }
+}
