@@ -138,11 +138,11 @@
 }
 
 .errorContainer {
-  padding: 0 var(--padding);
-}
+  display: grid;
+  gap: 8px;
 
-.errorContainer > :first-child {
-  margin-top: var(--padding) !important;
+  padding: 0 var(--padding);
+  padding-top: var(--padding);
 }
 
 .footer {

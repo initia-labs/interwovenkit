@@ -1,5 +1,8 @@
+import ky from "ky"
 import { useState } from "react"
 import { useAtom } from "jotai"
+import { useQuery } from "@tanstack/react-query"
+import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { IconCheckCircle, IconExternalLink, IconWallet } from "@initia/icons-react"
 import { truncate } from "@initia/utils"
 import Button from "@/components/Button"
@@ -8,7 +11,6 @@ import Footer from "@/components/Footer"
 import FormHelp from "@/components/form/FormHelp"
 import Image from "@/components/Image"
 import Scrollable from "@/components/Scrollable"
-import { useIsAccountCreated } from "@/data/accountInfo"
 import { useFindChain, useInitiaRegistry, useLayer1 } from "@/data/chains"
 import { useDrawer } from "@/data/ui"
 import { useInterwovenKit } from "@/public/data/hooks"
@@ -16,6 +18,30 @@ import { useEnableAutoSign } from "./data/actions"
 import { DEFAULT_DURATION, DURATION_OPTIONS } from "./data/constants"
 import { pendingAutoSignRequestAtom } from "./data/store"
 import styles from "./EnableAutoSign.module.css"
+
+const accountQueries = createQueryKeys("account", {
+  info: (restUrl: string, address: string) => ({
+    queryKey: [restUrl, address],
+    queryFn: async () => {
+      const rest = ky.create({ prefixUrl: restUrl })
+      const path = `cosmos/auth/v1beta1/account_info/${address}`
+
+      try {
+        await rest.get(path).json()
+        return true
+      } catch {
+        return false
+      }
+    },
+  }),
+})
+
+function useIsAccountCreated(restUrl: string, address: string) {
+  return useQuery({
+    ...accountQueries.info(restUrl, address),
+    enabled: !!address && !!restUrl,
+  })
+}
 
 export default function EnableAutoSign() {
   const [duration, setDuration] = useState(DEFAULT_DURATION)
@@ -138,13 +164,11 @@ export default function EnableAutoSign() {
 
       <div className={styles.errorContainer}>
         {!isAccountCreated && !isAccountLoading && (
-          <FormHelp level="error" mt={8}>
-            Insufficient balance
-          </FormHelp>
+          <FormHelp level="error">Insufficient balance</FormHelp>
         )}
 
         {!isVerified && !warningIgnored && (
-          <FormHelp level="warning" mt={8}>
+          <FormHelp level="warning">
             <div className={styles.warningContent}>
               <span>You are on an unverified website. To continue, press Ignore.</span>
               <button onClick={() => setWarningIgnored(true)} className={styles.ignoreButton}>
