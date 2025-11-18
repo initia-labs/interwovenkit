@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/initia-labs/interwovenkit/compare/v2.0.6...v2.1.0) (2025-11-18)
+
+### Features
+
+- **autosign:** implement auto-sign and settings pages ([80b3447](https://github.com/initia-labs/interwovenkit/commit/80b3447425eec213d61b7731a0328427f36f2961))
+- **send-nft:** add IBC NFT transfer parameter generation ([91c4231](https://github.com/initia-labs/interwovenkit/commit/91c4231d8f0d2ff3a0b184a07ab7248da3747d44))
+
 ## [2.0.6](https://github.com/initia-labs/interwovenkit/compare/v2.0.5...v2.0.6) (2025-10-16)
 
 ### Features
