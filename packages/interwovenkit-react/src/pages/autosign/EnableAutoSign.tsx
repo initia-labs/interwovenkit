@@ -183,7 +183,7 @@ export default function EnableAutoSign() {
         <Button.Outline onClick={handleCancel}>Cancel</Button.Outline>
         <Button.White
           onClick={handleEnable}
-          disabled={isEnableDisabled || !isAccountCreated}
+          disabled={isEnableDisabled || !isAccountCreated || isAccountLoading}
           loading={isPending}
         >
           Enable
