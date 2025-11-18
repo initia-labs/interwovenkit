@@ -23,4 +23,4 @@ jobs:
           version: latest
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm --filter interwovenkit-react publish
+      - run: pnpm --filter interwovenkit-react publish --no-git-checks
