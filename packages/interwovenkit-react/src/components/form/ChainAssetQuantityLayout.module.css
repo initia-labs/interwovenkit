@@ -13,6 +13,7 @@
 
   .select {
     flex: 1;
+
     overflow: hidden;
   }
 
@@ -40,15 +41,13 @@
     font-family: var(--monospace);
     font-size: 13px;
     font-weight: 600;
-    text-align: right;
 
     overflow-x: auto;
     overflow-y: hidden;
+    text-align: right;
   }
 
   .error {
-    margin-top: 8px;
-
     display: flex;
     justify-content: flex-end;
     align-items: center;
@@ -57,5 +56,6 @@
     color: var(--error);
     font-size: 12px;
     font-weight: 500;
+    margin-top: 8px;
   }
 }

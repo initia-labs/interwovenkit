@@ -1,6 +1,7 @@
 .form {
   display: grid;
   gap: 16px;
+
   border-radius: 8px;
   padding: 24px;
 }
@@ -14,8 +15,8 @@
 }
 
 .title {
-  margin: 0;
   font-size: 1.5rem;
+  margin: 0;
   text-align: center;
 }
 
@@ -57,8 +58,8 @@
 }
 
 .submit {
-  border-radius: 6px;
   border: none;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 1rem;
   padding: 0.75rem;
@@ -84,19 +85,19 @@
 }
 
 .submit:disabled {
-  opacity: 0.5;
   cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .result {
   border-radius: 4px;
   font-family: monospace;
   margin-top: 12px;
+  overflow-wrap: anywhere;
   padding: 8px;
 
   white-space: pre-wrap;
   word-break: break-all;
-  overflow-wrap: anywhere;
 }
 
 [data-theme="dark"] .result {

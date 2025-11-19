@@ -6,6 +6,12 @@ export default {
     "order/properties-order": [
       [
         {
+          groupName: "reset",
+          emptyLineBefore: "always",
+          noEmptyLineBetween: true,
+          properties: ["all"],
+        },
+        {
           groupName: "position",
           emptyLineBefore: "always",
           noEmptyLineBetween: true,

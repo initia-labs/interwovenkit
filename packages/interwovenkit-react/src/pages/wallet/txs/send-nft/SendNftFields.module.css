@@ -2,6 +2,7 @@
   display: flex;
   align-items: flex-start;
   gap: 16px;
+
   margin-bottom: 24px;
   word-break: break-all;
 }

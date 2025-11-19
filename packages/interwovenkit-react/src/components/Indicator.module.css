@@ -5,8 +5,9 @@
 .badge {
   position: absolute;
 
-  background-color: var(--error);
-  border-radius: 4px;
   width: 8px;
   height: 8px;
+
+  background-color: var(--error);
+  border-radius: 4px;
 }

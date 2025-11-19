@@ -1,9 +1,9 @@
 .overlay {
   position: absolute;
   inset: 0;
+  z-index: var(--z-index);
 
   background-color: rgba(0, 0, 0, 0.7);
-  z-index: var(--z-index);
   transition: opacity var(--transition) cubic-bezier(0.4, 0, 0.2, 1);
 
   &[data-starting-style],
@@ -29,9 +29,9 @@
   background-color: var(--bg);
   border: 1px solid var(--gray-6);
   border-radius: 20px;
-  overflow: hidden;
-  min-height: 360px;
   max-height: calc(100% - 2 * 16px);
+  min-height: 360px;
+  overflow: hidden;
   transition: all var(--transition) cubic-bezier(0.4, 0, 0.2, 1);
   transition-property: opacity, transform;
 
@@ -46,8 +46,10 @@
   position: fixed;
   top: 50%;
   left: 50%;
+
   width: var(--drawer-width);
   height: 720px;
+
   transform: translate(-50%, -50%);
 }
 

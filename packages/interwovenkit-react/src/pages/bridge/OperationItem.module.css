@@ -19,21 +19,24 @@
   .divider {
     flex: 1;
 
-    border-top: 1px solid var(--border);
     height: 1px;
+
+    border-top: 1px solid var(--border);
   }
 
   .type {
+    z-index: 1;
+
     display: flex;
     justify-content: center;
     align-items: center;
 
+    width: 24px;
+    height: 24px;
+
     border-radius: 4px;
     color: var(--dimmed);
     cursor: default;
-    width: 24px;
-    height: 24px;
-    z-index: 1;
   }
 
   button.type {

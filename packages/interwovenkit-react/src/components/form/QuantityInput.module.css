@@ -1,7 +1,6 @@
 .input {
   /* unset */
   height: 52px;
-  padding: 0;
 
   background-color: transparent;
   border: 0;
@@ -9,10 +8,11 @@
   font-family: var(--monospace);
   font-size: 38px;
   font-weight: 700;
-  text-align: right;
 
   overflow-x: auto;
   overflow-y: hidden;
+  padding: 0;
+  text-align: right;
 
   &::placeholder,
   &.placeholder {

@@ -8,16 +8,17 @@
 .presets {
   display: flex;
   gap: 6px;
+
   margin-bottom: 16px;
 }
 
 .preset {
-  border: 1px solid transparent;
-  border-radius: 24px;
   width: 66px;
   height: 48px;
 
   background-color: var(--gray-7);
+  border: 1px solid transparent;
+  border-radius: 24px;
   color: var(--dimmed);
   font-size: 14px;
   font-weight: 500;
@@ -38,25 +39,28 @@
 
 .custom {
   flex: 1;
+
   font-family: var(--font-family);
   font-weight: 600;
 }
 
 .wrapper {
   position: relative;
+
   flex: 1;
 
   input {
-    font-family: var(--font-family);
     width: 100%;
+
+    font-family: var(--font-family);
   }
 
   .percent {
     position: absolute;
-    right: 16px;
     top: 50%;
-    transform: translateY(-50%);
+    right: 16px;
 
     font-family: var(--font-family);
+    transform: translateY(-50%);
   }
 }

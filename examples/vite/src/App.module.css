@@ -9,12 +9,13 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+
   margin-bottom: 24px;
 }
 
 .title {
-  margin: 0;
   font-size: 2rem;
+  margin: 0;
 }
 
 .title[data-testnet="true"] {

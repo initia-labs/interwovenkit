@@ -31,13 +31,13 @@
   }
 
   .labelWrapper {
+    position: relative;
+
     flex: 1;
 
     font-size: 12px;
     font-weight: 600;
     text-align: center;
-
-    position: relative;
   }
 
   .labelCopy {
@@ -67,12 +67,13 @@
   justify-content: space-between;
   align-items: center;
 
+  width: 100%;
+
   background: var(--gray-8);
   border-radius: 8px;
   font-size: 12px;
   font-weight: 500;
   padding: 16px;
-  width: 100%;
 }
 
 .derivedLabel {

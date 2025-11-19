@@ -1,8 +1,9 @@
 .loader {
-  animation: spin 1s linear infinite;
-  border-style: solid;
-  border-radius: 50%;
   display: inline-block;
+
+  animation: spin 1s linear infinite;
+  border-radius: 50%;
+  border-style: solid;
 }
 
 @keyframes spin {

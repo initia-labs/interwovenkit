@@ -1,5 +1,6 @@
 .container {
   display: grid;
+
   overflow: hidden;
 }
 
@@ -14,12 +15,13 @@
 .item {
   gap: 8px;
 
+  width: 100%;
+
   border-bottom: 1px solid var(--border);
   font-size: 14px;
   font-weight: 500;
   overflow: hidden;
   padding: 12px var(--padding);
-  width: 100%;
 
   transition: background-color var(--transition) ease;
 
@@ -38,21 +40,23 @@
 
 .info {
   flex: 1;
+
   display: grid;
 }
 
 .symbol {
-  font-weight: 600;
   width: 120px;
+
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .name {
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .balance {

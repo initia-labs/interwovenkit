@@ -12,9 +12,11 @@
 
 .search {
   flex: 1;
+
+  height: 44px;
+
   border: 1px solid var(--home-border);
   border-radius: 8px;
-  height: 44px;
 
   transition: border-color var(--transition) ease;
 

@@ -53,6 +53,7 @@
 
 .warningContent {
   flex: 1;
+
   display: flex;
   justify-content: space-between;
 }
@@ -81,8 +82,9 @@
 }
 
 .label {
-  color: var(--gray-2);
   width: 60px;
+
+  color: var(--gray-2);
 }
 
 .value {
@@ -127,11 +129,11 @@
   align-items: center;
   gap: 4px;
 
-  margin-top: 12px;
-
   color: var(--gray-2);
   font-size: 12px;
   font-weight: 500;
+
+  margin-top: 12px;
   text-decoration: underline;
 }
 

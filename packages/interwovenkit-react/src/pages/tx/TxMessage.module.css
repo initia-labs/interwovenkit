@@ -1,6 +1,7 @@
 .list {
   display: grid;
   gap: 16px;
+
   font-size: 12px;
   padding: 16px 20px;
 }

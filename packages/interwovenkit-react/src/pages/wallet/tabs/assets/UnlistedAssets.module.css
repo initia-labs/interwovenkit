@@ -19,7 +19,9 @@
 
 .divider {
   flex: 1;
+
   height: 1px;
+
   background-color: var(--border);
 }
 

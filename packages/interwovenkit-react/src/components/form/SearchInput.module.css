@@ -1,24 +1,26 @@
 .root {
+  position: relative;
+
   display: flex;
   gap: 8px;
-  position: relative;
 }
 
 .label {
   position: absolute;
-  left: var(--search-input-padding);
   top: 50%;
-  transform: translateY(-50%);
+  left: var(--search-input-padding);
 
   display: flex;
   align-items: center;
+
   color: var(--gray-2);
   margin: 0;
+  transform: translateY(-50%);
 }
 
 .input {
-  border: 0;
   background-color: transparent;
+  border: 0;
   font-size: 14px;
   font-weight: 500;
   padding: 0;
@@ -32,11 +34,11 @@
 
 .clear {
   position: absolute;
-  right: var(--search-input-padding);
   top: 50%;
-  transform: translateY(-50%);
+  right: var(--search-input-padding);
 
   color: var(--gray-4);
+  transform: translateY(-50%);
 
   transition: color var(--transition) ease;
 

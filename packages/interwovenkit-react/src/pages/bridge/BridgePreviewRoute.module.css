@@ -12,9 +12,10 @@
   justify-content: flex-start;
   gap: 4px;
 
+  height: 26px;
+
   background-color: var(--gray-6);
   border-radius: 13px;
-  height: 26px;
   font-size: 12px;
   font-weight: 600;
   padding: 0 12px;
@@ -27,6 +28,7 @@
 
   span {
     width: 82px; /* magic number to fit the text */
+
     text-align: center;
   }
 }
