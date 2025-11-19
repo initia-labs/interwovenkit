@@ -1,6 +1,7 @@
+import { calculateFee, GasPrice } from "@cosmjs/stargate"
 import BigNumber from "bignumber.js"
 import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useFormContext } from "react-hook-form"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
@@ -16,14 +17,15 @@ import RecipientInput from "@/components/form/RecipientInput"
 import ModalTrigger from "@/components/ModalTrigger"
 import Page from "@/components/Page"
 import { useBalances } from "@/data/account"
-import { useAsset } from "@/data/assets"
+import { useAsset, useFindAsset } from "@/data/assets"
 import { useChain, usePricesQuery } from "@/data/chains"
 import { useGasPrices, useLastFeeDenom } from "@/data/fee"
 import { STALE_TIMES } from "@/data/http"
 import { formatValue } from "@/lib/format"
+import TxFee from "@/pages/tx/TxFee"
+import TxMeta from "@/pages/tx/TxMeta"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useInterwovenKit } from "@/public/data/hooks"
-import { calcMaxAmount } from "./max"
 import SelectChainAsset from "./SelectChainAsset"
 import type { FormValues } from "./Send"
 import styles from "./SendFields.module.css"
@@ -33,7 +35,7 @@ const queryKeys = createQueryKeys("interwovenkit:send", {
 })
 
 export const SendFields = () => {
-  const { address, initiaAddress, estimateGas, requestTxSync } = useInterwovenKit()
+  const { address, initiaAddress, estimateGas, submitTxSync } = useInterwovenKit()
 
   const { register, watch, setValue, handleSubmit, formState } = useFormContext<FormValues>()
   const { errors } = formState
@@ -43,6 +45,7 @@ export const SendFields = () => {
   const balances = useBalances(chain)
   const gasPrices = useGasPrices(chain)
   const lastFeeDenom = useLastFeeDenom(chain)
+  const findAsset = useFindAsset(chain)
   const asset = useAsset(denom, chain)
   const { data: prices } = usePricesQuery(chain)
   const { decimals } = asset
@@ -69,7 +72,68 @@ export const SendFields = () => {
   })
 
   const gas = Math.ceil(estimatedGas * DEFAULT_GAS_ADJUSTMENT)
-  const maxAmount = calcMaxAmount({ denom, balances, gasPrices, lastFeeDenom, gas })
+
+  // Calculate fee options
+  const feeOptions = useMemo(
+    () =>
+      gasPrices.map(({ amount, denom }) => calculateFee(gas, GasPrice.fromString(amount + denom))),
+    [gasPrices, gas],
+  )
+
+  // Get initial fee denom
+  const getInitialFeeDenom = () => {
+    if (lastFeeDenom) {
+      const hasFee = feeOptions.some((fee) => fee.amount[0].denom === lastFeeDenom)
+      if (hasFee) return lastFeeDenom
+    }
+    return feeOptions[0]?.amount[0]?.denom
+  }
+
+  const [feeDenom, setFeeDenom] = useState(getInitialFeeDenom)
+
+  // Calculate fee details for sufficiency check
+  const getFeeDetails = (selectedFeeDenom: string) => {
+    const feeBalance = balances.find((balance) => balance.denom === selectedFeeDenom)?.amount ?? "0"
+    const feeAmount =
+      feeOptions.find((fee) => fee.amount[0].denom === selectedFeeDenom)?.amount[0]?.amount ?? "0"
+
+    // Calculate spend amount if sending the same token as fee
+    const spendAmount =
+      denom === selectedFeeDenom && quantity
+        ? BigNumber(toBaseUnit(quantity, { decimals }))
+        : BigNumber("0")
+
+    const totalRequired = BigNumber(feeAmount).plus(spendAmount)
+    const isSufficient = BigNumber(feeBalance).gte(totalRequired)
+
+    const feeAsset = findAsset(selectedFeeDenom)
+
+    return {
+      symbol: feeAsset.symbol,
+      decimals: feeAsset.decimals,
+      spend: spendAmount.gt(0) ? spendAmount.toFixed() : null,
+      fee: feeAmount,
+      total: totalRequired.toFixed(),
+      balance: feeBalance,
+      isSufficient,
+    }
+  }
+
+  const feeDetails = getFeeDetails(feeDenom)
+  const isInsufficient = !feeDetails.isSufficient
+
+  // Calculate max amount based on current selected fee
+  const maxAmount = useMemo(() => {
+    // If sending the same token as fee token
+    if (denom === feeDenom) {
+      const feeAmount =
+        feeOptions.find((fee) => fee.amount[0].denom === feeDenom)?.amount[0]?.amount ?? "0"
+      const maxValue = BigNumber(balance).minus(feeAmount)
+      return maxValue.gt(0) ? maxValue.toFixed() : "0"
+    }
+    // If sending different token
+    return balance
+  }, [denom, feeDenom, feeOptions, balance])
 
   const hasZeroBalance = BigNumber(balance).isZero()
   const isFeeToken = gasPrices.some(({ denom: feeDenom }) => feeDenom === denom)
@@ -89,16 +153,12 @@ export const SendFields = () => {
           }),
         },
       ]
-      return requestTxSync({
-        messages,
-        memo,
-        chainId,
-        gas: estimatedGas,
-        gasAdjustment: DEFAULT_GAS_ADJUSTMENT,
-        gasPrices: gasPrices,
-        spendCoins: [{ denom, amount }],
-        internal: "/",
-      })
+
+      // Find the selected fee from feeOptions
+      const fee = feeOptions.find((fee) => fee.amount[0].denom === feeDenom)
+      if (!fee) throw new Error("Fee not found")
+
+      return submitTxSync({ messages, memo, chainId, fee })
     },
   })
 
@@ -134,7 +194,7 @@ export const SendFields = () => {
                 }
                 disabled={isMaxButtonDisabled}
               >
-                {formatAmount(balance ?? "0", { decimals })}
+                {formatAmount(maxAmount ?? "0", { decimals })}
               </BalanceButton>
             }
             value={!quantity ? "$0" : !price ? "$-" : formatValue(BigNumber(quantity).times(price))}
@@ -159,6 +219,22 @@ export const SendFields = () => {
             {!memo && (
               <FormHelp level="warning">Check if the above transaction requires a memo</FormHelp>
             )}
+
+            {isInsufficient && <FormHelp level="error">Insufficient balance for fee</FormHelp>}
+
+            <TxMeta>
+              <TxMeta.Item
+                title="Tx fee"
+                content={
+                  <TxFee
+                    chain={chain}
+                    options={feeOptions}
+                    value={feeDenom}
+                    onChange={setFeeDenom}
+                  />
+                }
+              />
+            </TxMeta>
           </FormHelp.Stack>
         </div>
 
@@ -166,7 +242,7 @@ export const SendFields = () => {
           <Button.White
             type="submit"
             loading={(isLoading ? "Estimating gas..." : false) || isPending}
-            disabled={!!disabledMessage}
+            disabled={!!disabledMessage || isInsufficient}
           >
             {disabledMessage ?? "Confirm"}
           </Button.White>
