@@ -21,7 +21,7 @@ import { useSignWithEmbeddedWallet } from "../autosign/data/wallet"
 import TxFee from "./TxFee"
 import TxFeeInsufficient from "./TxFeeInsufficient"
 import TxMessage from "./TxMessage"
-import TxMetaItem from "./TxMetaItem"
+import TxMeta from "./TxMeta"
 import TxSimulate from "./TxSimulate"
 import styles from "./TxRequest.module.css"
 
@@ -110,12 +110,12 @@ const TxRequest = () => {
         <h1 className={styles.title}>Confirm tx</h1>
 
         <div className={styles.meta}>
-          <TxMetaItem title="Chain" content={chainId} />
-          <TxMetaItem
+          <TxMeta.Item title="Chain" content={chainId} />
+          <TxMeta.Item
             title="Tx fee"
             content={<TxFee options={feeOptions} value={feeDenom} onChange={setFeeDenom} />}
           />
-          {memo && <TxMetaItem title="Memo" content={memo} />}
+          {memo && <TxMeta.Item title="Memo" content={memo} />}
           {isInsufficient && (
             <FormHelp level="error">
               <TxFeeInsufficient {...feeDetails} />
