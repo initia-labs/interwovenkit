@@ -113,7 +113,9 @@ const TxRequest = () => {
           <TxMeta.Item title="Chain" content={chainId} />
           <TxMeta.Item
             title="Tx fee"
-            content={<TxFee options={feeOptions} value={feeDenom} onChange={setFeeDenom} />}
+            content={
+              <TxFee chain={chain} options={feeOptions} value={feeDenom} onChange={setFeeDenom} />
+            }
           />
           {memo && <TxMeta.Item title="Memo" content={memo} />}
           {isInsufficient && (
