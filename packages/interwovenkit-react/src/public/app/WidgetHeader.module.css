@@ -1,22 +1,23 @@
 .header {
   --header-size: 52px;
 
+  /* Prevent UI overlapping issues with absolute positioned menus (AssetActions)
+     when parent Scrollable container has overflow-y that's not hidden */
+  z-index: 1;
+
   display: grid;
   grid-template-columns: 1fr auto auto;
+
   height: var(--header-size);
 
   background-color: var(--gray-8);
   border-bottom: 1px solid var(--border);
-
-  /* Prevent UI overlapping issues with absolute positioned menus (AssetActions)
-     when parent Scrollable container has overflow-y that's not hidden */
-  z-index: 1;
 }
 
 .account {
   display: flex;
-  align-items: center;
   justify-content: flex-start;
+  align-items: center;
   gap: 6px;
 
   color: var(--gray-0);
@@ -71,8 +72,8 @@
 
 .disconnect {
   display: flex;
-  align-items: center;
   justify-content: flex-start;
+  align-items: center;
   gap: 4px;
 
   min-width: var(--header-size);

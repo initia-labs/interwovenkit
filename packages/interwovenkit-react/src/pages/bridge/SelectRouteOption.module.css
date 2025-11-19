@@ -36,8 +36,8 @@
 
 .header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
 }
 
 .title {
@@ -66,20 +66,23 @@
 .amount,
 .value {
   display: flex;
-  align-items: center;
   justify-content: flex-end;
+  align-items: center;
+
   font-family: var(--monospace);
 }
 
 .amount {
+  height: 48px;
+
   font-size: 32px;
   font-weight: 700;
-  height: 48px;
 }
 
 .value {
+  height: 20px;
+
   color: var(--gray-2);
   font-size: 13px;
   font-weight: 500;
-  height: 20px;
 }

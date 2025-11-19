@@ -25,11 +25,12 @@
 }
 
 .content {
+  z-index: var(--z-index);
+
   background-color: var(--gray-8);
   border: 1px solid var(--gray-6);
   border-radius: 6px;
   overflow: hidden;
-  z-index: var(--z-index);
 }
 
 .item {

@@ -9,8 +9,10 @@
 
 .icon {
   flex: none;
+
   display: flex;
   align-items: center;
+
   height: calc(12px * 1.5);
 }
 

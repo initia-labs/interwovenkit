@@ -8,18 +8,20 @@
 
 .item {
   flex: 1;
+
   gap: 10px;
+
+  height: 56px;
+
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  padding: 0 var(--padding);
+
+  transition: background-color var(--transition) ease;
 
   .name {
     flex: 1;
   }
-
-  border-bottom: 1px solid var(--border);
-  font-weight: 600;
-  height: 56px;
-  padding: 0 var(--padding);
-
-  transition: background-color var(--transition) ease;
 
   &:hover {
     background-color: var(--gray-8);

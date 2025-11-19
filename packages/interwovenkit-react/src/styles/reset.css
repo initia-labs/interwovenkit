@@ -1,7 +1,7 @@
 :where(*) {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
 }
 
 :where(h1, h2, h3, h4, h5, h6) {
@@ -15,6 +15,7 @@
 
 :where(img, picture, video, canvas, svg) {
   display: block;
+
   max-width: 100%;
 }
 
@@ -23,17 +24,21 @@
 }
 
 :where(input, button) {
+  display: block;
+
+  width: 100%;
+
   color: inherit;
   font: inherit;
-  display: block;
-  width: 100%;
 }
 
 :where(button) {
   all: unset;
-  box-sizing: border-box;
-  cursor: pointer;
+
   display: flex;
   justify-content: center;
   align-items: center;
+
+  box-sizing: border-box;
+  cursor: pointer;
 }

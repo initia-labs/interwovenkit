@@ -1,7 +1,7 @@
 .totalValue {
-  text-align: center;
-  padding: 8px 0;
   margin-bottom: 4px;
+  padding: 8px 0;
+  text-align: center;
 }
 
 .totalLabel {
@@ -23,13 +23,14 @@
 .nav {
   display: flex;
   gap: 8px;
+
   margin-bottom: 32px;
 
   .item {
     flex: 1;
-    flex-direction: column;
 
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     gap: 8px;
@@ -39,8 +40,8 @@
     color: var(--info);
     font-size: 12px;
     font-weight: 600;
-    padding-top: 16px;
     padding-bottom: 12px;
+    padding-top: 16px;
 
     transition: background-color var(--transition) ease;
 
@@ -53,6 +54,7 @@
 .tabs {
   display: flex;
   gap: 16px;
+
   margin-bottom: 12px;
 }
 

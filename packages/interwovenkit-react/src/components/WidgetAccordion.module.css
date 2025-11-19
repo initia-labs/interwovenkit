@@ -17,17 +17,17 @@
 }
 
 .trigger {
-  gap: 4px;
-
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 4px;
+
+  width: 100%;
 
   background-color: var(--accordion-border);
   font-size: 13px;
   font-weight: 500;
   padding: var(--accordion-padding);
-  width: 100%;
 
   transition: background-color var(--transition) ease;
 
@@ -39,9 +39,9 @@
 .content {
   background-color: var(--gray-8);
   border: 1px solid var(--accordion-border);
-  border-top-color: var(--gray-6);
   border-bottom-left-radius: var(--accordion-border-radius);
   border-bottom-right-radius: var(--accordion-border-radius);
+  border-top-color: var(--gray-6);
   overflow: hidden;
 
   will-change: height;

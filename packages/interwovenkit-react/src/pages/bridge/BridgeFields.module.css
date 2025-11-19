@@ -3,28 +3,32 @@
 }
 
 .arrow {
+  position: relative;
+
   display: flex;
   justify-content: center;
   align-items: center;
 
   margin: 0 calc(-1 * var(--padding));
-  position: relative;
 
   .divider {
     position: absolute;
     top: 50%;
     left: 0;
     right: 0;
+
     border-top: 1px solid var(--border);
   }
 
   .flip {
+    z-index: 1;
+
+    width: 32px;
+    height: 32px;
+
     background-color: var(--border);
     border-radius: 6px;
     color: var(--dimmed);
-    width: 32px;
-    height: 32px;
-    z-index: 1;
 
     transition: color var(--transition) ease;
   }
@@ -70,14 +74,16 @@
   }
 
   .edit {
-    width: 24px;
-    height: 24px;
-    background-color: var(--bridge-meta-button-bg);
-    border-radius: 50%;
-    color: var(--gray-2);
     display: flex;
     justify-content: center;
     align-items: center;
+
+    width: 24px;
+    height: 24px;
+
+    background-color: var(--bridge-meta-button-bg);
+    border-radius: 50%;
+    color: var(--gray-2);
 
     &:hover {
       color: var(--gray-0);

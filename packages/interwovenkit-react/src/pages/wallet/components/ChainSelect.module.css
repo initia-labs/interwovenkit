@@ -1,18 +1,20 @@
 .trigger {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
   gap: 2px;
 
-  border-radius: 8px;
+  width: 132px;
+  height: 44px;
+
   border: 1px solid var(--home-border);
+
+  border-radius: 8px;
   color: var(--gray-0);
   font-size: 12px;
   font-weight: 600;
   padding: 0px 16px;
   transition: border-color var(--transition) ease;
-  width: 132px;
-  height: 44px;
 
   &:hover {
     border-color: var(--home-border-hover);
@@ -49,13 +51,13 @@
 .popoverBackdrop {
   position: fixed;
   top: 1px;
+  bottom: 1px;
   left: 1px;
   right: 1px;
-  bottom: 1px;
+  z-index: 9999;
 
   background: rgba(0, 0, 0, 0.8);
   border-radius: var(--border-radius);
-  z-index: 9999;
 
   transition: opacity var(--transition) ease-out;
 
@@ -73,13 +75,14 @@
   display: flex;
   flex-direction: column;
 
-  background: var(--gray-8);
-  border-radius: 8px;
-  border: 1px solid var(--gray-6);
-  box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.2);
-  overflow: hidden;
   width: calc(var(--drawer-width) - 2 * var(--padding));
+
+  background: var(--gray-8);
+  border: 1px solid var(--gray-6);
+  border-radius: 8px;
+  box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.2);
   max-width: calc(100vw - 2 * var(--padding));
+  overflow: hidden;
 
   transition:
     transform var(--transition) ease-out,
@@ -95,11 +98,13 @@
 
 .search {
   flex: none;
+
   border-bottom: 1px solid var(--gray-6);
 }
 
 .viewport {
   flex: 1;
+
   overflow-y: auto;
 }
 
@@ -108,11 +113,12 @@
   align-items: center;
   gap: 8px;
 
+  height: 44px;
+
   color: var(--gray-0);
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
-  height: 44px;
   padding: 0 14px;
   transition: background-color var(--transition) ease;
 

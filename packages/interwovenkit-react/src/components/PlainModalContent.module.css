@@ -35,6 +35,7 @@
 
 .secondary {
   gap: 2px;
+
   color: var(--gray-2);
   font-size: 14px;
   font-weight: 500;

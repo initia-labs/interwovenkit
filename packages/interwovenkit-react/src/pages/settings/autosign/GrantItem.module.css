@@ -1,7 +1,7 @@
 .container {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: center;
 
   background-color: var(--gray-8);
   border-radius: 8px;
