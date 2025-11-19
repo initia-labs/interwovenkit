@@ -19,29 +19,16 @@ import { DEFAULT_DURATION, DURATION_OPTIONS } from "./data/constants"
 import { pendingAutoSignRequestAtom } from "./data/store"
 import styles from "./EnableAutoSign.module.css"
 
-const accountQueries = createQueryKeys("account", {
+const accountQueries = createQueryKeys("interwovenkit:account", {
   info: (restUrl: string, address: string) => ({
     queryKey: [restUrl, address],
     queryFn: async () => {
       const rest = ky.create({ prefixUrl: restUrl })
       const path = `cosmos/auth/v1beta1/account_info/${address}`
-
-      try {
-        await rest.get(path).json()
-        return true
-      } catch {
-        return false
-      }
+      return rest.get(path).json()
     },
   }),
 })
-
-function useIsAccountCreated(restUrl: string, address: string) {
-  return useQuery({
-    ...accountQueries.info(restUrl, address),
-    enabled: !!address && !!restUrl,
-  })
-}
 
 export default function EnableAutoSign() {
   const [duration, setDuration] = useState(DEFAULT_DURATION)
@@ -54,9 +41,8 @@ export default function EnableAutoSign() {
   const { mutate, isPending } = useEnableAutoSign()
   const { closeDrawer } = useDrawer()
   const { restUrl } = useLayer1()
-  const { data: isAccountCreated, isLoading: isAccountLoading } = useIsAccountCreated(
-    restUrl,
-    address,
+  const { data: isAccountCreated, isLoading: isCheckingAccount } = useQuery(
+    accountQueries.info(restUrl, address),
   )
 
   // Get website information
@@ -162,28 +148,31 @@ export default function EnableAutoSign() {
         </section>
       </Scrollable>
 
-      <div className={styles.errorContainer}>
-        {!isAccountCreated && !isAccountLoading && (
-          <FormHelp level="error">Insufficient balance</FormHelp>
-        )}
+      <Footer
+        className={styles.footer}
+        extra={
+          <div className={styles.feedbackContainer}>
+            {!isCheckingAccount && !isAccountCreated && (
+              <FormHelp level="error">Insufficient balance for fee</FormHelp>
+            )}
 
-        {!isVerified && !warningIgnored && (
-          <FormHelp level="warning">
-            <div className={styles.warningContent}>
-              <span>You are on an unverified website. To continue, press Ignore.</span>
-              <button onClick={() => setWarningIgnored(true)} className={styles.ignoreButton}>
-                Ignore
-              </button>
-            </div>
-          </FormHelp>
-        )}
-      </div>
-
-      <Footer className={styles.footer}>
+            {!isVerified && !warningIgnored && (
+              <FormHelp level="warning">
+                <div className={styles.warningContent}>
+                  <span>You are on an unverified website</span>
+                  <button onClick={() => setWarningIgnored(true)} className={styles.ignoreButton}>
+                    Ignore
+                  </button>
+                </div>
+              </FormHelp>
+            )}
+          </div>
+        }
+      >
         <Button.Outline onClick={handleCancel}>Cancel</Button.Outline>
         <Button.White
           onClick={handleEnable}
-          disabled={isEnableDisabled || !isAccountCreated || isAccountLoading}
+          disabled={isEnableDisabled || !isAccountCreated || isCheckingAccount}
           loading={isPending}
         >
           Enable
