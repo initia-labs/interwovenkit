@@ -1,6 +1,6 @@
 import ky from "ky"
 import { useState } from "react"
-import { useAtom } from "jotai"
+import { useAtom, useAtomValue } from "jotai"
 import { useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { IconCheckCircle, IconExternalLink, IconWallet } from "@initia/icons-react"
@@ -11,7 +11,7 @@ import Footer from "@/components/Footer"
 import FormHelp from "@/components/form/FormHelp"
 import Image from "@/components/Image"
 import Scrollable from "@/components/Scrollable"
-import { useFindChain, useInitiaRegistry, useLayer1 } from "@/data/chains"
+import { useFindChain, useInitiaRegistry } from "@/data/chains"
 import { useDrawer } from "@/data/ui"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useEnableAutoSign } from "./data/actions"
@@ -30,7 +30,7 @@ const accountQueries = createQueryKeys("interwovenkit:account", {
   }),
 })
 
-export default function EnableAutoSign() {
+const EnableAutoSignComponent = () => {
   const [duration, setDuration] = useState(DEFAULT_DURATION)
   const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
   const [warningIgnored, setWarningIgnored] = useState(false)
@@ -40,7 +40,10 @@ export default function EnableAutoSign() {
   const { address, username } = useInterwovenKit()
   const { mutate, isPending } = useEnableAutoSign()
   const { closeDrawer } = useDrawer()
-  const { restUrl } = useLayer1()
+
+  if (!pendingRequest) throw new Error("Pending request not found")
+
+  const { logoUrl, name, restUrl } = findChain(pendingRequest.chainId)
   const { data: isAccountCreated, isLoading: isCheckingAccount } = useQuery(
     accountQueries.info(restUrl, address),
   )
@@ -59,10 +62,6 @@ export default function EnableAutoSign() {
     const websiteDomain = getBaseDomain(window.location.hostname)
     return registryDomain === websiteDomain
   })
-
-  if (!pendingRequest) return null
-
-  const { logoUrl, name } = findChain(pendingRequest.chainId)
 
   const handleEnable = () => {
     mutate(duration)
@@ -181,6 +180,14 @@ export default function EnableAutoSign() {
     </>
   )
 }
+
+const EnableAutoSign = () => {
+  const pendingRequest = useAtomValue(pendingAutoSignRequestAtom)
+  if (!pendingRequest) return null
+  return <EnableAutoSignComponent />
+}
+
+export default EnableAutoSign
 
 /**
  * Extract base domain from hostname (e.g., subdomain.example.com -> example.com)
