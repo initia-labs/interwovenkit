@@ -47,7 +47,7 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
         }
 
         const { txs } = await skip
-          .post("v2/fungible/msgs", { json: params })
+          .post("v2/fungible/msgs", { json: { ...params, ignore_blacklist: true } })
           .json<MsgsResponseJson>()
         if (!txs || txs.length === 0) throw new Error("No transaction data found")
         const [tx] = txs

@@ -39,7 +39,10 @@ export function useSkipChains() {
   const skip = useSkip()
   const { data } = useSuspenseQuery({
     queryKey: skipQueryKeys.chains.queryKey,
-    queryFn: () => skip.get("v2/info/chains").json<{ chains: RouterChainJson[] }>(),
+    queryFn: () =>
+      skip
+        .get("v2/info/chains", { searchParams: { ignore_blacklist: true } })
+        .json<{ chains: RouterChainJson[] }>(),
     select: ({ chains }) =>
       sortWith(
         [

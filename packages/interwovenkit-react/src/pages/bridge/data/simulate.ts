@@ -52,7 +52,7 @@ export function useRouteQuery(
       }
 
       const response = await skip
-        .post("v2/fungible/route", { json: params })
+        .post("v2/fungible/route", { json: { ...params, ignore_blacklist: true } })
         .json<RouterRouteResponseJson>()
 
       const trackParams = {
