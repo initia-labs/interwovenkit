@@ -1,5 +1,8 @@
+import ky from "ky"
 import { useState } from "react"
-import { useAtom } from "jotai"
+import { useAtom, useAtomValue } from "jotai"
+import { useQuery } from "@tanstack/react-query"
+import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { IconCheckCircle, IconExternalLink, IconWallet } from "@initia/icons-react"
 import { truncate } from "@initia/utils"
 import Button from "@/components/Button"
@@ -16,7 +19,18 @@ import { DEFAULT_DURATION, DURATION_OPTIONS } from "./data/constants"
 import { pendingAutoSignRequestAtom } from "./data/store"
 import styles from "./EnableAutoSign.module.css"
 
-export default function EnableAutoSign() {
+const accountQueries = createQueryKeys("interwovenkit:account", {
+  info: (restUrl: string, address: string) => ({
+    queryKey: [restUrl, address],
+    queryFn: async () => {
+      const rest = ky.create({ prefixUrl: restUrl })
+      const path = `cosmos/auth/v1beta1/account_info/${address}`
+      return rest.get(path).json()
+    },
+  }),
+})
+
+const EnableAutoSignComponent = () => {
   const [duration, setDuration] = useState(DEFAULT_DURATION)
   const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
   const [warningIgnored, setWarningIgnored] = useState(false)
@@ -26,6 +40,13 @@ export default function EnableAutoSign() {
   const { address, username } = useInterwovenKit()
   const { mutate, isPending } = useEnableAutoSign()
   const { closeDrawer } = useDrawer()
+
+  if (!pendingRequest) throw new Error("Pending request not found")
+
+  const { logoUrl, name, restUrl } = findChain(pendingRequest.chainId)
+  const { data: isAccountCreated, isLoading: isCheckingAccount } = useQuery(
+    accountQueries.info(restUrl, address),
+  )
 
   // Get website information
   const websiteInfo = {
@@ -41,10 +62,6 @@ export default function EnableAutoSign() {
     const websiteDomain = getBaseDomain(window.location.hostname)
     return registryDomain === websiteDomain
   })
-
-  if (!pendingRequest) return null
-
-  const { logoUrl, name } = findChain(pendingRequest.chainId)
 
   const handleEnable = () => {
     mutate(duration)
@@ -75,17 +92,6 @@ export default function EnableAutoSign() {
               <div className={styles.websiteHost}>{websiteInfo.hostname}</div>
             </div>
           </div>
-
-          {!isVerified && !warningIgnored && (
-            <FormHelp level="warning" mt={8}>
-              <div className={styles.warningContent}>
-                <span>You are on an unverified website</span>
-                <button onClick={() => setWarningIgnored(true)} className={styles.ignoreButton}>
-                  Ignore
-                </button>
-              </div>
-            </FormHelp>
-          )}
         </section>
 
         <section>
@@ -141,15 +147,47 @@ export default function EnableAutoSign() {
         </section>
       </Scrollable>
 
-      <Footer className={styles.footer}>
+      <Footer
+        className={styles.footer}
+        extra={
+          <div className={styles.feedbackContainer}>
+            {!isCheckingAccount && !isAccountCreated && (
+              <FormHelp level="error">Insufficient balance for fee</FormHelp>
+            )}
+
+            {!isVerified && !warningIgnored && (
+              <FormHelp level="warning">
+                <div className={styles.warningContent}>
+                  <span>You are on an unverified website</span>
+                  <button onClick={() => setWarningIgnored(true)} className={styles.ignoreButton}>
+                    Ignore
+                  </button>
+                </div>
+              </FormHelp>
+            )}
+          </div>
+        }
+      >
         <Button.Outline onClick={handleCancel}>Cancel</Button.Outline>
-        <Button.White onClick={handleEnable} disabled={isEnableDisabled} loading={isPending}>
+        <Button.White
+          onClick={handleEnable}
+          disabled={isEnableDisabled || !isAccountCreated || isCheckingAccount}
+          loading={isPending}
+        >
           Enable
         </Button.White>
       </Footer>
     </>
   )
 }
+
+const EnableAutoSign = () => {
+  const pendingRequest = useAtomValue(pendingAutoSignRequestAtom)
+  if (!pendingRequest) return null
+  return <EnableAutoSignComponent />
+}
+
+export default EnableAutoSign
 
 /**
  * Extract base domain from hostname (e.g., subdomain.example.com -> example.com)

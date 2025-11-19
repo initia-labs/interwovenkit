@@ -137,6 +137,12 @@
   text-decoration: underline;
 }
 
+.feedbackContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .footer {
   padding: var(--padding);
 }
