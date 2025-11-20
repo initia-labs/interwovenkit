@@ -118,6 +118,7 @@ const EnableAutoSignComponent = () => {
                 value={duration}
                 onChange={setDuration}
                 classNames={{ trigger: styles.durationTrigger, item: styles.durationItem }}
+                darker
               />
             </div>
           </div>
