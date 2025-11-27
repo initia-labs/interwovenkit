@@ -1,21 +1,18 @@
 import type { StdFee } from "@cosmjs/amino"
-import BigNumber from "bignumber.js"
 import { formatAmount } from "@initia/utils"
 import Dropdown, { type DropdownOption } from "@/components/Dropdown"
 import { useFindAsset } from "@/data/assets"
-import { useChain } from "@/data/chains"
-import { useTxRequestHandler } from "@/data/tx"
+import type { NormalizedChain } from "@/data/chains"
 import styles from "./TxFee.module.css"
 
 interface Props {
+  chain: NormalizedChain
   options: StdFee[]
   value: string
   onChange: (denom: string) => void
 }
 
-const TxFee = ({ options, value, onChange }: Props) => {
-  const { txRequest } = useTxRequestHandler()
-  const chain = useChain(txRequest.chainId)
+const TxFee = ({ chain, options, value, onChange }: Props) => {
   const findAsset = useFindAsset(chain)
 
   const getDp = (amount: string, decimals: number) => {
@@ -24,7 +21,6 @@ const TxFee = ({ options, value, onChange }: Props) => {
   }
 
   const getLabel = ({ amount: [{ amount, denom }] }: StdFee) => {
-    if (BigNumber(amount).isZero()) return "0"
     const { symbol, decimals } = findAsset(denom)
     const dp = getDp(amount, decimals)
     return `${formatAmount(amount, { decimals, dp })} ${symbol}`

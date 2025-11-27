@@ -12,15 +12,19 @@ import FormHelp from "@/components/form/FormHelp"
 import Image from "@/components/Image"
 import Scrollable from "@/components/Scrollable"
 import { useFindChain, useInitiaRegistry } from "@/data/chains"
+import { useTxFee } from "@/data/fee"
+import { STALE_TIMES } from "@/data/http"
 import { useDrawer } from "@/data/ui"
+import TxFee from "@/pages/tx/TxFee"
+import TxMeta from "@/pages/tx/TxMeta"
 import { useInterwovenKit } from "@/public/data/hooks"
-import { useEnableAutoSign } from "./data/actions"
+import { useAutoSignMessages, useEnableAutoSign } from "./data/actions"
 import { DEFAULT_DURATION, DURATION_OPTIONS } from "./data/constants"
 import { pendingAutoSignRequestAtom } from "./data/store"
 import styles from "./EnableAutoSign.module.css"
 
-const accountQueries = createQueryKeys("interwovenkit:account", {
-  info: (restUrl: string, address: string) => ({
+const queryKeys = createQueryKeys("interwovenkit:enable-autosign", {
+  account: (restUrl: string, address: string) => ({
     queryKey: [restUrl, address],
     queryFn: async () => {
       const rest = ky.create({ prefixUrl: restUrl })
@@ -28,6 +32,7 @@ const accountQueries = createQueryKeys("interwovenkit:account", {
       return rest.get(path).json()
     },
   }),
+  gas: (messages, chainId) => [messages, chainId],
 })
 
 const EnableAutoSignComponent = () => {
@@ -37,16 +42,31 @@ const EnableAutoSignComponent = () => {
 
   const findChain = useFindChain()
   const chains = useInitiaRegistry()
-  const { address, username } = useInterwovenKit()
+  const { address, username, estimateGas } = useInterwovenKit()
   const { mutate, isPending } = useEnableAutoSign()
   const { closeDrawer } = useDrawer()
 
   if (!pendingRequest) throw new Error("Pending request not found")
 
-  const { logoUrl, name, restUrl } = findChain(pendingRequest.chainId)
+  const chain = findChain(pendingRequest.chainId)
+  const { logoUrl, name, restUrl } = chain
   const { data: isAccountCreated, isLoading: isCheckingAccount } = useQuery(
-    accountQueries.info(restUrl, address),
+    queryKeys.account(restUrl, address),
   )
+
+  // Build messages for gas estimation
+  const { messages, chainId } = useAutoSignMessages(duration)
+
+  // Estimate gas
+  const { data: estimatedGas = 0, isLoading: isEstimatingGas } = useQuery({
+    queryKey: queryKeys.gas(messages, chainId).queryKey,
+    queryFn: () => estimateGas({ messages, chainId }),
+    enabled: !!messages.length,
+    staleTime: STALE_TIMES.INFINITY,
+  })
+
+  // Calculate fee options
+  const { feeOptions, feeDenom, setFeeDenom, getFee } = useTxFee({ chain, estimatedGas })
 
   // Get website information
   const websiteInfo = {
@@ -64,7 +84,9 @@ const EnableAutoSignComponent = () => {
   })
 
   const handleEnable = () => {
-    mutate(duration)
+    const fee = getFee()
+    if (!fee) throw new Error("Fee not found")
+    mutate({ durationInMs: duration, fee })
   }
 
   const handleCancel = () => {
@@ -73,7 +95,7 @@ const EnableAutoSignComponent = () => {
     closeDrawer()
   }
 
-  const isEnableDisabled = !isVerified && !warningIgnored
+  const isEnableDisabled = (!isVerified && !warningIgnored) || !getFee()
 
   return (
     <>
@@ -118,6 +140,7 @@ const EnableAutoSignComponent = () => {
                 value={duration}
                 onChange={setDuration}
                 classNames={{ trigger: styles.durationTrigger, item: styles.durationItem }}
+                darker
               />
             </div>
           </div>
@@ -154,7 +177,6 @@ const EnableAutoSignComponent = () => {
             {!isCheckingAccount && !isAccountCreated && (
               <FormHelp level="error">Insufficient balance for fee</FormHelp>
             )}
-
             {!isVerified && !warningIgnored && (
               <FormHelp level="warning">
                 <div className={styles.warningContent}>
@@ -165,6 +187,20 @@ const EnableAutoSignComponent = () => {
                 </div>
               </FormHelp>
             )}
+
+            <TxMeta>
+              <TxMeta.Item
+                title="Tx fee"
+                content={
+                  <TxFee
+                    chain={chain}
+                    options={feeOptions}
+                    value={feeDenom}
+                    onChange={setFeeDenom}
+                  />
+                }
+              />
+            </TxMeta>
           </div>
         }
       >
@@ -172,7 +208,7 @@ const EnableAutoSignComponent = () => {
         <Button.White
           onClick={handleEnable}
           disabled={isEnableDisabled || !isAccountCreated || isCheckingAccount}
-          loading={isPending}
+          loading={isEstimatingGas || isPending}
         >
           Enable
         </Button.White>

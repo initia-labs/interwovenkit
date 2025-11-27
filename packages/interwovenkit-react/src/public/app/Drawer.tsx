@@ -80,14 +80,14 @@ const Drawer = ({ children }: PropsWithChildren) => {
     <Dialog.Root
       open={isDrawerOpen}
       onOpenChange={(open) => !open && handleCloseDrawer()}
-      // We intentionally use `modal={false}` instead of `modal="trap-focus"`
-      // because the drawer must be closable via outside clicks.
-      // In the current Base UI implementation, enabling "trap-focus" prevents
-      // users from dismissing the drawer by clicking outside of it.
-      // If Base UI is updated in the future to support outside-click dismissal
-      // while "trap-focus" is active, consider switching back to "trap-focus"
-      // for improved accessibility and focus management.
-      modal={false}
+      // Use `modal="trap-focus"` to confine focus within the drawer.
+      // 1. With trap-focus: pressing Tab won't close the drawer even after multiple presses.
+      // 2. With modal={false}: Tab eventually moves focus outside, which closes the drawer.
+      // Previous Base UI versions (beta.4) had bugs:
+      // 1. Drawer couldn't close via outside clicks when trap-focus was enabled
+      // 2. AssetActions menus couldn't close via outside clicks, allowing multiple open menus
+      // Future Base UI updates should be tested thoroughly to ensure these bugs don't resurface.
+      modal="trap-focus"
     >
       <Dialog.Portal container={portalContainer}>
         {isSmall && (

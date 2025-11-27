@@ -1,5 +1,6 @@
 import { IconBack } from "@initia/icons-react"
 import { Link } from "@/lib/router"
+import AsyncBoundary from "./AsyncBoundary"
 import Scrollable from "./Scrollable"
 import styles from "./Page.module.css"
 
@@ -24,7 +25,9 @@ const Page = ({ title, backButton, extra, children }: PropsWithChildren<Props>) 
         {extra}
       </header>
 
-      <Scrollable>{children}</Scrollable>
+      <AsyncBoundary>
+        <Scrollable>{children}</Scrollable>
+      </AsyncBoundary>
     </>
   )
 }
