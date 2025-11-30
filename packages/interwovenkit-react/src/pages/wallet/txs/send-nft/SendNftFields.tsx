@@ -8,15 +8,22 @@ import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { InitiaAddress } from "@initia/utils"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
+import FormHelp from "@/components/form/FormHelp"
 import { useAutoFocus } from "@/components/form/hooks"
 import RecipientInput from "@/components/form/RecipientInput"
 import Image from "@/components/Image"
 import List from "@/components/List"
 import ModalTrigger from "@/components/ModalTrigger"
+import { useBalances } from "@/data/account"
+import { useFindAsset } from "@/data/assets"
 import { useChain, useInitiaRegistry, useLayer1 } from "@/data/chains"
 import { useConfig } from "@/data/config"
+import { getFeeDetails, useTxFee } from "@/data/fee"
+import { STALE_TIMES } from "@/data/http"
 import { useAminoTypes } from "@/data/signer"
 import { useLocationState } from "@/lib/router"
+import TxFee from "@/pages/tx/TxFee"
+import TxMeta from "@/pages/tx/TxMeta"
 import { useInterwovenKit } from "@/public/data/hooks"
 import NftHeader from "../../tabs/nft/NftHeader"
 import { nftQueryKeys, type NormalizedNft } from "../../tabs/nft/queries"
@@ -26,6 +33,7 @@ import styles from "./SendNftFields.module.css"
 
 const queryKeys = createQueryKeys("interwovenkit:send-nft", {
   simulation: (params) => [params],
+  gas: (messages, chainId) => [messages, chainId],
 })
 
 const SendNftFields = () => {
@@ -36,7 +44,7 @@ const SendNftFields = () => {
   const { routerApiUrl } = useConfig()
   const aminoTypes = useAminoTypes()
   const layer1 = useLayer1()
-  const { address, initiaAddress: sender, requestTxSync } = useInterwovenKit()
+  const { address, initiaAddress: sender, estimateGas, submitTxSync } = useInterwovenKit()
 
   const { watch, setValue, handleSubmit, formState } = useFormContext<FormValues>()
   const { errors } = formState
@@ -80,13 +88,37 @@ const SendNftFields = () => {
     enabled: InitiaAddress.validate(recipient),
   })
 
-  const { data: messages, isLoading, error } = simulation
+  const { data: messages, isLoading: isLoadingMessages, error } = simulation
+
+  // Estimate gas based on messages
+  const gasQuery = useQuery({
+    queryKey: queryKeys.gas(
+      JSON.stringify(messages, (_, value: unknown) =>
+        typeof value === "bigint" ? value.toString() : value,
+      ),
+      srcChain.chainId,
+    ).queryKey,
+    queryFn: () => estimateGas({ messages: messages!, chainId: srcChain.chainId }),
+    enabled: !!messages,
+    staleTime: STALE_TIMES.INFINITY,
+  })
+
+  const { data: estimatedGas = 0, isLoading: isLoadingGas } = gasQuery
+
+  const balances = useBalances(srcChain)
+  const findAsset = useFindAsset(srcChain)
+  const { feeOptions, feeDenom, setFeeDenom, getFee } = useTxFee({ chain: srcChain, estimatedGas })
+
+  const feeDetails = getFeeDetails({ feeDenom, balances, feeOptions, findAsset })
+  const isInsufficient = !feeDetails.isSufficient
 
   const queryClient = useQueryClient()
   const { mutate, isPending } = useMutation({
     mutationFn: async () => {
       if (!messages) throw new Error("Route not found")
-      await requestTxSync({ messages, chainId: srcChain.chainId, internal: "/nfts" })
+      const fee = getFee()
+      if (!fee) throw new Error("Fee not found")
+      await submitTxSync({ messages, chainId: srcChain.chainId, fee, internal: "/nfts" })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: nftQueryKeys.nfts._def })
@@ -129,12 +161,34 @@ const SendNftFields = () => {
         </div>
 
         <RecipientInput myAddress={address} ref={useAutoFocus()} />
+
+        <FormHelp.Stack>
+          {isInsufficient && <FormHelp level="error">Insufficient balance for fee</FormHelp>}
+
+          <TxMeta>
+            <TxMeta.Item
+              title="Tx fee"
+              content={
+                <TxFee
+                  chain={srcChain}
+                  options={feeOptions}
+                  value={feeDenom}
+                  onChange={setFeeDenom}
+                />
+              }
+            />
+          </TxMeta>
+        </FormHelp.Stack>
       </div>
 
       <Footer>
         <Button.White
-          loading={(isLoading ? "Finding route..." : false) || isPending}
-          disabled={!!disabledMessage}
+          loading={
+            (isLoadingMessages ? "Finding route..." : false) ||
+            (isLoadingGas ? "Estimating gas..." : false) ||
+            isPending
+          }
+          disabled={!!disabledMessage || isInsufficient}
         >
           {disabledMessage ?? "Confirm"}
         </Button.White>

@@ -1,5 +1,8 @@
+import type { EncodeObject } from "@cosmjs/proto-signing"
+import type { StdFee } from "@cosmjs/stargate"
 import { addMilliseconds } from "date-fns"
-import { useAtom } from "jotai"
+import { useMemo } from "react"
+import { useAtom, useAtomValue } from "jotai"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { GenericAuthorization } from "@initia/initia.proto/cosmos/authz/v1beta1/authz"
 import { MsgGrant, MsgRevoke } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
@@ -17,13 +20,89 @@ import { pendingAutoSignRequestAtom } from "./store"
 import { autoSignQueryKeys, useAutoSignMessageTypes } from "./validation"
 import { useEmbeddedWalletAddress } from "./wallet"
 
+interface BuildAutoSignMessagesParams {
+  granter: string
+  grantee: string
+  messageTypes: string[]
+  expiration?: Date
+}
+
+/** Build messages for enabling auto-sign */
+function buildAutoSignMessages({
+  granter,
+  grantee,
+  messageTypes,
+  expiration,
+}: BuildAutoSignMessagesParams): EncodeObject[] {
+  const feegrantMessage: EncodeObject = {
+    typeUrl: "/cosmos.feegrant.v1beta1.MsgGrantAllowance",
+    value: MsgGrantAllowance.fromPartial({
+      granter,
+      grantee,
+      allowance: {
+        typeUrl: "/cosmos.feegrant.v1beta1.BasicAllowance",
+        value: BasicAllowance.encode(BasicAllowance.fromPartial({ expiration })).finish(),
+      },
+    }),
+  }
+
+  const authzMessages: EncodeObject[] = messageTypes.map((msgType) => ({
+    typeUrl: "/cosmos.authz.v1beta1.MsgGrant",
+    value: MsgGrant.fromPartial({
+      granter,
+      grantee,
+      grant: {
+        authorization: {
+          typeUrl: "/cosmos.authz.v1beta1.GenericAuthorization",
+          value: GenericAuthorization.encode(
+            GenericAuthorization.fromPartial({ msg: msgType }),
+          ).finish(),
+        },
+        expiration,
+      },
+    }),
+  }))
+
+  return [feegrantMessage, ...authzMessages]
+}
+
+/** Hook to build messages for enabling auto-sign */
+export function useAutoSignMessages(durationInMs: number) {
+  const initiaAddress = useInitiaAddress()
+  const embeddedWalletAddress = useEmbeddedWalletAddress()
+  const messageTypes = useAutoSignMessageTypes()
+  const pendingRequest = useAtomValue(pendingAutoSignRequestAtom)
+  const now = useMemo(() => new Date(), [])
+
+  if (!pendingRequest) {
+    throw new Error()
+  }
+
+  const { chainId } = pendingRequest
+
+  if (!initiaAddress || !embeddedWalletAddress) {
+    return { messages: [], chainId }
+  }
+
+  const expiration = durationInMs === 0 ? undefined : addMilliseconds(now, durationInMs)
+
+  const messages = buildAutoSignMessages({
+    granter: initiaAddress,
+    grantee: embeddedWalletAddress,
+    messageTypes: messageTypes[chainId],
+    expiration,
+  })
+
+  return { messages, chainId }
+}
+
 /* Enable AutoSign by granting permissions to embedded wallet for fee delegation and message execution */
 export function useEnableAutoSign() {
   const { privyContext } = useConfig()
   const initiaAddress = useInitiaAddress()
   const embeddedWalletAddress = useEmbeddedWalletAddress()
   const messageTypes = useAutoSignMessageTypes()
-  const { requestTxBlock } = useTx()
+  const { submitTxBlock } = useTx()
   const queryClient = useQueryClient()
   const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
   const { closeDrawer } = useDrawer()
@@ -37,7 +116,7 @@ export function useEnableAutoSign() {
   }
 
   return useMutation({
-    mutationFn: async (durationInMs: number) => {
+    mutationFn: async ({ durationInMs, fee }: { durationInMs: number; fee: StdFee }) => {
       if (!pendingRequest) {
         throw new Error("No pending request")
       }
@@ -52,37 +131,14 @@ export function useEnableAutoSign() {
 
       const expiration = durationInMs === 0 ? undefined : addMilliseconds(new Date(), durationInMs)
 
-      const feegrantMessage = {
-        typeUrl: "/cosmos.feegrant.v1beta1.MsgGrantAllowance",
-        value: MsgGrantAllowance.fromPartial({
-          granter: initiaAddress,
-          grantee: embeddedWalletAddress,
-          allowance: {
-            typeUrl: "/cosmos.feegrant.v1beta1.BasicAllowance",
-            value: BasicAllowance.encode(BasicAllowance.fromPartial({ expiration })).finish(),
-          },
-        }),
-      }
+      const messages = buildAutoSignMessages({
+        granter: initiaAddress,
+        grantee: embeddedWalletAddress,
+        messageTypes: messageTypes[chainId],
+        expiration,
+      })
 
-      const authzMessages = messageTypes[chainId].map((msgType) => ({
-        typeUrl: "/cosmos.authz.v1beta1.MsgGrant",
-        value: MsgGrant.fromPartial({
-          granter: initiaAddress,
-          grantee: embeddedWalletAddress,
-          grant: {
-            authorization: {
-              typeUrl: "/cosmos.authz.v1beta1.GenericAuthorization",
-              value: GenericAuthorization.encode(
-                GenericAuthorization.fromPartial({ msg: msgType }),
-              ).finish(),
-            },
-            expiration,
-          },
-        }),
-      }))
-
-      const messages = [feegrantMessage, ...authzMessages]
-      await requestTxBlock({ messages, chainId, internal: true })
+      await submitTxBlock({ messages, chainId, fee })
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({
