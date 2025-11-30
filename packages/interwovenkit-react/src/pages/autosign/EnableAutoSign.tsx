@@ -11,8 +11,10 @@ import Footer from "@/components/Footer"
 import FormHelp from "@/components/form/FormHelp"
 import Image from "@/components/Image"
 import Scrollable from "@/components/Scrollable"
+import { useBalances } from "@/data/account"
+import { useFindAsset } from "@/data/assets"
 import { useFindChain, useInitiaRegistry } from "@/data/chains"
-import { useTxFee } from "@/data/fee"
+import { getFeeDetails, useTxFee } from "@/data/fee"
 import { STALE_TIMES } from "@/data/http"
 import { useDrawer } from "@/data/ui"
 import TxFee from "@/pages/tx/TxFee"
@@ -66,7 +68,12 @@ const EnableAutoSignComponent = () => {
   })
 
   // Calculate fee options
+  const balances = useBalances(chain)
+  const findAsset = useFindAsset(chain)
   const { feeOptions, feeDenom, setFeeDenom, getFee } = useTxFee({ chain, estimatedGas })
+
+  const feeDetails = getFeeDetails({ feeDenom, balances, feeOptions, findAsset })
+  const isInsufficient = !feeDetails.isSufficient
 
   // Get website information
   const websiteInfo = {
@@ -174,7 +181,7 @@ const EnableAutoSignComponent = () => {
         className={styles.footer}
         extra={
           <div className={styles.feedbackContainer}>
-            {!isCheckingAccount && !isAccountCreated && (
+            {!isCheckingAccount && (!isAccountCreated || isInsufficient) && (
               <FormHelp level="error">Insufficient balance for fee</FormHelp>
             )}
             {!isVerified && !warningIgnored && (
@@ -207,7 +214,7 @@ const EnableAutoSignComponent = () => {
         <Button.Outline onClick={handleCancel}>Cancel</Button.Outline>
         <Button.White
           onClick={handleEnable}
-          disabled={isEnableDisabled || !isAccountCreated || isCheckingAccount}
+          disabled={isEnableDisabled || !isAccountCreated || isCheckingAccount || isInsufficient}
           loading={isEstimatingGas || isPending}
         >
           Enable
