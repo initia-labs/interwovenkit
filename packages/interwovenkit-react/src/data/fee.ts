@@ -29,7 +29,7 @@ interface GetFeeDetailsParams {
   feeDenom: string
   balances: Coin[]
   feeOptions: StdFee[]
-  spendAmount: BigNumber
+  spendAmount?: BigNumber
   findAsset: (denom: string) => { symbol: string; decimals: number }
 }
 
@@ -37,7 +37,7 @@ export function getFeeDetails({
   feeDenom,
   balances,
   feeOptions,
-  spendAmount,
+  spendAmount = BigNumber(0),
   findAsset,
 }: GetFeeDetailsParams): FeeDetails {
   const balance = balances.find((b) => b.denom === feeDenom)?.amount ?? "0"

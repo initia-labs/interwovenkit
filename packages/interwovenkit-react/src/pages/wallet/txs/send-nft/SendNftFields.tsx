@@ -14,9 +14,11 @@ import RecipientInput from "@/components/form/RecipientInput"
 import Image from "@/components/Image"
 import List from "@/components/List"
 import ModalTrigger from "@/components/ModalTrigger"
+import { useBalances } from "@/data/account"
+import { useFindAsset } from "@/data/assets"
 import { useChain, useInitiaRegistry, useLayer1 } from "@/data/chains"
 import { useConfig } from "@/data/config"
-import { useTxFee } from "@/data/fee"
+import { getFeeDetails, useTxFee } from "@/data/fee"
 import { STALE_TIMES } from "@/data/http"
 import { useAminoTypes } from "@/data/signer"
 import { useLocationState } from "@/lib/router"
@@ -103,7 +105,12 @@ const SendNftFields = () => {
 
   const { data: estimatedGas = 0, isLoading: isLoadingGas } = gasQuery
 
+  const balances = useBalances(srcChain)
+  const findAsset = useFindAsset(srcChain)
   const { feeOptions, feeDenom, setFeeDenom, getFee } = useTxFee({ chain: srcChain, estimatedGas })
+
+  const feeDetails = getFeeDetails({ feeDenom, balances, feeOptions, findAsset })
+  const isInsufficient = !feeDetails.isSufficient
 
   const queryClient = useQueryClient()
   const { mutate, isPending } = useMutation({
@@ -156,6 +163,8 @@ const SendNftFields = () => {
         <RecipientInput myAddress={address} ref={useAutoFocus()} />
 
         <FormHelp.Stack>
+          {isInsufficient && <FormHelp level="error">Insufficient balance for fee</FormHelp>}
+
           <TxMeta>
             <TxMeta.Item
               title="Tx fee"
@@ -179,7 +188,7 @@ const SendNftFields = () => {
             (isLoadingGas ? "Estimating gas..." : false) ||
             isPending
           }
-          disabled={!!disabledMessage}
+          disabled={!!disabledMessage || isInsufficient}
         >
           {disabledMessage ?? "Confirm"}
         </Button.White>
