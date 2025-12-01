@@ -6,7 +6,7 @@ import BigNumber from "bignumber.js"
 import { computeAddress } from "ethers"
 import ky from "ky"
 import { descend, isNil } from "ramda"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { InitiaAddress } from "@initia/utils"
 import { useTxs } from "@/pages/wallet/tabs/activity/queries"
@@ -145,15 +145,19 @@ export function useTxFee({ chain, estimatedGas }: UseTxFeeParams): UseTxFeeResul
     [gasPrices, gas],
   )
 
-  const getInitialFeeDenom = () => {
+  const initialFeeDenom = useMemo(() => {
     if (lastFeeDenom) {
       const hasFee = feeOptions.some((fee) => fee.amount[0].denom === lastFeeDenom)
       if (hasFee) return lastFeeDenom
     }
     return feeOptions[0]?.amount[0]?.denom
-  }
+  }, [lastFeeDenom, feeOptions])
 
-  const [feeDenom, setFeeDenom] = useState(getInitialFeeDenom)
+  const [feeDenom, setFeeDenom] = useState(initialFeeDenom)
+
+  useEffect(() => {
+    setFeeDenom(initialFeeDenom)
+  }, [initialFeeDenom])
 
   const getFee = () => feeOptions.find((fee) => fee.amount[0].denom === feeDenom)
 
