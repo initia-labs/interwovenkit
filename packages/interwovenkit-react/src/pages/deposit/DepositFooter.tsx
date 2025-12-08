@@ -3,46 +3,31 @@ import { calculateFee, GasPrice } from "@cosmjs/stargate"
 import type { TxJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
 import { useState } from "react"
-import { useToggle } from "usehooks-ts"
-import { IconChevronUp } from "@initia/icons-react"
-import { formatAmount, truncate } from "@initia/utils"
+import { formatAmount } from "@initia/utils"
 import Dropdown, { type DropdownOption } from "@/components/Dropdown"
 import { useBalances } from "@/data/account"
 import { useFindAsset } from "@/data/assets"
 import { useChain } from "@/data/chains"
 import { useGasPrices, useLastFeeDenom } from "@/data/fee"
-import { useConnectedWalletIcon } from "@/hooks/useConnectedWalletIcon"
-import { useLocationState } from "@/lib/router"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
-import { useInitiaAddress } from "@/public/data/hooks"
 import BridgePreviewFooter from "../bridge/BridgePreviewFooter"
 import { useAllSkipAssets } from "../bridge/data/assets"
-import { formatDuration } from "../bridge/data/format"
-import type { RouterRouteResponseJson } from "../bridge/data/simulate"
 import { useBridgePreviewState } from "../bridge/data/tx"
 import FooterWithErc20Approval from "../bridge/FooterWithErc20Approval"
-import styles from "./DepositFields.module.css"
+import DepositTxDetails from "./DepositTxDetails"
 
 interface Props {
   tx: TxJson
   gas: number | null
 }
 
-const DepositFooter = ({ tx, gas }: Props) => {
-  const { route } = useLocationState<{ route?: RouterRouteResponseJson }>()
+const DepositFooterWithFee = ({ tx, gas }: Props) => {
   const { values } = useBridgePreviewState()
-  const { srcChainId, dstDenom, dstChainId, srcDenom, quantity } = values
+  const { srcChainId, srcDenom, quantity } = values
   const skipAssets = useAllSkipAssets()
-  const dstAsset = skipAssets.find(
-    ({ denom, chain_id }) => denom === dstDenom && chain_id === dstChainId,
-  )
   const srcAsset = skipAssets.find(
     ({ denom, chain_id }) => denom === srcDenom && chain_id === srcChainId,
   )
-  const address = useInitiaAddress()
-  const walletIcon = useConnectedWalletIcon()
-
-  const [isDetailsOpen, toggleDetails] = useToggle(false)
 
   // Fee calculation for cosmos transactions
   const chain = useChain(srcChainId)
@@ -162,54 +147,27 @@ const DepositFooter = ({ tx, gas }: Props) => {
 
   return (
     <>
-      {route && dstAsset && (
-        <div className={styles.detailsContainer}>
-          <button className={styles.detailsButton} onClick={toggleDetails}>
-            Transaction details{" "}
-            <IconChevronUp
-              size={12}
-              style={{ transform: isDetailsOpen ? "rotate(180deg)" : "rotate(0deg)" }}
-            />
-          </button>
-          {isDetailsOpen && (
-            <>
-              <div className={styles.detail}>
-                <p className={styles.detailLabel}>Estimated time</p>
-                <p className={styles.detailValue}>
-                  {formatDuration(route.estimated_route_duration_seconds)}
-                </p>
-              </div>
-              {address && (
-                <div className={styles.detail}>
-                  <p className={styles.detailLabel}>Receiving address</p>
-                  <p className={styles.detailValue}>
-                    <img src={walletIcon} alt="Wallet" /> {truncate(address)}
-                  </p>
-                </div>
-              )}
-            </>
-          )}
-          <div className={styles.detail}>
-            <p className={styles.detailLabel}>Minimum received</p>
-            <p className={styles.detailValue}>
-              <img src={dstAsset.logo_uri} alt={dstAsset.symbol} />{" "}
-              {formatAmount(route.estimated_amount_out, { decimals: dstAsset.decimals })}{" "}
-              {dstAsset.symbol}
-            </p>
-          </div>
-          {feeOptions && feeOptions.length > 0 && (
-            <div className={styles.detail}>
-              <p className={styles.detailLabel}>Tx fee</p>
-              <p className={styles.detailValue}>{renderFee()}</p>
-            </div>
-          )}
-        </div>
-      )}
+      <DepositTxDetails renderFee={feeOptions && feeOptions.length > 0 ? renderFee : undefined} />
       <FooterWithErc20Approval tx={tx}>
         <BridgePreviewFooter tx={tx} fee={selectedFee} navigateTo="/deposit/completed" />
       </FooterWithErc20Approval>
     </>
   )
+}
+
+const DepositFooter = ({ tx, gas }: Props) => {
+  if (!gas || !("cosmos_tx" in tx)) {
+    return (
+      <>
+        <DepositTxDetails />
+        <FooterWithErc20Approval tx={tx}>
+          <BridgePreviewFooter tx={tx} fee={undefined} navigateTo="/deposit/completed" />
+        </FooterWithErc20Approval>
+      </>
+    )
+  }
+
+  return <DepositFooterWithFee tx={tx} gas={gas} />
 }
 
 export default DepositFooter
