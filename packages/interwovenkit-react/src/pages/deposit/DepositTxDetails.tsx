@@ -29,6 +29,10 @@ const DepositTxDetails = ({ renderFee }: Props) => {
 
   if (!route || !dstAsset) return null
 
+  const minimumReceived =
+    (BigInt(route.estimated_amount_out) * BigInt(10000 - Number(values.slippagePercent) * 100)) /
+    BigInt(10000)
+
   return (
     <div className={styles.detailsContainer}>
       <button className={styles.detailsButton} onClick={toggleDetails}>
@@ -40,6 +44,10 @@ const DepositTxDetails = ({ renderFee }: Props) => {
       </button>
       {isDetailsOpen && (
         <>
+          <div className={styles.detail}>
+            <p className={styles.detailLabel}>Slippage</p>
+            <p className={styles.detailValue}>{values.slippagePercent}%</p>
+          </div>
           <div className={styles.detail}>
             <p className={styles.detailLabel}>Estimated time</p>
             <p className={styles.detailValue}>
@@ -60,8 +68,7 @@ const DepositTxDetails = ({ renderFee }: Props) => {
         <p className={styles.detailLabel}>Minimum received</p>
         <p className={styles.detailValue}>
           <img src={dstAsset.logo_uri} alt={dstAsset.symbol} />{" "}
-          {formatAmount(route.estimated_amount_out, { decimals: dstAsset.decimals })}{" "}
-          {dstAsset.symbol}
+          {formatAmount(minimumReceived, { decimals: dstAsset.decimals })} {dstAsset.symbol}
         </p>
       </div>
       {renderFee && (
