@@ -66,6 +66,28 @@ export function useDepositAssets() {
     })
 }
 
+export function useFilteredDepositAssets() {
+  const assets = useDepositAssets()
+  const findChain = useFindSkipChain()
+  const { data: balances, isLoading } = useAllBalancesQuery()
+
+  const data = assets
+    .map((asset) => {
+      const chain = findChain(asset.chain_id)
+      if (!chain) return null
+      // filter out external cosmos chains (different wallet connection is required)
+      if (chain.chain_type === "cosmos" && chain.bech32_prefix !== "init") return null
+
+      const balance = balances?.[chain.chain_id][asset.denom]
+      if (!balance || !Number(balance.amount)) return null
+
+      return { asset, chain, balance }
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+
+  return { data, isLoading }
+}
+
 interface DepositForm {
   quantity: string
   srcDenom: string

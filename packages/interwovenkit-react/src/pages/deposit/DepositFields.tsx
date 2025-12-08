@@ -3,6 +3,7 @@ import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
 import Button from "@/components/Button"
+import FormHelp from "@/components/form/FormHelp"
 import QuantityInput from "@/components/form/QuantityInput"
 import { useConfig } from "@/data/config"
 import { useLocationState, useNavigate } from "@/lib/router"
@@ -15,7 +16,7 @@ import FooterWithMsgs from "../bridge/FooterWithMsgs"
 import FooterWithSignedOpHook from "../bridge/FooterWithSignedOpHook"
 import DepositFooter from "./DepositFooter"
 import FooterWithTxFee from "./FooterWithTxFee"
-import { useAllBalancesQuery, useDepositForm } from "./hooks"
+import { useAllBalancesQuery, useDepositForm, useFilteredDepositAssets } from "./hooks"
 import SelectDstAsset from "./SelectDstAsset"
 import SelectSrcAsset from "./SelectSrcAsset"
 import styles from "./DepositFields.module.css"
@@ -30,6 +31,7 @@ const DepositFields = () => {
   const { depositOptions = [] } = useConfig()
   const [isSelectorOpen, setSelector] = useState(false)
   const skipAssets = useAllSkipAssets()
+  const { data: filteredAssets, isLoading: isAssetsLoading } = useFilteredDepositAssets()
   const findChain = useFindSkipChain()
   const { data: balances } = useAllBalancesQuery()
   const hexAddress = useHexAddress()
@@ -83,8 +85,27 @@ const DepositFields = () => {
       )}
       <div className={styles.container}>
         <h3 className={styles.title}>Deposit {dstAsset.symbol}</h3>
+
+        {!isAssetsLoading && !filteredAssets.length && (
+          <>
+            <FormHelp level="info">
+              <p className={styles.info}>
+                No {dstAsset.symbol} available on supported chains.{" "}
+                <a href="https://bridge.initia.xyz">Bridge</a>
+              </p>
+            </FormHelp>
+            <div className={styles.divider} />
+          </>
+        )}
+
         <p className={styles.label}>From</p>
-        <button className={styles.asset} onClick={() => setSelector(true)}>
+        <button
+          className={styles.asset}
+          onClick={() => {
+            if (!isAssetsLoading && !filteredAssets.length) return
+            setSelector(true)
+          }}
+        >
           <div className={styles.assetIcon}>
             {!!srcAsset && (
               <>

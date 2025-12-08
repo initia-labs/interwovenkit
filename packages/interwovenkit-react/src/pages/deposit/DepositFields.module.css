@@ -15,6 +15,22 @@
   text-align: center;
 }
 
+.info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  width: 100%;
+
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 18px;
+}
+
+.divider {
+  height: 20px;
+}
+
 .label {
   color: var(--gray-2);
   font-size: 12px;
