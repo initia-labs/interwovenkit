@@ -1,6 +1,6 @@
 import { useConfig } from "@/data/config"
 import { useAllSkipAssets } from "../bridge/data/assets"
-import { useDepositForm } from "./hooks"
+import { useAllBalancesQuery, useDepositForm } from "./hooks"
 import styles from "./SelectDstAsset.module.css"
 
 const SelectDstAsset = () => {
@@ -10,6 +10,9 @@ const SelectDstAsset = () => {
     depositOptions.some((opt) => opt.denom === denom && opt.chainId === chain_id),
   )
   const { setValue } = useDepositForm()
+
+  // prefetch balance so next pages are quicker
+  useAllBalancesQuery()
 
   return (
     <>
