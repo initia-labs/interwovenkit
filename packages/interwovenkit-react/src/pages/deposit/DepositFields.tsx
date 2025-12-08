@@ -48,15 +48,21 @@ const DepositFields = () => {
 
   const quantityValue = Number(price) * Number(quantity || 0)
 
+  const [debouncedQuantity] = useDebounceValue(quantity, 300)
+  const {
+    data: route,
+    isLoading: isRouteLoading,
+    error: routeError,
+  } = useRouteQuery(debouncedQuantity)
+
   const disabledMessage = useMemo(() => {
     if (!srcAsset) return "Select asset"
     if (!quantity) return "Enter amount"
     if (errors.quantity) return errors.quantity.message
-    // Destructure error fields in deps to properly track each field change
-  }, [quantity, errors.quantity, srcAsset])
+    if (routeError) return "No route found"
 
-  const [debouncedQuantity] = useDebounceValue(quantity, 300)
-  const { data: route, isLoading: isRouteLoading } = useRouteQuery(debouncedQuantity)
+    // Destructure error fields in deps to properly track each field change
+  }, [quantity, errors.quantity, srcAsset, routeError])
 
   useEffect(() => {
     navigate(0, {
