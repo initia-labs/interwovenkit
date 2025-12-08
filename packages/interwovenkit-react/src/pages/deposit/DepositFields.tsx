@@ -153,9 +153,15 @@ const DepositFields = () => {
 
             <button
               className={styles.maxButton}
-              onClick={() =>
+              onClick={() => {
+                if (
+                  Number(quantity) ===
+                  Number(formatAmount(balance, { decimals: srcAsset?.decimals || 6 }))
+                )
+                  return
+
                 setValue("quantity", formatAmount(balance, { decimals: srcAsset?.decimals || 6 }))
-              }
+              }}
             >
               <IconWallet /> {formatAmount(balance, { decimals: srcAsset?.decimals || 6 })}{" "}
               <span>MAX</span>
