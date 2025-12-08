@@ -72,7 +72,7 @@ export function useTx() {
   const { defaultChainId, registryUrl } = useConfig()
   const findChain = useFindChain()
   const { openDrawer, closeDrawer } = useDrawer()
-  const { closeModal } = useModal()
+  const { openModal, closeModal } = useModal()
   const setTxRequestHandler = useSetAtom(txRequestHandlerAtom)
   const setTxStatus = useSetAtom(txStatusAtom)
   const createComet38Client = useCreateComet38Client()
@@ -154,8 +154,7 @@ export function useTx() {
       if (!txRequest.internal) {
         openDrawer("/tx")
       } else {
-        navigate("/tx")
-        //openModal({ path: "/tx" })
+        openModal({ path: "/tx" })
       }
 
       // Cleanup after the request resolves or rejects.
