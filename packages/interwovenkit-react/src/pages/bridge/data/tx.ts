@@ -168,13 +168,15 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
       }
     },
     onSuccess: async ({ txHash, wait }) => {
-      if (navigateTo) {
-        navigate(navigateTo, { txHash, chainId: srcChainId, route, values, timestamp: Date.now() })
-        return
-      }
       // Clean up and navigate
       localStorage.removeItem(LocalStorageKey.BRIDGE_QUANTITY)
-      navigate(-1)
+
+      if (navigateTo) {
+        navigate(navigateTo, { txHash, chainId: srcChainId, route, values, timestamp: Date.now() })
+      } else {
+        navigate(-1)
+      }
+
       showNotification({
         type: "loading",
         title: "Transaction is pending...",
@@ -253,7 +255,6 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
 
       if (navigateTo) {
         navigate(navigateTo, { error: true, message: formattedError.message, route, values })
-        return
       }
 
       showNotification({
