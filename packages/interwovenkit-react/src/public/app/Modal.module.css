@@ -1,0 +1,44 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+
+  backdrop-filter: blur(4px);
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 9999;
+
+  width: 400px;
+
+  background-color: var(--gray-9);
+  border: 1px solid var(--gray-6);
+  border-radius: 20px;
+  font-family: var(--font-family);
+  max-height: 90vh;
+  padding: 16px 20px;
+  transform: translate(-50%, -50%);
+}
+
+.closeButton {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+
+  color: var(--gray-4);
+  padding: 3px;
+}
+
+.content {
+  margin-top: 16px;
+  padding-top: 20px;
+}
+
+.content:only-child {
+  margin-top: 0;
+  padding-top: 0;
+}

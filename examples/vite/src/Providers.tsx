@@ -43,6 +43,13 @@ const InterwovenKitWrapper = ({ children }: PropsWithChildren) => {
       container={import.meta.env.DEV ? document.body : undefined}
       privyContext={{ privy, siwe, wallets, createWallet }}
       enableAutoSign={{ [chainId]: ["/cosmos.bank.v1beta1.MsgSend", "/initia.move.v1.MsgExecute"] }}
+      depositOptions={[
+        { denom: "uinit", chainId: "interwoven-1" },
+        {
+          denom: "ibc/6490A7EAB61059BFC1CDDEB05917DD70BDF3A611654162A1A47DB930D40D8AF4",
+          chainId: "interwoven-1",
+        },
+      ]}
     >
       {children}
     </InterwovenKitProvider>

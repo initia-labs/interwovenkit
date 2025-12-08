@@ -1,0 +1,34 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.subtitle {
+  color: var(--gray-2);
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: -14px;
+}
+
+.subtitle span {
+  color: var(--gray-0);
+}
+
+.link {
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  text-decoration: none;
+}
+
+.empty {
+  height: 10px;
+}

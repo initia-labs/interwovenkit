@@ -10,6 +10,13 @@ export const MAINNET: Config = {
   glyphUrl: "https://glyph.initia.xyz",
   usernamesModuleAddress: "0x72ed9b26ecdcd6a21d304df50f19abfdbe31d2c02f60c84627844620a45940ef",
   theme: "dark",
+  depositOptions: [
+    { denom: "uinit", chainId: "interwoven-1" },
+    {
+      denom: "ibc/6490A7EAB61059BFC1CDDEB05917DD70BDF3A611654162A1A47DB930D40D8AF4",
+      chainId: "interwoven-1",
+    },
+  ],
 }
 
 export const TESTNET: Config = {

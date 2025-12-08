@@ -7,7 +7,7 @@ import { STALE_TIMES } from "@/data/http"
 import { useIsPrivyConnected } from "@/data/privy"
 import { useOfflineSigner } from "@/data/signer"
 import { useTx } from "@/data/tx"
-import { useDisconnect, useDrawer } from "@/data/ui"
+import { useDisconnect, useDrawer, useModal } from "@/data/ui"
 import { useAutoSign } from "@/pages/autosign/data/public"
 import type { FormValues } from "@/pages/bridge/data/form"
 
@@ -57,7 +57,8 @@ export function useInterwovenKit() {
   const disconnect = useDisconnect()
   const autoSign = useAutoSign()
 
-  const { isDrawerOpen: isOpen, openDrawer } = useDrawer()
+  const { isDrawerOpen, openDrawer } = useDrawer()
+  const { isModalOpen, openModal } = useModal()
 
   const openWallet = () => {
     openDrawer("/")
@@ -71,6 +72,10 @@ export function useInterwovenKit() {
     openDrawer("/bridge", defaultValues)
   }
 
+  const openDeposit = () => {
+    openModal("/deposit")
+  }
+
   const tx = useTx()
 
   const isConnected = !!address
@@ -82,10 +87,11 @@ export function useInterwovenKit() {
     username,
     offlineSigner,
     isConnected,
-    isOpen,
+    isOpen: isDrawerOpen || isModalOpen,
     openConnect,
     openWallet,
     openBridge,
+    openDeposit,
     disconnect,
     autoSign,
     ...tx,

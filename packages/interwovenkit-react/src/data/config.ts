@@ -4,6 +4,11 @@ import type { useCreateWallet, useLoginWithSiwe, usePrivy, useWallets } from "@p
 import { createContext, useContext } from "react"
 import type { Chain } from "@initia/initia-registry-types"
 
+export interface DepositOption {
+  denom: string
+  chainId: string
+}
+
 export interface Config {
   defaultChainId: string
   customChain?: Chain
@@ -19,6 +24,7 @@ export interface Config {
   container?: HTMLElement
   disableAnalytics?: boolean
   enableAutoSign?: boolean | Record<string, string[]>
+  depositOptions?: DepositOption[]
   privyContext?: {
     privy: ReturnType<typeof usePrivy>
     createWallet: ReturnType<typeof useCreateWallet>["createWallet"]

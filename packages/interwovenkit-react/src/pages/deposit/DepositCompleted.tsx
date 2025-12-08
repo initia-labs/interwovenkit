@@ -1,0 +1,167 @@
+import { IconCloseCircleFilled } from "@initia/icons-react"
+import Button from "@/components/Button"
+import { useModal } from "@/data/ui"
+import { useLocationState } from "@/lib/router"
+import { useSkipAsset } from "../bridge/data/assets"
+import { formatDuration } from "../bridge/data/format"
+import { useBridgePreviewState, useTrackTxQuery, useTxStatusQuery } from "../bridge/data/tx"
+import CompletedAnimation from "./assets/Completed.webm"
+import LoadingAnimation from "./assets/Loading.webm"
+import styles from "./DepositCompleted.module.css"
+
+interface SuccessState {
+  txHash: string
+  chainId: string
+  timestamp: number
+}
+
+interface ErrorState {
+  error: true
+  message: string
+  timestamp?: number
+}
+
+type TxState = "pending" | "success" | "failed"
+
+function getTxState(txStatus?: { state: string } | null): TxState {
+  if (!txStatus) return "pending"
+
+  const status = txStatus.state
+  if (status === "STATE_COMPLETED_SUCCESS") {
+    return "success"
+  } else if (
+    status === "STATE_ABANDONED" ||
+    status === "STATE_COMPLETED_ERROR" ||
+    status === "STATE_PENDING_ERROR"
+  ) {
+    return "failed"
+  }
+  return "pending"
+}
+
+export function DepositCompleted() {
+  const state = useLocationState<SuccessState | ErrorState>()
+  const { route, values } = useBridgePreviewState()
+  const { closeModal } = useModal()
+
+  const isError = "error" in state
+  const txHash = !isError ? state.txHash : ""
+  const chainId = !isError ? state.chainId : ""
+  const timestamp = ("timestamp" in state ? state.timestamp : undefined) ?? 0
+
+  // Get source asset information for display
+  const { srcDenom, srcChainId, quantity } = values
+  const srcAsset = useSkipAsset(srcDenom, srcChainId)
+
+  // Track the transaction (always call hooks)
+  const { data: trackedTxHash } = useTrackTxQuery({
+    chainId,
+    txHash,
+    tracked: false,
+    timestamp,
+    route,
+    values,
+  })
+
+  // Query transaction status
+  const { data: txStatus } = useTxStatusQuery({
+    chainId,
+    txHash,
+    tracked: !!trackedTxHash,
+    timestamp,
+    route,
+    values,
+  })
+
+  // Derive state from transaction status
+  const txState = getTxState(txStatus)
+
+  // Error state handling
+  if (isError) {
+    return (
+      <div className={styles.container}>
+        <h3 className={styles.title}>Deposit Failed</h3>
+        <IconCloseCircleFilled size={52} className={styles.errorIcon} />
+        <p className={styles.error}>{state.message}</p>
+        <Button.White fullWidth onClick={closeModal}>
+          Close
+        </Button.White>
+      </div>
+    )
+  }
+
+  const estimatedDuration = formatDuration(route.estimated_route_duration_seconds)
+
+  // Generate Skip Explorer URL
+  const searchParams = new URLSearchParams({ tx_hash: txHash, chain_id: chainId })
+  const skipExplorerUrl = new URL(`?${searchParams.toString()}`, "https://explorer.skip.build")
+
+  return (
+    <div className={styles.container}>
+      {txState === "pending" && (
+        <>
+          <h3 className={styles.title}>
+            Depositing {quantity} {srcAsset.symbol}
+          </h3>
+          <video
+            src={LoadingAnimation}
+            autoPlay
+            muted
+            loop
+            playsInline
+            style={{ width: "58px", height: "58px" }}
+          />
+          <p className={styles.subtitle}>
+            Estimated time: <span>{estimatedDuration}</span>
+          </p>
+          <a
+            href={skipExplorerUrl.toString()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.link}
+          >
+            View transaction
+          </a>
+          <div className={styles.empty} />
+        </>
+      )}
+      {txState === "success" && (
+        <>
+          <h3 className={styles.title}>Deposit complete</h3>
+          <video
+            src={CompletedAnimation}
+            autoPlay
+            muted
+            playsInline
+            style={{ width: "58px", height: "58px" }}
+            onEnded={(e) => {
+              const video = e.currentTarget
+              video.currentTime = video.duration
+              video.pause()
+            }}
+          />
+          <a
+            href={skipExplorerUrl.toString()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.link}
+          >
+            View transaction
+          </a>
+          <Button.White fullWidth onClick={closeModal}>
+            Close
+          </Button.White>
+        </>
+      )}
+      {txState === "failed" && (
+        <>
+          <h3 className={styles.title}>Deposit Failed</h3>
+          <p className={styles.subtitle}>Your transaction could not be completed</p>
+          <Button.White fullWidth onClick={closeModal}>
+            Close
+          </Button.White>
+        </>
+      )}
+    </div>
+  )
+}
