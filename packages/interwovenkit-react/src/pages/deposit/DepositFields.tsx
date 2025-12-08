@@ -79,7 +79,17 @@ const DepositFields = () => {
   return (
     <>
       {!!depositOptions.length && (
-        <button className={styles.back} onClick={() => navigate(0, { asset: undefined })}>
+        <button
+          className={styles.back}
+          onClick={() => {
+            setValue("dstDenom", "")
+            setValue("dstChainId", "")
+            // reset other values
+            setValue("quantity", "")
+            setValue("srcDenom", "")
+            setValue("srcChainId", "")
+          }}
+        >
           <IconBack size={14} />
         </button>
       )}
