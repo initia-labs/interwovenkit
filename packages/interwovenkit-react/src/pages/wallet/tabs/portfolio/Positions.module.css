@@ -1,0 +1,34 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.title {
+  color: var(--gray-0);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.totalValue {
+  color: var(--gray-2);
+  font-family: var(--monospace);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+}
+
+.skeletonWrapper {
+  border-radius: 8px;
+  overflow: hidden;
+}

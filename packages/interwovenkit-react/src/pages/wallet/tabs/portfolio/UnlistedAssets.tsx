@@ -12,7 +12,7 @@ interface UnlistedAssetsProps {
 }
 
 const UnlistedAssets = ({ unlistedAssets }: UnlistedAssetsProps) => {
-  const [isOpen, setIsOpen] = useState(true)
+  const [isOpen, setIsOpen] = useState(false)
   const scrollableRef = useScrollableRef()
 
   // Animation for collapsible content using measureRef for auto height
