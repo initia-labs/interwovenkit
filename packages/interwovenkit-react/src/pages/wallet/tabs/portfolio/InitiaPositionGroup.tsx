@@ -4,6 +4,7 @@ import { useMemo } from "react"
 import { atom, useAtom } from "jotai"
 import { IconChevronDown, IconExternalLink } from "@initia/icons-react"
 import Image from "@/components/Image"
+import { INITIA_LIQUIDITY_URL } from "@/data/constants"
 import { useInitiaLiquidityPositions } from "@/data/initia-liquidity"
 import { useInitiaStakingPositions } from "@/data/initia-staking"
 import { useInitiaVipPositions } from "@/data/initia-vip"
@@ -55,7 +56,7 @@ const InitiaPositionGroup = ({ chainGroup }: Props) => {
     return [
       {
         protocol: "Initia",
-        manageUrl: "https://app.initia.xyz/liquidity/my",
+        manageUrl: INITIA_LIQUIDITY_URL,
         positions: stakingPositions,
       },
     ]
@@ -80,7 +81,7 @@ const InitiaPositionGroup = ({ chainGroup }: Props) => {
               <div className={styles.chainNameContainer}>
                 <span className={styles.chainName}>{chainName}</span>
                 <a
-                  href="https://app.initia.xyz/liquidity/my"
+                  href={INITIA_LIQUIDITY_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={styles.externalLink}

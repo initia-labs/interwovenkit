@@ -1,4 +1,10 @@
+/* Civitia game-specific colors (not part of global theming) */
 .section {
+  --civitia-gold-light: #fbe457;
+  --civitia-gold-dark: #e7ba38;
+  --civitia-silver-light: #fafafa;
+  --civitia-silver-dark: #aaaaaa;
+
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -30,11 +36,19 @@
 }
 
 .goldIcon {
-  background: radial-gradient(50% 50% at 50% 50%, #fbe457 0%, #e7ba38 100%);
+  background: radial-gradient(
+    50% 50% at 50% 50%,
+    var(--civitia-gold-light) 0%,
+    var(--civitia-gold-dark) 100%
+  );
 }
 
 .silverIcon {
-  background: radial-gradient(50% 50% at 50% 50%, #fafafa 0%, #aaaaaa 100%);
+  background: radial-gradient(
+    50% 50% at 50% 50%,
+    var(--civitia-silver-light) 0%,
+    var(--civitia-silver-dark) 100%
+  );
 }
 
 .rowTitle {

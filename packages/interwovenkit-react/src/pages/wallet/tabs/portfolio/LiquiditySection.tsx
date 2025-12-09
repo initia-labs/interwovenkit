@@ -1,9 +1,10 @@
 import clsx from "clsx"
 import { Collapsible } from "radix-ui"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { IconChevronDown, IconExternalLink } from "@initia/icons-react"
 import { formatNumber } from "@initia/utils"
 import Image from "@/components/Image"
+import { INITIA_LIQUIDITY_URL } from "@/data/constants"
 import type { LiquiditySectionData, LiquidityTableRow } from "@/data/minity"
 import { formatValue } from "@/lib/format"
 import type { DenomLogoMap } from "./PositionSection"
@@ -26,7 +27,7 @@ const LiquiditySection = ({ data, denomLogoMap }: LiquiditySectionProps) => {
           <div className={styles.sectionTitle}>
             <span className={styles.sectionLabel}>Liquidity</span>
             <a
-              href="https://app.initia.xyz/liquidity/my"
+              href={INITIA_LIQUIDITY_URL}
               target="_blank"
               rel="noopener noreferrer"
               className={styles.externalLink}
@@ -67,9 +68,13 @@ const LiquidityRow = ({ row, denomLogoMap }: LiquidityRowProps) => {
   // Calculate value per unit for breakdown value calculation
   const pricePerUnit = row.totalAmount > 0 ? row.totalValue / row.totalAmount : 0
 
-  // Get non-zero breakdown entries
-  const breakdownEntries = (Object.entries(breakdown) as [keyof typeof breakdown, number][]).filter(
-    ([, amount]) => amount > 0,
+  // Get non-zero breakdown entries - memoized since breakdown object is stable
+  const breakdownEntries = useMemo(
+    () =>
+      (Object.entries(breakdown) as [keyof typeof breakdown, number][]).filter(
+        ([, amount]) => amount > 0,
+      ),
+    [breakdown],
   )
 
   // Check if we have paired coin logos

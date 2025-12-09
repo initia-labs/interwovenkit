@@ -1,6 +1,5 @@
 import clsx from "clsx"
 import { Collapsible } from "radix-ui"
-import { uniq, without } from "ramda"
 import { useMemo } from "react"
 import { atom, useAtom } from "jotai"
 import { IconChevronDown, IconExternalLink } from "@initia/icons-react"
@@ -46,7 +45,9 @@ const AppchainPositionGroup = ({ chainGroup }: Props) => {
   const isOpen = openGroups.includes(chainName)
 
   const toggleOpen = () => {
-    setOpenGroups((prev) => (isOpen ? without([chainName], prev) : uniq([...prev, chainName])))
+    setOpenGroups((prev) =>
+      isOpen ? prev.filter((name) => name !== chainName) : [...new Set([...prev, chainName])],
+    )
   }
 
   return (

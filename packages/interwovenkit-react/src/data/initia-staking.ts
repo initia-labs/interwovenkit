@@ -11,6 +11,7 @@ import { useInitiaAddress } from "@/public/data/hooks"
 import { useAssets, useDenoms } from "./assets"
 import { useLayer1, usePricesQuery } from "./chains"
 import { useConfig } from "./config"
+import { INITIA_LIQUIDITY_URL } from "./constants"
 import { STALE_TIMES } from "./http"
 import type { Position, ProtocolPosition, TokenAsset } from "./minity"
 
@@ -165,29 +166,19 @@ interface NormalizedLockStaking {
 }
 
 // ============================================
-// REST CLIENT HELPER
-// ============================================
-
-function useLayer1RestClient() {
-  const { restUrl } = useLayer1()
-  return useMemo(() => ky.create({ prefixUrl: restUrl }), [restUrl])
-}
-
-// ============================================
 // HOOKS
 // ============================================
 
 /** Fetch regular delegations from mstaking module */
 export function useInitiaDelegations() {
   const { restUrl } = useLayer1()
-  const restClient = useLayer1RestClient()
   const address = useInitiaAddress()
 
   return useSuspenseQuery({
     queryKey: initiaStakingQueryKeys.delegations(restUrl, address).queryKey,
     queryFn: async () => {
-      const response = await restClient
-        .get(`initia/mstaking/v1/delegations/${address}`)
+      const response = await ky
+        .get(`${restUrl}/initia/mstaking/v1/delegations/${address}`)
         .json<DelegationResponse>()
       return response.delegation_responses
     },
@@ -221,7 +212,6 @@ export function useInitiaDelegations() {
 /** Fetch unbonding delegations from mstaking module (both user and lock staking addresses) */
 export function useInitiaUndelegations() {
   const { restUrl } = useLayer1()
-  const restClient = useLayer1RestClient()
   const { lockStakeModuleAddress } = useConfig()
   const address = useInitiaAddress()
   const lockStakingAddress = lockStakeModuleAddress
@@ -233,16 +223,18 @@ export function useInitiaUndelegations() {
       .queryKey,
     queryFn: async () => {
       // Fetch user unbonding delegations
-      const userResult = await restClient
-        .get(`initia/mstaking/v1/delegators/${address}/unbonding_delegations`)
+      const userResult = await ky
+        .get(`${restUrl}/initia/mstaking/v1/delegators/${address}/unbonding_delegations`)
         .json<UnbondingDelegationResponse>()
         .catch(() => ({ unbonding_responses: [] }))
 
       // Only fetch lock staking undelegations if module is configured
       let lockResponses: UnbondingDelegationResponse["unbonding_responses"] = []
       if (lockStakingAddress) {
-        const lockResult = await restClient
-          .get(`initia/mstaking/v1/delegators/${lockStakingAddress}/unbonding_delegations`)
+        const lockResult = await ky
+          .get(
+            `${restUrl}/initia/mstaking/v1/delegators/${lockStakingAddress}/unbonding_delegations`,
+          )
           .json<UnbondingDelegationResponse>()
           .catch(() => ({ unbonding_responses: [] }))
         lockResponses = lockResult.unbonding_responses
@@ -357,14 +349,13 @@ function normalizeRewards(data: RewardsResponse): NormalizedRewards {
 /** Fetch staking rewards from distribution module (regular staking) */
 export function useInitiaStakingRewards() {
   const { restUrl } = useLayer1()
-  const restClient = useLayer1RestClient()
   const address = useInitiaAddress()
 
   return useSuspenseQuery({
     queryKey: initiaStakingQueryKeys.stakingRewards(restUrl, address).queryKey,
     queryFn: async () => {
-      const response = await restClient
-        .get(`initia/distribution/v1/delegators/${address}/rewards`)
+      const response = await ky
+        .get(`${restUrl}/initia/distribution/v1/delegators/${address}/rewards`)
         .json<RewardsResponse>()
       return response
     },
@@ -376,7 +367,6 @@ export function useInitiaStakingRewards() {
 /** Fetch lock staking rewards from distribution module */
 export function useInitiaLockStakingRewards() {
   const { restUrl } = useLayer1()
-  const restClient = useLayer1RestClient()
   const { lockStakeModuleAddress } = useConfig()
   const address = useInitiaAddress()
   const lockStakingAddress = lockStakeModuleAddress
@@ -391,8 +381,8 @@ export function useInitiaLockStakingRewards() {
         return { rewards: [], total: [] }
       }
 
-      const response = await restClient
-        .get(`initia/distribution/v1/delegators/${lockStakingAddress}/rewards`)
+      const response = await ky
+        .get(`${restUrl}/initia/distribution/v1/delegators/${lockStakingAddress}/rewards`)
         .json<RewardsResponse>()
       return response
     },
@@ -455,18 +445,18 @@ export function useInitiaStakingPositions(): InitiaStakingPositionsResult {
     return map
   }, [assets])
 
-  // Helper to get asset info from denom - returns null if not found in registry
-  const getAssetInfo = (denom: string) => {
-    const asset = assetByDenom.get(denom)
-    if (!asset) return null
-    return {
-      symbol: asset.symbol,
-      decimals: asset.decimals,
-    }
-  }
-
   const positions = useMemo(() => {
     const result: Position[] = []
+
+    // Helper to get asset info from denom - returns null if not found in registry
+    const getAssetInfo = (denom: string) => {
+      const asset = assetByDenom.get(denom)
+      if (!asset) return null
+      return {
+        symbol: asset.symbol,
+        decimals: asset.decimals,
+      }
+    }
 
     // Process delegations → staking positions
     for (const [metadata, stakingList] of delegations) {
@@ -568,7 +558,6 @@ export function useInitiaStakingPositions(): InitiaStakingPositionsResult {
     }
 
     return result
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [delegations, lockStaking, undelegations, denomsMap, assetByDenom, priceByDenom])
 
   // Calculate total value from position balances (prices fetched via usePricesQuery)
@@ -595,7 +584,7 @@ export function useInitiaStakingProtocol(): ProtocolPosition {
 
   return {
     protocol: "Initia",
-    manageUrl: "https://app.initia.xyz/liquidity/my",
+    manageUrl: INITIA_LIQUIDITY_URL,
     positions,
   }
 }

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react"
 import { IconChevronDown, IconExternalLink } from "@initia/icons-react"
 import { formatNumber } from "@initia/utils"
 import Image from "@/components/Image"
+import { INITIA_LIQUIDITY_URL } from "@/data/constants"
 import {
   type DenomGroup,
   getPositionTypeLabel,
@@ -69,7 +70,7 @@ const PositionSection = ({ sectionKey, positions, denomLogoMap }: PositionSectio
           <span className={styles.sectionLabel}>{label}</span>
           {isStakingSection && (
             <a
-              href="https://app.initia.xyz/liquidity/my"
+              href={INITIA_LIQUIDITY_URL}
               target="_blank"
               rel="noopener noreferrer"
               className={styles.externalLink}
@@ -154,29 +155,45 @@ const TokenRow = ({ group, showTypeBreakdown, denomLogoMap }: TokenRowProps) => 
       </Collapsible.Trigger>
 
       <Collapsible.Content className={styles.collapsibleContent}>
-        <div className={styles.typeBreakdown}>
-          {Array.from(typeGroups.entries()).map(([type, typePositions]) => {
-            const typeAmount = typePositions.reduce((sum, pos) => {
-              if (pos.type === "fungible-position") return sum
-              if (pos.balance.type === "unknown") return sum
-              return sum + pos.balance.formattedAmount
-            }, 0)
-            const typeValue = typePositions.reduce((sum, pos) => sum + getPositionValue(pos), 0)
-            return (
-              <div key={type} className={styles.typeRow}>
-                <span className={styles.typeLabel}>{getPositionTypeLabel(type)}</span>
-                <div className={styles.typeValues}>
-                  <span className={styles.typeAmount}>
-                    {formatNumber(typeAmount, { dp: 6 })} {symbol}
-                  </span>
-                  <span className={styles.typeValue}>{formatValue(typeValue)}</span>
-                </div>
-              </div>
-            )
-          })}
-        </div>
+        <TypeBreakdown typeGroups={typeGroups} symbol={symbol} />
       </Collapsible.Content>
     </Collapsible.Root>
+  )
+}
+
+interface TypeBreakdownProps {
+  typeGroups: Map<Position["type"], Position[]>
+  symbol: string
+}
+
+const TypeBreakdown = ({ typeGroups, symbol }: TypeBreakdownProps) => {
+  // Pre-calculate all type amounts and values
+  const typeData = useMemo(() => {
+    return Array.from(typeGroups.entries()).map(([type, typePositions]) => {
+      const typeAmount = typePositions.reduce((sum, pos) => {
+        if (pos.type === "fungible-position") return sum
+        if (pos.balance.type === "unknown") return sum
+        return sum + pos.balance.formattedAmount
+      }, 0)
+      const typeValue = typePositions.reduce((sum, pos) => sum + getPositionValue(pos), 0)
+      return { type, typeAmount, typeValue }
+    })
+  }, [typeGroups])
+
+  return (
+    <div className={styles.typeBreakdown}>
+      {typeData.map(({ type, typeAmount, typeValue }) => (
+        <div key={type} className={styles.typeRow}>
+          <span className={styles.typeLabel}>{getPositionTypeLabel(type)}</span>
+          <div className={styles.typeValues}>
+            <span className={styles.typeAmount}>
+              {formatNumber(typeAmount, { dp: 6 })} {symbol}
+            </span>
+            <span className={styles.typeValue}>{formatValue(typeValue)}</span>
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 

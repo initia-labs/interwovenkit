@@ -1,5 +1,5 @@
 import ky from "ky"
-import { useMemo } from "react"
+import { useCallback, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { fromBaseUnit } from "@initia/utils"
@@ -113,9 +113,8 @@ export function useAllVipVestingPositions() {
     queryKey: initiaVipQueryKeys.allVestingPositions(vipUrl ?? "", address).queryKey,
     queryFn: async () => {
       if (!vipUrl) throw new Error("VIP URL not configured")
-      const client = ky.create({ prefixUrl: vipUrl })
-      const data = await client
-        .get(`vesting/positions/${address}`)
+      const data = await ky
+        .get(`${vipUrl}/vesting/positions/${address}`)
         .json<AllVestingPositionsResponse>()
       // Filter to positions with rewards
       return data.filter(({ total_vesting_reward }) => total_vesting_reward > 0)
@@ -129,10 +128,12 @@ export function useAllVipVestingPositions() {
 export function useFindChainByBridgeId() {
   const chains = useInitiaRegistry()
 
-  return (bridgeId: number | string) => {
-    const chain = chains.find(({ metadata }) => metadata?.op_bridge_id === String(bridgeId))
-    return chain
-  }
+  return useCallback(
+    (bridgeId: number | string) => {
+      return chains.find(({ metadata }) => metadata?.op_bridge_id === String(bridgeId))
+    },
+    [chains],
+  )
 }
 
 /**

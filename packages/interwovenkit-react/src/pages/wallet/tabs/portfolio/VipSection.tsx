@@ -4,6 +4,7 @@ import { useState } from "react"
 import { IconChevronDown, IconExternalLink } from "@initia/icons-react"
 import { formatNumber } from "@initia/utils"
 import Image from "@/components/Image"
+import { INITIA_VIP_URL } from "@/data/constants"
 import type { VipPositionRow, VipSectionData } from "@/data/initia-vip"
 import { formatValue } from "@/lib/format"
 import styles from "./VipSection.module.css"
@@ -24,7 +25,7 @@ const VipSection = ({ data }: VipSectionProps) => {
           <div className={styles.sectionTitle}>
             <span className={styles.sectionLabel}>VIP position</span>
             <a
-              href="https://app.initia.xyz/vip/my"
+              href={INITIA_VIP_URL}
               target="_blank"
               rel="noopener noreferrer"
               className={styles.externalLink}

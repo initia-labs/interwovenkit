@@ -74,16 +74,6 @@ interface PoolResponse {
 // HELPER FUNCTIONS
 // ============================================
 
-function useDexClient() {
-  const { dexUrl } = useConfig()
-
-  if (!dexUrl) {
-    throw new Error("dexUrl is not configured")
-  }
-
-  return useMemo(() => ky.create({ prefixUrl: dexUrl }), [dexUrl])
-}
-
 function normalizeLps(coins: Coin[]): Map<string, CoinWithMetadata[]> {
   const result = new Map<string, CoinWithMetadata[]>()
 
@@ -106,15 +96,14 @@ function normalizeLps(coins: Coin[]): Map<string, CoinWithMetadata[]> {
 
 /** Fetch all wallet balances */
 export function useWalletBalances() {
-  const layer1 = useLayer1()
+  const { restUrl } = useLayer1()
   const address = useInitiaAddress()
-  const restClient = useMemo(() => ky.create({ prefixUrl: layer1.restUrl }), [layer1.restUrl])
 
   return useSuspenseQuery({
-    queryKey: initiaLiquidityQueryKeys.balances(layer1.restUrl, address).queryKey,
+    queryKey: initiaLiquidityQueryKeys.balances(restUrl, address).queryKey,
     queryFn: async () => {
-      const response = await restClient
-        .get(`cosmos/bank/v1beta1/balances/${address}`)
+      const response = await ky
+        .get(`${restUrl}/cosmos/bank/v1beta1/balances/${address}`)
         .json<BalancesResponse>()
       return response.balances
     },
@@ -126,18 +115,13 @@ export function useWalletBalances() {
 export function useCheckLpTokens(denoms: string[]) {
   const { dexUrl } = useConfig()
 
-  if (!dexUrl) {
-    throw new Error("dexUrl is not configured")
-  }
-
-  const dexClient = useDexClient()
-
   return useSuspenseQuery({
-    queryKey: initiaLiquidityQueryKeys.checkLpTokens(dexUrl, denoms).queryKey,
+    queryKey: initiaLiquidityQueryKeys.checkLpTokens(dexUrl ?? "", denoms).queryKey,
     queryFn: async () => {
+      if (!dexUrl) throw new Error("dexUrl is not configured")
       if (denoms.length === 0) return new Map<string, boolean>()
-      const response = await dexClient
-        .post("indexer/dex/v1/check_lp_tokens", { json: { denoms } })
+      const response = await ky
+        .post(`${dexUrl}/indexer/dex/v1/check_lp_tokens`, { json: { denoms } })
         .json<CheckLpTokensResponse>()
       return new Map(Object.entries(response.data))
     },
@@ -161,19 +145,14 @@ export function useLps() {
 export function useLpPrices(denoms: string[]) {
   const { dexUrl } = useConfig()
 
-  if (!dexUrl) {
-    throw new Error("dexUrl is not configured")
-  }
-
-  const dexClient = useDexClient()
-
   return useSuspenseQuery({
-    queryKey: initiaLiquidityQueryKeys.lpPrices(dexUrl, denoms).queryKey,
+    queryKey: initiaLiquidityQueryKeys.lpPrices(dexUrl ?? "", denoms).queryKey,
     queryFn: async () => {
+      if (!dexUrl) throw new Error("dexUrl is not configured")
       if (denoms.length === 0) return new Map<string, number>()
       const denomParam = denoms.join(",")
-      const response = await dexClient
-        .get(`indexer/price/v1/lp_prices/${encodeURIComponent(denomParam)}`)
+      const response = await ky
+        .get(`${dexUrl}/indexer/price/v1/lp_prices/${encodeURIComponent(denomParam)}`)
         .json<LpPricesResponse>()
 
       const { prices } = response
@@ -190,20 +169,15 @@ export function useLpPrices(denoms: string[]) {
 export function useLiquidityPoolList(denoms: string[]) {
   const { dexUrl } = useConfig()
 
-  if (!dexUrl) {
-    throw new Error("dexUrl is not configured")
-  }
-
-  const dexClient = useDexClient()
-
   const queries = useSuspenseQueries({
     queries: denoms.map((denom) => ({
-      queryKey: initiaLiquidityQueryKeys.pool(dexUrl, denom).queryKey,
+      queryKey: initiaLiquidityQueryKeys.pool(dexUrl ?? "", denom).queryKey,
       queryFn: async () => {
+        if (!dexUrl) throw new Error("dexUrl is not configured")
         try {
           const metadata = denomToMetadata(denom)
-          const response = await dexClient
-            .get(`indexer/dex/v2/pools/${encodeURIComponent(metadata)}`)
+          const response = await ky
+            .get(`${dexUrl}/indexer/dex/v2/pools/${encodeURIComponent(metadata)}`)
             .json<PoolResponse>()
           return response.pool
         } catch {
@@ -299,8 +273,7 @@ export function useInitiaLiquidityPositions(): LiquiditySectionData {
   // Get list of LP denoms (excluding INIT)
   const lpDenomList = useMemo(() => {
     const denoms: string[] = []
-    for (const [metadata] of denomsMap) {
-      const denom = denomsMap.get(metadata)
+    for (const [, denom] of denomsMap) {
       if (denom && denom !== INIT_DENOM) {
         denoms.push(denom)
       }

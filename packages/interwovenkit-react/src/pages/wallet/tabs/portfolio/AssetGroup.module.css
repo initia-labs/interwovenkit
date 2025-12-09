@@ -4,23 +4,23 @@
 }
 
 .assetItem {
-  --asset-item-bg: var(--gray-7);
-  --asset-item-icon-color: var(--dimmed);
-
   display: flex;
   justify-content: space-between;
   align-items: center;
 
   width: 100%;
 
-  background-color: var(--asset-item-bg);
+  background-color: var(--gray-7);
   padding: 12px 16px;
 
   transition: background-color var(--transition) ease;
 
   &:hover {
-    --asset-item-bg: var(--gray-6);
-    --asset-item-icon-color: var(--gray-1);
+    background-color: var(--gray-6);
+  }
+
+  &:hover .expandIcon {
+    color: var(--gray-1);
   }
 }
 
@@ -32,6 +32,11 @@
 
 .logo {
   flex: none;
+}
+
+.details {
+  display: flex;
+  flex-direction: column;
 }
 
 .symbol {
@@ -82,7 +87,7 @@
 }
 
 .expandIcon {
-  color: var(--asset-item-icon-color);
+  color: var(--dimmed);
   transition: all var(--transition);
 
   &.expanded {

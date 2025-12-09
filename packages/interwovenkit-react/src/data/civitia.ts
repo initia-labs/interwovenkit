@@ -1,5 +1,4 @@
 import ky from "ky"
-import { useMemo } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { useInitiaAddress } from "@/public/data/hooks"
@@ -39,12 +38,10 @@ export function useCivitiaPlayer() {
     throw new Error("address is not available")
   }
 
-  const civitiaClient = useMemo(() => ky.create({ prefixUrl: civitiaUrl }), [civitiaUrl])
-
   return useSuspenseQuery({
     queryKey: civitiaQueryKeys.player(civitiaUrl, address).queryKey,
     queryFn: async (): Promise<CivitiaPlayer> => {
-      return civitiaClient.get(`players/${address}`).json()
+      return ky.get(`${civitiaUrl}/players/${address}`).json()
     },
     staleTime: STALE_TIMES.MINUTE,
   })
