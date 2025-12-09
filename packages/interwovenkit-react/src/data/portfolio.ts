@@ -7,6 +7,7 @@ import { type NormalizedAsset, useAllChainAssetsQueries } from "./assets"
 import type { NormalizedChain, PriceItem } from "./chains"
 import { useAllChainPriceQueries, useInitiaRegistry } from "./chains"
 import { useConfig } from "./config"
+import { INIT_SYMBOL, INITIA_CHAIN_NAME } from "./constants"
 import placeholder from "./placeholder"
 
 export interface PortfolioAssetGroupInfo {
@@ -39,9 +40,6 @@ export interface PortfolioChainInfo {
   name: string
   logoUrl: string
 }
-
-const INIT_SYMBOL = "INIT"
-const INITIA_CHAIN_NAME = "Initia"
 
 /** Calculates total value for an asset group */
 export function calculateTotalValue(group: PortfolioAssetGroup): number {

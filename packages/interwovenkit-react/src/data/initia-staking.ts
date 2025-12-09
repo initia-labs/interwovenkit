@@ -224,22 +224,31 @@ export function useInitiaUndelegations() {
   const restClient = useLayer1RestClient()
   const { lockStakeModuleAddress } = useConfig()
   const address = useInitiaAddress()
-  const lockStakingAddress = getLockStakingAddress(address, lockStakeModuleAddress ?? "")
+  const lockStakingAddress = lockStakeModuleAddress
+    ? getLockStakingAddress(address, lockStakeModuleAddress)
+    : null
 
   return useSuspenseQuery({
-    queryKey: initiaStakingQueryKeys.undelegations(restUrl, address, lockStakingAddress).queryKey,
+    queryKey: initiaStakingQueryKeys.undelegations(restUrl, address, lockStakingAddress ?? "")
+      .queryKey,
     queryFn: async () => {
-      // Fetch from both user address and lock staking address (following app-v2)
-      const [userResponse, lockResponse] = await Promise.all([
-        restClient
-          .get(`initia/mstaking/v1/delegators/${address}/unbonding_delegations`)
-          .json<UnbondingDelegationResponse>(),
-        restClient
-          .get(`initia/mstaking/v1/delegators/${lockStakingAddress}/unbonding_delegations`)
-          .json<UnbondingDelegationResponse>(),
-      ])
+      // Fetch user unbonding delegations
+      const userResult = await restClient
+        .get(`initia/mstaking/v1/delegators/${address}/unbonding_delegations`)
+        .json<UnbondingDelegationResponse>()
+        .catch(() => ({ unbonding_responses: [] }))
 
-      return [...userResponse.unbonding_responses, ...lockResponse.unbonding_responses]
+      // Only fetch lock staking undelegations if module is configured
+      let lockResponses: UnbondingDelegationResponse["unbonding_responses"] = []
+      if (lockStakingAddress) {
+        const lockResult = await restClient
+          .get(`initia/mstaking/v1/delegators/${lockStakingAddress}/unbonding_delegations`)
+          .json<UnbondingDelegationResponse>()
+          .catch(() => ({ unbonding_responses: [] }))
+        lockResponses = lockResult.unbonding_responses
+      }
+
+      return [...userResult.unbonding_responses, ...lockResponses]
     },
     select: (data): Map<string, NormalizedUnstaking[]> => {
       const result = new Map<string, NormalizedUnstaking[]>()
@@ -281,9 +290,14 @@ export function useInitiaLockStaking() {
     queryKey: initiaStakingQueryKeys.lockStaking(restUrl, address, lockStakeModuleAddress ?? "")
       .queryKey,
     queryFn: async () => {
+      // Return empty result if lock stake module is not configured
+      if (!lockStakeModuleAddress) {
+        return []
+      }
+
       const { viewFunction } = createMoveClient(restUrl)
       const result = await viewFunction<LockDelegation[]>({
-        moduleAddress: lockStakeModuleAddress ?? "",
+        moduleAddress: lockStakeModuleAddress,
         moduleName: LOCK_STAKE_MODULE_NAME,
         functionName: "get_locked_delegations",
         typeArgs: [],
@@ -365,11 +379,18 @@ export function useInitiaLockStakingRewards() {
   const restClient = useLayer1RestClient()
   const { lockStakeModuleAddress } = useConfig()
   const address = useInitiaAddress()
-  const lockStakingAddress = getLockStakingAddress(address, lockStakeModuleAddress ?? "")
+  const lockStakingAddress = lockStakeModuleAddress
+    ? getLockStakingAddress(address, lockStakeModuleAddress)
+    : null
 
   return useSuspenseQuery({
-    queryKey: initiaStakingQueryKeys.lockStakingRewards(restUrl, lockStakingAddress).queryKey,
+    queryKey: initiaStakingQueryKeys.lockStakingRewards(restUrl, lockStakingAddress ?? "").queryKey,
     queryFn: async () => {
+      // Return empty rewards if lock stake module is not configured
+      if (!lockStakingAddress) {
+        return { rewards: [], total: [] }
+      }
+
       const response = await restClient
         .get(`initia/distribution/v1/delegators/${lockStakingAddress}/rewards`)
         .json<RewardsResponse>()
@@ -507,7 +528,6 @@ export function useInitiaStakingPositions(): InitiaStakingPositionsResult {
           type: "lockstaking",
           validator: lock.validator,
           releaseTime: Number(lock.releaseTime),
-          release_time: Number(lock.releaseTime),
           balance,
         })
       }
@@ -542,7 +562,6 @@ export function useInitiaStakingPositions(): InitiaStakingPositionsResult {
           type: "unstaking",
           validator: unstaking.validator,
           completionTime,
-          completion_time: completionTime,
           balance,
         })
       }
@@ -552,7 +571,7 @@ export function useInitiaStakingPositions(): InitiaStakingPositionsResult {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [delegations, lockStaking, undelegations, denomsMap, assetByDenom, priceByDenom])
 
-  // Calculate total value (currently 0 since we don't have prices)
+  // Calculate total value from position balances (prices fetched via usePricesQuery)
   const totalValue = useMemo(() => {
     return positions.reduce((sum, pos) => {
       if (pos.type === "fungible-position") return sum

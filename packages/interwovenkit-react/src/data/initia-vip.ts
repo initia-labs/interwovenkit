@@ -1,17 +1,13 @@
 import ky from "ky"
 import { useMemo } from "react"
-import { useSuspenseQuery } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
+import { fromBaseUnit } from "@initia/utils"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useInitiaRegistry, useLayer1, usePricesQuery } from "./chains"
 import { useConfig } from "./config"
+import { INIT_DECIMALS, INIT_DENOM } from "./constants"
 import { STALE_TIMES } from "./http"
-
-// ============================================
-// CONSTANTS
-// ============================================
-
-const INIT_DENOM = "uinit"
 
 // ============================================
 // QUERY KEYS
@@ -72,11 +68,6 @@ export interface VipSectionData {
 // HELPER FUNCTIONS
 // ============================================
 
-function useVipClient() {
-  const { vipUrl } = useConfig()
-  return useMemo(() => ky.create({ prefixUrl: vipUrl }), [vipUrl])
-}
-
 interface NormalizedVestingEntry {
   claimableReward: number
   claimedReward: number
@@ -115,20 +106,22 @@ function normalizeVestingEntries(entries: AllVestingPositionsResponse): Normaliz
 
 /** Fetch all VIP vesting positions for the user */
 export function useAllVipVestingPositions() {
-  const vipClient = useVipClient()
   const { vipUrl } = useConfig()
   const address = useInitiaAddress()
 
-  return useSuspenseQuery({
+  return useQuery({
     queryKey: initiaVipQueryKeys.allVestingPositions(vipUrl ?? "", address).queryKey,
     queryFn: async () => {
-      const data = await vipClient
+      if (!vipUrl) throw new Error("VIP URL not configured")
+      const client = ky.create({ prefixUrl: vipUrl })
+      const data = await client
         .get(`vesting/positions/${address}`)
         .json<AllVestingPositionsResponse>()
       // Filter to positions with rewards
       return data.filter(({ total_vesting_reward }) => total_vesting_reward > 0)
     },
     staleTime: STALE_TIMES.MINUTE,
+    enabled: !!vipUrl && !!address,
   })
 }
 
@@ -159,12 +152,17 @@ export function useInitiaVipPositions(): VipSectionData {
   }, [prices])
 
   const rows = useMemo(() => {
+    if (!vestingPositions) return []
     const normalized = normalizeVestingEntries(vestingPositions)
     return normalized.map((entry) => {
       const chain = findChainByBridgeId(entry.rollup.bridgeId)
-      // Convert from base units (uinit) to display units
-      const lockedFormatted = entry.lockedReward / 1e6
-      const claimableFormatted = entry.claimableReward / 1e6
+      // Convert from base units (uinit) to display units using fromBaseUnit
+      const lockedFormatted = Number(
+        fromBaseUnit(String(entry.lockedReward), { decimals: INIT_DECIMALS }),
+      )
+      const claimableFormatted = Number(
+        fromBaseUnit(String(entry.claimableReward), { decimals: INIT_DECIMALS }),
+      )
 
       return {
         bridgeId: entry.rollup.bridgeId,

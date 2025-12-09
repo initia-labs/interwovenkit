@@ -1,5 +1,11 @@
 const NAMESPACE = "interwovenkit"
 
+// Blockchain constants
+export const INIT_DENOM = "uinit"
+export const INIT_SYMBOL = "INIT"
+export const INIT_DECIMALS = 6
+export const INITIA_CHAIN_NAME = "Initia"
+
 // Time constants in milliseconds
 export const SECOND_IN_MS = 1000
 export const MINUTE_IN_MS = 60 * SECOND_IN_MS

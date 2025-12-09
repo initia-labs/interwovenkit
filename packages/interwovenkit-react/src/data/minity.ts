@@ -5,6 +5,7 @@ import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useInitiaRegistry } from "./chains"
 import { useConfig } from "./config"
+import { INIT_SYMBOL } from "./constants"
 import { STALE_TIMES } from "./http"
 import type { PortfolioAssetGroup } from "./portfolio"
 
@@ -67,7 +68,6 @@ export interface UnstakingPosition {
   type: "unstaking"
   validator: string
   completionTime?: number
-  completion_time?: number
   balance: Balance
 }
 
@@ -76,7 +76,6 @@ export interface LockStakingPosition {
   type: "lockstaking"
   validator: string
   releaseTime?: number
-  release_time?: number
   balance: Balance
 }
 
@@ -377,12 +376,6 @@ export const minityQueryOptions = {
       staleTime: STALE_TIMES.MINUTE,
     }),
 }
-
-// ============================================
-// CONSTANTS
-// ============================================
-
-export const INIT_SYMBOL = "INIT"
 
 // ============================================
 // HELPER FUNCTIONS

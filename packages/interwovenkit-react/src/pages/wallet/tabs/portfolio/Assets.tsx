@@ -28,22 +28,15 @@ const Assets = ({ searchQuery, selectedChain }: AssetsProps) => {
   // Registry for chain info lookup
   const registry = useInitiaRegistry()
 
-  // Build chainName -> chainId mapping from registry
-  const chainNameToIdMap = useMemo(() => {
-    const map = new Map<string, string>()
+  // Build registry lookup maps in a single useMemo
+  const { chainNameToIdMap, chainIdToRegistryMap } = useMemo(() => {
+    const nameToId = new Map<string, string>()
+    const idToRegistry = new Map<string, (typeof registry)[number]>()
     for (const chain of registry) {
-      map.set(chain.chain_name.toLowerCase(), chain.chainId)
+      nameToId.set(chain.chain_name.toLowerCase(), chain.chainId)
+      idToRegistry.set(chain.chainId, chain)
     }
-    return map
-  }, [registry])
-
-  // Build chainId -> registry chain mapping
-  const chainIdToRegistryMap = useMemo(() => {
-    const map = new Map<string, (typeof registry)[number]>()
-    for (const chain of registry) {
-      map.set(chain.chainId, chain)
-    }
-    return map
+    return { chainNameToIdMap: nameToId, chainIdToRegistryMap: idToRegistry }
   }, [registry])
 
   // Build denom -> logo map from InterwovenKit
@@ -109,39 +102,31 @@ const Assets = ({ searchQuery, selectedChain }: AssetsProps) => {
     return groups.toSorted(compareAssetGroups)
   }, [minityBalances, chainNameToIdMap, chainIdToRegistryMap, denomLogoMap])
 
-  // Filter assets based on selected chain and search query
-  const filteredAssets = useMemo(() => {
-    const searchFiltered = !searchQuery
+  // Compute filtered assets and total value in a single pass
+  const { filteredAssets, filteredUnlistedAssets, totalAssetsValue } = useMemo(() => {
+    // Filter asset groups
+    const searchFilteredAssets = !searchQuery
       ? assetGroups
       : assetGroups.filter((assetGroup) => {
           const { symbol, assets } = assetGroup
+          const query = searchQuery.toLowerCase()
           return (
-            symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            assets.some(({ denom, address }) => {
-              return (
-                denom.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                address?.toLowerCase().includes(searchQuery.toLowerCase())
-              )
-            })
+            symbol.toLowerCase().includes(query) ||
+            assets.some(({ denom }) => denom.toLowerCase().includes(query))
           )
         })
 
-    const chainFiltered = !selectedChain
-      ? searchFiltered
-      : searchFiltered
+    const chainFilteredAssets = !selectedChain
+      ? searchFilteredAssets
+      : searchFilteredAssets
           .map((assetGroup) => ({
             ...assetGroup,
             assets: assetGroup.assets.filter(({ chain }) => chain.chainId === selectedChain),
           }))
           .filter((assetGroup) => assetGroup.assets.length > 0)
 
-    return chainFiltered
-  }, [assetGroups, searchQuery, selectedChain])
-
-  // Filter unlisted assets based on selected chain and search query
-  // (unlisted assets come from usePortfolio, not Minity)
-  const filteredUnlistedAssets = useMemo(() => {
-    const searchFiltered = !searchQuery
+    // Filter unlisted assets
+    const searchFilteredUnlisted = !searchQuery
       ? unlistedAssets
       : unlistedAssets.filter(
           ({ denom, address }) =>
@@ -149,19 +134,21 @@ const Assets = ({ searchQuery, selectedChain }: AssetsProps) => {
             address?.toLowerCase().includes(searchQuery.toLowerCase()),
         )
 
-    const chainFiltered = !selectedChain
-      ? searchFiltered
-      : searchFiltered.filter(({ chain }) => chain.chainId === selectedChain)
+    const chainFilteredUnlisted = !selectedChain
+      ? searchFilteredUnlisted
+      : searchFilteredUnlisted.filter(({ chain }) => chain.chainId === selectedChain)
 
-    return chainFiltered
-  }, [unlistedAssets, searchQuery, selectedChain])
-
-  // Calculate total assets value from filtered assets
-  const totalAssetsValue = useMemo(() => {
-    return filteredAssets.reduce((total, group) => {
+    // Calculate total value
+    const totalValue = chainFilteredAssets.reduce((total, group) => {
       return total + group.assets.reduce((sum, asset) => sum + (asset.value ?? 0), 0)
     }, 0)
-  }, [filteredAssets])
+
+    return {
+      filteredAssets: chainFilteredAssets,
+      filteredUnlistedAssets: chainFilteredUnlisted,
+      totalAssetsValue: totalValue,
+    }
+  }, [assetGroups, unlistedAssets, searchQuery, selectedChain])
 
   const isLoading = isMinityLoading || isPortfolioLoading
 

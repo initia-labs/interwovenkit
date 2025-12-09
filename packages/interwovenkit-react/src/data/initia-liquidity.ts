@@ -7,6 +7,7 @@ import { useInitiaAddress } from "@/public/data/hooks"
 import { useAssets, useDenoms } from "./assets"
 import { useLayer1, usePricesQuery } from "./chains"
 import { useConfig } from "./config"
+import { INIT_DECIMALS, INIT_DENOM } from "./constants"
 import { STALE_TIMES } from "./http"
 import {
   useInitiaDelegations,
@@ -16,12 +17,6 @@ import {
   useInitiaUndelegations,
 } from "./initia-staking"
 import type { LiquiditySectionData, LiquidityTableRow, PoolType } from "./minity"
-
-// ============================================
-// CONSTANTS
-// ============================================
-
-const INIT_DENOM = "uinit"
 
 // ============================================
 // QUERY KEYS
@@ -234,10 +229,15 @@ export function useInitiaLiquidityPositions(): LiquiditySectionData {
 
   // Fetch INIT price for claimable rewards value calculation
   const { data: initPrices } = usePricesQuery(layer1)
-  const initPrice = useMemo(() => {
-    const initPriceItem = initPrices?.find((p) => p.id === INIT_DENOM)
-    return initPriceItem?.price ?? 0
-  }, [initPrices])
+
+  // Build asset lookup map for O(1) access (moved up to reduce useMemo count)
+  const assetByDenom = useMemo(() => {
+    const map = new Map<string, (typeof assets)[number]>()
+    for (const asset of assets) {
+      map.set(asset.denom, asset)
+    }
+    return map
+  }, [assets])
 
   // Collect all unique metadata keys (excluding INIT)
   const allMetadataKeys = useMemo(() => {
@@ -256,7 +256,7 @@ export function useInitiaLiquidityPositions(): LiquiditySectionData {
       }
     }
 
-    // From lock staking
+    // From lock staking (INIT filtering happens later in lpDenomList)
     for (const metadata of lockStaking.keys()) {
       keys.add(metadata)
     }
@@ -293,17 +293,11 @@ export function useInitiaLiquidityPositions(): LiquiditySectionData {
   // Fetch pool info
   const pools = useLiquidityPoolList(lpDenomList)
 
-  // Build asset lookup maps for O(1) access
-  const assetByDenom = useMemo(() => {
-    const map = new Map<string, (typeof assets)[number]>()
-    for (const asset of assets) {
-      map.set(asset.denom, asset)
-    }
-    return map
-  }, [assets])
+  // Aggregate into rows and calculate total value in a single pass
+  const { rows, totalValue } = useMemo(() => {
+    // Compute INIT price inline to reduce useMemo count
+    const initPrice = initPrices?.find((p) => p.id === INIT_DENOM)?.price ?? 0
 
-  // Aggregate into rows
-  const rows = useMemo(() => {
     const rowMap = new Map<string, LiquidityTableRow>()
 
     // Helper to generate symbol from pool coins
@@ -337,7 +331,7 @@ export function useInitiaLiquidityPositions(): LiquiditySectionData {
           symbol,
           totalAmount: 0,
           totalValue: 0,
-          decimals: 6, // Default for LP tokens
+          decimals: assetByDenom.get(denom)?.decimals ?? 6,
           poolType: pool?.pool_type,
           coinLogos: coinLogos.length > 0 ? coinLogos : undefined,
           breakdown: {
@@ -408,15 +402,17 @@ export function useInitiaLiquidityPositions(): LiquiditySectionData {
     for (const [denom, row] of rowMap) {
       const metadata = denomToMetadata(denom)
 
-      // Get staking rewards for this LP token
+      // Get staking rewards for this LP token (rewards are paid in INIT)
       const stakingReward = stakingRewards?.get(metadata)
       const stakingAmount = stakingReward
-        ? fromBaseUnit(stakingReward.amount, { decimals: 6 })
+        ? fromBaseUnit(stakingReward.amount, { decimals: INIT_DECIMALS })
         : "0"
 
-      // Get lock staking rewards for this LP token
+      // Get lock staking rewards for this LP token (rewards are paid in INIT)
       const lockReward = lockStakingRewards?.get(metadata)
-      const lockAmount = lockReward ? fromBaseUnit(lockReward.amount, { decimals: 6 }) : "0"
+      const lockAmount = lockReward
+        ? fromBaseUnit(lockReward.amount, { decimals: INIT_DECIMALS })
+        : "0"
 
       // Calculate total
       const totalAmount = Number(stakingAmount) + Number(lockAmount)
@@ -433,9 +429,14 @@ export function useInitiaLiquidityPositions(): LiquiditySectionData {
     }
 
     // Convert to array and sort by value desc
-    return Array.from(rowMap.values())
+    const sortedRows = Array.from(rowMap.values())
       .filter((row) => row.totalAmount > 0)
       .toSorted((a, b) => b.totalValue - a.totalValue)
+
+    // Calculate total value in same pass
+    const totalVal = sortedRows.reduce((sum, row) => sum + row.totalValue, 0)
+
+    return { rows: sortedRows, totalValue: totalVal }
   }, [
     lps,
     delegations,
@@ -447,13 +448,8 @@ export function useInitiaLiquidityPositions(): LiquiditySectionData {
     assetByDenom,
     stakingRewards,
     lockStakingRewards,
-    initPrice,
+    initPrices,
   ])
-
-  // Calculate total value
-  const totalValue = useMemo(() => {
-    return rows.reduce((sum, row) => sum + row.totalValue, 0)
-  }, [rows])
 
   return {
     totalValue,
