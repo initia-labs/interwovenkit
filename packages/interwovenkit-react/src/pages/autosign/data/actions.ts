@@ -39,6 +39,64 @@ interface Grant {
   expiration: string
 }
 
+/* Hook to fetch existing grants and generate revoke messages */
+function useAutoSignRevokeMessages() {
+  const initiaAddress = useInitiaAddress()
+  const messageTypes = useAutoSignMessageTypes()
+  const findChain = useFindChain()
+
+  return async (params: { chainId: string; grantee: string }) => {
+    const { chainId, grantee } = params
+
+    if (!initiaAddress) {
+      throw new Error("Granter wallet not initialized")
+    }
+
+    const chain = findChain(chainId)
+    const api = ky.create({ prefixUrl: chain.restUrl })
+
+    // Query authz grants
+    const grantsResponse = await api
+      .get("cosmos/authz/v1beta1/grants", {
+        searchParams: { granter: initiaAddress, grantee },
+      })
+      .json<{ grants: Grant[] }>()
+
+    // Query feegrant allowance
+    const feegrantResponse = await api
+      .get(`cosmos/feegrant/v1beta1/allowance/${initiaAddress}/${grantee}`)
+      .json<FeegrantResponse>()
+      .catch(() => null)
+
+    const revokeFeegrantMessages = feegrantResponse
+      ? [
+          {
+            typeUrl: "/cosmos.feegrant.v1beta1.MsgRevokeAllowance",
+            value: MsgRevokeAllowance.fromPartial({
+              granter: initiaAddress,
+              grantee,
+            }),
+          },
+        ]
+      : []
+
+    const revokeAuthzMessages = messageTypes[chainId]
+      .filter((msgType) => {
+        return grantsResponse.grants.some((grant) => grant?.authorization?.msg === msgType)
+      })
+      .map((msgType) => ({
+        typeUrl: "/cosmos.authz.v1beta1.MsgRevoke",
+        value: MsgRevoke.fromPartial({
+          granter: initiaAddress,
+          grantee,
+          msgTypeUrl: msgType,
+        }),
+      }))
+
+    return [...revokeFeegrantMessages, ...revokeAuthzMessages]
+  }
+}
+
 /* Enable AutoSign by granting permissions to embedded wallet for fee delegation and message execution */
 export function useEnableAutoSign() {
   const { privyContext } = useConfig()
@@ -49,7 +107,7 @@ export function useEnableAutoSign() {
   const queryClient = useQueryClient()
   const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
   const { closeDrawer } = useDrawer()
-  const findChain = useFindChain()
+  const fetchRevokeMessages = useAutoSignRevokeMessages()
 
   // Get or create embedded wallet address
   const resolveEmbeddedWalletAddress = async (): Promise<string> => {
@@ -73,35 +131,10 @@ export function useEnableAutoSign() {
         throw new Error("Wallets not initialized")
       }
 
-      const chain = findChain(chainId)
-      const api = ky.create({ prefixUrl: chain.restUrl })
-
-      // Query authz grants
-      const grantsResponse = await api
-        .get("cosmos/authz/v1beta1/grants", {
-          searchParams: { granter: initiaAddress, grantee: embeddedWalletAddress },
-        })
-        .json<{ grants: Grant[] }>()
-
-      // Query feegrant allowance
-      const feegrantResponse = await api
-        .get(`cosmos/feegrant/v1beta1/allowance/${initiaAddress}/${embeddedWalletAddress}`)
-        .json<FeegrantResponse>()
-        .catch(() => null)
+      // Fetch existing grants and generate revoke messages
+      const revokeMessages = await fetchRevokeMessages({ chainId, grantee: embeddedWalletAddress })
 
       const expiration = durationInMs === 0 ? undefined : addMilliseconds(new Date(), durationInMs)
-
-      const revokeFeegrantMessages = feegrantResponse
-        ? [
-            {
-              typeUrl: "/cosmos.feegrant.v1beta1.MsgRevokeAllowance",
-              value: MsgRevokeAllowance.fromPartial({
-                granter: initiaAddress,
-                grantee: embeddedWalletAddress,
-              }),
-            },
-          ]
-        : []
 
       const feegrantMessage = {
         typeUrl: "/cosmos.feegrant.v1beta1.MsgGrantAllowance",
@@ -114,19 +147,6 @@ export function useEnableAutoSign() {
           },
         }),
       }
-
-      const revokeAuthzMessages = messageTypes[chainId]
-        .filter((msgType) => {
-          return grantsResponse.grants.some((grant) => grant?.authorization?.msg === msgType)
-        })
-        .map((msgType) => ({
-          typeUrl: "/cosmos.authz.v1beta1.MsgRevoke",
-          value: MsgRevoke.fromPartial({
-            granter: initiaAddress,
-            grantee: embeddedWalletAddress,
-            msgTypeUrl: msgType,
-          }),
-        }))
 
       const authzMessages = messageTypes[chainId].map((msgType) => ({
         typeUrl: "/cosmos.authz.v1beta1.MsgGrant",
@@ -145,12 +165,7 @@ export function useEnableAutoSign() {
         }),
       }))
 
-      const messages = [
-        ...revokeFeegrantMessages,
-        ...revokeAuthzMessages,
-        feegrantMessage,
-        ...authzMessages,
-      ]
+      const messages = [...revokeMessages, feegrantMessage, ...authzMessages]
       await requestTxBlock({ messages, chainId, internal: true })
     },
     onSuccess: async () => {
@@ -177,38 +192,19 @@ export function useDisableAutoSign(options?: {
   internal: boolean
 }) {
   const config = useConfig()
-  const initiaAddress = useInitiaAddress()
   const embeddedWalletAddress = useEmbeddedWalletAddress()
   const grantee = options?.grantee || embeddedWalletAddress
-  const messageTypes = useAutoSignMessageTypes()
-  const messageTypeUrls = options?.messageTypes || messageTypes
   const { requestTxBlock } = useTx()
   const queryClient = useQueryClient()
+  const fetchRevokeMessages = useAutoSignRevokeMessages()
 
   return useMutation({
     mutationFn: async (chainId: string = config.defaultChainId) => {
-      if (!initiaAddress || !grantee) {
+      if (!grantee) {
         throw new Error("Wallets not initialized")
       }
 
-      const feegrantRevokeMessage = {
-        typeUrl: "/cosmos.feegrant.v1beta1.MsgRevokeAllowance",
-        value: MsgRevokeAllowance.fromPartial({
-          granter: initiaAddress,
-          grantee: grantee,
-        }),
-      }
-
-      const authzRevokeMessages = messageTypeUrls[chainId].map((msgType) => ({
-        typeUrl: "/cosmos.authz.v1beta1.MsgRevoke",
-        value: MsgRevoke.fromPartial({
-          granter: initiaAddress,
-          grantee: grantee,
-          msgTypeUrl: msgType,
-        }),
-      }))
-
-      const messages = [feegrantRevokeMessage, ...authzRevokeMessages]
+      const messages = await fetchRevokeMessages({ chainId, grantee })
       await requestTxBlock({ messages, chainId, internal: options?.internal })
     },
     onSuccess: async () => {
