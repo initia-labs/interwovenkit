@@ -160,5 +160,5 @@ export function useDenoms(metadatas: string[]) {
     })),
   })
 
-  return new Map(result.map(({ data }) => data))
+  return new Map(result.map(({ data }) => data!))
 }
