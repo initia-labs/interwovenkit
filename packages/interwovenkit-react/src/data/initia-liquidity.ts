@@ -76,6 +76,11 @@ interface PoolResponse {
 
 function useDexClient() {
   const { dexUrl } = useConfig()
+
+  if (!dexUrl) {
+    throw new Error("dexUrl is not configured")
+  }
+
   return useMemo(() => ky.create({ prefixUrl: dexUrl }), [dexUrl])
 }
 
@@ -119,11 +124,16 @@ export function useWalletBalances() {
 
 /** Check which denoms are LP tokens */
 export function useCheckLpTokens(denoms: string[]) {
-  const dexClient = useDexClient()
   const { dexUrl } = useConfig()
 
+  if (!dexUrl) {
+    throw new Error("dexUrl is not configured")
+  }
+
+  const dexClient = useDexClient()
+
   return useSuspenseQuery({
-    queryKey: initiaLiquidityQueryKeys.checkLpTokens(dexUrl ?? "", denoms).queryKey,
+    queryKey: initiaLiquidityQueryKeys.checkLpTokens(dexUrl, denoms).queryKey,
     queryFn: async () => {
       if (denoms.length === 0) return new Map<string, boolean>()
       const response = await dexClient
@@ -149,11 +159,16 @@ export function useLps() {
 
 /** Fetch LP token prices */
 export function useLpPrices(denoms: string[]) {
-  const dexClient = useDexClient()
   const { dexUrl } = useConfig()
 
+  if (!dexUrl) {
+    throw new Error("dexUrl is not configured")
+  }
+
+  const dexClient = useDexClient()
+
   return useSuspenseQuery({
-    queryKey: initiaLiquidityQueryKeys.lpPrices(dexUrl ?? "", denoms).queryKey,
+    queryKey: initiaLiquidityQueryKeys.lpPrices(dexUrl, denoms).queryKey,
     queryFn: async () => {
       if (denoms.length === 0) return new Map<string, number>()
       const denomParam = denoms.join(",")
@@ -173,12 +188,17 @@ export function useLpPrices(denoms: string[]) {
 
 /** Fetch pool info for multiple LP tokens */
 export function useLiquidityPoolList(denoms: string[]) {
-  const dexClient = useDexClient()
   const { dexUrl } = useConfig()
+
+  if (!dexUrl) {
+    throw new Error("dexUrl is not configured")
+  }
+
+  const dexClient = useDexClient()
 
   const queries = useSuspenseQueries({
     queries: denoms.map((denom) => ({
-      queryKey: initiaLiquidityQueryKeys.pool(dexUrl ?? "", denom).queryKey,
+      queryKey: initiaLiquidityQueryKeys.pool(dexUrl, denom).queryKey,
       queryFn: async () => {
         try {
           const metadata = denomToMetadata(denom)
@@ -187,6 +207,7 @@ export function useLiquidityPoolList(denoms: string[]) {
             .json<PoolResponse>()
           return response.pool
         } catch {
+          // Pool info may not be available for all LP tokens
           return null
         }
       },

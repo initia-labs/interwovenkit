@@ -2,6 +2,7 @@ import { useMemo } from "react"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import FallBack from "@/components/FallBack"
 import Status from "@/components/Status"
+import { INITIA_CHAIN_NAME } from "@/data/constants"
 import {
   buildChainInfoMap,
   getPositionValue,
@@ -13,8 +14,6 @@ import { formatValue } from "@/lib/format"
 import AppchainPositionGroup from "./AppchainPositionGroup"
 import InitiaPositionGroup from "./InitiaPositionGroup"
 import styles from "./Positions.module.css"
-
-const INITIA_CHAIN_NAME = "initia"
 
 export interface PositionsProps {
   searchQuery: string

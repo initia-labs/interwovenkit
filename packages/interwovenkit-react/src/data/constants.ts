@@ -4,7 +4,7 @@ const NAMESPACE = "interwovenkit"
 export const INIT_DENOM = "uinit"
 export const INIT_SYMBOL = "INIT"
 export const INIT_DECIMALS = 6
-export const INITIA_CHAIN_NAME = "Initia"
+export const INITIA_CHAIN_NAME = "initia"
 
 // Time constants in milliseconds
 export const SECOND_IN_MS = 1000

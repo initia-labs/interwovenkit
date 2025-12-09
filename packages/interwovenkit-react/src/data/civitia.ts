@@ -16,15 +16,6 @@ export interface CivitiaPlayer {
 }
 
 // ============================================
-// CLIENT
-// ============================================
-
-function useCivitiaClient() {
-  const { civitiaUrl } = useConfig()
-  return useMemo(() => ky.create({ prefixUrl: civitiaUrl }), [civitiaUrl])
-}
-
-// ============================================
 // QUERY KEYS FACTORY
 // ============================================
 
@@ -37,12 +28,21 @@ export const civitiaQueryKeys = createQueryKeys("interwovenkit:civitia", {
 // ============================================
 
 export function useCivitiaPlayer() {
-  const civitiaClient = useCivitiaClient()
   const { civitiaUrl } = useConfig()
   const address = useInitiaAddress()
 
+  if (!civitiaUrl) {
+    throw new Error("civitiaUrl is not configured")
+  }
+
+  if (!address) {
+    throw new Error("address is not available")
+  }
+
+  const civitiaClient = useMemo(() => ky.create({ prefixUrl: civitiaUrl }), [civitiaUrl])
+
   return useSuspenseQuery({
-    queryKey: civitiaQueryKeys.player(civitiaUrl ?? "", address ?? "").queryKey,
+    queryKey: civitiaQueryKeys.player(civitiaUrl, address).queryKey,
     queryFn: async (): Promise<CivitiaPlayer> => {
       return civitiaClient.get(`players/${address}`).json()
     },
