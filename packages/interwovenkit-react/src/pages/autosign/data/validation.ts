@@ -1,14 +1,13 @@
 import type { EncodeObject } from "@cosmjs/proto-signing"
 import { isFuture } from "date-fns"
-import ky from "ky"
 import { useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
-import { useDefaultChain, useFindChain } from "@/data/chains"
+import { useDefaultChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import { STALE_TIMES } from "@/data/http"
 import { useInitiaAddress } from "@/public/data/hooks"
-import type { Grant } from "./queries"
+import { useAutoSignApi } from "./fetch"
 import { useEmbeddedWalletAddress } from "./wallet"
 
 export const autoSignQueryKeys = createQueryKeys("interwovenkit:autosign", {
@@ -64,24 +63,12 @@ export function useValidateAutoSign() {
   }
 }
 
-// Query interface for grant and feegrant responses
-interface FeegrantResponse {
-  allowance: {
-    granter: string
-    grantee: string
-    allowance: {
-      "@type": string
-      expiration: string
-    }
-  }
-}
-
 /* Get current AutoSign status including enabled state and expiration dates by chain */
 export function useAutoSignStatus() {
   const initiaAddress = useInitiaAddress()
   const embeddedWalletAddress = useEmbeddedWalletAddress()
-  const findChain = useFindChain()
   const messageTypes = useAutoSignMessageTypes()
+  const { fetchFeegrant, fetchGrants } = useAutoSignApi()
 
   return useQuery({
     queryKey: autoSignQueryKeys.expirations(initiaAddress, embeddedWalletAddress).queryKey,
@@ -99,19 +86,11 @@ export function useAutoSignStatus() {
       // Check each chain's grants and feegrants
       for (const [chainId, msgTypes] of Object.entries(messageTypes)) {
         try {
-          const chain = findChain(chainId)
-          const api = ky.create({ prefixUrl: chain.restUrl })
-
-          // Query authz grants
-          const grantsResponse = await api
-            .get("cosmos/authz/v1beta1/grants", {
-              searchParams: { granter: initiaAddress, grantee: embeddedWalletAddress },
-            })
-            .json<{ grants: Grant[] }>()
+          const grants = await fetchGrants(chainId, embeddedWalletAddress)
 
           // Check if all required message types are granted
           const allTypesGranted = msgTypes.every((msgType) =>
-            grantsResponse.grants.some((grant) => grant.authorization?.msg === msgType),
+            grants.some((grant) => grant.authorization?.msg === msgType),
           )
 
           if (!allTypesGranted) {
@@ -120,17 +99,19 @@ export function useAutoSignStatus() {
             continue
           }
 
-          // Query feegrant allowance
-          const feegrantResponse = await api
-            .get(`cosmos/feegrant/v1beta1/allowance/${initiaAddress}/${embeddedWalletAddress}`)
-            .json<FeegrantResponse>()
+          const feegrant = await fetchFeegrant(chainId, embeddedWalletAddress)
+
+          if (!feegrant) {
+            expiredAtByChain[chainId] = null
+            continue
+          }
 
           // Extract expiration dates from grants and feegrant
-          const grantExpirations = grantsResponse.grants
+          const grantExpirations = grants
             .filter((grant) => msgTypes.includes(grant.authorization.msg))
             .map((grant) => grant.expiration)
 
-          const feegrantExpiration = feegrantResponse.allowance.allowance.expiration
+          const feegrantExpiration = feegrant.allowance.expiration
 
           // Find the earliest expiration (most restrictive)
           const allExpirations = [...grantExpirations, feegrantExpiration]

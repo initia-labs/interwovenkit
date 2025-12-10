@@ -3,25 +3,10 @@ import { useQueries } from "@tanstack/react-query"
 import { useInitiaRegistry } from "@/data/chains"
 import { STALE_TIMES } from "@/data/http"
 import { useInitiaAddress } from "@/public/data/hooks"
+import type { GrantsResponse } from "./fetch"
 import { autoSignQueryKeys } from "./validation"
 
-export interface Grant {
-  granter: string
-  grantee: string
-  authorization: {
-    "@type": string
-    msg: string
-  }
-  expiration?: string
-}
-
-interface GrantsResponse {
-  grants: Grant[]
-  pagination: {
-    next_key: string | null
-    total: string
-  }
-}
+export type { Grant } from "./fetch"
 
 /* Fetch authz grants from all chains in the registry for the current user */
 export function useAllGrants() {
