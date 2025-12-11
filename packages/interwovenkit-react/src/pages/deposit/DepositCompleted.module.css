@@ -32,3 +32,15 @@
 .empty {
   height: 10px;
 }
+
+.errorIcon {
+  color: var(--error);
+  margin: 8px;
+}
+
+.error {
+  color: var(--error);
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}

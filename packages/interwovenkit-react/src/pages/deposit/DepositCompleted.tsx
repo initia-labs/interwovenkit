@@ -1,4 +1,3 @@
-import { IconCloseCircleFilled } from "@initia/icons-react"
 import Button from "@/components/Button"
 import { useModal } from "@/data/ui"
 import { useLocationState } from "@/lib/router"
@@ -6,6 +5,7 @@ import { useSkipAsset } from "../bridge/data/assets"
 import { formatDuration } from "../bridge/data/format"
 import { useBridgePreviewState, useTrackTxQuery, useTxStatusQuery } from "../bridge/data/tx"
 import CompletedAnimation from "./assets/Completed.webm"
+import FailedIcon from "./assets/Failed.svg"
 import LoadingAnimation from "./assets/Loading.webm"
 import styles from "./DepositCompleted.module.css"
 
@@ -80,8 +80,8 @@ export function DepositCompleted() {
   if (isError) {
     return (
       <div className={styles.container}>
-        <h3 className={styles.title}>Deposit Failed</h3>
-        <IconCloseCircleFilled size={52} className={styles.errorIcon} />
+        <h3 className={styles.title}>Deposit failed</h3>
+        <img src={FailedIcon} alt="Failed" className={styles.errorIcon} />
         <p className={styles.error}>{state.message}</p>
         <Button.White fullWidth onClick={closeModal}>
           Close
@@ -155,8 +155,9 @@ export function DepositCompleted() {
       )}
       {txState === "failed" && (
         <>
-          <h3 className={styles.title}>Deposit Failed</h3>
-          <p className={styles.subtitle}>Your transaction could not be completed</p>
+          <h3 className={styles.title}>Deposit failed</h3>
+          <img src={FailedIcon} alt="Failed" className={styles.errorIcon} />
+          <p className={styles.error}>Your transaction could not be completed</p>
           <Button.White fullWidth onClick={closeModal}>
             Close
           </Button.White>

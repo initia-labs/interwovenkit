@@ -1,14 +1,12 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
 import Button from "@/components/Button"
-import FormHelp from "@/components/form/FormHelp"
 import QuantityInput from "@/components/form/QuantityInput"
 import { useConfig } from "@/data/config"
 import { useLocationState, useNavigate } from "@/lib/router"
 import { useHexAddress } from "@/public/data/hooks"
-import { useAllSkipAssets } from "../bridge/data/assets"
 import { useFindSkipChain } from "../bridge/data/chains"
 import { type RouterRouteResponseJson, useRouteQuery } from "../bridge/data/simulate"
 import FooterWithAddressList from "../bridge/FooterWithAddressList"
@@ -16,7 +14,13 @@ import FooterWithMsgs from "../bridge/FooterWithMsgs"
 import FooterWithSignedOpHook from "../bridge/FooterWithSignedOpHook"
 import DepositFooter from "./DepositFooter"
 import FooterWithTxFee from "./FooterWithTxFee"
-import { useAllBalancesQuery, useDepositForm, useFilteredDepositAssets } from "./hooks"
+import {
+  useAllBalancesQuery,
+  useDepositForm,
+  useDstDepositAsset,
+  useFilteredDepositAssets,
+  useSrcDepositAsset,
+} from "./hooks"
 import SelectDstAsset from "./SelectDstAsset"
 import SelectSrcAsset from "./SelectSrcAsset"
 import styles from "./DepositFields.module.css"
@@ -29,21 +33,17 @@ const DepositFields = () => {
   const navigate = useNavigate()
   const state = useLocationState<State>()
   const { depositOptions = [] } = useConfig()
-  const [isSelectorOpen, setSelector] = useState(false)
-  const skipAssets = useAllSkipAssets()
   const { data: filteredAssets, isLoading: isAssetsLoading } = useFilteredDepositAssets()
   const findChain = useFindSkipChain()
   const { data: balances } = useAllBalancesQuery()
   const hexAddress = useHexAddress()
 
   const { watch, setValue, formState, getValues } = useDepositForm()
-  const { srcDenom, srcChainId, dstDenom, dstChainId, quantity } = watch()
+  const { srcDenom, srcChainId, quantity } = watch()
   const { errors } = formState
 
-  const dstAsset =
-    skipAssets.find(({ denom, chain_id }) => denom === dstDenom && chain_id === dstChainId) || null
-  const srcAsset =
-    skipAssets.find(({ denom, chain_id }) => denom === srcDenom && chain_id === srcChainId) || null
+  const dstAsset = useDstDepositAsset()
+  const srcAsset = useSrcDepositAsset()
   const srcChain = srcChainId ? findChain(srcChainId) : null
   const balance = balances?.[srcChainId]?.[srcDenom]?.amount
   const price = balances?.[srcChainId]?.[srcDenom]?.price || 0
@@ -74,7 +74,7 @@ const DepositFields = () => {
   }, [route, getValues, hexAddress, navigate])
 
   if (!dstAsset) return <SelectDstAsset />
-  if (isSelectorOpen) return <SelectSrcAsset onClose={() => setSelector(false)} />
+  if (!srcAsset) return <SelectSrcAsset />
 
   return (
     <>
@@ -96,24 +96,13 @@ const DepositFields = () => {
       <div className={styles.container}>
         <h3 className={styles.title}>Deposit {dstAsset.symbol}</h3>
 
-        {!isAssetsLoading && !filteredAssets.length && (
-          <>
-            <FormHelp level="info">
-              <p className={styles.info}>
-                No {dstAsset.symbol} available on supported chains.{" "}
-                <a href="https://bridge.initia.xyz">Bridge</a>
-              </p>
-            </FormHelp>
-            <div className={styles.divider} />
-          </>
-        )}
-
         <p className={styles.label}>From</p>
         <button
           className={styles.asset}
           onClick={() => {
             if (!isAssetsLoading && !filteredAssets.length) return
-            setSelector(true)
+            setValue("srcDenom", "")
+            setValue("srcChainId", "")
           }}
         >
           <div className={styles.assetIcon}>

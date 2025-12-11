@@ -1,46 +1,64 @@
 import { IconBack } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
-import { useDepositForm, useFilteredDepositAssets } from "./hooks"
+import FormHelp from "@/components/form/FormHelp"
+import { useDepositForm, useDstDepositAsset, useFilteredDepositAssets } from "./hooks"
 import styles from "./SelectSrcAsset.module.css"
 
-interface Props {
-  onClose: () => void
-}
-
-const SelectSrcAsset = ({ onClose }: Props) => {
-  const { data: filteredAssets } = useFilteredDepositAssets()
+const SelectSrcAsset = () => {
+  const { data: filteredAssets, isLoading } = useFilteredDepositAssets()
   const { setValue } = useDepositForm()
+  const dstAsset = useDstDepositAsset()
+
+  if (!dstAsset) return null
+
+  function navigateBack() {
+    setValue("dstDenom", "")
+    setValue("dstChainId", "")
+  }
 
   return (
     <div className={styles.container}>
-      <button className={styles.close} onClick={onClose}>
+      <button className={styles.close} onClick={navigateBack}>
         <IconBack size={14} />
       </button>
       <h4 className={styles.title}>Select asset</h4>
 
-      {filteredAssets.map(({ asset, chain, balance }) => (
-        <button
-          key={`${asset.chain_id}-${asset.denom}`}
-          className={styles.asset}
-          onClick={() => {
-            setValue("srcDenom", asset.denom)
-            setValue("srcChainId", chain.chain_id)
-            setValue("quantity", "")
-            onClose()
-          }}
-        >
-          <div className={styles.iconContainer}>
-            <img src={asset.logo_uri} alt={asset.symbol} className={styles.assetIcon} />
-            <img src={chain.logo_uri || ""} alt={chain.chain_name} className={styles.chainIcon} />
-          </div>
-          <p className={styles.assetName}>{asset.symbol}</p>
-          <p className={styles.assetChain}>on {chain.pretty_name}</p>
-          <p className={styles.balance}>
-            {formatAmount(balance?.amount, { decimals: balance.decimals || 6 })}
-          </p>
-          <p className={styles.value}>${Number(balance.value_usd).toFixed(2)}</p>
-        </button>
-      ))}
+      {!isLoading && !filteredAssets.length && (
+        <>
+          <FormHelp level="info">
+            <p className={styles.info}>
+              No {dstAsset.symbol} available on supported chains.{" "}
+              <a href="https://bridge.initia.xyz">Bridge</a>
+            </p>
+          </FormHelp>
+          <div className={styles.divider} />
+        </>
+      )}
+
+      <div className={styles.list}>
+        {filteredAssets.map(({ asset, chain, balance }) => (
+          <button
+            key={`${asset.chain_id}-${asset.denom}`}
+            className={styles.asset}
+            onClick={() => {
+              setValue("srcDenom", asset.denom)
+              setValue("srcChainId", chain.chain_id)
+              setValue("quantity", "")
+            }}
+          >
+            <div className={styles.iconContainer}>
+              <img src={asset.logo_uri} alt={asset.symbol} className={styles.assetIcon} />
+              <img src={chain.logo_uri || ""} alt={chain.chain_name} className={styles.chainIcon} />
+            </div>
+            <p className={styles.assetName}>{asset.symbol}</p>
+            <p className={styles.assetChain}>on {chain.pretty_name}</p>
+            <p className={styles.balance}>
+              {formatAmount(balance?.amount, { decimals: balance.decimals || 6 })}
+            </p>
+            <p className={styles.value}>${Number(balance.value_usd).toFixed(2)}</p>
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

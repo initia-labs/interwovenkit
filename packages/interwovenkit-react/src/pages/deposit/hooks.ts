@@ -38,21 +38,39 @@ export function useAllBalancesQuery() {
   })
 }
 
-export function useDepositAssets() {
+export function useDstDepositAsset() {
   const skipAssets = useAllSkipAssets()
-  const findChain = useFindSkipChain()
-  const { data: balances } = useAllBalancesQuery()
   const { watch } = useDepositForm()
 
   const { dstChainId, dstDenom } = watch()
 
-  const dstAsset =
+  return (
     skipAssets.find(({ denom, chain_id }) => denom === dstDenom && chain_id === dstChainId) || null
+  )
+}
+
+export function useSrcDepositAsset() {
+  const skipAssets = useAllSkipAssets()
+  const { watch } = useDepositForm()
+
+  const { srcChainId, srcDenom } = watch()
+
+  return (
+    skipAssets.find(({ denom, chain_id }) => denom === srcDenom && chain_id === srcChainId) || null
+  )
+}
+
+export function useDepositAssets() {
+  const skipAssets = useAllSkipAssets()
+  const findChain = useFindSkipChain()
+  const { data: balances } = useAllBalancesQuery()
+
+  const dstAsset = useDstDepositAsset()
 
   if (!dstAsset) return []
 
   return skipAssets
-    .filter(({ symbol, chain_id }) => symbol === dstAsset.symbol && chain_id !== dstChainId)
+    .filter(({ symbol, chain_id }) => symbol === dstAsset.symbol && chain_id !== dstAsset.chain_id)
     .filter((asset) => {
       const chain = findChain(asset.chain_id)
       if (!chain) return false
