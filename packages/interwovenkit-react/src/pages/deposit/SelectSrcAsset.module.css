@@ -33,6 +33,8 @@
 .list {
   height: 100%;
 
+  margin: 0 -20px;
+
   max-height: 70vh;
   overflow-y: auto;
   /* hide scrollbar */
@@ -47,13 +49,16 @@
     "icon name balance"
     "icon chain value";
 
-  width: calc(100% + 40px);
+  width: 100%;
 
   border-bottom: 1px solid var(--border);
   column-gap: 8px;
-  margin: 0 -20px;
 
   padding: 12px 20px;
+}
+
+.asset:hover {
+  background-color: var(--gray-8);
 }
 
 .iconContainer {

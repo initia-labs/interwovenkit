@@ -27,6 +27,10 @@
   padding: 12px;
 }
 
+.asset:hover {
+  background-color: var(--gray-8);
+}
+
 .asset img {
   width: 32px;
   height: 32px;
