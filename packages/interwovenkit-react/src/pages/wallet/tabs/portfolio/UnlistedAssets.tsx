@@ -1,8 +1,8 @@
 import { animated, useSpring } from "@react-spring/web"
 import { Collapsible } from "radix-ui"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { IconChevronDown } from "@initia/icons-react"
-import type { PortfolioAssetItem } from "@/data/portfolio"
+import type { PortfolioAssetGroup, PortfolioAssetItem } from "@/data/portfolio"
 import { useScrollableRef } from "../ScrollableContext"
 import AssetGroup from "./AssetGroup"
 import styles from "./UnlistedAssets.module.css"
@@ -12,7 +12,7 @@ interface UnlistedAssetsProps {
 }
 
 const UnlistedAssets = ({ unlistedAssets }: UnlistedAssetsProps) => {
-  const [isOpen, setIsOpen] = useState(true)
+  const [isOpen, setIsOpen] = useState(false)
   const scrollableRef = useScrollableRef()
 
   // Animation for collapsible content using measureRef for auto height
@@ -44,6 +44,16 @@ const UnlistedAssets = ({ unlistedAssets }: UnlistedAssetsProps) => {
     config: { tension: 500, friction: 30, clamp: true },
   })
 
+  // Pre-compute asset groups to avoid object creation during render
+  const assetGroups = useMemo(() => {
+    return unlistedAssets.map(
+      (assetItem): PortfolioAssetGroup => ({
+        ...assetItem,
+        assets: [assetItem],
+      }),
+    )
+  }, [unlistedAssets])
+
   if (unlistedAssets.length === 0) {
     return null
   }
@@ -64,11 +74,8 @@ const UnlistedAssets = ({ unlistedAssets }: UnlistedAssetsProps) => {
       <Collapsible.Content forceMount asChild>
         <animated.div className={styles.content} style={animationStyles}>
           <div className={styles.list} ref={contentRef}>
-            {unlistedAssets.map((assetItem) => (
-              <AssetGroup
-                assetGroup={{ ...assetItem, assets: [assetItem] }}
-                key={assetItem.denom}
-              />
+            {assetGroups.map((assetGroup) => (
+              <AssetGroup assetGroup={assetGroup} key={assetGroup.assets[0].denom} />
             ))}
           </div>
         </animated.div>

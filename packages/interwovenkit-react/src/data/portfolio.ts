@@ -7,6 +7,7 @@ import { type NormalizedAsset, useAllChainAssetsQueries } from "./assets"
 import type { NormalizedChain, PriceItem } from "./chains"
 import { useAllChainPriceQueries, useInitiaRegistry } from "./chains"
 import { useConfig } from "./config"
+import { INIT_SYMBOL } from "./constants"
 import placeholder from "./placeholder"
 
 export interface PortfolioAssetGroupInfo {
@@ -39,9 +40,6 @@ export interface PortfolioChainInfo {
   name: string
   logoUrl: string
 }
-
-const INIT_SYMBOL = "INIT"
-const INITIA_CHAIN_NAME = "Initia"
 
 /** Calculates total value for an asset group */
 export function calculateTotalValue(group: PortfolioAssetGroup): number {
@@ -93,13 +91,13 @@ export function sortAssets(assetItems: PortfolioAssetItem[]) {
 
 /**
  * Sorts unlisted assets with deterministic rules:
- * 1. Initia first
+ * 1. Initia (L1) first
  * 2. Alphabetically by chain name
  * 3. Alphabetically by denom
  */
-export function sortUnlistedAssets(unlistedAssets: PortfolioAssetItem[]) {
+export function sortUnlistedAssets(unlistedAssets: PortfolioAssetItem[], l1ChainId?: string) {
   return sortWith<PortfolioAssetItem>([
-    descend(({ chain }) => chain.name === INITIA_CHAIN_NAME),
+    descend(({ chain }) => chain.chainId === l1ChainId),
     ascend(({ chain }) => chain.name),
     ascend(({ denom }) => denom),
   ])(unlistedAssets)
@@ -124,6 +122,9 @@ export function createPortfolio(
   pricesByChain: Record<string, PriceItem[] | undefined>,
   defaultChainId?: string,
 ) {
+  // Find L1 chain for sorting
+  const l1ChainId = chains.find((chain) => chain.metadata?.is_l1)?.chainId
+
   // asset items by chain
   const assetItemsByChain: Record<string, PortfolioAssetItem[]> = {}
 
@@ -211,7 +212,7 @@ export function createPortfolio(
   return {
     chainsByValue: sortChainItems(Array.from(chainItemsMap.values()), defaultChainId),
     assetGroups: sortAssetGroups(assetGroups),
-    unlistedAssets: sortUnlistedAssets(unlistedAssets),
+    unlistedAssets: sortUnlistedAssets(unlistedAssets, l1ChainId),
     totalValue: assetGroups.reduce((sum, group) => sum + calculateTotalValue(group), 0),
   }
 }

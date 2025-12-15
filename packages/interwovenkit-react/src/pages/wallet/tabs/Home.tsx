@@ -3,13 +3,13 @@ import { useRef } from "react"
 import { Tabs } from "@base-ui-components/react/tabs"
 import { IconArrowRight, IconQrCode, IconSwap } from "@initia/icons-react"
 import Scrollable from "@/components/Scrollable"
-import { usePortfolio } from "@/data/portfolio"
+import { useMinityPortfolioTotals } from "@/data/minity"
 import { formatValue } from "@/lib/format"
 import { Link, useNavigate, usePath } from "@/lib/router"
 import { useClaimableModal } from "@/pages/bridge/op/reminder"
 import Activity from "./activity/Activity"
-import Assets from "./assets/Assets"
 import Nfts from "./nft/Nfts"
+import Portfolio from "./portfolio/Portfolio"
 import { ScrollableContext } from "./ScrollableContext"
 import styles from "./Home.module.css"
 
@@ -18,7 +18,10 @@ const Home = () => {
 
   const navigate = useNavigate()
   const path = usePath()
-  const { totalValue, isLoading } = usePortfolio()
+  const {
+    data: { totalBalance },
+    isLoading,
+  } = useMinityPortfolioTotals()
   const scrollableRef = useRef<HTMLDivElement>(null)
 
   return (
@@ -27,7 +30,7 @@ const Home = () => {
         <div className={styles.totalValue}>
           <div className={styles.totalLabel}>Total value</div>
           <div className={clsx(styles.totalAmount, { [styles.loading]: isLoading })}>
-            {formatValue(totalValue)}
+            {formatValue(totalBalance)}
           </div>
         </div>
 
@@ -51,7 +54,7 @@ const Home = () => {
         <Tabs.Root value={path} onValueChange={navigate}>
           <Tabs.List className={styles.tabs}>
             <Tabs.Tab className={styles.tab} value="/">
-              Assets
+              Portfolio
             </Tabs.Tab>
 
             <Tabs.Tab className={styles.tab} value="/nfts">
@@ -64,7 +67,7 @@ const Home = () => {
           </Tabs.List>
 
           <Tabs.Panel value="/">
-            <Assets />
+            <Portfolio />
           </Tabs.Panel>
 
           <Tabs.Panel value="/nfts">
