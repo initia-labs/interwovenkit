@@ -6,8 +6,8 @@ import styles from "./CivitiaSection.module.css"
 const CivitiaSection = () => {
   const { data: player } = useCivitiaPlayer()
 
-  const gold = player?.gold ?? 0
-  const silver = player?.silver ?? 0
+  const gold = player?.gold_balance ?? 0
+  const silver = player?.silver_balance ?? 0
 
   return (
     <div className={styles.section}>
