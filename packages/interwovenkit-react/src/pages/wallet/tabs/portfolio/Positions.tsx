@@ -2,7 +2,7 @@ import { useMemo } from "react"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import FallBack from "@/components/FallBack"
 import Status from "@/components/Status"
-import { INITIA_CHAIN_NAME } from "@/data/constants"
+import { useLayer1 } from "@/data/chains"
 import {
   buildChainInfoMap,
   getPositionValue,
@@ -23,6 +23,7 @@ export interface PositionsProps {
 const Positions = ({ searchQuery, selectedChain }: PositionsProps) => {
   const { data: positions, isLoading } = useMinityPositions()
   const { data: chainBreakdown } = useMinityChainBreakdown()
+  const layer1 = useLayer1()
 
   // Build chain info map for O(1) lookups
   const chainInfoMap = useMemo(() => buildChainInfoMap(chainBreakdown), [chainBreakdown])
@@ -49,7 +50,7 @@ const Positions = ({ searchQuery, selectedChain }: PositionsProps) => {
       })
 
       if (filteredProtocols.length > 0) {
-        const isInitia = chainData.chainName.toLowerCase() === INITIA_CHAIN_NAME
+        const isInitia = layer1.chainId === chainData.chainId
         result.push({
           chainName: chainInfo?.chainName ?? chainData.chainName,
           chainLogo: chainInfo?.logoUrl ?? "",
@@ -60,7 +61,7 @@ const Positions = ({ searchQuery, selectedChain }: PositionsProps) => {
     }
 
     return result
-  }, [positions, chainInfoMap, searchQuery, selectedChain])
+  }, [positions, chainInfoMap, searchQuery, selectedChain, layer1.chainId])
 
   // Calculate total positions value
   const totalPositionsValue = useMemo(() => {

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react"
 import { IconChevronDown, IconExternalLink } from "@initia/icons-react"
 import { formatNumber } from "@initia/utils"
 import Image from "@/components/Image"
-import { INITIA_LIQUIDITY_URL } from "@/data/constants"
+import { INIT_SYMBOL, INITIA_LIQUIDITY_URL } from "@/data/constants"
 import type { LiquiditySectionData, LiquidityTableRow } from "@/data/minity"
 import { formatValue } from "@/lib/format"
 import type { DenomLogoMap } from "./PositionSection"
@@ -144,7 +144,7 @@ const LiquidityRow = ({ row, denomLogoMap }: LiquidityRowProps) => {
               <span className={styles.breakdownLabel}>Unclaimed reward</span>
               <div className={styles.breakdownValues}>
                 <span className={styles.breakdownAmount}>
-                  {formatNumber(Number(claimableInit.total), { dp: 6 })} INIT
+                  {formatNumber(Number(claimableInit.total), { dp: 6 })} {INIT_SYMBOL}
                 </span>
                 <span className={styles.breakdownValue}>
                   {formatValue(claimableInit.totalValue)}

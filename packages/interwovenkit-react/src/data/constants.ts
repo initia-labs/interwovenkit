@@ -4,7 +4,6 @@ const NAMESPACE = "interwovenkit"
 export const INIT_DENOM = "uinit"
 export const INIT_SYMBOL = "INIT"
 export const INIT_DECIMALS = 6
-export const INITIA_CHAIN_NAME = "initia"
 
 // External URLs
 export const INITIA_APP_URL = "https://app.initia.xyz"

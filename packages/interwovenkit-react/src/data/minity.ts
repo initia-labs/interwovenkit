@@ -185,6 +185,7 @@ export interface ChainBalanceData {
 }
 
 export interface ChainPositionData {
+  chainId: string
   chainName: string
   positions: ProtocolPosition[]
 }
@@ -696,6 +697,15 @@ export function useMinityPositions(): {
   const address = useInitiaAddress()
   const { minityUrl } = useConfig()
   const { data: supportedChains, isLoading: isChainsLoading } = useMinitySupportedChains()
+  const registry = useInitiaRegistry()
+
+  const registryMap = useMemo(() => {
+    const map = new Map<string, (typeof registry)[number]>()
+    for (const r of registry) {
+      map.set(r.chain_name.toLowerCase(), r)
+    }
+    return map
+  }, [registry])
 
   const positionQueries = useQueries({
     queries:
@@ -711,11 +721,15 @@ export function useMinityPositions(): {
 
   const data = useMemo(() => {
     if (!address || !supportedChains) return []
-    return supportedChains.map((chainName, index) => ({
-      chainName,
-      positions: positionsData[index] || [],
-    }))
-  }, [address, supportedChains, positionsData])
+    return supportedChains.map((chainName, index) => {
+      const registryChain = registryMap.get(chainName.toLowerCase())
+      return {
+        chainId: registryChain?.chainId || "",
+        chainName,
+        positions: positionsData[index] || [],
+      }
+    })
+  }, [address, supportedChains, positionsData, registryMap])
 
   return { data, isLoading }
 }
