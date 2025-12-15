@@ -10,8 +10,8 @@ import { STALE_TIMES } from "./http"
 // ============================================
 
 export interface CivitiaPlayer {
-  gold: number
-  silver: number
+  gold_balance: number
+  silver_balance: number
 }
 
 // ============================================
