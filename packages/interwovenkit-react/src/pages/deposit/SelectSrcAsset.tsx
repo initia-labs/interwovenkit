@@ -1,6 +1,6 @@
 import { IconBack } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
-import FormHelp from "@/components/form/FormHelp"
+import EmptyIcon from "./assets/Empty.svg"
 import { useDepositForm, useDstDepositAsset, useFilteredDepositAssets } from "./hooks"
 import styles from "./SelectSrcAsset.module.css"
 
@@ -16,24 +16,26 @@ const SelectSrcAsset = () => {
     setValue("dstChainId", "")
   }
 
+  if (!isLoading && !filteredAssets.length)
+    return (
+      <div className={styles.container}>
+        <button className={styles.close} onClick={navigateBack}>
+          <IconBack size={14} />
+        </button>
+        <h4 className={styles.title}>No available assets</h4>
+        <img src={EmptyIcon} alt="No assets" className={styles.emptyIcon} />
+        <p className={styles.empty}>
+          You do not have supported assets to deposit {dstAsset.symbol}.
+        </p>
+      </div>
+    )
+
   return (
     <div className={styles.container}>
       <button className={styles.close} onClick={navigateBack}>
         <IconBack size={14} />
       </button>
       <h4 className={styles.title}>Select asset</h4>
-
-      {!isLoading && !filteredAssets.length && (
-        <>
-          <FormHelp level="info">
-            <p className={styles.info}>
-              No {dstAsset.symbol} available on supported chains.{" "}
-              <a href="https://bridge.initia.xyz">Bridge</a>
-            </p>
-          </FormHelp>
-          <div className={styles.divider} />
-        </>
-      )}
 
       <div className={styles.list}>
         {filteredAssets.map(({ asset, chain, balance }) => (

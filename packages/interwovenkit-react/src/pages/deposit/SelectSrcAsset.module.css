@@ -1,5 +1,5 @@
 .container {
-  min-height: 280px;
+  min-height: 228px;
 }
 
 .title {
@@ -16,6 +16,21 @@
 
   color: var(--gray-3);
   padding: 3px;
+}
+
+.emptyIcon {
+  width: 158px;
+
+  margin: 0 auto;
+}
+
+.empty {
+  color: var(--gray-3);
+  font-size: 12px;
+  font-weight: 500;
+  margin: 0 auto;
+  max-width: 240px;
+  text-align: center;
 }
 
 .info {

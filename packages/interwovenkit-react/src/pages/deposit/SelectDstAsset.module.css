@@ -9,7 +9,9 @@
   flex-direction: column;
   gap: 12px;
 
-  margin-block: 20px;
+  margin-bottom: 8px;
+
+  margin-top: 20px;
 }
 
 .asset {
