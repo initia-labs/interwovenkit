@@ -44,10 +44,12 @@ const DepositTxDetails = ({ renderFee }: Props) => {
       </button>
       {isDetailsOpen && (
         <>
-          <div className={styles.detail}>
-            <p className={styles.detailLabel}>Slippage</p>
-            <p className={styles.detailValue}>{values.slippagePercent}%</p>
-          </div>
+          {route.does_swap && (
+            <div className={styles.detail}>
+              <p className={styles.detailLabel}>Slippage</p>
+              <p className={styles.detailValue}>{values.slippagePercent}%</p>
+            </div>
+          )}
           <div className={styles.detail}>
             <p className={styles.detailLabel}>Estimated time</p>
             <p className={styles.detailValue}>
@@ -67,7 +69,7 @@ const DepositTxDetails = ({ renderFee }: Props) => {
       <div className={styles.detail}>
         <p className={styles.detailLabel}>Minimum received</p>
         <p className={styles.detailValue}>
-          <img src={dstAsset.logo_uri} alt={dstAsset.symbol} />{" "}
+          <img src={dstAsset.logo_uri} alt={dstAsset.symbol} className={styles.detailToken} />{" "}
           {formatAmount(minimumReceived, { decimals: dstAsset.decimals })} {dstAsset.symbol}
         </p>
       </div>
