@@ -38,9 +38,8 @@ const DepositFields = () => {
   const { data: balances } = useAllBalancesQuery()
   const hexAddress = useHexAddress()
 
-  const { watch, setValue, formState, getValues } = useDepositForm()
+  const { watch, setValue, getValues } = useDepositForm()
   const { srcDenom, srcChainId, quantity } = watch()
-  const { errors } = formState
 
   const dstAsset = useDstDepositAsset()
   const srcAsset = useSrcDepositAsset()
@@ -51,20 +50,21 @@ const DepositFields = () => {
   const quantityValue = Number(price) * Number(quantity || 0)
 
   const [debouncedQuantity] = useDebounceValue(quantity, 300)
-  const {
-    data: route,
-    isLoading: isRouteLoading,
-    error: routeError,
-  } = useRouteQuery(debouncedQuantity)
 
   const disabledMessage = useMemo(() => {
     if (!srcAsset) return "Select asset"
     if (!quantity) return "Enter amount"
-    if (errors.quantity) return errors.quantity.message
-    if (routeError) return "No route found"
+    if (Number(quantity) > Number(formatAmount(balance, { decimals: srcAsset?.decimals || 6 })))
+      return "Insufficient balance"
 
     // Destructure error fields in deps to properly track each field change
-  }, [quantity, errors.quantity, srcAsset, routeError])
+  }, [quantity, balance, srcAsset])
+
+  const {
+    data: route,
+    isLoading: isRouteLoading,
+    error: routeError,
+  } = useRouteQuery(debouncedQuantity, { disabled: !!disabledMessage })
 
   useEffect(() => {
     navigate(0, {
@@ -158,15 +158,15 @@ const DepositFields = () => {
           </div>
         )}
 
-        {!state.route ? (
+        {!state.route || !!disabledMessage ? (
           <Button.White
             type="submit"
-            loading={isRouteLoading || !disabledMessage}
+            loading={isRouteLoading}
             disabled={true}
             fullWidth
             className={styles.submit}
           >
-            {disabledMessage}
+            {routeError ? "No route found" : disabledMessage}
           </Button.White>
         ) : (
           <FooterWithAddressList>
