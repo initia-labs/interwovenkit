@@ -73,7 +73,7 @@
   width: 32px;
   height: 32px;
 
-  border: 1px solid var(--gray-7);
+  border: 1px solid var(--gray-5);
   border-radius: 50%;
 }
 
@@ -85,7 +85,7 @@
   width: 16px;
   height: 16px;
 
-  border: 1px solid var(--gray-7);
+  border: 1px solid var(--gray-5);
   border-radius: 50%;
 }
 
