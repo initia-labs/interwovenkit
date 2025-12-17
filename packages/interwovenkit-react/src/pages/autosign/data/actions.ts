@@ -19,7 +19,7 @@ import { autoSignQueryKeys, useAutoSignMessageTypes } from "./validation"
 import { useEmbeddedWalletAddress } from "./wallet"
 
 /* Hook to fetch existing grants and generate revoke messages */
-function useAutoSignRevokeMessages() {
+function useFetchRevokeMessages() {
   const granter = useInitiaAddress()
   const messageTypes = useAutoSignMessageTypes()
   const { fetchFeegrant, fetchGrants } = useAutoSignApi()
@@ -64,7 +64,7 @@ export function useEnableAutoSign() {
   const queryClient = useQueryClient()
   const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
   const { closeDrawer } = useDrawer()
-  const fetchRevokeMessages = useAutoSignRevokeMessages()
+  const fetchRevokeMessages = useFetchRevokeMessages()
 
   // Get or create embedded wallet address
   const resolveEmbeddedWalletAddress = async (): Promise<string> => {
@@ -153,7 +153,7 @@ export function useDisableAutoSign(options?: {
   const grantee = options?.grantee || embeddedWalletAddress
   const { requestTxBlock } = useTx()
   const queryClient = useQueryClient()
-  const fetchRevokeMessages = useAutoSignRevokeMessages()
+  const fetchRevokeMessages = useFetchRevokeMessages()
 
   return useMutation({
     mutationFn: async (chainId: string = config.defaultChainId) => {
