@@ -1,6 +1,8 @@
 import { IconBack } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
-import EmptyIcon from "./assets/Empty.svg"
+import { useConfig } from "@/data/config"
+import EmptyIconDark from "./assets/EmptyDark.svg"
+import EmptyIconLight from "./assets/EmptyLight.svg"
 import { useDepositForm, useDstDepositAsset, useFilteredDepositAssets } from "./hooks"
 import styles from "./SelectSrcAsset.module.css"
 
@@ -8,6 +10,7 @@ const SelectSrcAsset = () => {
   const { data: filteredAssets, isLoading } = useFilteredDepositAssets()
   const { setValue } = useDepositForm()
   const dstAsset = useDstDepositAsset()
+  const { theme } = useConfig()
 
   if (!dstAsset) return null
 
@@ -23,7 +26,11 @@ const SelectSrcAsset = () => {
           <IconBack size={14} />
         </button>
         <h4 className={styles.title}>No available assets</h4>
-        <img src={EmptyIcon} alt="No assets" className={styles.emptyIcon} />
+        <img
+          src={theme === "dark" ? EmptyIconDark : EmptyIconLight}
+          alt="No assets"
+          className={styles.emptyIcon}
+        />
         <p className={styles.empty}>
           You do not have supported assets to deposit {dstAsset.symbol}.
         </p>
