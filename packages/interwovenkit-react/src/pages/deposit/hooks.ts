@@ -1,6 +1,7 @@
 import type { BalancesResponseJson } from "@skip-go/client"
 import { useFormContext } from "react-hook-form"
 import { useQuery } from "@tanstack/react-query"
+import { useConfig } from "@/data/config"
 import { STALE_TIMES } from "@/data/http"
 import { useHexAddress, useInitiaAddress } from "@/public/data/hooks"
 import { useAllSkipAssets } from "../bridge/data/assets"
@@ -36,6 +37,14 @@ export function useAllBalancesQuery() {
     enabled: !!initAddress,
     staleTime: STALE_TIMES.SECOND,
   })
+}
+
+export function useDepositOptions() {
+  const { depositOptions = [] } = useConfig()
+  const skipAssets = useAllSkipAssets()
+  return skipAssets.filter(({ denom, chain_id }) =>
+    depositOptions.some((opt) => opt.denom === denom && opt.chainId === chain_id),
+  )
 }
 
 export function useDstDepositAsset() {

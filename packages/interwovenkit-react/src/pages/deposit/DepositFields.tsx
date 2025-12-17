@@ -4,7 +4,6 @@ import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
 import Button from "@/components/Button"
 import QuantityInput from "@/components/form/QuantityInput"
-import { useConfig } from "@/data/config"
 import { useLocationState, useNavigate } from "@/lib/router"
 import { useHexAddress } from "@/public/data/hooks"
 import { useFindSkipChain } from "../bridge/data/chains"
@@ -17,12 +16,11 @@ import FooterWithTxFee from "./FooterWithTxFee"
 import {
   useAllBalancesQuery,
   useDepositForm,
+  useDepositOptions,
   useDstDepositAsset,
   useFilteredDepositAssets,
   useSrcDepositAsset,
 } from "./hooks"
-import SelectDstAsset from "./SelectDstAsset"
-import SelectSrcAsset from "./SelectSrcAsset"
 import styles from "./DepositFields.module.css"
 
 interface State {
@@ -32,7 +30,7 @@ interface State {
 const DepositFields = () => {
   const navigate = useNavigate()
   const state = useLocationState<State>()
-  const { depositOptions = [] } = useConfig()
+  const options = useDepositOptions()
   const { data: filteredAssets, isLoading: isAssetsLoading } = useFilteredDepositAssets()
   const findChain = useFindSkipChain()
   const { data: balances } = useAllBalancesQuery()
@@ -73,12 +71,11 @@ const DepositFields = () => {
     })
   }, [route, getValues, hexAddress, navigate])
 
-  if (!dstAsset) return <SelectDstAsset />
-  if (!srcAsset) return <SelectSrcAsset />
+  if (!dstAsset || !srcAsset) return null
 
   return (
     <>
-      {!!depositOptions.length && (
+      {options.length > 1 && (
         <button
           className={styles.back}
           onClick={() => {

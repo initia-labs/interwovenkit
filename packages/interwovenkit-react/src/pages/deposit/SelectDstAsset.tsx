@@ -1,18 +1,13 @@
-import { useConfig } from "@/data/config"
-import { useAllSkipAssets } from "../bridge/data/assets"
-import { useAllBalancesQuery, useDepositForm } from "./hooks"
+import type { RouterAsset } from "../bridge/data/assets"
+import { useDepositForm } from "./hooks"
 import styles from "./SelectDstAsset.module.css"
 
-const SelectDstAsset = () => {
-  const { depositOptions = [] } = useConfig()
-  const skipAssets = useAllSkipAssets()
-  const options = skipAssets.filter(({ denom, chain_id }) =>
-    depositOptions.some((opt) => opt.denom === denom && opt.chainId === chain_id),
-  )
-  const { setValue } = useDepositForm()
+interface Props {
+  options: RouterAsset[]
+}
 
-  // prefetch balance so next pages are quicker
-  useAllBalancesQuery()
+const SelectDstAsset = ({ options }: Props) => {
+  const { setValue } = useDepositForm()
 
   return (
     <>

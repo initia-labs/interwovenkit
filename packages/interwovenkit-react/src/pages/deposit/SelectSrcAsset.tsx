@@ -3,28 +3,43 @@ import { formatAmount } from "@initia/utils"
 import { useConfig } from "@/data/config"
 import EmptyIconDark from "./assets/EmptyDark.svg"
 import EmptyIconLight from "./assets/EmptyLight.svg"
-import { useDepositForm, useDstDepositAsset, useFilteredDepositAssets } from "./hooks"
+import {
+  useDepositForm,
+  useDepositOptions,
+  useDstDepositAsset,
+  useFilteredDepositAssets,
+} from "./hooks"
 import styles from "./SelectSrcAsset.module.css"
 
 const SelectSrcAsset = () => {
   const { data: filteredAssets, isLoading } = useFilteredDepositAssets()
   const { setValue } = useDepositForm()
   const dstAsset = useDstDepositAsset()
+  const options = useDepositOptions()
   const { theme } = useConfig()
 
-  if (!dstAsset) return null
+  function renderBackButton() {
+    if (options.length <= 1) return null
 
-  function navigateBack() {
-    setValue("dstDenom", "")
-    setValue("dstChainId", "")
+    return (
+      <button
+        className={styles.close}
+        onClick={() => {
+          setValue("dstDenom", "")
+          setValue("dstChainId", "")
+        }}
+      >
+        <IconBack size={14} />
+      </button>
+    )
   }
+
+  if (!dstAsset) return null
 
   if (!isLoading && !filteredAssets.length)
     return (
       <div className={styles.container}>
-        <button className={styles.close} onClick={navigateBack}>
-          <IconBack size={14} />
-        </button>
+        {renderBackButton()}
         <h4 className={styles.title}>No available assets</h4>
         <img
           src={theme === "dark" ? EmptyIconDark : EmptyIconLight}
@@ -39,9 +54,7 @@ const SelectSrcAsset = () => {
 
   return (
     <div className={styles.container}>
-      <button className={styles.close} onClick={navigateBack}>
-        <IconBack size={14} />
-      </button>
+      {renderBackButton()}
       <h4 className={styles.title}>Select asset</h4>
 
       <div className={styles.list}>
