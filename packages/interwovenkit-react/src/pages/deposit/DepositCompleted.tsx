@@ -1,12 +1,16 @@
 import Button from "@/components/Button"
+import { useConfig } from "@/data/config"
 import { useModal } from "@/data/ui"
 import { useLocationState } from "@/lib/router"
 import { useSkipAsset } from "../bridge/data/assets"
 import { formatDuration } from "../bridge/data/format"
 import { useBridgePreviewState, useTrackTxQuery, useTxStatusQuery } from "../bridge/data/tx"
-import CompletedAnimation from "./assets/Completed.webm"
-import FailedIcon from "./assets/Failed.svg"
-import LoadingAnimation from "./assets/Loading.webm"
+import CompletedDarkAnimation from "./assets/CompletedDark.webm"
+import CompletedLightAnimation from "./assets/CompletedLight.webm"
+import FailedDarkIcon from "./assets/FailedDark.svg"
+import FailedLightIcon from "./assets/FailedLight.svg"
+import LoadingDarkAnimation from "./assets/LoadingDark.webm"
+import LoadingLightAnimation from "./assets/LoadingLight.webm"
 import styles from "./DepositCompleted.module.css"
 
 interface SuccessState {
@@ -43,6 +47,7 @@ export function DepositCompleted() {
   const state = useLocationState<SuccessState | ErrorState>()
   const { route, values } = useBridgePreviewState()
   const { closeModal } = useModal()
+  const { theme } = useConfig()
 
   const isError = "error" in state
   const txHash = !isError ? state.txHash : ""
@@ -76,12 +81,17 @@ export function DepositCompleted() {
   // Derive state from transaction status
   const txState = getTxState(txStatus)
 
+  // icons
+  const failedIcon = theme === "dark" ? FailedDarkIcon : FailedLightIcon
+  const loadingAnimation = theme === "dark" ? LoadingDarkAnimation : LoadingLightAnimation
+  const completedAnimation = theme === "dark" ? CompletedDarkAnimation : CompletedLightAnimation
+
   // Error state handling
   if (isError) {
     return (
       <div className={styles.container}>
         <h3 className={styles.title}>Deposit failed</h3>
-        <img src={FailedIcon} alt="Failed" className={styles.errorIcon} />
+        <img src={failedIcon} alt="Failed" className={styles.errorIcon} />
         <p className={styles.error}>{state.message}</p>
         <Button.White fullWidth onClick={closeModal}>
           Close
@@ -104,7 +114,7 @@ export function DepositCompleted() {
             Depositing {quantity} {srcAsset.symbol}
           </h3>
           <video
-            src={LoadingAnimation}
+            src={loadingAnimation}
             autoPlay
             muted
             loop
@@ -129,7 +139,7 @@ export function DepositCompleted() {
         <>
           <h3 className={styles.title}>Deposit complete</h3>
           <video
-            src={CompletedAnimation}
+            src={completedAnimation}
             autoPlay
             muted
             playsInline
@@ -156,7 +166,7 @@ export function DepositCompleted() {
       {txState === "failed" && (
         <>
           <h3 className={styles.title}>Deposit failed</h3>
-          <img src={FailedIcon} alt="Failed" className={styles.errorIcon} />
+          <img src={failedIcon} alt="Failed" className={styles.errorIcon} />
           <p className={styles.error}>Your transaction could not be completed</p>
           <Button.White fullWidth onClick={closeModal}>
             Close
