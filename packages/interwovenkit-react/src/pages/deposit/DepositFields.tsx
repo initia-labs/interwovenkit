@@ -74,7 +74,7 @@ const DepositFields = () => {
   if (!dstAsset || !srcAsset) return null
 
   return (
-    <>
+    <div className={styles.container}>
       {options.length > 1 && (
         <button
           className={styles.back}
@@ -90,100 +90,96 @@ const DepositFields = () => {
           <IconBack size={14} />
         </button>
       )}
-      <div className={styles.container}>
-        <h3 className={styles.title}>Deposit {dstAsset.symbol}</h3>
+      <h3 className={styles.title}>Deposit {dstAsset.symbol}</h3>
+      <p className={styles.label}>From</p>
+      <button
+        className={styles.asset}
+        onClick={() => {
+          if (!isAssetsLoading && !filteredAssets.length) return
+          setValue("srcDenom", "")
+          setValue("srcChainId", "")
+        }}
+      >
+        <div className={styles.assetIcon}>
+          {!!srcAsset && (
+            <>
+              <img src={srcAsset?.logo_uri} alt={srcAsset.symbol} />
+              <img
+                src={srcChain?.logo_uri || ""}
+                alt={srcChain?.pretty_name}
+                className={styles.chainIcon}
+              />
+            </>
+          )}
+        </div>
+        <p className={styles.assetName}>
+          {!srcAsset ? (
+            "Select asset"
+          ) : (
+            <>
+              {srcAsset.symbol}
+              <br />
+              <span>on {srcChain?.pretty_name}</span>
+            </>
+          )}
+        </p>
+        <IconChevronDown className={styles.chevron} size={16} />
+      </button>
+      <p className={styles.label}>Amount</p>
+      <QuantityInput
+        balance={balance}
+        decimals={srcAsset?.decimals || 6}
+        className={styles.input}
+      />
+      {balance && (
+        <div className={styles.balanceContainer}>
+          <p className={styles.value}>${quantityValue ? quantityValue.toFixed(2) : "-"}</p>
 
-        <p className={styles.label}>From</p>
-        <button
-          className={styles.asset}
-          onClick={() => {
-            if (!isAssetsLoading && !filteredAssets.length) return
-            setValue("srcDenom", "")
-            setValue("srcChainId", "")
-          }}
-        >
-          <div className={styles.assetIcon}>
-            {!!srcAsset && (
-              <>
-                <img src={srcAsset?.logo_uri} alt={srcAsset.symbol} />
-                <img
-                  src={srcChain?.logo_uri || ""}
-                  alt={srcChain?.pretty_name}
-                  className={styles.chainIcon}
-                />
-              </>
-            )}
-          </div>
-          <p className={styles.assetName}>
-            {!srcAsset ? (
-              "Select asset"
-            ) : (
-              <>
-                {srcAsset.symbol}
-                <br />
-                <span>on {srcChain?.pretty_name}</span>
-              </>
-            )}
-          </p>
-          <IconChevronDown className={styles.chevron} size={16} />
-        </button>
-        <p className={styles.label}>Amount</p>
-        <QuantityInput
-          balance={balance}
-          decimals={srcAsset?.decimals || 6}
-          className={styles.input}
-        />
-        {balance && (
-          <div className={styles.balanceContainer}>
-            <p className={styles.value}>${quantityValue ? quantityValue.toFixed(2) : "-"}</p>
+          <button
+            className={styles.maxButton}
+            onClick={() => {
+              if (
+                Number(quantity) ===
+                Number(formatAmount(balance, { decimals: srcAsset?.decimals || 6 }))
+              )
+                return
 
-            <button
-              className={styles.maxButton}
-              onClick={() => {
-                if (
-                  Number(quantity) ===
-                  Number(formatAmount(balance, { decimals: srcAsset?.decimals || 6 }))
-                )
-                  return
-
-                setValue("quantity", formatAmount(balance, { decimals: srcAsset?.decimals || 6 }))
-              }}
-            >
-              <IconWallet /> {formatAmount(balance, { decimals: srcAsset?.decimals || 6 })}{" "}
-              <span>MAX</span>
-            </button>
-          </div>
-        )}
-
-        {!state.route || !!disabledMessage ? (
-          <Button.White
-            type="submit"
-            loading={isRouteLoading}
-            disabled={true}
-            fullWidth
-            className={styles.submit}
+              setValue("quantity", formatAmount(balance, { decimals: srcAsset?.decimals || 6 }))
+            }}
           >
-            {routeError ? "No route found" : disabledMessage}
-          </Button.White>
-        ) : (
-          <FooterWithAddressList>
-            {(addressList) => (
-              <FooterWithSignedOpHook>
-                {(signedOpHook) => (
-                  <FooterWithMsgs addressList={addressList} signedOpHook={signedOpHook}>
-                    {(tx) => (
-                      <FooterWithTxFee tx={tx}>
-                        {(gas) => <DepositFooter tx={tx} gas={gas} />}
-                      </FooterWithTxFee>
-                    )}
-                  </FooterWithMsgs>
-                )}
-              </FooterWithSignedOpHook>
-            )}
-          </FooterWithAddressList>
-        )}
-      </div>
-    </>
+            <IconWallet /> {formatAmount(balance, { decimals: srcAsset?.decimals || 6 })}{" "}
+            <span>MAX</span>
+          </button>
+        </div>
+      )}
+      {!state.route || !!disabledMessage ? (
+        <Button.White
+          type="submit"
+          loading={isRouteLoading}
+          disabled={true}
+          fullWidth
+          className={styles.submit}
+        >
+          {routeError ? "No route found" : disabledMessage}
+        </Button.White>
+      ) : (
+        <FooterWithAddressList>
+          {(addressList) => (
+            <FooterWithSignedOpHook>
+              {(signedOpHook) => (
+                <FooterWithMsgs addressList={addressList} signedOpHook={signedOpHook}>
+                  {(tx) => (
+                    <FooterWithTxFee tx={tx}>
+                      {(gas) => <DepositFooter tx={tx} gas={gas} />}
+                    </FooterWithTxFee>
+                  )}
+                </FooterWithMsgs>
+              )}
+            </FooterWithSignedOpHook>
+          )}
+        </FooterWithAddressList>
+      )}
+    </div>
   )
 }
 

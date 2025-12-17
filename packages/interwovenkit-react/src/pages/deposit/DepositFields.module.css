@@ -1,9 +1,9 @@
 .back {
-  position: fixed;
+  position: absolute;
   top: 16px;
   left: 20px;
 
-  color: var(--gray-4);
+  color: var(--gray-3);
   padding: 3px;
 }
 
