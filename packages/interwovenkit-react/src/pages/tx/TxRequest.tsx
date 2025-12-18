@@ -12,7 +12,7 @@ import WidgetAccordion from "@/components/WidgetAccordion"
 import { useBalances } from "@/data/account"
 import { useFindAsset } from "@/data/assets"
 import { useChain } from "@/data/chains"
-import { useGasPrices, useLastFeeDenom } from "@/data/fee"
+import { getFeeDetails, useGasPrices, useLastFeeDenom } from "@/data/fee"
 import { useSignWithEthSecp256k1 } from "@/data/signer"
 import { TX_APPROVAL_MUTATION_KEY, useTxRequestHandler } from "@/data/tx"
 import { useInitiaAddress } from "@/public/data/hooks"
@@ -21,7 +21,7 @@ import { useSignWithEmbeddedWallet } from "../autosign/data/wallet"
 import TxFee from "./TxFee"
 import TxFeeInsufficient from "./TxFeeInsufficient"
 import TxMessage from "./TxMessage"
-import TxMetaItem from "./TxMetaItem"
+import TxMeta from "./TxMeta"
 import TxSimulate from "./TxSimulate"
 import styles from "./TxRequest.module.css"
 
@@ -43,37 +43,28 @@ const TxRequest = () => {
     calculateFee(Math.ceil(gas * gasAdjustment), GasPrice.fromString(amount + denom)),
   )
 
-  const feeCoins = feeOptions.map((fee) => fee.amount[0])
-
-  const getFeeDetails = (feeDenom: string) => {
-    const balance = balances.find((balance) => balance.denom === feeDenom)?.amount ?? "0"
-    const feeAmount = feeCoins.find((coin) => coin.denom === feeDenom)?.amount ?? "0"
-    const spendAmount = spendCoins
+  const getSpendAmount = (feeDenom: string) =>
+    spendCoins
       .filter((coin) => coin.denom === feeDenom)
       .reduce((total, coin) => BigNumber(total).plus(coin.amount), BigNumber("0"))
-    const totalRequired = BigNumber(feeAmount).plus(spendAmount)
-    const isSufficient = BigNumber(balance).gte(totalRequired)
 
-    const { symbol, decimals } = findAsset(feeDenom)
-
-    return {
-      symbol,
-      decimals,
-      spend: spendAmount.gt(0) ? spendAmount.toFixed() : null,
-      fee: feeAmount,
-      total: totalRequired.toFixed(),
-      balance,
-      isSufficient,
-    }
-  }
+  const calcFeeDetails = (feeDenom: string) =>
+    getFeeDetails({
+      feeDenom,
+      balances,
+      feeOptions,
+      spendAmount: getSpendAmount(feeDenom),
+      findAsset,
+    })
 
   const getInitialFeeDenom = () => {
-    if (lastUsedFeeDenom && getFeeDetails(lastUsedFeeDenom).isSufficient) {
+    if (lastUsedFeeDenom && calcFeeDetails(lastUsedFeeDenom).isSufficient) {
       return lastUsedFeeDenom
     }
 
+    const feeCoins = feeOptions.map((fee) => fee.amount[0])
     for (const { denom: feeDenom } of feeCoins) {
-      if (getFeeDetails(feeDenom).isSufficient) {
+      if (calcFeeDetails(feeDenom).isSufficient) {
         return feeDenom
       }
     }
@@ -101,7 +92,7 @@ const TxRequest = () => {
     },
   })
 
-  const feeDetails = getFeeDetails(feeDenom)
+  const feeDetails = calcFeeDetails(feeDenom)
   const isInsufficient = !feeDetails.isSufficient
 
   return (
@@ -110,12 +101,14 @@ const TxRequest = () => {
         <h1 className={styles.title}>Confirm tx</h1>
 
         <div className={styles.meta}>
-          <TxMetaItem title="Chain" content={chainId} />
-          <TxMetaItem
+          <TxMeta.Item title="Chain" content={chainId} />
+          <TxMeta.Item
             title="Tx fee"
-            content={<TxFee options={feeOptions} value={feeDenom} onChange={setFeeDenom} />}
+            content={
+              <TxFee chain={chain} options={feeOptions} value={feeDenom} onChange={setFeeDenom} />
+            }
           />
-          {memo && <TxMetaItem title="Memo" content={memo} />}
+          {memo && <TxMeta.Item title="Memo" content={memo} />}
           {isInsufficient && (
             <FormHelp level="error">
               <TxFeeInsufficient {...feeDetails} />
