@@ -15,7 +15,12 @@ export const autoSignQueryKeys = createQueryKeys("interwovenkit:autosign", {
     address,
     embeddedWalletAddress,
   ],
-  grants: (chainId: string, address: string | undefined) => [chainId, address],
+  allGrants: (chainId: string, address: string | undefined) => [chainId, address],
+  revokeMessages: (chainId: string, address: string | undefined, grantee: string) => [
+    chainId,
+    address,
+    grantee,
+  ],
 })
 
 /* Get configured AutoSign message types for the default chain based on chain type */
