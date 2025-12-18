@@ -1,13 +1,13 @@
 import ky from "ky"
-import { useMemo } from "react"
-import { queryOptions, useQueries, useQuery } from "@tanstack/react-query"
+import { useEffect, useEffectEvent, useMemo } from "react"
+import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useInitiaRegistry } from "./chains"
 import { useConfig } from "./config"
 import { INIT_SYMBOL } from "./constants"
 import { STALE_TIMES } from "./http"
-import type { PortfolioAssetGroup } from "./portfolio"
+import type { PortfolioAssetGroup, PortfolioAssetItem } from "./portfolio"
 
 // ============================================
 // BALANCE TYPES (Discriminated Union)
@@ -145,6 +145,7 @@ export interface LiquidityTableRow {
   totalValue: number
   decimals: number
   poolType?: PoolType
+  logoUrl?: string // LP token's own logo (for tokens without coinLogos like omniINIT)
   coinLogos?: string[] // [logoUrl1, logoUrl2] for paired tokens
   breakdown: LiquidityPositionBreakdown
   claimableInit?: ClaimableInitBreakdown
@@ -179,8 +180,17 @@ export interface ChainBreakdownItem {
   percentage: number
 }
 
+/** Chain info for display (logo, name) - independent from balances/positions */
+export interface ChainInfo {
+  chainId: string
+  chainName: string
+  prettyName: string
+  logoUrl: string
+}
+
 export interface ChainBalanceData {
   chainName: string
+  chainId: string
   balances: Balance[]
 }
 
@@ -191,14 +201,34 @@ export interface ChainPositionData {
 }
 
 // ============================================
-// PORTFOLIO TOTALS TYPE
+// SSE TYPES
 // ============================================
 
-export interface PortfolioTotals {
-  totalBalance: number
-  liquidAssetsBalance: number
-  l1PositionsBalance: number
-  appchainPositionsBalance: number
+/** SSE event data for balances */
+export interface SSEBalanceEvent {
+  type: "balances"
+  chain: string
+  chainId: string
+  balances: Balance[]
+}
+
+/** SSE event data for positions */
+export interface SSEPositionEvent {
+  type: "positions"
+  chain: string
+  chainId: string
+  positions: ProtocolPosition[]
+}
+
+/** SSE event union type */
+export type SSEEvent = SSEBalanceEvent | SSEPositionEvent
+
+/** Portfolio data from SSE stream */
+export interface SSEPortfolioData {
+  balances: ChainBalanceData[]
+  positions: ChainPositionData[]
+  isLoading: boolean
+  isComplete: boolean
 }
 
 // ============================================
@@ -224,7 +254,10 @@ const DEFAULT_MINITY_URL = "https://portfolio-api.minity.xyz"
 // ============================================
 
 function createMinityClient(minityUrl?: string) {
-  return ky.create({ prefixUrl: minityUrl || DEFAULT_MINITY_URL })
+  return ky.create({
+    prefixUrl: minityUrl || DEFAULT_MINITY_URL,
+    timeout: 30000, // 30 seconds timeout for portfolio API
+  })
 }
 
 // ============================================
@@ -235,6 +268,9 @@ export const minityQueryKeys = createQueryKeys("interwovenkit:minity", {
   // Miscellaneous
   supportedChains: (minityUrl?: string) => [minityUrl],
   prices: (minityUrl?: string) => [minityUrl],
+
+  // SSE Portfolio (balances + positions streamed together)
+  ssePortfolio: (address: string, minityUrl?: string) => [address, minityUrl],
 
   // Balances
   balances: (address: string, chainName: string, minityUrl?: string) => [
@@ -379,6 +415,20 @@ export const minityQueryOptions = {
 }
 
 // ============================================
+// SSE CONSTANTS
+// ============================================
+
+/** SSE connection timeout in milliseconds */
+const SSE_TIMEOUT = 60000
+
+const DEFAULT_SSE_DATA: SSEPortfolioData = {
+  balances: [],
+  positions: [],
+  isLoading: false,
+  isComplete: false,
+}
+
+// ============================================
 // HELPER FUNCTIONS
 // ============================================
 
@@ -400,31 +450,36 @@ function getProtocolPositionValue(position: ProtocolPosition): number {
 // MAP BUILDERS
 // ============================================
 
-/** Build a map of denom -> logo URLs from InterwovenKit asset groups */
-export function buildDenomLogoMap(
-  assetGroups: PortfolioAssetGroup[],
-): Map<string, { assetLogo: string; chainLogo: string }> {
-  const map = new Map<string, { assetLogo: string; chainLogo: string }>()
-  for (const group of assetGroups) {
-    for (const asset of group.assets) {
-      map.set(asset.denom, {
-        assetLogo: asset.logoUrl,
-        chainLogo: asset.chain.logoUrl,
-      })
-    }
-  }
-  return map
+interface AssetQueryResult {
+  data?: Array<{ denom: string; symbol: string; logoUrl?: string }>
 }
 
-/** Build a map of chainName (lowercase) -> chain info for O(1) lookups */
-export function buildChainInfoMap(
-  chainBreakdown: ChainBreakdownItem[],
-): Map<string, ChainBreakdownItem> {
-  const map = new Map<string, ChainBreakdownItem>()
-  for (const chain of chainBreakdown) {
-    map.set(chain.chainName.toLowerCase(), chain)
+/** Build denom -> logo and symbol -> logo maps from asset queries (fast, no balance dependency) */
+export function buildAssetLogoMaps(assetQueries: AssetQueryResult[]): {
+  denomLogos: Map<string, string>
+  symbolLogos: Map<string, string>
+} {
+  const denomMap = new Map<string, string>()
+  const symbolMap = new Map<string, string>()
+
+  for (const query of assetQueries) {
+    const assets = query.data
+    if (!assets) continue
+
+    for (const asset of assets) {
+      if (asset.logoUrl && !asset.logoUrl.includes("undefined")) {
+        if (!denomMap.has(asset.denom)) {
+          denomMap.set(asset.denom, asset.logoUrl)
+        }
+        const upperSymbol = asset.symbol.toUpperCase()
+        if (!symbolMap.has(upperSymbol)) {
+          symbolMap.set(upperSymbol, asset.logoUrl)
+        }
+      }
+    }
   }
-  return map
+
+  return { denomLogos: denomMap, symbolLogos: symbolMap }
 }
 
 // ============================================
@@ -478,10 +533,10 @@ export function getSectionKey(position: Position): string | null {
 }
 
 /** Get display label for section key */
-export function getSectionLabel(sectionKey: string): string {
+export function getSectionLabel(sectionKey: string, isInitia = false): string {
   switch (sectionKey) {
     case "staking":
-      return "Staking"
+      return isInitia ? "INIT staking" : "Staking"
     case "borrowing":
       return "Borrowing"
     case "lending":
@@ -627,10 +682,140 @@ export function groupPositionsByDenom(positions: Position[]): DenomGroup[] {
 export function compareAssetGroups(a: PortfolioAssetGroup, b: PortfolioAssetGroup): number {
   if (a.symbol === INIT_SYMBOL) return -1
   if (b.symbol === INIT_SYMBOL) return 1
-  const aValue = a.assets.reduce((sum, asset) => sum + (asset.value ?? 0), 0)
-  const bValue = b.assets.reduce((sum, asset) => sum + (asset.value ?? 0), 0)
-  if (bValue !== aValue) return bValue - aValue
+  if (b.totalValue !== a.totalValue) return b.totalValue - a.totalValue
   return a.symbol.localeCompare(b.symbol, undefined, { sensitivity: "base" })
+}
+
+/** Group Minity balances by symbol across all chains into PortfolioAssetGroups */
+export function groupBalancesBySymbol(
+  minityBalances: ChainBalanceData[],
+  chainInfoMap: Map<string, ChainInfo>,
+): PortfolioAssetGroup[] {
+  const groupMap = new Map<string, PortfolioAssetItem[]>()
+
+  // Guard against non-array input (e.g., during SSE loading/error)
+  if (!Array.isArray(minityBalances)) {
+    return []
+  }
+
+  for (const { chainName, balances } of minityBalances) {
+    // Guard against non-array balances (e.g., during SSE loading/error)
+    if (!Array.isArray(balances)) continue
+
+    const chainInfo = chainInfoMap.get(chainName.toLowerCase())
+    const chainId = chainInfo?.chainId ?? chainName
+
+    for (const balance of balances) {
+      // Skip unknown types, LP tokens, and zero/negative values
+      if (balance.type === "unknown" || balance.type === "lp" || (balance.value ?? 0) <= 0) continue
+
+      const item: PortfolioAssetItem = {
+        symbol: balance.symbol,
+        logoUrl: "",
+        denom: balance.denom,
+        amount: balance.amount,
+        decimals: balance.decimals,
+        quantity: String(balance.formattedAmount),
+        value: balance.value,
+        chain: {
+          chainId,
+          name: chainInfo?.prettyName ?? chainName,
+          logoUrl: chainInfo?.logoUrl ?? "",
+        },
+      }
+
+      const existing = groupMap.get(balance.symbol)
+      if (existing) {
+        existing.push(item)
+      } else {
+        groupMap.set(balance.symbol, [item])
+      }
+    }
+  }
+
+  const groups: PortfolioAssetGroup[] = []
+
+  for (const [symbol, assets] of groupMap) {
+    const sortedAssets = assets.toSorted((a, b) => (b.value ?? 0) - (a.value ?? 0))
+    const totalValue = sortedAssets.reduce((sum, a) => sum + (a.value ?? 0), 0)
+    const totalAmount = sortedAssets.reduce((sum, a) => sum + Number(a.quantity), 0)
+
+    groups.push({
+      symbol,
+      logoUrl: "",
+      assets: sortedAssets,
+      totalValue,
+      totalAmount,
+    })
+  }
+
+  return groups.toSorted(compareAssetGroups)
+}
+
+/** Apply logos to asset groups from denom and symbol logo maps */
+export function applyLogosToGroups(
+  groups: PortfolioAssetGroup[],
+  denomLogos: Map<string, string>,
+  symbolLogos: Map<string, string>,
+): PortfolioAssetGroup[] {
+  return groups.map((group) => {
+    const assetsWithLogos = group.assets.map((asset) => {
+      const upperSymbol = asset.symbol.toUpperCase()
+      const logoUrl = denomLogos.get(asset.denom) ?? symbolLogos.get(upperSymbol) ?? ""
+      return logoUrl !== asset.logoUrl ? { ...asset, logoUrl } : asset
+    })
+
+    let groupLogo = ""
+    for (const asset of assetsWithLogos) {
+      if (asset.logoUrl) {
+        groupLogo = asset.logoUrl
+        break
+      }
+    }
+    if (!groupLogo) {
+      groupLogo = symbolLogos.get(group.symbol.toUpperCase()) ?? ""
+    }
+
+    return groupLogo !== group.logoUrl || assetsWithLogos !== group.assets
+      ? { ...group, logoUrl: groupLogo, assets: assetsWithLogos }
+      : group
+  })
+}
+
+/** Filter asset groups by search query and chain, returns filtered groups and total value */
+export function filterAssetGroups(
+  assetGroups: PortfolioAssetGroup[],
+  searchQuery: string,
+  selectedChainId: string,
+): { filteredAssets: PortfolioAssetGroup[]; totalAssetsValue: number } {
+  // Filter by search query
+  const searchFilteredAssets = !searchQuery
+    ? assetGroups
+    : assetGroups.filter((assetGroup) => {
+        const { symbol, assets } = assetGroup
+        const query = searchQuery.toLowerCase()
+        return (
+          symbol.toLowerCase().includes(query) ||
+          assets.some(({ denom }) => denom.toLowerCase().includes(query))
+        )
+      })
+
+  // Filter by selected chain
+  const chainFilteredAssets = !selectedChainId
+    ? searchFilteredAssets
+    : searchFilteredAssets
+        .map((assetGroup) => ({
+          ...assetGroup,
+          assets: assetGroup.assets.filter(({ chain }) => chain.chainId === selectedChainId),
+        }))
+        .filter((assetGroup) => assetGroup.assets.length > 0)
+
+  // Calculate total value
+  const totalAssetsValue = chainFilteredAssets.reduce((total, group) => {
+    return total + group.assets.reduce((sum, asset) => sum + (asset.value ?? 0), 0)
+  }, 0)
+
+  return { filteredAssets: chainFilteredAssets, totalAssetsValue }
 }
 
 // ============================================
@@ -654,84 +839,159 @@ export function useMinityPrices() {
 }
 
 /**
- * Fetches balance data for all supported chains from Minity API
+ * Hook to establish SSE connection for portfolio data streaming.
+ * Should be called ONCE at the app level (e.g., in a provider or layout).
+ * Uses useEffectEvent to ensure handlers read latest values without causing reconnection.
  */
-export function useMinityBalances(): {
-  data: ChainBalanceData[]
-  isLoading: boolean
-} {
+export function usePortfolioSSE() {
+  const queryClient = useQueryClient()
   const address = useInitiaAddress()
   const { minityUrl } = useConfig()
-  const { data: supportedChains, isLoading: isChainsLoading } = useMinitySupportedChains()
 
-  const balanceQueries = useQueries({
-    queries:
-      address && supportedChains
-        ? supportedChains.map((chainName) =>
-            minityQueryOptions.balances(address, chainName, minityUrl),
-          )
-        : [],
-  })
+  /**
+   * Handle balance events from SSE
+   */
+  const handleBalances = useEffectEvent(
+    (event: SSEBalanceEvent, balancesMap: Map<string, ChainBalanceData>) => {
+      const qk = minityQueryKeys.ssePortfolio(address ?? "", minityUrl).queryKey
+      balancesMap.set(event.chain, {
+        chainName: event.chain,
+        chainId: event.chainId,
+        balances: event.balances,
+      })
+      const current = queryClient.getQueryData<SSEPortfolioData>(qk) ?? DEFAULT_SSE_DATA
+      queryClient.setQueryData(qk, {
+        ...current,
+        balances: Array.from(balancesMap.values()),
+      })
+    },
+  )
 
-  const isLoading = isChainsLoading || balanceQueries.some((q) => q.isLoading)
-  const balancesData = balanceQueries.map((q) => q.data)
+  /**
+   * Handle position events from SSE
+   */
+  const handlePositions = useEffectEvent(
+    (event: SSEPositionEvent, positionsMap: Map<string, ChainPositionData>) => {
+      const qk = minityQueryKeys.ssePortfolio(address ?? "", minityUrl).queryKey
+      positionsMap.set(event.chain, {
+        chainName: event.chain,
+        chainId: event.chainId,
+        positions: event.positions,
+      })
+      const current = queryClient.getQueryData<SSEPortfolioData>(qk) ?? DEFAULT_SSE_DATA
+      queryClient.setQueryData(qk, {
+        ...current,
+        positions: Array.from(positionsMap.values()),
+      })
+    },
+  )
 
-  const data = useMemo(() => {
-    if (!address || !supportedChains) return []
-    return supportedChains.map((chainName, index) => ({
-      chainName,
-      balances: balancesData[index] || [],
-    }))
-  }, [address, supportedChains, balancesData])
+  /**
+   * Handle SSE connection complete
+   */
+  const handleComplete = useEffectEvent(
+    (balancesMap: Map<string, ChainBalanceData>, positionsMap: Map<string, ChainPositionData>) => {
+      const qk = minityQueryKeys.ssePortfolio(address ?? "", minityUrl).queryKey
+      const current = queryClient.getQueryData<SSEPortfolioData>(qk) ?? DEFAULT_SSE_DATA
+      queryClient.setQueryData(qk, {
+        ...current,
+        balances: Array.from(balancesMap.values()),
+        positions: Array.from(positionsMap.values()),
+        isLoading: false,
+        isComplete: true,
+      })
+    },
+  )
 
-  return { data, isLoading }
+  useEffect(() => {
+    if (!address) {
+      return
+    }
+
+    const balancesMap = new Map<string, ChainBalanceData>()
+    const positionsMap = new Map<string, ChainPositionData>()
+
+    const baseUrl = minityUrl || DEFAULT_MINITY_URL
+    const url = `${baseUrl}/v1/chain/all/${encodeURIComponent(address)}`
+
+    const eventSource = new EventSource(url)
+    let isClosed = false
+
+    // Set loading state
+    const qk = minityQueryKeys.ssePortfolio(address, minityUrl).queryKey
+    queryClient.setQueryData(qk, {
+      balances: [],
+      positions: [],
+      isLoading: true,
+      isComplete: false,
+    })
+
+    const onComplete = () => {
+      if (isClosed) return
+      isClosed = true
+      eventSource.close()
+      handleComplete(balancesMap, positionsMap)
+    }
+
+    const timeoutId = setTimeout(onComplete, SSE_TIMEOUT)
+
+    eventSource.onmessage = (event) => {
+      if (isClosed) return
+      try {
+        const parsed = JSON.parse(event.data) as SSEEvent
+        if (parsed.type === "balances") {
+          handleBalances(parsed as SSEBalanceEvent, balancesMap)
+        } else if (parsed.type === "positions") {
+          handlePositions(parsed as SSEPositionEvent, positionsMap)
+        }
+      } catch {
+        // Silently ignore parsing errors
+      }
+    }
+
+    eventSource.onerror = () => {
+      // EventSource fires onerror when connection closes (even normally)
+      if (eventSource.readyState === EventSource.CLOSED) {
+        clearTimeout(timeoutId)
+        onComplete()
+      }
+    }
+
+    eventSource.addEventListener("close", () => {
+      clearTimeout(timeoutId)
+      onComplete()
+    })
+
+    return () => {
+      isClosed = true
+      clearTimeout(timeoutId)
+      eventSource.close()
+    }
+    // Re-run when address changes (user connects/disconnects wallet)
+    // minityUrl and queryClient accessed via useEffectEvent handlers (always read latest values)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address])
 }
 
 /**
- * Fetches position data for all supported chains from Minity API
+ * Fetches portfolio data (balances + positions) from cache.
+ * Data is populated by usePortfolioSSE hook which should be called once at app level.
  */
-export function useMinityPositions(): {
-  data: ChainPositionData[]
-  isLoading: boolean
-} {
+export function useMinityPortfolio(): SSEPortfolioData {
   const address = useInitiaAddress()
   const { minityUrl } = useConfig()
-  const { data: supportedChains, isLoading: isChainsLoading } = useMinitySupportedChains()
-  const registry = useInitiaRegistry()
+  const queryKey = minityQueryKeys.ssePortfolio(address ?? "", minityUrl).queryKey
 
-  const registryMap = useMemo(() => {
-    const map = new Map<string, (typeof registry)[number]>()
-    for (const r of registry) {
-      map.set(r.chain_name.toLowerCase(), r)
-    }
-    return map
-  }, [registry])
-
-  const positionQueries = useQueries({
-    queries:
-      address && supportedChains
-        ? supportedChains.map((chainName) =>
-            minityQueryOptions.chainPositions(address, chainName, minityUrl),
-          )
-        : [],
+  const { data } = useQuery({
+    queryKey,
+    queryFn: () => DEFAULT_SSE_DATA,
+    staleTime: STALE_TIMES.MINUTE,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   })
 
-  const isLoading = isChainsLoading || positionQueries.some((q) => q.isLoading)
-  const positionsData = positionQueries.map((q) => q.data)
-
-  const data = useMemo(() => {
-    if (!address || !supportedChains) return []
-    return supportedChains.map((chainName, index) => {
-      const registryChain = registryMap.get(chainName.toLowerCase())
-      return {
-        chainId: registryChain?.chainId || "",
-        chainName,
-        positions: positionsData[index] || [],
-      }
-    })
-  }, [address, supportedChains, positionsData, registryMap])
-
-  return { data, isLoading }
+  return data ?? { ...DEFAULT_SSE_DATA, isLoading: !!address }
 }
 
 // ============================================
@@ -739,14 +999,37 @@ export function useMinityPositions(): {
 // ============================================
 
 /**
- * Computes chain breakdown with logos and percentages from Minity data
+ * Provides chain info (logo, prettyName) from registry.
+ * Does NOT depend on balances or positions - can be used immediately.
+ * Returns a Map for O(1) lookups by chainName (lowercase).
  */
-export function useMinityChainBreakdown(): {
-  data: ChainBreakdownItem[]
-  isLoading: boolean
-} {
-  const { data: balances, isLoading: isBalancesLoading } = useMinityBalances()
-  const { data: positions, isLoading: isPositionsLoading } = useMinityPositions()
+export function useChainInfoMap(): Map<string, ChainInfo> {
+  const registry = useInitiaRegistry()
+
+  return useMemo(() => {
+    const chainInfoMap = new Map<string, ChainInfo>()
+
+    // Add all chains from registry
+    for (const r of registry) {
+      const chainKey = r.chain_name.toLowerCase()
+      chainInfoMap.set(chainKey, {
+        chainId: r.chainId,
+        chainName: r.chain_name,
+        prettyName: r.name || r.chain_name,
+        logoUrl: r.logoUrl || "",
+      })
+    }
+
+    return chainInfoMap
+  }, [registry])
+}
+
+/**
+ * Computes chain breakdown with logos and percentages from Minity data.
+ * Updates progressively as SSE data streams in.
+ */
+export function useMinityChainBreakdown(): ChainBreakdownItem[] {
+  const { balances, positions } = useMinityPortfolio()
   const registry = useInitiaRegistry()
 
   const registryMap = useMemo(() => {
@@ -761,12 +1044,17 @@ export function useMinityChainBreakdown(): {
     // Calculate totals per chain
     const chainTotals = new Map<string, number>()
 
-    for (const { chainName, balances: chainBalances } of balances) {
+    const safeBalances = Array.isArray(balances) ? balances : []
+    const safePositions = Array.isArray(positions) ? positions : []
+
+    for (const { chainName, balances: chainBalances } of safeBalances) {
+      if (!Array.isArray(chainBalances)) continue
       const balanceTotal = chainBalances.reduce((sum, b) => sum + getBalanceValue(b), 0)
       chainTotals.set(chainName, (chainTotals.get(chainName) || 0) + balanceTotal)
     }
 
-    for (const { chainName, positions: chainPositions } of positions) {
+    for (const { chainName, positions: chainPositions } of safePositions) {
+      if (!Array.isArray(chainPositions)) continue
       const positionTotal = chainPositions.reduce((sum, p) => sum + getProtocolPositionValue(p), 0)
       chainTotals.set(chainName, (chainTotals.get(chainName) || 0) + positionTotal)
     }
@@ -774,6 +1062,7 @@ export function useMinityChainBreakdown(): {
     const totalBalance = Array.from(chainTotals.values()).reduce((sum, v) => sum + v, 0)
 
     return Array.from(chainTotals.entries())
+      .filter(([, total]) => total > 0) // Filter out zero-balance chains
       .map(([chainName, total]) => {
         const registryChain = registryMap.get(chainName.toLowerCase())
         return {
@@ -792,49 +1081,49 @@ export function useMinityChainBreakdown(): {
       })
   }, [balances, positions, registryMap])
 
-  return { data, isLoading: isBalancesLoading || isPositionsLoading }
+  return data
 }
 
 /**
- * Computes portfolio totals from Minity data
- * (total balance, liquid assets, L1 positions, appchain positions)
+ * Computes liquid assets total from balances only (excludes LP tokens).
+ * Updates progressively as SSE balance data streams in.
  */
-export function useMinityPortfolioTotals(): {
-  data: PortfolioTotals
-  isLoading: boolean
-} {
-  const { data: balances, isLoading: isBalancesLoading } = useMinityBalances()
-  const { data: positions, isLoading: isPositionsLoading } = useMinityPositions()
+export function useLiquidAssetsBalance(): number {
+  const { balances } = useMinityPortfolio()
 
-  const data = useMemo(() => {
-    let liquidAssetsBalance = 0
-    let l1PositionsBalance = 0
-    let appchainPositionsBalance = 0
-
-    // Sum up liquid assets from all chains
-    for (const { balances: chainBalances } of balances) {
-      liquidAssetsBalance += chainBalances.reduce((sum, b) => sum + getBalanceValue(b), 0)
+  return useMemo(() => {
+    let total = 0
+    const safeBalances = Array.isArray(balances) ? balances : []
+    for (const { balances: chainBalances } of safeBalances) {
+      if (!Array.isArray(chainBalances)) continue // Skip if balances is not an array
+      total += chainBalances.reduce((sum, b) => {
+        if (b.type === "lp") return sum // Skip LP tokens, counted in L1 liquidity positions
+        return sum + getBalanceValue(b)
+      }, 0)
     }
+    return total
+  }, [balances])
+}
 
-    // Sum up positions, separating L1 from appchains
-    for (const { chainName, positions: chainPositions } of positions) {
-      const positionTotal = chainPositions.reduce((sum, p) => sum + getProtocolPositionValue(p), 0)
-      if (chainName.toLowerCase() === "initia") {
-        l1PositionsBalance += positionTotal
-      } else {
-        appchainPositionsBalance += positionTotal
+/**
+ * Computes appchain positions total from positions only.
+ * Excludes Civitia which has no USD values.
+ * Updates progressively as SSE position data streams in.
+ */
+export function useAppchainPositionsBalance(): number {
+  const { positions } = useMinityPortfolio()
+
+  return useMemo(() => {
+    let total = 0
+    const safePositions = Array.isArray(positions) ? positions : []
+    for (const { chainName, positions: chainPositions } of safePositions) {
+      const lowerChainName = chainName.toLowerCase()
+      // Only count non-Initia chains (appchains), excluding Civitia (no USD values)
+      if (lowerChainName !== "initia" && lowerChainName !== "civitia") {
+        if (!Array.isArray(chainPositions)) continue // Skip if positions is not an array
+        total += chainPositions.reduce((sum, p) => sum + getProtocolPositionValue(p), 0)
       }
     }
-
-    const totalBalance = liquidAssetsBalance + l1PositionsBalance + appchainPositionsBalance
-
-    return {
-      totalBalance,
-      liquidAssetsBalance,
-      l1PositionsBalance,
-      appchainPositionsBalance,
-    }
-  }, [balances, positions])
-
-  return { data, isLoading: isBalancesLoading || isPositionsLoading }
+    return total
+  }, [positions])
 }

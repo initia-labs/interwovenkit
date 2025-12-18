@@ -4,15 +4,13 @@ import FallBack from "@/components/FallBack"
 import Status from "@/components/Status"
 import { useLayer1 } from "@/data/chains"
 import {
-  buildChainInfoMap,
-  getPositionValue,
   type PortfolioChainPositionGroup,
-  useMinityChainBreakdown,
-  useMinityPositions,
+  useChainInfoMap,
+  useMinityPortfolio,
 } from "@/data/minity"
-import { formatValue } from "@/lib/format"
 import AppchainPositionGroup from "./AppchainPositionGroup"
 import InitiaPositionGroup from "./InitiaPositionGroup"
+import PositionsTotalValue from "./PositionsTotalValue"
 import styles from "./Positions.module.css"
 
 export interface PositionsProps {
@@ -21,18 +19,23 @@ export interface PositionsProps {
 }
 
 const Positions = ({ searchQuery, selectedChain }: PositionsProps) => {
-  const { data: positions, isLoading } = useMinityPositions()
-  const { data: chainBreakdown } = useMinityChainBreakdown()
-  const layer1 = useLayer1()
+  // Position data (SSE - streams progressively)
+  const { positions, isLoading } = useMinityPortfolio()
 
-  // Build chain info map for O(1) lookups
-  const chainInfoMap = useMemo(() => buildChainInfoMap(chainBreakdown), [chainBreakdown])
+  // Chain info map for chain names/logos (registry - fast, blocking)
+  const chainInfoMap = useChainInfoMap()
+
+  // Layer 1 chain info
+  const layer1 = useLayer1()
 
   // Filter and transform positions into chain groups
   const filteredChainGroups = useMemo(() => {
     const result: PortfolioChainPositionGroup[] = []
 
     for (const chainData of positions) {
+      // Skip if positions is not an array
+      if (!Array.isArray(chainData.positions)) continue
+
       // Get chain info from breakdown
       const chainInfo = chainInfoMap.get(chainData.chainName.toLowerCase())
 
@@ -46,13 +49,13 @@ const Positions = ({ searchQuery, selectedChain }: PositionsProps) => {
         if (searchQuery && !protocol.protocol.toLowerCase().includes(searchQuery.toLowerCase())) {
           return false
         }
-        return protocol.positions.length > 0
+        return Array.isArray(protocol.positions) && protocol.positions.length > 0
       })
 
       if (filteredProtocols.length > 0) {
-        const isInitia = layer1.chainId === chainData.chainId
+        const isInitia = layer1.chainId === chainInfo?.chainId
         result.push({
-          chainName: chainInfo?.chainName ?? chainData.chainName,
+          chainName: chainInfo?.prettyName ?? chainData.chainName,
           chainLogo: chainInfo?.logoUrl ?? "",
           protocols: filteredProtocols,
           isInitia,
@@ -60,36 +63,13 @@ const Positions = ({ searchQuery, selectedChain }: PositionsProps) => {
       }
     }
 
-    return result
+    // Sort: Initia first, then alphabetically by chain name
+    return result.toSorted((a, b) => {
+      if (a.isInitia) return -1
+      if (b.isInitia) return 1
+      return a.chainName.localeCompare(b.chainName, undefined, { sensitivity: "base" })
+    })
   }, [positions, chainInfoMap, searchQuery, selectedChain, layer1.chainId])
-
-  // Calculate total positions value
-  const totalPositionsValue = useMemo(() => {
-    return filteredChainGroups.reduce((sum, group) => {
-      return (
-        sum +
-        group.protocols.reduce((pSum, protocol) => {
-          return (
-            pSum + protocol.positions.reduce((posSum, pos) => posSum + getPositionValue(pos), 0)
-          )
-        }, 0)
-      )
-    }, 0)
-  }, [filteredChainGroups])
-
-  // Show skeleton loading on initial load when no data exists yet
-  if (isLoading) {
-    return (
-      <div className={styles.container}>
-        <div className={styles.header}>
-          <span className={styles.title}>Positions</span>
-        </div>
-        <div className={styles.list}>
-          <FallBack height={56} length={3} />
-        </div>
-      </div>
-    )
-  }
 
   const hasPositions = filteredChainGroups.length > 0
 
@@ -98,7 +78,9 @@ const Positions = ({ searchQuery, selectedChain }: PositionsProps) => {
       <div className={styles.header}>
         <span className={styles.title}>Positions</span>
         {hasPositions && (
-          <span className={styles.totalValue}>{formatValue(totalPositionsValue)}</span>
+          <AsyncBoundary suspenseFallback={<FallBack height={16} width={60} length={1} />}>
+            <PositionsTotalValue filteredChainGroups={filteredChainGroups} />
+          </AsyncBoundary>
         )}
       </div>
       {hasPositions ? (
@@ -123,6 +105,8 @@ const Positions = ({ searchQuery, selectedChain }: PositionsProps) => {
             return <AppchainPositionGroup key={chainGroup.chainName} chainGroup={chainGroup} />
           })}
         </div>
+      ) : isLoading ? (
+        <FallBack height={56} length={3} />
       ) : (
         <Status>No positions</Status>
       )}

@@ -1,0 +1,26 @@
+.tag {
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1.5px 9px;
+}
+
+.default {
+  background: var(--gray-6);
+  color: var(--gray-0);
+}
+
+.accent {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.error {
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+.success {
+  background: var(--success-bg);
+  color: var(--success);
+}

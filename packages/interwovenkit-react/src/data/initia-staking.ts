@@ -11,9 +11,9 @@ import { useInitiaAddress } from "@/public/data/hooks"
 import { useAssets, useDenoms } from "./assets"
 import { useLayer1, usePricesQuery } from "./chains"
 import { useConfig } from "./config"
-import { INITIA_LIQUIDITY_URL } from "./constants"
+import { INIT_DENOM } from "./constants"
 import { STALE_TIMES } from "./http"
-import type { Position, ProtocolPosition, TokenAsset } from "./minity"
+import type { Position, TokenAsset } from "./minity"
 
 // ============================================
 // CONSTANTS
@@ -557,7 +557,10 @@ export function useInitiaStakingPositions(): InitiaStakingPositionsResult {
       }
     }
 
-    return result
+    // Filter to only include INIT tokens (LP tokens are handled by useInitiaLiquidityPositions)
+    return result.filter(
+      (pos) => pos.type !== "fungible-position" && pos.balance.denom === INIT_DENOM,
+    )
   }, [delegations, lockStaking, undelegations, denomsMap, assetByDenom, priceByDenom])
 
   // Calculate total value from position balances (prices fetched via usePricesQuery)
@@ -573,18 +576,5 @@ export function useInitiaStakingPositions(): InitiaStakingPositionsResult {
     positions,
     totalValue,
     isLoading: false,
-  }
-}
-
-/**
- * Returns a ProtocolPosition object for Initia L1 staking
- */
-export function useInitiaStakingProtocol(): ProtocolPosition {
-  const { positions } = useInitiaStakingPositions()
-
-  return {
-    protocol: "Initia",
-    manageUrl: INITIA_LIQUIDITY_URL,
-    positions,
   }
 }

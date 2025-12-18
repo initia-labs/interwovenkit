@@ -203,6 +203,8 @@ describe("sortAssetGroups", () => {
       symbol,
       logoUrl: "",
       assets,
+      totalValue,
+      totalAmount: assets.reduce((sum, a) => sum + Number(a.quantity), 0),
     }
   }
 

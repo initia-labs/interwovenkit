@@ -7,7 +7,7 @@ import { useInitiaAddress } from "@/public/data/hooks"
 import { useAssets, useDenoms } from "./assets"
 import { useLayer1, usePricesQuery } from "./chains"
 import { useConfig } from "./config"
-import { INIT_DECIMALS, INIT_DENOM } from "./constants"
+import { INIT_DECIMALS, INIT_DENOM, OMNI_INIT_DENOM, OMNI_INIT_SYMBOL } from "./constants"
 import { STALE_TIMES } from "./http"
 import {
   useInitiaDelegations,
@@ -165,9 +165,22 @@ export function useLpPrices(denoms: string[]) {
   })
 }
 
-/** Fetch pool info for multiple LP tokens */
+/** Fetch pool info for multiple LP tokens (same pattern as app-v2) */
 export function useLiquidityPoolList(denoms: string[]) {
   const { dexUrl } = useConfig()
+
+  // Fetch L1 assets internally for symbol resolution (same as app-v2)
+  const layer1 = useLayer1()
+  const assets = useAssets(layer1)
+
+  // Build asset lookup map for O(1) access
+  const assetByDenom = useMemo(() => {
+    const map = new Map<string, { symbol?: string }>()
+    for (const asset of assets) {
+      map.set(asset.denom, asset)
+    }
+    return map
+  }, [assets])
 
   const queries = useSuspenseQueries({
     queries: denoms.map((denom) => ({
@@ -195,10 +208,30 @@ export function useLiquidityPoolList(denoms: string[]) {
   return useMemo(() => {
     const map = new Map<string, Pool | null>()
     denoms.forEach((denom, i) => {
-      map.set(denom, queryData[i] ?? null)
+      const pool = queryData[i]
+      if (!pool) {
+        map.set(denom, null)
+        return
+      }
+
+      // Special case for omniINIT (Minitswap LP token)
+      if (denom === OMNI_INIT_DENOM) {
+        map.set(denom, { ...pool, symbol: OMNI_INIT_SYMBOL })
+        return
+      }
+
+      // Generate symbol from pool coins (same as app-v2)
+      const symbol = pool.coins
+        .map((coin) => {
+          const asset = assetByDenom.get(coin.denom)
+          return asset?.symbol || coin.denom
+        })
+        .join("-")
+
+      map.set(denom, { ...pool, symbol })
     })
     return map
-  }, [denoms, queryData])
+  }, [denoms, queryData, assetByDenom])
 }
 
 // ============================================
@@ -284,7 +317,7 @@ export function useInitiaLiquidityPositions(): LiquiditySectionData {
   // Fetch LP prices
   const { data: prices } = useLpPrices(lpDenomList)
 
-  // Fetch pool info
+  // Fetch pool info (fetches assets internally for symbol resolution, same as app-v2)
   const pools = useLiquidityPoolList(lpDenomList)
 
   // Aggregate into rows and calculate total value in a single pass
@@ -293,17 +326,6 @@ export function useInitiaLiquidityPositions(): LiquiditySectionData {
     const initPrice = initPrices?.find((p) => p.id === INIT_DENOM)?.price ?? 0
 
     const rowMap = new Map<string, LiquidityTableRow>()
-
-    // Helper to generate symbol from pool coins
-    const generateSymbol = (pool: Pool | null): string => {
-      if (!pool?.coins || pool.coins.length === 0) return ""
-      return pool.coins
-        .map((coin) => {
-          const asset = assetByDenom.get(coin.denom)
-          return asset?.symbol || coin.denom
-        })
-        .join("-")
-    }
 
     // Helper to get coin logos from pool coins
     const getCoinLogos = (pool: Pool | null): string[] => {
@@ -318,8 +340,14 @@ export function useInitiaLiquidityPositions(): LiquiditySectionData {
     const getRow = (denom: string): LiquidityTableRow => {
       if (!rowMap.has(denom)) {
         const pool = pools.get(denom) ?? null
-        const symbol = generateSymbol(pool) || pool?.symbol || denom
+        // Symbol is already set in useLiquidityPoolList (includes omniINIT special case)
+        const symbol = pool?.symbol || denom
         const coinLogos = getCoinLogos(pool)
+        const hasCoinLogos = coinLogos.length > 0 && coinLogos.some((logo) => logo)
+
+        // For LP tokens without coins (like omniINIT), use the LP token's own logo
+        const logoUrl = hasCoinLogos ? undefined : assetByDenom.get(denom)?.logoUrl
+
         rowMap.set(denom, {
           denom,
           symbol,
@@ -327,7 +355,8 @@ export function useInitiaLiquidityPositions(): LiquiditySectionData {
           totalValue: 0,
           decimals: assetByDenom.get(denom)?.decimals ?? 6,
           poolType: pool?.pool_type,
-          coinLogos: coinLogos.length > 0 ? coinLogos : undefined,
+          logoUrl,
+          coinLogos: hasCoinLogos ? coinLogos : undefined,
           breakdown: {
             deposit: 0,
             staking: 0,

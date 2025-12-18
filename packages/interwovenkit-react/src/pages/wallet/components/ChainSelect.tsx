@@ -6,8 +6,10 @@ import { useAutoFocus } from "@/components/form/hooks"
 import SearchInput from "@/components/form/SearchInput"
 import Image from "@/components/Image"
 import Status from "@/components/Status"
+import Tag from "@/components/Tag"
 import type { NormalizedChain } from "@/data/chains"
 import { useInitiaRegistry } from "@/data/chains"
+import { useConfig } from "@/data/config"
 import { usePortal } from "@/public/app/PortalContext"
 import { usePortalCssVariable } from "@/public/app/PortalContext"
 import styles from "./ChainSelect.module.css"
@@ -21,6 +23,7 @@ interface Props {
 }
 
 const ChainSelect = ({ value, onChange, chainIds, renderExtra, fullWidth }: Props) => {
+  const { defaultChainId } = useConfig()
   const [searchQuery, setSearchQuery] = useState("")
   const [isOpen, setIsOpen] = useState(false)
   const [highlightedIndex, setHighlightedIndex] = useState(0)
@@ -210,12 +213,15 @@ const ChainSelect = ({ value, onChange, chainIds, renderExtra, fullWidth }: Prop
                     }}
                     key={chainId}
                   >
-                    {typeof logoUrl === "string" ? (
-                      <Image src={logoUrl} width={16} height={16} logo />
-                    ) : (
-                      logoUrl(16)
-                    )}
-                    <span className={styles.name}>{name}</span>
+                    <div className={styles.itemContent}>
+                      {typeof logoUrl === "string" ? (
+                        <Image src={logoUrl} width={16} height={16} logo />
+                      ) : (
+                        logoUrl(16)
+                      )}
+                      <span className={styles.name}>{name}</span>
+                      {chainId === defaultChainId && <Tag label="Connected" variant="success" />}
+                    </div>
                     {renderExtra && <span className={styles.extra}>{renderExtra(chainId)}</span>}
                   </div>
                 ))

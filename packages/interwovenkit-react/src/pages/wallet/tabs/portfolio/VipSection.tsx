@@ -80,17 +80,6 @@ const VipRow = ({ row }: VipRowProps) => {
 
       <Collapsible.Content className={styles.collapsibleContent}>
         <div className={styles.breakdownContent}>
-          {claimableReward > 0 && (
-            <div className={styles.breakdownRow}>
-              <span className={styles.breakdownLabel}>Claimable</span>
-              <div className={styles.breakdownValues}>
-                <span className={styles.breakdownAmount}>
-                  {formatNumber(claimableReward, { dp: 2 })} INIT
-                </span>
-                <span className={styles.breakdownValue}>{formatValue(claimableRewardValue)}</span>
-              </div>
-            </div>
-          )}
           {lockedReward > 0 && (
             <div className={styles.breakdownRow}>
               <span className={styles.breakdownLabel}>Locked</span>
@@ -99,6 +88,17 @@ const VipRow = ({ row }: VipRowProps) => {
                   {formatNumber(lockedReward, { dp: 2 })} INIT
                 </span>
                 <span className={styles.breakdownValue}>{formatValue(lockedRewardValue)}</span>
+              </div>
+            </div>
+          )}
+          {claimableReward > 0 && (
+            <div className={styles.breakdownRow}>
+              <span className={styles.breakdownLabel}>Claimable</span>
+              <div className={styles.breakdownValues}>
+                <span className={styles.breakdownAmount}>
+                  {formatNumber(claimableReward, { dp: 2 })} INIT
+                </span>
+                <span className={styles.breakdownValue}>{formatValue(claimableRewardValue)}</span>
               </div>
             </div>
           )}

@@ -26,16 +26,30 @@ const UnlistedAssets = ({ unlistedAssets }: UnlistedAssetsProps) => {
     }
   }, [unlistedAssets])
 
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
   const handleOpenChange = (open: boolean) => {
-    if (open && !isOpen && scrollableRef?.current) {
-      // Scroll to bottom when reopening
-      const container = scrollableRef.current
-      container.scrollTo({ top: container.scrollHeight, behavior: "auto" })
-      window.setTimeout(() => {
-        container.scrollTo({ top: container.scrollHeight, behavior: "smooth" })
-      }, 150)
-    }
     setIsOpen(open)
+
+    // Scroll into view if expanded content would be outside viewport
+    if (open && triggerRef.current && scrollableRef?.current) {
+      window.setTimeout(() => {
+        if (!triggerRef.current || !contentRef.current || !scrollableRef?.current) return
+
+        const container = scrollableRef.current
+        const containerRect = container.getBoundingClientRect()
+        const triggerRect = triggerRef.current.getBoundingClientRect()
+        const expandedHeight = contentRef.current.scrollHeight
+
+        // Check if the bottom of expanded content would be outside the viewport
+        const expandedBottom = triggerRect.bottom + expandedHeight
+        if (expandedBottom > containerRect.bottom) {
+          // Scroll so the trigger is near the top of the viewport
+          const scrollTop = triggerRect.top - containerRect.top + container.scrollTop - 16
+          container.scrollTo({ top: scrollTop, behavior: "smooth" })
+        }
+      }, 50)
+    }
   }
 
   const animationStyles = useSpring({
@@ -50,6 +64,8 @@ const UnlistedAssets = ({ unlistedAssets }: UnlistedAssetsProps) => {
       (assetItem): PortfolioAssetGroup => ({
         ...assetItem,
         assets: [assetItem],
+        totalValue: assetItem.value ?? 0,
+        totalAmount: Number(assetItem.quantity),
       }),
     )
   }, [unlistedAssets])
@@ -60,7 +76,7 @@ const UnlistedAssets = ({ unlistedAssets }: UnlistedAssetsProps) => {
 
   return (
     <Collapsible.Root open={isOpen} onOpenChange={handleOpenChange} className={styles.collapsible}>
-      <Collapsible.Trigger className={styles.trigger}>
+      <Collapsible.Trigger ref={triggerRef} className={styles.trigger}>
         <div className={styles.divider} />
         <span className={styles.label}>Unlisted assets ({unlistedAssets.length})</span>
         <IconChevronDown

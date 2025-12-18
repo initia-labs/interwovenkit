@@ -4,7 +4,6 @@ import { useMemo, useState } from "react"
 import { IconChevronDown, IconExternalLink } from "@initia/icons-react"
 import { formatNumber } from "@initia/utils"
 import Image from "@/components/Image"
-import { INITIA_LIQUIDITY_URL } from "@/data/constants"
 import {
   type DenomGroup,
   getPositionTypeLabel,
@@ -24,9 +23,13 @@ export type DenomLogoMap = Map<string, { assetLogo: string; chainLogo: string }>
 interface PositionSectionListProps {
   protocols: ProtocolPosition[]
   denomLogoMap: DenomLogoMap
+  isInitia?: boolean
 }
 
-const PositionSectionList = ({ protocols, denomLogoMap }: PositionSectionListProps) => {
+const PositionSectionList = ({ protocols, denomLogoMap, isInitia }: PositionSectionListProps) => {
+  // Get manageUrl from first protocol (they typically share the same URL)
+  const manageUrl = protocols[0]?.manageUrl
+
   const sectionGroups = useMemo(() => {
     const allPositions = protocols.flatMap((p) => p.positions)
     return groupPositionsBySection(allPositions)
@@ -42,6 +45,8 @@ const PositionSectionList = ({ protocols, denomLogoMap }: PositionSectionListPro
           sectionKey={sectionKey}
           positions={positions}
           denomLogoMap={denomLogoMap}
+          isInitia={isInitia}
+          manageUrl={manageUrl}
         />
       ))}
     </div>
@@ -52,10 +57,18 @@ interface PositionSectionProps {
   sectionKey: string
   positions: Position[]
   denomLogoMap: DenomLogoMap
+  isInitia?: boolean
+  manageUrl?: string
 }
 
-const PositionSection = ({ sectionKey, positions, denomLogoMap }: PositionSectionProps) => {
-  const label = getSectionLabel(sectionKey)
+const PositionSection = ({
+  sectionKey,
+  positions,
+  denomLogoMap,
+  isInitia,
+  manageUrl,
+}: PositionSectionProps) => {
+  const label = getSectionLabel(sectionKey, isInitia)
   const denomGroups = useMemo(() => groupPositionsByDenom(positions), [positions])
   const isStakingSection = sectionKey === "staking"
 
@@ -68,9 +81,9 @@ const PositionSection = ({ sectionKey, positions, denomLogoMap }: PositionSectio
       <div className={styles.sectionHeader}>
         <div className={styles.sectionTitle}>
           <span className={styles.sectionLabel}>{label}</span>
-          {isStakingSection && (
+          {isStakingSection && manageUrl && (
             <a
-              href={INITIA_LIQUIDITY_URL}
+              href={manageUrl}
               target="_blank"
               rel="noopener noreferrer"
               className={styles.externalLink}

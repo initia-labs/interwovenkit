@@ -17,6 +17,8 @@ export interface PortfolioAssetGroupInfo {
 
 export interface PortfolioAssetGroup extends PortfolioAssetGroupInfo {
   assets: Array<PortfolioAssetItem>
+  totalValue: number
+  totalAmount: number
 }
 
 export interface PortfolioAssetItem extends PortfolioAssetGroupInfo {
@@ -195,7 +197,17 @@ export function createPortfolio(
     if (!representativeAsset) continue
 
     const sortedAssets = sortAssets(assets)
-    assetGroups.push({ symbol, logoUrl: representativeAsset.logoUrl, assets: sortedAssets })
+    const totalValue = sortedAssets.reduce((sum, { value }) => sum + (value ?? 0), 0)
+    const totalAmount = sortedAssets
+      .reduce((sum, { quantity }) => sum.plus(quantity), BigNumber(0))
+      .toNumber()
+    assetGroups.push({
+      symbol,
+      logoUrl: representativeAsset.logoUrl,
+      assets: sortedAssets,
+      totalValue,
+      totalAmount,
+    })
   }
 
   // unlisted assets
@@ -213,7 +225,7 @@ export function createPortfolio(
     chainsByValue: sortChainItems(Array.from(chainItemsMap.values()), defaultChainId),
     assetGroups: sortAssetGroups(assetGroups),
     unlistedAssets: sortUnlistedAssets(unlistedAssets, l1ChainId),
-    totalValue: assetGroups.reduce((sum, group) => sum + calculateTotalValue(group), 0),
+    totalValue: assetGroups.reduce((sum, group) => sum + group.totalValue, 0),
   }
 }
 
