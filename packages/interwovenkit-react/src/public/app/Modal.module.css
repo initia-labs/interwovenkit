@@ -19,8 +19,12 @@
   border: 1px solid var(--gray-6);
   border-radius: 20px;
   font-family: var(--font-family);
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.01em;
+  line-height: 1.5;
   max-height: 90vh;
-  padding: 16px 20px;
+  padding: 24px 20px;
+  padding-top: 32px;
   transform: translate(-50%, -50%);
 }
 
@@ -44,10 +48,6 @@
 
   color: var(--gray-4);
   padding: 3px;
-}
-
-.content {
-  padding-top: 12px;
 }
 
 .content:only-child {

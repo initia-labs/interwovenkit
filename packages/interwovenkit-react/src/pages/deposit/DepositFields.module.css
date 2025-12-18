@@ -85,7 +85,7 @@
 
   background-color: var(--gray-7);
   border-radius: 8px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   padding: 18px 16px;
   text-align: left;
@@ -111,12 +111,15 @@
   gap: 4px;
 
   color: var(--gray-3);
+  font-family: var(--monospace);
   font-size: 12px;
   font-weight: 500;
 }
 
 .maxButton span {
   color: var(--gray-0);
+  font-family: var(--font-family);
+  font-weight: 600;
 }
 
 .detail {

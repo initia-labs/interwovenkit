@@ -132,7 +132,7 @@ export function DepositCompleted() {
           >
             View transaction
           </a>
-          <div className={styles.empty} />
+          <p className={styles.subtitle}>Your transaction will continue even if you close this</p>
         </>
       )}
       {txState === "success" && (

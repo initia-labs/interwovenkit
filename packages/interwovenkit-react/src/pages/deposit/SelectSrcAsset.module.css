@@ -48,7 +48,11 @@
 .list {
   height: 100%;
 
+  border-bottom-left-radius: 20px;
+  border-bottom-right-radius: 20px;
+
   margin: 0 -20px;
+  margin-bottom: -24px;
 
   max-height: 70vh;
   overflow-y: auto;
@@ -70,6 +74,10 @@
   column-gap: 8px;
 
   padding: 12px 20px;
+}
+
+.asset:last-child {
+  border-bottom: none;
 }
 
 .asset:hover {
@@ -108,7 +116,7 @@
   grid-area: name;
 
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .assetChain {
