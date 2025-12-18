@@ -1,6 +1,9 @@
+import type { EncodeObject } from "@cosmjs/proto-signing"
+import type { StdFee } from "@cosmjs/stargate"
 import { addMilliseconds } from "date-fns"
-import { useAtom } from "jotai"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMemo } from "react"
+import { useAtom, useAtomValue } from "jotai"
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { GenericAuthorization } from "@initia/initia.proto/cosmos/authz/v1beta1/authz"
 import { MsgGrant, MsgRevoke } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import { BasicAllowance } from "@initia/initia.proto/cosmos/feegrant/v1beta1/feegrant"
@@ -54,17 +57,87 @@ function useFetchRevokeMessages() {
   }
 }
 
+export function useBuildEnableMessages() {
+  const initiaAddress = useInitiaAddress()
+  const embeddedWalletAddress = useEmbeddedWalletAddress()
+  const pendingRequest = useAtomValue(pendingAutoSignRequestAtom)
+
+  if (!initiaAddress || !embeddedWalletAddress) {
+    throw new Error("Wallets not initialized")
+  }
+
+  if (!pendingRequest) {
+    throw new Error("No pending request")
+  }
+
+  const { chainId } = pendingRequest
+  const fetchRevokeMessages = useFetchRevokeMessages()
+  const autoSignMessageTypes = useAutoSignMessageTypes()
+  const now = useMemo(() => new Date(), [])
+
+  const buildGrantMessages = (durationInMs?: number) => {
+    const granter = initiaAddress
+    const grantee = embeddedWalletAddress
+    const expiration = durationInMs ? addMilliseconds(now, durationInMs) : undefined
+    const messageTypes = autoSignMessageTypes[pendingRequest.chainId]
+
+    const feegrantMessage: EncodeObject = {
+      typeUrl: "/cosmos.feegrant.v1beta1.MsgGrantAllowance",
+      value: MsgGrantAllowance.fromPartial({
+        granter,
+        grantee,
+        allowance: {
+          typeUrl: "/cosmos.feegrant.v1beta1.BasicAllowance",
+          value: BasicAllowance.encode(BasicAllowance.fromPartial({ expiration })).finish(),
+        },
+      }),
+    }
+
+    const authzMessages: EncodeObject[] = messageTypes.map((msgType) => ({
+      typeUrl: "/cosmos.authz.v1beta1.MsgGrant",
+      value: MsgGrant.fromPartial({
+        granter,
+        grantee,
+        grant: {
+          authorization: {
+            typeUrl: "/cosmos.authz.v1beta1.GenericAuthorization",
+            value: GenericAuthorization.encode(
+              GenericAuthorization.fromPartial({ msg: msgType }),
+            ).finish(),
+          },
+          expiration,
+        },
+      }),
+    }))
+
+    return [feegrantMessage, ...authzMessages]
+  }
+
+  const { data: revokeMessages } = useSuspenseQuery({
+    queryKey: autoSignQueryKeys.revokeMessages(chainId, initiaAddress, embeddedWalletAddress)
+      .queryKey,
+    queryFn: () => fetchRevokeMessages({ chainId, grantee: embeddedWalletAddress }),
+  })
+
+  return (durationInMs?: number) => [...revokeMessages, ...buildGrantMessages(durationInMs)]
+}
+
 /* Enable AutoSign by granting permissions to embedded wallet for fee delegation and message execution */
 export function useEnableAutoSign() {
   const { privyContext } = useConfig()
   const initiaAddress = useInitiaAddress()
   const embeddedWalletAddress = useEmbeddedWalletAddress()
-  const messageTypes = useAutoSignMessageTypes()
-  const { requestTxBlock } = useTx()
+  const { submitTxBlock } = useTx()
   const queryClient = useQueryClient()
   const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
   const { closeDrawer } = useDrawer()
-  const fetchRevokeMessages = useFetchRevokeMessages()
+
+  if (!pendingRequest) {
+    throw new Error("No pending request")
+  }
+
+  const { chainId } = pendingRequest
+  const buildEnableMessages = useBuildEnableMessages()
 
   // Get or create embedded wallet address
   const resolveEmbeddedWalletAddress = async (): Promise<string> => {
@@ -75,55 +148,15 @@ export function useEnableAutoSign() {
   }
 
   return useMutation({
-    mutationFn: async (durationInMs: number) => {
-      if (!pendingRequest) {
-        throw new Error("No pending request")
-      }
-
-      const { chainId } = pendingRequest
-
+    mutationFn: async ({ durationInMs, fee }: { durationInMs: number; fee: StdFee }) => {
       const embeddedWalletAddress = await resolveEmbeddedWalletAddress()
 
       if (!initiaAddress || !embeddedWalletAddress) {
         throw new Error("Wallets not initialized")
       }
 
-      // Fetch existing grants and generate revoke messages
-      const revokeMessages = await fetchRevokeMessages({ chainId, grantee: embeddedWalletAddress })
-
-      const expiration = durationInMs === 0 ? undefined : addMilliseconds(new Date(), durationInMs)
-
-      const feegrantMessage = {
-        typeUrl: "/cosmos.feegrant.v1beta1.MsgGrantAllowance",
-        value: MsgGrantAllowance.fromPartial({
-          granter: initiaAddress,
-          grantee: embeddedWalletAddress,
-          allowance: {
-            typeUrl: "/cosmos.feegrant.v1beta1.BasicAllowance",
-            value: BasicAllowance.encode(BasicAllowance.fromPartial({ expiration })).finish(),
-          },
-        }),
-      }
-
-      const authzMessages = messageTypes[chainId].map((msgType) => ({
-        typeUrl: "/cosmos.authz.v1beta1.MsgGrant",
-        value: MsgGrant.fromPartial({
-          granter: initiaAddress,
-          grantee: embeddedWalletAddress,
-          grant: {
-            authorization: {
-              typeUrl: "/cosmos.authz.v1beta1.GenericAuthorization",
-              value: GenericAuthorization.encode(
-                GenericAuthorization.fromPartial({ msg: msgType }),
-              ).finish(),
-            },
-            expiration,
-          },
-        }),
-      }))
-
-      const messages = [...revokeMessages, feegrantMessage, ...authzMessages]
-      await requestTxBlock({ messages, chainId, internal: true })
+      const messages = buildEnableMessages(durationInMs)
+      await submitTxBlock({ messages, chainId, fee })
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({
@@ -165,7 +198,7 @@ export function useDisableAutoSign(options?: {
       await requestTxBlock({ messages, chainId, internal: options?.internal })
     },
     onSuccess: async () => {
-      const queryKeys = [autoSignQueryKeys.expirations._def, autoSignQueryKeys.grants._def]
+      const queryKeys = [autoSignQueryKeys.expirations._def, autoSignQueryKeys.allGrants._def]
 
       for (const queryKey of queryKeys) {
         await queryClient.invalidateQueries({ queryKey })
