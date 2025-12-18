@@ -16,7 +16,7 @@ const Modal = ({ children }: PropsWithChildren) => {
         <Dialog.Backdrop className={styles.backdrop} onClick={closeModal} />
         <Dialog.Popup className={clsx(styles.modal)}>
           <button className={styles.closeButton} onClick={closeModal} aria-label="Close">
-            <IconClose size={14} />
+            <IconClose size={16.8} />
           </button>
           <div className={styles.content}>{children}</div>
         </Dialog.Popup>
