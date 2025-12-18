@@ -2,11 +2,13 @@ import { Tooltip } from "radix-ui"
 import { useEffect } from "react"
 import { useIsClient } from "usehooks-ts"
 import AsyncBoundary from "@/components/AsyncBoundary"
+import { useAllChainAssetsQueries } from "@/data/assets"
 import { useInitiaRegistry, useLayer1 } from "@/data/chains"
 import type { Config } from "@/data/config"
 import { ConfigContext } from "@/data/config"
 import { LocalStorageKey } from "@/data/constants"
 import { migrateLocalStorage } from "@/data/migration"
+import { usePortfolioSSE } from "@/data/minity"
 import { useSyncPrivyAuth } from "@/data/privy"
 import { MemoryRouter } from "@/lib/router"
 import { useInitializeAutoSign } from "@/pages/autosign/data/validation"
@@ -45,6 +47,12 @@ const Prefetch = () => {
 
   // initia registry
   useInitiaRegistry()
+
+  // portfolio SSE (balances + positions streaming)
+  usePortfolioSSE()
+
+  // asset logos (address-independent, used by portfolio)
+  useAllChainAssetsQueries()
 
   // bridge
   const layer1 = useLayer1()

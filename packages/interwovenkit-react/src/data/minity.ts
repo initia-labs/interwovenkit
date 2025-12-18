@@ -1,6 +1,6 @@
 import ky from "ky"
-import { useMemo } from "react"
-import { queryOptions, useQuery, useSuspenseQuery } from "@tanstack/react-query"
+import { useEffect, useEffectEvent, useMemo } from "react"
+import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useInitiaRegistry } from "./chains"
@@ -201,7 +201,7 @@ export interface ChainPositionData {
 }
 
 // ============================================
-// SSE EVENT TYPES
+// SSE TYPES
 // ============================================
 
 /** SSE event data for balances */
@@ -222,6 +222,14 @@ export interface SSEPositionEvent {
 
 /** SSE event union type */
 export type SSEEvent = SSEBalanceEvent | SSEPositionEvent
+
+/** Portfolio data from SSE stream */
+export interface SSEPortfolioData {
+  balances: ChainBalanceData[]
+  positions: ChainPositionData[]
+  isLoading: boolean
+  isComplete: boolean
+}
 
 // ============================================
 // PORTFOLIO POSITION GROUPING TYPES
@@ -260,6 +268,9 @@ export const minityQueryKeys = createQueryKeys("interwovenkit:minity", {
   // Miscellaneous
   supportedChains: (minityUrl?: string) => [minityUrl],
   prices: (minityUrl?: string) => [minityUrl],
+
+  // SSE Portfolio (balances + positions streamed together)
+  ssePortfolio: (address: string, minityUrl?: string) => [address, minityUrl],
 
   // Balances
   balances: (address: string, chainName: string, minityUrl?: string) => [
@@ -404,116 +415,17 @@ export const minityQueryOptions = {
 }
 
 // ============================================
-// SSE FETCHER
+// SSE CONSTANTS
 // ============================================
 
 /** SSE connection timeout in milliseconds */
 const SSE_TIMEOUT = 60000
 
-type SSEEventType = "balances" | "positions"
-
-interface SSEFetchConfig<T> {
-  eventType: SSEEventType
-  getEventData: (event: SSEEvent) => T[]
-}
-
-/**
- * Generic SSE fetcher that filters for a specific event type.
- * Resolves when stream completes with all collected data.
- */
-function createSSEFetcher<TItem, TResult>(
-  config: SSEFetchConfig<TItem>,
-  mapToResult: (entries: Map<string, { chainId: string; items: TItem[] }>) => TResult[],
-) {
-  return (address: string, minityUrl?: string): Promise<TResult[]> => {
-    const baseUrl = minityUrl || DEFAULT_MINITY_URL
-    const url = `${baseUrl}/v1/chain/all/${encodeURIComponent(address)}`
-
-    return new Promise((resolve, reject) => {
-      const dataMap = new Map<string, { chainId: string; items: TItem[] }>()
-      const eventSource = new EventSource(url)
-
-      const timeout = setTimeout(() => {
-        eventSource.close()
-        reject(new Error("SSE connection timeout"))
-      }, SSE_TIMEOUT)
-
-      const resolveAndClose = () => {
-        clearTimeout(timeout)
-        eventSource.close()
-        resolve(mapToResult(dataMap))
-      }
-
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data) as SSEEvent
-          if (data.type === config.eventType) {
-            const items = config.getEventData(data)
-            dataMap.set(data.chain, { chainId: data.chainId, items })
-          }
-        } catch {
-          // Silently ignore parsing errors for individual SSE events
-        }
-      }
-
-      eventSource.onerror = resolveAndClose
-      eventSource.addEventListener("close", resolveAndClose)
-    })
-  }
-}
-
-/** Fetch all balances via SSE */
-const fetchAllBalances = createSSEFetcher<Balance, ChainBalanceData>(
-  {
-    eventType: "balances",
-    getEventData: (event) => (event as SSEBalanceEvent).balances,
-  },
-  (entries) =>
-    Array.from(entries, ([chainName, { chainId, items }]) => ({
-      chainName,
-      chainId,
-      balances: items,
-    })),
-)
-
-/** Fetch all positions via SSE */
-const fetchAllPositions = createSSEFetcher<ProtocolPosition, ChainPositionData>(
-  {
-    eventType: "positions",
-    getEventData: (event) => (event as SSEPositionEvent).positions,
-  },
-  (entries) =>
-    Array.from(entries, ([chainName, { chainId, items }]) => ({
-      chainName,
-      chainId,
-      positions: items,
-    })),
-)
-
-// ============================================
-// SSE QUERY OPTIONS
-// ============================================
-
-export const minitySSEQueryOptions = {
-  /** SSE endpoint for all balances */
-  allBalances: (address: string, minityUrl?: string) =>
-    queryOptions({
-      enabled: !!address,
-      queryKey: [...minityQueryKeys.supportedChains(minityUrl).queryKey, address, "sse-balances"],
-      queryFn: () => fetchAllBalances(address, minityUrl),
-      staleTime: STALE_TIMES.MINUTE,
-      retry: 2,
-    }),
-
-  /** SSE endpoint for all positions */
-  allPositions: (address: string, minityUrl?: string) =>
-    queryOptions({
-      enabled: !!address,
-      queryKey: [...minityQueryKeys.supportedChains(minityUrl).queryKey, address, "sse-positions"],
-      queryFn: () => fetchAllPositions(address, minityUrl),
-      staleTime: STALE_TIMES.MINUTE,
-      retry: 2,
-    }),
+const DEFAULT_SSE_DATA: SSEPortfolioData = {
+  balances: [],
+  positions: [],
+  isLoading: false,
+  isComplete: false,
 }
 
 // ============================================
@@ -781,7 +693,15 @@ export function groupBalancesBySymbol(
 ): PortfolioAssetGroup[] {
   const groupMap = new Map<string, PortfolioAssetItem[]>()
 
+  // Guard against non-array input (e.g., during SSE loading/error)
+  if (!Array.isArray(minityBalances)) {
+    return []
+  }
+
   for (const { chainName, balances } of minityBalances) {
+    // Guard against non-array balances (e.g., during SSE loading/error)
+    if (!Array.isArray(balances)) continue
+
     const chainInfo = chainInfoMap.get(chainName.toLowerCase())
     const chainId = chainInfo?.chainId ?? chainName
 
@@ -919,37 +839,159 @@ export function useMinityPrices() {
 }
 
 /**
- * Fetches balance data for all supported chains via SSE.
- * Independent from positions - can render as soon as balances stream in.
+ * Hook to establish SSE connection for portfolio data streaming.
+ * Should be called ONCE at the app level (e.g., in a provider or layout).
+ * Uses useEffectEvent to ensure handlers read latest values without causing reconnection.
  */
-export function useMinityBalances(): ChainBalanceData[] {
+export function usePortfolioSSE() {
+  const queryClient = useQueryClient()
   const address = useInitiaAddress()
   const { minityUrl } = useConfig()
 
-  if (!address) {
-    throw new Error("useMinityBalances requires a connected wallet")
-  }
+  /**
+   * Handle balance events from SSE
+   */
+  const handleBalances = useEffectEvent(
+    (event: SSEBalanceEvent, balancesMap: Map<string, ChainBalanceData>) => {
+      const qk = minityQueryKeys.ssePortfolio(address ?? "", minityUrl).queryKey
+      balancesMap.set(event.chain, {
+        chainName: event.chain,
+        chainId: event.chainId,
+        balances: event.balances,
+      })
+      const current = queryClient.getQueryData<SSEPortfolioData>(qk) ?? DEFAULT_SSE_DATA
+      queryClient.setQueryData(qk, {
+        ...current,
+        balances: Array.from(balancesMap.values()),
+      })
+    },
+  )
 
-  const { data } = useSuspenseQuery(minitySSEQueryOptions.allBalances(address, minityUrl))
+  /**
+   * Handle position events from SSE
+   */
+  const handlePositions = useEffectEvent(
+    (event: SSEPositionEvent, positionsMap: Map<string, ChainPositionData>) => {
+      const qk = minityQueryKeys.ssePortfolio(address ?? "", minityUrl).queryKey
+      positionsMap.set(event.chain, {
+        chainName: event.chain,
+        chainId: event.chainId,
+        positions: event.positions,
+      })
+      const current = queryClient.getQueryData<SSEPortfolioData>(qk) ?? DEFAULT_SSE_DATA
+      queryClient.setQueryData(qk, {
+        ...current,
+        positions: Array.from(positionsMap.values()),
+      })
+    },
+  )
 
-  return data
+  /**
+   * Handle SSE connection complete
+   */
+  const handleComplete = useEffectEvent(
+    (balancesMap: Map<string, ChainBalanceData>, positionsMap: Map<string, ChainPositionData>) => {
+      const qk = minityQueryKeys.ssePortfolio(address ?? "", minityUrl).queryKey
+      const current = queryClient.getQueryData<SSEPortfolioData>(qk) ?? DEFAULT_SSE_DATA
+      queryClient.setQueryData(qk, {
+        ...current,
+        balances: Array.from(balancesMap.values()),
+        positions: Array.from(positionsMap.values()),
+        isLoading: false,
+        isComplete: true,
+      })
+    },
+  )
+
+  useEffect(() => {
+    if (!address) {
+      return
+    }
+
+    const balancesMap = new Map<string, ChainBalanceData>()
+    const positionsMap = new Map<string, ChainPositionData>()
+
+    const baseUrl = minityUrl || DEFAULT_MINITY_URL
+    const url = `${baseUrl}/v1/chain/all/${encodeURIComponent(address)}`
+
+    const eventSource = new EventSource(url)
+    let isClosed = false
+
+    // Set loading state
+    const qk = minityQueryKeys.ssePortfolio(address, minityUrl).queryKey
+    queryClient.setQueryData(qk, {
+      balances: [],
+      positions: [],
+      isLoading: true,
+      isComplete: false,
+    })
+
+    const onComplete = () => {
+      if (isClosed) return
+      isClosed = true
+      eventSource.close()
+      handleComplete(balancesMap, positionsMap)
+    }
+
+    const timeoutId = setTimeout(onComplete, SSE_TIMEOUT)
+
+    eventSource.onmessage = (event) => {
+      if (isClosed) return
+      try {
+        const parsed = JSON.parse(event.data) as SSEEvent
+        if (parsed.type === "balances") {
+          handleBalances(parsed as SSEBalanceEvent, balancesMap)
+        } else if (parsed.type === "positions") {
+          handlePositions(parsed as SSEPositionEvent, positionsMap)
+        }
+      } catch {
+        // Silently ignore parsing errors
+      }
+    }
+
+    eventSource.onerror = () => {
+      // EventSource fires onerror when connection closes (even normally)
+      if (eventSource.readyState === EventSource.CLOSED) {
+        clearTimeout(timeoutId)
+        onComplete()
+      }
+    }
+
+    eventSource.addEventListener("close", () => {
+      clearTimeout(timeoutId)
+      onComplete()
+    })
+
+    return () => {
+      isClosed = true
+      clearTimeout(timeoutId)
+      eventSource.close()
+    }
+    // Re-run when address changes (user connects/disconnects wallet)
+    // minityUrl and queryClient accessed via useEffectEvent handlers (always read latest values)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address])
 }
 
 /**
- * Fetches position data for all supported chains via SSE.
- * Independent from balances - can render as soon as positions stream in.
+ * Fetches portfolio data (balances + positions) from cache.
+ * Data is populated by usePortfolioSSE hook which should be called once at app level.
  */
-export function useMinityPositions(): ChainPositionData[] {
+export function useMinityPortfolio(): SSEPortfolioData {
   const address = useInitiaAddress()
   const { minityUrl } = useConfig()
+  const queryKey = minityQueryKeys.ssePortfolio(address ?? "", minityUrl).queryKey
 
-  if (!address) {
-    throw new Error("useMinityPositions requires a connected wallet")
-  }
+  const { data } = useQuery({
+    queryKey,
+    queryFn: () => DEFAULT_SSE_DATA,
+    staleTime: STALE_TIMES.MINUTE,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  })
 
-  const { data } = useSuspenseQuery(minitySSEQueryOptions.allPositions(address, minityUrl))
-
-  return data
+  return data ?? { ...DEFAULT_SSE_DATA, isLoading: !!address }
 }
 
 // ============================================
@@ -984,11 +1026,10 @@ export function useChainInfoMap(): Map<string, ChainInfo> {
 
 /**
  * Computes chain breakdown with logos and percentages from Minity data.
- * Uses Suspense - loading states handled by React Suspense boundaries.
+ * Updates progressively as SSE data streams in.
  */
 export function useMinityChainBreakdown(): ChainBreakdownItem[] {
-  const balances = useMinityBalances()
-  const positions = useMinityPositions()
+  const { balances, positions } = useMinityPortfolio()
   const registry = useInitiaRegistry()
 
   const registryMap = useMemo(() => {
@@ -1045,11 +1086,10 @@ export function useMinityChainBreakdown(): ChainBreakdownItem[] {
 
 /**
  * Computes liquid assets total from balances only (excludes LP tokens).
- * Independent from positions - can render as soon as balances arrive.
- * Uses Suspense - loading states handled by React Suspense boundaries.
+ * Updates progressively as SSE balance data streams in.
  */
 export function useLiquidAssetsBalance(): number {
-  const balances = useMinityBalances()
+  const { balances } = useMinityPortfolio()
 
   return useMemo(() => {
     let total = 0
@@ -1067,12 +1107,11 @@ export function useLiquidAssetsBalance(): number {
 
 /**
  * Computes appchain positions total from positions only.
- * Independent from balances - can render as soon as positions arrive.
  * Excludes Civitia which has no USD values.
- * Uses Suspense - loading states handled by React Suspense boundaries.
+ * Updates progressively as SSE position data streams in.
  */
 export function useAppchainPositionsBalance(): number {
-  const positions = useMinityPositions()
+  const { positions } = useMinityPortfolio()
 
   return useMemo(() => {
     let total = 0

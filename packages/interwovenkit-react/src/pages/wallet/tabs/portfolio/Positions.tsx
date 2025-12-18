@@ -6,7 +6,7 @@ import { useLayer1 } from "@/data/chains"
 import {
   type PortfolioChainPositionGroup,
   useChainInfoMap,
-  useMinityPositions,
+  useMinityPortfolio,
 } from "@/data/minity"
 import AppchainPositionGroup from "./AppchainPositionGroup"
 import InitiaPositionGroup from "./InitiaPositionGroup"
@@ -19,8 +19,8 @@ export interface PositionsProps {
 }
 
 const Positions = ({ searchQuery, selectedChain }: PositionsProps) => {
-  // Position data (SSE - fast, blocking)
-  const positions = useMinityPositions()
+  // Position data (SSE - streams progressively)
+  const { positions, isLoading } = useMinityPortfolio()
 
   // Chain info map for chain names/logos (registry - fast, blocking)
   const chainInfoMap = useChainInfoMap()
@@ -105,6 +105,8 @@ const Positions = ({ searchQuery, selectedChain }: PositionsProps) => {
             return <AppchainPositionGroup key={chainGroup.chainName} chainGroup={chainGroup} />
           })}
         </div>
+      ) : isLoading ? (
+        <FallBack height={56} length={3} />
       ) : (
         <Status>No positions</Status>
       )}

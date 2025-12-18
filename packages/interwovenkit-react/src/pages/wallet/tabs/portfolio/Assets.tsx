@@ -1,5 +1,6 @@
 import { useMemo } from "react"
 import AsyncBoundary from "@/components/AsyncBoundary"
+import FallBack from "@/components/FallBack"
 import Status from "@/components/Status"
 import { useAllChainAssetsQueries } from "@/data/assets"
 import {
@@ -8,7 +9,7 @@ import {
   filterAssetGroups,
   groupBalancesBySymbol,
   useChainInfoMap,
-  useMinityBalances,
+  useMinityPortfolio,
 } from "@/data/minity"
 import { formatValue } from "@/lib/format"
 import AssetGroup from "./AssetGroup"
@@ -21,8 +22,8 @@ interface AssetsProps {
 }
 
 const Assets = ({ searchQuery, selectedChain }: AssetsProps) => {
-  // Minity data for main assets (SSE - fast, blocking)
-  const minityBalances = useMinityBalances()
+  // Minity data for main assets (SSE - streams progressively)
+  const { balances: minityBalances, isLoading } = useMinityPortfolio()
 
   // Chain info map for chain names/logos (registry - fast, blocking)
   const chainInfoMap = useChainInfoMap()
@@ -71,6 +72,8 @@ const Assets = ({ searchQuery, selectedChain }: AssetsProps) => {
             <UnlistedAssetsSection searchQuery={searchQuery} selectedChain={selectedChain} />
           </AsyncBoundary>
         </div>
+      ) : isLoading ? (
+        <FallBack height={56} length={3} />
       ) : (
         <Status>No liquid assets</Status>
       )}
