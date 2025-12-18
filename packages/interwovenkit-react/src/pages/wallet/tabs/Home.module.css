@@ -14,10 +14,11 @@
   color: var(--gray-0);
   font-size: 32px;
   font-weight: 600;
+}
 
-  &.loading {
-    opacity: 0.5;
-  }
+.skeletonWrapper {
+  display: flex;
+  justify-content: center;
 }
 
 .nav {

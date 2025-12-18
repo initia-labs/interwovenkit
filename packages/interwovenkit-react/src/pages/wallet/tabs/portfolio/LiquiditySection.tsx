@@ -54,16 +54,19 @@ interface LiquidityRowProps {
 }
 
 const BREAKDOWN_LABELS: Record<keyof LiquidityTableRow["breakdown"], string> = {
-  deposit: "Deposited",
-  staking: "Staked",
-  lockStaking: "Lock staked",
+  deposit: "Deposit",
+  staking: "Staking",
+  lockStaking: "Lock staking",
   unstaking: "Unstaking",
 }
 
 const LiquidityRow = ({ row, denomLogoMap }: LiquidityRowProps) => {
-  const { denom, symbol, totalValue, breakdown, coinLogos, claimableInit } = row
+  const { denom, symbol, totalValue, breakdown, logoUrl, coinLogos, claimableInit } = row
   const [isOpen, setIsOpen] = useState(false)
   const logos = denomLogoMap.get(denom)
+
+  // For LP tokens without coins (like omniINIT), use row.logoUrl or fallback to denomLogoMap
+  const singleLogoUrl = logoUrl || logos?.assetLogo
 
   // Calculate value per unit for breakdown value calculation
   const pricePerUnit = row.totalAmount > 0 ? row.totalValue / row.totalAmount : 0
@@ -107,13 +110,8 @@ const LiquidityRow = ({ row, denomLogoMap }: LiquidityRowProps) => {
                   ))}
                 </div>
               ) : (
-                logos?.assetLogo && (
-                  <Image
-                    src={logos.assetLogo}
-                    width={20}
-                    height={20}
-                    className={styles.tokenLogo}
-                  />
+                singleLogoUrl && (
+                  <Image src={singleLogoUrl} width={20} height={20} className={styles.tokenLogo} />
                 )
               )}
               <span className={styles.tokenSymbol}>{symbol}</span>
@@ -141,7 +139,7 @@ const LiquidityRow = ({ row, denomLogoMap }: LiquidityRowProps) => {
           })}
           {hasClaimableInit && (
             <div className={styles.breakdownRow}>
-              <span className={styles.breakdownLabel}>Unclaimed reward</span>
+              <span className={styles.breakdownLabel}>Claimable INIT</span>
               <div className={styles.breakdownValues}>
                 <span className={styles.breakdownAmount}>
                   {formatNumber(Number(claimableInit.total), { dp: 6 })} {INIT_SYMBOL}

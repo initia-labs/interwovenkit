@@ -3,20 +3,18 @@ import { Collapsible } from "radix-ui"
 import { useMemo } from "react"
 import { atom, useAtom } from "jotai"
 import { IconChevronDown, IconExternalLink } from "@initia/icons-react"
+import AsyncBoundary from "@/components/AsyncBoundary"
+import FallBack from "@/components/FallBack"
 import Image from "@/components/Image"
+import { useAllChainAssetsQueries } from "@/data/assets"
 import { INITIA_LIQUIDITY_URL } from "@/data/constants"
 import { useInitiaLiquidityPositions } from "@/data/initia-liquidity"
 import { useInitiaStakingPositions } from "@/data/initia-staking"
 import { useInitiaVipPositions } from "@/data/initia-vip"
-import {
-  buildDenomLogoMap,
-  getPositionValue,
-  type PortfolioChainPositionGroup,
-} from "@/data/minity"
-import { usePortfolio } from "@/data/portfolio"
+import { buildAssetLogoMaps, type PortfolioChainPositionGroup } from "@/data/minity"
 import { formatValue } from "@/lib/format"
 import LiquiditySection from "./LiquiditySection"
-import PositionSectionList from "./PositionSection"
+import PositionSectionList, { type DenomLogoMap } from "./PositionSection"
 import VipSection from "./VipSection"
 import styles from "./InitiaPositionGroup.module.css"
 
@@ -26,29 +24,57 @@ interface Props {
   chainGroup: PortfolioChainPositionGroup
 }
 
-const InitiaPositionGroup = ({ chainGroup }: Props) => {
-  const { chainName, chainLogo } = chainGroup
-  const { assetGroups } = usePortfolio()
+/* -------------------------------------------------------------------------- */
+/*                              Total Value                                   */
+/* -------------------------------------------------------------------------- */
 
-  // Fetch on-chain staking positions
+const InitiaTotalValue = () => {
+  const { totalValue: stakingValue } = useInitiaStakingPositions()
+  const { totalValue: liquidityValue } = useInitiaLiquidityPositions()
+  const { totalValue: vipValue } = useInitiaVipPositions()
+
+  const totalValue = stakingValue + liquidityValue + vipValue
+
+  return <span className={styles.value}>{formatValue(totalValue)}</span>
+}
+
+/* -------------------------------------------------------------------------- */
+/*                              Staking Section                               */
+/* -------------------------------------------------------------------------- */
+
+interface StakingSectionProps {
+  chainLogo: string
+}
+
+const InitiaStakingSection = ({ chainLogo }: StakingSectionProps) => {
   const { positions: stakingPositions } = useInitiaStakingPositions()
 
-  // Fetch on-chain liquidity positions
-  const liquidityData = useInitiaLiquidityPositions()
+  // Asset logos (non-blocking - renders immediately, logos appear when ready)
+  const assetsQueries = useAllChainAssetsQueries()
+  const { denomLogos, symbolLogos } = useMemo(
+    () => buildAssetLogoMaps(assetsQueries),
+    [assetsQueries],
+  )
 
-  // Fetch VIP vesting positions
-  const vipData = useInitiaVipPositions()
+  // Build combined denom -> logo map with fallback logic
+  const denomLogoMap: DenomLogoMap = useMemo(() => {
+    const map = new Map<string, { assetLogo: string; chainLogo: string }>()
 
-  // Build denom -> logo map from portfolio asset groups
-  const denomLogoMap = useMemo(() => buildDenomLogoMap(assetGroups), [assetGroups])
+    for (const pos of stakingPositions) {
+      if (pos.type === "fungible-position") continue
+      if (pos.balance.type === "unknown") continue
 
-  const [isOpen, setIsOpen] = useAtom(openInitiaGroupAtom)
+      const { denom, symbol } = pos.balance
+      const upperSymbol = symbol.toUpperCase()
+      const assetLogo = denomLogos.get(denom) ?? symbolLogos.get(upperSymbol)
 
-  // Calculate total value from on-chain staking + liquidity + VIP positions
-  const totalValue = useMemo(() => {
-    const stakingValue = stakingPositions.reduce((sum, pos) => sum + getPositionValue(pos), 0)
-    return stakingValue + liquidityData.totalValue + vipData.totalValue
-  }, [stakingPositions, liquidityData.totalValue, vipData.totalValue])
+      if (assetLogo) {
+        map.set(denom, { assetLogo, chainLogo })
+      }
+    }
+
+    return map
+  }, [stakingPositions, denomLogos, symbolLogos, chainLogo])
 
   // Create a protocol object for PositionSectionList
   const protocols = useMemo(() => {
@@ -62,12 +88,78 @@ const InitiaPositionGroup = ({ chainGroup }: Props) => {
     ]
   }, [stakingPositions])
 
-  // Don't render if no positions
-  const hasPositions =
-    stakingPositions.length > 0 || liquidityData.rows.length > 0 || vipData.rows.length > 0
-  if (!hasPositions) {
+  if (protocols.length === 0) {
     return null
   }
+
+  return <PositionSectionList protocols={protocols} denomLogoMap={denomLogoMap} isInitia />
+}
+
+/* -------------------------------------------------------------------------- */
+/*                             Liquidity Section                              */
+/* -------------------------------------------------------------------------- */
+
+interface LiquiditySectionWrapperProps {
+  chainLogo: string
+}
+
+const InitiaLiquiditySectionWrapper = ({ chainLogo }: LiquiditySectionWrapperProps) => {
+  const liquidityData = useInitiaLiquidityPositions()
+
+  // Asset logos (non-blocking)
+  const assetsQueries = useAllChainAssetsQueries()
+  const { denomLogos, symbolLogos } = useMemo(
+    () => buildAssetLogoMaps(assetsQueries),
+    [assetsQueries],
+  )
+
+  // Build denom -> logo map for liquidity positions
+  // Note: LiquidityTableRow already has coinLogos/logoUrl from the hook,
+  // this map provides fallback for any missing logos
+  const denomLogoMap: DenomLogoMap = useMemo(() => {
+    const map = new Map<string, { assetLogo: string; chainLogo: string }>()
+
+    for (const row of liquidityData.rows) {
+      const { denom, symbol } = row
+      const upperSymbol = symbol.toUpperCase()
+      const assetLogo = denomLogos.get(denom) ?? symbolLogos.get(upperSymbol)
+
+      if (assetLogo) {
+        map.set(denom, { assetLogo, chainLogo })
+      }
+    }
+
+    return map
+  }, [liquidityData.rows, denomLogos, symbolLogos, chainLogo])
+
+  if (liquidityData.rows.length === 0) {
+    return null
+  }
+
+  return <LiquiditySection data={liquidityData} denomLogoMap={denomLogoMap} />
+}
+
+/* -------------------------------------------------------------------------- */
+/*                                VIP Section                                 */
+/* -------------------------------------------------------------------------- */
+
+const InitiaVipSectionWrapper = () => {
+  const vipData = useInitiaVipPositions()
+
+  if (vipData.rows.length === 0) {
+    return null
+  }
+
+  return <VipSection data={vipData} />
+}
+
+/* -------------------------------------------------------------------------- */
+/*                           Main Component                                   */
+/* -------------------------------------------------------------------------- */
+
+const InitiaPositionGroup = ({ chainGroup }: Props) => {
+  const { chainName, chainLogo } = chainGroup
+  const [isOpen, setIsOpen] = useAtom(openInitiaGroupAtom)
 
   return (
     <div className={styles.container}>
@@ -92,7 +184,9 @@ const InitiaPositionGroup = ({ chainGroup }: Props) => {
               </div>
             </div>
             <div className={styles.valueColumn}>
-              <span className={styles.value}>{formatValue(totalValue)}</span>
+              <AsyncBoundary suspenseFallback={<FallBack height={16} width={60} length={1} />}>
+                <InitiaTotalValue />
+              </AsyncBoundary>
               <IconChevronDown
                 size={16}
                 className={clsx(styles.expandIcon, { [styles.expanded]: isOpen })}
@@ -104,15 +198,19 @@ const InitiaPositionGroup = ({ chainGroup }: Props) => {
         <Collapsible.Content className={styles.collapsibleContent}>
           <div className={styles.content}>
             {/* Staking section */}
-            {protocols.length > 0 && (
-              <PositionSectionList protocols={protocols} denomLogoMap={denomLogoMap} />
-            )}
+            <AsyncBoundary suspenseFallback={<FallBack height={36} length={2} />}>
+              <InitiaStakingSection chainLogo={chainLogo} />
+            </AsyncBoundary>
+
             {/* Liquidity section */}
-            {liquidityData.rows.length > 0 && (
-              <LiquiditySection data={liquidityData} denomLogoMap={denomLogoMap} />
-            )}
+            <AsyncBoundary suspenseFallback={<FallBack height={36} length={2} />}>
+              <InitiaLiquiditySectionWrapper chainLogo={chainLogo} />
+            </AsyncBoundary>
+
             {/* VIP section */}
-            {vipData.rows.length > 0 && <VipSection data={vipData} />}
+            <AsyncBoundary suspenseFallback={<FallBack height={36} length={1} />}>
+              <InitiaVipSectionWrapper />
+            </AsyncBoundary>
           </div>
         </Collapsible.Content>
       </Collapsible.Root>

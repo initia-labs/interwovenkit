@@ -1,9 +1,11 @@
-import clsx from "clsx"
 import { useRef } from "react"
 import { Tabs } from "@base-ui-components/react/tabs"
 import { IconArrowRight, IconQrCode, IconSwap } from "@initia/icons-react"
+import AsyncBoundary from "@/components/AsyncBoundary"
 import Scrollable from "@/components/Scrollable"
-import { useMinityPortfolioTotals } from "@/data/minity"
+import Skeleton from "@/components/Skeleton"
+import { useL1PositionsTotal } from "@/data/initia-positions-total"
+import { useAppchainPositionsBalance, useLiquidAssetsBalance } from "@/data/minity"
 import { formatValue } from "@/lib/format"
 import { Link, useNavigate, usePath } from "@/lib/router"
 import { useClaimableModal } from "@/pages/bridge/op/reminder"
@@ -13,15 +15,27 @@ import Portfolio from "./portfolio/Portfolio"
 import { ScrollableContext } from "./ScrollableContext"
 import styles from "./Home.module.css"
 
+/**
+ * TotalBalance component - fetches and displays total portfolio value.
+ * Uses individual hooks so each can load independently (same as app-v2).
+ * Isolated in its own AsyncBoundary so the rest of Home renders immediately.
+ */
+const TotalBalance = () => {
+  const liquidAssetsBalance = useLiquidAssetsBalance()
+  const appchainPositionsBalance = useAppchainPositionsBalance()
+  const l1PositionsBalance = useL1PositionsTotal()
+
+  const totalBalance = liquidAssetsBalance + l1PositionsBalance + appchainPositionsBalance
+
+  return <div className={styles.totalAmount}>{formatValue(totalBalance)}</div>
+}
+
 const Home = () => {
   useClaimableModal()
 
   const navigate = useNavigate()
   const path = usePath()
-  const {
-    data: { totalBalance },
-    isLoading,
-  } = useMinityPortfolioTotals()
+
   const scrollableRef = useRef<HTMLDivElement>(null)
 
   return (
@@ -29,9 +43,15 @@ const Home = () => {
       <Scrollable ref={scrollableRef}>
         <div className={styles.totalValue}>
           <div className={styles.totalLabel}>Total value</div>
-          <div className={clsx(styles.totalAmount, { [styles.loading]: isLoading })}>
-            {formatValue(totalBalance)}
-          </div>
+          <AsyncBoundary
+            suspenseFallback={
+              <div className={styles.skeletonWrapper}>
+                <Skeleton height={38} width={120} />
+              </div>
+            }
+          >
+            <TotalBalance />
+          </AsyncBoundary>
         </div>
 
         <div className={styles.nav}>
