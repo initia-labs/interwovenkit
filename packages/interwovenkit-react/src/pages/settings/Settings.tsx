@@ -1,5 +1,5 @@
 import { useAccount } from "wagmi"
-import { Separator } from "@base-ui-components/react"
+import { Separator } from "@base-ui/react"
 import Page from "@/components/Page"
 import { useNavigate } from "@/lib/router"
 import { PRIVY_APP_ID } from "@/public/data/connectors"

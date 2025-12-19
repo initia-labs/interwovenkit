@@ -30,7 +30,7 @@
   },
   "dependencies": {
     "@amplitude/analytics-browser": "^2.30.1",
-    "@base-ui-components/react": "1.0.0-beta.3",
+    "@base-ui/react": "1.0.0",
     "@cosmjs/amino": "^0.36.2",
     "@cosmjs/crypto": "^0.36.2",
     "@cosmjs/encoding": "^0.36.2",
@@ -92,7 +92,7 @@
   },
   "peerDependencies": {
     "@amplitude/analytics-browser": ">=2.0.0",
-    "@base-ui-components/react": "1.0.0-beta.3",
+    "@base-ui/react": "1.0.0",
     "@cosmjs/amino": "0.36.x",
     "@cosmjs/crypto": "0.36.x",
     "@cosmjs/encoding": "0.36.x",

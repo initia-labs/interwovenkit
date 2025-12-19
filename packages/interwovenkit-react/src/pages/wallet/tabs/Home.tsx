@@ -1,6 +1,6 @@
 import clsx from "clsx"
 import { useRef } from "react"
-import { Tabs } from "@base-ui-components/react/tabs"
+import { Tabs } from "@base-ui/react/tabs"
 import { IconArrowRight, IconQrCode, IconSwap } from "@initia/icons-react"
 import Scrollable from "@/components/Scrollable"
 import { usePortfolio } from "@/data/portfolio"

@@ -9,7 +9,7 @@
     "postinstall": "simple-git-hooks"
   },
   "devDependencies": {
-    "@initia/eslint-config-react-app": "^1.2.0",
+    "@initia/eslint-config-react-app": "^1.2.1",
     "eslint": "^9.39.1",
     "lint-staged": "^16.2.6",
     "prettier": "^3.6.2",

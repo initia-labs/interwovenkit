@@ -1,4 +1,4 @@
-import { Collapsible } from "@base-ui-components/react/collapsible"
+import { Collapsible } from "@base-ui/react/collapsible"
 import { IconChevronDown } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
 import styles from "./TxFeeInsufficient.module.css"
