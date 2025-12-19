@@ -605,7 +605,7 @@ export function getPositionBalance(position: Position): Balance | null {
 export function getPositionTypeLabel(type: Position["type"]): string {
   switch (type) {
     case "staking":
-      return "Staked"
+      return "Staking"
     case "unstaking":
       return "Unstaking"
     case "lockstaking":
