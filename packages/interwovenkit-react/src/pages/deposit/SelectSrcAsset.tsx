@@ -1,3 +1,4 @@
+import clsx from "clsx"
 import { IconBack } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
 import { useConfig } from "@/data/config"
@@ -58,28 +59,43 @@ const SelectSrcAsset = () => {
       <h4 className={styles.title}>Deposit assets</h4>
 
       <div className={styles.list}>
-        {filteredAssets.map(({ asset, chain, balance }) => (
-          <button
-            key={`${asset.chain_id}-${asset.denom}`}
-            className={styles.asset}
-            onClick={() => {
-              setValue("srcDenom", asset.denom)
-              setValue("srcChainId", chain.chain_id)
-              setValue("quantity", "")
-            }}
-          >
-            <div className={styles.iconContainer}>
-              <img src={asset.logo_uri} alt={asset.symbol} className={styles.assetIcon} />
-              <img src={chain.logo_uri || ""} alt={chain.chain_name} className={styles.chainIcon} />
+        {isLoading &&
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className={clsx(styles.asset, styles.placeholder)}>
+              <div className={styles.iconContainer}>
+                <div className={styles.assetIcon} />
+                <div className={styles.chainIcon} />
+              </div>
+              <div className={styles.assetPlaceholder} />
             </div>
-            <p className={styles.assetName}>{asset.symbol}</p>
-            <p className={styles.assetChain}>on {chain.pretty_name}</p>
-            <p className={styles.balance}>
-              {formatAmount(balance?.amount, { decimals: balance.decimals || 6 })}
-            </p>
-            <p className={styles.value}>${Number(balance.value_usd).toFixed(2)}</p>
-          </button>
-        ))}
+          ))}
+        {!isLoading &&
+          filteredAssets.map(({ asset, chain, balance }) => (
+            <button
+              key={`${asset.chain_id}-${asset.denom}`}
+              className={styles.asset}
+              onClick={() => {
+                setValue("srcDenom", asset.denom)
+                setValue("srcChainId", chain.chain_id)
+                setValue("quantity", "")
+              }}
+            >
+              <div className={styles.iconContainer}>
+                <img src={asset.logo_uri} alt={asset.symbol} className={styles.assetIcon} />
+                <img
+                  src={chain.logo_uri || ""}
+                  alt={chain.chain_name}
+                  className={styles.chainIcon}
+                />
+              </div>
+              <p className={styles.assetName}>{asset.symbol}</p>
+              <p className={styles.assetChain}>on {chain.pretty_name}</p>
+              <p className={styles.balance}>
+                {formatAmount(balance?.amount, { decimals: balance.decimals || 6 })}
+              </p>
+              <p className={styles.value}>${Number(balance.value_usd).toFixed(2)}</p>
+            </button>
+          ))}
       </div>
     </div>
   )
