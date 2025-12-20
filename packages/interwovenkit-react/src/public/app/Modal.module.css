@@ -49,8 +49,3 @@
   color: var(--gray-4);
   padding: 1.6px;
 }
-
-.content:only-child {
-  margin-top: 0;
-  padding-top: 0;
-}

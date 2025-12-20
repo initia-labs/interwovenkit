@@ -18,7 +18,7 @@ const Modal = ({ children }: PropsWithChildren) => {
           <button className={styles.closeButton} onClick={closeModal} aria-label="Close">
             <IconClose size={16.8} />
           </button>
-          <div className={styles.content}>{children}</div>
+          {children}
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>

@@ -54,7 +54,7 @@
   margin: 0 -20px;
   margin-bottom: -24px;
 
-  max-height: 70vh;
+  max-height: min(70vh, 90vh - 81px);
   overflow-y: auto;
   /* hide scrollbar */
   scrollbar-width: none;
