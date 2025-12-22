@@ -56,7 +56,7 @@ const SelectSrcAsset = () => {
   return (
     <div className={styles.container}>
       {renderBackButton()}
-      <h4 className={styles.title}>Deposit assets</h4>
+      <h4 className={styles.title}>Deposit {dstAsset.symbol}</h4>
 
       <div className={styles.list}>
         {isLoading &&
