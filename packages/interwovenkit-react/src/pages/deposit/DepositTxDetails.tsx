@@ -1,3 +1,4 @@
+import clsx from "clsx"
 import { useToggle } from "usehooks-ts"
 import { IconChevronDown } from "@initia/icons-react"
 import { formatAmount, truncate } from "@initia/utils"
@@ -53,7 +54,14 @@ const DepositTxDetails = ({ renderFee }: Props) => {
           )}
           <div className={styles.detail}>
             <p className={styles.detailLabel}>Estimated time</p>
-            <p className={styles.detailValue}>
+            <p
+              className={clsx(styles.detailValue)}
+              style={
+                route.estimated_route_duration_seconds > 60
+                  ? { color: "var(--warning)" }
+                  : undefined
+              }
+            >
               {formatDuration(route.estimated_route_duration_seconds)}
             </p>
           </div>
