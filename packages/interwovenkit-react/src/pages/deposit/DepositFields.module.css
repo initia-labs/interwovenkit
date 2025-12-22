@@ -53,7 +53,7 @@
   height: 36px;
 
   background-color: var(--gray-5);
-  border: 1px solid var(--gray-5);
+  border: 1px solid var(--border);
   border-radius: 100%;
 }
 
@@ -65,7 +65,7 @@
   width: 18px;
   height: 18px;
 
-  border: 1px solid var(--gray-5);
+  border: 1px solid var(--border);
   border-radius: 50%;
 }
 
@@ -177,7 +177,7 @@
 }
 
 .detailToken {
-  border: 1px solid var(--gray-5);
+  border: 1px solid var(--border);
   border-radius: 50%;
 }
 
