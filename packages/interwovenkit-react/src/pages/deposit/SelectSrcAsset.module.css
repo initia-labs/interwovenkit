@@ -106,7 +106,7 @@ button.asset:hover {
 
   background-color: var(--gray-8);
 
-  border: 1px solid var(--gray-5);
+  border: 1px solid var(--border);
   border-radius: 50%;
 }
 
@@ -120,7 +120,7 @@ button.asset:hover {
 
   background-color: var(--gray-8);
 
-  border: 1px solid var(--gray-5);
+  border: 1px solid var(--border);
   border-radius: 50%;
 }
 
