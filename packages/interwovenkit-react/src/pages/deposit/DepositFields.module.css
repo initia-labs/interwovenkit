@@ -132,6 +132,8 @@
   justify-content: space-between;
   align-items: center;
 
+  height: 18px;
+
   font-size: 12px;
   font-weight: 500;
 }
@@ -139,14 +141,17 @@
 .detailsContainer {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 
   margin-top: 24px;
 }
 
 .detailsButton {
   justify-content: flex-start;
+  align-items: center;
   gap: 2px;
+
+  height: 18px;
 
   color: var(--gray-2);
   font-size: 12px;

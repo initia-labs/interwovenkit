@@ -1,5 +1,5 @@
 import { useToggle } from "usehooks-ts"
-import { IconChevronUp } from "@initia/icons-react"
+import { IconChevronDown } from "@initia/icons-react"
 import { formatAmount, truncate } from "@initia/utils"
 import { useConnectedWalletIcon } from "@/hooks/useConnectedWalletIcon"
 import { useLocationState } from "@/lib/router"
@@ -38,7 +38,7 @@ const DepositTxDetails = ({ renderFee }: Props) => {
     <div className={styles.detailsContainer}>
       <button className={styles.detailsButton} onClick={toggleDetails}>
         Transaction details{" "}
-        <IconChevronUp
+        <IconChevronDown
           size={12}
           style={{ transform: isDetailsOpen ? "rotate(180deg)" : "rotate(0deg)" }}
         />
