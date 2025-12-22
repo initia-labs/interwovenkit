@@ -149,7 +149,12 @@ const DepositFooterWithFee = ({ tx, gas }: Props) => {
     <>
       <DepositTxDetails renderFee={feeOptions && feeOptions.length > 0 ? renderFee : undefined} />
       <FooterWithErc20Approval tx={tx}>
-        <BridgePreviewFooter tx={tx} fee={selectedFee} navigateTo="/deposit/completed" />
+        <BridgePreviewFooter
+          tx={tx}
+          fee={selectedFee}
+          navigateTo="/deposit/completed"
+          confirmMessage="Deposit"
+        />
       </FooterWithErc20Approval>
     </>
   )
@@ -161,7 +166,12 @@ const DepositFooter = ({ tx, gas }: Props) => {
       <>
         <DepositTxDetails />
         <FooterWithErc20Approval tx={tx}>
-          <BridgePreviewFooter tx={tx} fee={undefined} navigateTo="/deposit/completed" />
+          <BridgePreviewFooter
+            tx={tx}
+            fee={undefined}
+            navigateTo="/deposit/completed"
+            confirmMessage="Deposit"
+          />
         </FooterWithErc20Approval>
       </>
     )

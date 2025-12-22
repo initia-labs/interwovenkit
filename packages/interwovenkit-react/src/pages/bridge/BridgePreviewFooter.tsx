@@ -8,14 +8,15 @@ interface Props {
   tx: TxJson
   fee?: StdFee
   navigateTo?: string
+  confirmMessage?: string
 }
 
-const BridgePreviewFooter = ({ tx, fee, navigateTo }: Props) => {
+const BridgePreviewFooter = ({ tx, fee, navigateTo, confirmMessage }: Props) => {
   const { mutate, isPending } = useBridgeTx(tx, { customFee: fee, navigateTo })
   return (
     <Footer>
       <Button.White onClick={() => mutate()} loading={isPending && "Signing transaction..."}>
-        Confirm
+        {confirmMessage || "Confirm"}
       </Button.White>
     </Footer>
   )
