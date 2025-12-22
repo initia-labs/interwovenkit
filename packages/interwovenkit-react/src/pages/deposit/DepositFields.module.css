@@ -156,11 +156,16 @@
   align-items: center;
   gap: 2px;
 
+  width: fit-content;
   height: 18px;
 
   color: var(--gray-2);
   font-size: 12px;
   font-weight: 500;
+}
+
+.detailsButton:hover {
+  color: var(--gray-1);
 }
 
 .detailLabel {
