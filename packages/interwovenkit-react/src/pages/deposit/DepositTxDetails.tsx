@@ -57,6 +57,12 @@ const DepositTxDetails = ({ renderFee }: Props) => {
               {formatDuration(route.estimated_route_duration_seconds)}
             </p>
           </div>
+          {renderFee && (
+            <div className={styles.detail}>
+              <p className={styles.detailLabel}>Tx fee</p>
+              <p className={styles.detailValue}>{renderFee()}</p>
+            </div>
+          )}
           {address && (
             <div className={styles.detail}>
               <p className={styles.detailLabel}>Receiving address</p>
@@ -74,12 +80,6 @@ const DepositTxDetails = ({ renderFee }: Props) => {
           {formatAmount(minimumReceived, { decimals: dstAsset.decimals })} {dstAsset.symbol}
         </p>
       </div>
-      {renderFee && (
-        <div className={styles.detail}>
-          <p className={styles.detailLabel}>Tx fee</p>
-          <p className={styles.detailValue}>{renderFee()}</p>
-        </div>
-      )}
     </div>
   )
 }
