@@ -50,6 +50,10 @@
   padding: 6px 12px;
 }
 
+.asset:hover {
+  background-color: var(--gray-6);
+}
+
 .assetIcon {
   position: relative;
 
