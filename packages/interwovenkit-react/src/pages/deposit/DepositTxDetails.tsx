@@ -1,5 +1,5 @@
 import clsx from "clsx"
-import { useToggle } from "usehooks-ts"
+import { useEffect, useState } from "react"
 import { IconChevronDown } from "@initia/icons-react"
 import { formatAmount, truncate } from "@initia/utils"
 import { useConnectedWalletIcon } from "@/hooks/useConnectedWalletIcon"
@@ -26,7 +26,15 @@ const DepositTxDetails = ({ renderFee }: Props) => {
   const address = useInitiaAddress()
   const walletIcon = useConnectedWalletIcon()
 
-  const [isDetailsOpen, toggleDetails] = useToggle(false)
+  const [isDetailsOpen, setDetails] = useState(false)
+
+  const isLongDuration = route && route.estimated_route_duration_seconds > 60
+
+  useEffect(() => {
+    if (isLongDuration) {
+      setDetails(true)
+    }
+  }, [isLongDuration, setDetails])
 
   if (!route || !dstAsset) return null
 
@@ -37,7 +45,7 @@ const DepositTxDetails = ({ renderFee }: Props) => {
 
   return (
     <div className={styles.detailsContainer}>
-      <button className={styles.detailsButton} onClick={toggleDetails}>
+      <button className={styles.detailsButton} onClick={() => setDetails((open) => !open)}>
         Transaction details{" "}
         <IconChevronDown
           size={12}
@@ -56,11 +64,7 @@ const DepositTxDetails = ({ renderFee }: Props) => {
             <p className={styles.detailLabel}>Estimated time</p>
             <p
               className={clsx(styles.detailValue)}
-              style={
-                route.estimated_route_duration_seconds > 60
-                  ? { color: "var(--warning)" }
-                  : undefined
-              }
+              style={isLongDuration ? { color: "var(--warning)" } : undefined}
             >
               {formatDuration(route.estimated_route_duration_seconds)}
             </p>
