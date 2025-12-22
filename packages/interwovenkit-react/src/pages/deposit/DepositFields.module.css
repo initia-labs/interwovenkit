@@ -8,8 +8,12 @@
   top: 16px;
   left: 20px;
 
-  color: var(--gray-3);
+  color: var(--gray-4);
   padding: 3px;
+}
+
+.back:hover {
+  color: var(--gray-2);
 }
 
 .title {

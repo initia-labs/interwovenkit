@@ -49,3 +49,7 @@
   color: var(--gray-4);
   padding: 1.6px;
 }
+
+.closeButton:hover {
+  color: var(--gray-2);
+}
