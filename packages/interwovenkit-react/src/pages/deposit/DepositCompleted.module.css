@@ -44,9 +44,14 @@
 }
 
 .error {
+  width: 100%;
+
   color: var(--error);
   font-size: 12px;
   font-weight: 500;
   margin-bottom: 8px;
+  max-height: 100px;
+  overflow-y: scroll;
   text-align: center;
+  word-wrap: break-word;
 }
