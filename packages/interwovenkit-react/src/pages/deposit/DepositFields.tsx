@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from "react"
 import { useDebounceValue } from "usehooks-ts"
-import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
+import { IconBack, IconChevronDown } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
 import Button from "@/components/Button"
 import QuantityInput from "@/components/form/QuantityInput"
@@ -11,6 +11,7 @@ import { type RouterRouteResponseJson, useRouteQuery } from "../bridge/data/simu
 import FooterWithAddressList from "../bridge/FooterWithAddressList"
 import FooterWithMsgs from "../bridge/FooterWithMsgs"
 import FooterWithSignedOpHook from "../bridge/FooterWithSignedOpHook"
+import WalletIcon from "./assets/WalletIcon"
 import DepositFooter from "./DepositFooter"
 import FooterWithTxFee from "./FooterWithTxFee"
 import {
@@ -147,7 +148,7 @@ const DepositFields = () => {
               setValue("quantity", formatAmount(balance, { decimals: srcAsset?.decimals || 6 }))
             }}
           >
-            <IconWallet /> {formatAmount(balance, { decimals: srcAsset?.decimals || 6 })}{" "}
+            <WalletIcon /> {formatAmount(balance, { decimals: srcAsset?.decimals || 6 })}{" "}
             <span>MAX</span>
           </button>
         </div>
