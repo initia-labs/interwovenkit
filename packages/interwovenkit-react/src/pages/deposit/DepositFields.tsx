@@ -52,7 +52,7 @@ const DepositFields = () => {
 
   const disabledMessage = useMemo(() => {
     if (!srcAsset) return "Select asset"
-    if (!quantity) return "Enter amount"
+    if (!Number(quantity)) return "Enter amount"
     if (Number(quantity) > Number(formatAmount(balance, { decimals: srcAsset?.decimals || 6 })))
       return "Insufficient balance"
 
