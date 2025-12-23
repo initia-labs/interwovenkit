@@ -14,20 +14,25 @@ import styles from "./SelectSrcAsset.module.css"
 
 const SelectSrcAsset = () => {
   const { data: filteredAssets, isLoading } = useFilteredDepositAssets()
-  const { setValue } = useDepositForm()
+  const { setValue, watch } = useDepositForm()
   const dstAsset = useDstDepositAsset()
   const options = useDepositOptions()
   const { theme } = useConfig()
+  const { srcDenom, srcChainId } = watch()
 
   function renderBackButton() {
-    if (options.length <= 1) return null
+    const isSrcSelected = srcDenom && srcChainId
+    if (!isSrcSelected && options.length <= 1) return null
 
     return (
       <button
         className={styles.close}
         onClick={() => {
-          setValue("dstDenom", "")
-          setValue("dstChainId", "")
+          if (isSrcSelected) {
+            setValue("page", "fields")
+          } else {
+            setValue("page", "select-dst")
+          }
         }}
       >
         <IconBack size={14} />
@@ -78,6 +83,7 @@ const SelectSrcAsset = () => {
                 setValue("srcDenom", asset.denom)
                 setValue("srcChainId", chain.chain_id)
                 setValue("quantity", "")
+                setValue("page", "fields")
               }}
             >
               <div className={styles.iconContainer}>

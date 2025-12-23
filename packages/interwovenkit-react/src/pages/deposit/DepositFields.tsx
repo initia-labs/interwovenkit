@@ -86,6 +86,8 @@ const DepositFields = () => {
             setValue("quantity", "")
             setValue("srcDenom", "")
             setValue("srcChainId", "")
+            // navigate to dst page
+            setValue("page", "select-dst")
           }}
         >
           <IconBack size={14} />
@@ -97,8 +99,7 @@ const DepositFields = () => {
         className={styles.asset}
         onClick={() => {
           if (!isAssetsLoading && !filteredAssets.length) return
-          setValue("srcDenom", "")
-          setValue("srcChainId", "")
+          setValue("page", "select-src")
         }}
       >
         <div className={styles.assetIcon}>

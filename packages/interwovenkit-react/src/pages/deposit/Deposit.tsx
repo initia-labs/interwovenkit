@@ -1,23 +1,18 @@
 import { FormProvider, useForm } from "react-hook-form"
 import DepositFields from "./DepositFields"
-import {
-  useAllBalancesQuery,
-  useDepositForm,
-  useDepositOptions,
-  useDstDepositAsset,
-  useSrcDepositAsset,
-} from "./hooks"
+import { useAllBalancesQuery, useDepositForm, useDepositOptions } from "./hooks"
 import SelectDstAsset from "./SelectDstAsset"
 import SelectSrcAsset from "./SelectSrcAsset"
 
 export interface FormValues {
+  page: "select-dst" | "select-src" | "fields"
   quantity: string
 }
 
 export const Deposit = () => {
   const form = useForm<FormValues>({
     mode: "onChange",
-    defaultValues: { quantity: "" },
+    defaultValues: { page: "select-dst", quantity: "" },
   })
 
   // prefetch balances
@@ -32,22 +27,17 @@ export const Deposit = () => {
 
 const DepositRoutes = () => {
   const options = useDepositOptions()
-  const dstAsset = useDstDepositAsset()
-  const srcAsset = useSrcDepositAsset()
-  const { setValue } = useDepositForm()
+  const { watch } = useDepositForm()
+  const page = watch("page")
 
-  if (!dstAsset) {
-    if (options.length === 1) {
-      setValue("dstDenom", options[0].denom)
-      setValue("dstChainId", options[0].chain_id)
-      return null
-    }
-    return <SelectDstAsset options={options} />
+  switch (page) {
+    case "select-dst":
+      return <SelectDstAsset options={options} />
+    case "select-src":
+      return <SelectSrcAsset />
+    case "fields":
+      return <DepositFields />
   }
-
-  if (!srcAsset) return <SelectSrcAsset />
-
-  return <DepositFields />
 }
 
 export default Deposit

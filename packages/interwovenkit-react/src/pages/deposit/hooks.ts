@@ -115,7 +115,10 @@ export function useFilteredDepositAssets() {
   return { data, isLoading }
 }
 
+export type DepositPage = "select-dst" | "select-src" | "fields"
+
 interface DepositForm {
+  page: DepositPage
   quantity: string
   srcDenom: string
   srcChainId: string
