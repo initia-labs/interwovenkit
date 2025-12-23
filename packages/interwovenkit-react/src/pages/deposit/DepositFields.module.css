@@ -152,6 +152,8 @@
   flex-direction: column;
   gap: 8px;
 
+  color: var(--gray-2);
+
   margin-top: 24px;
 }
 
@@ -172,8 +174,8 @@
   color: var(--gray-1);
 }
 
-.detailLabel {
-  color: var(--gray-2);
+.minimumReceived {
+  color: var(--gray-0);
 }
 
 .detailValue {

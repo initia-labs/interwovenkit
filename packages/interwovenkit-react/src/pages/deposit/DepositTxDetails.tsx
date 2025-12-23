@@ -1,5 +1,5 @@
 import clsx from "clsx"
-import { useEffect, useState } from "react"
+import { useToggle } from "usehooks-ts"
 import { IconChevronDown } from "@initia/icons-react"
 import { formatAmount, truncate } from "@initia/utils"
 import { useConnectedWalletIcon } from "@/hooks/useConnectedWalletIcon"
@@ -26,15 +26,9 @@ const DepositTxDetails = ({ renderFee }: Props) => {
   const address = useInitiaAddress()
   const walletIcon = useConnectedWalletIcon()
 
-  const [isDetailsOpen, setDetails] = useState(false)
+  const [isDetailsOpen, toggleOpen] = useToggle(false)
 
   const isLongDuration = route && route.estimated_route_duration_seconds > 60
-
-  useEffect(() => {
-    if (isLongDuration) {
-      setDetails(true)
-    }
-  }, [isLongDuration, setDetails])
 
   if (!route || !dstAsset) return null
 
@@ -45,7 +39,7 @@ const DepositTxDetails = ({ renderFee }: Props) => {
 
   return (
     <div className={styles.detailsContainer}>
-      <button className={styles.detailsButton} onClick={() => setDetails((open) => !open)}>
+      <button className={styles.detailsButton} onClick={toggleOpen}>
         Transaction details{" "}
         <IconChevronDown
           size={12}
@@ -60,15 +54,6 @@ const DepositTxDetails = ({ renderFee }: Props) => {
               <p className={styles.detailValue}>{values.slippagePercent}%</p>
             </div>
           )}
-          <div className={styles.detail}>
-            <p className={styles.detailLabel}>Estimated time</p>
-            <p
-              className={clsx(styles.detailValue)}
-              style={isLongDuration ? { color: "var(--warning)" } : undefined}
-            >
-              {formatDuration(route.estimated_route_duration_seconds)}
-            </p>
-          </div>
           {renderFee && (
             <div className={styles.detail}>
               <p className={styles.detailLabel}>Tx fee</p>
@@ -86,6 +71,15 @@ const DepositTxDetails = ({ renderFee }: Props) => {
         </>
       )}
       <div className={styles.detail}>
+        <p className={styles.detailLabel}>Estimated time</p>
+        <p
+          className={clsx(styles.detailValue)}
+          style={isLongDuration ? { color: "var(--warning)" } : undefined}
+        >
+          {formatDuration(route.estimated_route_duration_seconds)}
+        </p>
+      </div>
+      <div className={clsx(styles.detail, styles.minimumReceived)}>
         <p className={styles.detailLabel}>Minimum received</p>
         <p className={styles.detailValue}>
           <img src={dstAsset.logo_uri} alt={dstAsset.symbol} className={styles.detailToken} />{" "}
