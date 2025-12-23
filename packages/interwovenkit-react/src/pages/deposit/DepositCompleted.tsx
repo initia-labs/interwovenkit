@@ -119,7 +119,7 @@ export function DepositCompleted() {
             muted
             loop
             playsInline
-            style={{ width: "58px", height: "58px" }}
+            style={{ width: "72px", height: "72px", marginBottom: "12px" }}
           />
           <p className={styles.subtitle}>
             Estimated time: <span>{estimatedDuration}</span>
@@ -143,7 +143,7 @@ export function DepositCompleted() {
             autoPlay
             muted
             playsInline
-            style={{ width: "58px", height: "58px" }}
+            style={{ width: "72px", height: "72px" }}
             onEnded={(e) => {
               const video = e.currentTarget
               video.currentTime = video.duration

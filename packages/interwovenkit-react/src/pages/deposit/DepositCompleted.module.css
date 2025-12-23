@@ -15,12 +15,12 @@
   color: var(--gray-2);
   font-size: 12px;
   font-weight: 500;
-  margin-bottom: -12px;
+  margin-bottom: -16px;
 }
 
 .subtitle:last-child {
   margin-bottom: 8px;
-  margin-top: -12px;
+  margin-top: -16px;
 }
 
 .subtitle span {
