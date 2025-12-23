@@ -152,7 +152,7 @@
   flex-direction: column;
   gap: 8px;
 
-  color: var(--gray-2);
+  color: var(--gray-3);
 
   margin-top: 24px;
 }
@@ -165,7 +165,7 @@
   width: fit-content;
   height: 18px;
 
-  color: var(--gray-2);
+  color: var(--gray-3);
   font-size: 12px;
   font-weight: 500;
 }
@@ -174,14 +174,12 @@
   color: var(--gray-1);
 }
 
-.minimumReceived {
-  color: var(--gray-0);
-}
-
 .detailValue {
   display: flex;
   align-items: center;
   gap: 4px;
+
+  color: var(--gray-2);
 
   font-family: var(--monospace);
 }
@@ -197,6 +195,14 @@
 
   border: 1px solid var(--border);
   border-radius: 50%;
+}
+
+.minimumReceived {
+  color: var(--gray-1);
+}
+
+.minimumReceived .detailValue {
+  color: var(--gray-0);
 }
 
 .submit {
