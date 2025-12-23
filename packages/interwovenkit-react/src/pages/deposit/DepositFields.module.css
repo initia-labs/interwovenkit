@@ -184,11 +184,6 @@
   font-family: var(--monospace);
 }
 
-.detailValue img {
-  width: 12px;
-  height: 12px;
-}
-
 .detailToken {
   width: 14px;
   height: 14px;

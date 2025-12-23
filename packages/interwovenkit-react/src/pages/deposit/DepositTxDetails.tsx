@@ -64,7 +64,7 @@ const DepositTxDetails = ({ renderFee }: Props) => {
             <div className={styles.detail}>
               <p className={styles.detailLabel}>Receiving address</p>
               <p className={styles.detailValue}>
-                <img src={walletIcon} alt="Wallet" /> {truncate(address)}
+                <img src={walletIcon} alt="Wallet" height={12} width={12} /> {truncate(address)}
               </p>
             </div>
           )}
