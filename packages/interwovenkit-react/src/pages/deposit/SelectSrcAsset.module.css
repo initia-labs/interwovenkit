@@ -95,7 +95,7 @@ button.asset:hover {
 }
 
 .activeAsset {
-  background-color: var(--gray-7);
+  background-color: var(--gray-7) !important; /* override hover */
 }
 
 .iconContainer {
