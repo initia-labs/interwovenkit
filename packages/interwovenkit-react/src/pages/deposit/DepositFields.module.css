@@ -185,11 +185,14 @@
 }
 
 .detailValue img {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
 }
 
 .detailToken {
+  width: 14px;
+  height: 14px;
+
   border: 1px solid var(--border);
   border-radius: 50%;
 }
