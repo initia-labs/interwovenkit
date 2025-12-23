@@ -10,6 +10,7 @@ import { useTx } from "@/data/tx"
 import { useDisconnect, useDrawer, useModal } from "@/data/ui"
 import { useAutoSign } from "@/pages/autosign/data/public"
 import type { FormValues } from "@/pages/bridge/data/form"
+import type { AssetOption } from "@/pages/deposit/hooks"
 
 export { usePortfolio } from "@/data/portfolio"
 
@@ -72,8 +73,14 @@ export function useInterwovenKit() {
     openDrawer("/bridge", defaultValues)
   }
 
-  const openDeposit = () => {
-    openModal("/deposit")
+  const openDeposit = (
+    dstOptions: AssetOption[],
+    options?: { srcOptions?: AssetOption[]; recipientAddress?: string },
+  ) => {
+    if (dstOptions.length === 0) {
+      throw new Error("dstOptions cannot be empty")
+    }
+    openModal("/deposit", { dstOptions, ...options })
   }
 
   const tx = useTx()

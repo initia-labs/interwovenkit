@@ -1,13 +1,9 @@
-import type { RouterAsset } from "../bridge/data/assets"
-import { useDepositForm } from "./hooks"
+import { useDepositForm, useDepositOptions } from "./hooks"
 import styles from "./SelectDstAsset.module.css"
 
-interface Props {
-  options: RouterAsset[]
-}
-
-const SelectDstAsset = ({ options }: Props) => {
+const SelectDstAsset = () => {
   const { setValue } = useDepositForm()
+  const options = useDepositOptions()
 
   const selectDst = (denom: string, chain_id: string) => {
     setValue("dstDenom", denom)

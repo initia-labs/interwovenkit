@@ -1,6 +1,6 @@
 import { FormProvider, useForm } from "react-hook-form"
 import DepositFields from "./DepositFields"
-import { useAllBalancesQuery, useDepositForm, useDepositOptions } from "./hooks"
+import { useAllBalancesQuery, useDepositForm } from "./hooks"
 import SelectDstAsset from "./SelectDstAsset"
 import SelectSrcAsset from "./SelectSrcAsset"
 
@@ -26,13 +26,12 @@ export const Deposit = () => {
 }
 
 const DepositRoutes = () => {
-  const options = useDepositOptions()
   const { watch } = useDepositForm()
   const page = watch("page")
 
   switch (page) {
     case "select-dst":
-      return <SelectDstAsset options={options} />
+      return <SelectDstAsset />
     case "select-src":
       return <SelectSrcAsset />
     case "fields":

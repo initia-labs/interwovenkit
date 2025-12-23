@@ -1,12 +1,17 @@
 import type { BalancesResponseJson } from "@skip-go/client"
 import { useFormContext } from "react-hook-form"
 import { useQuery } from "@tanstack/react-query"
-import { useConfig } from "@/data/config"
 import { STALE_TIMES } from "@/data/http"
+import { useLocationState } from "@/lib/router"
 import { useHexAddress, useInitiaAddress } from "@/public/data/hooks"
 import { useAllSkipAssets } from "../bridge/data/assets"
 import { useFindSkipChain, useSkipChains } from "../bridge/data/chains"
 import { skipQueryKeys, useSkip } from "../bridge/data/skip"
+
+export interface AssetOption {
+  denom: string
+  chainId: string
+}
 
 export function useAllBalancesQuery() {
   const skip = useSkip()
@@ -40,10 +45,10 @@ export function useAllBalancesQuery() {
 }
 
 export function useDepositOptions() {
-  const { depositOptions = [] } = useConfig()
+  const { dstOptions = [] } = useLocationState<{ dstOptions?: AssetOption[] }>()
   const skipAssets = useAllSkipAssets()
   return skipAssets.filter(({ denom, chain_id }) =>
-    depositOptions.some((opt) => opt.denom === denom && opt.chainId === chain_id),
+    dstOptions.some((opt) => opt.denom === denom && opt.chainId === chain_id),
   )
 }
 
@@ -73,14 +78,21 @@ export function useDepositAssets() {
   const skipAssets = useAllSkipAssets()
   const findChain = useFindSkipChain()
   const { data: balances } = useAllBalancesQuery()
+  const { srcOptions = [] } = useLocationState<{ srcOptions?: AssetOption[] }>()
 
   const dstAsset = useDstDepositAsset()
 
   if (!dstAsset) return []
 
   return skipAssets
-    .filter(({ symbol, chain_id }) => symbol === dstAsset.symbol && chain_id !== dstAsset.chain_id)
+    .filter(({ symbol, denom, chain_id }) =>
+      !srcOptions.length
+        ? symbol === dstAsset.symbol
+        : srcOptions.some((opt) => opt.denom === denom && opt.chainId === chain_id),
+    )
     .filter((asset) => {
+      if (asset.chain_id === dstAsset.chain_id) return false
+
       const chain = findChain(asset.chain_id)
       if (!chain) return false
       // filter out external cosmos chains (different wallet connection is required)

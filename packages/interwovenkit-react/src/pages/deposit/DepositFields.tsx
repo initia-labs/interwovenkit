@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown } from "@initia/icons-react"
-import { formatAmount } from "@initia/utils"
+import { formatAmount, InitiaAddress } from "@initia/utils"
 import Button from "@/components/Button"
 import QuantityInput from "@/components/form/QuantityInput"
 import { useLocationState, useNavigate } from "@/lib/router"
@@ -26,6 +26,7 @@ import styles from "./DepositFields.module.css"
 
 interface State {
   route?: RouterRouteResponseJson
+  recipientAddress?: string
 }
 
 const DepositFields = () => {
@@ -67,10 +68,18 @@ const DepositFields = () => {
 
   useEffect(() => {
     navigate(0, {
+      ...state,
       route,
-      values: { sender: hexAddress, recipient: hexAddress, slippagePercent: "1", ...getValues() },
+      values: {
+        sender: hexAddress,
+        recipient: state.recipientAddress ? InitiaAddress(state.recipientAddress).hex : hexAddress,
+        slippagePercent: "1",
+        ...getValues(),
+      },
     })
-  }, [route, getValues, hexAddress, navigate])
+
+    // we don't want to trigger this when state changes, to avoid infinite loop
+  }, [route, getValues, hexAddress, navigate]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!dstAsset || !srcAsset) return null
 
