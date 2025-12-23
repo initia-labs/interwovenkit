@@ -94,6 +94,10 @@ button.asset:hover {
   background-color: var(--gray-8);
 }
 
+.activeAsset {
+  background-color: var(--gray-7);
+}
+
 .iconContainer {
   position: relative;
 
@@ -140,6 +144,10 @@ button.asset:hover {
 
 .assetName {
   grid-area: name;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
 
   font-size: 14px;
   font-weight: 600;

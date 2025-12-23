@@ -1,5 +1,5 @@
 import clsx from "clsx"
-import { IconBack } from "@initia/icons-react"
+import { IconBack, IconCheckCircleFilled } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
 import { useConfig } from "@/data/config"
 import EmptyIconDark from "./assets/EmptyDark.svg"
@@ -75,33 +75,38 @@ const SelectSrcAsset = () => {
             </div>
           ))}
         {!isLoading &&
-          filteredAssets.map(({ asset, chain, balance }) => (
-            <button
-              key={`${asset.chain_id}-${asset.denom}`}
-              className={styles.asset}
-              onClick={() => {
-                setValue("srcDenom", asset.denom)
-                setValue("srcChainId", chain.chain_id)
-                setValue("quantity", "")
-                setValue("page", "fields")
-              }}
-            >
-              <div className={styles.iconContainer}>
-                <img src={asset.logo_uri} alt={asset.symbol} className={styles.assetIcon} />
-                <img
-                  src={chain.logo_uri || ""}
-                  alt={chain.chain_name}
-                  className={styles.chainIcon}
-                />
-              </div>
-              <p className={styles.assetName}>{asset.symbol}</p>
-              <p className={styles.assetChain}>on {chain.pretty_name}</p>
-              <p className={styles.balance}>
-                {formatAmount(balance?.amount, { decimals: balance.decimals || 6 })}
-              </p>
-              <p className={styles.value}>${Number(balance.value_usd).toFixed(2)}</p>
-            </button>
-          ))}
+          filteredAssets.map(({ asset, chain, balance }) => {
+            const isActive = srcDenom === asset.denom && srcChainId === chain.chain_id
+            return (
+              <button
+                key={`${asset.chain_id}-${asset.denom}`}
+                className={clsx(styles.asset, isActive && styles.activeAsset)}
+                onClick={() => {
+                  setValue("srcDenom", asset.denom)
+                  setValue("srcChainId", chain.chain_id)
+                  setValue("quantity", "")
+                  setValue("page", "fields")
+                }}
+              >
+                <div className={styles.iconContainer}>
+                  <img src={asset.logo_uri} alt={asset.symbol} className={styles.assetIcon} />
+                  <img
+                    src={chain.logo_uri || ""}
+                    alt={chain.chain_name}
+                    className={styles.chainIcon}
+                  />
+                </div>
+                <p className={styles.assetName}>
+                  {asset.symbol} {isActive && <IconCheckCircleFilled size={14} />}
+                </p>
+                <p className={styles.assetChain}>on {chain.pretty_name}</p>
+                <p className={styles.balance}>
+                  {formatAmount(balance?.amount, { decimals: balance.decimals || 6 })}
+                </p>
+                <p className={styles.value}>${Number(balance.value_usd).toFixed(2)}</p>
+              </button>
+            )
+          })}
       </div>
     </div>
   )
