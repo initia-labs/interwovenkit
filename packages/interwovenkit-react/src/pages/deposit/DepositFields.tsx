@@ -4,6 +4,7 @@ import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
 import { formatAmount, InitiaAddress } from "@initia/utils"
 import Button from "@/components/Button"
 import QuantityInput from "@/components/form/QuantityInput"
+import { formatValue } from "@/lib/format"
 import { useLocationState, useNavigate } from "@/lib/router"
 import { useHexAddress } from "@/public/data/hooks"
 import { useFindSkipChain } from "../bridge/data/chains"
@@ -143,7 +144,7 @@ const DepositFields = () => {
       />
       {balance && (
         <div className={styles.balanceContainer}>
-          <p className={styles.value}>${quantityValue ? quantityValue.toFixed(2) : "-"}</p>
+          <p className={styles.value}>{quantityValue ? formatValue(quantityValue) : "$-"}</p>
 
           <button
             className={styles.maxButton}

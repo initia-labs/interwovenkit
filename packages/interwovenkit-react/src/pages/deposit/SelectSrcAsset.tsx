@@ -2,6 +2,7 @@ import clsx from "clsx"
 import { IconBack, IconCheckCircleFilled } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
 import { useConfig } from "@/data/config"
+import { formatValue } from "@/lib/format"
 import EmptyIconDark from "./assets/EmptyDark.svg"
 import EmptyIconLight from "./assets/EmptyLight.svg"
 import {
@@ -103,7 +104,7 @@ const SelectSrcAsset = () => {
                 <p className={styles.balance}>
                   {formatAmount(balance?.amount, { decimals: balance.decimals || 6 })}
                 </p>
-                <p className={styles.value}>${Number(balance.value_usd).toFixed(2)}</p>
+                <p className={styles.value}>{formatValue(balance.value_usd || 0)}</p>
               </button>
             )
           })}
