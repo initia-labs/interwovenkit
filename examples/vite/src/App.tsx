@@ -2,7 +2,9 @@ import { useAtom } from "jotai"
 import Bridge from "./Bridge"
 import Connection from "./Connection"
 import { isTestnet, themeAtom } from "./data"
+import Deposit from "./Deposit"
 import Send from "./Send"
+import Withdraw from "./Withdraw"
 import styles from "./App.module.css"
 
 const App = () => {
@@ -29,6 +31,8 @@ const App = () => {
 
       <Send />
       <Bridge />
+      <Deposit />
+      <Withdraw />
     </div>
   )
 }

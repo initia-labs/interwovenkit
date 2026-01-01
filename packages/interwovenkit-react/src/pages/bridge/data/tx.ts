@@ -1,5 +1,5 @@
 import { toBase64 } from "@cosmjs/encoding"
-import { calculateFee, GasPrice, SigningStargateClient } from "@cosmjs/stargate"
+import { calculateFee, GasPrice, SigningStargateClient, type StdFee } from "@cosmjs/stargate"
 import type { StatusResponseJson, TrackResponseJson, TxJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
 import { AuthInfo, Tx, TxBody } from "cosmjs-types/cosmos/tx/v1beta1/tx"
@@ -54,7 +54,13 @@ export function useBridgePreviewState() {
   return useLocationState<BridgePreviewState>()
 }
 
-export function useBridgeTx(tx: TxJson) {
+interface UseBridgeTxOptions {
+  customFee?: StdFee
+  navigateTo?: string
+}
+
+export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
+  const { customFee, navigateTo } = options ?? {}
   const navigate = useNavigate()
   const { showNotification, updateNotification, hideNotification } = useNotification()
   const { addHistoryItem } = useBridgeHistoryList()
@@ -64,7 +70,7 @@ export function useBridgeTx(tx: TxJson) {
   const { srcChainId, sender, recipient, cosmosWalletName } = values
 
   const getProvider = useGetProvider()
-  const { requestTxSync, waitForTxConfirmation } = useInterwovenKit()
+  const { requestTxSync, submitTxSync, waitForTxConfirmation } = useInterwovenKit()
   const { find } = useCosmosWallets()
   const registry = useRegistry()
   const aminoTypes = useAminoTypes()
@@ -96,12 +102,18 @@ export function useBridgeTx(tx: TxJson) {
           if (srcChainType === "initia") {
             const { srcDenom, quantity } = values
             const { decimals } = findAsset(srcDenom)
-            const txHash = await requestTxSync({
-              messages,
-              chainId: srcChainId,
-              internal: 1,
-              spendCoins: [{ denom: srcDenom, amount: toBaseUnit(quantity, { decimals }) }],
-            })
+            const txHash = customFee
+              ? await submitTxSync({
+                  messages,
+                  chainId: srcChainId,
+                  fee: customFee,
+                })
+              : await requestTxSync({
+                  messages,
+                  chainId: srcChainId,
+                  internal: 1,
+                  spendCoins: [{ denom: srcDenom, amount: toBaseUnit(quantity, { decimals }) }],
+                })
             const wait = waitForTxConfirmation({ txHash, chainId: srcChainId })
             return { txHash, wait }
           }
@@ -158,7 +170,13 @@ export function useBridgeTx(tx: TxJson) {
     onSuccess: async ({ txHash, wait }) => {
       // Clean up and navigate
       localStorage.removeItem(LocalStorageKey.BRIDGE_QUANTITY)
-      navigate(-1)
+
+      if (navigateTo) {
+        navigate(navigateTo, { txHash, chainId: srcChainId, route, values, timestamp: Date.now() })
+      } else {
+        navigate(-1)
+      }
+
       showNotification({
         type: "loading",
         title: "Transaction is pending...",
@@ -234,6 +252,11 @@ export function useBridgeTx(tx: TxJson) {
         srcChainType === "initia"
           ? await formatMoveError(error, findChain(srcChainId), registryUrl)
           : error
+
+      if (navigateTo) {
+        navigate(navigateTo, { error: true, message: formattedError.message, route, values })
+      }
+
       showNotification({
         type: "error",
         title: "Transaction failed",

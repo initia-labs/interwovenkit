@@ -2,19 +2,19 @@ import { Tooltip } from "radix-ui"
 import { useEffect } from "react"
 import { useIsClient } from "usehooks-ts"
 import AsyncBoundary from "@/components/AsyncBoundary"
-import { useInitiaRegistry, useLayer1 } from "@/data/chains"
+import { useInitiaRegistry } from "@/data/chains"
 import type { Config } from "@/data/config"
 import { ConfigContext } from "@/data/config"
-import { LocalStorageKey } from "@/data/constants"
 import { migrateLocalStorage } from "@/data/migration"
 import { useSyncPrivyAuth } from "@/data/privy"
 import { MemoryRouter } from "@/lib/router"
 import { useInitializeAutoSign } from "@/pages/autosign/data/validation"
-import { useSkipAssets } from "@/pages/bridge/data/assets"
+import { useAllSkipAssets } from "@/pages/bridge/data/assets"
 import { useSkipChains } from "@/pages/bridge/data/chains"
 import { MAINNET } from "../data/constants"
 import Analytics from "./Analytics"
 import Drawer from "./Drawer"
+import Modal from "./Modal"
 import ModalProvider from "./ModalProvider"
 import NotificationProvider from "./NotificationProvider"
 import PortalProvider from "./PortalProvider"
@@ -47,10 +47,8 @@ const Prefetch = () => {
   useInitiaRegistry()
 
   // bridge
-  const layer1 = useLayer1()
   useSkipChains()
-  useSkipAssets(localStorage.getItem(LocalStorageKey.BRIDGE_SRC_CHAIN_ID) ?? layer1.chainId)
-  useSkipAssets(localStorage.getItem(LocalStorageKey.BRIDGE_DST_CHAIN_ID) ?? layer1.chainId)
+  useAllSkipAssets()
 
   return null
 }
@@ -81,6 +79,9 @@ const InterwovenKitProvider = ({ children, ...config }: PropsWithChildren<Partia
                     <Prefetch />
                   </AsyncBoundary>
 
+                  <Modal>
+                    <Routes />
+                  </Modal>
                   <Drawer>
                     <Routes />
                   </Drawer>
