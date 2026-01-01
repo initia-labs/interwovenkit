@@ -11,7 +11,7 @@ import FailedDarkIcon from "./assets/FailedDark.svg"
 import FailedLightIcon from "./assets/FailedLight.svg"
 import LoadingDarkAnimation from "./assets/LoadingDark.mp4"
 import LoadingLightAnimation from "./assets/LoadingLight.mp4"
-import styles from "./DepositCompleted.module.css"
+import styles from "./TransferCompleted.module.css"
 
 interface SuccessState {
   txHash: string
@@ -43,7 +43,7 @@ function getTxState(txStatus?: { state: string } | null): TxState {
   return "pending"
 }
 
-export function DepositCompleted() {
+export function TransferCompleted({ type }: { type: "deposit" | "withdraw" }) {
   const state = useLocationState<SuccessState | ErrorState>()
   const { route, values } = useBridgePreviewState()
   const { closeModal } = useModal()
@@ -57,6 +57,8 @@ export function DepositCompleted() {
   // Get source asset information for display
   const { srcDenom, srcChainId, quantity } = values
   const srcAsset = useSkipAsset(srcDenom, srcChainId)
+
+  const actionLabel = type === "deposit" ? "Deposit" : "Withdraw"
 
   // Track the transaction (always call hooks)
   const { data: trackedTxHash } = useTrackTxQuery({
@@ -90,7 +92,7 @@ export function DepositCompleted() {
   if (isError) {
     return (
       <div className={styles.container}>
-        <h3 className={styles.title}>Deposit failed</h3>
+        <h3 className={styles.title}>{actionLabel} failed</h3>
         <img src={failedIcon} alt="Failed" className={styles.errorIcon} />
         <p className={styles.error}>{state.message}</p>
         <Button.White fullWidth onClick={closeModal}>
@@ -111,7 +113,7 @@ export function DepositCompleted() {
       {txState === "pending" && (
         <>
           <h3 className={styles.title}>
-            Depositing {quantity} {srcAsset.symbol}
+            {type === "deposit" ? "Depositing" : "Withdrawing"} {quantity} {srcAsset.symbol}
           </h3>
           <video
             src={loadingAnimation}
@@ -137,7 +139,7 @@ export function DepositCompleted() {
       )}
       {txState === "success" && (
         <>
-          <h3 className={styles.title}>Deposit complete</h3>
+          <h3 className={styles.title}>{actionLabel} complete</h3>
           <video
             src={completedAnimation}
             autoPlay
@@ -165,7 +167,7 @@ export function DepositCompleted() {
       )}
       {txState === "failed" && (
         <>
-          <h3 className={styles.title}>Deposit failed</h3>
+          <h3 className={styles.title}>{actionLabel} failed</h3>
           <img src={failedIcon} alt="Failed" className={styles.errorIcon} />
           <p className={styles.error}>Your transaction could not be completed</p>
           <Button.White fullWidth onClick={closeModal}>

@@ -9,19 +9,25 @@ import { useBalances } from "@/data/account"
 import { useFindAsset } from "@/data/assets"
 import { useChain } from "@/data/chains"
 import { useGasPrices, useLastFeeDenom } from "@/data/fee"
+import { usePath } from "@/lib/router"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import BridgePreviewFooter from "../bridge/BridgePreviewFooter"
 import { useAllSkipAssets } from "../bridge/data/assets"
 import { useBridgePreviewState } from "../bridge/data/tx"
 import FooterWithErc20Approval from "../bridge/FooterWithErc20Approval"
-import DepositTxDetails from "./DepositTxDetails"
+import TransferTxDetails from "./TransferTxDetails"
 
 interface Props {
   tx: TxJson
   gas: number | null
 }
 
-const DepositFooterWithFee = ({ tx, gas }: Props) => {
+const TransferFooterWithFee = ({ tx, gas }: Props) => {
+  const path = usePath()
+  const isWithdraw = path.startsWith("/withdraw")
+  const navigateTo = isWithdraw ? "/withdraw/completed" : "/deposit/completed"
+  const confirmMessage = isWithdraw ? "Withdraw" : "Deposit"
+
   const { values } = useBridgePreviewState()
   const { srcChainId, srcDenom, quantity } = values
   const skipAssets = useAllSkipAssets()
@@ -147,37 +153,42 @@ const DepositFooterWithFee = ({ tx, gas }: Props) => {
 
   return (
     <>
-      <DepositTxDetails renderFee={feeOptions && feeOptions.length > 0 ? renderFee : undefined} />
+      <TransferTxDetails renderFee={feeOptions && feeOptions.length > 0 ? renderFee : undefined} />
       <FooterWithErc20Approval tx={tx}>
         <BridgePreviewFooter
           tx={tx}
           fee={selectedFee}
-          navigateTo="/deposit/completed"
-          confirmMessage="Deposit"
+          navigateTo={navigateTo}
+          confirmMessage={confirmMessage}
         />
       </FooterWithErc20Approval>
     </>
   )
 }
 
-const DepositFooter = ({ tx, gas }: Props) => {
+const TransferFooter = ({ tx, gas }: Props) => {
+  const path = usePath()
+  const isWithdraw = path.startsWith("/withdraw")
+  const navigateTo = isWithdraw ? "/withdraw/completed" : "/deposit/completed"
+  const confirmMessage = isWithdraw ? "Withdraw" : "Deposit"
+
   if (!gas || !("cosmos_tx" in tx)) {
     return (
       <>
-        <DepositTxDetails />
+        <TransferTxDetails />
         <FooterWithErc20Approval tx={tx}>
           <BridgePreviewFooter
             tx={tx}
             fee={undefined}
-            navigateTo="/deposit/completed"
-            confirmMessage="Deposit"
+            navigateTo={navigateTo}
+            confirmMessage={confirmMessage}
           />
         </FooterWithErc20Approval>
       </>
     )
   }
 
-  return <DepositFooterWithFee tx={tx} gas={gas} />
+  return <TransferFooterWithFee tx={tx} gas={gas} />
 }
 
-export default DepositFooter
+export default TransferFooter

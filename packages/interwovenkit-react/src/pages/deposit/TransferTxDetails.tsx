@@ -9,13 +9,13 @@ import { useAllSkipAssets } from "../bridge/data/assets"
 import { formatDuration } from "../bridge/data/format"
 import type { RouterRouteResponseJson } from "../bridge/data/simulate"
 import { useBridgePreviewState } from "../bridge/data/tx"
-import styles from "./DepositFields.module.css"
+import styles from "./Fields.module.css"
 
 interface Props {
   renderFee?: (() => React.ReactNode) | undefined
 }
 
-const DepositTxDetails = ({ renderFee }: Props) => {
+const TransferTxDetails = ({ renderFee }: Props) => {
   const { route } = useLocationState<{ route?: RouterRouteResponseJson }>()
   const { values } = useBridgePreviewState()
   const { dstDenom, dstChainId } = values
@@ -33,9 +33,10 @@ const DepositTxDetails = ({ renderFee }: Props) => {
   if (!route || !dstAsset) return null
 
   const minimumReceived = route.does_swap
-    ? (BigInt(route.estimated_amount_out) * BigInt(10000 - Number(values.slippagePercent) * 100)) /
+    ? (BigInt(route.amount_out || route.estimated_amount_out) *
+        BigInt(10000 - Number(values.slippagePercent) * 100)) /
       BigInt(10000)
-    : BigInt(route.estimated_amount_out)
+    : BigInt(route.amount_out || route.estimated_amount_out)
 
   return (
     <div className={styles.detailsContainer}>
@@ -57,7 +58,7 @@ const DepositTxDetails = ({ renderFee }: Props) => {
           {renderFee && (
             <div className={styles.detail}>
               <p className={styles.detailLabel}>Tx fee</p>
-              <p className={styles.detailValue}>{renderFee()}</p>
+              <div className={styles.detailValue}>{renderFee()}</div>
             </div>
           )}
           {address && (
@@ -90,4 +91,4 @@ const DepositTxDetails = ({ renderFee }: Props) => {
   )
 }
 
-export default DepositTxDetails
+export default TransferTxDetails

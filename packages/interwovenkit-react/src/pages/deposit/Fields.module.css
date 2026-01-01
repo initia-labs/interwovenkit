@@ -46,7 +46,6 @@
   background-color: var(--gray-7);
   border-radius: 8px;
   column-gap: 8px;
-  margin-bottom: 20px;
   padding: 6px 12px;
 }
 
@@ -73,6 +72,7 @@
   width: 18px;
   height: 18px;
 
+  background-color: var(--gray-5);
   border: 1px solid var(--border);
   border-radius: 50%;
 }

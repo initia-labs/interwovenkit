@@ -1,15 +1,15 @@
 import { FormProvider, useForm } from "react-hook-form"
-import DepositFields from "./DepositFields"
-import { useAllBalancesQuery, useDepositForm } from "./hooks"
+import { useAllBalancesQuery, useWithdrawForm } from "./hooks"
 import SelectExternalAsset from "./SelectExternalAsset"
 import SelectLocalAsset from "./SelectLocalAsset"
+import WithdrawFields from "./WithdrawFields"
 
 export interface FormValues {
   page: "select-local" | "select-external" | "fields"
   quantity: string
 }
 
-export const Deposit = () => {
+export const Withdraw = () => {
   const form = useForm<FormValues>({
     mode: "onChange",
     defaultValues: { page: "select-local", quantity: "" },
@@ -20,13 +20,13 @@ export const Deposit = () => {
 
   return (
     <FormProvider {...form}>
-      <DepositRoutes />
+      <WithdrawRoutes />
     </FormProvider>
   )
 }
 
-const DepositRoutes = () => {
-  const { watch } = useDepositForm()
+const WithdrawRoutes = () => {
+  const { watch } = useWithdrawForm()
   const page = watch("page")
 
   switch (page) {
@@ -35,8 +35,8 @@ const DepositRoutes = () => {
     case "select-external":
       return <SelectExternalAsset />
     case "fields":
-      return <DepositFields />
+      return <WithdrawFields />
   }
 }
 
-export default Deposit
+export default Withdraw

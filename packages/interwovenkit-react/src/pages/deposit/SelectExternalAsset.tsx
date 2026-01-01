@@ -3,36 +3,44 @@ import { IconBack, IconCheckCircleFilled } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
 import { useConfig } from "@/data/config"
 import { formatValue } from "@/lib/format"
+import { usePath } from "@/lib/router"
 import EmptyIconDark from "./assets/EmptyDark.svg"
 import EmptyIconLight from "./assets/EmptyLight.svg"
 import {
   useDepositForm,
-  useDepositOptions,
-  useDstDepositAsset,
-  useFilteredDepositAssets,
+  useExternalAssetOptions,
+  useLocalAssetDepositAsset,
+  useLocalAssetOptions,
 } from "./hooks"
-import styles from "./SelectSrcAsset.module.css"
+import styles from "./SelectExternalAsset.module.css"
 
-const SelectSrcAsset = () => {
-  const { data: filteredAssets, isLoading } = useFilteredDepositAssets()
+const SelectExternalAsset = () => {
+  const path = usePath()
+  const { data: filteredAssets, isLoading } = useExternalAssetOptions()
   const { setValue, watch } = useDepositForm()
-  const dstAsset = useDstDepositAsset()
-  const options = useDepositOptions()
+  const localAsset = useLocalAssetDepositAsset()
+  const options = useLocalAssetOptions()
   const { theme } = useConfig()
-  const { srcDenom, srcChainId } = watch()
+  const { srcDenom, srcChainId, dstDenom, dstChainId } = watch()
+  const isWithdraw = path === "/withdraw"
+
+  const externalDenomKey = isWithdraw ? "dstDenom" : "srcDenom"
+  const externalChainIdKey = isWithdraw ? "dstChainId" : "srcChainId"
 
   function renderBackButton() {
-    const isSrcSelected = srcDenom && srcChainId
-    if (!isSrcSelected && options.length <= 1) return null
+    const externalDenom = isWithdraw ? dstDenom : srcDenom
+    const externalChainId = isWithdraw ? dstChainId : srcChainId
+    const isExternalSelected = externalDenom && externalChainId
+    if (!isExternalSelected && options.length <= 1 && !isWithdraw) return null
 
     return (
       <button
         className={styles.close}
         onClick={() => {
-          if (isSrcSelected) {
+          if (isWithdraw || isExternalSelected) {
             setValue("page", "fields")
           } else {
-            setValue("page", "select-dst")
+            setValue("page", "select-local")
           }
         }}
       >
@@ -41,7 +49,7 @@ const SelectSrcAsset = () => {
     )
   }
 
-  if (!dstAsset) return null
+  if (!localAsset) return null
 
   if (!isLoading && !filteredAssets.length)
     return (
@@ -54,7 +62,7 @@ const SelectSrcAsset = () => {
           className={styles.emptyIcon}
         />
         <p className={styles.empty}>
-          You do not have supported assets to deposit {dstAsset.symbol}.
+          You do not have supported assets to deposit {localAsset.symbol}.
         </p>
       </div>
     )
@@ -62,7 +70,9 @@ const SelectSrcAsset = () => {
   return (
     <div className={styles.container}>
       {renderBackButton()}
-      <h4 className={styles.title}>Deposit {dstAsset.symbol}</h4>
+      <h4 className={styles.title}>
+        {isWithdraw ? "Select destination chain" : `Deposit ${localAsset.symbol}`}{" "}
+      </h4>
 
       <div className={styles.list}>
         {isLoading &&
@@ -77,14 +87,16 @@ const SelectSrcAsset = () => {
           ))}
         {!isLoading &&
           filteredAssets.map(({ asset, chain, balance }) => {
-            const isActive = srcDenom === asset.denom && srcChainId === chain.chain_id
+            const externalDenom = isWithdraw ? dstDenom : srcDenom
+            const externalChainId = isWithdraw ? dstChainId : srcChainId
+            const isActive = externalDenom === asset.denom && externalChainId === chain.chain_id
             return (
               <button
                 key={`${asset.chain_id}-${asset.denom}`}
                 className={clsx(styles.asset, isActive && styles.activeAsset)}
                 onClick={() => {
-                  setValue("srcDenom", asset.denom)
-                  setValue("srcChainId", chain.chain_id)
+                  setValue(externalDenomKey, asset.denom)
+                  setValue(externalChainIdKey, chain.chain_id)
                   setValue("quantity", "")
                   setValue("page", "fields")
                 }}
@@ -101,10 +113,14 @@ const SelectSrcAsset = () => {
                   {asset.symbol} {isActive && <IconCheckCircleFilled size={14} />}
                 </p>
                 <p className={styles.assetChain}>on {chain.pretty_name}</p>
-                <p className={styles.balance}>
-                  {formatAmount(balance?.amount, { decimals: balance.decimals || 6 })}
-                </p>
-                <p className={styles.value}>{formatValue(balance.value_usd || 0)}</p>
+                {balance && (
+                  <>
+                    <p className={styles.balance}>
+                      {formatAmount(balance.amount, { decimals: balance.decimals || 6 })}
+                    </p>
+                    <p className={styles.value}>{formatValue(balance.value_usd || 0)}</p>
+                  </>
+                )}
               </button>
             )
           })}
@@ -113,4 +129,4 @@ const SelectSrcAsset = () => {
   )
 }
 
-export default SelectSrcAsset
+export default SelectExternalAsset

@@ -9,7 +9,8 @@ import BridgePreview from "@/pages/bridge/BridgePreview"
 import Withdrawals from "@/pages/bridge/op/Withdrawals"
 import Connect from "@/pages/connect/Connect"
 import Deposit from "@/pages/deposit/Deposit"
-import { DepositCompleted } from "@/pages/deposit/DepositCompleted"
+import { TransferCompleted } from "@/pages/deposit/TransferCompleted"
+import Withdraw from "@/pages/deposit/Withdraw"
 import Receive from "@/pages/receive/Receive"
 import ManageAutoSign from "@/pages/settings/autosign/ManageAutoSign"
 import Settings from "@/pages/settings/Settings"
@@ -95,7 +96,11 @@ const Routes = () => {
     case "/deposit":
       return <Deposit />
     case "/deposit/completed":
-      return <DepositCompleted />
+      return <TransferCompleted type="deposit" />
+    case "/withdraw":
+      return <Withdraw />
+    case "/withdraw/completed":
+      return <TransferCompleted type="withdraw" />
   }
 }
 

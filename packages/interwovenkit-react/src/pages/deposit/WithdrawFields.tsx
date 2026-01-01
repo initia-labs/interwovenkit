@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react"
+import { useEffect } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
 import { formatAmount, InitiaAddress } from "@initia/utils"
@@ -16,11 +16,11 @@ import TransferFooter from "./DepositFooter"
 import FooterWithTxFee from "./FooterWithTxFee"
 import {
   useAllBalancesQuery,
-  useDepositForm,
   useExternalAssetOptions,
   useExternalDepositAsset,
   useLocalAssetDepositAsset,
   useLocalAssetOptions,
+  useWithdrawForm,
 } from "./hooks"
 import styles from "./Fields.module.css"
 
@@ -29,7 +29,7 @@ interface State {
   recipientAddress?: string
 }
 
-const DepositFields = () => {
+const WithdrawFields = () => {
   const navigate = useNavigate()
   const state = useLocationState<State>()
   const options = useLocalAssetOptions()
@@ -38,12 +38,12 @@ const DepositFields = () => {
   const { data: balances } = useAllBalancesQuery()
   const hexAddress = useHexAddress()
 
-  const { watch, setValue, getValues } = useDepositForm()
-  const { srcDenom, srcChainId, quantity } = watch()
+  const { watch, setValue, getValues } = useWithdrawForm()
+  const { srcChainId, srcDenom, dstChainId, quantity } = watch()
 
   const localAsset = useLocalAssetDepositAsset()
   const externalAsset = useExternalDepositAsset()
-  const srcChain = srcChainId ? findChain(srcChainId) : null
+
   const balance = balances?.[srcChainId]?.[srcDenom]?.amount
   const price = balances?.[srcChainId]?.[srcDenom]?.price || 0
 
@@ -51,16 +51,13 @@ const DepositFields = () => {
 
   const [debouncedQuantity] = useDebounceValue(quantity, 300)
 
-  const disabledMessage = useMemo(() => {
-    if (!externalAsset) return "Select asset"
-    if (!Number(quantity)) return "Enter amount"
-    if (
-      Number(quantity) > Number(formatAmount(balance, { decimals: externalAsset?.decimals || 6 }))
-    )
-      return "Insufficient balance"
-
-    // Destructure error fields in deps to properly track each field change
-  }, [quantity, balance, externalAsset])
+  let disabledMessage: string | undefined
+  if (!localAsset) disabledMessage = "Select asset"
+  else if (!Number(quantity)) disabledMessage = "Enter amount"
+  else if (
+    Number(quantity) > Number(formatAmount(balance, { decimals: localAsset?.decimals || 6 }))
+  )
+    disabledMessage = "Insufficient balance"
 
   const {
     data: route,
@@ -83,7 +80,7 @@ const DepositFields = () => {
     // we don't want to trigger this when state changes, to avoid infinite loop
   }, [route, getValues, hexAddress, navigate]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!localAsset || !externalAsset) return null
+  if (!localAsset) return null
 
   return (
     <div className={styles.container}>
@@ -104,45 +101,11 @@ const DepositFields = () => {
           <IconBack size={14} />
         </button>
       )}
-      <h3 className={styles.title}>Deposit {localAsset.symbol}</h3>
-      <p className={styles.label}>From</p>
-      <button
-        className={styles.asset}
-        onClick={() => {
-          if (!isAssetsLoading && !filteredAssets.length) return
-          setValue("page", "select-external")
-        }}
-      >
-        <div className={styles.assetIcon}>
-          {!!externalAsset && (
-            <>
-              <img src={externalAsset?.logo_uri} alt={externalAsset.symbol} />
-              <img
-                src={srcChain?.logo_uri || ""}
-                alt={srcChain?.pretty_name}
-                className={styles.chainIcon}
-              />
-            </>
-          )}
-        </div>
-        <p className={styles.assetName}>
-          {!externalAsset ? (
-            "Select asset"
-          ) : (
-            <>
-              {externalAsset.symbol}
-              <br />
-              <span>on {srcChain?.pretty_name}</span>
-            </>
-          )}
-        </p>
-        <IconChevronDown className={styles.chevron} size={16} />
-      </button>
-      <div className={styles.divider} />
+      <h3 className={styles.title}>Withdraw {localAsset.symbol}</h3>
       <p className={styles.label}>Amount</p>
       <QuantityInput
         balance={balance}
-        decimals={externalAsset?.decimals || 6}
+        decimals={localAsset?.decimals || 6}
         className={styles.input}
       />
       {balance && (
@@ -154,21 +117,54 @@ const DepositFields = () => {
             onClick={() => {
               if (
                 Number(quantity) ===
-                Number(formatAmount(balance, { decimals: externalAsset?.decimals || 6 }))
+                Number(formatAmount(balance, { decimals: localAsset?.decimals || 6 }))
               )
                 return
 
-              setValue(
-                "quantity",
-                formatAmount(balance, { decimals: externalAsset?.decimals || 6 }),
-              )
+              setValue("quantity", formatAmount(balance, { decimals: localAsset?.decimals || 6 }))
             }}
           >
             <IconWallet size={16} />{" "}
-            {formatAmount(balance, { decimals: externalAsset?.decimals || 6 })} <span>MAX</span>
+            {formatAmount(balance, { decimals: localAsset?.decimals || 6 })} <span>MAX</span>
           </button>
         </div>
       )}
+      <div className={styles.divider} />
+      <p className={styles.label}>Destination chain</p>
+      <button
+        className={styles.asset}
+        onClick={() => {
+          if (!isAssetsLoading && !filteredAssets.length) return
+          setValue("page", "select-external")
+        }}
+      >
+        <div className={styles.assetIcon}>
+          {externalAsset ? (
+            <>
+              <img src={externalAsset?.logo_uri} alt={externalAsset.symbol} />
+              <img
+                src={findChain(dstChainId)?.logo_uri || ""}
+                alt={findChain(dstChainId)?.pretty_name}
+                className={styles.chainIcon}
+              />
+            </>
+          ) : (
+            <div className={styles.chainIcon} />
+          )}
+        </div>
+        <p className={styles.assetName}>
+          {!externalAsset ? (
+            "Select chain"
+          ) : (
+            <>
+              {externalAsset.symbol}
+              <br />
+              <span>on {findChain(dstChainId)?.pretty_name}</span>
+            </>
+          )}
+        </p>
+        <IconChevronDown className={styles.chevron} size={16} />
+      </button>
       {!state.route || !!disabledMessage ? (
         <Button.White
           type="submit"
@@ -200,4 +196,4 @@ const DepositFields = () => {
   )
 }
 
-export default DepositFields
+export default WithdrawFields

@@ -83,6 +83,16 @@ export function useInterwovenKit() {
     openModal("/deposit", { dstOptions, ...options })
   }
 
+  const openWithdraw = (
+    dstOptions: AssetOption[],
+    options?: { srcOptions?: AssetOption[]; recipientAddress?: string },
+  ) => {
+    if (dstOptions.length === 0) {
+      throw new Error("dstOptions cannot be empty")
+    }
+    openModal("/withdraw", { dstOptions, ...options })
+  }
+
   const tx = useTx()
 
   const isConnected = !!address
@@ -99,6 +109,7 @@ export function useInterwovenKit() {
     openWallet,
     openBridge,
     openDeposit,
+    openWithdraw,
     disconnect,
     autoSign,
     ...tx,

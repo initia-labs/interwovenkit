@@ -2,7 +2,7 @@ import type { BalancesResponseJson } from "@skip-go/client"
 import { useFormContext } from "react-hook-form"
 import { useQuery } from "@tanstack/react-query"
 import { STALE_TIMES } from "@/data/http"
-import { useLocationState } from "@/lib/router"
+import { useLocationState, usePath } from "@/lib/router"
 import { useHexAddress, useInitiaAddress } from "@/public/data/hooks"
 import { useAllSkipAssets } from "../bridge/data/assets"
 import { useFindSkipChain, useSkipChains } from "../bridge/data/chains"
@@ -44,7 +44,7 @@ export function useAllBalancesQuery() {
   })
 }
 
-export function useDepositOptions() {
+export function useLocalAssetOptions() {
   const { dstOptions = [] } = useLocationState<{ dstOptions?: AssetOption[] }>()
   const skipAssets = useAllSkipAssets()
   return skipAssets.filter(({ denom, chain_id }) =>
@@ -52,73 +52,66 @@ export function useDepositOptions() {
   )
 }
 
-export function useDstDepositAsset() {
+export function useLocalAssetDepositAsset() {
+  const path = usePath()
+  const isWithdraw = path === "/withdraw"
   const skipAssets = useAllSkipAssets()
   const { watch } = useDepositForm()
 
-  const { dstChainId, dstDenom } = watch()
+  const { dstChainId, dstDenom, srcChainId, srcDenom } = watch()
 
-  return (
-    skipAssets.find(({ denom, chain_id }) => denom === dstDenom && chain_id === dstChainId) || null
-  )
+  // Local asset is destination during deposit, source during withdraw
+  const chainId = isWithdraw ? srcChainId : dstChainId
+  const denom = isWithdraw ? srcDenom : dstDenom
+
+  return skipAssets.find(({ denom: d, chain_id }) => denom === d && chain_id === chainId) || null
 }
 
-export function useSrcDepositAsset() {
+export function useExternalDepositAsset() {
+  const path = usePath()
+  const isWithdraw = path === "/withdraw"
   const skipAssets = useAllSkipAssets()
   const { watch } = useDepositForm()
 
-  const { srcChainId, srcDenom } = watch()
+  const { srcChainId, srcDenom, dstChainId, dstDenom } = watch()
 
-  return (
-    skipAssets.find(({ denom, chain_id }) => denom === srcDenom && chain_id === srcChainId) || null
-  )
+  // External asset is source during deposit, destination during withdraw
+  const chainId = isWithdraw ? dstChainId : srcChainId
+  const denom = isWithdraw ? dstDenom : srcDenom
+
+  return skipAssets.find(({ denom: d, chain_id }) => denom === d && chain_id === chainId) || null
 }
 
-export function useDepositAssets() {
+export function useExternalAssetOptions() {
+  const path = usePath()
+  const isWithdraw = path === "/withdraw"
   const skipAssets = useAllSkipAssets()
-  const findChain = useFindSkipChain()
-  const { data: balances } = useAllBalancesQuery()
-  const { srcOptions = [] } = useLocationState<{ srcOptions?: AssetOption[] }>()
-
-  const dstAsset = useDstDepositAsset()
-
-  if (!dstAsset) return []
-
-  return skipAssets
-    .filter(({ symbol, denom, chain_id }) =>
-      !srcOptions.length
-        ? symbol === dstAsset.symbol
-        : srcOptions.some((opt) => opt.denom === denom && opt.chainId === chain_id),
-    )
-    .filter((asset) => {
-      if (asset.chain_id === dstAsset.chain_id) return false
-
-      const chain = findChain(asset.chain_id)
-      if (!chain) return false
-      // filter out external cosmos chains (different wallet connection is required)
-      if (chain.chain_type === "cosmos" && chain.bech32_prefix !== "init") return false
-
-      const amount = balances?.[chain.chain_id][asset.denom]?.amount
-      if (!amount || !Number(amount)) return false
-
-      return true
-    })
-}
-
-export function useFilteredDepositAssets() {
-  const assets = useDepositAssets()
   const findChain = useFindSkipChain()
   const { data: balances, isLoading } = useAllBalancesQuery()
+  const { srcOptions = [] } = useLocationState<{ srcOptions?: AssetOption[] }>()
+  const localAsset = useLocalAssetDepositAsset()
 
-  const data = assets
+  if (!localAsset) return { data: [], isLoading }
+
+  const data = skipAssets
+    .filter(({ symbol, denom, chain_id }) =>
+      !srcOptions.length
+        ? symbol === localAsset.symbol
+        : srcOptions.some((opt) => opt.denom === denom && opt.chainId === chain_id),
+    )
     .map((asset) => {
+      if (asset.hidden) return null
+      if (asset.chain_id === localAsset.chain_id) return null
+
       const chain = findChain(asset.chain_id)
       if (!chain) return null
       // filter out external cosmos chains (different wallet connection is required)
       if (chain.chain_type === "cosmos" && chain.bech32_prefix !== "init") return null
 
       const balance = balances?.[chain.chain_id][asset.denom]
-      if (!balance || !Number(balance.amount)) return null
+
+      // during deposit, show only assets with balance
+      if (!isWithdraw && (!balance || !Number(balance.amount))) return null
 
       return { asset, chain, balance }
     })
@@ -127,7 +120,7 @@ export function useFilteredDepositAssets() {
   return { data, isLoading }
 }
 
-export type DepositPage = "select-dst" | "select-src" | "fields"
+export type DepositPage = "select-local" | "select-external" | "fields"
 
 interface DepositForm {
   page: DepositPage
@@ -140,4 +133,19 @@ interface DepositForm {
 
 export function useDepositForm() {
   return useFormContext<DepositForm>()
+}
+
+export type WithdrawPage = "select-local" | "select-external" | "fields"
+
+interface WithdrawForm {
+  page: WithdrawPage
+  quantity: string
+  srcDenom: string
+  srcChainId: string
+  dstDenom: string
+  dstChainId: string
+}
+
+export function useWithdrawForm() {
+  return useFormContext<WithdrawForm>()
 }
