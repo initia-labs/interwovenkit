@@ -9,8 +9,8 @@ importers:
   .:
     devDependencies:
       '@initia/eslint-config-react-app':
-        specifier: ^1.2.0
-        version: 1.2.0(eslint@9.39.1)(typescript@5.9.3)
+        specifier: ^1.2.1
+        version: 1.2.1(eslint@9.39.1)(typescript@5.9.3)
       eslint:
         specifier: ^9.39.1
         version: 9.39.1
@@ -102,9 +102,9 @@ importers:
       '@amplitude/analytics-browser':
         specifier: ^2.30.1
         version: 2.30.1
-      '@base-ui-components/react':
-        specifier: 1.0.0-beta.3
-        version: 1.0.0-beta.3(@types/react@19.2.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@base-ui/react':
+        specifier: 1.0.0
+        version: 1.0.0(@types/react@19.2.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       '@cosmjs/amino':
         specifier: ^0.36.2
         version: 0.36.2
@@ -467,8 +467,8 @@ packages:
   '@base-org/account@1.1.1':
     resolution: {integrity: sha512-IfVJPrDPhHfqXRDb89472hXkpvJuQQR7FDI9isLPHEqSYt/45whIoBxSPgZ0ssTt379VhQo4+87PWI1DoLSfAQ==}
 
-  '@base-ui-components/react@1.0.0-beta.3':
-    resolution: {integrity: sha512-4sAq6zmDA9ixV2HRjjeM1+tSEw5R6nvGjXUQmFoQnC3DZLEUdwO94gWDmUDdpoDuChn27jdbaJs9F0Ih4w2UAA==}
+  '@base-ui/react@1.0.0':
+    resolution: {integrity: sha512-4USBWz++DUSLTuIYpbYkSgy1F9ZmNG9S/lXvlUN6qMK0P0RlW+6eQmDUB4DgZ7HVvtXl4pvi4z5J2fv6Z3+9hg==}
     engines: {node: '>=14.0.0'}
     peerDependencies:
       '@types/react': ^17 || ^18 || ^19
@@ -478,8 +478,8 @@ packages:
       '@types/react':
         optional: true
 
-  '@base-ui-components/utils@0.1.1':
-    resolution: {integrity: sha512-HWXZA8upEKgrdL1rQqxWu1H+2tB2cXzY2jCxvgnpUv3eoWN2jldhXxMZnXIjZF7jahGxSWXfSIM/qskiTWFFxA==}
+  '@base-ui/utils@0.2.3':
+    resolution: {integrity: sha512-/CguQ2PDaOzeVOkllQR8nocJ0FFIDqsWIcURsVmm53QGo8NhFNpePjNlyPIB41luxfOqnG7PU0xicMEw3ls7XQ==}
     peerDependencies:
       '@types/react': ^17 || ^18 || ^19
       react: ^17 || ^18 || ^19
@@ -904,8 +904,8 @@ packages:
       '@initia/initia.proto': '>=1.0.0'
       '@initia/opinit.proto': '>=1.0.0'
 
-  '@initia/eslint-config-react-app@1.2.0':
-    resolution: {integrity: sha512-EOrwSpWpvMKy3oBaPx9I9ycEZJz0yLEi+C2ZS5Lhx9DIe3r7FIGDCxlABySb8KWxxT29O6ZgMWkERr/DsYKgyw==}
+  '@initia/eslint-config-react-app@1.2.1':
+    resolution: {integrity: sha512-H/ZcbeqrwS/2Z/leiU/tmuNadFaWbxwySKPY3moVe0JctCuSLWVHvQgr3jqQC0Hj+bQehpzkKPCWs2p7CsbwZA==}
     peerDependencies:
       eslint: ^9
 
@@ -7793,10 +7793,10 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@base-ui-components/react@1.0.0-beta.3(@types/react@19.2.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
+  '@base-ui/react@1.0.0(@types/react@19.2.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
     dependencies:
       '@babel/runtime': 7.28.4
-      '@base-ui-components/utils': 0.1.1(@types/react@19.2.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@base-ui/utils': 0.2.3(@types/react@19.2.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       '@floating-ui/react-dom': 2.1.6(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       '@floating-ui/utils': 0.2.10
       react: 19.2.0
@@ -7807,7 +7807,7 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.5
 
-  '@base-ui-components/utils@0.1.1(@types/react@19.2.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
+  '@base-ui/utils@0.2.3(@types/react@19.2.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
     dependencies:
       '@babel/runtime': 7.28.4
       '@floating-ui/utils': 0.2.10
@@ -8311,7 +8311,7 @@ snapshots:
       '@initia/initia.proto': 1.0.3(google-protobuf@3.21.4)
       '@initia/opinit.proto': 1.0.2(google-protobuf@3.21.4)
 
-  '@initia/eslint-config-react-app@1.2.0(eslint@9.39.1)(typescript@5.9.3)':
+  '@initia/eslint-config-react-app@1.2.1(eslint@9.39.1)(typescript@5.9.3)':
     dependencies:
       '@eslint/js': 9.39.1
       '@tanstack/eslint-plugin-query': 5.91.2(eslint@9.39.1)(typescript@5.9.3)
@@ -8663,7 +8663,7 @@ snapshots:
       '@noble/hashes': 1.8.0
       '@scure/base': 1.2.6
       '@types/debug': 4.1.12
-      debug: 4.3.4
+      debug: 4.4.3
       pony-cause: 2.1.11
       semver: 7.7.3
       uuid: 9.0.1
@@ -8677,7 +8677,7 @@ snapshots:
       '@noble/hashes': 1.8.0
       '@scure/base': 1.2.6
       '@types/debug': 4.1.12
-      debug: 4.3.4
+      debug: 4.4.3
       pony-cause: 2.1.11
       semver: 7.7.3
       uuid: 9.0.1
@@ -11191,7 +11191,7 @@ snapshots:
 
   '@types/connect@3.4.38':
     dependencies:
-      '@types/node': 12.20.55
+      '@types/node': 24.10.1
 
   '@types/debug@4.1.12':
     dependencies:
@@ -11257,7 +11257,7 @@ snapshots:
 
   '@types/ws@7.4.7':
     dependencies:
-      '@types/node': 12.20.55
+      '@types/node': 24.10.1
 
   '@types/ws@8.18.1':
     dependencies:

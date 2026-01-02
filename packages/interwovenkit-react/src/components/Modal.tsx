@@ -1,6 +1,6 @@
 import clsx from "clsx"
 import { useContext } from "react"
-import { Dialog } from "@base-ui-components/react/dialog"
+import { Dialog } from "@base-ui/react/dialog"
 import { IconClose } from "@initia/icons-react"
 import { fullscreenContext } from "@/public/app/fullscreen"
 import { usePortal } from "@/public/app/PortalContext"

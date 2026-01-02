@@ -69,7 +69,7 @@
     color: var(--gray-2);
   }
 
-  &[data-selected] {
+  &[data-active] {
     color: var(--gray-0);
   }
 }
