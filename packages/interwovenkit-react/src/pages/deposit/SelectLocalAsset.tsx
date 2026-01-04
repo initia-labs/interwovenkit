@@ -22,7 +22,7 @@ const SelectLocalAsset = () => {
     setValue(externalChainIdKey, "")
 
     // navigate to the next page
-    setValue("page", isWithdraw ? "select-external" : "fields")
+    setValue("page", isWithdraw ? "fields" : "select-external")
   }
 
   if (options.length === 1) {
