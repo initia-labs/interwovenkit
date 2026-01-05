@@ -1,0 +1,12 @@
+.container {
+  position: relative;
+}
+
+.page {
+  width: 100%;
+
+  background-color: var(--gray-9);
+  border-radius: 20px;
+  padding: 24px 20px;
+  padding-top: 32px;
+}

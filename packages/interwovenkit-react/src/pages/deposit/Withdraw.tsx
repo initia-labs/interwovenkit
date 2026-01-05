@@ -1,8 +1,11 @@
+import { animated, useTransition } from "@react-spring/web"
 import { FormProvider, useForm } from "react-hook-form"
+import AnimatedHeight from "@/components/AnimatedHeight"
 import { useAllBalancesQuery, useWithdrawForm } from "./hooks"
 import SelectExternalAsset from "./SelectExternalAsset"
 import SelectLocalAsset from "./SelectLocalAsset"
 import WithdrawFields from "./WithdrawFields"
+import styles from "./Withdraw.module.css"
 
 export interface FormValues {
   page: "select-local" | "select-external" | "fields"
@@ -29,14 +32,36 @@ const WithdrawRoutes = () => {
   const { watch } = useWithdrawForm()
   const page = watch("page")
 
-  switch (page) {
-    case "select-local":
-      return <SelectLocalAsset />
-    case "select-external":
-      return <SelectExternalAsset />
-    case "fields":
-      return <WithdrawFields />
+  const transition = useTransition(page, {
+    keys: page,
+    from: { opacity: 1 },
+    enter: { opacity: 1 },
+    leave: { opacity: 0, position: "absolute" as const, inset: 0 },
+    config: { tension: 500, friction: 30, clamp: true, duration: 150 },
+  })
+
+  const renderPage = (currentPage: typeof page) => {
+    switch (currentPage) {
+      case "select-local":
+        return <SelectLocalAsset />
+      case "select-external":
+        return <SelectExternalAsset />
+      case "fields":
+        return <WithdrawFields />
+    }
   }
+
+  return (
+    <AnimatedHeight>
+      <div className={styles.container}>
+        {transition((style, currentPage) => (
+          <animated.div style={style} className={styles.page}>
+            {renderPage(currentPage)}
+          </animated.div>
+        ))}
+      </div>
+    </AnimatedHeight>
+  )
 }
 
 export default Withdraw
