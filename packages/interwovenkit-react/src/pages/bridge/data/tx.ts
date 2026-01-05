@@ -1,5 +1,5 @@
 import { toBase64 } from "@cosmjs/encoding"
-import { calculateFee, GasPrice, SigningStargateClient } from "@cosmjs/stargate"
+import { calculateFee, GasPrice, SigningStargateClient, type StdFee } from "@cosmjs/stargate"
 import type { StatusResponseJson, TrackResponseJson, TxJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
 import { AuthInfo, Tx, TxBody } from "cosmjs-types/cosmos/tx/v1beta1/tx"
@@ -7,7 +7,7 @@ import { has, head } from "ramda"
 import { createElement, Fragment } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { aminoConverters, aminoTypes } from "@initia/amino-converter"
-import { InitiaAddress, toBaseUnit } from "@initia/utils"
+import { InitiaAddress } from "@initia/utils"
 import { useAnalyticsTrack } from "@/data/analytics"
 import { useFindChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
@@ -54,7 +54,20 @@ export function useBridgePreviewState() {
   return useLocationState<BridgePreviewState>()
 }
 
-export function useBridgeTx(tx: TxJson) {
+export function parseCosmosMessages(tx: TxJson) {
+  if (!("cosmos_tx" in tx) || !tx.cosmos_tx.msgs) return []
+  return tx.cosmos_tx.msgs.map(({ msg_type_url, msg }) => {
+    if (!(msg_type_url && msg)) throw new Error("Invalid transaction data")
+    // Note: `typeUrl` comes in proto format, but `msg` is in amino format.
+    // Weird, but that's how the Skip API responds.
+    return aminoTypes.fromAmino({
+      type: aminoConverters[msg_type_url].aminoType,
+      value: JSON.parse(msg),
+    })
+  })
+}
+
+export function useBridgeTx(tx: TxJson, fee?: StdFee) {
   const navigate = useNavigate()
   const { showNotification, updateNotification, hideNotification } = useNotification()
   const { addHistoryItem } = useBridgeHistoryList()
@@ -64,7 +77,7 @@ export function useBridgeTx(tx: TxJson) {
   const { srcChainId, sender, recipient, cosmosWalletName } = values
 
   const getProvider = useGetProvider()
-  const { requestTxSync, waitForTxConfirmation } = useInterwovenKit()
+  const { submitTxSync, waitForTxConfirmation } = useInterwovenKit()
   const { find } = useCosmosWallets()
   const registry = useRegistry()
   const aminoTypes = useAminoTypes()
@@ -82,26 +95,12 @@ export function useBridgeTx(tx: TxJson) {
     mutationFn: async () => {
       try {
         if ("cosmos_tx" in tx) {
-          if (!tx.cosmos_tx.msgs) throw new Error("Invalid transaction data")
-          const messages = tx.cosmos_tx.msgs.map(({ msg_type_url, msg }) => {
-            if (!(msg_type_url && msg)) throw new Error("Invalid transaction data")
-            // Note: `typeUrl` comes in proto format, but `msg` is in amino format.
-            // Weird, but that's how the Skip API responds.
-            return aminoTypes.fromAmino({
-              type: aminoConverters[msg_type_url].aminoType,
-              value: JSON.parse(msg),
-            })
-          })
+          const messages = parseCosmosMessages(tx)
+          if (messages.length === 0) throw new Error("Invalid transaction data")
 
           if (srcChainType === "initia") {
-            const { srcDenom, quantity } = values
-            const { decimals } = findAsset(srcDenom)
-            const txHash = await requestTxSync({
-              messages,
-              chainId: srcChainId,
-              internal: -1,
-              spendCoins: [{ denom: srcDenom, amount: toBaseUnit(quantity, { decimals }) }],
-            })
+            if (!fee) throw new Error("Fee is required for Initia transactions")
+            const txHash = await submitTxSync({ messages, chainId: srcChainId, fee })
             const wait = waitForTxConfirmation({ txHash, chainId: srcChainId })
             return { txHash, wait }
           }
@@ -133,8 +132,8 @@ export function useBridgeTx(tx: TxJson) {
           if (!gas_price) throw new Error(`Gas price not found for ${denom}`)
           const gas = await client.simulate(sender, messages, "")
           const gasPrice = GasPrice.fromString(gas_price.average + denom)
-          const fee = calculateFee(Math.ceil(gas * DEFAULT_GAS_ADJUSTMENT), gasPrice)
-          const txHash = await client.signAndBroadcastSync(sender, messages, fee)
+          const cosmosFee = calculateFee(Math.ceil(gas * DEFAULT_GAS_ADJUSTMENT), gasPrice)
+          const txHash = await client.signAndBroadcastSync(sender, messages, cosmosFee)
           const wait = waitForTxConfirmationWithClient({ txHash, client })
           return { txHash, wait }
         }
