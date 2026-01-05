@@ -97,7 +97,7 @@ const SelectExternalAsset = () => {
                 onClick={() => {
                   setValue(externalDenomKey, asset.denom)
                   setValue(externalChainIdKey, chain.chain_id)
-                  setValue("quantity", "")
+                  if (!isWithdraw) setValue("quantity", "")
                   setValue("page", "fields")
                 }}
               >
