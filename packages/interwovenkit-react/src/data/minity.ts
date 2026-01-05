@@ -241,6 +241,7 @@ export interface PortfolioChainPositionGroup {
   chainLogo: string
   protocols: ProtocolPosition[]
   isInitia?: boolean
+  totalValue: number
 }
 
 // ============================================
@@ -641,6 +642,14 @@ export interface DenomGroup {
   balance: Balance | null
 }
 
+/** Sort comparator for denom groups: INIT first, then by value desc, then alphabetically */
+function compareDenomGroups(a: DenomGroup, b: DenomGroup): number {
+  if (a.symbol === INIT_SYMBOL) return -1
+  if (b.symbol === INIT_SYMBOL) return 1
+  if (b.totalValue !== a.totalValue) return b.totalValue - a.totalValue
+  return a.symbol.localeCompare(b.symbol, undefined, { sensitivity: "base" })
+}
+
 /** Group positions by denom */
 export function groupPositionsByDenom(positions: Position[]): DenomGroup[] {
   const groups = new Map<string, Position[]>()
@@ -653,7 +662,7 @@ export function groupPositionsByDenom(positions: Position[]): DenomGroup[] {
     groups.get(denom)!.push(pos)
   }
 
-  return Array.from(groups.entries()).map(([denom, positions]) => {
+  const denomGroups = Array.from(groups.entries()).map(([denom, positions]) => {
     const balance = getPositionBalance(positions[0])
     let totalAmount = 0
 
@@ -672,6 +681,8 @@ export function groupPositionsByDenom(positions: Position[]): DenomGroup[] {
       balance,
     }
   })
+
+  return denomGroups.toSorted(compareDenomGroups)
 }
 
 // ============================================
