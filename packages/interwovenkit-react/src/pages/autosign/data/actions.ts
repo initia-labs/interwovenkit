@@ -1,7 +1,6 @@
 import type { EncodeObject } from "@cosmjs/proto-signing"
 import type { StdFee } from "@cosmjs/stargate"
 import { addMilliseconds } from "date-fns"
-import { useMemo } from "react"
 import { useAtom, useAtomValue } from "jotai"
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { GenericAuthorization } from "@initia/initia.proto/cosmos/authz/v1beta1/authz"
@@ -73,12 +72,11 @@ export function useBuildEnableMessages() {
   const { chainId } = pendingRequest
   const fetchRevokeMessages = useFetchRevokeMessages()
   const autoSignMessageTypes = useAutoSignMessageTypes()
-  const now = useMemo(() => new Date(), [])
 
   const buildGrantMessages = (durationInMs?: number) => {
     const granter = initiaAddress
     const grantee = embeddedWalletAddress
-    const expiration = durationInMs ? addMilliseconds(now, durationInMs) : undefined
+    const expiration = durationInMs ? addMilliseconds(new Date(), durationInMs) : undefined
     const messageTypes = autoSignMessageTypes[pendingRequest.chainId]
 
     const feegrantMessage: EncodeObject = {
