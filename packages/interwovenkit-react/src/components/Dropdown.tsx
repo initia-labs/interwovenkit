@@ -19,12 +19,14 @@ interface DropdownProps<T = string> {
     item?: string
     itemText?: string
   }
+  darker?: boolean
 }
 
 function Dropdown<T extends string | number = string>({
   options,
   value,
   onChange,
+  darker,
   classNames,
 }: DropdownProps<T>) {
   const portalContainer = usePortal()
@@ -40,7 +42,9 @@ function Dropdown<T extends string | number = string>({
 
   return (
     <Select.Root value={String(value)} onValueChange={handleChange} modal={false}>
-      <Select.Trigger className={clsx(styles.trigger, classNames?.trigger)}>
+      <Select.Trigger
+        className={clsx(styles.trigger, classNames?.trigger, { [styles.darker]: darker })}
+      >
         <Select.Value>{selectedOption.triggerLabel || selectedOption.label}</Select.Value>
         <Select.Icon className={styles.icon}>
           <IconChevronDown size={12} />

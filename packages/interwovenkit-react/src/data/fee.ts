@@ -1,17 +1,62 @@
 import { Secp256k1 } from "@cosmjs/crypto"
 import { fromBase64, toHex } from "@cosmjs/encoding"
 import type { Coin } from "@cosmjs/proto-signing"
+import { calculateFee, GasPrice, type StdFee } from "@cosmjs/stargate"
 import BigNumber from "bignumber.js"
 import { computeAddress } from "ethers"
 import ky from "ky"
 import { descend, isNil } from "ramda"
+import { useEffect, useMemo, useState } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { InitiaAddress } from "@initia/utils"
 import { useTxs } from "@/pages/wallet/tabs/activity/queries"
-import { DEFAULT_GAS_PRICE_MULTIPLIER } from "@/public/data/constants"
+import { DEFAULT_GAS_ADJUSTMENT, DEFAULT_GAS_PRICE_MULTIPLIER } from "@/public/data/constants"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { chainQueryKeys, type NormalizedChain } from "./chains"
 import { STALE_TIMES } from "./http"
+
+export interface FeeDetails {
+  symbol: string
+  decimals: number
+  spend: string | null
+  fee: string
+  total: string
+  balance: string
+  isSufficient: boolean
+}
+
+interface GetFeeDetailsParams {
+  feeDenom: string
+  balances: Coin[]
+  feeOptions: StdFee[]
+  spendAmount?: BigNumber
+  findAsset: (denom: string) => { symbol: string; decimals: number }
+}
+
+export function getFeeDetails({
+  feeDenom,
+  balances,
+  feeOptions,
+  spendAmount = BigNumber(0),
+  findAsset,
+}: GetFeeDetailsParams): FeeDetails {
+  const balance = balances.find((b) => b.denom === feeDenom)?.amount ?? "0"
+  const feeAmount =
+    feeOptions.find((fee) => fee.amount[0].denom === feeDenom)?.amount[0]?.amount ?? "0"
+  const totalRequired = BigNumber(feeAmount).plus(spendAmount)
+  const isSufficient = BigNumber(balance).gte(totalRequired)
+  const { symbol, decimals } = findAsset(feeDenom)
+
+  return {
+    symbol,
+    decimals,
+    spend: spendAmount.gt(0) ? spendAmount.toFixed() : null,
+    fee: feeAmount,
+    total: totalRequired.toFixed(),
+    balance,
+    isSufficient,
+  }
+}
 
 export function useGasPrices(chain: NormalizedChain) {
   const { data } = useSuspenseQuery({
@@ -72,4 +117,49 @@ export function useLastFeeDenom(chain: NormalizedChain) {
   } catch {
     return defaultDenom
   }
+}
+
+interface UseTxFeeParams {
+  chain: NormalizedChain
+  estimatedGas: number
+}
+
+interface UseTxFeeResult {
+  gasPrices: Coin[]
+  gas: number
+  feeOptions: StdFee[]
+  feeDenom: string
+  setFeeDenom: (denom: string) => void
+  getFee: () => StdFee | undefined
+}
+
+export function useTxFee({ chain, estimatedGas }: UseTxFeeParams): UseTxFeeResult {
+  const gasPrices = useGasPrices(chain)
+  const lastFeeDenom = useLastFeeDenom(chain)
+
+  const gas = Math.ceil(estimatedGas * DEFAULT_GAS_ADJUSTMENT)
+
+  const feeOptions = useMemo(
+    () =>
+      gasPrices.map(({ amount, denom }) => calculateFee(gas, GasPrice.fromString(amount + denom))),
+    [gasPrices, gas],
+  )
+
+  const initialFeeDenom = useMemo(() => {
+    if (lastFeeDenom) {
+      const hasFee = feeOptions.some((fee) => fee.amount[0].denom === lastFeeDenom)
+      if (hasFee) return lastFeeDenom
+    }
+    return feeOptions[0]?.amount[0]?.denom
+  }, [lastFeeDenom, feeOptions])
+
+  const [feeDenom, setFeeDenom] = useState(initialFeeDenom)
+
+  useEffect(() => {
+    setFeeDenom(initialFeeDenom)
+  }, [initialFeeDenom])
+
+  const getFee = () => feeOptions.find((fee) => fee.amount[0].denom === feeDenom)
+
+  return { gasPrices, gas, feeOptions, feeDenom, setFeeDenom, getFee }
 }
