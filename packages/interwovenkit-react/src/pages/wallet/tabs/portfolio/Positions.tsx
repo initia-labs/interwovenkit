@@ -4,6 +4,7 @@ import FallBack from "@/components/FallBack"
 import Status from "@/components/Status"
 import { useLayer1 } from "@/data/chains"
 import {
+  getPositionValue,
   type PortfolioChainPositionGroup,
   useChainInfoMap,
   useMinityPortfolio,
@@ -54,19 +55,43 @@ const Positions = ({ searchQuery, selectedChain }: PositionsProps) => {
 
       if (filteredProtocols.length > 0) {
         const isInitia = layer1.chainId === chainInfo?.chainId
+        const isCivitia = chainData.chainName.toLowerCase() === "civitia"
+
+        // Calculate total value for this chain (excluding Civitia which has no USD values)
+        const totalValue = isCivitia
+          ? 0
+          : filteredProtocols.reduce((sum, protocol) => {
+              return (
+                sum + protocol.positions.reduce((posSum, pos) => posSum + getPositionValue(pos), 0)
+              )
+            }, 0)
+
         result.push({
           chainName: chainInfo?.prettyName ?? chainData.chainName,
           chainLogo: chainInfo?.logoUrl ?? "",
           protocols: filteredProtocols,
           isInitia,
+          totalValue,
         })
       }
     }
 
-    // Sort: Initia first, then alphabetically by chain name
+    // Sort: Initia first, then by value descending, then Civitia last, then alphabetically
     return result.toSorted((a, b) => {
+      // Initia first
       if (a.isInitia) return -1
       if (b.isInitia) return 1
+
+      // Civitia last (both have 0 value, but we want Civitia at the end)
+      const aIsCivitia = a.chainName.toLowerCase() === "civitia"
+      const bIsCivitia = b.chainName.toLowerCase() === "civitia"
+      if (aIsCivitia && !bIsCivitia) return 1
+      if (!aIsCivitia && bIsCivitia) return -1
+
+      // Then by value descending
+      if (b.totalValue !== a.totalValue) return b.totalValue - a.totalValue
+
+      // Then alphabetically
       return a.chainName.localeCompare(b.chainName, undefined, { sensitivity: "base" })
     })
   }, [positions, chainInfoMap, searchQuery, selectedChain, layer1.chainId])
