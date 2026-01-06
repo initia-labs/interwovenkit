@@ -35,7 +35,7 @@ const WithdrawRoutes = () => {
 
   const transition = useTransition(page, {
     keys: page,
-    from: { opacity: 1 },
+    from: { opacity: 0 },
     enter: { opacity: 1 },
     leave: { opacity: 0, position: "absolute" as const, inset: 0 },
     config: { tension: 500, friction: 30, clamp: true, duration: 150 },
