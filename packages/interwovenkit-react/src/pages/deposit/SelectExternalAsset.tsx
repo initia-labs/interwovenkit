@@ -86,44 +86,49 @@ const SelectExternalAsset = () => {
             </div>
           ))}
         {!isLoading &&
-          filteredAssets.map(({ asset, chain, balance }) => {
-            const externalDenom = isWithdraw ? dstDenom : srcDenom
-            const externalChainId = isWithdraw ? dstChainId : srcChainId
-            const isActive = externalDenom === asset.denom && externalChainId === chain.chain_id
-            return (
-              <button
-                key={`${asset.chain_id}-${asset.denom}`}
-                className={clsx(styles.asset, isActive && styles.activeAsset)}
-                onClick={() => {
-                  setValue(externalDenomKey, asset.denom)
-                  setValue(externalChainIdKey, chain.chain_id)
-                  if (!isWithdraw) setValue("quantity", "")
-                  setValue("page", "fields")
-                }}
-              >
-                <div className={styles.iconContainer}>
-                  <img src={asset.logo_uri} alt={asset.symbol} className={styles.assetIcon} />
-                  <img
-                    src={chain.logo_uri || ""}
-                    alt={chain.chain_name}
-                    className={styles.chainIcon}
-                  />
-                </div>
-                <p className={styles.assetName}>
-                  {asset.symbol} {isActive && <IconCheckCircleFilled size={14} />}
-                </p>
-                <p className={styles.assetChain}>on {chain.pretty_name}</p>
-                {balance && (
-                  <>
-                    <p className={styles.balance}>
-                      {formatAmount(balance.amount, { decimals: balance.decimals || 6 })}
-                    </p>
-                    <p className={styles.value}>{formatValue(balance.value_usd || 0)}</p>
-                  </>
-                )}
-              </button>
+          filteredAssets
+            .sort(
+              ({ balance: a }, { balance: b }) =>
+                Number(b?.value_usd ?? 0) - Number(a?.value_usd ?? 0),
             )
-          })}
+            .map(({ asset, chain, balance }) => {
+              const externalDenom = isWithdraw ? dstDenom : srcDenom
+              const externalChainId = isWithdraw ? dstChainId : srcChainId
+              const isActive = externalDenom === asset.denom && externalChainId === chain.chain_id
+              return (
+                <button
+                  key={`${asset.chain_id}-${asset.denom}`}
+                  className={clsx(styles.asset, isActive && styles.activeAsset)}
+                  onClick={() => {
+                    setValue(externalDenomKey, asset.denom)
+                    setValue(externalChainIdKey, chain.chain_id)
+                    if (!isWithdraw) setValue("quantity", "")
+                    setValue("page", "fields")
+                  }}
+                >
+                  <div className={styles.iconContainer}>
+                    <img src={asset.logo_uri} alt={asset.symbol} className={styles.assetIcon} />
+                    <img
+                      src={chain.logo_uri || ""}
+                      alt={chain.chain_name}
+                      className={styles.chainIcon}
+                    />
+                  </div>
+                  <p className={styles.assetName}>
+                    {asset.symbol} {isActive && <IconCheckCircleFilled size={14} />}
+                  </p>
+                  <p className={styles.assetChain}>on {chain.pretty_name}</p>
+                  {balance && (
+                    <>
+                      <p className={styles.balance}>
+                        {formatAmount(balance.amount, { decimals: balance.decimals || 6 })}
+                      </p>
+                      <p className={styles.value}>{formatValue(balance.value_usd || 0)}</p>
+                    </>
+                  )}
+                </button>
+              )
+            })}
       </div>
     </div>
   )
