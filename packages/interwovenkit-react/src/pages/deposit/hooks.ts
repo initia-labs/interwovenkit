@@ -7,6 +7,7 @@ import { useHexAddress, useInitiaAddress } from "@/public/data/hooks"
 import { useAllSkipAssets } from "../bridge/data/assets"
 import { useFindSkipChain, useSkipChains } from "../bridge/data/chains"
 import { skipQueryKeys, useSkip } from "../bridge/data/skip"
+import type { BridgeTxResult } from "../bridge/data/tx"
 
 export interface AssetOption {
   denom: string
@@ -56,7 +57,7 @@ export function useLocalAssetDepositAsset() {
   const path = usePath()
   const isWithdraw = path === "/withdraw"
   const skipAssets = useAllSkipAssets()
-  const { watch } = useDepositForm()
+  const { watch } = useTransferForm()
 
   const { dstChainId, dstDenom, srcChainId, srcDenom } = watch()
 
@@ -71,7 +72,7 @@ export function useExternalDepositAsset() {
   const path = usePath()
   const isWithdraw = path === "/withdraw"
   const skipAssets = useAllSkipAssets()
-  const { watch } = useDepositForm()
+  const { watch } = useTransferForm()
 
   const { srcChainId, srcDenom, dstChainId, dstDenom } = watch()
 
@@ -120,32 +121,19 @@ export function useExternalAssetOptions() {
   return { data, isLoading }
 }
 
-export type DepositPage = "select-local" | "select-external" | "fields"
+export type TransferPage = "select-local" | "select-external" | "fields" | "completed"
 
-interface DepositForm {
-  page: DepositPage
+interface TransferForm {
+  page: TransferPage
   quantity: string
   srcDenom: string
   srcChainId: string
   dstDenom: string
   dstChainId: string
+  // TX completion data
+  result?: BridgeTxResult
 }
 
-export function useDepositForm() {
-  return useFormContext<DepositForm>()
-}
-
-export type WithdrawPage = "select-local" | "select-external" | "fields"
-
-interface WithdrawForm {
-  page: WithdrawPage
-  quantity: string
-  srcDenom: string
-  srcChainId: string
-  dstDenom: string
-  dstChainId: string
-}
-
-export function useWithdrawForm() {
-  return useFormContext<WithdrawForm>()
+export function useTransferForm() {
+  return useFormContext<TransferForm>()
 }

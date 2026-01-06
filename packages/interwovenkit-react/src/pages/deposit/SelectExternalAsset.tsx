@@ -7,17 +7,17 @@ import { usePath } from "@/lib/router"
 import EmptyIconDark from "./assets/EmptyDark.svg"
 import EmptyIconLight from "./assets/EmptyLight.svg"
 import {
-  useDepositForm,
   useExternalAssetOptions,
   useLocalAssetDepositAsset,
   useLocalAssetOptions,
+  useTransferForm,
 } from "./hooks"
 import styles from "./SelectExternalAsset.module.css"
 
 const SelectExternalAsset = () => {
   const path = usePath()
   const { data: filteredAssets, isLoading } = useExternalAssetOptions()
-  const { setValue, watch } = useDepositForm()
+  const { setValue, watch } = useTransferForm()
   const localAsset = useLocalAssetDepositAsset()
   const options = useLocalAssetOptions()
   const { theme } = useConfig()

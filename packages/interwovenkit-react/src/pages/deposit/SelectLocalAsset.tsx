@@ -1,10 +1,10 @@
 import { usePath } from "@/lib/router"
-import { useDepositForm, useLocalAssetOptions } from "./hooks"
+import { useLocalAssetOptions, useTransferForm } from "./hooks"
 import styles from "./SelectLocalAsset.module.css"
 
 const SelectLocalAsset = () => {
   const path = usePath()
-  const { setValue } = useDepositForm()
+  const { setValue } = useTransferForm()
   const options = useLocalAssetOptions()
   const isWithdraw = path === "/withdraw"
 

@@ -13,8 +13,9 @@ import { usePath } from "@/lib/router"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import BridgePreviewFooter from "../bridge/BridgePreviewFooter"
 import { useAllSkipAssets } from "../bridge/data/assets"
-import { useBridgePreviewState } from "../bridge/data/tx"
+import { type BridgeTxResult, useBridgePreviewState } from "../bridge/data/tx"
 import FooterWithErc20Approval from "../bridge/FooterWithErc20Approval"
+import { useTransferForm } from "./hooks"
 import TransferTxDetails from "./TransferTxDetails"
 
 interface Props {
@@ -25,8 +26,13 @@ interface Props {
 const TransferFooterWithFee = ({ tx, gas }: Props) => {
   const path = usePath()
   const isWithdraw = path.startsWith("/withdraw")
-  const navigateTo = isWithdraw ? "/withdraw/completed" : "/deposit/completed"
   const confirmMessage = isWithdraw ? "Withdraw" : "Deposit"
+  const { setValue } = useTransferForm()
+
+  function onCompleted(result: BridgeTxResult) {
+    setValue("page", "completed")
+    setValue("result", result)
+  }
 
   const { values } = useBridgePreviewState()
   const { srcChainId, srcDenom, quantity } = values
@@ -158,7 +164,7 @@ const TransferFooterWithFee = ({ tx, gas }: Props) => {
         <BridgePreviewFooter
           tx={tx}
           fee={selectedFee}
-          navigateTo={navigateTo}
+          onCompleted={onCompleted}
           confirmMessage={confirmMessage}
         />
       </FooterWithErc20Approval>
@@ -168,8 +174,14 @@ const TransferFooterWithFee = ({ tx, gas }: Props) => {
 
 const TransferFooter = ({ tx, gas }: Props) => {
   const path = usePath()
+  const { setValue } = useTransferForm()
+
+  function onCompleted(result: BridgeTxResult) {
+    setValue("page", "completed")
+    setValue("result", result)
+  }
+
   const isWithdraw = path.startsWith("/withdraw")
-  const navigateTo = isWithdraw ? "/withdraw/completed" : "/deposit/completed"
   const confirmMessage = isWithdraw ? "Withdraw" : "Deposit"
 
   if (!gas || !("cosmos_tx" in tx)) {
@@ -180,7 +192,7 @@ const TransferFooter = ({ tx, gas }: Props) => {
           <BridgePreviewFooter
             tx={tx}
             fee={undefined}
-            navigateTo={navigateTo}
+            onCompleted={onCompleted}
             confirmMessage={confirmMessage}
           />
         </FooterWithErc20Approval>

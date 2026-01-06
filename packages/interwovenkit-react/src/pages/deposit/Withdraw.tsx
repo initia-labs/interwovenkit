@@ -1,14 +1,15 @@
 import { animated, useTransition } from "@react-spring/web"
 import { FormProvider, useForm } from "react-hook-form"
 import AnimatedHeight from "@/components/AnimatedHeight"
-import { useAllBalancesQuery, useWithdrawForm } from "./hooks"
+import { useAllBalancesQuery, useTransferForm } from "./hooks"
 import SelectExternalAsset from "./SelectExternalAsset"
 import SelectLocalAsset from "./SelectLocalAsset"
+import { TransferCompleted } from "./TransferCompleted"
 import WithdrawFields from "./WithdrawFields"
 import styles from "./Withdraw.module.css"
 
 export interface FormValues {
-  page: "select-local" | "select-external" | "fields"
+  page: "select-local" | "select-external" | "fields" | "transfer-completed"
   quantity: string
 }
 
@@ -29,7 +30,7 @@ export const Withdraw = () => {
 }
 
 const WithdrawRoutes = () => {
-  const { watch } = useWithdrawForm()
+  const { watch } = useTransferForm()
   const page = watch("page")
 
   const transition = useTransition(page, {
@@ -48,6 +49,8 @@ const WithdrawRoutes = () => {
         return <SelectExternalAsset />
       case "fields":
         return <WithdrawFields />
+      case "completed":
+        return <TransferCompleted type="withdraw" />
     }
   }
 

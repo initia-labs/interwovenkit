@@ -12,7 +12,6 @@ import { type RouterRouteResponseJson, useRouteQuery } from "../bridge/data/simu
 import FooterWithAddressList from "../bridge/FooterWithAddressList"
 import FooterWithMsgs from "../bridge/FooterWithMsgs"
 import FooterWithSignedOpHook from "../bridge/FooterWithSignedOpHook"
-import TransferFooter from "./DepositFooter"
 import FooterWithTxFee from "./FooterWithTxFee"
 import {
   useAllBalancesQuery,
@@ -20,8 +19,9 @@ import {
   useExternalDepositAsset,
   useLocalAssetDepositAsset,
   useLocalAssetOptions,
-  useWithdrawForm,
+  useTransferForm,
 } from "./hooks"
+import TransferFooter from "./TransferFooter"
 import styles from "./Fields.module.css"
 
 interface State {
@@ -38,7 +38,7 @@ const WithdrawFields = () => {
   const { data: balances } = useAllBalancesQuery()
   const hexAddress = useHexAddress()
 
-  const { watch, setValue, getValues } = useWithdrawForm()
+  const { watch, setValue, getValues } = useTransferForm()
   const { srcChainId, srcDenom, dstChainId, quantity } = watch()
 
   const localAsset = useLocalAssetDepositAsset()

@@ -2,17 +2,17 @@ import type { StdFee } from "@cosmjs/stargate"
 import type { TxJson } from "@skip-go/client"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
-import { useBridgeTx } from "./data/tx"
+import { type BridgeTxResult, useBridgeTx } from "./data/tx"
 
 interface Props {
   tx: TxJson
   fee?: StdFee
-  navigateTo?: string
+  onCompleted?: (result: BridgeTxResult) => void
   confirmMessage?: string
 }
 
-const BridgePreviewFooter = ({ tx, fee, navigateTo, confirmMessage }: Props) => {
-  const { mutate, isPending } = useBridgeTx(tx, { customFee: fee, navigateTo })
+const BridgePreviewFooter = ({ tx, fee, onCompleted, confirmMessage }: Props) => {
+  const { mutate, isPending } = useBridgeTx(tx, { customFee: fee, onCompleted })
   return (
     <Footer>
       <Button.White onClick={() => mutate()} loading={isPending && "Signing transaction..."}>

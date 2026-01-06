@@ -1,29 +1,17 @@
 import Button from "@/components/Button"
 import { useConfig } from "@/data/config"
 import { useModal } from "@/data/ui"
-import { useLocationState } from "@/lib/router"
 import { useSkipAsset } from "../bridge/data/assets"
 import { formatDuration } from "../bridge/data/format"
-import { useBridgePreviewState, useTrackTxQuery, useTxStatusQuery } from "../bridge/data/tx"
+import { useTrackTxQuery, useTxStatusQuery } from "../bridge/data/tx"
 import CompletedDarkAnimation from "./assets/CompletedDark.mp4"
 import CompletedLightAnimation from "./assets/CompletedLight.mp4"
 import FailedDarkIcon from "./assets/FailedDark.svg"
 import FailedLightIcon from "./assets/FailedLight.svg"
 import LoadingDarkAnimation from "./assets/LoadingDark.mp4"
 import LoadingLightAnimation from "./assets/LoadingLight.mp4"
+import { useTransferForm } from "./hooks"
 import styles from "./TransferCompleted.module.css"
-
-interface SuccessState {
-  txHash: string
-  chainId: string
-  timestamp: number
-}
-
-interface ErrorState {
-  error: true
-  message: string
-  timestamp?: number
-}
 
 type TxState = "pending" | "success" | "failed"
 
@@ -44,16 +32,17 @@ function getTxState(txStatus?: { state: string } | null): TxState {
 }
 
 export function TransferCompleted({ type }: { type: "deposit" | "withdraw" }) {
-  const state = useLocationState<SuccessState | ErrorState>()
-  const { route, values } = useBridgePreviewState()
   const { closeModal } = useModal()
   const { theme } = useConfig()
+  const { watch } = useTransferForm()
+  const { result } = watch()
 
-  const isError = "error" in state
-  const txHash = !isError ? state.txHash : ""
-  const chainId = !isError ? state.chainId : ""
-  const timestamp = ("timestamp" in state ? state.timestamp : undefined) ?? 0
+  const isError = !result?.success
+  const txHash = !isError ? result.txhash : ""
+  const chainId = !isError ? result.chainId : ""
+  const timestamp = !isError ? (result.timestamp ?? 0) : 0
 
+  const { route, values } = result!
   // Get source asset information for display
   const { srcDenom, srcChainId, quantity } = values
   const srcAsset = useSkipAsset(srcDenom, srcChainId)
@@ -94,7 +83,7 @@ export function TransferCompleted({ type }: { type: "deposit" | "withdraw" }) {
       <div className={styles.container}>
         <h3 className={styles.title}>{actionLabel} failed</h3>
         <img src={failedIcon} alt="Failed" className={styles.errorIcon} />
-        <p className={styles.error}>{state.message}</p>
+        <p className={styles.error}>{result?.error}</p>
         <Button.White fullWidth onClick={closeModal}>
           Close
         </Button.White>

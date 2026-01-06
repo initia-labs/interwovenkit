@@ -54,13 +54,24 @@ export function useBridgePreviewState() {
   return useLocationState<BridgePreviewState>()
 }
 
+export type BridgeTxResult =
+  | {
+      txhash: string
+      chainId: string
+      timestamp: number
+      success: true
+      route: RouterRouteResponseJson
+      values: FormValues
+    }
+  | { success: false; error: string; route: RouterRouteResponseJson; values: FormValues }
+
 interface UseBridgeTxOptions {
   customFee?: StdFee
-  navigateTo?: string
+  onCompleted?: (result: BridgeTxResult) => void
 }
 
 export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
-  const { customFee, navigateTo } = options ?? {}
+  const { customFee, onCompleted } = options ?? {}
   const navigate = useNavigate()
   const { showNotification, updateNotification, hideNotification } = useNotification()
   const { addHistoryItem } = useBridgeHistoryList()
@@ -171,16 +182,23 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
       // Clean up and navigate
       localStorage.removeItem(LocalStorageKey.BRIDGE_QUANTITY)
 
-      if (navigateTo) {
-        navigate(navigateTo, { txHash, chainId: srcChainId, route, values, timestamp: Date.now() })
+      if (onCompleted) {
+        onCompleted({
+          txhash: txHash,
+          chainId: srcChainId,
+          timestamp: Date.now(),
+          success: true,
+          route,
+          values,
+        })
       } else {
         navigate(-1)
-      }
 
-      showNotification({
-        type: "loading",
-        title: "Transaction is pending...",
-      })
+        showNotification({
+          type: "loading",
+          title: "Transaction is pending...",
+        })
+      }
 
       try {
         // Wait for transaction confirmation
@@ -194,7 +212,7 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
           ? { success: true, error: null }
           : await trackTransaction(skip, txHash, srcChainId)
 
-        if (!trackingResult.success && trackingResult.error) {
+        if (!onCompleted && !trackingResult.success && trackingResult.error) {
           const errorMessage =
             trackingResult.error instanceof Error
               ? trackingResult.error.message
@@ -214,8 +232,10 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
         const historyResult = createHistoryItem(context, tracked)
         addHistoryItem(historyResult.tx, historyResult.details)
 
-        // Update notification
-        updateNotification(createSuccessNotification(hideNotification))
+        if (!onCompleted) {
+          // Update notification
+          updateNotification(createSuccessNotification(hideNotification))
+        }
 
         // Track analytics
         const analyticsParams = createAnalyticsParams(values, txHash)
@@ -229,11 +249,13 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
       } catch (error) {
         // Handle transaction failure
         const errorMessage = error instanceof Error ? error.message : String(error)
-        updateNotification({
-          type: "error",
-          title: "Transaction not confirmed",
-          description: errorMessage,
-        })
+        if (!onCompleted) {
+          updateNotification({
+            type: "error",
+            title: "Transaction not confirmed",
+            description: errorMessage,
+          })
+        }
 
         const analyticsParams = {
           ...createAnalyticsParams(values, txHash),
@@ -253,15 +275,16 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
           ? await formatMoveError(error, findChain(srcChainId), registryUrl)
           : error
 
-      if (navigateTo) {
-        navigate(navigateTo, { error: true, message: formattedError.message, route, values })
+      if (onCompleted) {
+        onCompleted({ success: false, error: formattedError.message, route, values })
+      } else {
+        showNotification({
+          type: "error",
+          title: "Transaction failed",
+          description: formattedError.message,
+        })
       }
 
-      showNotification({
-        type: "error",
-        title: "Transaction failed",
-        description: formattedError.message,
-      })
       const analyticsParams = createAnalyticsParams(values)
       track("Bridge Transaction Failed", {
         ...analyticsParams,

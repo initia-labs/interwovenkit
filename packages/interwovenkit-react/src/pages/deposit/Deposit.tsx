@@ -2,13 +2,14 @@ import { animated, useTransition } from "@react-spring/web"
 import { FormProvider, useForm } from "react-hook-form"
 import AnimatedHeight from "../../components/AnimatedHeight"
 import DepositFields from "./DepositFields"
-import { useAllBalancesQuery, useDepositForm } from "./hooks"
+import { useAllBalancesQuery, useTransferForm } from "./hooks"
 import SelectExternalAsset from "./SelectExternalAsset"
 import SelectLocalAsset from "./SelectLocalAsset"
+import { TransferCompleted } from "./TransferCompleted"
 import styles from "./Deposit.module.css"
 
 export interface FormValues {
-  page: "select-local" | "select-external" | "fields"
+  page: "select-local" | "select-external" | "fields" | "transfer-completed"
   quantity: string
 }
 
@@ -29,7 +30,7 @@ export const Deposit = () => {
 }
 
 const DepositRoutes = () => {
-  const { watch } = useDepositForm()
+  const { watch } = useTransferForm()
   const page = watch("page")
 
   const transition = useTransition(page, {
@@ -48,6 +49,8 @@ const DepositRoutes = () => {
         return <SelectExternalAsset />
       case "fields":
         return <DepositFields />
+      case "completed":
+        return <TransferCompleted type="deposit" />
     }
   }
 
