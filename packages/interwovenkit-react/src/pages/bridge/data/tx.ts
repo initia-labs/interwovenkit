@@ -249,7 +249,9 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
       } catch (error) {
         // Handle transaction failure
         const errorMessage = error instanceof Error ? error.message : String(error)
-        if (!onCompleted) {
+        if (onCompleted) {
+          onCompleted({ success: false, error: errorMessage, route, values })
+        } else {
           updateNotification({
             type: "error",
             title: "Transaction not confirmed",
