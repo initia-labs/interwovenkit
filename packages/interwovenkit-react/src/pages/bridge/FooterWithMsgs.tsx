@@ -66,7 +66,7 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
     return <FooterWithError error={error} />
   }
 
-  if (loading) {
+  if (loading || !value) {
     return (
       <Footer>
         <Button.White loading={loading && "Fetching messages..."} />
@@ -74,11 +74,7 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
     )
   }
 
-  if (value) {
-    return children(value)
-  }
-
-  return <FooterWithError error={new Error("Failed to fetch messages")} />
+  return children(value)
 }
 
 export default FooterWithMsgs
