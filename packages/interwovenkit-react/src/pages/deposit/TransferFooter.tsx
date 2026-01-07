@@ -109,6 +109,10 @@ const TransferFooterWithFee = ({ tx, gas }: Props) => {
 
   const selectedFee = feeOptions?.find((fee) => fee.amount[0].denom === feeDenom) ?? undefined
 
+  // Check if balance is sufficient for both fee and transfer amount
+  const feeDetails = feeDenom ? getFeeDetails(feeDenom) : null
+  const balanceError = feeDetails && !feeDetails.isSufficient ? "Insufficient balance" : undefined
+
   // Helper functions for fee display
   const getDp = (amount: string, decimals: number) => {
     if (formatAmount(amount, { decimals }) === "0.000000") return 8
@@ -166,6 +170,7 @@ const TransferFooterWithFee = ({ tx, gas }: Props) => {
           fee={selectedFee}
           onCompleted={onCompleted}
           confirmMessage={confirmMessage}
+          error={balanceError}
         />
       </FooterWithErc20Approval>
     </>

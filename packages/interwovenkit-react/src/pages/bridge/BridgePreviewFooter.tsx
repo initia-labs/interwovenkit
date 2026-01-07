@@ -9,14 +9,19 @@ interface Props {
   fee?: StdFee
   onCompleted?: (result: BridgeTxResult) => void
   confirmMessage?: string
+  error?: string
 }
 
-const BridgePreviewFooter = ({ tx, fee, onCompleted, confirmMessage }: Props) => {
+const BridgePreviewFooter = ({ tx, fee, onCompleted, confirmMessage, error }: Props) => {
   const { mutate, isPending } = useBridgeTx(tx, { customFee: fee, onCompleted })
   return (
     <Footer>
-      <Button.White onClick={() => mutate()} loading={isPending && "Signing transaction..."}>
-        {confirmMessage || "Confirm"}
+      <Button.White
+        onClick={() => mutate()}
+        loading={isPending && "Signing transaction..."}
+        disabled={!!error}
+      >
+        {error || confirmMessage || "Confirm"}
       </Button.White>
     </Footer>
   )
