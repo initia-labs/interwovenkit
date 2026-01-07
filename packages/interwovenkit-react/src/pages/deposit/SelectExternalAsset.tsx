@@ -1,5 +1,5 @@
 import clsx from "clsx"
-import { IconBack, IconCheckCircleFilled } from "@initia/icons-react"
+import { IconBack, IconCheck } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
 import { useConfig } from "@/data/config"
 import { formatValue } from "@/lib/format"
@@ -115,7 +115,12 @@ const SelectExternalAsset = () => {
                     />
                   </div>
                   <p className={styles.assetName}>
-                    {asset.symbol} {isActive && <IconCheckCircleFilled size={14} />}
+                    {asset.symbol}{" "}
+                    {isActive && (
+                      <span>
+                        <IconCheck size={16} />
+                      </span>
+                    )}
                   </p>
                   <p className={styles.assetChain}>on {chain.pretty_name}</p>
                   {balance && (
