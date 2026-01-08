@@ -69,7 +69,7 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
   if (loading || !value) {
     return (
       <Footer>
-        <Button.White loading={loading && "Fetching messages..."} />
+        <Button.White loading={"Fetching messages..."} />
       </Footer>
     )
   }
