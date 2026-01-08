@@ -1,5 +1,5 @@
 import ky from "ky"
-import { useSuspenseQuery } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useConfig } from "./config"
@@ -30,19 +30,17 @@ export function useCivitiaPlayer() {
   const { civitiaUrl } = useConfig()
   const address = useInitiaAddress()
 
-  if (!civitiaUrl) {
-    throw new Error("civitiaUrl is not configured")
-  }
-
-  if (!address) {
-    throw new Error("address is not available")
-  }
-
-  return useSuspenseQuery({
-    queryKey: civitiaQueryKeys.player(civitiaUrl, address).queryKey,
+  return useQuery({
+    enabled: !!civitiaUrl && !!address,
+    queryKey: civitiaQueryKeys.player(civitiaUrl ?? "", address ?? "").queryKey,
     queryFn: async (): Promise<CivitiaPlayer> => {
+      if (!civitiaUrl || !address) {
+        throw new Error("civitiaUrl or address is not available")
+      }
       return ky.get(`${civitiaUrl}/players/${address}`).json()
     },
     staleTime: STALE_TIMES.MINUTE,
+    // Don't throw on 404 - it's a valid state (player doesn't exist)
+    throwOnError: false,
   })
 }

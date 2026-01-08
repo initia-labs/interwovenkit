@@ -3,10 +3,11 @@ import AsyncBoundary from "@/components/AsyncBoundary"
 import FallBack from "@/components/FallBack"
 import Status from "@/components/Status"
 import { useLayer1 } from "@/data/chains"
+import { useCivitiaPlayer } from "@/data/civitia"
 import {
+  type ChainInfo,
   getPositionValue,
   type PortfolioChainPositionGroup,
-  useChainInfoMap,
   useMinityPortfolio,
 } from "@/data/minity"
 import AppchainPositionGroup from "./AppchainPositionGroup"
@@ -17,17 +18,18 @@ import styles from "./Positions.module.css"
 export interface PositionsProps {
   searchQuery: string
   selectedChain: string
+  chainInfoMap: Map<string, ChainInfo>
 }
 
-const Positions = ({ searchQuery, selectedChain }: PositionsProps) => {
+const Positions = ({ searchQuery, selectedChain, chainInfoMap }: PositionsProps) => {
   // Position data (SSE - streams progressively)
   const { positions, isLoading } = useMinityPortfolio()
 
-  // Chain info map for chain names/logos (registry - fast, blocking)
-  const chainInfoMap = useChainInfoMap()
-
   // Layer 1 chain info
   const layer1 = useLayer1()
+
+  // Civitia player data
+  const { data: civitiaPlayer, isLoading: isCivitiaPlayerLoading } = useCivitiaPlayer()
 
   // Filter and transform positions into chain groups
   const filteredChainGroups = useMemo(() => {
@@ -39,9 +41,34 @@ const Positions = ({ searchQuery, selectedChain }: PositionsProps) => {
 
       // Get chain info from breakdown
       const chainInfo = chainInfoMap.get(chainData.chainName.toLowerCase())
+      const chainNameLower = chainData.chainName.toLowerCase()
+      const isCivitiaChain = chainNameLower === "civitia"
 
       // Filter by selected chain (using chainId)
       if (selectedChain && chainInfo?.chainId !== selectedChain) {
+        continue
+      }
+
+      // Check if chain has any actual renderable positions (not fungible positions)
+      const hasAnyPositions = chainData.positions.some((protocol) =>
+        protocol.positions.some((pos) => pos.type !== "fungible-position"),
+      )
+
+      // For Civitia specifically, also check if user has gold or silver
+      // Skip Civitia check if still loading player data
+      const hasCivitiaGoldOrSilver =
+        isCivitiaChain &&
+        !isCivitiaPlayerLoading &&
+        civitiaPlayer &&
+        ((civitiaPlayer.gold_balance ?? 0) > 0 || (civitiaPlayer.silver_balance ?? 0) > 0)
+
+      // Skip chain if it has no displayable content
+      if (!hasAnyPositions && !hasCivitiaGoldOrSilver) {
+        continue
+      }
+
+      // Skip chain if search query doesn't match chain name
+      if (searchQuery && !chainNameLower.includes(searchQuery.toLowerCase())) {
         continue
       }
 
@@ -53,27 +80,20 @@ const Positions = ({ searchQuery, selectedChain }: PositionsProps) => {
         return Array.isArray(protocol.positions) && protocol.positions.length > 0
       })
 
-      if (filteredProtocols.length > 0) {
-        const isInitia = layer1.chainId === chainInfo?.chainId
-        const isCivitia = chainData.chainName.toLowerCase() === "civitia"
+      const isInitia = layer1.chainId === chainInfo?.chainId
 
-        // Calculate total value for this chain (excluding Civitia which has no USD values)
-        const totalValue = isCivitia
-          ? 0
-          : filteredProtocols.reduce((sum, protocol) => {
-              return (
-                sum + protocol.positions.reduce((posSum, pos) => posSum + getPositionValue(pos), 0)
-              )
-            }, 0)
+      // Calculate total value for this chain
+      const totalValue = filteredProtocols.reduce((sum, protocol) => {
+        return sum + protocol.positions.reduce((posSum, pos) => posSum + getPositionValue(pos), 0)
+      }, 0)
 
-        result.push({
-          chainName: chainInfo?.prettyName ?? chainData.chainName,
-          chainLogo: chainInfo?.logoUrl ?? "",
-          protocols: filteredProtocols,
-          isInitia,
-          totalValue,
-        })
-      }
+      result.push({
+        chainName: chainInfo?.prettyName ?? chainData.chainName,
+        chainLogo: chainInfo?.logoUrl ?? "",
+        protocols: filteredProtocols,
+        isInitia,
+        totalValue,
+      })
     }
 
     // Sort: Initia first, then by value descending, then Civitia last, then alphabetically
@@ -94,7 +114,15 @@ const Positions = ({ searchQuery, selectedChain }: PositionsProps) => {
       // Then alphabetically
       return a.chainName.localeCompare(b.chainName, undefined, { sensitivity: "base" })
     })
-  }, [positions, chainInfoMap, searchQuery, selectedChain, layer1.chainId])
+  }, [
+    positions,
+    chainInfoMap,
+    searchQuery,
+    selectedChain,
+    layer1.chainId,
+    civitiaPlayer,
+    isCivitiaPlayerLoading,
+  ])
 
   const hasPositions = filteredChainGroups.length > 0
 
@@ -130,7 +158,7 @@ const Positions = ({ searchQuery, selectedChain }: PositionsProps) => {
             return <AppchainPositionGroup key={chainGroup.chainName} chainGroup={chainGroup} />
           })}
         </div>
-      ) : isLoading ? (
+      ) : positions.length === 0 && isLoading ? (
         <FallBack height={56} length={3} />
       ) : (
         <Status>No positions</Status>

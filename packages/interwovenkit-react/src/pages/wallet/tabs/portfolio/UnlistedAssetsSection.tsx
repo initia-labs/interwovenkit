@@ -1,15 +1,18 @@
 import { useMemo } from "react"
-import { usePortfolio } from "@/data/portfolio"
+import type { PortfolioAssetItem } from "@/data/portfolio"
 import UnlistedAssets from "./UnlistedAssets"
 
 interface UnlistedAssetsSectionProps {
   searchQuery: string
   selectedChain: string
+  unlistedAssets: PortfolioAssetItem[]
 }
 
-const UnlistedAssetsSection = ({ searchQuery, selectedChain }: UnlistedAssetsSectionProps) => {
-  const { unlistedAssets } = usePortfolio()
-
+const UnlistedAssetsSection = ({
+  searchQuery,
+  selectedChain,
+  unlistedAssets,
+}: UnlistedAssetsSectionProps) => {
   // Filter unlisted assets by search query and selected chain
   const filteredUnlistedAssets = useMemo(() => {
     const searchFilteredUnlisted = !searchQuery

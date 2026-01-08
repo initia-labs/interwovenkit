@@ -3,7 +3,7 @@ import { useEffect, useEffectEvent, useMemo } from "react"
 import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { useInitiaRegistry } from "./chains"
+import { useAllChainPriceQueries, useInitiaRegistry } from "./chains"
 import { useConfig } from "./config"
 import { INIT_SYMBOL } from "./constants"
 import { STALE_TIMES } from "./http"
@@ -420,7 +420,7 @@ export const minityQueryOptions = {
 // ============================================
 
 /** SSE connection timeout in milliseconds */
-const SSE_TIMEOUT = 60000
+const SSE_TIMEOUT = 60000 // 60 seconds
 
 const DEFAULT_SSE_DATA: SSEPortfolioData = {
   balances: [],
@@ -439,12 +439,7 @@ function getBalanceValue(balance: Balance): number {
 }
 
 function getProtocolPositionValue(position: ProtocolPosition): number {
-  return position.positions.reduce((sum, pos) => {
-    if (pos.type === "fungible-position") {
-      return sum + (pos.value || 0)
-    }
-    return sum + getBalanceValue(pos.balance)
-  }, 0)
+  return position.positions.reduce((sum, pos) => sum + getPositionValue(pos), 0)
 }
 
 // ============================================
@@ -511,11 +506,16 @@ export function getPositionValue(position: Position): number {
     return position.value ?? 0
   }
   if (position.balance.type === "unknown") return 0
-  return position.balance.value ?? 0
+  const value = position.balance.value ?? 0
+  // Borrowing positions should subtract from total (debt/liability)
+  if (position.type === "lending" && position.direction === "borrow") {
+    return -value
+  }
+  return value
 }
 
 /** Section order for sorting */
-const SECTION_ORDER = ["staking", "lending", "borrowing"]
+const SECTION_ORDER = ["staking", "borrowing", "lending"]
 
 /** Get section key for position - groups staking types and separates lending by direction */
 export function getSectionKey(position: Position): string | null {
@@ -689,6 +689,66 @@ export function groupPositionsByDenom(positions: Position[]): DenomGroup[] {
 // ASSET GROUP UTILITIES
 // ============================================
 
+/**
+ * Build price map from price queries result.
+ * Returns Map<chainId, Map<denom, price>> for O(1) lookups.
+ */
+export function buildPriceMap(
+  chains: { chainId: string }[],
+  priceQueries: Array<{ data?: { id: string; price: number }[] }>,
+): Map<string, Map<string, number>> {
+  const priceMap = new Map<string, Map<string, number>>()
+
+  chains.forEach((chain, index) => {
+    const prices = priceQueries[index]?.data
+    if (prices && prices.length > 0) {
+      const denomPriceMap = new Map(prices.map((p) => [p.id, p.price] as [string, number]))
+      priceMap.set(chain.chainId, denomPriceMap)
+    }
+  })
+
+  return priceMap
+}
+
+/**
+ * Apply fallback pricing to Minity balances.
+ * If Minity doesn't provide a value, calculate it from the price API.
+ */
+export function applyFallbackPricing(
+  minityBalances: ChainBalanceData[],
+  chainPrices: Map<string, Map<string, number>>,
+): ChainBalanceData[] {
+  return minityBalances.map((chainBalance) => ({
+    ...chainBalance,
+    balances: chainBalance.balances.map((balance) => {
+      // Skip unknown type - no value calculation possible
+      if (balance.type === "unknown") {
+        return balance
+      }
+
+      // If Minity already provided a value, use it
+      if (balance.value != null && balance.value > 0) {
+        return balance
+      }
+
+      // Fallback: Calculate value from price API
+      const prices = chainPrices.get(chainBalance.chainId)
+      if (prices) {
+        const price = prices.get(balance.denom) ?? 0
+        if (price > 0) {
+          return {
+            ...balance,
+            value: balance.formattedAmount * price,
+          }
+        }
+      }
+
+      // No value available - return balance as is
+      return balance
+    }),
+  }))
+}
+
 /** Sort comparator for asset groups: INIT first, then by value desc, then alphabetically */
 export function compareAssetGroups(a: PortfolioAssetGroup, b: PortfolioAssetGroup): number {
   if (a.symbol === INIT_SYMBOL) return -1
@@ -717,8 +777,13 @@ export function groupBalancesBySymbol(
     const chainId = chainInfo?.chainId ?? chainName
 
     for (const balance of balances) {
-      // Skip unknown types, LP tokens, and zero/negative values
-      if (balance.type === "unknown" || balance.type === "lp" || (balance.value ?? 0) <= 0) continue
+      // Skip unknown types, LP tokens, and assets with no value AND no amount
+      if (
+        balance.type === "unknown" ||
+        balance.type === "lp" ||
+        ((balance.value ?? 0) <= 0 && (balance.formattedAmount ?? 0) <= 0)
+      )
+        continue
 
       const item: PortfolioAssetItem = {
         symbol: balance.symbol,
@@ -1098,22 +1163,32 @@ export function useMinityChainBreakdown(): ChainBreakdownItem[] {
 /**
  * Computes liquid assets total from balances only (excludes LP tokens).
  * Updates progressively as SSE balance data streams in.
+ * Applies fallback pricing for balances without values from Minity.
  */
 export function useLiquidAssetsBalance(): number {
   const { balances } = useMinityPortfolio()
+  const chains = useInitiaRegistry()
+  const priceQueries = useAllChainPriceQueries()
+  const chainPrices = useMemo(() => buildPriceMap(chains, priceQueries), [chains, priceQueries])
 
   return useMemo(() => {
     let total = 0
     const safeBalances = Array.isArray(balances) ? balances : []
-    for (const { balances: chainBalances } of safeBalances) {
+
+    // Apply fallback pricing first (same as Assets display)
+    const balancesWithPricing = applyFallbackPricing(safeBalances, chainPrices)
+
+    for (const { balances: chainBalances } of balancesWithPricing) {
       if (!Array.isArray(chainBalances)) continue // Skip if balances is not an array
-      total += chainBalances.reduce((sum, b) => {
-        if (b.type === "lp") return sum // Skip LP tokens, counted in L1 liquidity positions
-        return sum + getBalanceValue(b)
-      }, 0)
+      for (const b of chainBalances) {
+        if (b.type === "lp") {
+          continue // Skip LP tokens, counted in L1 liquidity positions
+        }
+        total += getBalanceValue(b)
+      }
     }
     return total
-  }, [balances])
+  }, [balances, chainPrices])
 }
 
 /**
