@@ -52,16 +52,14 @@ const WithdrawFields = () => {
   const [debouncedQuantity] = useDebounceValue(quantity, 300)
 
   const disabledMessage = useMemo(() => {
-    if (!localAsset) return "Select asset"
     if (!Number(quantity)) return "Enter amount"
     if (Number(quantity) > Number(formatAmount(balance, { decimals: localAsset?.decimals || 6 })))
       return "Insufficient balance"
-
+    if (!externalAsset) return "Select destination"
     // Forced to use eslint-disable due to an issue with react-hooks/exhaustive-deps
     // which for some reason thinks quantity is not a stable dependency even tho it works fine in DepositFields
     // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  }, [quantity, balance, localAsset])
-
+  }, [quantity, balance, externalAsset, localAsset])
   const { data: route, error: routeError } = useRouteQuery(debouncedQuantity, {
     disabled: !!disabledMessage,
   })
