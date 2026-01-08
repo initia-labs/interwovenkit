@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
 import { formatAmount, InitiaAddress } from "@initia/utils"
@@ -51,13 +51,16 @@ const WithdrawFields = () => {
 
   const [debouncedQuantity] = useDebounceValue(quantity, 300)
 
-  let disabledMessage: string | undefined
-  if (!localAsset) disabledMessage = "Select asset"
-  else if (!Number(quantity)) disabledMessage = "Enter amount"
-  else if (
-    Number(quantity) > Number(formatAmount(balance, { decimals: localAsset?.decimals || 6 }))
-  )
-    disabledMessage = "Insufficient balance"
+  const disabledMessage = useMemo(() => {
+    if (!localAsset) return "Select asset"
+    if (!Number(quantity)) return "Enter amount"
+    if (Number(quantity) > Number(formatAmount(balance, { decimals: localAsset?.decimals || 6 })))
+      return "Insufficient balance"
+
+    // Forced to use eslint-disable due to an issue with react-hooks/exhaustive-deps
+    // which for some reason thinks quantity is not a stable dependency even tho it works fine in DepositFields
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
+  }, [quantity, balance, localAsset])
 
   const { data: route, error: routeError } = useRouteQuery(debouncedQuantity, {
     disabled: !!disabledMessage,
@@ -128,7 +131,7 @@ const WithdrawFields = () => {
         </div>
       )}
       <div className={styles.divider} />
-      <p className={styles.label}>Destination chain</p>
+      <p className={styles.label}>Destination</p>
       <button
         className={styles.asset}
         onClick={() => {
