@@ -27,7 +27,7 @@ interface Props<T extends FieldValues> extends InputHTMLAttributes<HTMLInputElem
 function NumericInput<T extends FieldValues>(props: Props<T>) {
   const { name, control, dp = 6, className, rules, ...attrs } = props
   const autoFocusRef = useAutoFocus()
-  const [displayValue, setDisplayValue] = useState("")
+  const [displayValue, setDisplayValue] = useState<string | undefined>(undefined)
 
   return (
     <Controller
@@ -39,11 +39,7 @@ function NumericInput<T extends FieldValues>(props: Props<T>) {
           const sanitized = sanitizeNumericInput(newValue, dp)
           setDisplayValue(sanitized)
 
-          // Only update form if numeric value changed
-          const currentNumeric = field.value === "" ? "0" : field.value
-          const newNumeric = sanitized === "" ? "0" : sanitized
-
-          if (Number(currentNumeric) !== Number(newNumeric)) {
+          if (Number(field.value || 0) !== Number(sanitized || 0)) {
             field.onChange(sanitized)
           }
         }
@@ -51,7 +47,7 @@ function NumericInput<T extends FieldValues>(props: Props<T>) {
         return (
           <input
             {...field}
-            value={displayValue || field.value}
+            value={displayValue ?? field.value}
             className={clsx(styles.input, className)}
             onChange={(e) => handleChange(e.target.value)}
             onPaste={(e) => {
