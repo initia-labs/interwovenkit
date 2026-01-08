@@ -1,4 +1,5 @@
 import clsx from "clsx"
+import { useState } from "react"
 import type { Control, FieldValues, Path, RegisterOptions } from "react-hook-form"
 import { Controller } from "react-hook-form"
 import { mergeRefs } from "react-merge-refs"
@@ -26,36 +27,52 @@ interface Props<T extends FieldValues> extends InputHTMLAttributes<HTMLInputElem
 function NumericInput<T extends FieldValues>(props: Props<T>) {
   const { name, control, dp = 6, className, rules, ...attrs } = props
   const autoFocusRef = useAutoFocus()
+  const [displayValue, setDisplayValue] = useState("")
 
   return (
     <Controller
       name={name}
       control={control}
       rules={rules}
-      render={({ field }) => (
-        <input
-          {...field}
-          className={clsx(styles.input, className)}
-          onChange={(e) => field.onChange(sanitizeNumericInput(e.target.value, dp))}
-          onPaste={(e) => {
-            e.preventDefault()
-            const pastedText = e.clipboardData.getData("text")
+      render={({ field }) => {
+        const handleChange = (newValue: string) => {
+          const sanitized = sanitizeNumericInput(newValue, dp)
+          setDisplayValue(sanitized)
 
-            // Check if it's a formatted number (e.g., 1,234,567.890)
-            const formattedNumberRegex = /^[0-9,]+(\.[0-9]+)?$/
-            if (!formattedNumberRegex.test(pastedText)) return
+          // Only update form if numeric value changed
+          const currentNumeric = field.value === "" ? "0" : field.value
+          const newNumeric = sanitized === "" ? "0" : sanitized
 
-            const cleanedValue = pastedText.replace(/,/g, "")
-            const sanitized = sanitizeNumericInput(cleanedValue, dp)
+          if (Number(currentNumeric) !== Number(newNumeric)) {
             field.onChange(sanitized)
-          }}
-          placeholder="0"
-          inputMode="decimal"
-          autoComplete="off"
-          {...attrs}
-          ref={mergeRefs([field.ref, autoFocusRef])}
-        />
-      )}
+          }
+        }
+
+        return (
+          <input
+            {...field}
+            value={displayValue || field.value}
+            className={clsx(styles.input, className)}
+            onChange={(e) => handleChange(e.target.value)}
+            onPaste={(e) => {
+              e.preventDefault()
+              const pastedText = e.clipboardData.getData("text")
+
+              // Check if it's a formatted number (e.g., 1,234,567.890)
+              const formattedNumberRegex = /^[0-9,]+(\.[0-9]+)?$/
+              if (!formattedNumberRegex.test(pastedText)) return
+
+              const cleanedValue = pastedText.replace(/,/g, "")
+              handleChange(cleanedValue)
+            }}
+            placeholder="0"
+            inputMode="decimal"
+            autoComplete="off"
+            {...attrs}
+            ref={mergeRefs([field.ref, autoFocusRef])}
+          />
+        )
+      }}
     />
   )
 }
