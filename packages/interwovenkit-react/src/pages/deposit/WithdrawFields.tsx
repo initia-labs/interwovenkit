@@ -59,11 +59,9 @@ const WithdrawFields = () => {
   )
     disabledMessage = "Insufficient balance"
 
-  const {
-    data: route,
-    isLoading: isRouteLoading,
-    error: routeError,
-  } = useRouteQuery(debouncedQuantity, { disabled: !!disabledMessage })
+  const { data: route, error: routeError } = useRouteQuery(debouncedQuantity, {
+    disabled: !!disabledMessage,
+  })
 
   useEffect(() => {
     navigate(0, {
@@ -168,7 +166,7 @@ const WithdrawFields = () => {
       {!state.route || !!disabledMessage ? (
         <Button.White
           type="submit"
-          loading={isRouteLoading}
+          loading={!routeError && !disabledMessage && "Fetching route..."}
           disabled={true}
           fullWidth
           className={styles.submit}

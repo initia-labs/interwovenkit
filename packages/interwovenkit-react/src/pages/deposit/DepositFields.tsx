@@ -62,11 +62,9 @@ const DepositFields = () => {
     // Destructure error fields in deps to properly track each field change
   }, [quantity, balance, externalAsset])
 
-  const {
-    data: route,
-    isLoading: isRouteLoading,
-    error: routeError,
-  } = useRouteQuery(debouncedQuantity, { disabled: !!disabledMessage })
+  const { data: route, error: routeError } = useRouteQuery(debouncedQuantity, {
+    disabled: !!disabledMessage,
+  })
 
   useEffect(() => {
     navigate(0, {
@@ -169,7 +167,7 @@ const DepositFields = () => {
       {!state.route || !!disabledMessage ? (
         <Button.White
           type="submit"
-          loading={isRouteLoading}
+          loading={!routeError && !disabledMessage && "Fetching route..."}
           disabled={true}
           fullWidth
           className={styles.submit}
