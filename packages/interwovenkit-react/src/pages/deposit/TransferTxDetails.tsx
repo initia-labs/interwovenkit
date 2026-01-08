@@ -2,6 +2,7 @@ import clsx from "clsx"
 import { useToggle } from "usehooks-ts"
 import { IconChevronDown } from "@initia/icons-react"
 import { formatAmount, truncate } from "@initia/utils"
+import AnimatedHeight from "@/components/AnimatedHeight"
 import { useConnectedWalletIcon } from "@/hooks/useConnectedWalletIcon"
 import { useLocationState } from "@/lib/router"
 import { useInitiaAddress } from "@/public/data/hooks"
@@ -39,55 +40,57 @@ const TransferTxDetails = ({ renderFee }: Props) => {
     : BigInt(route.amount_out || route.estimated_amount_out)
 
   return (
-    <div className={styles.detailsContainer}>
-      <button className={styles.detailsButton} onClick={toggleOpen}>
-        Transaction details{" "}
-        <IconChevronDown
-          size={12}
-          style={{ transform: isDetailsOpen ? "rotate(180deg)" : "rotate(0deg)" }}
-        />
-      </button>
-      {isDetailsOpen && (
-        <>
-          {route.does_swap && (
-            <div className={styles.detail}>
-              <p className={styles.detailLabel}>Slippage</p>
-              <p className={styles.detailValue}>{values.slippagePercent}%</p>
-            </div>
-          )}
-          {renderFee && (
-            <div className={styles.detail}>
-              <p className={styles.detailLabel}>Tx fee</p>
-              <div className={styles.detailValue}>{renderFee()}</div>
-            </div>
-          )}
-          {address && (
-            <div className={styles.detail}>
-              <p className={styles.detailLabel}>Receiving address</p>
-              <p className={styles.detailValue}>
-                <img src={walletIcon} alt="Wallet" height={12} width={12} /> {truncate(address)}
-              </p>
-            </div>
-          )}
-        </>
-      )}
-      <div className={styles.detail}>
-        <p className={styles.detailLabel}>Estimated time</p>
-        <p
-          className={clsx(styles.detailValue)}
-          style={isLongDuration ? { color: "var(--warning)" } : undefined}
-        >
-          {formatDuration(route.estimated_route_duration_seconds)}
-        </p>
+    <AnimatedHeight>
+      <div className={styles.detailsContainer}>
+        <button className={styles.detailsButton} onClick={toggleOpen}>
+          Transaction details{" "}
+          <IconChevronDown
+            size={12}
+            style={{ transform: isDetailsOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+          />
+        </button>
+        {isDetailsOpen && (
+          <>
+            {route.does_swap && (
+              <div className={styles.detail}>
+                <p className={styles.detailLabel}>Slippage</p>
+                <p className={styles.detailValue}>{values.slippagePercent}%</p>
+              </div>
+            )}
+            {renderFee && (
+              <div className={styles.detail}>
+                <p className={styles.detailLabel}>Tx fee</p>
+                <div className={styles.detailValue}>{renderFee()}</div>
+              </div>
+            )}
+            {address && (
+              <div className={styles.detail}>
+                <p className={styles.detailLabel}>Receiving address</p>
+                <p className={styles.detailValue}>
+                  <img src={walletIcon} alt="Wallet" height={12} width={12} /> {truncate(address)}
+                </p>
+              </div>
+            )}
+          </>
+        )}
+        <div className={styles.detail}>
+          <p className={styles.detailLabel}>Estimated time</p>
+          <p
+            className={clsx(styles.detailValue)}
+            style={isLongDuration ? { color: "var(--warning)" } : undefined}
+          >
+            {formatDuration(route.estimated_route_duration_seconds)}
+          </p>
+        </div>
+        <div className={clsx(styles.detail, styles.minimumReceived)}>
+          <p className={styles.detailLabel}>Minimum received</p>
+          <p className={styles.detailValue}>
+            <img src={dstAsset.logo_uri} alt={dstAsset.symbol} className={styles.detailToken} />{" "}
+            {formatAmount(minimumReceived, { decimals: dstAsset.decimals })} {dstAsset.symbol}
+          </p>
+        </div>
       </div>
-      <div className={clsx(styles.detail, styles.minimumReceived)}>
-        <p className={styles.detailLabel}>Minimum received</p>
-        <p className={styles.detailValue}>
-          <img src={dstAsset.logo_uri} alt={dstAsset.symbol} className={styles.detailToken} />{" "}
-          {formatAmount(minimumReceived, { decimals: dstAsset.decimals })} {dstAsset.symbol}
-        </p>
-      </div>
-    </div>
+    </AnimatedHeight>
   )
 }
 
