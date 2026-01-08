@@ -91,14 +91,11 @@ const DepositFields = () => {
         <button
           className={styles.back}
           onClick={() => {
-            setValue("dstDenom", "")
-            setValue("dstChainId", "")
-            // reset other values
             setValue("quantity", "")
             setValue("srcDenom", "")
             setValue("srcChainId", "")
             // navigate to dst page
-            setValue("page", "select-local")
+            setValue("page", "select-external")
           }}
         >
           <IconBack size={14} />
