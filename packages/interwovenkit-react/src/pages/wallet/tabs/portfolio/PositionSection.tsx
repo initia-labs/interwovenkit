@@ -4,6 +4,7 @@ import { useMemo, useState } from "react"
 import { IconChevronDown, IconExternalLink } from "@initia/icons-react"
 import { formatNumber } from "@initia/utils"
 import Image from "@/components/Image"
+import { INIT_SYMBOL } from "@/data/constants"
 import {
   type DenomGroup,
   getPositionTypeLabel,
@@ -24,9 +25,17 @@ interface PositionSectionListProps {
   protocols: ProtocolPosition[]
   denomLogoMap: DenomLogoMap
   isInitia?: boolean
+  getClaimableInitByType?: (denom: string, type: Position["type"]) => string
+  initPrice?: number
 }
 
-const PositionSectionList = ({ protocols, denomLogoMap, isInitia }: PositionSectionListProps) => {
+const PositionSectionList = ({
+  protocols,
+  denomLogoMap,
+  isInitia,
+  getClaimableInitByType,
+  initPrice,
+}: PositionSectionListProps) => {
   // Get manageUrl from first protocol (they typically share the same URL)
   const manageUrl = protocols[0]?.manageUrl
 
@@ -47,6 +56,8 @@ const PositionSectionList = ({ protocols, denomLogoMap, isInitia }: PositionSect
           denomLogoMap={denomLogoMap}
           isInitia={isInitia}
           manageUrl={manageUrl}
+          getClaimableInitByType={getClaimableInitByType}
+          initPrice={initPrice}
         />
       ))}
     </div>
@@ -59,6 +70,8 @@ interface PositionSectionProps {
   denomLogoMap: DenomLogoMap
   isInitia?: boolean
   manageUrl?: string
+  getClaimableInitByType?: (denom: string, type: Position["type"]) => string
+  initPrice?: number
 }
 
 const PositionSection = ({
@@ -67,14 +80,20 @@ const PositionSection = ({
   denomLogoMap,
   isInitia,
   manageUrl,
+  getClaimableInitByType,
+  initPrice,
 }: PositionSectionProps) => {
   const label = getSectionLabel(sectionKey, isInitia)
   const denomGroups = useMemo(() => groupPositionsByDenom(positions), [positions])
   const isStakingSection = sectionKey === "staking"
+  const isBorrowingSection = sectionKey === "borrowing"
 
   const totalValue = useMemo(() => {
     return positions.reduce((sum, pos) => sum + getPositionValue(pos), 0)
   }, [positions])
+
+  // Display absolute value for borrowing (but keep calculation as negative)
+  const displayValue = isBorrowingSection ? Math.abs(totalValue) : totalValue
 
   return (
     <div className={styles.section}>
@@ -93,7 +112,7 @@ const PositionSection = ({
             </a>
           )}
         </div>
-        <span className={styles.sectionValue}>{formatValue(totalValue)}</span>
+        <span className={styles.sectionValue}>{formatValue(displayValue)}</span>
       </div>
       <div className={clsx(styles.tokenList, { [styles.stakingTokenList]: isStakingSection })}>
         {denomGroups.map((group) => (
@@ -102,6 +121,8 @@ const PositionSection = ({
             group={group}
             showTypeBreakdown={isStakingSection}
             denomLogoMap={denomLogoMap}
+            getClaimableInitByType={getClaimableInitByType}
+            initPrice={initPrice}
           />
         ))}
       </div>
@@ -113,12 +134,24 @@ interface TokenRowProps {
   group: DenomGroup
   showTypeBreakdown: boolean
   denomLogoMap: DenomLogoMap
+  getClaimableInitByType?: (denom: string, type: Position["type"]) => string
+  initPrice?: number
 }
 
-const TokenRow = ({ group, showTypeBreakdown, denomLogoMap }: TokenRowProps) => {
+const TokenRow = ({
+  group,
+  showTypeBreakdown,
+  denomLogoMap,
+  getClaimableInitByType,
+  initPrice,
+}: TokenRowProps) => {
   const { denom, symbol, totalAmount, totalValue, positions } = group
   const logos = denomLogoMap.get(denom)
   const [isOpen, setIsOpen] = useState(false)
+
+  // Check if this is a borrowing position (has negative value)
+  const isBorrowing = positions.some((pos) => pos.type === "lending" && pos.direction === "borrow")
+  const displayValue = isBorrowing ? Math.abs(totalValue) : totalValue
 
   const typeGroups = useMemo(() => {
     if (!showTypeBreakdown) return null
@@ -139,7 +172,7 @@ const TokenRow = ({ group, showTypeBreakdown, denomLogoMap }: TokenRowProps) => 
           </div>
           <div className={styles.tokenValues}>
             <span className={styles.tokenAmount}>{formatNumber(totalAmount, { dp: 6 })}</span>
-            <span className={styles.tokenValue}>{formatValue(totalValue)}</span>
+            <span className={styles.tokenValue}>{formatValue(displayValue)}</span>
           </div>
         </div>
       </div>
@@ -163,12 +196,18 @@ const TokenRow = ({ group, showTypeBreakdown, denomLogoMap }: TokenRowProps) => 
               <span className={styles.tokenSymbol}>{symbol}</span>
             </div>
           </div>
-          <span className={styles.triggerValue}>{formatValue(totalValue)}</span>
+          <span className={styles.triggerValue}>{formatValue(displayValue)}</span>
         </button>
       </Collapsible.Trigger>
 
       <Collapsible.Content className={styles.collapsibleContent}>
-        <TypeBreakdown typeGroups={typeGroups} symbol={symbol} />
+        <TypeBreakdown
+          typeGroups={typeGroups}
+          symbol={symbol}
+          denom={denom}
+          getClaimableInitByType={getClaimableInitByType}
+          initPrice={initPrice}
+        />
       </Collapsible.Content>
     </Collapsible.Root>
   )
@@ -177,9 +216,18 @@ const TokenRow = ({ group, showTypeBreakdown, denomLogoMap }: TokenRowProps) => 
 interface TypeBreakdownProps {
   typeGroups: Map<Position["type"], Position[]>
   symbol: string
+  denom: string
+  getClaimableInitByType?: (denom: string, type: Position["type"]) => string
+  initPrice?: number
 }
 
-const TypeBreakdown = ({ typeGroups, symbol }: TypeBreakdownProps) => {
+const TypeBreakdown = ({
+  typeGroups,
+  symbol,
+  denom,
+  getClaimableInitByType,
+  initPrice,
+}: TypeBreakdownProps) => {
   // Pre-calculate all type amounts and values
   const typeData = useMemo(() => {
     return Array.from(typeGroups.entries()).map(([type, typePositions]) => {
@@ -192,6 +240,19 @@ const TypeBreakdown = ({ typeGroups, symbol }: TypeBreakdownProps) => {
       return { type, typeAmount, typeValue }
     })
   }, [typeGroups])
+
+  // Calculate total claimable across all types
+  const totalClaimable = useMemo(() => {
+    if (!getClaimableInitByType) return 0
+    let total = 0
+    for (const { type } of typeData) {
+      const claimable = getClaimableInitByType(denom, type)
+      total += Number(claimable)
+    }
+    return total
+  }, [denom, getClaimableInitByType, typeData])
+
+  const hasClaimable = totalClaimable > 0
 
   return (
     <div className={styles.typeBreakdown}>
@@ -206,6 +267,19 @@ const TypeBreakdown = ({ typeGroups, symbol }: TypeBreakdownProps) => {
           </div>
         </div>
       ))}
+      {hasClaimable && (
+        <div className={styles.typeRow}>
+          <span className={styles.typeLabel}>Claimable</span>
+          <div className={styles.typeValues}>
+            <span className={styles.typeAmount}>
+              {formatNumber(totalClaimable, { dp: 6 })} {INIT_SYMBOL}
+            </span>
+            <span className={styles.typeValue}>
+              {formatValue(totalClaimable * (initPrice ?? 0))}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

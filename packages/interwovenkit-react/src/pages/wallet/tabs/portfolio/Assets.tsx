@@ -1,16 +1,15 @@
 import { useMemo } from "react"
-import AsyncBoundary from "@/components/AsyncBoundary"
 import FallBack from "@/components/FallBack"
 import Status from "@/components/Status"
-import { useAllChainAssetsQueries } from "@/data/assets"
 import {
+  applyFallbackPricing,
   applyLogosToGroups,
-  buildAssetLogoMaps,
+  type ChainInfo,
   filterAssetGroups,
   groupBalancesBySymbol,
-  useChainInfoMap,
   useMinityPortfolio,
 } from "@/data/minity"
+import type { PortfolioAssetItem } from "@/data/portfolio"
 import { formatValue } from "@/lib/format"
 import AssetGroup from "./AssetGroup"
 import UnlistedAssetsSection from "./UnlistedAssetsSection"
@@ -19,26 +18,35 @@ import styles from "./Assets.module.css"
 interface AssetsProps {
   searchQuery: string
   selectedChain: string
+  denomLogos: Map<string, string>
+  symbolLogos: Map<string, string>
+  unlistedAssets: PortfolioAssetItem[]
+  chainInfoMap: Map<string, ChainInfo>
+  chainPrices: Map<string, Map<string, number>>
 }
 
-const Assets = ({ searchQuery, selectedChain }: AssetsProps) => {
+const Assets = ({
+  searchQuery,
+  selectedChain,
+  denomLogos,
+  symbolLogos,
+  unlistedAssets,
+  chainInfoMap,
+  chainPrices,
+}: AssetsProps) => {
   // Minity data for main assets (SSE - streams progressively)
   const { balances: minityBalances, isLoading } = useMinityPortfolio()
 
-  // Chain info map for chain names/logos (registry - fast, blocking)
-  const chainInfoMap = useChainInfoMap()
-
-  // Asset logos (non-blocking - renders immediately, logos appear when ready)
-  const assetsQueries = useAllChainAssetsQueries()
-  const { denomLogos, symbolLogos } = useMemo(
-    () => buildAssetLogoMaps(assetsQueries),
-    [assetsQueries],
+  // Apply fallback pricing to balances (if Minity doesn't provide value, use price API)
+  const balancesWithPricing = useMemo(
+    () => applyFallbackPricing(minityBalances, chainPrices),
+    [minityBalances, chainPrices],
   )
 
   // Group Minity balances by symbol across all chains (no logo dependency - fast)
   const baseAssetGroups = useMemo(
-    () => groupBalancesBySymbol(minityBalances, chainInfoMap),
-    [minityBalances, chainInfoMap],
+    () => groupBalancesBySymbol(balancesWithPricing, chainInfoMap),
+    [balancesWithPricing, chainInfoMap],
   )
 
   // Apply logos to asset groups (cheap operation - only runs when logos load)
@@ -68,11 +76,13 @@ const Assets = ({ searchQuery, selectedChain }: AssetsProps) => {
               <AssetGroup assetGroup={assetGroup} key={assetGroup.symbol} />
             ))}
           </div>
-          <AsyncBoundary>
-            <UnlistedAssetsSection searchQuery={searchQuery} selectedChain={selectedChain} />
-          </AsyncBoundary>
+          <UnlistedAssetsSection
+            searchQuery={searchQuery}
+            selectedChain={selectedChain}
+            unlistedAssets={unlistedAssets}
+          />
         </div>
-      ) : isLoading ? (
+      ) : assetGroups.length === 0 && isLoading ? (
         <FallBack height={56} length={3} />
       ) : (
         <Status>No liquid assets</Status>

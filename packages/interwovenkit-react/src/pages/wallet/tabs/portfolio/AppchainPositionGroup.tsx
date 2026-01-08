@@ -3,8 +3,6 @@ import { Collapsible } from "radix-ui"
 import { useMemo } from "react"
 import { atom, useAtom } from "jotai"
 import { IconChevronDown, IconExternalLink } from "@initia/icons-react"
-import AsyncBoundary from "@/components/AsyncBoundary"
-import FallBack from "@/components/FallBack"
 import Image from "@/components/Image"
 import { useAllChainAssetsQueries } from "@/data/assets"
 import {
@@ -131,11 +129,7 @@ const AppchainPositionGroup = ({ chainGroup }: Props) => {
         <Collapsible.Content className={styles.collapsibleContent}>
           <div className={styles.content}>
             <AppchainPositionContent chainGroup={chainGroup} />
-            {isCivitia && (
-              <AsyncBoundary suspenseFallback={<FallBack height={36} length={2} />}>
-                <CivitiaSection />
-              </AsyncBoundary>
-            )}
+            {isCivitia && <CivitiaSection />}
           </div>
         </Collapsible.Content>
       </Collapsible.Root>

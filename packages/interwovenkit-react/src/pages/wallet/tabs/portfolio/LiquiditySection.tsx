@@ -139,7 +139,7 @@ const LiquidityRow = ({ row, denomLogoMap }: LiquidityRowProps) => {
           })}
           {hasClaimableInit && (
             <div className={styles.breakdownRow}>
-              <span className={styles.breakdownLabel}>Claimable INIT</span>
+              <span className={styles.breakdownLabel}>Claimable</span>
               <div className={styles.breakdownValues}>
                 <span className={styles.breakdownAmount}>
                   {formatNumber(Number(claimableInit.total), { dp: 6 })} {INIT_SYMBOL}

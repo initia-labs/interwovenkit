@@ -1,10 +1,15 @@
 import clsx from "clsx"
 import { formatNumber } from "@initia/utils"
+import FallBack from "@/components/FallBack"
 import { useCivitiaPlayer } from "@/data/civitia"
 import styles from "./CivitiaSection.module.css"
 
 const CivitiaSection = () => {
-  const { data: player } = useCivitiaPlayer()
+  const { data: player, isLoading } = useCivitiaPlayer()
+
+  if (isLoading) {
+    return <FallBack height={36} length={2} />
+  }
 
   const gold = player?.gold_balance ?? 0
   const silver = player?.silver_balance ?? 0

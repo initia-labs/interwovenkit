@@ -3,9 +3,16 @@ import { useAtom } from "jotai"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import FallBack from "@/components/FallBack"
 import Skeleton from "@/components/Skeleton"
-import { useLayer1 } from "@/data/chains"
+import { useAllChainAssetsQueries } from "@/data/assets"
+import { useAllChainPriceQueries, useInitiaRegistry, useLayer1 } from "@/data/chains"
 import { useConfig } from "@/data/config"
-import { useMinityChainBreakdown } from "@/data/minity"
+import {
+  buildAssetLogoMaps,
+  buildPriceMap,
+  useChainInfoMap,
+  useMinityChainBreakdown,
+} from "@/data/minity"
+import { usePortfolio } from "@/data/portfolio"
 import { formatValue } from "@/lib/format"
 import ChainSelect from "../../components/ChainSelect"
 import HomeContainer from "../../components/HomeContainer"
@@ -74,6 +81,30 @@ const Portfolio = () => {
   const [searchQuery, setSearchQuery] = useAtom(portfolioSearchAtom)
   const [selectedChain, setSelectedChain] = useAtom(portfolioChainAtom)
 
+  // Fetch chains for price queries
+  const chains = useInitiaRegistry()
+
+  // Fetch asset logos once at portfolio level (shared by Assets and Positions)
+  // This prevents re-fetching on every search keystroke
+  const assetsQueries = useAllChainAssetsQueries()
+  const { denomLogos, symbolLogos } = useMemo(
+    () => buildAssetLogoMaps(assetsQueries),
+    [assetsQueries],
+  )
+
+  // Fetch prices for all chains once at portfolio level (used for fallback pricing)
+  // This prevents re-fetching on every search keystroke
+  const priceQueries = useAllChainPriceQueries()
+  const chainPrices = useMemo(() => buildPriceMap(chains, priceQueries), [chains, priceQueries])
+
+  // Fetch chain info map once at portfolio level (used by Assets and Positions)
+  // This prevents suspension when search filter changes
+  const chainInfoMap = useChainInfoMap()
+
+  // Fetch portfolio data once at portfolio level (used by UnlistedAssetsSection)
+  // This prevents re-fetching when search filter changes
+  const { unlistedAssets } = usePortfolio()
+
   return (
     <HomeContainer.Root>
       <HomeContainer.Controls>
@@ -90,10 +121,22 @@ const Portfolio = () => {
 
       <div className={styles.content}>
         <AsyncBoundary suspenseFallback={<FallBack height={48} length={5} />}>
-          <Assets searchQuery={searchQuery} selectedChain={selectedChain} />
+          <Assets
+            searchQuery={searchQuery}
+            selectedChain={selectedChain}
+            denomLogos={denomLogos}
+            symbolLogos={symbolLogos}
+            unlistedAssets={unlistedAssets}
+            chainInfoMap={chainInfoMap}
+            chainPrices={chainPrices}
+          />
         </AsyncBoundary>
         <AsyncBoundary suspenseFallback={<FallBack height={56} length={3} />}>
-          <Positions searchQuery={searchQuery} selectedChain={selectedChain} />
+          <Positions
+            searchQuery={searchQuery}
+            selectedChain={selectedChain}
+            chainInfoMap={chainInfoMap}
+          />
         </AsyncBoundary>
       </div>
     </HomeContainer.Root>
