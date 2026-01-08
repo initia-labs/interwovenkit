@@ -44,7 +44,7 @@ const SelectExternalAsset = () => {
           }
         }}
       >
-        <IconBack size={14} />
+        <IconBack size={20} />
       </button>
     )
   }

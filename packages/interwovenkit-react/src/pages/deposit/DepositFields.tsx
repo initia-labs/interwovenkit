@@ -98,7 +98,7 @@ const DepositFields = () => {
             setValue("page", "select-external")
           }}
         >
-          <IconBack size={14} />
+          <IconBack size={20} />
         </button>
       )}
       <h3 className={styles.title}>Deposit {localAsset.symbol}</h3>

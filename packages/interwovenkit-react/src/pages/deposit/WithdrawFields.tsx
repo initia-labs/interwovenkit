@@ -98,7 +98,7 @@ const WithdrawFields = () => {
             setValue("page", "select-local")
           }}
         >
-          <IconBack size={14} />
+          <IconBack size={20} />
         </button>
       )}
       <h3 className={styles.title}>Withdraw {localAsset.symbol}</h3>

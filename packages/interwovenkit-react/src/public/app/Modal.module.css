@@ -46,7 +46,6 @@
   z-index: 1000;
 
   color: var(--gray-4);
-  padding: 1.6px;
 }
 
 .closeButton:hover {
