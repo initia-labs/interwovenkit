@@ -71,7 +71,7 @@ const SelectExternalAsset = () => {
     <div className={styles.container}>
       {renderBackButton()}
       <h4 className={styles.title}>
-        {isWithdraw ? "Select destination chain" : `Deposit ${localAsset.symbol}`}{" "}
+        {isWithdraw ? "Select destination" : `Deposit ${localAsset.symbol}`}{" "}
       </h4>
 
       <div className={styles.list}>
