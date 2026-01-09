@@ -13,10 +13,9 @@ import {
   injectStyles,
   InterwovenKitProvider,
   PRIVY_APP_ID,
-  TESTNET,
 } from "@initia/interwovenkit-react"
 import css from "@initia/interwovenkit-react/styles.css?inline"
-import { chainId, isTestnet, routerApiUrl, useTheme } from "./data"
+import { chainId, routerApiUrl, useTheme } from "./data"
 
 import type { PropsWithChildren } from "react"
 
@@ -37,7 +36,8 @@ const InterwovenKitWrapper = ({ children }: PropsWithChildren) => {
 
   return (
     <InterwovenKitProvider
-      {...(isTestnet ? TESTNET : {})}
+      defaultChainId="YOUR_CHAIN_ID"
+      customChain={YOUR_CUSTOM_CHAIN}
       {...(routerApiUrl ? { routerApiUrl } : {})}
       theme={theme}
       container={import.meta.env.DEV ? document.body : undefined}
