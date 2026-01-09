@@ -12,7 +12,6 @@ import {
   useChainInfoMap,
   useMinityChainBreakdown,
 } from "@/data/minity"
-import { usePortfolio } from "@/data/portfolio"
 import { formatValue } from "@/lib/format"
 import ChainSelect from "../../components/ChainSelect"
 import HomeContainer from "../../components/HomeContainer"
@@ -101,10 +100,6 @@ const Portfolio = () => {
   // This prevents suspension when search filter changes
   const chainInfoMap = useChainInfoMap()
 
-  // Fetch portfolio data once at portfolio level (used by UnlistedAssetsSection)
-  // This prevents re-fetching when search filter changes
-  const { unlistedAssets } = usePortfolio()
-
   return (
     <HomeContainer.Root>
       <HomeContainer.Controls>
@@ -126,7 +121,6 @@ const Portfolio = () => {
             selectedChain={selectedChain}
             denomLogos={denomLogos}
             symbolLogos={symbolLogos}
-            unlistedAssets={unlistedAssets}
             chainInfoMap={chainInfoMap}
             chainPrices={chainPrices}
           />

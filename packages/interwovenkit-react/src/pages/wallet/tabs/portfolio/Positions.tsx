@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { memo, useMemo } from "react"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import FallBack from "@/components/FallBack"
 import Status from "@/components/Status"
@@ -21,7 +21,7 @@ export interface PositionsProps {
   chainInfoMap: Map<string, ChainInfo>
 }
 
-const Positions = ({ searchQuery, selectedChain, chainInfoMap }: PositionsProps) => {
+const Positions = memo(({ searchQuery, selectedChain, chainInfoMap }: PositionsProps) => {
   // Position data (SSE - streams progressively)
   const { positions, isLoading } = useMinityPortfolio()
 
@@ -96,17 +96,20 @@ const Positions = ({ searchQuery, selectedChain, chainInfoMap }: PositionsProps)
       })
     }
 
-    // Sort: Initia first, then by value descending, then Civitia last, then alphabetically
+    // Chains excluded from value calculations (fungible NFTs only, no USD values)
+    const excludedChains = ["civitia", "yominet"]
+
+    // Sort: Initia first, then by value descending, then excluded chains last, then alphabetically
     return result.toSorted((a, b) => {
       // Initia first
       if (a.isInitia) return -1
       if (b.isInitia) return 1
 
-      // Civitia last (both have 0 value, but we want Civitia at the end)
-      const aIsCivitia = a.chainName.toLowerCase() === "civitia"
-      const bIsCivitia = b.chainName.toLowerCase() === "civitia"
-      if (aIsCivitia && !bIsCivitia) return 1
-      if (!aIsCivitia && bIsCivitia) return -1
+      // Excluded chains last (Civitia and Yominet)
+      const aIsExcluded = excludedChains.includes(a.chainName.toLowerCase())
+      const bIsExcluded = excludedChains.includes(b.chainName.toLowerCase())
+      if (aIsExcluded && !bIsExcluded) return 1
+      if (!aIsExcluded && bIsExcluded) return -1
 
       // Then by value descending
       if (b.totalValue !== a.totalValue) return b.totalValue - a.totalValue
@@ -165,6 +168,8 @@ const Positions = ({ searchQuery, selectedChain, chainInfoMap }: PositionsProps)
       )}
     </div>
   )
-}
+})
+
+Positions.displayName = "Positions"
 
 export default Positions

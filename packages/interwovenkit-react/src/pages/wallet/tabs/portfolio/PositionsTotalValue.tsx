@@ -19,7 +19,7 @@ const PositionsTotalValue = ({ filteredChainGroups }: PositionsTotalValueProps) 
 
   // Calculate total positions value:
   // - L1 (Initia): use on-chain data totals
-  // - Appchains: use totalValue from group (already calculated, excluding Civitia)
+  // - Appchains: use totalValue from group (already calculated, excluding Civitia and Yominet)
   const totalPositionsValue = useMemo(() => {
     const hasL1 = filteredChainGroups.some((g) => g.isInitia)
 
