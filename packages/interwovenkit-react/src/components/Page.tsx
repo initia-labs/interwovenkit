@@ -1,5 +1,5 @@
 import { IconBack } from "@initia/icons-react"
-import { Link } from "@/lib/router"
+import { Link, useHistory } from "@/lib/router"
 import Scrollable from "./Scrollable"
 import styles from "./Page.module.css"
 
@@ -12,10 +12,16 @@ interface Props {
 }
 
 const Page = ({ title, backButton, extra, children }: PropsWithChildren<Props>) => {
+  const history = useHistory()
+
   return (
     <>
       <header className={styles.header}>
-        <Link to={backButton ?? -1} className={styles.back} shouldReset={!!backButton}>
+        <Link
+          to={backButton ?? (history.length > 1 ? -1 : "/")}
+          className={styles.back}
+          shouldReset={!!backButton}
+        >
           <IconBack size={16} />
         </Link>
 

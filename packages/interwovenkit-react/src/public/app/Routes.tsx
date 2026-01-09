@@ -33,7 +33,7 @@ const Routes = () => {
   useEffect(() => {
     closeModal()
 
-    if (path.startsWith("/bridge/")) {
+    if (path.startsWith("/bridge/") && path !== "/bridge/history") {
       navigate("/bridge")
     }
 

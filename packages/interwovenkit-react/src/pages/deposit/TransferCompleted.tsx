@@ -1,6 +1,6 @@
 import Button from "@/components/Button"
 import { useConfig } from "@/data/config"
-import { useModal } from "@/data/ui"
+import { useDrawer, useModal } from "@/data/ui"
 import { useSkipAsset } from "../bridge/data/assets"
 import { formatDuration } from "../bridge/data/format"
 import { useTrackTxQuery, useTxStatusQuery } from "../bridge/data/tx"
@@ -36,6 +36,7 @@ export function TransferCompleted({ type }: { type: "deposit" | "withdraw" }) {
   const { theme } = useConfig()
   const { watch } = useTransferForm()
   const { result } = watch()
+  const { openDrawer } = useDrawer()
 
   const isError = !result?.success
   const txHash = !isError ? result.txhash : ""
@@ -97,6 +98,29 @@ export function TransferCompleted({ type }: { type: "deposit" | "withdraw" }) {
   const searchParams = new URLSearchParams({ tx_hash: txHash, chain_id: chainId })
   const skipExplorerUrl = new URL(`?${searchParams.toString()}`, "https://explorer.skip.build")
 
+  const renderExplorerLinks = () => (
+    <div className={styles.linkContainer}>
+      <a
+        href={skipExplorerUrl.toString()}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={styles.link}
+      >
+        View transaction
+      </a>
+      <div className={styles.separator}></div>
+      <button
+        className={styles.link}
+        onClick={() => {
+          closeModal()
+          openDrawer("/bridge/history")
+        }}
+      >
+        Go to history
+      </button>
+    </div>
+  )
+
   return (
     <div className={styles.container}>
       {txState === "pending" && (
@@ -115,14 +139,7 @@ export function TransferCompleted({ type }: { type: "deposit" | "withdraw" }) {
           <p className={styles.subtitle}>
             Estimated time: <span>{estimatedDuration}</span>
           </p>
-          <a
-            href={skipExplorerUrl.toString()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.link}
-          >
-            View transaction
-          </a>
+          {renderExplorerLinks()}
           <p className={styles.subtitle}>Your transaction will continue even if you close this</p>
         </>
       )}
@@ -141,14 +158,7 @@ export function TransferCompleted({ type }: { type: "deposit" | "withdraw" }) {
               video.pause()
             }}
           />
-          <a
-            href={skipExplorerUrl.toString()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.link}
-          >
-            View transaction
-          </a>
+          {renderExplorerLinks()}
           <Button.White fullWidth onClick={closeModal}>
             Close
           </Button.White>
