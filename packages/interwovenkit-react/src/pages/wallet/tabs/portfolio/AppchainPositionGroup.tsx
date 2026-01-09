@@ -83,8 +83,13 @@ const AppchainPositionGroup = ({ chainGroup }: Props) => {
     }, 0)
   }, [protocols])
 
+  // Chains excluded from value calculations (fungible NFTs only, no USD values)
+  const excludedChains = ["civitia", "yominet"]
+
   const isOpen = openGroups.includes(chainName)
-  const isCivitia = chainName?.toLowerCase() === "civitia"
+  const chainNameLower = chainName?.toLowerCase()
+  const isCivitia = chainNameLower === "civitia"
+  const hideValue = excludedChains.includes(chainNameLower)
 
   const toggleOpen = () => {
     setOpenGroups((prev) =>
@@ -117,7 +122,7 @@ const AppchainPositionGroup = ({ chainGroup }: Props) => {
               </div>
             </div>
             <div className={styles.valueColumn}>
-              {!isCivitia && <span className={styles.value}>{formatValue(totalValue)}</span>}
+              {!hideValue && <span className={styles.value}>{formatValue(totalValue)}</span>}
               <IconChevronDown
                 size={16}
                 className={clsx(styles.expandIcon, { [styles.expanded]: isOpen })}

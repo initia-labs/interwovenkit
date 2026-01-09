@@ -933,6 +933,203 @@ export function filterAssetGroups(
   return { filteredAssets: chainFilteredAssets, totalAssetsValue }
 }
 
+/** Filter unlisted assets by search query and selected chain */
+export function filterUnlistedAssets(
+  unlistedAssets: PortfolioAssetItem[],
+  searchQuery: string,
+  selectedChainId: string,
+): PortfolioAssetItem[] {
+  // Filter by search query
+  const searchFiltered = !searchQuery
+    ? unlistedAssets
+    : unlistedAssets.filter(({ denom, address }) => {
+        const query = searchQuery.toLowerCase()
+        return denom.toLowerCase().includes(query) || address?.toLowerCase().includes(query)
+      })
+
+  // Filter by selected chain
+  return !selectedChainId
+    ? searchFiltered
+    : searchFiltered.filter(({ chain }) => chain.chainId === selectedChainId)
+}
+
+/** Filter both listed and unlisted assets in one operation */
+export function filterAllAssets(
+  assetGroups: PortfolioAssetGroup[],
+  unlistedAssets: PortfolioAssetItem[],
+  searchQuery: string,
+  selectedChainId: string,
+): {
+  filteredAssets: PortfolioAssetGroup[]
+  totalAssetsValue: number
+  filteredUnlistedAssets: PortfolioAssetItem[]
+} {
+  // Filter listed assets
+  const { filteredAssets, totalAssetsValue } = filterAssetGroups(
+    assetGroups,
+    searchQuery,
+    selectedChainId,
+  )
+
+  // Filter unlisted assets
+  const filteredUnlistedAssets = filterUnlistedAssets(unlistedAssets, searchQuery, selectedChainId)
+
+  return { filteredAssets, totalAssetsValue, filteredUnlistedAssets }
+}
+
+/**
+ * Optimized single-pass processing of Minity balances.
+ * Extracts both listed and unlisted assets in one iteration.
+ * Applies fallback pricing inline to avoid extra array allocations.
+ */
+export function processMinityBalances(
+  minityBalances: ChainBalanceData[],
+  chainInfoMap: Map<string, ChainInfo>,
+  chainPrices: Map<string, Map<string, number>>,
+  l1ChainId?: string,
+): {
+  listedGroups: PortfolioAssetGroup[]
+  unlistedAssets: PortfolioAssetItem[]
+} {
+  // Guard against non-array input
+  if (!Array.isArray(minityBalances)) {
+    return { listedGroups: [], unlistedAssets: [] }
+  }
+
+  const groupMap = new Map<string, PortfolioAssetItem[]>()
+  const unlistedAssets: PortfolioAssetItem[] = []
+
+  // Single pass through all balances
+  for (const chainBalance of minityBalances) {
+    const { chainName, chainId, balances } = chainBalance
+
+    // Guard against non-array balances
+    if (!Array.isArray(balances)) continue
+
+    // Look up chain info once per chain
+    const chainInfo = chainInfoMap.get(chainName.toLowerCase())
+    const resolvedChainId = chainInfo?.chainId ?? chainId ?? chainName
+    const chainPrettyName = chainInfo?.prettyName ?? chainName
+    const chainLogoUrl = chainInfo?.logoUrl ?? ""
+
+    // Look up prices once per chain
+    const prices = chainPrices.get(resolvedChainId)
+
+    for (const balance of balances) {
+      // Process unknown assets (unlisted)
+      if (balance.type === "unknown") {
+        if (!balance.amount || balance.amount === "0") continue
+
+        unlistedAssets.push({
+          symbol: balance.denom,
+          logoUrl: "",
+          denom: balance.denom,
+          amount: balance.amount,
+          decimals: 0,
+          quantity: balance.amount,
+          value: undefined,
+          unlisted: true,
+          chain: {
+            chainId: resolvedChainId,
+            name: chainPrettyName,
+            logoUrl: chainLogoUrl,
+          },
+        })
+        continue
+      }
+
+      // Skip LP tokens and zero-value/zero-amount assets
+      if (
+        balance.type === "lp" ||
+        ((balance.value ?? 0) <= 0 && (balance.formattedAmount ?? 0) <= 0)
+      ) {
+        continue
+      }
+
+      // Apply fallback pricing inline (no extra allocation)
+      let finalValue = balance.value
+      if ((finalValue == null || finalValue <= 0) && prices) {
+        const price = prices.get(balance.denom) ?? 0
+        if (price > 0) {
+          finalValue = balance.formattedAmount * price
+        }
+      }
+
+      // Process listed assets
+      const item: PortfolioAssetItem = {
+        symbol: balance.symbol,
+        logoUrl: "",
+        denom: balance.denom,
+        amount: balance.amount,
+        decimals: balance.decimals,
+        quantity: String(balance.formattedAmount),
+        value: finalValue,
+        chain: {
+          chainId: resolvedChainId,
+          name: chainPrettyName,
+          logoUrl: chainLogoUrl,
+        },
+      }
+
+      const existing = groupMap.get(balance.symbol)
+      if (existing) {
+        existing.push(item)
+      } else {
+        groupMap.set(balance.symbol, [item])
+      }
+    }
+  }
+
+  // Sort unlisted assets
+  unlistedAssets.sort((a, b) => {
+    // Initia first
+    const aIsL1 = a.chain.chainId === l1ChainId
+    const bIsL1 = b.chain.chainId === l1ChainId
+    if (aIsL1 && !bIsL1) return -1
+    if (!aIsL1 && bIsL1) return 1
+
+    // Then by chain name
+    const chainCompare = a.chain.name.localeCompare(b.chain.name)
+    if (chainCompare !== 0) return chainCompare
+
+    // Within same chain, by amount descending
+    const aAmount = BigInt(a.amount)
+    const bAmount = BigInt(b.amount)
+    if (aAmount > bAmount) return -1
+    if (aAmount < bAmount) return 1
+
+    // Fallback to denom
+    return a.denom.localeCompare(b.denom)
+  })
+
+  // Build listed asset groups
+  const listedGroups: PortfolioAssetGroup[] = []
+  for (const [symbol, assets] of groupMap) {
+    // Sort assets by value and calculate totals in one pass
+    assets.sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
+
+    let totalValue = 0
+    let totalAmount = 0
+    for (const asset of assets) {
+      totalValue += asset.value ?? 0
+      totalAmount += Number(asset.quantity)
+    }
+
+    listedGroups.push({
+      symbol,
+      logoUrl: "",
+      assets,
+      totalValue,
+      totalAmount,
+    })
+  }
+
+  // Sort groups
+  listedGroups.sort(compareAssetGroups)
+
+  return { listedGroups, unlistedAssets }
+}
+
 // ============================================
 // BASE DATA HOOKS
 // ============================================
@@ -1281,22 +1478,26 @@ export function useLiquidAssetsBalance(): number {
 
 /**
  * Computes appchain positions total from positions only.
- * Excludes Civitia which has no USD values.
+ * Excludes Civitia and Yominet which have no USD values (fungible NFTs only).
  * Updates progressively as SSE position data streams in.
  */
 export function useAppchainPositionsBalance(): number {
   const { positions } = useMinityPortfolio()
 
   return useMemo(() => {
+    // Chains to exclude from value calculations (fungible NFTs only, no USD values)
+    const excludedChains = ["initia", "civitia", "yominet"]
+
     let total = 0
     const safePositions = Array.isArray(positions) ? positions : []
     for (const { chainName, positions: chainPositions } of safePositions) {
       const lowerChainName = chainName.toLowerCase()
-      // Only count non-Initia chains (appchains), excluding Civitia (no USD values)
-      if (lowerChainName !== "initia" && lowerChainName !== "civitia") {
-        if (!Array.isArray(chainPositions)) continue // Skip if positions is not an array
-        total += chainPositions.reduce((sum, p) => sum + getProtocolPositionValue(p), 0)
-      }
+
+      // Only count appchains, excluding Initia (L1) and chains with no USD values
+      if (excludedChains.includes(lowerChainName)) continue
+      if (!Array.isArray(chainPositions)) continue
+
+      total += chainPositions.reduce((sum, p) => sum + getProtocolPositionValue(p), 0)
     }
     return total
   }, [positions])
