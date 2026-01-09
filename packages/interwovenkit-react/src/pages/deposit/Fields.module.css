@@ -61,6 +61,7 @@
   background-color: var(--gray-5);
   border: 1px solid var(--border);
   border-radius: 100%;
+  margin-right: 2px;
 }
 
 .chainIcon {
