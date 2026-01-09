@@ -115,6 +115,26 @@ export interface ProtocolPosition {
 }
 
 // ============================================
+// POSITION GROUPING TYPES
+// ============================================
+
+/** Section group with positions and pre-calculated total value */
+export interface SectionGroup {
+  positions: Position[]
+  totalValue: number // Actual value (negative for borrowing)
+}
+
+/** Denom group with aggregated values */
+export interface DenomGroup {
+  denom: string
+  symbol: string
+  positions: Position[]
+  totalValue: number
+  totalAmount: number
+  balance: Balance | null
+}
+
+// ============================================
 // LIQUIDITY TYPES
 // ============================================
 
@@ -419,8 +439,9 @@ export const minityQueryOptions = {
 // SSE CONSTANTS
 // ============================================
 
-/** SSE connection timeout in milliseconds */
-const SSE_TIMEOUT = 60000 // 60 seconds
+/** SSE reconnection backoff settings (milliseconds) */
+const SSE_RECONNECT_BASE_DELAY = 1000
+const SSE_RECONNECT_MAX_DELAY = 10000
 
 const DEFAULT_SSE_DATA: SSEPortfolioData = {
   balances: [],
@@ -514,9 +535,6 @@ export function getPositionValue(position: Position): number {
   return value
 }
 
-/** Section order for sorting */
-const SECTION_ORDER = ["staking", "borrowing", "lending"]
-
 /** Get section key for position - groups staking types and separates lending by direction */
 export function getSectionKey(position: Position): string | null {
   if (position.type === "fungible-position") return null
@@ -547,14 +565,9 @@ export function getSectionLabel(sectionKey: string, isInitia = false): string {
   }
 }
 
-/** Get section order index for sorting */
-export function getSectionOrder(sectionKey: string): number {
-  const index = SECTION_ORDER.indexOf(sectionKey)
-  return index === -1 ? SECTION_ORDER.length : index
-}
-
-/** Group positions by section (staking, borrowing, lending) - sorted by section order */
-export function groupPositionsBySection(positions: Position[]): Map<string, Position[]> {
+/** Group positions by section (staking, borrowing, lending) - sorted by total value descending */
+export function groupPositionsBySection(positions: Position[]): Map<string, SectionGroup> {
+  // 1. Group by section key
   const groups = new Map<string, Position[]>()
   for (const pos of positions) {
     const sectionKey = getSectionKey(pos)
@@ -565,12 +578,48 @@ export function groupPositionsBySection(positions: Position[]): Map<string, Posi
     groups.get(sectionKey)!.push(pos)
   }
 
-  const sortedGroups = new Map<string, Position[]>()
-  const sortedKeys = Array.from(groups.keys()).toSorted(
-    (a, b) => getSectionOrder(a) - getSectionOrder(b),
-  )
+  // 2. Calculate total values (actual values - negative for borrowing)
+  const sectionValues = new Map<string, number>()
+  const sectionAbsValues = new Map<string, number>()
+  for (const [key, positions] of groups) {
+    const totalValue = positions.reduce((sum, pos) => sum + getPositionValue(pos), 0)
+    const totalAbsValue = positions.reduce((sum, pos) => sum + Math.abs(getPositionValue(pos)), 0)
+    sectionValues.set(key, totalValue)
+    sectionAbsValues.set(key, totalAbsValue)
+  }
+
+  // 3. Combine lending + borrowing absolute value for sorting
+  const lendingAbsValue = sectionAbsValues.get("lending") ?? 0
+  const borrowingAbsValue = sectionAbsValues.get("borrowing") ?? 0
+  const combinedLendingBorrowingAbsValue = lendingAbsValue + borrowingAbsValue
+
+  // 4. Sort sections by absolute value descending
+  const sortedKeys = Array.from(groups.keys()).toSorted((a, b) => {
+    const aValue =
+      a === "lending" || a === "borrowing"
+        ? combinedLendingBorrowingAbsValue
+        : (sectionAbsValues.get(a) ?? 0)
+    const bValue =
+      b === "lending" || b === "borrowing"
+        ? combinedLendingBorrowingAbsValue
+        : (sectionAbsValues.get(b) ?? 0)
+
+    // If both are lending/borrowing, maintain internal order (lending before borrowing)
+    if ((a === "lending" || a === "borrowing") && (b === "lending" || b === "borrowing")) {
+      return a === "lending" ? -1 : 1
+    }
+
+    // Sort by value descending
+    return bValue - aValue
+  })
+
+  // 5. Rebuild Map in sorted order with SectionGroup objects
+  const sortedGroups = new Map<string, SectionGroup>()
   for (const key of sortedKeys) {
-    sortedGroups.set(key, groups.get(key)!)
+    sortedGroups.set(key, {
+      positions: groups.get(key)!,
+      totalValue: sectionValues.get(key) ?? 0,
+    })
   }
   return sortedGroups
 }
@@ -630,16 +679,6 @@ export function groupPositionsByType(positions: Position[]): Map<Position["type"
     groups.get(pos.type)!.push(pos)
   }
   return groups
-}
-
-/** Denom group with aggregated values */
-export interface DenomGroup {
-  denom: string
-  symbol: string
-  positions: Position[]
-  totalValue: number
-  totalAmount: number
-  balance: Balance | null
 }
 
 /** Sort comparator for denom groups: INIT first, then by value desc, then alphabetically */
@@ -930,10 +969,12 @@ export function usePortfolioSSE() {
   const handleBalances = useEffectEvent(
     (event: SSEBalanceEvent, balancesMap: Map<string, ChainBalanceData>) => {
       const qk = minityQueryKeys.ssePortfolio(address ?? "", minityUrl).queryKey
+      // Ensure balances is always an array (defensive check for malformed API response)
+      const balances = Array.isArray(event.balances) ? event.balances : []
       balancesMap.set(event.chain, {
         chainName: event.chain,
         chainId: event.chainId,
-        balances: event.balances,
+        balances,
       })
       const current = queryClient.getQueryData<SSEPortfolioData>(qk) ?? DEFAULT_SSE_DATA
       queryClient.setQueryData(qk, {
@@ -949,10 +990,12 @@ export function usePortfolioSSE() {
   const handlePositions = useEffectEvent(
     (event: SSEPositionEvent, positionsMap: Map<string, ChainPositionData>) => {
       const qk = minityQueryKeys.ssePortfolio(address ?? "", minityUrl).queryKey
+      // Ensure positions is always an array (defensive check for malformed API response)
+      const positions = Array.isArray(event.positions) ? event.positions : []
       positionsMap.set(event.chain, {
         chainName: event.chain,
         chainId: event.chainId,
-        positions: event.positions,
+        positions,
       })
       const current = queryClient.getQueryData<SSEPortfolioData>(qk) ?? DEFAULT_SSE_DATA
       queryClient.setQueryData(qk, {
@@ -963,18 +1006,22 @@ export function usePortfolioSSE() {
   )
 
   /**
-   * Handle SSE connection complete
+   * Update cache with latest streamed data.
+   * Stream is long-lived; we no longer try to mark completion. isLoading flips
+   * to false once we have seen any data chunk (balances or positions).
    */
-  const handleComplete = useEffectEvent(
+  const updateAggregated = useEffectEvent(
     (balancesMap: Map<string, ChainBalanceData>, positionsMap: Map<string, ChainPositionData>) => {
       const qk = minityQueryKeys.ssePortfolio(address ?? "", minityUrl).queryKey
       const current = queryClient.getQueryData<SSEPortfolioData>(qk) ?? DEFAULT_SSE_DATA
+      const hasData = balancesMap.size > 0 || positionsMap.size > 0
       queryClient.setQueryData(qk, {
         ...current,
         balances: Array.from(balancesMap.values()),
         positions: Array.from(positionsMap.values()),
-        isLoading: false,
-        isComplete: true,
+        isLoading: hasData ? false : current.isLoading,
+        isComplete: false,
+        completedAt: undefined,
       })
     },
   )
@@ -990,58 +1037,98 @@ export function usePortfolioSSE() {
     const baseUrl = minityUrl || DEFAULT_MINITY_URL
     const url = `${baseUrl}/v1/chain/all/${encodeURIComponent(address)}`
 
-    const eventSource = new EventSource(url)
-    let isClosed = false
+    let eventSource: EventSource | null = null
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+    let reconnectAttempt = 0
+    let stopped = false
+    let hasLoggedParseError = false
 
-    // Set loading state
     const qk = minityQueryKeys.ssePortfolio(address, minityUrl).queryKey
-    queryClient.setQueryData(qk, {
-      balances: [],
-      positions: [],
-      isLoading: true,
-      isComplete: false,
-    })
 
-    const onComplete = () => {
-      if (isClosed) return
-      isClosed = true
-      eventSource.close()
-      handleComplete(balancesMap, positionsMap)
+    const setConnectingState = () => {
+      const existing = queryClient.getQueryData<SSEPortfolioData>(qk)
+      queryClient.setQueryData(qk, {
+        balances: existing?.balances ?? [],
+        positions: existing?.positions ?? [],
+        isLoading: true,
+        isComplete: false,
+        completedAt: undefined,
+      })
     }
 
-    const timeoutId = setTimeout(onComplete, SSE_TIMEOUT)
+    const cleanup = () => {
+      stopped = true
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer)
+        reconnectTimer = null
+      }
+      if (eventSource) {
+        eventSource.close()
+        eventSource = null
+      }
+    }
 
-    eventSource.onmessage = (event) => {
-      if (isClosed) return
-      try {
-        const parsed = JSON.parse(event.data) as SSEEvent
-        if (parsed.type === "balances") {
-          handleBalances(parsed as SSEBalanceEvent, balancesMap)
-        } else if (parsed.type === "positions") {
-          handlePositions(parsed as SSEPositionEvent, positionsMap)
+    const scheduleReconnect = () => {
+      if (stopped) return
+      if (reconnectTimer) return
+      setConnectingState()
+      const delay = Math.min(
+        SSE_RECONNECT_MAX_DELAY,
+        SSE_RECONNECT_BASE_DELAY * 2 ** reconnectAttempt,
+      )
+      reconnectAttempt += 1
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null
+        connect()
+      }, delay)
+    }
+
+    const connect = () => {
+      if (stopped) return
+      setConnectingState()
+
+      if (eventSource) {
+        eventSource.close()
+      }
+
+      eventSource = new EventSource(url)
+
+      eventSource.onopen = () => {
+        reconnectAttempt = 0
+        hasLoggedParseError = false
+      }
+
+      eventSource.onmessage = (event) => {
+        if (stopped) return
+        try {
+          const parsed = JSON.parse(event.data) as SSEEvent
+          if (parsed.type === "balances") {
+            handleBalances(parsed as SSEBalanceEvent, balancesMap)
+          } else if (parsed.type === "positions") {
+            handlePositions(parsed as SSEPositionEvent, positionsMap)
+          }
+          updateAggregated(balancesMap, positionsMap)
+        } catch {
+          if (!hasLoggedParseError) {
+            hasLoggedParseError = true
+          }
+          scheduleReconnect()
         }
-      } catch {
-        // Silently ignore parsing errors
       }
+
+      eventSource.onerror = () => {
+        scheduleReconnect()
+      }
+
+      eventSource.addEventListener("close", () => {
+        scheduleReconnect()
+      })
     }
 
-    eventSource.onerror = () => {
-      // EventSource fires onerror when connection closes (even normally)
-      if (eventSource.readyState === EventSource.CLOSED) {
-        clearTimeout(timeoutId)
-        onComplete()
-      }
-    }
-
-    eventSource.addEventListener("close", () => {
-      clearTimeout(timeoutId)
-      onComplete()
-    })
+    connect()
 
     return () => {
-      isClosed = true
-      clearTimeout(timeoutId)
-      eventSource.close()
+      cleanup()
     }
     // Re-run when address changes (user connects/disconnects wallet)
     // minityUrl and queryClient accessed via useEffectEvent handlers (always read latest values)
@@ -1061,13 +1148,14 @@ export function useMinityPortfolio(): SSEPortfolioData {
   const { data } = useQuery({
     queryKey,
     queryFn: () => DEFAULT_SSE_DATA,
+    enabled: !!address,
     staleTime: STALE_TIMES.MINUTE,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   })
 
-  return data ?? { ...DEFAULT_SSE_DATA, isLoading: !!address }
+  return data ?? DEFAULT_SSE_DATA
 }
 
 // ============================================
