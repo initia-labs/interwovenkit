@@ -1228,8 +1228,20 @@ export function usePortfolioSSE() {
       return
     }
 
+    const qk = minityQueryKeys.ssePortfolio(address, minityUrl).queryKey
+
+    // Seed maps with existing cached data so chains don't disappear during reconnects
+    const existingData = queryClient.getQueryData<SSEPortfolioData>(qk)
     const balancesMap = new Map<string, ChainBalanceData>()
     const positionsMap = new Map<string, ChainPositionData>()
+
+    for (const b of existingData?.balances ?? []) {
+      balancesMap.set(b.chainName, b)
+    }
+
+    for (const p of existingData?.positions ?? []) {
+      positionsMap.set(p.chainName, p)
+    }
 
     const baseUrl = minityUrl || DEFAULT_MINITY_URL
     const url = `${baseUrl}/v1/chain/all/${encodeURIComponent(address)}`
@@ -1239,8 +1251,6 @@ export function usePortfolioSSE() {
     let reconnectAttempt = 0
     let stopped = false
     let hasLoggedParseError = false
-
-    const qk = minityQueryKeys.ssePortfolio(address, minityUrl).queryKey
 
     const setConnectingState = () => {
       const existing = queryClient.getQueryData<SSEPortfolioData>(qk)
