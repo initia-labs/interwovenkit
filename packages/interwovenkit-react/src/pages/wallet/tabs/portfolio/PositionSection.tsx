@@ -15,6 +15,7 @@ import {
   groupPositionsByType,
   type Position,
   type ProtocolPosition,
+  type SectionGroup,
 } from "@/data/minity"
 import { formatValue } from "@/lib/format"
 import styles from "./PositionSection.module.css"
@@ -48,11 +49,11 @@ const PositionSectionList = ({
 
   return (
     <div className={styles.container}>
-      {Array.from(sectionGroups.entries()).map(([sectionKey, positions]) => (
+      {Array.from(sectionGroups.entries()).map(([sectionKey, sectionGroup]) => (
         <PositionSection
           key={sectionKey}
           sectionKey={sectionKey}
-          positions={positions}
+          sectionGroup={sectionGroup}
           denomLogoMap={denomLogoMap}
           isInitia={isInitia}
           manageUrl={manageUrl}
@@ -66,7 +67,7 @@ const PositionSectionList = ({
 
 interface PositionSectionProps {
   sectionKey: string
-  positions: Position[]
+  sectionGroup: SectionGroup
   denomLogoMap: DenomLogoMap
   isInitia?: boolean
   manageUrl?: string
@@ -76,21 +77,18 @@ interface PositionSectionProps {
 
 const PositionSection = ({
   sectionKey,
-  positions,
+  sectionGroup,
   denomLogoMap,
   isInitia,
   manageUrl,
   getClaimableInitByType,
   initPrice,
 }: PositionSectionProps) => {
+  const { positions, totalValue } = sectionGroup
   const label = getSectionLabel(sectionKey, isInitia)
   const denomGroups = useMemo(() => groupPositionsByDenom(positions), [positions])
   const isStakingSection = sectionKey === "staking"
   const isBorrowingSection = sectionKey === "borrowing"
-
-  const totalValue = useMemo(() => {
-    return positions.reduce((sum, pos) => sum + getPositionValue(pos), 0)
-  }, [positions])
 
   // Display absolute value for borrowing (but keep calculation as negative)
   const displayValue = isBorrowingSection ? Math.abs(totalValue) : totalValue
