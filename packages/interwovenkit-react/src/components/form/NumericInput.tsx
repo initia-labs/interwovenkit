@@ -44,10 +44,15 @@ function NumericInput<T extends FieldValues>(props: Props<T>) {
           }
         }
 
+        const parsedDisplayValue =
+          Number(field.value || 0) === Number(displayValue || 0)
+            ? (displayValue ?? field.value)
+            : field.value
+
         return (
           <input
             {...field}
-            value={displayValue ?? field.value}
+            value={parsedDisplayValue}
             className={clsx(styles.input, className)}
             onChange={(e) => handleChange(e.target.value)}
             onPaste={(e) => {
