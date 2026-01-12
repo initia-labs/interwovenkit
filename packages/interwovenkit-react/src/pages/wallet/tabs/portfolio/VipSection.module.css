@@ -1,0 +1,193 @@
+.container {
+  display: flex;
+  flex-direction: column;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  padding: 12px 16px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sectionLabel {
+  color: var(--gray-1);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.externalLink {
+  display: flex;
+  align-items: center;
+
+  color: var(--gray-3);
+  transition: color var(--transition);
+
+  &:hover {
+    color: var(--gray-1);
+  }
+}
+
+.sectionValue {
+  color: var(--gray-3);
+  font-family: var(--monospace);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tokenList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  margin: 0 -16px;
+
+  &:last-child {
+    border-bottom: 1px solid var(--gray-7);
+  }
+}
+
+.tokenTrigger {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  width: 100%;
+
+  background-color: var(--gray-7);
+  border: none;
+  cursor: pointer;
+  padding: 12px 16px;
+  transition: background-color var(--transition) ease;
+
+  &:hover {
+    background-color: var(--gray-6);
+
+    .tokenChevron {
+      color: var(--gray-1);
+    }
+  }
+}
+
+.tokenChevron {
+  color: var(--gray-3);
+  transition: all var(--transition);
+}
+
+.tokenChevron.expanded {
+  transform: rotate(180deg);
+}
+
+.tokenInfo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tokenInfoLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tokenLogo {
+  border-radius: 50%;
+}
+
+.tokenName {
+  color: var(--gray-0);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.triggerValue {
+  color: var(--gray-3);
+  font-family: var(--monospace);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.breakdownContent {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  padding: 12px 16px;
+}
+
+.breakdownRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+
+  padding-left: 18px;
+}
+
+.breakdownLabel {
+  color: var(--gray-1);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.breakdownValues {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.breakdownAmount {
+  color: var(--gray-0);
+  font-family: var(--monospace);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.breakdownValue {
+  color: var(--gray-3);
+  font-family: var(--monospace);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.collapsibleContent {
+  overflow: hidden;
+
+  &[data-state="open"] {
+    animation: slideDown var(--transition) ease-out;
+  }
+
+  &[data-state="closed"] {
+    animation: slideUp var(--transition) ease-out;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    height: var(--radix-collapsible-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
