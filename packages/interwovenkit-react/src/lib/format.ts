@@ -1,15 +1,14 @@
+import BigNumber from "bignumber.js"
 import { formatNumber } from "@initia/utils"
 
-export function formatValue(value: number): string {
-  if (value === undefined || value === null) return ""
+export function formatValue(value?: Parameters<typeof formatNumber>[0]) {
+  const absValue = value ? BigNumber(value).abs() : undefined
+  if (absValue && absValue.gt(0) && absValue.lt(0.01)) return "< $0.01"
 
-  const numValue = Number(value)
-  const absValue = Math.abs(numValue)
-  const isNegative = numValue < 0
+  const isNegative = value && BigNumber(value).lt(0)
+  const formattedNumber = formatNumber(absValue?.toString() ?? value, { dp: 2 })
 
-  if (absValue === 0) return `$${formatNumber(0, { dp: 2 })}`
-  if (absValue < 0.01) return "< $0.01"
+  if (!formattedNumber) return ""
 
-  const formattedValue = `$${formatNumber(absValue, { dp: 2 })}`
-  return isNegative ? `-${formattedValue}` : formattedValue
+  return isNegative ? `-$${formattedNumber}` : `$${formattedNumber}`
 }
