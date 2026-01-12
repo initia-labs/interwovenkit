@@ -23,7 +23,7 @@ const VipSection = ({ data }: VipSectionProps) => {
       <div className={styles.section}>
         <div className={styles.sectionHeader}>
           <div className={styles.sectionTitle}>
-            <span className={styles.sectionLabel}>VIP position</span>
+            <span className={styles.sectionLabel}>VIP</span>
             <a
               href={INITIA_VIP_URL}
               target="_blank"

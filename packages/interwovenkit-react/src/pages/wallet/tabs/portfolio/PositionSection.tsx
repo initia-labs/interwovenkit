@@ -88,10 +88,6 @@ const PositionSection = ({
   const label = getSectionLabel(sectionKey, isInitia)
   const denomGroups = useMemo(() => groupPositionsByDenom(positions), [positions])
   const isStakingSection = sectionKey === "staking"
-  const isBorrowingSection = sectionKey === "borrowing"
-
-  // Display absolute value for borrowing (but keep calculation as negative)
-  const displayValue = isBorrowingSection ? Math.abs(totalValue) : totalValue
 
   return (
     <div className={styles.section}>
@@ -110,7 +106,7 @@ const PositionSection = ({
             </a>
           )}
         </div>
-        <span className={styles.sectionValue}>{formatValue(displayValue)}</span>
+        <span className={styles.sectionValue}>{formatValue(totalValue)}</span>
       </div>
       <div className={clsx(styles.tokenList, { [styles.stakingTokenList]: isStakingSection })}>
         {denomGroups.map((group) => (
@@ -147,10 +143,6 @@ const TokenRow = ({
   const logos = denomLogoMap.get(denom)
   const [isOpen, setIsOpen] = useState(false)
 
-  // Check if this is a borrowing position (has negative value)
-  const isBorrowing = positions.some((pos) => pos.type === "lending" && pos.direction === "borrow")
-  const displayValue = isBorrowing ? Math.abs(totalValue) : totalValue
-
   const typeGroups = useMemo(() => {
     if (!showTypeBreakdown) return null
     const groups = groupPositionsByType(positions)
@@ -170,7 +162,7 @@ const TokenRow = ({
           </div>
           <div className={styles.tokenValues}>
             <span className={styles.tokenAmount}>{formatNumber(totalAmount, { dp: 6 })}</span>
-            <span className={styles.tokenValue}>{formatValue(displayValue)}</span>
+            <span className={styles.tokenValue}>{formatValue(totalValue)}</span>
           </div>
         </div>
       </div>
@@ -194,7 +186,7 @@ const TokenRow = ({
               <span className={styles.tokenSymbol}>{symbol}</span>
             </div>
           </div>
-          <span className={styles.triggerValue}>{formatValue(displayValue)}</span>
+          <span className={styles.triggerValue}>{formatValue(totalValue)}</span>
         </button>
       </Collapsible.Trigger>
 
