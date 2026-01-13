@@ -46,7 +46,7 @@ const Home = () => {
           <AsyncBoundary
             suspenseFallback={
               <div className={styles.skeletonWrapper}>
-                <Skeleton height={38} width={120} />
+                <Skeleton height={48} width={120} />
               </div>
             }
           >
