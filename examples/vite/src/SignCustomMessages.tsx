@@ -35,7 +35,7 @@ const SignCustomMessages = () => {
   const { mutate, data, isPending, error } = useMutation({
     mutationFn: async () => {
       const gasEstimate = await estimateGas({ messages })
-      const fee = { amount: [], gas: String(gasEstimate) }
+      const fee = { amount: [], gas: String(Math.ceil(gasEstimate * 1.4)) }
       return await submitTxBlock({ messages, fee })
     },
   })
@@ -47,7 +47,7 @@ const SignCustomMessages = () => {
 
   return (
     <>
-      <pre>{JSON.stringify(MESSAGES_FROM_ANVIL, null, 2)}</pre>
+      <pre>{JSON.stringify(executeMessage, null, 2)}</pre>
 
       <button className={styles.button} onClick={() => mutate()} disabled={isPending}>
         Submit
