@@ -29,7 +29,23 @@ const LOCK_STAKE_MODULE_NAME = "lock_staking"
 /**
  * Derives the lock staking address for a given user address.
  * This is where lock-staked tokens are held and where unbonding from lock staking goes.
- * Following app-v2's implementation in getLockStakingHexAddress.
+ *
+ * Implementation follows app-v2's getLockStakingHexAddress:
+ * https://github.com/initia-labs/initia-app-v2/blob/main/src/utils/initia/lock-staking.ts
+ *
+ * Move VM Object Address Derivation:
+ * - Uses OBJECT_FROM_SEED_ADDRESS_SCHEME (0xfe) as defined in Move VM spec
+ * - SHA3-256 hashing matches Initia's Move VM implementation
+ * - Address derivation: sha3_256(source_address || seed || scheme_byte)
+ * - Seed format: type_name_bytes || address_bytes (32 bytes each)
+ *
+ * The scheme 0xfe is the Move VM's standard for object addresses derived from seeds,
+ * as opposed to 0xfd for named objects or other schemes. This ensures compatibility
+ * with Initia's lock_staking module which creates StakingAccount objects using this scheme.
+ *
+ * @param address - User's Initia bech32 address
+ * @param lockStakeModuleAddress - Lock staking module address (e.g., "0x...")
+ * @returns Derived lock staking account address in bech32 format
  */
 function getLockStakingAddress(address: string, lockStakeModuleAddress: string): string {
   const OBJECT_FROM_SEED_ADDRESS_SCHEME = 0xfe

@@ -94,12 +94,14 @@ export function useWalletBalances() {
 
   return useSuspenseQuery({
     queryKey: initiaLiquidityQueryKeys.balances(restUrl, address).queryKey,
-    queryFn: () =>
-      fetchAllPages<"balances", Coin>(
+    queryFn: () => {
+      if (!address) return []
+      return fetchAllPages<"balances", Coin>(
         `cosmos/bank/v1beta1/balances/${address}`,
         { prefixUrl: restUrl },
         "balances",
-      ),
+      )
+    },
     staleTime: STALE_TIMES.MINUTE,
   })
 }
@@ -445,7 +447,7 @@ export function useInitiaLiquidityPositions(): LiquiditySectionData {
     // Convert to array and sort by value desc
     const sortedRows = Array.from(rowMap.values())
       .filter((row) => row.totalAmount > 0)
-      .toSorted((a, b) => b.totalValue - a.totalValue)
+      .sort((a, b) => b.totalValue - a.totalValue)
 
     // Calculate total value in same pass
     const totalVal = sortedRows.reduce((sum, row) => sum + row.totalValue, 0)
