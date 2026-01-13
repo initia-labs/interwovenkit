@@ -1,5 +1,12 @@
 # Changelog
 
+### [2.1.1](https://github.com/initia-labs/interwovenkit/compare/v2.1.0...v2.1.1) (2025-12-17)
+
+### Features
+
+- **autosign:** check account existence before enabling autosign ([02307bf](https://github.com/initia-labs/interwovenkit/commit/02307bf33c6ec594cbd3a96917f086d1893974a3))
+- **autosign:** revoke existing grants before enabling new ones ([1f53b13](https://github.com/initia-labs/interwovenkit/commit/1f53b130034ed8891f938e416232b08fe7b2d974))
+
 ## [2.1.0](https://github.com/initia-labs/interwovenkit/compare/v2.0.6...v2.1.0) (2025-11-18)
 
 ### Features

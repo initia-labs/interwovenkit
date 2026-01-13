@@ -16,9 +16,10 @@ const QuantityInputReadOnly = ({ children }: { children: string }) => {
 interface Props {
   balance?: string
   decimals?: number
+  className?: string
 }
 
-const QuantityInput = ({ balance, decimals }: Props) => {
+const QuantityInput = ({ balance, decimals, className }: Props) => {
   const { control } = useFormContext()
 
   const rules = {
@@ -36,7 +37,14 @@ const QuantityInput = ({ balance, decimals }: Props) => {
     },
   }
 
-  return <NumericInput name="quantity" control={control} className={styles.input} rules={rules} />
+  return (
+    <NumericInput
+      name="quantity"
+      control={control}
+      className={clsx(styles.input, className)}
+      rules={rules}
+    />
+  )
 }
 
 QuantityInput.ReadOnly = QuantityInputReadOnly

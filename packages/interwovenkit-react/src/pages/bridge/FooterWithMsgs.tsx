@@ -60,25 +60,23 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
     }
 
     fetchMessages()
-  }, [route, values, addressList, signedOpHook, skip])
+    // addressList is serialized inside the effect to avoid triggering on array reference changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route, values, JSON.stringify(addressList), signedOpHook, skip])
 
   if (error) {
     return <FooterWithError error={error} />
   }
 
-  if (loading) {
+  if (loading || !value) {
     return (
       <Footer>
-        <Button.White loading={loading && "Fetching messages..."} />
+        <Button.White loading={"Fetching messages..."} />
       </Footer>
     )
   }
 
-  if (value) {
-    return children(value)
-  }
-
-  return <FooterWithError error={new Error("Failed to fetch messages")} />
+  return children(value)
 }
 
 export default FooterWithMsgs

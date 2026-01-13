@@ -1,20 +1,25 @@
 import { useDisconnect as useDisconnectWagmi } from "wagmi"
-import { atom, useAtom } from "jotai"
+import { atom, useAtom, useSetAtom } from "jotai"
 import { useAnalyticsTrack } from "@/data/analytics"
 import { useNavigate, useReset } from "@/lib/router"
 import { LocalStorageKey } from "./constants"
 
 const isDrawerOpenAtom = atom<boolean>(false)
+const isModalOpenAtom = atom<boolean>(false)
 
 export function useDrawer() {
   const reset = useReset()
   const [isOpen, setIsOpen] = useAtom(isDrawerOpenAtom)
+  const setIsModalOpen = useSetAtom(isModalOpenAtom)
   const track = useAnalyticsTrack()
 
   const open = (path: string, state?: object) => {
     if (path) {
       reset(path, state)
     }
+    // close modal before opening drawer
+    setIsModalOpen(false)
+
     setIsOpen(true)
     track("Widget Opened")
   }
@@ -27,14 +32,41 @@ export function useDrawer() {
   return { isDrawerOpen: isOpen, openDrawer: open, closeDrawer: close }
 }
 
+export function useModal() {
+  const reset = useReset()
+  const [isOpen, setIsOpen] = useAtom(isModalOpenAtom)
+  const setIsDrawerOpen = useSetAtom(isDrawerOpenAtom)
+  const track = useAnalyticsTrack()
+
+  const open = (path: string, state?: object) => {
+    if (path) {
+      reset(path, state)
+    }
+    // close drawer before opening modal
+    setIsDrawerOpen(false)
+
+    setIsOpen(true)
+    track("Widget Opened")
+  }
+
+  const close = () => {
+    setIsOpen(false)
+    track("Widget Closed")
+  }
+
+  return { isModalOpen: isOpen, openModal: open, closeModal: close }
+}
+
 export function useDisconnect() {
   const navigate = useNavigate()
   const { closeDrawer } = useDrawer()
+  const { closeModal } = useModal()
   const { disconnect } = useDisconnectWagmi()
 
   return () => {
     navigate("/blank")
     closeDrawer()
+    closeModal()
     disconnect()
 
     // Clear bridge form values on disconnect

@@ -1,0 +1,208 @@
+.container {
+  max-height: calc(90vh - 56px);
+  overflow-y: auto;
+}
+
+.back {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+
+  color: var(--gray-4);
+}
+
+.back:hover {
+  color: var(--gray-2);
+}
+
+.title {
+  color: var(--gray-0);
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.divider {
+  height: 20px;
+}
+
+.label {
+  color: var(--gray-2);
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.asset {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+
+  width: 100%;
+  height: 56px;
+
+  background-color: var(--gray-7);
+  border-radius: 8px;
+  column-gap: 8px;
+  padding: 6px 12px;
+}
+
+.asset:hover {
+  background-color: var(--gray-6);
+}
+
+.assetIcon {
+  position: relative;
+
+  width: 36px;
+  height: 36px;
+
+  background-color: var(--gray-5);
+  border: 1px solid var(--border);
+  border-radius: 100%;
+  margin-right: 2px;
+}
+
+.chainIcon {
+  position: absolute;
+  bottom: 0px;
+  right: -4px;
+
+  width: 18px;
+  height: 18px;
+
+  background-color: var(--gray-5);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+}
+
+.assetName {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: calc(1.5em - 2px);
+}
+
+.assetName span {
+  color: var(--gray-3);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.chevron {
+  color: var(--gray-3);
+}
+
+.input {
+  width: 100%;
+  height: 56px;
+
+  background-color: var(--gray-7);
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  padding: 18px 16px;
+  text-align: left;
+}
+
+.balanceContainer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  margin-top: 8px;
+}
+
+.value {
+  color: var(--gray-2);
+  font-family: var(--monospace);
+  font-size: 13px;
+  font-weight: 500;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.maxButton {
+  display: flex;
+  gap: 4px;
+
+  color: var(--gray-3);
+  font-family: var(--monospace);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.maxButton span {
+  color: var(--gray-0);
+  font-family: var(--font-family);
+  font-weight: 600;
+}
+
+.detail {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  height: 18px;
+
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.detailsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  color: var(--gray-3);
+
+  padding-top: 24px;
+}
+
+.detailsButton {
+  justify-content: flex-start;
+  align-items: center;
+  gap: 2px;
+
+  width: fit-content;
+  height: 18px;
+
+  color: var(--gray-3);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.detailsButton:hover {
+  color: var(--gray-1);
+}
+
+.detailValue {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  color: var(--gray-2);
+
+  font-family: var(--monospace);
+}
+
+.detailToken {
+  width: 14px;
+  height: 14px;
+
+  border: 1px solid var(--border);
+  border-radius: 50%;
+}
+
+.minimumReceived {
+  color: var(--gray-1);
+}
+
+.minimumReceived .detailValue {
+  color: var(--gray-0);
+}
+
+.submit {
+  margin-top: 24px;
+}

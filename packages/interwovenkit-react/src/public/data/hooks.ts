@@ -7,9 +7,10 @@ import { STALE_TIMES } from "@/data/http"
 import { useIsPrivyConnected } from "@/data/privy"
 import { useOfflineSigner } from "@/data/signer"
 import { useTx } from "@/data/tx"
-import { useDisconnect, useDrawer } from "@/data/ui"
+import { useDisconnect, useDrawer, useModal } from "@/data/ui"
 import { useAutoSign } from "@/pages/autosign/data/public"
 import type { FormValues } from "@/pages/bridge/data/form"
+import type { AssetOption } from "@/pages/deposit/hooks"
 
 export { usePortfolio } from "@/data/portfolio"
 
@@ -57,7 +58,8 @@ export function useInterwovenKit() {
   const disconnect = useDisconnect()
   const autoSign = useAutoSign()
 
-  const { isDrawerOpen: isOpen, openDrawer } = useDrawer()
+  const { isDrawerOpen, openDrawer } = useDrawer()
+  const { isModalOpen, openModal } = useModal()
 
   const openWallet = () => {
     openDrawer("/")
@@ -71,6 +73,26 @@ export function useInterwovenKit() {
     openDrawer("/bridge", defaultValues)
   }
 
+  const openDeposit = (
+    dstOptions: AssetOption[],
+    options?: { srcOptions?: AssetOption[]; recipientAddress?: string },
+  ) => {
+    if (dstOptions.length === 0) {
+      throw new Error("dstOptions cannot be empty")
+    }
+    openModal("/deposit", { dstOptions, ...options })
+  }
+
+  const openWithdraw = (
+    dstOptions: AssetOption[],
+    options?: { srcOptions?: AssetOption[]; recipientAddress?: string },
+  ) => {
+    if (dstOptions.length === 0) {
+      throw new Error("dstOptions cannot be empty")
+    }
+    openModal("/withdraw", { dstOptions, ...options })
+  }
+
   const tx = useTx()
 
   const isConnected = !!address
@@ -82,10 +104,12 @@ export function useInterwovenKit() {
     username,
     offlineSigner,
     isConnected,
-    isOpen,
+    isOpen: isDrawerOpen || isModalOpen,
     openConnect,
     openWallet,
     openBridge,
+    openDeposit,
+    openWithdraw,
     disconnect,
     autoSign,
     ...tx,

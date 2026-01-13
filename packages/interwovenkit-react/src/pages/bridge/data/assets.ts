@@ -2,6 +2,7 @@ import type { AssetJson } from "@skip-go/client"
 import { descend } from "ramda"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { STALE_TIMES } from "@/data/http"
+import { useSkipChains } from "./chains"
 import { skipQueryKeys, useSkip } from "./skip"
 
 export interface RouterAsset extends AssetJson {
@@ -9,6 +10,36 @@ export interface RouterAsset extends AssetJson {
   decimals: number
   logo_uri?: string
   hidden?: boolean
+}
+
+export function useAllSkipAssets() {
+  const skip = useSkip()
+  const chains = useSkipChains()
+  const queryClient = useQueryClient()
+  const { data } = useSuspenseQuery({
+    queryKey: skipQueryKeys.allAssets().queryKey,
+    queryFn: () =>
+      skip
+        .get("v2/fungible/assets")
+        .json<{ chain_to_assets_map: Partial<Record<string, { assets: RouterAsset[] }>> }>(),
+    select: ({ chain_to_assets_map }) => {
+      const allAssets: RouterAsset[] = []
+
+      for (const chainId in chain_to_assets_map) {
+        if (!chains.find((chain) => chain.chain_id === chainId)) continue
+        const { assets } = chain_to_assets_map[chainId] ?? { assets: [] }
+        queryClient.setQueryData(skipQueryKeys.assets(chainId).queryKey, { chain_to_assets_map })
+        allAssets.push(...assets)
+
+        for (const asset of assets) {
+          queryClient.setQueryData(skipQueryKeys.asset(chainId, asset.denom).queryKey, asset)
+        }
+      }
+      return allAssets
+    },
+    staleTime: STALE_TIMES.MINUTE,
+  })
+  return data
 }
 
 export function useSkipAssets(chainId: string) {

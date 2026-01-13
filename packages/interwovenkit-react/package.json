@@ -1,6 +1,6 @@
 {
   "name": "@initia/interwovenkit-react",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Connect dApps to Initia and Interwoven Rollups",
   "author": "Initia (https://initia.xyz)",
   "repository": "github:initia-labs/interwovenkit",
@@ -30,7 +30,7 @@
   },
   "dependencies": {
     "@amplitude/analytics-browser": "^2.30.1",
-    "@base-ui-components/react": "1.0.0-beta.3",
+    "@base-ui/react": "1.0.0",
     "@cosmjs/amino": "^0.36.2",
     "@cosmjs/crypto": "^0.36.2",
     "@cosmjs/encoding": "^0.36.2",
@@ -39,7 +39,7 @@
     "@cosmjs/stargate": "^0.36.2",
     "@cosmjs/tendermint-rpc": "^0.36.2",
     "@initia/amino-converter": "^1.0.13",
-    "@initia/icons-react": "^1.0.0",
+    "@initia/icons-react": "^2.0.0",
     "@initia/initia.proto": "^1.0.3",
     "@initia/utils": "2.0.0",
     "@lukemorales/query-key-factory": "^1.3.4",
@@ -92,7 +92,7 @@
   },
   "peerDependencies": {
     "@amplitude/analytics-browser": ">=2.0.0",
-    "@base-ui-components/react": "1.0.0-beta.3",
+    "@base-ui/react": "1.0.0",
     "@cosmjs/amino": "0.36.x",
     "@cosmjs/crypto": "0.36.x",
     "@cosmjs/encoding": "0.36.x",
@@ -101,7 +101,6 @@
     "@cosmjs/stargate": "0.36.x",
     "@cosmjs/tendermint-rpc": "0.36.x",
     "@initia/amino-converter": ">=1.0.0",
-    "@initia/icons-react": ">=1.0.0",
     "@initia/utils": "2.0.0",
     "@lukemorales/query-key-factory": ">=1.0.0",
     "@mysten/bcs": "1.8.0",

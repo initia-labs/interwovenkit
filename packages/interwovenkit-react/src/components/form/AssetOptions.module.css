@@ -26,7 +26,7 @@
   transition: background-color var(--transition) ease;
 
   &:hover {
-    background-color: var(--border);
+    background-color: var(--gray-8);
   }
 
   &:last-of-type {

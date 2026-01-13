@@ -1,6 +1,6 @@
 import { useChainId, useSwitchChain, useWatchAsset } from "wagmi"
 import { type PropsWithChildren, type ReactElement, useState } from "react"
-import { Menu } from "@base-ui-components/react"
+import { Menu } from "@base-ui/react"
 import { useMutation } from "@tanstack/react-query"
 import { IconArrowRight, IconCheck, IconPlus, IconSwap } from "@initia/icons-react"
 import { useDefaultChain } from "@/data/chains"

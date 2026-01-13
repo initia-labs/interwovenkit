@@ -1,6 +1,6 @@
 import clsx from "clsx"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { Popover } from "@base-ui-components/react/popover"
+import { Popover } from "@base-ui/react/popover"
 import { IconChevronDown } from "@initia/icons-react"
 import { useAutoFocus } from "@/components/form/hooks"
 import SearchInput from "@/components/form/SearchInput"

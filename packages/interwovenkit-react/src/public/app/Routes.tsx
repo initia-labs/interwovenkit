@@ -8,6 +8,9 @@ import BridgeHistory from "@/pages/bridge/BridgeHistory"
 import BridgePreview from "@/pages/bridge/BridgePreview"
 import Withdrawals from "@/pages/bridge/op/Withdrawals"
 import Connect from "@/pages/connect/Connect"
+import Deposit from "@/pages/deposit/Deposit"
+import { TransferCompleted } from "@/pages/deposit/TransferCompleted"
+import Withdraw from "@/pages/deposit/Withdraw"
 import Receive from "@/pages/receive/Receive"
 import ManageAutoSign from "@/pages/settings/autosign/ManageAutoSign"
 import Settings from "@/pages/settings/Settings"
@@ -30,7 +33,7 @@ const Routes = () => {
   useEffect(() => {
     closeModal()
 
-    if (path.startsWith("/bridge/")) {
+    if (path.startsWith("/bridge/") && path !== "/bridge/history") {
       navigate("/bridge")
     }
 
@@ -90,6 +93,14 @@ const Routes = () => {
       return <Settings />
     case "/settings/autosign":
       return <ManageAutoSign />
+    case "/deposit":
+      return <Deposit />
+    case "/deposit/completed":
+      return <TransferCompleted type="deposit" />
+    case "/withdraw":
+      return <Withdraw />
+    case "/withdraw/completed":
+      return <TransferCompleted type="withdraw" />
   }
 }
 

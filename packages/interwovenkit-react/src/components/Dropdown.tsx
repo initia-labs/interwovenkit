@@ -1,5 +1,5 @@
 import clsx from "clsx"
-import { Select } from "@base-ui-components/react/select"
+import { Select } from "@base-ui/react/select"
 import { IconCheck, IconChevronDown } from "@initia/icons-react"
 import { usePortal } from "@/public/app/PortalContext"
 import styles from "./Dropdown.module.css"
@@ -32,7 +32,7 @@ function Dropdown<T extends string | number = string>({
   const selectedOption = options.find((option) => option.value === value)
   if (!selectedOption) throw new Error("Selected option not found")
 
-  const handleChange = (value: string) => {
+  const handleChange = (value: string | null) => {
     const option = options.find((option) => String(option.value) === value)
     if (!option) throw new Error(`Option not found: ${value}`)
     onChange(option.value)
