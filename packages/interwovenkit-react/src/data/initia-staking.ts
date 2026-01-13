@@ -546,10 +546,13 @@ export function useInitiaStakingPositions(): InitiaStakingPositionsResult {
           value: formattedAmount * price,
         }
 
+        // Validate releaseTime to prevent NaN (fallback to 0 if invalid)
+        const releaseTime = Number(lock.releaseTime)
+
         result.push({
           type: "lockstaking",
           validator: lock.validator,
-          releaseTime: Number(lock.releaseTime),
+          releaseTime: Number.isNaN(releaseTime) ? 0 : releaseTime,
           balance,
         })
       }
@@ -579,7 +582,10 @@ export function useInitiaStakingPositions(): InitiaStakingPositionsResult {
           value: formattedAmount * price,
         }
 
-        const completionTime = Math.floor(new Date(unstaking.completionTime).getTime() / 1000)
+        // Validate date parsing to prevent NaN (fallback to 0 if invalid)
+        const parsedTime = new Date(unstaking.completionTime).getTime()
+        const completionTime = Number.isNaN(parsedTime) ? 0 : Math.floor(parsedTime / 1000)
+
         result.push({
           type: "unstaking",
           validator: unstaking.validator,
