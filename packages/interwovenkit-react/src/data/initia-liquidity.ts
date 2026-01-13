@@ -17,6 +17,7 @@ import {
   useInitiaUndelegations,
 } from "./initia-staking"
 import type { LiquiditySectionData, LiquidityTableRow, PoolType } from "./minity"
+import { fetchAllPages } from "./pagination"
 
 // ============================================
 // QUERY KEYS
@@ -40,14 +41,6 @@ interface Coin {
 
 interface CoinWithMetadata extends Coin {
   metadata: string
-}
-
-interface BalancesResponse {
-  balances: Coin[]
-  pagination?: {
-    next_key: string | null
-    total: string
-  }
 }
 
 interface CheckLpTokensResponse {
@@ -101,12 +94,12 @@ export function useWalletBalances() {
 
   return useSuspenseQuery({
     queryKey: initiaLiquidityQueryKeys.balances(restUrl, address).queryKey,
-    queryFn: async () => {
-      const response = await ky
-        .get(`${restUrl}/cosmos/bank/v1beta1/balances/${address}`)
-        .json<BalancesResponse>()
-      return response.balances
-    },
+    queryFn: () =>
+      fetchAllPages<"balances", Coin>(
+        `cosmos/bank/v1beta1/balances/${address}`,
+        { prefixUrl: restUrl },
+        "balances",
+      ),
     staleTime: STALE_TIMES.MINUTE,
   })
 }
@@ -118,8 +111,7 @@ export function useCheckLpTokens(denoms: string[]) {
   return useSuspenseQuery({
     queryKey: initiaLiquidityQueryKeys.checkLpTokens(dexUrl ?? "", denoms).queryKey,
     queryFn: async () => {
-      if (!dexUrl) throw new Error("dexUrl is not configured")
-      if (denoms.length === 0) return new Map<string, boolean>()
+      if (!dexUrl || denoms.length === 0) return new Map<string, boolean>()
       const response = await ky
         .post(`${dexUrl}/indexer/dex/v1/check_lp_tokens`, { json: { denoms } })
         .json<CheckLpTokensResponse>()
@@ -148,8 +140,7 @@ export function useLpPrices(denoms: string[]) {
   return useSuspenseQuery({
     queryKey: initiaLiquidityQueryKeys.lpPrices(dexUrl ?? "", denoms).queryKey,
     queryFn: async () => {
-      if (!dexUrl) throw new Error("dexUrl is not configured")
-      if (denoms.length === 0) return new Map<string, number>()
+      if (!dexUrl || denoms.length === 0) return new Map<string, number>()
       const denomParam = denoms.join(",")
       const response = await ky
         .get(`${dexUrl}/indexer/price/v1/lp_prices/${encodeURIComponent(denomParam)}`)
@@ -186,7 +177,7 @@ export function useLiquidityPoolList(denoms: string[]) {
     queries: denoms.map((denom) => ({
       queryKey: initiaLiquidityQueryKeys.pool(dexUrl ?? "", denom).queryKey,
       queryFn: async () => {
-        if (!dexUrl) throw new Error("dexUrl is not configured")
+        if (!dexUrl) return null
         try {
           const metadata = denomToMetadata(denom)
           const response = await ky

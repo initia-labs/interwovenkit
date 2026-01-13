@@ -2,6 +2,7 @@ import { toBase64, toHex } from "@cosmjs/encoding"
 import { bcs } from "@mysten/bcs"
 import { sha3_256 } from "@noble/hashes/sha3"
 import { toBytes } from "@noble/hashes/utils"
+import BigNumber from "bignumber.js"
 import ky from "ky"
 import { useMemo } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
@@ -177,6 +178,7 @@ export function useInitiaDelegations() {
   return useSuspenseQuery({
     queryKey: initiaStakingQueryKeys.delegations(restUrl, address).queryKey,
     queryFn: async () => {
+      if (!address) return []
       const response = await ky
         .get(`${restUrl}/initia/mstaking/v1/delegations/${address}`)
         .json<DelegationResponse>()
@@ -334,13 +336,26 @@ function normalizeRewards(data: RewardsResponse): NormalizedRewards {
   for (const pool of data.total) {
     if (!pool?.denom || !pool?.dec_coins) continue
     const metadata = denomToMetadata(pool.denom)
-    const coin = pool.dec_coins[0]
-    if (coin) {
-      result.set(metadata, {
-        denom: pool.denom,
-        amount: coin.amount,
-      })
+
+    // Sum all coin amounts for this pool
+    let totalAmount = new BigNumber(0)
+    for (const coin of pool.dec_coins) {
+      if (coin?.amount) {
+        totalAmount = totalAmount.plus(coin.amount)
+      }
     }
+
+    // Merge with existing entry if present
+    const existing = result.get(metadata)
+    if (existing) {
+      const existingAmount = new BigNumber(existing.amount)
+      totalAmount = totalAmount.plus(existingAmount)
+    }
+
+    result.set(metadata, {
+      denom: pool.denom,
+      amount: totalAmount.toString(),
+    })
   }
 
   return result
@@ -354,6 +369,7 @@ export function useInitiaStakingRewards() {
   return useSuspenseQuery({
     queryKey: initiaStakingQueryKeys.stakingRewards(restUrl, address).queryKey,
     queryFn: async () => {
+      if (!address) return { rewards: [], total: [] }
       const response = await ky
         .get(`${restUrl}/initia/distribution/v1/delegators/${address}/rewards`)
         .json<RewardsResponse>()
@@ -408,7 +424,7 @@ interface InitiaStakingPositionsResult {
 export function useInitiaStakingPositions(): InitiaStakingPositionsResult {
   const layer1 = useLayer1()
   const assets = useAssets(layer1)
-  const { data: prices } = usePricesQuery(layer1)
+  const { data: prices, isLoading: pricesLoading } = usePricesQuery(layer1)
   const { data: delegations } = useInitiaDelegations()
   const { data: undelegations } = useInitiaUndelegations()
   const { data: lockStaking } = useInitiaLockStaking()
@@ -575,6 +591,6 @@ export function useInitiaStakingPositions(): InitiaStakingPositionsResult {
   return {
     positions,
     totalValue,
-    isLoading: false,
+    isLoading: pricesLoading,
   }
 }

@@ -1,3 +1,4 @@
+import BigNumber from "bignumber.js"
 import ky from "ky"
 import { useCallback, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
@@ -82,9 +83,10 @@ interface NormalizedVestingEntry {
 
 function normalizeVestingEntries(entries: AllVestingPositionsResponse): NormalizedVestingEntry[] {
   return entries
+    .filter((entry) => entry.data.length > 0)
     .map((entry) => {
-      const bridgeId = entry.data[0]?.bridge_id ?? 0
-      const version = entry.data[0]?.version ?? 0
+      const bridgeId = entry.data[0].bridge_id
+      const version = entry.data[0].version
       // Sum up claimed rewards from individual entries
       const totalClaimedReward = entry.data.reduce((sum, d) => sum + d.claimed_reward, 0)
       return {
@@ -165,15 +167,28 @@ export function useInitiaVipPositions(): VipSectionData {
         fromBaseUnit(String(entry.claimableReward), { decimals: INIT_DECIMALS }),
       )
 
+      // Use BigNumber for precision-safe value calculations (same pattern as TxSimulate.tsx)
+      const lockedRewardValue = BigNumber(
+        fromBaseUnit(String(entry.lockedReward), { decimals: INIT_DECIMALS }),
+      )
+        .times(initPrice)
+        .toNumber()
+
+      const claimableRewardValue = BigNumber(
+        fromBaseUnit(String(entry.claimableReward), { decimals: INIT_DECIMALS }),
+      )
+        .times(initPrice)
+        .toNumber()
+
       return {
         bridgeId: entry.rollup.bridgeId,
         version: entry.rollup.version,
         name: chain?.name ?? "",
-        logoUrl: chain?.logoUrl ?? "",
+        logoUrl: chain?.logoUrl,
         lockedReward: lockedFormatted,
-        lockedRewardValue: lockedFormatted * initPrice,
+        lockedRewardValue,
         claimableReward: claimableFormatted,
-        claimableRewardValue: claimableFormatted * initPrice,
+        claimableRewardValue,
       }
     })
   }, [vestingPositions, initPrice, findChainByBridgeId])
