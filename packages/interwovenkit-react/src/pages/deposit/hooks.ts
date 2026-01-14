@@ -109,7 +109,7 @@ export function useExternalAssetOptions() {
       // filter out external cosmos chains (different wallet connection is required)
       if (chain.chain_type === "cosmos" && chain.bech32_prefix !== "init") return null
 
-      const balance = balances?.[chain.chain_id][asset.denom]
+      const balance = balances?.[chain.chain_id]?.[asset.denom]
 
       // during deposit, show only assets with balance
       if (!isWithdraw && (!balance || !Number(balance.amount))) return null

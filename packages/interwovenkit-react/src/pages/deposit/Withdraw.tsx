@@ -9,7 +9,7 @@ import WithdrawFields from "./WithdrawFields"
 import styles from "./Withdraw.module.css"
 
 export interface FormValues {
-  page: "select-local" | "select-external" | "fields" | "transfer-completed"
+  page: "select-local" | "select-external" | "fields" | "completed"
   quantity: string
 }
 

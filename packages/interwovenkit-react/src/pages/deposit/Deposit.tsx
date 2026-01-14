@@ -9,7 +9,7 @@ import { TransferCompleted } from "./TransferCompleted"
 import styles from "./Deposit.module.css"
 
 export interface FormValues {
-  page: "select-local" | "select-external" | "fields" | "transfer-completed"
+  page: "select-local" | "select-external" | "fields" | "completed"
   quantity: string
 }
 

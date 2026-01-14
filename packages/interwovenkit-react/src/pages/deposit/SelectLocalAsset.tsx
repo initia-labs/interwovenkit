@@ -1,3 +1,4 @@
+import { useEffect, useEffectEvent } from "react"
 import { usePath } from "@/lib/router"
 import { useLocalAssetOptions, useTransferForm } from "./hooks"
 import styles from "./SelectLocalAsset.module.css"
@@ -25,9 +26,18 @@ const SelectLocalAsset = () => {
     setValue("page", isWithdraw ? "fields" : "select-external")
   }
 
-  if (options.length === 1) {
+  const selectDefaultAsset = useEffectEvent(() => {
     const { denom, chain_id } = options[0]
     selectLocalAsset(denom, chain_id)
+  })
+
+  useEffect(() => {
+    if (options.length === 1) {
+      selectDefaultAsset()
+    }
+  }, [options])
+
+  if (options.length === 1) {
     return null
   }
 
