@@ -50,7 +50,7 @@ const DepositFields = () => {
 
   const quantityValue = Number(price) * Number(quantity || 0)
 
-  const [debouncedQuantity] = useDebounceValue(quantity, 300)
+  const [debouncedQuantity] = useDebounceValue(Number(quantity), 300)
 
   const disabledMessage = useMemo(() => {
     if (!externalAsset) return "Select asset"
@@ -63,7 +63,7 @@ const DepositFields = () => {
     // Destructure error fields in deps to properly track each field change
   }, [quantity, balance, externalAsset])
 
-  const { data: route, error: routeError } = useRouteQuery(debouncedQuantity, {
+  const { data: route, error: routeError } = useRouteQuery(debouncedQuantity.toString(), {
     disabled: !!disabledMessage,
   })
 

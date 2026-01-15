@@ -63,6 +63,7 @@
     "react-hook-form": "^7.66.0",
     "react-intersection-observer": "^10.0.0",
     "react-merge-refs": "^3.0.2",
+    "react-number-format": "^5.4.4",
     "usehooks-ts": "^3.1.1",
     "xss": "^1.0.15"
   },

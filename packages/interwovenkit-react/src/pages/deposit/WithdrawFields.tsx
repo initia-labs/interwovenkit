@@ -50,7 +50,7 @@ const WithdrawFields = () => {
 
   const quantityValue = Number(price) * Number(quantity || 0)
 
-  const [debouncedQuantity] = useDebounceValue(quantity, 300)
+  const [debouncedQuantity] = useDebounceValue(Number(quantity), 300)
 
   const disabledMessage = useMemo(() => {
     if (!Number(quantity)) return "Enter amount"
@@ -61,7 +61,7 @@ const WithdrawFields = () => {
     // which for some reason thinks quantity is not a stable dependency even tho it works fine in DepositFields
     // eslint-disable-next-line react-hooks/preserve-manual-memoization
   }, [quantity, balance, externalAsset, localAsset])
-  const { data: route, error: routeError } = useRouteQuery(debouncedQuantity, {
+  const { data: route, error: routeError } = useRouteQuery(debouncedQuantity.toString(), {
     disabled: !!disabledMessage,
   })
 
