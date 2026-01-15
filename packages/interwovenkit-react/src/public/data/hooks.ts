@@ -96,6 +96,7 @@ export function useInterwovenKit() {
   const tx = useTx()
 
   const isConnected = !!address
+  const isOpen = isDrawerOpen || isModalOpen
 
   return {
     address,
@@ -104,7 +105,7 @@ export function useInterwovenKit() {
     username,
     offlineSigner,
     isConnected,
-    isOpen: isDrawerOpen || isModalOpen,
+    isOpen,
     openConnect,
     openWallet,
     openBridge,
