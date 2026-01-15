@@ -1,0 +1,15 @@
+.trigger {
+  font-family: var(--monospace);
+}
+
+.item {
+  z-index: 1010;
+
+  justify-content: flex-end;
+
+  width: 152px;
+}
+
+.itemText {
+  font-family: var(--monospace);
+}

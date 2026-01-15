@@ -17,6 +17,7 @@ import { type BridgeTxResult, useBridgePreviewState } from "../bridge/data/tx"
 import FooterWithErc20Approval from "../bridge/FooterWithErc20Approval"
 import { useTransferForm } from "./hooks"
 import TransferTxDetails from "./TransferTxDetails"
+import styles from "./TransferFooter.module.css"
 
 interface Props {
   tx: TxJson
@@ -156,7 +157,12 @@ const TransferFooterWithFee = ({ tx, gas }: Props) => {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
         <span className="monospace">{formatAmount(amount, { decimals, dp })}</span>
-        <Dropdown options={dropdownOptions} value={feeDenom} onChange={setFeeDenom} />
+        <Dropdown
+          options={dropdownOptions}
+          value={feeDenom}
+          onChange={setFeeDenom}
+          classNames={styles}
+        />
       </div>
     )
   }

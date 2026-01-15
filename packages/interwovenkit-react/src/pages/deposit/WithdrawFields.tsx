@@ -3,6 +3,7 @@ import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
 import { formatAmount, InitiaAddress } from "@initia/utils"
 import Button from "@/components/Button"
+import Footer from "@/components/Footer"
 import QuantityInput from "@/components/form/QuantityInput"
 import { formatValue } from "@/lib/format"
 import { useLocationState, useNavigate } from "@/lib/router"
@@ -167,15 +168,17 @@ const WithdrawFields = () => {
         <IconChevronDown className={styles.chevron} size={16} />
       </button>
       {!state.route || !!disabledMessage ? (
-        <Button.White
-          type="submit"
-          loading={!routeError && !disabledMessage && "Fetching route..."}
-          disabled={true}
-          fullWidth
-          className={styles.submit}
-        >
-          {routeError ? "No route found" : disabledMessage}
-        </Button.White>
+        <Footer>
+          <Button.White
+            type="submit"
+            loading={!routeError && !disabledMessage && "Fetching route..."}
+            disabled={true}
+            fullWidth
+            className={styles.submit}
+          >
+            {routeError ? "No route found" : disabledMessage}
+          </Button.White>
+        </Footer>
       ) : (
         <FooterWithAddressList>
           {(addressList) => (

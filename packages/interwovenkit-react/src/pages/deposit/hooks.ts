@@ -46,10 +46,10 @@ export function useAllBalancesQuery() {
 }
 
 export function useLocalAssetOptions() {
-  const { dstOptions = [] } = useLocationState<{ dstOptions?: AssetOption[] }>()
+  const { localOptions = [] } = useLocationState<{ localOptions?: AssetOption[] }>()
   const skipAssets = useAllSkipAssets()
   return skipAssets.filter(({ denom, chain_id }) =>
-    dstOptions.some((opt) => opt.denom === denom && opt.chainId === chain_id),
+    localOptions.some((opt) => opt.denom === denom && opt.chainId === chain_id),
   )
 }
 
@@ -89,16 +89,16 @@ export function useExternalAssetOptions() {
   const skipAssets = useAllSkipAssets()
   const findChain = useFindSkipChain()
   const { data: balances, isLoading } = useAllBalancesQuery()
-  const { srcOptions = [] } = useLocationState<{ srcOptions?: AssetOption[] }>()
+  const { remoteOptions = [] } = useLocationState<{ remoteOptions?: AssetOption[] }>()
   const localAsset = useLocalAssetDepositAsset()
 
   if (!localAsset) return { data: [], isLoading }
 
   const data = skipAssets
     .filter(({ symbol, denom, chain_id }) =>
-      !srcOptions.length
+      !remoteOptions.length
         ? symbol === localAsset.symbol
-        : srcOptions.some((opt) => opt.denom === denom && opt.chainId === chain_id),
+        : remoteOptions.some((opt) => opt.denom === denom && opt.chainId === chain_id),
     )
     .map((asset) => {
       if (asset.hidden) return null

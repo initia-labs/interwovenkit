@@ -57,6 +57,7 @@ export function useInterwovenKit() {
   const offlineSigner = useOfflineSigner()
   const disconnect = useDisconnect()
   const autoSign = useAutoSign()
+  const defaultChain = useDefaultChain()
 
   const { isDrawerOpen, openDrawer } = useDrawer()
   const { isModalOpen, openModal } = useModal()
@@ -73,24 +74,46 @@ export function useInterwovenKit() {
     openDrawer("/bridge", defaultValues)
   }
 
-  const openDeposit = (
-    dstOptions: AssetOption[],
-    options?: { srcOptions?: AssetOption[]; recipientAddress?: string },
-  ) => {
-    if (dstOptions.length === 0) {
-      throw new Error("dstOptions cannot be empty")
+  const openDeposit = (params: {
+    denoms: string[]
+    chainId?: string
+    srcOptions?: AssetOption[]
+    recipientAddress?: string
+  }) => {
+    if (!address) {
+      throw new Error("No wallet connected")
     }
-    openModal("/deposit", { dstOptions, ...options })
+    const { denoms, chainId, srcOptions, recipientAddress } = params
+    if (denoms.length === 0) {
+      throw new Error("denoms cannot be empty")
+    }
+    const targetChainId = chainId ?? defaultChain.chainId
+    const localOptions: AssetOption[] = denoms.map((denom) => ({
+      denom,
+      chainId: targetChainId,
+    }))
+    openModal("/deposit", { localOptions, remoteOptions: srcOptions, recipientAddress })
   }
 
-  const openWithdraw = (
-    dstOptions: AssetOption[],
-    options?: { srcOptions?: AssetOption[]; recipientAddress?: string },
-  ) => {
-    if (dstOptions.length === 0) {
-      throw new Error("dstOptions cannot be empty")
+  const openWithdraw = (params: {
+    denoms: string[]
+    chainId?: string
+    dstOptions?: AssetOption[]
+    recipientAddress?: string
+  }) => {
+    if (!address) {
+      throw new Error("No wallet connected")
     }
-    openModal("/withdraw", { dstOptions, ...options })
+    const { denoms, chainId, dstOptions, recipientAddress } = params
+    if (denoms.length === 0) {
+      throw new Error("denoms cannot be empty")
+    }
+    const targetChainId = chainId ?? defaultChain.chainId
+    const localOptions: AssetOption[] = denoms.map((denom) => ({
+      denom,
+      chainId: targetChainId,
+    }))
+    openModal("/withdraw", { localOptions, remoteOptions: dstOptions, recipientAddress })
   }
 
   const tx = useTx()

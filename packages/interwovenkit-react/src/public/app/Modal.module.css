@@ -1,7 +1,7 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: 9998;
+  z-index: var(--z-index);
 
   backdrop-filter: blur(4px);
   background-color: rgba(0, 0, 0, 0.5);
@@ -13,7 +13,7 @@
   position: fixed;
   top: 50%;
   left: 50%;
-  z-index: 9999;
+  z-index: calc(var(--z-index) + 1);
 
   width: 400px;
 
@@ -45,7 +45,7 @@
   position: absolute;
   top: 16px;
   right: 20px;
-  z-index: 1000;
+  z-index: calc(var(--z-index) + 2);
 
   color: var(--gray-4);
 }
