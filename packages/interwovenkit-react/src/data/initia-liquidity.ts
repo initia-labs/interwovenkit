@@ -51,16 +51,12 @@ interface LpPricesResponse {
   prices: Record<string, number> | Array<{ denom: string; price: number }>
 }
 
-interface Pool {
+interface PoolResponse {
   lp: string
   lp_metadata: string
   pool_type: PoolType
   symbol?: string
   coins: Array<{ denom: string; weight?: string }>
-}
-
-interface PoolResponse {
-  pool: Pool
 }
 
 // ============================================
@@ -142,10 +138,12 @@ export function useLpPrices(denoms: string[]) {
   return useSuspenseQuery({
     queryKey: initiaLiquidityQueryKeys.lpPrices(dexUrl ?? "", denoms).queryKey,
     queryFn: async () => {
-      if (!dexUrl || denoms.length === 0) return new Map<string, number>()
-      const denomParam = denoms.join(",")
+      if (!dexUrl || denoms.length === 0) {
+        return new Map<string, number>()
+      }
+
       const response = await ky
-        .get(`${dexUrl}/indexer/price/v1/lp_prices/${encodeURIComponent(denomParam)}`)
+        .get(`${dexUrl}/indexer/price/v1/lp_prices/${encodeURIComponent(denoms.join(","))}`)
         .json<LpPricesResponse>()
 
       const { prices } = response
@@ -158,11 +156,11 @@ export function useLpPrices(denoms: string[]) {
   })
 }
 
-/** Fetch pool info for multiple LP tokens (same pattern as app-v2) */
+/** Fetch pool info for multiple LP tokens */
 export function useLiquidityPoolList(denoms: string[]) {
   const { dexUrl } = useConfig()
 
-  // Fetch L1 assets internally for symbol resolution (same as app-v2)
+  // Fetch L1 assets internally for symbol resolution
   const layer1 = useLayer1()
   const assets = useAssets(layer1)
 
@@ -184,7 +182,7 @@ export function useLiquidityPoolList(denoms: string[]) {
           const metadata = denomToMetadata(denom)
           const response = await ky
             .get(`${dexUrl}/indexer/dex/v2/pools/${encodeURIComponent(metadata)}`)
-            .json<PoolResponse>()
+            .json<{ pool: PoolResponse }>()
           return response.pool
         } catch {
           // Pool info may not be available for all LP tokens
@@ -199,7 +197,7 @@ export function useLiquidityPoolList(denoms: string[]) {
   const queryData = queries.map((q) => q.data)
 
   return useMemo(() => {
-    const map = new Map<string, Pool | null>()
+    const map = new Map<string, PoolResponse | null>()
     denoms.forEach((denom, i) => {
       const pool = queryData[i]
       if (!pool) {
@@ -321,7 +319,7 @@ export function useInitiaLiquidityPositions(): LiquiditySectionData {
     const rowMap = new Map<string, LiquidityTableRow>()
 
     // Helper to get coin logos from pool coins
-    const getCoinLogos = (pool: Pool | null): string[] => {
+    const getCoinLogos = (pool: PoolResponse | null): string[] => {
       if (!pool?.coins || pool.coins.length === 0) return []
       return pool.coins.map((coin) => {
         const asset = assetByDenom.get(coin.denom)
