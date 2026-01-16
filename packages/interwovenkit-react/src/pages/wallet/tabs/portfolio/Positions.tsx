@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react"
 import AsyncBoundary from "@/components/AsyncBoundary"
-import FallBack from "@/components/FallBack"
+import Skeletons from "@/components/Skeletons"
 import Status from "@/components/Status"
 import { useLayer1 } from "@/data/chains"
 import { useCivitiaPlayer } from "@/data/civitia"
@@ -134,7 +134,7 @@ const Positions = memo(({ searchQuery, selectedChain, chainInfoMap }: PositionsP
       <div className={styles.header}>
         <span className={styles.title}>Positions</span>
         {hasPositions && (
-          <AsyncBoundary suspenseFallback={<FallBack height={16} width={60} length={1} />}>
+          <AsyncBoundary suspenseFallback={<Skeletons height={16} width={60} length={1} />}>
             <PositionsTotalValue filteredChainGroups={filteredChainGroups} />
           </AsyncBoundary>
         )}
@@ -150,7 +150,7 @@ const Positions = memo(({ searchQuery, selectedChain, chainInfoMap }: PositionsP
                   key={chainGroup.chainName}
                   suspenseFallback={
                     <div className={styles.skeletonWrapper}>
-                      <FallBack height={56} length={1} />
+                      <Skeletons height={56} length={1} />
                     </div>
                   }
                 >
@@ -162,7 +162,7 @@ const Positions = memo(({ searchQuery, selectedChain, chainInfoMap }: PositionsP
           })}
         </div>
       ) : positions.length === 0 && isLoading ? (
-        <FallBack height={56} length={3} />
+        <Skeletons height={56} length={3} />
       ) : (
         <Status>No positions</Status>
       )}

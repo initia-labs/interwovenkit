@@ -6,7 +6,6 @@ import { useAutoFocus } from "@/components/form/hooks"
 import SearchInput from "@/components/form/SearchInput"
 import Image from "@/components/Image"
 import Status from "@/components/Status"
-import Tag from "@/components/Tag"
 import type { NormalizedChain } from "@/data/chains"
 import { useInitiaRegistry } from "@/data/chains"
 import { useConfig } from "@/data/config"
@@ -220,7 +219,9 @@ const ChainSelect = ({ value, onChange, chainIds, renderExtra, fullWidth }: Prop
                         logoUrl(16)
                       )}
                       <span className={styles.name}>{name}</span>
-                      {chainId === defaultChainId && <Tag label="Connected" variant="success" />}
+                      {chainId === defaultChainId && (
+                        <span className={styles.connectedTag}>Connected</span>
+                      )}
                     </div>
                     {renderExtra && <span className={styles.extra}>{renderExtra(chainId)}</span>}
                   </div>

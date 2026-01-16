@@ -1,13 +1,17 @@
-import { toBase64, toHex } from "@cosmjs/encoding"
-import { bcs } from "@mysten/bcs"
-import { sha3_256 } from "@noble/hashes/sha3"
-import { toBytes } from "@noble/hashes/utils"
+import { toBase64 } from "@cosmjs/encoding"
 import BigNumber from "bignumber.js"
+import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import ky from "ky"
 import { useMemo } from "react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
-import { createMoveClient, denomToMetadata, fromBaseUnit, InitiaAddress } from "@initia/utils"
+import {
+  createMoveClient,
+  createObjectAddress,
+  denomToMetadata,
+  fromBaseUnit,
+  InitiaAddress,
+} from "@initia/utils"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useAssets, useDenoms } from "./assets"
 import { useLayer1, usePricesQuery } from "./chains"
@@ -30,41 +34,16 @@ const LOCK_STAKE_MODULE_NAME = "lock_staking"
  * Derives the lock staking address for a given user address.
  * This is where lock-staked tokens are held and where unbonding from lock staking goes.
  *
- * Implementation follows app-v2's getLockStakingHexAddress:
- * https://github.com/initia-labs/initia-app-v2/blob/main/src/utils/initia/lock-staking.ts
- *
- * Move VM Object Address Derivation:
- * - Uses OBJECT_FROM_SEED_ADDRESS_SCHEME (0xfe) as defined in Move VM spec
- * - SHA3-256 hashing matches Initia's Move VM implementation
- * - Address derivation: sha3_256(source_address || seed || scheme_byte)
- * - Seed format: type_name_bytes || address_bytes (32 bytes each)
- *
- * The scheme 0xfe is the Move VM's standard for object addresses derived from seeds,
- * as opposed to 0xfd for named objects or other schemes. This ensures compatibility
- * with Initia's lock_staking module which creates StakingAccount objects using this scheme.
+ * Uses createObjectAddress from @initia/utils which implements the Move VM's
+ * OBJECT_FROM_SEED_ADDRESS_SCHEME (0xfe) for deriving object addresses from seeds.
  *
  * @param address - User's Initia bech32 address
  * @param lockStakeModuleAddress - Lock staking module address (e.g., "0x...")
  * @returns Derived lock staking account address in bech32 format
  */
 function getLockStakingAddress(address: string, lockStakeModuleAddress: string): string {
-  const OBJECT_FROM_SEED_ADDRESS_SCHEME = 0xfe
-  const typeName = `${lockStakeModuleAddress}::lock_staking::StakingAccount`
-
-  // Serialize address using BCS (32 bytes)
-  const addrBytes = [...bcs.bytes(32).serialize(InitiaAddress(address, 32).bytes).toBytes()]
-
-  // Create seed: typeName bytes + address bytes
-  const seed = new Uint8Array([...toBytes(typeName), ...addrBytes])
-
-  // Create final bytes: address bytes + seed + scheme byte
-  const bytes = new Uint8Array([...addrBytes, ...seed, OBJECT_FROM_SEED_ADDRESS_SCHEME])
-
-  // Hash and convert to bech32 address
-  const hash = sha3_256.create()
-  const sum = hash.update(bytes).digest()
-  const hexAddress = `0x${toHex(sum)}`
-
+  const seed = `${lockStakeModuleAddress}::lock_staking::StakingAccount`
+  const hexAddress = createObjectAddress(address, seed)
   return InitiaAddress(hexAddress).bech32
 }
 
@@ -84,18 +63,17 @@ export const initiaStakingQueryKeys = createQueryKeys("interwovenkit:initia-stak
     address,
     moduleAddress,
   ],
-  stakingRewards: (restUrl: string, address: string) => [restUrl, address, "rewards"],
-  lockStakingRewards: (restUrl: string, lockAddress: string) => [restUrl, lockAddress, "rewards"],
+  stakingRewards: (restUrl: string, address: string) => [restUrl, address],
+  lockStakingRewards: (restUrl: string, address: string, lockAddress: string) => [
+    restUrl,
+    address,
+    lockAddress,
+  ],
 })
 
 // ============================================
 // RAW RESPONSE TYPES
 // ============================================
-
-interface DelegationBalance {
-  denom: string
-  amount: string
-}
 
 interface DelegationResponse {
   delegation_responses: Array<{
@@ -103,7 +81,7 @@ interface DelegationResponse {
       delegator_address: string
       validator_address: string
     }
-    balance: DelegationBalance[]
+    balance: Coin[]
   }>
   pagination?: {
     next_key: string | null
@@ -114,8 +92,8 @@ interface DelegationResponse {
 interface UnbondingEntry {
   creation_height: string
   completion_time: string
-  initial_balance: DelegationBalance[]
-  balance: DelegationBalance[]
+  initial_balance: Coin[]
+  balance: Coin[]
 }
 
 interface UnbondingDelegationResponse {
@@ -192,7 +170,7 @@ export function useInitiaDelegations() {
   const address = useInitiaAddress()
 
   return useSuspenseQuery({
-    queryKey: initiaStakingQueryKeys.delegations(restUrl, address).queryKey,
+    queryKey: initiaStakingQueryKeys.delegations(restUrl, address || "").queryKey,
     queryFn: async () => {
       if (!address) return []
       const response = await ky
@@ -214,10 +192,9 @@ export function useInitiaDelegations() {
             validator,
           }
 
-          if (!result.has(metadata)) {
-            result.set(metadata, [])
-          }
-          result.get(metadata)!.push(normalized)
+          const existing = result.get(metadata) ?? []
+          existing.push(normalized)
+          result.set(metadata, existing)
         }
       }
 
@@ -232,33 +209,27 @@ export function useInitiaUndelegations() {
   const { restUrl } = useLayer1()
   const { lockStakeModuleAddress } = useConfig()
   const address = useInitiaAddress()
-  const lockStakingAddress = lockStakeModuleAddress
-    ? getLockStakingAddress(address, lockStakeModuleAddress)
-    : null
+  const lockStakingAddress = address ? getLockStakingAddress(address, lockStakeModuleAddress) : ""
 
   return useSuspenseQuery({
-    queryKey: initiaStakingQueryKeys.undelegations(restUrl, address, lockStakingAddress ?? "")
+    queryKey: initiaStakingQueryKeys.undelegations(restUrl, address || "", lockStakingAddress)
       .queryKey,
     queryFn: async () => {
+      if (!address) return []
+
       // Fetch user unbonding delegations
       const userResult = await ky
         .get(`${restUrl}/initia/mstaking/v1/delegators/${address}/unbonding_delegations`)
         .json<UnbondingDelegationResponse>()
         .catch(() => ({ unbonding_responses: [] }))
 
-      // Only fetch lock staking undelegations if module is configured
-      let lockResponses: UnbondingDelegationResponse["unbonding_responses"] = []
-      if (lockStakingAddress) {
-        const lockResult = await ky
-          .get(
-            `${restUrl}/initia/mstaking/v1/delegators/${lockStakingAddress}/unbonding_delegations`,
-          )
-          .json<UnbondingDelegationResponse>()
-          .catch(() => ({ unbonding_responses: [] }))
-        lockResponses = lockResult.unbonding_responses
-      }
+      // Fetch lock staking undelegations
+      const lockResult = await ky
+        .get(`${restUrl}/initia/mstaking/v1/delegators/${lockStakingAddress}/unbonding_delegations`)
+        .json<UnbondingDelegationResponse>()
+        .catch(() => ({ unbonding_responses: [] }))
 
-      return [...userResult.unbonding_responses, ...lockResponses]
+      return [...userResult.unbonding_responses, ...lockResult.unbonding_responses]
     },
     select: (data): Map<string, NormalizedUnstaking[]> => {
       const result = new Map<string, NormalizedUnstaking[]>()
@@ -276,10 +247,9 @@ export function useInitiaUndelegations() {
               completionTime: entry.completion_time,
             }
 
-            if (!result.has(metadata)) {
-              result.set(metadata, [])
-            }
-            result.get(metadata)!.push(normalized)
+            const existing = result.get(metadata) ?? []
+            existing.push(normalized)
+            result.set(metadata, existing)
           }
         }
       }
@@ -297,13 +267,10 @@ export function useInitiaLockStaking() {
   const address = useInitiaAddress()
 
   return useSuspenseQuery({
-    queryKey: initiaStakingQueryKeys.lockStaking(restUrl, address, lockStakeModuleAddress ?? "")
+    queryKey: initiaStakingQueryKeys.lockStaking(restUrl, address || "", lockStakeModuleAddress)
       .queryKey,
     queryFn: async () => {
-      // Return empty result if lock stake module is not configured
-      if (!lockStakeModuleAddress) {
-        return []
-      }
+      if (!address) return []
 
       const { viewFunction } = createMoveClient(restUrl)
       const result = await viewFunction<LockDelegation[]>({
@@ -326,10 +293,9 @@ export function useInitiaLockStaking() {
           releaseTime: lock.release_time,
         }
 
-        if (!result.has(lock.metadata)) {
-          result.set(lock.metadata, [])
-        }
-        result.get(lock.metadata)!.push(normalized)
+        const existing = result.get(lock.metadata) ?? []
+        existing.push(normalized)
+        result.set(lock.metadata, existing)
       }
 
       return result
@@ -383,7 +349,7 @@ export function useInitiaStakingRewards() {
   const address = useInitiaAddress()
 
   return useSuspenseQuery({
-    queryKey: initiaStakingQueryKeys.stakingRewards(restUrl, address).queryKey,
+    queryKey: initiaStakingQueryKeys.stakingRewards(restUrl, address || "").queryKey,
     queryFn: async () => {
       if (!address) return { rewards: [], total: [] }
       const response = await ky
@@ -401,17 +367,13 @@ export function useInitiaLockStakingRewards() {
   const { restUrl } = useLayer1()
   const { lockStakeModuleAddress } = useConfig()
   const address = useInitiaAddress()
-  const lockStakingAddress = lockStakeModuleAddress
-    ? getLockStakingAddress(address, lockStakeModuleAddress)
-    : null
+  const lockStakingAddress = address ? getLockStakingAddress(address, lockStakeModuleAddress) : ""
 
   return useSuspenseQuery({
-    queryKey: initiaStakingQueryKeys.lockStakingRewards(restUrl, lockStakingAddress ?? "").queryKey,
+    queryKey: initiaStakingQueryKeys.lockStakingRewards(restUrl, address ?? "", lockStakingAddress)
+      .queryKey,
     queryFn: async () => {
-      // Return empty rewards if lock stake module is not configured
-      if (!lockStakingAddress) {
-        return { rewards: [], total: [] }
-      }
+      if (!address) return { rewards: [], total: [] }
 
       const response = await ky
         .get(`${restUrl}/initia/distribution/v1/delegators/${lockStakingAddress}/rewards`)

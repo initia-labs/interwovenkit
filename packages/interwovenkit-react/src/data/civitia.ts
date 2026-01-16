@@ -31,11 +31,11 @@ export function useCivitiaPlayer() {
   const address = useInitiaAddress()
 
   return useQuery({
-    enabled: !!civitiaUrl && !!address,
-    queryKey: civitiaQueryKeys.player(civitiaUrl ?? "", address ?? "").queryKey,
+    enabled: !!address,
+    queryKey: civitiaQueryKeys.player(civitiaUrl, address ?? "").queryKey,
     queryFn: async (): Promise<CivitiaPlayer> => {
-      if (!civitiaUrl || !address) {
-        throw new Error("civitiaUrl or address is not available")
+      if (!address) {
+        throw new Error("address is not available")
       }
       return ky.get(`${civitiaUrl}/players/${address}`).json()
     },

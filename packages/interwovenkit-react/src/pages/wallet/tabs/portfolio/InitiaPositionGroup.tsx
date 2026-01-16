@@ -5,9 +5,9 @@ import { atom, useAtom } from "jotai"
 import { IconChevronDown, IconExternalLink } from "@initia/icons-react"
 import { denomToMetadata, fromBaseUnit } from "@initia/utils"
 import AsyncBoundary from "@/components/AsyncBoundary"
-import FallBack from "@/components/FallBack"
 import Image from "@/components/Image"
-import { useAllChainAssetsQueries } from "@/data/assets"
+import Skeletons from "@/components/Skeletons"
+import { useAllChainsAssetsQueries } from "@/data/assets"
 import { useLayer1, usePricesQuery } from "@/data/chains"
 import { INIT_DECIMALS, INIT_DENOM, INITIA_LIQUIDITY_URL } from "@/data/constants"
 import { useInitiaLiquidityPositions } from "@/data/initia-liquidity"
@@ -202,7 +202,7 @@ const InitiaPositionGroup = ({ chainGroup }: Props) => {
   const [isOpen, setIsOpen] = useAtom(openInitiaGroupAtom)
 
   // Shared asset logos - fetch once and pass to child components
-  const assetsQueries = useAllChainAssetsQueries()
+  const assetsQueries = useAllChainsAssetsQueries()
   const { denomLogos, symbolLogos } = useMemo(
     () => buildAssetLogoMaps(assetsQueries),
     [assetsQueries],
@@ -239,7 +239,7 @@ const InitiaPositionGroup = ({ chainGroup }: Props) => {
               </div>
             </div>
             <div className={styles.valueColumn}>
-              <AsyncBoundary suspenseFallback={<FallBack height={16} width={60} length={1} />}>
+              <AsyncBoundary suspenseFallback={<Skeletons height={16} width={60} length={1} />}>
                 <InitiaTotalValue />
               </AsyncBoundary>
               <IconChevronDown
@@ -253,7 +253,7 @@ const InitiaPositionGroup = ({ chainGroup }: Props) => {
         <Collapsible.Content className={styles.collapsibleContent}>
           <div className={styles.content}>
             {/* Staking section */}
-            <AsyncBoundary suspenseFallback={<FallBack height={36} length={2} />}>
+            <AsyncBoundary suspenseFallback={<Skeletons height={36} length={2} />}>
               <InitiaStakingSection
                 chainLogo={chainLogo}
                 denomLogos={denomLogos}
@@ -263,7 +263,7 @@ const InitiaPositionGroup = ({ chainGroup }: Props) => {
             </AsyncBoundary>
 
             {/* Liquidity section */}
-            <AsyncBoundary suspenseFallback={<FallBack height={36} length={2} />}>
+            <AsyncBoundary suspenseFallback={<Skeletons height={36} length={2} />}>
               <InitiaLiquiditySectionWrapper
                 chainLogo={chainLogo}
                 denomLogos={denomLogos}
@@ -272,7 +272,7 @@ const InitiaPositionGroup = ({ chainGroup }: Props) => {
             </AsyncBoundary>
 
             {/* VIP section */}
-            <AsyncBoundary suspenseFallback={<FallBack height={36} length={1} />}>
+            <AsyncBoundary suspenseFallback={<Skeletons height={36} length={1} />}>
               <InitiaVipSectionWrapper />
             </AsyncBoundary>
           </div>

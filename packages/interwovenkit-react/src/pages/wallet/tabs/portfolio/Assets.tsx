@@ -1,5 +1,5 @@
 import { memo, useMemo } from "react"
-import FallBack from "@/components/FallBack"
+import Skeletons from "@/components/Skeletons"
 import Status from "@/components/Status"
 import { useLayer1 } from "@/data/chains"
 import {
@@ -77,7 +77,7 @@ const Assets = memo(
             <UnlistedAssets unlistedAssets={filteredUnlistedAssets} />
           </div>
         ) : assetGroups.length === 0 && isLoading ? (
-          <FallBack height={56} length={3} />
+          <Skeletons height={56} length={3} />
         ) : (
           <Status>No liquid assets</Status>
         )}

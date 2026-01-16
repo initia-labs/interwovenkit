@@ -112,9 +112,8 @@ export function useAllVipVestingPositions() {
   const address = useInitiaAddress()
 
   return useQuery({
-    queryKey: initiaVipQueryKeys.allVestingPositions(vipUrl ?? "", address).queryKey,
+    queryKey: initiaVipQueryKeys.allVestingPositions(vipUrl, address).queryKey,
     queryFn: async () => {
-      if (!vipUrl) throw new Error("VIP URL not configured")
       const data = await ky
         .get(`${vipUrl}/vesting/positions/${address}`)
         .json<AllVestingPositionsResponse>()
@@ -122,7 +121,7 @@ export function useAllVipVestingPositions() {
       return data.filter(({ total_vesting_reward }) => total_vesting_reward > 0)
     },
     staleTime: STALE_TIMES.MINUTE,
-    enabled: !!vipUrl && !!address,
+    enabled: !!address,
   })
 }
 

@@ -51,6 +51,12 @@ describe("formatValue", () => {
     expect(formatValue(-1000)).toBe("-$1,000.00")
   })
 
+  it("should handle negative small values (less than 0.01)", () => {
+    expect(formatValue(-0.005)).toBe("< $0.01")
+    expect(formatValue(-0.001)).toBe("< $0.01")
+    expect(formatValue(-0.009)).toBe("< $0.01")
+  })
+
   it("should handle BigNumber-compatible inputs", () => {
     expect(formatValue("123456789.123456789")).toBe("$123,456,789.12")
     expect(formatValue("0.000000001")).toBe("< $0.01")

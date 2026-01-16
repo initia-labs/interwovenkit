@@ -3,7 +3,7 @@ import { useMemo } from "react"
 import { useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { denomToMetadata, fromBaseUnit } from "@initia/utils"
-import { useInitiaAddress } from "@/public/data/hooks"
+import { useBalances } from "./account"
 import { useAssets, useDenoms } from "./assets"
 import { useLayer1, usePricesQuery } from "./chains"
 import { useConfig } from "./config"
@@ -17,16 +17,14 @@ import {
   useInitiaUndelegations,
 } from "./initia-staking"
 import type { LiquiditySectionData, LiquidityTableRow, PoolType } from "./minity"
-import { fetchAllPages } from "./pagination"
 
 // ============================================
 // QUERY KEYS
 // ============================================
 
 export const initiaLiquidityQueryKeys = createQueryKeys("interwovenkit:initia-liquidity", {
-  balances: (restUrl: string, address: string) => [restUrl, address],
-  checkLpTokens: (dexUrl: string, denoms: string[]) => [dexUrl, denoms.join(",")],
-  lpPrices: (dexUrl: string, denoms: string[]) => [dexUrl, denoms.join(",")],
+  checkLpTokens: (dexUrl: string, denoms: string[]) => [dexUrl, denoms],
+  lpPrices: (dexUrl: string, denoms: string[]) => [dexUrl, denoms],
   pool: (dexUrl: string, metadata: string) => [dexUrl, metadata],
 })
 
@@ -70,10 +68,9 @@ function normalizeLps(coins: Coin[]): Map<string, CoinWithMetadata[]> {
     const metadata = denomToMetadata(coin.denom)
     const coinWithMetadata: CoinWithMetadata = { ...coin, metadata }
 
-    if (!result.has(metadata)) {
-      result.set(metadata, [])
-    }
-    result.get(metadata)!.push(coinWithMetadata)
+    const existing = result.get(metadata) ?? []
+    existing.push(coinWithMetadata)
+    result.set(metadata, existing)
   }
 
   return result
@@ -83,33 +80,14 @@ function normalizeLps(coins: Coin[]): Map<string, CoinWithMetadata[]> {
 // HOOKS
 // ============================================
 
-/** Fetch all wallet balances */
-export function useWalletBalances() {
-  const { restUrl } = useLayer1()
-  const address = useInitiaAddress()
-
-  return useSuspenseQuery({
-    queryKey: initiaLiquidityQueryKeys.balances(restUrl, address).queryKey,
-    queryFn: () => {
-      if (!address) return []
-      return fetchAllPages<"balances", Coin>(
-        `cosmos/bank/v1beta1/balances/${address}`,
-        { prefixUrl: restUrl },
-        "balances",
-      )
-    },
-    staleTime: STALE_TIMES.MINUTE,
-  })
-}
-
 /** Check which denoms are LP tokens */
 export function useCheckLpTokens(denoms: string[]) {
   const { dexUrl } = useConfig()
 
   return useSuspenseQuery({
-    queryKey: initiaLiquidityQueryKeys.checkLpTokens(dexUrl ?? "", denoms).queryKey,
+    queryKey: initiaLiquidityQueryKeys.checkLpTokens(dexUrl, denoms).queryKey,
     queryFn: async () => {
-      if (!dexUrl || denoms.length === 0) return new Map<string, boolean>()
+      if (denoms.length === 0) return new Map<string, boolean>()
       const response = await ky
         .post(`${dexUrl}/indexer/dex/v1/check_lp_tokens`, { json: { denoms } })
         .json<CheckLpTokensResponse>()
@@ -121,7 +99,8 @@ export function useCheckLpTokens(denoms: string[]) {
 
 /** Get LP tokens from wallet (deposit state) */
 export function useLps() {
-  const { data: balances } = useWalletBalances()
+  const layer1 = useLayer1()
+  const balances = useBalances(layer1)
   const denoms = useMemo(() => balances.map((b) => b.denom), [balances])
   const { data: lpCheck } = useCheckLpTokens(denoms)
 
@@ -136,9 +115,9 @@ export function useLpPrices(denoms: string[]) {
   const { dexUrl } = useConfig()
 
   return useSuspenseQuery({
-    queryKey: initiaLiquidityQueryKeys.lpPrices(dexUrl ?? "", denoms).queryKey,
+    queryKey: initiaLiquidityQueryKeys.lpPrices(dexUrl, denoms).queryKey,
     queryFn: async () => {
-      if (!dexUrl || denoms.length === 0) {
+      if (denoms.length === 0) {
         return new Map<string, number>()
       }
 
@@ -175,9 +154,8 @@ export function useLiquidityPoolList(denoms: string[]) {
 
   const queries = useSuspenseQueries({
     queries: denoms.map((denom) => ({
-      queryKey: initiaLiquidityQueryKeys.pool(dexUrl ?? "", denom).queryKey,
+      queryKey: initiaLiquidityQueryKeys.pool(dexUrl, denom).queryKey,
       queryFn: async () => {
-        if (!dexUrl) return null
         try {
           const metadata = denomToMetadata(denom)
           const response = await ky
@@ -226,146 +204,108 @@ export function useLiquidityPoolList(denoms: string[]) {
 }
 
 // ============================================
-// MAIN AGGREGATOR HOOK
+// HELPER FUNCTIONS FOR AGGREGATION
 // ============================================
 
-/**
- * Combined hook that fetches all Initia L1 liquidity positions
- * and transforms them to LiquiditySectionData format for portfolio display
- */
-export function useInitiaLiquidityPositions(): LiquiditySectionData {
-  // Get layer1 assets for symbol and logo lookup
-  const layer1 = useLayer1()
-  const assets = useAssets(layer1)
+function collectMetadataKeys(
+  lps: Map<string, CoinWithMetadata[]>,
+  delegations: Map<string, Coin[]>,
+  lockStaking: Map<string, { amount: string }[]>,
+  undelegations: Map<string, Coin[]>,
+): string[] {
+  const keys = new Set<string>()
 
-  // Fetch data from all sources
-  const lps = useLps() // Wallet LP tokens (deposit)
-  const { data: delegations } = useInitiaDelegations() // Staked tokens
-  const { data: lockStaking } = useInitiaLockStaking() // Lock-staked tokens
-  const { data: undelegations } = useInitiaUndelegations() // Unbonding tokens
-  const { data: stakingRewards } = useInitiaStakingRewards() // Staking rewards
-  const { data: lockStakingRewards } = useInitiaLockStakingRewards() // Lock staking rewards
+  for (const metadata of lps.keys()) {
+    keys.add(metadata)
+  }
 
-  // Fetch INIT price for claimable rewards value calculation
-  const { data: initPrices } = usePricesQuery(layer1)
-
-  // Build asset lookup map for O(1) access (moved up to reduce useMemo count)
-  const assetByDenom = useMemo(() => {
-    const map = new Map<string, (typeof assets)[number]>()
-    for (const asset of assets) {
-      map.set(asset.denom, asset)
-    }
-    return map
-  }, [assets])
-
-  // Collect all unique metadata keys (excluding INIT)
-  const allMetadataKeys = useMemo(() => {
-    const keys = new Set<string>()
-
-    // From wallet LP tokens
-    for (const metadata of lps.keys()) {
+  for (const [metadata, stakingList] of delegations) {
+    const denom = stakingList[0]?.denom
+    if (denom && denom !== INIT_DENOM) {
       keys.add(metadata)
     }
+  }
 
-    // From delegations (filter out INIT)
-    for (const [metadata, stakingList] of delegations) {
-      const denom = stakingList[0]?.denom
-      if (denom && denom !== INIT_DENOM) {
-        keys.add(metadata)
-      }
-    }
+  for (const metadata of lockStaking.keys()) {
+    keys.add(metadata)
+  }
 
-    // From lock staking (INIT filtering happens later in lpDenomList)
-    for (const metadata of lockStaking.keys()) {
+  for (const [metadata, unstakingList] of undelegations) {
+    const denom = unstakingList[0]?.denom
+    if (denom && denom !== INIT_DENOM) {
       keys.add(metadata)
     }
+  }
 
-    // From undelegations (filter out INIT)
-    for (const [metadata, unstakingList] of undelegations) {
-      const denom = unstakingList[0]?.denom
-      if (denom && denom !== INIT_DENOM) {
-        keys.add(metadata)
-      }
+  return Array.from(keys)
+}
+
+function getLpDenomList(denomsMap: Map<string, string>): string[] {
+  const denoms: string[] = []
+  for (const [, denom] of denomsMap) {
+    if (denom && denom !== INIT_DENOM) {
+      denoms.push(denom)
     }
+  }
+  return denoms
+}
 
-    return Array.from(keys)
-  }, [lps, delegations, lockStaking, undelegations])
+function getCoinLogos(
+  pool: PoolResponse | null,
+  assetByDenom: Map<string, { logoUrl?: string }>,
+): string[] {
+  if (!pool?.coins || pool.coins.length === 0) return []
+  return pool.coins.map((coin) => {
+    const asset = assetByDenom.get(coin.denom)
+    return asset?.logoUrl || ""
+  })
+}
 
-  // Resolve metadata -> denom
-  const denomsMap = useDenoms(allMetadataKeys)
+function createRow(
+  denom: string,
+  pools: Map<string, PoolResponse | null>,
+  assetByDenom: Map<string, { decimals?: number; logoUrl?: string }>,
+): LiquidityTableRow {
+  const pool = pools.get(denom) ?? null
+  const symbol = pool?.symbol || denom
+  const coinLogos = getCoinLogos(pool, assetByDenom)
+  const hasCoinLogos = coinLogos.length > 0 && coinLogos.some((logo) => logo)
+  const logoUrl = hasCoinLogos ? undefined : assetByDenom.get(denom)?.logoUrl
 
-  // Get list of LP denoms (excluding INIT)
-  const lpDenomList = useMemo(() => {
-    const denoms: string[] = []
-    for (const [, denom] of denomsMap) {
-      if (denom && denom !== INIT_DENOM) {
-        denoms.push(denom)
-      }
-    }
-    return denoms
-  }, [denomsMap])
+  return {
+    denom,
+    symbol,
+    totalAmount: 0,
+    totalValue: 0,
+    decimals: assetByDenom.get(denom)?.decimals ?? 6,
+    poolType: pool?.pool_type,
+    logoUrl,
+    coinLogos: hasCoinLogos ? coinLogos : undefined,
+    breakdown: {
+      deposit: 0,
+      staking: 0,
+      lockStaking: 0,
+      unstaking: 0,
+    },
+  }
+}
 
-  // Fetch LP prices
-  const { data: prices } = useLpPrices(lpDenomList)
+function processPositionsWithDenom(
+  positions: Map<string, Coin[]>,
+  denomsMap: Map<string, string>,
+  prices: Map<string, number>,
+  rowMap: Map<string, LiquidityTableRow>,
+  type: keyof LiquidityTableRow["breakdown"],
+) {
+  for (const [metadata, positionList] of positions) {
+    const denom = denomsMap.get(metadata) ?? positionList[0]?.denom
+    if (!denom || denom === INIT_DENOM) continue
 
-  // Fetch pool info (fetches assets internally for symbol resolution, same as app-v2)
-  const pools = useLiquidityPoolList(lpDenomList)
+    const row = rowMap.get(denom)
+    if (!row) continue
 
-  // Aggregate into rows and calculate total value in a single pass
-  const { rows, totalValue } = useMemo(() => {
-    // Compute INIT price inline to reduce useMemo count
-    const initPrice = initPrices?.find((p) => p.id === INIT_DENOM)?.price ?? 0
-
-    const rowMap = new Map<string, LiquidityTableRow>()
-
-    // Helper to get coin logos from pool coins
-    const getCoinLogos = (pool: PoolResponse | null): string[] => {
-      if (!pool?.coins || pool.coins.length === 0) return []
-      return pool.coins.map((coin) => {
-        const asset = assetByDenom.get(coin.denom)
-        return asset?.logoUrl || ""
-      })
-    }
-
-    // Helper to get or create row
-    const getRow = (denom: string): LiquidityTableRow => {
-      if (!rowMap.has(denom)) {
-        const pool = pools.get(denom) ?? null
-        // Symbol is already set in useLiquidityPoolList (includes omniINIT special case)
-        const symbol = pool?.symbol || denom
-        const coinLogos = getCoinLogos(pool)
-        const hasCoinLogos = coinLogos.length > 0 && coinLogos.some((logo) => logo)
-
-        // For LP tokens without coins (like omniINIT), use the LP token's own logo
-        const logoUrl = hasCoinLogos ? undefined : assetByDenom.get(denom)?.logoUrl
-
-        rowMap.set(denom, {
-          denom,
-          symbol,
-          totalAmount: 0,
-          totalValue: 0,
-          decimals: assetByDenom.get(denom)?.decimals ?? 6,
-          poolType: pool?.pool_type,
-          logoUrl,
-          coinLogos: hasCoinLogos ? coinLogos : undefined,
-          breakdown: {
-            deposit: 0,
-            staking: 0,
-            lockStaking: 0,
-            unstaking: 0,
-          },
-        })
-      }
-      return rowMap.get(denom)!
-    }
-
-    // Helper to add amount to row
-    const addAmount = (
-      denom: string,
-      amountStr: string,
-      type: keyof LiquidityTableRow["breakdown"],
-    ) => {
-      const row = getRow(denom)
+    for (const position of positionList) {
+      const amountStr = String(position.amount)
       const decimals = row.decimals
       const formattedAmount = Number(fromBaseUnit(amountStr, { decimals }))
       const price = prices.get(denom) ?? 0
@@ -375,91 +315,143 @@ export function useInitiaLiquidityPositions(): LiquiditySectionData {
       row.totalAmount += formattedAmount
       row.totalValue += value
     }
+  }
+}
 
-    // Process wallet LP tokens (deposit)
-    for (const [metadata, lpList] of lps) {
-      const denom = denomsMap.get(metadata)
-      if (!denom || denom === INIT_DENOM) continue
-      for (const lp of lpList) {
-        addAmount(denom, String(lp.amount), "deposit")
+function processPositionsWithMetadata(
+  positions: Map<string, Array<{ amount: string }>>,
+  denomsMap: Map<string, string>,
+  prices: Map<string, number>,
+  rowMap: Map<string, LiquidityTableRow>,
+  type: keyof LiquidityTableRow["breakdown"],
+) {
+  for (const [metadata, positionList] of positions) {
+    const denom = denomsMap.get(metadata)
+    if (!denom || denom === INIT_DENOM) continue
+
+    const row = rowMap.get(denom)
+    if (!row) continue
+
+    for (const position of positionList) {
+      const amountStr = String(position.amount)
+      const decimals = row.decimals
+      const formattedAmount = Number(fromBaseUnit(amountStr, { decimals }))
+      const price = prices.get(denom) ?? 0
+      const value = formattedAmount * price
+
+      row.breakdown[type] += formattedAmount
+      row.totalAmount += formattedAmount
+      row.totalValue += value
+    }
+  }
+}
+
+function addClaimableRewards(
+  rowMap: Map<string, LiquidityTableRow>,
+  stakingRewards: Map<string, { denom: string; amount: string }> | undefined,
+  lockStakingRewards: Map<string, { denom: string; amount: string }> | undefined,
+  initPrice: number,
+) {
+  for (const [denom, row] of rowMap) {
+    const metadata = denomToMetadata(denom)
+
+    const stakingReward = stakingRewards?.get(metadata)
+    const stakingAmount = stakingReward
+      ? fromBaseUnit(stakingReward.amount, { decimals: INIT_DECIMALS })
+      : "0"
+
+    const lockReward = lockStakingRewards?.get(metadata)
+    const lockAmount = lockReward
+      ? fromBaseUnit(lockReward.amount, { decimals: INIT_DECIMALS })
+      : "0"
+
+    const totalAmount = Number(stakingAmount) + Number(lockAmount)
+
+    if (totalAmount > 0) {
+      row.claimableInit = {
+        staking: stakingAmount,
+        lockStaking: lockAmount,
+        total: String(totalAmount),
+        totalValue: totalAmount * initPrice,
       }
     }
+  }
+}
 
-    // Process staked LP tokens (staking)
-    for (const [metadata, stakingList] of delegations) {
-      const denom = denomsMap.get(metadata) ?? stakingList[0]?.denom
-      if (!denom || denom === INIT_DENOM) continue
-      for (const staking of stakingList) {
-        addAmount(denom, String(staking.amount), "staking")
-      }
+// ============================================
+// MAIN AGGREGATOR HOOK
+// ============================================
+
+/**
+ * Combined hook that fetches all Initia L1 liquidity positions
+ * and transforms them to LiquiditySectionData format for portfolio display
+ */
+export function useInitiaLiquidityPositions(): LiquiditySectionData {
+  const layer1 = useLayer1()
+  const assets = useAssets(layer1)
+
+  const lps = useLps()
+  const { data: delegations } = useInitiaDelegations()
+  const { data: lockStaking } = useInitiaLockStaking()
+  const { data: undelegations } = useInitiaUndelegations()
+  const { data: stakingRewards } = useInitiaStakingRewards()
+  const { data: lockStakingRewards } = useInitiaLockStakingRewards()
+  const { data: initPrices } = usePricesQuery(layer1)
+
+  const assetByDenom = useMemo(() => {
+    const map = new Map<string, (typeof assets)[number]>()
+    for (const asset of assets) {
+      map.set(asset.denom, asset)
+    }
+    return map
+  }, [assets])
+
+  const allMetadataKeys = useMemo(
+    () => collectMetadataKeys(lps, delegations, lockStaking, undelegations),
+    [lps, delegations, lockStaking, undelegations],
+  )
+
+  const denomsMap = useDenoms(allMetadataKeys)
+  const lpDenomList = useMemo(() => getLpDenomList(denomsMap), [denomsMap])
+  const { data: prices } = useLpPrices(lpDenomList)
+  const pools = useLiquidityPoolList(lpDenomList)
+
+  const { rows, totalValue } = useMemo(() => {
+    const initPrice = initPrices?.find((p) => p.id === INIT_DENOM)?.price ?? 0
+    const rowMap = new Map<string, LiquidityTableRow>()
+
+    // Create rows for all LP denoms
+    for (const denom of lpDenomList) {
+      rowMap.set(denom, createRow(denom, pools, assetByDenom))
     }
 
-    // Process lock-staked LP tokens (lockStaking)
-    for (const [metadata, lockList] of lockStaking) {
-      const denom = denomsMap.get(metadata)
-      if (!denom || denom === INIT_DENOM) continue
-      for (const lock of lockList) {
-        addAmount(denom, String(lock.amount), "lockStaking")
-      }
-    }
+    // Process all position types
+    processPositionsWithDenom(lps, denomsMap, prices, rowMap, "deposit")
+    processPositionsWithDenom(delegations, denomsMap, prices, rowMap, "staking")
+    processPositionsWithMetadata(lockStaking, denomsMap, prices, rowMap, "lockStaking")
+    processPositionsWithDenom(undelegations, denomsMap, prices, rowMap, "unstaking")
 
-    // Process unbonding LP tokens (unstaking)
-    for (const [metadata, unstakingList] of undelegations) {
-      const denom = denomsMap.get(metadata) ?? unstakingList[0]?.denom
-      if (!denom || denom === INIT_DENOM) continue
-      for (const unstaking of unstakingList) {
-        addAmount(denom, String(unstaking.amount), "unstaking")
-      }
-    }
+    // Add claimable rewards
+    addClaimableRewards(rowMap, stakingRewards, lockStakingRewards, initPrice)
 
-    // Add claimable INIT rewards to each row
-    for (const [denom, row] of rowMap) {
-      const metadata = denomToMetadata(denom)
-
-      // Get staking rewards for this LP token (rewards are paid in INIT)
-      const stakingReward = stakingRewards?.get(metadata)
-      const stakingAmount = stakingReward
-        ? fromBaseUnit(stakingReward.amount, { decimals: INIT_DECIMALS })
-        : "0"
-
-      // Get lock staking rewards for this LP token (rewards are paid in INIT)
-      const lockReward = lockStakingRewards?.get(metadata)
-      const lockAmount = lockReward
-        ? fromBaseUnit(lockReward.amount, { decimals: INIT_DECIMALS })
-        : "0"
-
-      // Calculate total
-      const totalAmount = Number(stakingAmount) + Number(lockAmount)
-
-      // Only add claimableInit if there are rewards
-      if (totalAmount > 0) {
-        row.claimableInit = {
-          staking: stakingAmount,
-          lockStaking: lockAmount,
-          total: String(totalAmount),
-          totalValue: totalAmount * initPrice,
-        }
-      }
-    }
-
-    // Convert to array and sort by value desc
+    // Convert to array, filter, and sort
     const sortedRows = Array.from(rowMap.values())
       .filter((row) => row.totalAmount > 0)
       .sort((a, b) => b.totalValue - a.totalValue)
 
-    // Calculate total value in same pass
     const totalVal = sortedRows.reduce((sum, row) => sum + row.totalValue, 0)
 
     return { rows: sortedRows, totalValue: totalVal }
   }, [
+    lpDenomList,
+    pools,
+    assetByDenom,
     lps,
     delegations,
     lockStaking,
     undelegations,
     denomsMap,
     prices,
-    pools,
-    assetByDenom,
     stakingRewards,
     lockStakingRewards,
     initPrices,

@@ -12,12 +12,12 @@ import {
 import { useAllVipVestingPositions } from "./initia-vip"
 
 // ============================================
-// LIGHTWEIGHT L1 POSITIONS TOTAL HOOK
+// L1 POSITIONS TOTAL HOOK
 // ============================================
 
 /**
- * Lightweight hook to get total L1 positions value (staking + liquidity + VIP).
- * Optimized for Home view - computes only totals without building full data structures.
+ * Calculates total L1 positions value (staking + liquidity + VIP).
+ * Computes only totals without building full data structures.
  * Skips unnecessary queries (e.g., pool info, chain profiles) that the full hooks need.
  */
 export function useL1PositionsTotal(): number {

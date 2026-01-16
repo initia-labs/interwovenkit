@@ -3,7 +3,7 @@ import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import { ascend, descend, head, pick, prop, sortWith, zipObj } from "ramda"
 import { fromBaseUnit } from "@initia/utils"
 import { useAllChainBalancesQueries } from "./account"
-import { type NormalizedAsset, useAllChainAssetsQueries } from "./assets"
+import { type NormalizedAsset, useAllChainsAssetsQueries } from "./assets"
 import type { NormalizedChain, PriceItem } from "./chains"
 import { useAllChainPriceQueries, useInitiaRegistry } from "./chains"
 import { useConfig } from "./config"
@@ -233,7 +233,7 @@ export function usePortfolio() {
   const { defaultChainId } = useConfig()
   const chains = useInitiaRegistry()
   const balances = useAllChainBalancesQueries()
-  const assets = useAllChainAssetsQueries()
+  const assets = useAllChainsAssetsQueries()
   const prices = useAllChainPriceQueries()
 
   const chainIds = chains.map((chain) => chain.chainId)

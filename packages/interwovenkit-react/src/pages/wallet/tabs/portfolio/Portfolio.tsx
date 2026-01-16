@@ -1,9 +1,9 @@
 import { useMemo } from "react"
 import { useAtom } from "jotai"
 import AsyncBoundary from "@/components/AsyncBoundary"
-import FallBack from "@/components/FallBack"
 import Skeleton from "@/components/Skeleton"
-import { useAllChainAssetsQueries } from "@/data/assets"
+import Skeletons from "@/components/Skeletons"
+import { useAllChainsAssetsQueries } from "@/data/assets"
 import { useAllChainPriceQueries, useInitiaRegistry, useLayer1 } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import {
@@ -85,7 +85,7 @@ const Portfolio = () => {
 
   // Fetch asset logos once at portfolio level (shared by Assets and Positions)
   // This prevents re-fetching on every search keystroke
-  const assetsQueries = useAllChainAssetsQueries()
+  const assetsQueries = useAllChainsAssetsQueries()
   const { denomLogos, symbolLogos } = useMemo(
     () => buildAssetLogoMaps(assetsQueries),
     [assetsQueries],
@@ -115,7 +115,7 @@ const Portfolio = () => {
       </HomeContainer.Controls>
 
       <div className={styles.content}>
-        <AsyncBoundary suspenseFallback={<FallBack height={48} length={5} />}>
+        <AsyncBoundary suspenseFallback={<Skeletons height={48} length={5} />}>
           <Assets
             searchQuery={searchQuery}
             selectedChain={selectedChain}
@@ -125,7 +125,7 @@ const Portfolio = () => {
             chainPrices={chainPrices}
           />
         </AsyncBoundary>
-        <AsyncBoundary suspenseFallback={<FallBack height={56} length={3} />}>
+        <AsyncBoundary suspenseFallback={<Skeletons height={56} length={3} />}>
           <Positions
             searchQuery={searchQuery}
             selectedChain={selectedChain}

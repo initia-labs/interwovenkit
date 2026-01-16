@@ -2,10 +2,11 @@ import { Tooltip } from "radix-ui"
 import { useEffect } from "react"
 import { useIsClient } from "usehooks-ts"
 import AsyncBoundary from "@/components/AsyncBoundary"
-import { useAllChainAssetsQueries } from "@/data/assets"
+import { useAllChainsAssetsQueries } from "@/data/assets"
 import { useInitiaRegistry } from "@/data/chains"
 import type { Config } from "@/data/config"
 import { ConfigContext } from "@/data/config"
+import { useL1PositionsTotal } from "@/data/initia-positions-total"
 import { migrateLocalStorage } from "@/data/migration"
 import { usePortfolioSSE } from "@/data/minity"
 import { useSyncPrivyAuth } from "@/data/privy"
@@ -51,8 +52,11 @@ const Prefetch = () => {
   // portfolio SSE (balances + positions streaming)
   usePortfolioSSE()
 
+  // L1 positions total (staking + liquidity + VIP)
+  useL1PositionsTotal()
+
   // asset logos (address-independent, used by portfolio)
-  useAllChainAssetsQueries()
+  useAllChainsAssetsQueries()
 
   // bridge
   useSkipChains()

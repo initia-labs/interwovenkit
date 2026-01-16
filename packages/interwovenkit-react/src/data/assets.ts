@@ -29,8 +29,6 @@ export interface NormalizedAsset extends BaseAsset {
   traces?: Asset["traces"]
 }
 
-export type MetadataDenomEntry = [string, string]
-
 function normalizeAsset(asset: Asset): NormalizedAsset {
   const { base: denom, symbol, denom_units = [], display, logo_URIs, name, address, traces } = asset
   const decimals =
@@ -73,7 +71,7 @@ export function useAssets(chain?: NormalizedChain) {
   return data
 }
 
-export function useAllChainAssetsQueries() {
+export function useAllChainsAssetsQueries() {
   const chains = useInitiaRegistry()
   const createAssetsQuery = useCreateAssetsQuery()
   return useQueries({
@@ -147,7 +145,6 @@ export function useDenoms(metadatas: string[]) {
 
   const result = useSuspenseQueries({
     queries: metadatas.map((metadata) => ({
-      gcTime: STALE_TIMES.INFINITY,
       queryFn: async () => {
         const response = await restClient
           .get("initia/move/v1/denom", { searchParams: { metadata } })
@@ -155,7 +152,7 @@ export function useDenoms(metadatas: string[]) {
         return response.denom
       },
       queryKey: assetQueryKeys.denom(layer1.restUrl, metadata).queryKey,
-      select: (data: string): MetadataDenomEntry => [metadata, data],
+      select: (data: string): [string, string] => [metadata, data],
       staleTime: STALE_TIMES.INFINITY,
     })),
   })

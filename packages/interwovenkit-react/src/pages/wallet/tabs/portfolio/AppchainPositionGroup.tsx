@@ -4,7 +4,7 @@ import { useMemo } from "react"
 import { atom, useAtom } from "jotai"
 import { IconChevronDown, IconExternalLink } from "@initia/icons-react"
 import Image from "@/components/Image"
-import { useAllChainAssetsQueries } from "@/data/assets"
+import { useAllChainsAssetsQueries } from "@/data/assets"
 import {
   buildAssetLogoMaps,
   getPositionValue,
@@ -33,7 +33,7 @@ const AppchainPositionContent = ({ chainGroup }: PositionSectionContentProps) =>
   const { chainLogo, protocols } = chainGroup
 
   // Asset logos (non-blocking - renders immediately, logos appear when ready)
-  const assetsQueries = useAllChainAssetsQueries()
+  const assetsQueries = useAllChainsAssetsQueries()
   const { denomLogos, symbolLogos } = useMemo(
     () => buildAssetLogoMaps(assetsQueries),
     [assetsQueries],
