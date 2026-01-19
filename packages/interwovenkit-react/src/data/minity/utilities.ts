@@ -140,7 +140,7 @@ export function groupPositionsBySection(positions: Position[]): Map<string, Sect
   const combinedLendingBorrowingAbsValue = lendingAbsValue + borrowingAbsValue
 
   // 4. Sort sections by absolute value descending
-  const sortedKeys = Array.from(groups.keys()).toSorted((a, b) => {
+  const sortedKeys = [...groups.keys()].sort((a, b) => {
     const aValue =
       a === "lending" || a === "borrowing"
         ? combinedLendingBorrowingAbsValue
@@ -637,10 +637,16 @@ export function processMinityBalances(
     if (chainCompare !== 0) return chainCompare
 
     // Within same chain, by amount descending
-    const aAmount = BigInt(a.amount)
-    const bAmount = BigInt(b.amount)
-    if (aAmount > bAmount) return -1
-    if (aAmount < bAmount) return 1
+    try {
+      const aAmount = BigInt(a.amount)
+      const bAmount = BigInt(b.amount)
+      if (aAmount > bAmount) return -1
+      if (aAmount < bAmount) return 1
+    } catch {
+      // Fallback to string comparison if amounts are not valid integers
+      const amountCompare = a.amount.localeCompare(b.amount)
+      if (amountCompare !== 0) return -amountCompare
+    }
 
     // Fallback to denom
     return a.denom.localeCompare(b.denom)

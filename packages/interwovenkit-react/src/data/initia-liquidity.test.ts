@@ -234,9 +234,21 @@ describe("initia-liquidity helpers", () => {
 
     it("should return empty array for null pool", () => {
       const pool = null
+      const assetByDenom = new Map()
 
       // Simulate getCoinLogos logic - null pool returns empty array
-      expect(pool).toBeNull()
+      const getCoinLogos = (
+        pool: { coins: { denom: string }[] } | null,
+        assetByDenom: Map<string, { logoUrl?: string }>,
+      ): string[] => {
+        if (!pool?.coins || pool.coins.length === 0) return []
+        return pool.coins.map((coin) => {
+          const asset = assetByDenom.get(coin.denom)
+          return asset?.logoUrl || ""
+        })
+      }
+
+      expect(getCoinLogos(pool, assetByDenom)).toEqual([])
     })
 
     it("should return empty string for missing logos", () => {
