@@ -277,7 +277,9 @@ const BridgeFields = () => {
             {formatAmount(srcBalance?.amount ?? "0", { decimals: srcAsset.decimals })}
           </BalanceButton>
         }
-        value={!route ? "$-" : route.usd_amount_in ? formatValue(route.usd_amount_in) : "$-"}
+        value={
+          !route ? "$-" : route.usd_amount_in != null ? formatValue(route.usd_amount_in) : "$-"
+        }
       />
 
       <div className={styles.arrow}>
@@ -291,7 +293,9 @@ const BridgeFields = () => {
         selectButton={<SelectedChainAsset type="dst" />}
         accountButton={<BridgeAccount type="dst" />}
         quantityInput={<QuantityInput.ReadOnly>{received}</QuantityInput.ReadOnly>}
-        value={!route ? "$-" : route.usd_amount_out ? formatValue(route.usd_amount_out) : "$-"}
+        value={
+          !route ? "$-" : route.usd_amount_out != null ? formatValue(route.usd_amount_out) : "$-"
+        }
         hideNumbers={shouldShowRouteOptions}
       />
 
