@@ -39,7 +39,7 @@ export function TransferCompleted({ type }: { type: "deposit" | "withdraw" }) {
   const { openDrawer } = useDrawer()
 
   if (!result) {
-    throw new Error("TransferCompleted: result is missing")
+    throw new Error("Transfer is completed but result is missing")
   }
 
   const isError = !result.success
