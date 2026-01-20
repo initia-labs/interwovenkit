@@ -49,7 +49,7 @@ const SelectExternalAsset = () => {
     )
   }
 
-  if (!localAsset) return null
+  if (!localAsset) return <div>No asset found</div>
 
   if (!isLoading && !filteredAssets.length)
     return (

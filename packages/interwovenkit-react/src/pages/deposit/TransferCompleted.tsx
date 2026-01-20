@@ -38,12 +38,16 @@ export function TransferCompleted({ type }: { type: "deposit" | "withdraw" }) {
   const { result } = watch()
   const { openDrawer } = useDrawer()
 
-  const isError = !result?.success
+  if (!result) {
+    throw new Error("TransferCompleted: result is missing")
+  }
+
+  const isError = !result.success
   const txHash = !isError ? result.txhash : ""
   const chainId = !isError ? result.chainId : ""
   const timestamp = !isError ? (result.timestamp ?? 0) : 0
 
-  const { route, values } = result!
+  const { route, values } = result
   // Get source asset information for display
   const { srcDenom, srcChainId, quantity } = values
   const srcAsset = useSkipAsset(srcDenom, srcChainId)

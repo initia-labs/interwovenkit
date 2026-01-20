@@ -1,7 +1,7 @@
 import { useEffect, useEffectEvent, useMemo } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
-import { formatAmount, InitiaAddress } from "@initia/utils"
+import { formatAmount, fromBaseUnit, InitiaAddress } from "@initia/utils"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import QuantityInput from "@/components/form/QuantityInput"
@@ -16,7 +16,6 @@ import FooterWithSignedOpHook from "../bridge/FooterWithSignedOpHook"
 import FooterWithTxFee from "./FooterWithTxFee"
 import {
   useAllBalancesQuery,
-  useExternalAssetOptions,
   useExternalDepositAsset,
   useLocalAssetDepositAsset,
   useLocalAssetOptions,
@@ -34,7 +33,6 @@ const WithdrawFields = () => {
   const navigate = useNavigate()
   const state = useLocationState<State>()
   const options = useLocalAssetOptions()
-  const { data: filteredAssets, isLoading: isAssetsLoading } = useExternalAssetOptions()
   const findChain = useFindSkipChain()
   const { data: balances } = useAllBalancesQuery()
   const hexAddress = useHexAddress()
@@ -54,7 +52,7 @@ const WithdrawFields = () => {
 
   const disabledMessage = useMemo(() => {
     if (!Number(quantity)) return "Enter amount"
-    if (Number(quantity) > Number(formatAmount(balance, { decimals: localAsset?.decimals || 6 })))
+    if (Number(quantity) > Number(fromBaseUnit(balance, { decimals: localAsset?.decimals || 6 })))
       return "Insufficient balance"
     if (!externalAsset) return "Select destination"
     // Forced to use eslint-disable due to an issue with react-hooks/exhaustive-deps
@@ -117,13 +115,10 @@ const WithdrawFields = () => {
           <button
             className={styles.maxButton}
             onClick={() => {
-              if (
-                Number(quantity) ===
-                Number(formatAmount(balance, { decimals: localAsset?.decimals || 6 }))
-              )
-                return
+              const maxAmount = fromBaseUnit(balance, { decimals: localAsset?.decimals || 6 })
+              if (Number(quantity) === Number(maxAmount)) return
 
-              setValue("quantity", formatAmount(balance, { decimals: localAsset?.decimals || 6 }))
+              setValue("quantity", maxAmount)
             }}
           >
             <IconWallet size={16} />{" "}
@@ -136,7 +131,6 @@ const WithdrawFields = () => {
       <button
         className={styles.asset}
         onClick={() => {
-          if (!isAssetsLoading && !filteredAssets.length) return
           setValue("page", "select-external")
         }}
       >

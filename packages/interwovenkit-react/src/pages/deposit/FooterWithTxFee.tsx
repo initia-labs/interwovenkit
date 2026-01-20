@@ -1,5 +1,6 @@
 import type { TxJson } from "@skip-go/client"
 import { useQuery } from "@tanstack/react-query"
+import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { aminoConverters } from "@initia/amino-converter"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
@@ -8,6 +9,10 @@ import { useInitiaAddress } from "@/public/data/hooks"
 import { useBridgePreviewState } from "../bridge/data/tx"
 
 import type { ReactNode } from "react"
+
+const queryKeys = createQueryKeys("interwovenkit:tx-gas-estimate", {
+  estimate: (params: { tx: TxJson; address: string; chainId: string }) => [params],
+})
 
 interface Props {
   tx: TxJson
@@ -22,7 +27,7 @@ const FooterWithTxFee = ({ tx, children }: Props) => {
   const createSigningStargateClient = useCreateSigningStargateClient()
 
   const { data: gasEstimate, isLoading } = useQuery({
-    queryKey: ["tx-gas-estimate", tx, address, srcChainId],
+    queryKey: queryKeys.estimate({ tx, address, chainId: srcChainId }).queryKey,
     queryFn: async () => {
       // Only simulate for cosmos transactions
       if (!("cosmos_tx" in tx)) return null
@@ -47,9 +52,7 @@ const FooterWithTxFee = ({ tx, children }: Props) => {
           estimatedGas: gas,
           messages,
         }
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error("Failed to simulate gas:", error)
+      } catch {
         return null
       }
     },

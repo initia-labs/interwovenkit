@@ -30,7 +30,7 @@ const TransferFooterWithFee = ({ tx, gas }: Props) => {
   const confirmMessage = isWithdraw ? "Withdraw" : "Deposit"
   const { setValue } = useTransferForm()
 
-  function onCompleted(result: BridgeTxResult) {
+  const onCompleted = (result: BridgeTxResult) => {
     setValue("page", "completed")
     setValue("result", result)
   }
@@ -187,7 +187,7 @@ const TransferFooter = ({ tx, gas }: Props) => {
   const path = usePath()
   const { setValue } = useTransferForm()
 
-  function onCompleted(result: BridgeTxResult) {
+  const onCompleted = (result: BridgeTxResult) => {
     setValue("page", "completed")
     setValue("result", result)
   }

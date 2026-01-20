@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { InitiaAddress } from "@initia/utils"
 import { accountQueryKeys, useUsernameClient } from "@/data/account"
 import { useDefaultChain } from "@/data/chains"
+import { useOpenDeposit, useOpenWithdraw } from "@/data/deposit"
 import { STALE_TIMES } from "@/data/http"
 import { useIsPrivyConnected } from "@/data/privy"
 import { useOfflineSigner } from "@/data/signer"
@@ -10,7 +11,6 @@ import { useTx } from "@/data/tx"
 import { useDisconnect, useDrawer, useModal } from "@/data/ui"
 import { useAutoSign } from "@/pages/autosign/data/public"
 import type { FormValues } from "@/pages/bridge/data/form"
-import type { AssetOption } from "@/pages/deposit/hooks"
 
 export { usePortfolio } from "@/data/portfolio"
 
@@ -57,10 +57,9 @@ export function useInterwovenKit() {
   const offlineSigner = useOfflineSigner()
   const disconnect = useDisconnect()
   const autoSign = useAutoSign()
-  const defaultChain = useDefaultChain()
 
   const { isDrawerOpen, openDrawer } = useDrawer()
-  const { isModalOpen, openModal } = useModal()
+  const { isModalOpen } = useModal()
 
   const openWallet = () => {
     openDrawer("/")
@@ -74,48 +73,8 @@ export function useInterwovenKit() {
     openDrawer("/bridge", defaultValues)
   }
 
-  const openDeposit = (params: {
-    denoms: string[]
-    chainId?: string
-    srcOptions?: AssetOption[]
-    recipientAddress?: string
-  }) => {
-    if (!address) {
-      throw new Error("No wallet connected")
-    }
-    const { denoms, chainId, srcOptions, recipientAddress } = params
-    if (denoms.length === 0) {
-      throw new Error("denoms cannot be empty")
-    }
-    const targetChainId = chainId ?? defaultChain.chainId
-    const localOptions: AssetOption[] = denoms.map((denom) => ({
-      denom,
-      chainId: targetChainId,
-    }))
-    openModal("/deposit", { localOptions, remoteOptions: srcOptions, recipientAddress })
-  }
-
-  const openWithdraw = (params: {
-    denoms: string[]
-    chainId?: string
-    dstOptions?: AssetOption[]
-    recipientAddress?: string
-  }) => {
-    if (!address) {
-      throw new Error("No wallet connected")
-    }
-    const { denoms, chainId, dstOptions, recipientAddress } = params
-    if (denoms.length === 0) {
-      throw new Error("denoms cannot be empty")
-    }
-    const targetChainId = chainId ?? defaultChain.chainId
-    const localOptions: AssetOption[] = denoms.map((denom) => ({
-      denom,
-      chainId: targetChainId,
-    }))
-    openModal("/withdraw", { localOptions, remoteOptions: dstOptions, recipientAddress })
-  }
-
+  const openDeposit = useOpenDeposit()
+  const openWithdraw = useOpenWithdraw()
   const tx = useTx()
 
   const isConnected = !!address
