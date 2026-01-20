@@ -29,6 +29,7 @@ function NumericInput<T extends FieldValues>(props: Props<T>) {
       rules={rules}
       render={({ field }) => (
         <NumericFormat
+          // @ts-expect-error - field.value type compatibility
           value={field.value}
           getInputRef={mergeRefs([field.ref, autoFocusRef])}
           className={clsx(styles.input, className)}
