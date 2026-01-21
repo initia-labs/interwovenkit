@@ -22,9 +22,18 @@ export function getAutoSignTypedData(origin: string, chainId: string) {
   }
 }
 
+/**
+ * Derive an HD wallet from an Ethereum signature.
+ * Follows dYdX's implementation: https://github.com/dydxprotocol/v4-clients
+ */
 export async function deriveWalletFromSignature(signature: Hex): Promise<DerivedWallet> {
-  const entropyHex = keccak256(signature)
-  const entropy = hexToBytes(entropyHex)
+  const signatureBytes = hexToBytes(signature)
+
+  // Strip the `v` byte (recovery id) and hash only r,s values (first 64 bytes).
+  // The `v` value can vary between wallets (27/28 for legacy, EIP-155 chain-specific,
+  // or 0/1 for modern), but r,s are consistent for the same signature.
+  const rsValues = signatureBytes.slice(0, 64)
+  const entropy = hexToBytes(keccak256(`0x${bytesToHex(rsValues)}`))
 
   const mnemonic = Bip39.encode(entropy)
   const seed = await Bip39.mnemonicToSeed(mnemonic)

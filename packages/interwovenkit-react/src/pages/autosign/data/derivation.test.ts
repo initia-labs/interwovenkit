@@ -135,16 +135,30 @@ describe("deriveWalletFromSignature", () => {
       expect(wallet1.publicKey).not.toEqual(wallet2.publicKey)
     })
 
-    it("small changes in signature produce completely different wallets", async () => {
+    it("small changes in r,s values produce completely different wallets", async () => {
+      // Signatures differ in the r,s portion (first 64 bytes), not just v (last byte)
       const sig1: Hex =
         "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
       const sig2: Hex =
-        "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"
+        "0x0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000"
 
       const wallet1 = await deriveWalletFromSignature(sig1)
       const wallet2 = await deriveWalletFromSignature(sig2)
 
       expect(wallet1.address).not.toBe(wallet2.address)
+    })
+
+    it("signatures differing only in v byte produce the same wallet", async () => {
+      // v byte (last byte) is stripped before hashing, so these should produce the same wallet
+      const sig1: Hex =
+        "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1b"
+      const sig2: Hex =
+        "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1c"
+
+      const wallet1 = await deriveWalletFromSignature(sig1)
+      const wallet2 = await deriveWalletFromSignature(sig2)
+
+      expect(wallet1.address).toBe(wallet2.address)
     })
   })
 
