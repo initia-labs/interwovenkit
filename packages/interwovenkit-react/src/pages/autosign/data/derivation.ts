@@ -36,6 +36,7 @@ export async function deriveWalletFromSignature(signature: Hex): Promise<Derived
   // Strip the `v` byte (recovery id) and hash only r,s values (first 64 bytes).
   // The `v` value can vary between wallets (27/28 for legacy, EIP-155 chain-specific,
   // or 0/1 for modern), but r,s are consistent for the same signature.
+  // See dYdX: https://github.com/dydxprotocol/v4-clients/blob/main/v4-client-js/src/lib/onboarding.ts#L56
   const rsValues = signatureBytes.slice(0, 64)
   const entropy = hexToBytes(keccak256(`0x${bytesToHex(rsValues)}`))
 
