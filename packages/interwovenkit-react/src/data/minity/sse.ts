@@ -96,7 +96,6 @@ export function usePortfolioSSE() {
         positions: Array.from(positionsMap.values()),
         isLoading: hasData ? false : current.isLoading,
         isComplete: false,
-        completedAt: undefined,
       })
     },
   )
@@ -137,7 +136,6 @@ export function usePortfolioSSE() {
         positions: existing?.positions ?? [],
         isLoading: true,
         isComplete: false,
-        completedAt: undefined,
       })
     }
 
@@ -204,10 +202,6 @@ export function usePortfolioSSE() {
       eventSource.onerror = () => {
         scheduleReconnect()
       }
-
-      eventSource.addEventListener("close", () => {
-        scheduleReconnect()
-      })
     }
 
     connect()

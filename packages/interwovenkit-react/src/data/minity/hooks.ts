@@ -1,3 +1,4 @@
+import { descend, prop, sortWith } from "ramda"
 import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useInitiaAddress } from "@/public/data/hooks"
@@ -157,7 +158,7 @@ export function useMinityChainBreakdown(): ChainBreakdownItem[] {
 
     const totalBalance = Array.from(chainTotals.values()).reduce((sum, v) => sum + v, 0)
 
-    return Array.from(chainTotals.entries())
+    const filtered = Array.from(chainTotals.entries())
       .filter(([, total]) => total > 0) // Filter out zero-balance chains
       .map(([chainName, total]) => {
         const registryChain = registryMap.get(chainName.toLowerCase())
@@ -170,11 +171,9 @@ export function useMinityChainBreakdown(): ChainBreakdownItem[] {
         }
       })
       .filter((item) => item.chainId !== "") // Filter out chains not in registry
-      .toSorted((a, b) => {
-        if (a.chainName.toLowerCase() === "initia") return -1
-        if (b.chainName.toLowerCase() === "initia") return 1
-        return b.totalBalance - a.totalBalance
-      })
+
+    const isInitia = (item: ChainBreakdownItem) => item.chainName.toLowerCase() === "initia"
+    return sortWith([descend(isInitia), descend(prop("totalBalance"))], filtered)
   }, [balances, positions, registryMap])
 
   return data

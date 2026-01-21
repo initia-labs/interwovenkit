@@ -73,7 +73,7 @@ export function useL1PositionsTotal(): number {
     const getLpValue = (metadata: string, amount: string): number => {
       const denom = denoms.get(metadata) ?? metadata
       if (denom === INIT_DENOM) return 0
-      const decimals = tokens.get(denom)?.decimals ?? 6
+      const decimals = tokens.get(denom)?.decimals ?? INIT_DECIMALS
       return Number(fromBaseUnit(amount, { decimals })) * (lpPrices.get(denom) ?? 0)
     }
 
@@ -81,7 +81,7 @@ export function useL1PositionsTotal(): number {
     for (const [, stakingList] of delegations) {
       for (const { denom, metadata, amount } of stakingList) {
         if (denom === INIT_DENOM) {
-          stakingTotal += Number(fromBaseUnit(amount, { decimals: 6 })) * price
+          stakingTotal += Number(fromBaseUnit(amount, { decimals: INIT_DECIMALS })) * price
         } else {
           liquidityTotal += getLpValue(metadata, amount)
         }
@@ -94,7 +94,7 @@ export function useL1PositionsTotal(): number {
       const isInit = denom === INIT_DENOM
       for (const { amount } of lockList) {
         if (isInit) {
-          stakingTotal += Number(fromBaseUnit(amount, { decimals: 6 })) * price
+          stakingTotal += Number(fromBaseUnit(amount, { decimals: INIT_DECIMALS })) * price
         } else {
           liquidityTotal += getLpValue(metadata, amount)
         }
@@ -105,7 +105,7 @@ export function useL1PositionsTotal(): number {
     for (const [, unstakingList] of undelegations) {
       for (const { denom, metadata, amount } of unstakingList) {
         if (denom === INIT_DENOM) {
-          stakingTotal += Number(fromBaseUnit(amount, { decimals: 6 })) * price
+          stakingTotal += Number(fromBaseUnit(amount, { decimals: INIT_DECIMALS })) * price
         } else {
           liquidityTotal += getLpValue(metadata, amount)
         }
