@@ -21,7 +21,6 @@ import { useDeriveWallet } from "./wallet"
 /* Hook to fetch existing grants and generate revoke messages */
 function useFetchRevokeMessages() {
   const granter = useInitiaAddress()
-  const messageTypes = useAutoSignMessageTypes()
   const { fetchFeegrant, fetchGrants } = useAutoSignApi()
 
   return async (params: { chainId: string; grantee: string }) => {
@@ -43,11 +42,11 @@ function useFetchRevokeMessages() {
         ]
       : []
 
-    const revokeAuthzMessages = messageTypes[chainId]
-      .filter((msgType) => grants.some((grant) => grant?.authorization?.msg === msgType))
-      .map((msgType) => ({
+    const revokeAuthzMessages = grants
+      .filter((grant) => grant?.authorization?.msg)
+      .map((grant) => ({
         typeUrl: "/cosmos.authz.v1beta1.MsgRevoke",
-        value: MsgRevoke.fromPartial({ granter, grantee, msgTypeUrl: msgType }),
+        value: MsgRevoke.fromPartial({ granter, grantee, msgTypeUrl: grant.authorization.msg }),
       }))
 
     return [...revokeFeegrantMessages, ...revokeAuthzMessages]
@@ -136,11 +135,7 @@ export function useEnableAutoSign() {
 }
 
 /* Revoke AutoSign permissions and clear derived wallet from memory */
-export function useDisableAutoSign(options?: {
-  grantee: string
-  messageTypes: Record<string, string[]>
-  internal: boolean
-}) {
+export function useDisableAutoSign(options?: { grantee: string; internal: boolean }) {
   const config = useConfig()
   const { getWallet, clearWallet } = useDeriveWallet()
   const { requestTxBlock } = useTx()

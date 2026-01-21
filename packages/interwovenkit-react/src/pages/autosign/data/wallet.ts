@@ -122,12 +122,6 @@ export function useDeriveWallet() {
   return { deriveWallet, getWallet, clearWallet, clearAllWallets }
 }
 
-/* Get derived wallet address for current origin and chain */
-export function useDerivedWalletAddress(chainId: string) {
-  const { getWallet } = useDeriveWallet()
-  return getWallet(chainId)?.address
-}
-
 /* Sign auto-sign transactions with derived wallet by wrapping messages in MsgExec and delegating fees */
 export function useSignWithDerivedWallet() {
   const { getWallet, deriveWallet } = useDeriveWallet()
