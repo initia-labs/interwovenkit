@@ -14,7 +14,7 @@ async function createTestWallet(): Promise<DerivedWallet> {
   return {
     privateKey,
     publicKey,
-    address: "init1testaddress12345678901234567890",
+    address: "init1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpqr5e3d",
   }
 }
 
@@ -31,8 +31,8 @@ function createTestSignDoc(): StdSignDoc {
       {
         type: "cosmos-sdk/MsgSend",
         value: {
-          from_address: "init1sender",
-          to_address: "init1receiver",
+          from_address: "init1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqgkcpfs",
+          to_address: "init1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5ld4x7",
           amount: [{ denom: "uinit", amount: "1000000" }],
         },
       },
@@ -96,9 +96,9 @@ describe("DerivedWalletSigner", () => {
       const signer = new DerivedWalletSigner(wallet)
       const signDoc = createTestSignDoc()
 
-      await expect(signer.signAmino("init1wrongaddress", signDoc)).rejects.toThrow(
-        "Signer address does not match the derived wallet address",
-      )
+      await expect(
+        signer.signAmino("init1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqz9ml8a", signDoc),
+      ).rejects.toThrow("Signer address does not match the derived wallet address")
     })
 
     it("returns signed document unchanged", async () => {
