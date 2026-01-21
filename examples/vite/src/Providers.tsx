@@ -1,8 +1,12 @@
 import { createConfig, http, WagmiProvider } from "wagmi"
 import { mainnet } from "wagmi/chains"
-import { injected } from "wagmi/connectors"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { injectStyles, InterwovenKitProvider, TESTNET } from "@initia/interwovenkit-react"
+import {
+  initiaPrivyWalletConnector,
+  injectStyles,
+  InterwovenKitProvider,
+  TESTNET,
+} from "@initia/interwovenkit-react"
 import css from "@initia/interwovenkit-react/styles.css?inline"
 import { chainId, isTestnet, routerApiUrl, useTheme } from "./data"
 
@@ -10,7 +14,7 @@ import type { PropsWithChildren } from "react"
 
 injectStyles(css)
 const wagmiConfig = createConfig({
-  connectors: [injected()],
+  connectors: [initiaPrivyWalletConnector],
   chains: [mainnet],
   transports: { [mainnet.id]: http() },
 })
