@@ -24,6 +24,7 @@ import { deriveWalletFromSignature, getAutoSignTypedData, getDerivedWalletKey } 
 import { type DerivedWallet, derivedWalletsAtom } from "./store"
 
 const pendingDerivations = new Map<string, Promise<DerivedWallet>>()
+const cancelledDerivations = new Set<string>()
 
 /* Offline signer implementation for derived wallet */
 export class DerivedWalletSigner implements OfflineAminoSigner {
@@ -94,10 +95,15 @@ export function useDeriveWallet() {
         })
 
         const wallet = await deriveWalletFromSignature(signature as Hex, chain.bech32_prefix)
-        setDerivedWallets((prev) => ({ ...prev, [key]: wallet }))
+
+        if (!cancelledDerivations.has(key)) {
+          setDerivedWallets((prev) => ({ ...prev, [key]: wallet }))
+        }
+
         return wallet
       } finally {
         pendingDerivations.delete(key)
+        cancelledDerivations.delete(key)
       }
     })()
 
@@ -118,6 +124,12 @@ export function useDeriveWallet() {
 
     const origin = window.location.origin
     const key = getDerivedWalletKey(origin, chainId, userAddress)
+
+    if (pendingDerivations.has(key)) {
+      cancelledDerivations.add(key)
+      pendingDerivations.delete(key)
+    }
+
     setDerivedWallets((prev) => {
       const next = { ...prev }
       delete next[key]
@@ -126,6 +138,9 @@ export function useDeriveWallet() {
   }
 
   const clearAllWallets = () => {
+    for (const key of pendingDerivations.keys()) {
+      cancelledDerivations.add(key)
+    }
     pendingDerivations.clear()
     setDerivedWallets({})
   }
