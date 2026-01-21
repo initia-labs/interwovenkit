@@ -228,6 +228,7 @@ export function groupPositionsByType(positions: Position[]): Map<Position["type"
 
 /** Sort comparator for denom groups: INIT first, then by value desc, then alphabetically */
 function compareDenomGroups(a: DenomGroup, b: DenomGroup): number {
+  if (a.symbol === INIT_SYMBOL && b.symbol === INIT_SYMBOL) return 0
   if (a.symbol === INIT_SYMBOL) return -1
   if (b.symbol === INIT_SYMBOL) return 1
   if (b.totalValue !== a.totalValue) return b.totalValue - a.totalValue
@@ -334,6 +335,7 @@ export function applyFallbackPricing(
 
 /** Sort comparator for asset groups: INIT first, then by value desc, then alphabetically */
 export function compareAssetGroups(a: PortfolioAssetGroup, b: PortfolioAssetGroup): number {
+  if (a.symbol === INIT_SYMBOL && b.symbol === INIT_SYMBOL) return 0
   if (a.symbol === INIT_SYMBOL) return -1
   if (b.symbol === INIT_SYMBOL) return 1
   if (b.totalValue !== a.totalValue) return b.totalValue - a.totalValue
