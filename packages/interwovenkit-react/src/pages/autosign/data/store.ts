@@ -7,3 +7,12 @@ interface PendingAutoSignRequest {
 }
 
 export const pendingAutoSignRequestAtom = atom<PendingAutoSignRequest | null>(null)
+
+export interface DerivedWallet {
+  privateKey: Uint8Array
+  publicKey: Uint8Array
+  address: string
+}
+
+// Key format: "origin:chainId"
+export const derivedWalletsAtom = atom<Record<string, DerivedWallet>>({})
