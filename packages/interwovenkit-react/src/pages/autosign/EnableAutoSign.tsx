@@ -128,7 +128,7 @@ const EnableAutoSignComponent = () => {
           <ul className={styles.featureList}>
             {[
               "Send transactions without confirmation pop-ups",
-              "Protected by Privy embedded wallet",
+              "Secured by your wallet signature",
               "Revoke permissions any time in settings",
             ].map((item) => (
               <li key={item} className={styles.featureItem}>

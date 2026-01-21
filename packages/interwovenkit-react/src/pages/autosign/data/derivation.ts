@@ -1,7 +1,5 @@
 import { Bip39, Secp256k1, Slip10, Slip10Curve, stringToPath } from "@cosmjs/crypto"
 import { toBech32 } from "@cosmjs/encoding"
-import { ripemd160 } from "@noble/hashes/ripemd160"
-import { sha256 } from "@noble/hashes/sha256"
 import { type Hex, keccak256 } from "viem"
 import type { DerivedWallet } from "./store"
 
@@ -37,9 +35,12 @@ export async function deriveWalletFromSignature(signature: Hex): Promise<Derived
   const keypair = await Secp256k1.makeKeypair(privkey)
   const publicKey = Secp256k1.compressPubkey(keypair.pubkey)
 
-  const sha256Hash = sha256(publicKey)
-  const ripemd160Hash = ripemd160(sha256Hash)
-  const address = toBech32("init", ripemd160Hash)
+  const uncompressedPubkey = keypair.pubkey
+  const pubkeyWithoutPrefix = uncompressedPubkey.slice(1)
+  const pubkeyHex = `0x${bytesToHex(pubkeyWithoutPrefix)}` as Hex
+  const addressHash = keccak256(pubkeyHex)
+  const addressBytes = hexToBytes(addressHash).slice(-20)
+  const address = toBech32("init", addressBytes)
 
   return {
     privateKey: privkey,
@@ -59,4 +60,10 @@ function hexToBytes(hex: Hex): Uint8Array {
     bytes[i] = parseInt(cleanHex.slice(i * 2, i * 2 + 2), 16)
   }
   return bytes
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
 }

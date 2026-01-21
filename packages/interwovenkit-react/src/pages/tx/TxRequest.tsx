@@ -16,8 +16,8 @@ import { useGasPrices, useLastFeeDenom } from "@/data/fee"
 import { useSignWithEthSecp256k1 } from "@/data/signer"
 import { TX_APPROVAL_MUTATION_KEY, useTxRequestHandler } from "@/data/tx"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { useNeedsDerivedWallet, useValidateAutoSign } from "../autosign/data/validation"
-import { useDeriveWallet, useSignWithDerivedWallet } from "../autosign/data/wallet"
+import { useValidateAutoSign } from "../autosign/data/validation"
+import { useSignWithDerivedWallet } from "../autosign/data/wallet"
 import TxFee from "./TxFee"
 import TxFeeInsufficient from "./TxFeeInsufficient"
 import TxMessage from "./TxMessage"
@@ -38,10 +38,6 @@ const TxRequest = () => {
   const findAsset = useFindAsset(chain)
   const validateAutoSign = useValidateAutoSign()
   const signWithDerivedWallet = useSignWithDerivedWallet()
-  const needsDerivedWallet = useNeedsDerivedWallet()
-  const { deriveWallet } = useDeriveWallet()
-
-  const [isUnlocking, setIsUnlocking] = useState(false)
 
   const feeOptions = (txRequest.gasPrices ?? gasPrices).map(({ amount, denom }) =>
     calculateFee(Math.ceil(gas * gasAdjustment), GasPrice.fromString(amount + denom)),
@@ -95,16 +91,11 @@ const TxRequest = () => {
 
       const canAutoSign = !txRequest.internal && (await validateAutoSign(chainId, messages))
 
-      if (canAutoSign) {
-        if (needsDerivedWallet(chainId)) {
-          await deriveWallet(chainId)
-        }
-        const signedTx = await signWithDerivedWallet(chainId, address, messages, fee, memo || "")
-        await resolve(signedTx)
-      } else {
-        const signedTx = await signWithEthSecp256k1(chainId, address, messages, fee, memo)
-        await resolve(signedTx)
-      }
+      const signedTx = canAutoSign
+        ? await signWithDerivedWallet(chainId, address, messages, fee, memo || "")
+        : await signWithEthSecp256k1(chainId, address, messages, fee, memo)
+
+      await resolve(signedTx)
     },
     onError: async (error: Error) => {
       reject(error)
@@ -113,34 +104,11 @@ const TxRequest = () => {
 
   const feeDetails = getFeeDetails(feeDenom)
   const isInsufficient = !feeDetails.isSufficient
-  const showUnlockPrompt = !txRequest.internal && needsDerivedWallet(chainId)
-
-  const handleUnlockAutoSign = async () => {
-    setIsUnlocking(true)
-    try {
-      await deriveWallet(chainId)
-    } finally {
-      setIsUnlocking(false)
-    }
-  }
 
   return (
     <>
       <Scrollable>
         <h1 className={styles.title}>Confirm tx</h1>
-
-        {showUnlockPrompt && (
-          <div className={styles.unlockPrompt}>
-            <p>Auto-sign is enabled but needs to be unlocked for this session.</p>
-            <Button.Outline
-              onClick={handleUnlockAutoSign}
-              loading={isUnlocking}
-              disabled={isUnlocking}
-            >
-              Unlock Auto-Sign
-            </Button.Outline>
-          </div>
-        )}
 
         <div className={styles.meta}>
           <TxMetaItem title="Chain" content={chainId} />
@@ -170,16 +138,12 @@ const TxRequest = () => {
       <Footer className={styles.footer}>
         <Button.Outline
           onClick={() => reject(new Error("User rejected"))}
-          disabled={isPending || isUnlocking}
+          disabled={isPending}
           className={styles.rejectButton}
         >
           <IconClose size={16} />
         </Button.Outline>
-        <Button.White
-          onClick={() => approve()}
-          disabled={isInsufficient || isUnlocking}
-          loading={isPending}
-        >
+        <Button.White onClick={() => approve()} disabled={isInsufficient} loading={isPending}>
           Approve
         </Button.White>
       </Footer>

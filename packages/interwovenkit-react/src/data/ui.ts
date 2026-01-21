@@ -2,6 +2,7 @@ import { useDisconnect as useDisconnectWagmi } from "wagmi"
 import { atom, useAtom, useSetAtom } from "jotai"
 import { useAnalyticsTrack } from "@/data/analytics"
 import { useNavigate, useReset } from "@/lib/router"
+import { derivedWalletsAtom } from "@/pages/autosign/data/store"
 import { LocalStorageKey } from "./constants"
 
 const isDrawerOpenAtom = atom<boolean>(false)
@@ -62,12 +63,15 @@ export function useDisconnect() {
   const { closeDrawer } = useDrawer()
   const { closeModal } = useModal()
   const { disconnect } = useDisconnectWagmi()
+  const setDerivedWallets = useSetAtom(derivedWalletsAtom)
 
   return () => {
     navigate("/blank")
     closeDrawer()
     closeModal()
     disconnect()
+
+    setDerivedWallets({})
 
     // Clear bridge form values on disconnect
     localStorage.removeItem(LocalStorageKey.BRIDGE_SRC_CHAIN_ID)

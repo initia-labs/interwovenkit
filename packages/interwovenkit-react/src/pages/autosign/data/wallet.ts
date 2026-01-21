@@ -16,14 +16,12 @@ import { useSignTypedData } from "wagmi"
 import { useAtom } from "jotai"
 import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
-import { InitiaAddress } from "@initia/utils"
-import { useFindChain } from "@/data/chains"
-import { useConfig } from "@/data/config"
 import { encodeEthSecp256k1Signature } from "@/data/patches/signature"
-import { useIsPrivyConnected } from "@/data/privy"
-import { OfflineSigner, useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
+import { useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
 import { deriveWalletFromSignature, getAutoSignTypedData, getDerivedWalletKey } from "./derivation"
 import { type DerivedWallet, derivedWalletsAtom } from "./store"
+
+const pendingDerivations = new Map<string, Promise<DerivedWallet>>()
 
 /* Offline signer implementation for derived wallet */
 class DerivedWalletSigner implements OfflineAminoSigner {
@@ -70,19 +68,30 @@ export function useDeriveWallet() {
       return derivedWallets[key]
     }
 
-    const typedData = getAutoSignTypedData(origin, chainId)
-    const signature = await signTypedDataAsync({
-      domain: typedData.domain,
-      types: typedData.types,
-      primaryType: typedData.primaryType,
-      message: typedData.message,
-    })
+    if (pendingDerivations.has(key)) {
+      return pendingDerivations.get(key)!
+    }
 
-    const wallet = await deriveWalletFromSignature(signature as Hex)
+    const derivationPromise = (async () => {
+      try {
+        const typedData = getAutoSignTypedData(origin, chainId)
+        const signature = await signTypedDataAsync({
+          domain: typedData.domain,
+          types: typedData.types,
+          primaryType: typedData.primaryType,
+          message: typedData.message,
+        })
 
-    setDerivedWallets((prev) => ({ ...prev, [key]: wallet }))
+        const wallet = await deriveWalletFromSignature(signature as Hex)
+        setDerivedWallets((prev) => ({ ...prev, [key]: wallet }))
+        return wallet
+      } finally {
+        pendingDerivations.delete(key)
+      }
+    })()
 
-    return wallet
+    pendingDerivations.set(key, derivationPromise)
+    return derivationPromise
   }
 
   const getWallet = (chainId: string): DerivedWallet | undefined => {
@@ -116,7 +125,7 @@ export function useDerivedWalletAddress(chainId: string) {
 
 /* Sign auto-sign transactions with derived wallet by wrapping messages in MsgExec and delegating fees */
 export function useSignWithDerivedWallet() {
-  const { getWallet } = useDeriveWallet()
+  const { getWallet, deriveWallet } = useDeriveWallet()
   const registry = useRegistry()
   const signWithEthSecp256k1 = useSignWithEthSecp256k1()
 
@@ -127,9 +136,9 @@ export function useSignWithDerivedWallet() {
     fee: StdFee,
     memo: string,
   ): Promise<TxRaw> => {
-    const derivedWallet = getWallet(chainId)
+    let derivedWallet = getWallet(chainId)
     if (!derivedWallet) {
-      throw new Error("Derived wallet not found. Please unlock auto-sign first.")
+      derivedWallet = await deriveWallet(chainId)
     }
 
     const authzExecuteMessage: EncodeObject[] = [
@@ -159,78 +168,6 @@ export function useSignWithDerivedWallet() {
       delegatedFee,
       memo,
       { customSigner: derivedSigner },
-    )
-  }
-}
-
-/* Retrieve embedded wallet instance from Privy context for auto-sign delegation */
-export function useEmbeddedWallet() {
-  const { privyContext } = useConfig()
-  const isConnected = useIsPrivyConnected()
-  if (!privyContext || !isConnected) return undefined
-  return privyContext.wallets.find((wallet) => wallet.connectorType === "embedded")
-}
-
-/* Extract embedded wallet address and convert to Initia Bech32 format */
-export function useEmbeddedWalletAddress() {
-  const wallet = useEmbeddedWallet()
-  return wallet?.address ? InitiaAddress(wallet.address).bech32 : undefined
-}
-
-/* Sign auto-sign transactions with embedded wallet by wrapping messages in MsgExec and delegating fees */
-export function useSignWithEmbeddedWallet() {
-  const embeddedWallet = useEmbeddedWallet()
-  const embeddedWalletAddress = useEmbeddedWalletAddress()
-  const registry = useRegistry()
-  const findChain = useFindChain()
-  const signWithEthSecp256k1 = useSignWithEthSecp256k1()
-
-  return async (
-    chainId: string,
-    address: string,
-    messages: EncodeObject[],
-    fee: StdFee,
-    memo: string,
-  ): Promise<TxRaw> => {
-    if (!embeddedWallet || !embeddedWalletAddress) {
-      throw new Error("Embedded wallet not initialized")
-    }
-
-    // Wrap messages in MsgExec for authz delegation
-    const authzExecuteMessage: EncodeObject[] = [
-      {
-        typeUrl: "/cosmos.authz.v1beta1.MsgExec",
-        value: MsgExec.fromPartial({
-          grantee: embeddedWalletAddress,
-          msgs: messages.map((msg) => ({
-            typeUrl: msg.typeUrl,
-            value: registry.encode(msg),
-          })),
-        }),
-      },
-    ]
-
-    // Set fee granter for delegated transaction
-    const delegatedFee: StdFee = {
-      ...fee,
-      granter: address,
-    }
-
-    // Create signer instance for delegate wallet
-    const delegateSigner = new OfflineSigner(
-      embeddedWalletAddress,
-      embeddedWallet.sign,
-      findChain(chainId).restUrl,
-    )
-
-    // Sign transaction with delegate wallet
-    return await signWithEthSecp256k1(
-      chainId,
-      embeddedWalletAddress,
-      authzExecuteMessage,
-      delegatedFee,
-      memo,
-      { customSigner: delegateSigner },
     )
   }
 }

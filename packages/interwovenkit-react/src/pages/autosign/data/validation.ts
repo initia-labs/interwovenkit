@@ -8,13 +8,9 @@ import { useConfig } from "@/data/config"
 import { STALE_TIMES } from "@/data/http"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useAutoSignApi } from "./fetch"
-import { useDeriveWallet } from "./wallet"
 
 export const autoSignQueryKeys = createQueryKeys("interwovenkit:autosign", {
-  expirations: (address: string | undefined, embeddedWalletAddress: string | undefined) => [
-    address,
-    embeddedWalletAddress,
-  ],
+  expirations: (address: string | undefined) => [address],
   grants: (chainId: string, address: string | undefined) => [chainId, address],
 })
 
@@ -63,20 +59,6 @@ export function useValidateAutoSign() {
   }
 }
 
-/* Check if derived wallet needs to be unlocked for auto-signing */
-export function useNeedsDerivedWallet() {
-  const { data } = useAutoSignStatus()
-  const { getWallet } = useDeriveWallet()
-
-  return (chainId: string): boolean => {
-    const isEnabled = data?.isEnabledByChain[chainId] ?? false
-    if (!isEnabled) return false
-
-    const wallet = getWallet(chainId)
-    return !wallet
-  }
-}
-
 /* Get current AutoSign status including enabled state and expiration dates by chain */
 export function useAutoSignStatus() {
   const initiaAddress = useInitiaAddress()
@@ -84,7 +66,7 @@ export function useAutoSignStatus() {
   const { fetchFeegrant, fetchAllGrants } = useAutoSignApi()
 
   return useQuery({
-    queryKey: autoSignQueryKeys.expirations(initiaAddress, undefined).queryKey,
+    queryKey: autoSignQueryKeys.expirations(initiaAddress).queryKey,
     queryFn: async () => {
       if (!initiaAddress) {
         return {

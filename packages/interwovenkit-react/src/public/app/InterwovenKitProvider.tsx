@@ -6,7 +6,6 @@ import { useInitiaRegistry } from "@/data/chains"
 import type { Config } from "@/data/config"
 import { ConfigContext } from "@/data/config"
 import { migrateLocalStorage } from "@/data/migration"
-import { useSyncPrivyAuth } from "@/data/privy"
 import { MemoryRouter } from "@/lib/router"
 import { useInitializeAutoSign } from "@/pages/autosign/data/validation"
 import { useAllSkipAssets } from "@/pages/bridge/data/assets"
@@ -40,7 +39,6 @@ const Fonts = () => {
 // its children.  This keeps the UI responsive when the drawer first opens.
 const Prefetch = () => {
   // autosign
-  useSyncPrivyAuth()
   useInitializeAutoSign()
 
   // initia registry

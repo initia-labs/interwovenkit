@@ -7,7 +7,7 @@ import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import { atom, useAtomValue, useSetAtom } from "jotai"
 import { useNavigate } from "@/lib/router"
 import { useValidateAutoSign } from "@/pages/autosign/data/validation"
-import { useSignWithEmbeddedWallet } from "@/pages/autosign/data/wallet"
+import { useSignWithDerivedWallet } from "@/pages/autosign/data/wallet"
 import { useModal } from "@/public/app/ModalContext"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useInitiaAddress } from "@/public/data/hooks"
@@ -80,7 +80,7 @@ export function useTx() {
   const offlineSigner = useOfflineSigner()
   const registry = useRegistry()
   const validateAutoSign = useValidateAutoSign()
-  const signWithEmbeddedWallet = useSignWithEmbeddedWallet()
+  const signWithDerivedWallet = useSignWithDerivedWallet()
   const signWithEthSecp256k1 = useSignWithEthSecp256k1()
 
   const estimateGas = async ({ messages, memo, chainId = defaultChainId }: TxRequest) => {
@@ -223,7 +223,7 @@ export function useTx() {
 
       const isAutoSignValid = await validateAutoSign(chainId, messages)
       const signedTx = isAutoSignValid
-        ? await signWithEmbeddedWallet(chainId, address, messages, fee, memo)
+        ? await signWithDerivedWallet(chainId, address, messages, fee, memo)
         : await signWithEthSecp256k1(chainId, address, messages, fee, memo)
 
       return await client.broadcastTxSync(TxRaw.encode(signedTx).finish())
@@ -244,7 +244,7 @@ export function useTx() {
 
       const isAutoSignValid = await validateAutoSign(chainId, messages)
       const signedTx = isAutoSignValid
-        ? await signWithEmbeddedWallet(chainId, address, messages, fee, memo)
+        ? await signWithDerivedWallet(chainId, address, messages, fee, memo)
         : await signWithEthSecp256k1(chainId, address, messages, fee, memo)
 
       const response = await client.broadcastTx(

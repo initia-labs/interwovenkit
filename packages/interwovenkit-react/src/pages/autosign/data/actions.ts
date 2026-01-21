@@ -139,14 +139,15 @@ export function useDisableAutoSign(options?: {
 }) {
   const config = useConfig()
   const { getWallet, clearWallet } = useDeriveWallet()
-  const derivedWallet = getWallet(config.defaultChainId)
-  const grantee = options?.grantee || derivedWallet?.address
   const { requestTxBlock } = useTx()
   const queryClient = useQueryClient()
   const fetchRevokeMessages = useFetchRevokeMessages()
 
   return useMutation({
     mutationFn: async (chainId: string = config.defaultChainId) => {
+      const derivedWallet = getWallet(chainId)
+      const grantee = options?.grantee || derivedWallet?.address
+
       if (!grantee) {
         throw new Error("No grantee address available")
       }

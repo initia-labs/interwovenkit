@@ -37,7 +37,7 @@ export interface FeegrantResponse {
 /*
  * Hook to create API functions for querying grants and feegrants.
  * Note: grantee parameter is required because the settings page (ManageAutoSign)
- * allows revoking grants for any grantee, not just the embedded wallet.
+ * allows revoking grants for any grantee, not just the derived wallet.
  */
 export function useAutoSignApi() {
   const initiaAddress = useInitiaAddress()
@@ -97,13 +97,15 @@ export function useAutoSignApi() {
           }>
         }>()
 
-      return data.grants.map((grant) => ({
-        grantee: grant.grantee,
-        authorization: {
-          msg: grant.authorization.msg,
-        },
-        expiration: grant.expiration,
-      }))
+      return data.grants
+        .filter((grant) => grant.authorization["@type"].includes("GenericAuthorization"))
+        .map((grant) => ({
+          grantee: grant.grantee,
+          authorization: {
+            msg: grant.authorization.msg,
+          },
+          expiration: grant.expiration,
+        }))
     } catch {
       return []
     }
