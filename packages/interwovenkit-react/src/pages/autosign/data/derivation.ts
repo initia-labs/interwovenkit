@@ -33,6 +33,12 @@ export function getAutoSignTypedData(origin: string, chainId: string) {
 export async function deriveWalletFromSignature(signature: Hex): Promise<DerivedWallet> {
   const signatureBytes = hexToBytes(signature)
 
+  if (signatureBytes.length !== 65) {
+    throw new Error(
+      `Invalid signature length: expected 65 bytes (r: 32, s: 32, v: 1), got ${signatureBytes.length}`,
+    )
+  }
+
   // Strip the `v` byte (recovery id) and hash only r,s values (first 64 bytes).
   // The `v` value can vary between wallets (27/28 for legacy, EIP-155 chain-specific,
   // or 0/1 for modern), but r,s are consistent for the same signature.
@@ -69,6 +75,19 @@ export function getDerivedWalletKey(origin: string, chainId: string): string {
 
 function hexToBytes(hex: Hex): Uint8Array {
   const cleanHex = hex.startsWith("0x") ? hex.slice(2) : hex
+
+  if (cleanHex.length === 0) {
+    throw new Error("Invalid hex: empty string")
+  }
+
+  if (cleanHex.length % 2 !== 0) {
+    throw new Error(`Invalid hex: odd length (${cleanHex.length})`)
+  }
+
+  if (!/^[0-9a-fA-F]+$/.test(cleanHex)) {
+    throw new Error("Invalid hex: contains non-hexadecimal characters")
+  }
+
   const bytes = new Uint8Array(cleanHex.length / 2)
   for (let i = 0; i < bytes.length; i++) {
     bytes[i] = parseInt(cleanHex.slice(i * 2, i * 2 + 2), 16)

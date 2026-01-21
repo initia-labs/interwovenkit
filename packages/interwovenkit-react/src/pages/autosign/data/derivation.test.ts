@@ -334,7 +334,7 @@ describe("integration: full derivation flow", () => {
     expect(typedData.message.chainId).toBe(chainId)
 
     const mockSignature: Hex =
-      "0xdeadbeef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12345678901c"
+      "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1c"
 
     const wallet = await deriveWalletFromSignature(mockSignature)
     const cacheKey = getDerivedWalletKey(origin, chainId)
