@@ -4,6 +4,7 @@ import Connection from "./Connection"
 import { isTestnet, themeAtom } from "./data"
 import Deposit from "./Deposit"
 import Send from "./Send"
+import ToggleAutoSign from "./ToggleAutoSign"
 import Withdraw from "./Withdraw"
 import styles from "./App.module.css"
 
@@ -12,7 +13,7 @@ const App = () => {
   const toggleTheme = () => setTheme((prev) => (prev === "dark" ? "light" : "dark"))
 
   return (
-    <div className={styles.container}>
+    <>
       <header className={styles.header}>
         {isTestnet ? (
           <h1 className={styles.title} data-testnet>
@@ -25,15 +26,17 @@ const App = () => {
           <button className={styles.toggle} onClick={toggleTheme}>
             {theme === "light" ? "Dark" : "Light"}
           </button>
+          <Bridge />
+          <Deposit />
+          <Withdraw />
+          <ToggleAutoSign />
           <Connection />
         </div>
       </header>
-
-      <Send />
-      <Bridge />
-      <Deposit />
-      <Withdraw />
-    </div>
+      <main className={styles.container}>
+        <Send />
+      </main>
+    </>
   )
 }
 

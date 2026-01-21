@@ -1,5 +1,9 @@
-.container {
+.container,
+.header {
   font-family: system-ui, sans-serif;
+}
+
+.container {
   margin: 32px auto;
   max-width: 540px;
   padding: 0 16px;
@@ -10,7 +14,7 @@
   justify-content: space-between;
   align-items: center;
 
-  margin-bottom: 24px;
+  margin: 24px 32px;
 }
 
 .title {
