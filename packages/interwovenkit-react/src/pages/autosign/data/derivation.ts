@@ -29,7 +29,7 @@ export async function deriveWalletFromSignature(signature: Hex): Promise<Derived
   const mnemonic = Bip39.encode(entropy)
   const seed = await Bip39.mnemonicToSeed(mnemonic)
 
-  const hdPath = stringToPath("m/44'/118'/0'/0/0")
+  const hdPath = stringToPath("m/44'/60'/0'/0/0")
   const { privkey } = Slip10.derivePath(Slip10Curve.Secp256k1, seed, hdPath)
 
   const keypair = await Secp256k1.makeKeypair(privkey)
