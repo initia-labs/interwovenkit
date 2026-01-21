@@ -15,7 +15,7 @@ import { useDrawer } from "@/data/ui"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useAutoSignApi } from "./fetch"
 import { pendingAutoSignRequestAtom } from "./store"
-import { autoSignQueryKeys, useAutoSignMessageTypes } from "./validation"
+import { autoSignQueryKeys, useAutoSignMessageTypes, useAutoSignStatus } from "./validation"
 import { useDeriveWallet } from "./wallet"
 
 /* Hook to fetch existing grants and generate revoke messages */
@@ -146,11 +146,13 @@ export function useDisableAutoSign(options?: {
   const { requestTxBlock } = useTx()
   const queryClient = useQueryClient()
   const fetchRevokeMessages = useFetchRevokeMessages()
+  const { data: autoSignStatus } = useAutoSignStatus()
 
   return useMutation({
     mutationFn: async (chainId: string = config.defaultChainId) => {
       const derivedWallet = getWallet(chainId)
-      const grantee = options?.grantee || derivedWallet?.address
+      const grantee =
+        options?.grantee || derivedWallet?.address || autoSignStatus?.granteeByChain[chainId]
 
       if (!grantee) {
         throw new Error("No grantee address available")
