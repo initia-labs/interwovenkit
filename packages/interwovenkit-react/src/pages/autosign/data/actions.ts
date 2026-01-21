@@ -9,6 +9,7 @@ import {
   MsgRevokeAllowance,
 } from "@initia/initia.proto/cosmos/feegrant/v1beta1/tx"
 import { useConfig } from "@/data/config"
+import { clearSigningClientCache } from "@/data/signer"
 import { useTx } from "@/data/tx"
 import { useDrawer } from "@/data/ui"
 import { useInitiaAddress } from "@/public/data/hooks"
@@ -77,6 +78,9 @@ export function useEnableAutoSign() {
       }
 
       const derivedWallet = await deriveWallet(chainId)
+
+      // Clear cached signing client to ensure fresh account data after wallet derivation
+      clearSigningClientCache(initiaAddress, chainId)
 
       const revokeMessages = await fetchRevokeMessages({ chainId, grantee: derivedWallet.address })
 
