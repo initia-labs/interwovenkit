@@ -23,24 +23,24 @@ import {
 } from "./signer"
 import { useDrawer } from "./ui"
 
-export interface TxParams {
+export interface BaseTx {
   messages: EncodeObject[]
   memo?: string
   chainId?: string
+
+  /** Internal use only */
+  internal?: boolean | string | -1 // -1 for disabling notification
+}
+
+export interface TxParams extends BaseTx {
   fee: StdFee
 }
 
-export interface TxRequest {
-  messages: EncodeObject[]
-  memo?: string
-  chainId?: string
+export interface TxRequest extends BaseTx {
   gas?: number
   gasAdjustment?: number
   gasPrices?: Coin[] | null
   spendCoins?: Coin[]
-
-  /** Internal use only */
-  internal?: boolean | string | number // number for disabling notification
 }
 
 interface TxRequestHandler {
@@ -170,6 +170,17 @@ export function useTx() {
     })
   }
 
+  const watchTxStatus = (txHash: string, chainId: string) => {
+    setTxStatus({ txHash, chainId, status: "loading" })
+    waitForTxConfirmation({ txHash, chainId })
+      .then((tx) => {
+        setTxStatus({ status: tx.code === 0 ? "success" : "error", chainId, txHash })
+      })
+      .catch(() => {
+        setTxStatus({ status: "error", chainId, txHash })
+      })
+  }
+
   const requestTxSync = async (txRequest: TxRequest) => {
     const chainId = txRequest.chainId ?? defaultChainId
 
@@ -183,16 +194,7 @@ export function useTx() {
       })
 
       if (txRequest.internal && typeof txRequest.internal !== "number") {
-        // For internal calls we show the transaction status inside the widget.
-        // Update state while waiting for the confirmation to arrive.
-        setTxStatus({ txHash, chainId, status: "loading" })
-        waitForTxConfirmation({ txHash, chainId: txRequest.chainId })
-          .then((tx) => {
-            setTxStatus({ status: tx.code === 0 ? "success" : "error", chainId, txHash })
-          })
-          .catch(() => {
-            setTxStatus({ status: "error", chainId, txHash })
-          })
+        watchTxStatus(txHash, chainId)
       }
 
       return txHash
@@ -226,8 +228,21 @@ export function useTx() {
         ? await signWithEmbeddedWallet(chainId, address, messages, fee, memo)
         : await signWithEthSecp256k1(chainId, address, messages, fee, memo)
 
-      return await client.broadcastTxSync(TxRaw.encode(signedTx).finish())
+      const txHash = await client.broadcastTxSync(TxRaw.encode(signedTx).finish())
+
+      if (txParams.internal && typeof txParams.internal !== "number") {
+        watchTxStatus(txHash, chainId)
+      }
+
+      if (typeof txParams.internal === "string") {
+        navigate(txParams.internal)
+      }
+
+      return txHash
     } catch (error) {
+      if (txParams.internal && typeof txParams.internal !== "number") {
+        setTxStatus({ status: "error", chainId, error: error as Error })
+      }
       throw await formatMoveError(error as Error, findChain(chainId), registryUrl)
     }
   }

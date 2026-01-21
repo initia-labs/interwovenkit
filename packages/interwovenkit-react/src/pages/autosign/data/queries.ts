@@ -15,7 +15,7 @@ export function useAllGrants() {
 
   return useQueries({
     queries: registry.map((chain) => ({
-      queryKey: autoSignQueryKeys.grants(chain.chainId, initiaAddress).queryKey,
+      queryKey: autoSignQueryKeys.allGrants(chain.chainId, initiaAddress).queryKey,
       queryFn: async () => {
         const { grants } = await ky
           .create({ prefixUrl: chain.restUrl })
