@@ -7,7 +7,7 @@ describe("getAutoSignTypedData", () => {
     const result = getAutoSignTypedData("https://example.com", "initia-1")
 
     expect(result.domain).toEqual({
-      name: "Interwoven Wallet",
+      name: "InterwovenKit",
       version: "1",
     })
   })
@@ -56,7 +56,7 @@ describe("getAutoSignTypedData", () => {
     const result = getAutoSignTypedData(origin, chainId)
 
     expect(result).toEqual({
-      domain: { name: "Interwoven Wallet", version: "1" },
+      domain: { name: "InterwovenKit", version: "1" },
       types: {
         AutoSign: [
           { name: "action", type: "string" },

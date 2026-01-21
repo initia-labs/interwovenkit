@@ -8,7 +8,7 @@ import type { DerivedWallet } from "./store"
  * preventing cross-app or cross-chain grant reuse. */
 export function getAutoSignTypedData(origin: string, chainId: string) {
   return {
-    domain: { name: "Interwoven Wallet", version: "1" },
+    domain: { name: "InterwovenKit", version: "1" },
     types: {
       AutoSign: [
         { name: "action", type: "string" },
