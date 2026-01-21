@@ -242,7 +242,7 @@ describe("deriveWalletFromSignature", () => {
   })
 
   describe("cryptographic properties", () => {
-    it("uses BIP-39 mnemonic derivation path m/44'/118'/0'/0/0", async () => {
+    it("uses BIP-39 mnemonic derivation path m/44'/60'/0'/0/0", async () => {
       const wallet = await deriveWalletFromSignature(validSignature)
 
       expect(wallet.privateKey.length).toBe(32)
