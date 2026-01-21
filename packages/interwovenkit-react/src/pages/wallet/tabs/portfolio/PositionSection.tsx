@@ -41,7 +41,7 @@ const PositionSectionList = ({
   const manageUrl = protocols[0]?.manageUrl
 
   const sectionGroups = useMemo(() => {
-    const allPositions = protocols.flatMap((p) => p.positions)
+    const allPositions = protocols.flatMap((protocol) => protocol.positions)
     return groupPositionsBySection(allPositions)
   }, [protocols])
 
@@ -221,12 +221,12 @@ const TypeBreakdown = ({
   // Pre-calculate all type amounts and values
   const typeData = useMemo(() => {
     return Array.from(typeGroups.entries()).map(([type, typePositions]) => {
-      const typeAmount = typePositions.reduce((sum, pos) => {
-        if (pos.type === "fungible-position") return sum
-        if (pos.balance.type === "unknown") return sum
-        return sum + pos.balance.formattedAmount
+      const typeAmount = typePositions.reduce((sum, position) => {
+        if (position.type === "fungible-position") return sum
+        if (position.balance.type === "unknown") return sum
+        return sum + position.balance.formattedAmount
       }, 0)
-      const typeValue = typePositions.reduce((sum, pos) => sum + getPositionValue(pos), 0)
+      const typeValue = typePositions.reduce((sum, position) => sum + getPositionValue(position), 0)
       return { type, typeAmount, typeValue }
     })
   }, [typeGroups])

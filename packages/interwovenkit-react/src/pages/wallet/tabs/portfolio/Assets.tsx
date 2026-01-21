@@ -86,6 +86,4 @@ const Assets = memo(
   },
 )
 
-Assets.displayName = "Assets"
-
 export default Assets

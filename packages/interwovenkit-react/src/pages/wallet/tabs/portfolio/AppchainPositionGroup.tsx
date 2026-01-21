@@ -44,11 +44,11 @@ const AppchainPositionContent = ({ chainGroup }: PositionSectionContentProps) =>
     const map = new Map<string, { assetLogo: string; chainLogo: string }>()
 
     for (const protocol of protocols) {
-      for (const pos of protocol.positions) {
-        if (pos.type === "fungible-position") continue
-        if (pos.balance.type === "unknown") continue
+      for (const position of protocol.positions) {
+        if (position.type === "fungible-position") continue
+        if (position.balance.type === "unknown") continue
 
-        const { denom, symbol } = pos.balance
+        const { denom, symbol } = position.balance
         const upperSymbol = symbol.toUpperCase()
         const assetLogo = denomLogos.get(denom) ?? symbolLogos.get(upperSymbol)
 
@@ -79,7 +79,13 @@ const AppchainPositionGroup = ({ chainGroup }: Props) => {
   // Calculate total value for this chain group
   const totalValue = useMemo(() => {
     return protocols.reduce((sum, protocol) => {
-      return sum + protocol.positions.reduce((pSum, pos) => pSum + getPositionValue(pos), 0)
+      return (
+        sum +
+        protocol.positions.reduce(
+          (positionSum, position) => positionSum + getPositionValue(position),
+          0,
+        )
+      )
     }, 0)
   }, [protocols])
 

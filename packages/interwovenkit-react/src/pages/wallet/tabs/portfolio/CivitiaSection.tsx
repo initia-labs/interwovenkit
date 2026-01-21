@@ -23,7 +23,7 @@ const CivitiaSection = () => {
           <span className={styles.rowTitle}>Gold</span>
         </div>
         <span className={clsx(styles.rowValue, gold === 0 && styles.rowSubtitle)}>
-          {gold === 0 ? "–" : formatNumber(gold, { dp: 6 })}
+          {gold === 0 ? "—" : formatNumber(gold, { dp: 6 })}
         </span>
       </div>
 
@@ -34,7 +34,7 @@ const CivitiaSection = () => {
           <span className={styles.rowTitle}>Silver</span>
         </div>
         <span className={clsx(styles.rowValue, silver === 0 && styles.rowSubtitle)}>
-          {silver === 0 ? "–" : formatNumber(silver, { dp: 6 })}
+          {silver === 0 ? "—" : formatNumber(silver, { dp: 6 })}
         </span>
       </div>
     </div>

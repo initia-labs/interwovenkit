@@ -1,3 +1,4 @@
+import { ascend, descend, sortWith } from "ramda"
 import { memo, useMemo } from "react"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import Skeletons from "@/components/Skeletons"
@@ -51,7 +52,7 @@ const Positions = memo(({ searchQuery, selectedChain, chainInfoMap }: PositionsP
 
       // Check if chain has any actual renderable positions (not fungible positions)
       const hasAnyPositions = chainData.positions.some((protocol) =>
-        protocol.positions.some((pos) => pos.type !== "fungible-position"),
+        protocol.positions.some((position) => position.type !== "fungible-position"),
       )
 
       // For Civitia specifically, also check if user has gold or silver
@@ -84,7 +85,13 @@ const Positions = memo(({ searchQuery, selectedChain, chainInfoMap }: PositionsP
 
       // Calculate total value for this chain
       const totalValue = filteredProtocols.reduce((sum, protocol) => {
-        return sum + protocol.positions.reduce((posSum, pos) => posSum + getPositionValue(pos), 0)
+        return (
+          sum +
+          protocol.positions.reduce(
+            (positionSum, position) => positionSum + getPositionValue(position),
+            0,
+          )
+        )
       }, 0)
 
       result.push({
@@ -99,24 +106,18 @@ const Positions = memo(({ searchQuery, selectedChain, chainInfoMap }: PositionsP
     // Chains excluded from value calculations (fungible NFTs only, no USD values)
     const excludedChains = ["civitia", "yominet"]
 
-    // Sort: Initia first, then by value descending, then excluded chains last, then alphabetically
-    return result.toSorted((a, b) => {
-      // Initia first
-      if (a.isInitia) return -1
-      if (b.isInitia) return 1
-
-      // Excluded chains last (Civitia and Yominet)
-      const aIsExcluded = excludedChains.includes(a.chainName.toLowerCase())
-      const bIsExcluded = excludedChains.includes(b.chainName.toLowerCase())
-      if (aIsExcluded && !bIsExcluded) return 1
-      if (!aIsExcluded && bIsExcluded) return -1
-
-      // Then by value descending
-      if (b.totalValue !== a.totalValue) return b.totalValue - a.totalValue
-
-      // Then alphabetically
-      return a.chainName.localeCompare(b.chainName, undefined, { sensitivity: "base" })
-    })
+    // Sort: Initia first, then excluded chains last, then by value descending, then alphabetically
+    return sortWith(
+      [
+        descend((group: PortfolioChainPositionGroup) => group.isInitia ?? false),
+        ascend((group: PortfolioChainPositionGroup) =>
+          excludedChains.includes(group.chainName.toLowerCase()),
+        ),
+        descend((group: PortfolioChainPositionGroup) => group.totalValue ?? 0),
+        ascend((group: PortfolioChainPositionGroup) => group.chainName.toLowerCase()),
+      ],
+      result,
+    )
   }, [
     positions,
     chainInfoMap,
@@ -169,7 +170,5 @@ const Positions = memo(({ searchQuery, selectedChain, chainInfoMap }: PositionsP
     </div>
   )
 })
-
-Positions.displayName = "Positions"
 
 export default Positions

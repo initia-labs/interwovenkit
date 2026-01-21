@@ -21,7 +21,7 @@ const PositionsTotalValue = ({ filteredChainGroups }: PositionsTotalValueProps) 
   // - L1 (Initia): use on-chain data totals
   // - Appchains: use totalValue from group (already calculated, excluding Civitia and Yominet)
   const totalPositionsValue = useMemo(() => {
-    const hasL1 = filteredChainGroups.some((g) => g.isInitia)
+    const hasL1 = filteredChainGroups.some((group) => group.isInitia)
 
     // Sum appchain totals (excluding L1)
     const appchainTotal = filteredChainGroups.reduce((sum, group) => {

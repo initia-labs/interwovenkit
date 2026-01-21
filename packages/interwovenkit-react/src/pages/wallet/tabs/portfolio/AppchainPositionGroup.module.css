@@ -38,10 +38,6 @@
   display: flex;
   align-items: center;
   gap: 4px;
-
-  &:hover .externalIcon {
-    color: var(--gray-1);
-  }
 }
 
 .chainName {
@@ -53,6 +49,10 @@
 .externalLink {
   display: flex;
   align-items: center;
+
+  &:hover .externalIcon {
+    color: var(--gray-1);
+  }
 }
 
 .externalIcon {

@@ -69,11 +69,11 @@ const InitiaStakingSection = ({
   const denomLogoMap: DenomLogoMap = useMemo(() => {
     const map = new Map<string, { assetLogo: string; chainLogo: string }>()
 
-    for (const pos of stakingPositions) {
-      if (pos.type === "fungible-position") continue
-      if (pos.balance.type === "unknown") continue
+    for (const position of stakingPositions) {
+      if (position.type === "fungible-position") continue
+      if (position.balance.type === "unknown") continue
 
-      const { denom, symbol } = pos.balance
+      const { denom, symbol } = position.balance
       const upperSymbol = symbol.toUpperCase()
       const assetLogo = denomLogos.get(denom) ?? symbolLogos.get(upperSymbol)
 
@@ -212,7 +212,7 @@ const InitiaPositionGroup = ({ chainGroup }: Props) => {
   const layer1 = useLayer1()
   const { data: prices } = usePricesQuery(layer1)
   const initPrice = useMemo(() => {
-    const initPriceItem = prices?.find((p) => p.id === INIT_DENOM)
+    const initPriceItem = prices?.find((price) => price.id === INIT_DENOM)
     return initPriceItem?.price ?? 0
   }, [prices])
 

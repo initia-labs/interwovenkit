@@ -31,7 +31,9 @@ const AssetGroup = ({ assetGroup }: Props) => {
 
   const toggleOpen = () => {
     setOpenAssetGroups((prev) =>
-      isOpen ? prev.filter((s) => s !== symbol) : [...new Set([...prev, symbol])],
+      isOpen
+        ? prev.filter((openAssetSymbol) => openAssetSymbol !== symbol)
+        : [...new Set([...prev, symbol])],
     )
   }
 

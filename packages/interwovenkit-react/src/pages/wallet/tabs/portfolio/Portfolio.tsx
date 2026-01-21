@@ -1,3 +1,4 @@
+import { descend, sortWith } from "ramda"
 import { useMemo } from "react"
 import { useAtom } from "jotai"
 import AsyncBoundary from "@/components/AsyncBoundary"
@@ -46,19 +47,15 @@ const ChainSelectWithData = ({
       total += chain.totalBalance
     }
 
-    // Sort chainIds: connected chain first, then L1, then by value
-    const sortedIds = chainBreakdown
-      .map((chain) => chain.chainId)
-      .toSorted((a, b) => {
-        // Connected chain first
-        if (a === defaultChainId) return -1
-        if (b === defaultChainId) return 1
-        // Then Initia (L1)
-        if (a === layer1.chainId) return -1
-        if (b === layer1.chainId) return 1
-        // Then by value descending
-        return (valueMap.get(b) ?? 0) - (valueMap.get(a) ?? 0)
-      })
+    // Sort chainIds: connected chain first, then L1, then by value descending
+    const sortedIds = sortWith(
+      [
+        descend((chainId: string) => chainId === defaultChainId),
+        descend((chainId: string) => chainId === layer1.chainId),
+        descend((chainId: string) => valueMap.get(chainId) ?? 0),
+      ],
+      chainBreakdown.map((chain) => chain.chainId),
+    )
 
     return { chainIds: sortedIds, chainIdToValueMap: valueMap, totalBalance: total }
   }, [chainBreakdown, defaultChainId, layer1])
