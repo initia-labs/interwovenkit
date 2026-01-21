@@ -27,7 +27,8 @@ export function getAutoSignTypedData(origin: string, chainId: string) {
 
 /**
  * Derive an HD wallet from an Ethereum signature.
- * Follows dYdX's implementation: https://github.com/dydxprotocol/v4-clients
+ * Based on dYdX's implementation:
+ * https://github.com/dydxprotocol/v4-clients/blob/main/v4-client-js/src/lib/onboarding.ts#L42-L60
  */
 export async function deriveWalletFromSignature(signature: Hex): Promise<DerivedWallet> {
   const signatureBytes = hexToBytes(signature)
