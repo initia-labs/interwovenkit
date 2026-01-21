@@ -8,7 +8,6 @@ import {
   MsgGrantAllowance,
   MsgRevokeAllowance,
 } from "@initia/initia.proto/cosmos/feegrant/v1beta1/tx"
-import { InitiaAddress } from "@initia/utils"
 import { useConfig } from "@/data/config"
 import { useTx } from "@/data/tx"
 import { useDrawer } from "@/data/ui"
@@ -16,7 +15,7 @@ import { useInitiaAddress } from "@/public/data/hooks"
 import { useAutoSignApi } from "./fetch"
 import { pendingAutoSignRequestAtom } from "./store"
 import { autoSignQueryKeys, useAutoSignMessageTypes } from "./validation"
-import { useEmbeddedWalletAddress } from "./wallet"
+import { useDeriveWallet } from "./wallet"
 
 /* Hook to fetch existing grants and generate revoke messages */
 function useFetchRevokeMessages() {
@@ -54,25 +53,16 @@ function useFetchRevokeMessages() {
   }
 }
 
-/* Enable AutoSign by granting permissions to embedded wallet for fee delegation and message execution */
+/* Enable AutoSign by deriving wallet from signature and granting permissions */
 export function useEnableAutoSign() {
-  const { privyContext } = useConfig()
   const initiaAddress = useInitiaAddress()
-  const embeddedWalletAddress = useEmbeddedWalletAddress()
   const messageTypes = useAutoSignMessageTypes()
   const { requestTxBlock } = useTx()
   const queryClient = useQueryClient()
   const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
   const { closeDrawer } = useDrawer()
   const fetchRevokeMessages = useFetchRevokeMessages()
-
-  // Get or create embedded wallet address
-  const resolveEmbeddedWalletAddress = async (): Promise<string> => {
-    if (embeddedWalletAddress) return embeddedWalletAddress
-    if (!privyContext) throw new Error("Privy context not available")
-    const newWallet = await privyContext.createWallet({ createAdditional: false })
-    return InitiaAddress(newWallet.address).bech32
-  }
+  const { deriveWallet } = useDeriveWallet()
 
   return useMutation({
     mutationFn: async (durationInMs: number) => {
@@ -82,14 +72,13 @@ export function useEnableAutoSign() {
 
       const { chainId } = pendingRequest
 
-      const embeddedWalletAddress = await resolveEmbeddedWalletAddress()
-
-      if (!initiaAddress || !embeddedWalletAddress) {
-        throw new Error("Wallets not initialized")
+      if (!initiaAddress) {
+        throw new Error("Wallet not connected")
       }
 
-      // Fetch existing grants and generate revoke messages
-      const revokeMessages = await fetchRevokeMessages({ chainId, grantee: embeddedWalletAddress })
+      const derivedWallet = await deriveWallet(chainId)
+
+      const revokeMessages = await fetchRevokeMessages({ chainId, grantee: derivedWallet.address })
 
       const expiration = durationInMs === 0 ? undefined : addMilliseconds(new Date(), durationInMs)
 
@@ -97,7 +86,7 @@ export function useEnableAutoSign() {
         typeUrl: "/cosmos.feegrant.v1beta1.MsgGrantAllowance",
         value: MsgGrantAllowance.fromPartial({
           granter: initiaAddress,
-          grantee: embeddedWalletAddress,
+          grantee: derivedWallet.address,
           allowance: {
             typeUrl: "/cosmos.feegrant.v1beta1.BasicAllowance",
             value: BasicAllowance.encode(BasicAllowance.fromPartial({ expiration })).finish(),
@@ -109,7 +98,7 @@ export function useEnableAutoSign() {
         typeUrl: "/cosmos.authz.v1beta1.MsgGrant",
         value: MsgGrant.fromPartial({
           granter: initiaAddress,
-          grantee: embeddedWalletAddress,
+          grantee: derivedWallet.address,
           grant: {
             authorization: {
               typeUrl: "/cosmos.authz.v1beta1.GenericAuthorization",
@@ -142,15 +131,16 @@ export function useEnableAutoSign() {
   })
 }
 
-/* Revoke AutoSign permissions by removing fee grants and authz delegations for embedded wallet */
+/* Revoke AutoSign permissions and clear derived wallet from memory */
 export function useDisableAutoSign(options?: {
   grantee: string
   messageTypes: Record<string, string[]>
   internal: boolean
 }) {
   const config = useConfig()
-  const embeddedWalletAddress = useEmbeddedWalletAddress()
-  const grantee = options?.grantee || embeddedWalletAddress
+  const { getWallet, clearWallet } = useDeriveWallet()
+  const derivedWallet = getWallet(config.defaultChainId)
+  const grantee = options?.grantee || derivedWallet?.address
   const { requestTxBlock } = useTx()
   const queryClient = useQueryClient()
   const fetchRevokeMessages = useFetchRevokeMessages()
@@ -158,13 +148,15 @@ export function useDisableAutoSign(options?: {
   return useMutation({
     mutationFn: async (chainId: string = config.defaultChainId) => {
       if (!grantee) {
-        throw new Error("Wallets not initialized")
+        throw new Error("No grantee address available")
       }
 
       const messages = await fetchRevokeMessages({ chainId, grantee })
       await requestTxBlock({ messages, chainId, internal: options?.internal })
     },
-    onSuccess: async () => {
+    onSuccess: async (_, chainId = config.defaultChainId) => {
+      clearWallet(chainId)
+
       const queryKeys = [autoSignQueryKeys.expirations._def, autoSignQueryKeys.grants._def]
 
       for (const queryKey of queryKeys) {
