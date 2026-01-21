@@ -15,6 +15,7 @@ export function useAutoSign() {
     data = {
       expiredAtByChain: {} as Record<string, Date | null | undefined>,
       isEnabledByChain: {} as Record<string, boolean>,
+      granteeByChain: {} as Record<string, string | undefined>,
     },
     isLoading,
   } = useAutoSignStatus()
