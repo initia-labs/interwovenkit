@@ -37,6 +37,8 @@ class DerivedWalletSigner implements OfflineAminoSigner {
     ]
   }
 
+  /* Initia uses ethsecp256k1 with Amino signing. The sign doc is serialized to JSON
+   * and hashed with EIP-191 personal message prefix before signing. */
   async signAmino(signerAddress: string, signDoc: StdSignDoc): Promise<AminoSignResponse> {
     if (this.wallet.address !== signerAddress) {
       throw new Error("Signer address does not match the derived wallet address")

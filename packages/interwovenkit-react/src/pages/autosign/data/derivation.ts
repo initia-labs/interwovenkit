@@ -3,6 +3,9 @@ import { toBech32 } from "@cosmjs/encoding"
 import { type Hex, keccak256 } from "viem"
 import type { DerivedWallet } from "./store"
 
+/* EIP-712 typed data for wallet derivation signature. Origin and chainId scope derived wallets:
+ * the same user signing on different apps or chains will derive different wallets,
+ * preventing cross-app or cross-chain grant reuse. */
 export function getAutoSignTypedData(origin: string, chainId: string) {
   return {
     domain: { name: "Interwoven Wallet", version: "1" },
