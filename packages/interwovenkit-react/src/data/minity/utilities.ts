@@ -459,20 +459,28 @@ export function filterAssetGroups(
         )
       })
 
-  // Filter by selected chain
+  // Filter by selected chain and recompute group totals
   const chainFilteredAssets = !selectedChainId
     ? searchFilteredAssets
     : searchFilteredAssets
-        .map((assetGroup) => ({
-          ...assetGroup,
-          assets: assetGroup.assets.filter(({ chain }) => chain.chainId === selectedChainId),
-        }))
+        .map((assetGroup) => {
+          const filteredAssets = assetGroup.assets.filter(
+            ({ chain }) => chain.chainId === selectedChainId,
+          )
+          return {
+            ...assetGroup,
+            assets: filteredAssets,
+            totalValue: filteredAssets.reduce((sum, a) => sum + (a.value ?? 0), 0),
+            totalAmount: filteredAssets.reduce((sum, a) => sum + Number(a.quantity), 0),
+          }
+        })
         .filter((assetGroup) => assetGroup.assets.length > 0)
 
-  // Calculate total value
-  const totalAssetsValue = chainFilteredAssets.reduce((total, group) => {
-    return total + group.assets.reduce((sum, asset) => sum + (asset.value ?? 0), 0)
-  }, 0)
+  // Calculate total value from individual assets
+  const totalAssetsValue = chainFilteredAssets.reduce(
+    (total, group) => total + group.assets.reduce((sum, asset) => sum + (asset.value ?? 0), 0),
+    0,
+  )
 
   return { filteredAssets: chainFilteredAssets, totalAssetsValue }
 }
