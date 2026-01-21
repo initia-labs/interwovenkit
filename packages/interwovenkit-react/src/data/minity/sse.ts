@@ -113,12 +113,12 @@ export function usePortfolioSSE() {
     const balancesMap = new Map<string, ChainBalanceData>()
     const positionsMap = new Map<string, ChainPositionData>()
 
-    for (const b of existingData?.balances ?? []) {
-      balancesMap.set(b.chainName, b)
+    for (const balanceData of existingData?.balances ?? []) {
+      balancesMap.set(balanceData.chainName, balanceData)
     }
 
-    for (const p of existingData?.positions ?? []) {
-      positionsMap.set(p.chainName, p)
+    for (const positionData of existingData?.positions ?? []) {
+      positionsMap.set(positionData.chainName, positionData)
     }
 
     const baseUrl = minityUrl

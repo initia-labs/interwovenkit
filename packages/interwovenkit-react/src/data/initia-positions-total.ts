@@ -39,16 +39,16 @@ export function useL1PositionsTotal(): number {
   // Collect all metadata keys for denom resolution
   const allMetadataKeys = useMemo(() => {
     const keys = new Set<string>()
-    for (const [m] of lps) keys.add(m)
-    for (const [m] of delegations) keys.add(m)
-    for (const [m] of lockStaking) keys.add(m)
-    for (const [m] of undelegations) keys.add(m)
+    for (const [metadata] of lps) keys.add(metadata)
+    for (const [metadata] of delegations) keys.add(metadata)
+    for (const [metadata] of lockStaking) keys.add(metadata)
+    for (const [metadata] of undelegations) keys.add(metadata)
     return Array.from(keys)
   }, [lps, delegations, lockStaking, undelegations])
 
   const denoms = useDenoms(allMetadataKeys)
   const denomList = useMemo(
-    () => Array.from(denoms.values()).filter((d) => d !== INIT_DENOM),
+    () => Array.from(denoms.values()).filter((denom) => denom !== INIT_DENOM),
     [denoms],
   )
 

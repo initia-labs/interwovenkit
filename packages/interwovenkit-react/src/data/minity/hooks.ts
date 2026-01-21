@@ -84,13 +84,13 @@ export function useChainInfoMap(): Map<string, ChainInfo> {
     const chainInfoMap = new Map<string, ChainInfo>()
 
     // Add all chains from registry
-    for (const r of registry) {
-      const chainKey = r.chain_name.toLowerCase()
+    for (const registryItem of registry) {
+      const chainKey = registryItem.chain_name.toLowerCase()
       chainInfoMap.set(chainKey, {
-        chainId: r.chainId,
-        chainName: r.chain_name,
-        prettyName: r.name || r.chain_name,
-        logoUrl: r.logoUrl || "",
+        chainId: registryItem.chainId,
+        chainName: registryItem.chain_name,
+        prettyName: registryItem.name || registryItem.chain_name,
+        logoUrl: registryItem.logoUrl || "",
       })
     }
 
@@ -108,8 +108,8 @@ export function useMinityChainBreakdown(): ChainBreakdownItem[] {
 
   const registryMap = useMemo(() => {
     const map = new Map<string, (typeof registry)[number]>()
-    for (const r of registry) {
-      map.set(r.chain_name.toLowerCase(), r)
+    for (const registryItem of registry) {
+      map.set(registryItem.chain_name.toLowerCase(), registryItem)
     }
     return map
   }, [registry])
@@ -206,11 +206,11 @@ export function useLiquidAssetsBalance(): number {
 
     for (const { balances: chainBalances } of balancesWithPricing) {
       if (!Array.isArray(chainBalances)) continue // Skip if balances is not an array
-      for (const b of chainBalances) {
-        if (b.type === "lp") {
+      for (const balance of chainBalances) {
+        if (balance.type === "lp") {
           continue // Skip LP tokens, counted in L1 liquidity positions
         }
-        total += getBalanceValue(b)
+        total += getBalanceValue(balance)
       }
     }
     return total
