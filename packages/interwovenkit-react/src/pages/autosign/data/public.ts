@@ -11,7 +11,13 @@ export function useAutoSign() {
   const { openDrawer } = useDrawer()
   const setPendingAutoSignRequest = useSetAtom(pendingAutoSignRequestAtom)
   const disableAutoSign = useDisableAutoSign()
-  const { data = { expiredAtByChain: {}, isEnabledByChain: {} }, isLoading } = useAutoSignStatus()
+  const {
+    data = {
+      expiredAtByChain: {} as Record<string, Date | null | undefined>,
+      isEnabledByChain: {} as Record<string, boolean>,
+    },
+    isLoading,
+  } = useAutoSignStatus()
 
   const enable = async (chainId: string = defaultChainId) => {
     return new Promise<void>((resolve, reject) => {
