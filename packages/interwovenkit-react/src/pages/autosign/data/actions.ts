@@ -18,7 +18,15 @@ import { pendingAutoSignRequestAtom } from "./store"
 import { autoSignQueryKeys, useAutoSignMessageTypes, useAutoSignStatus } from "./validation"
 import { useDeriveWallet } from "./wallet"
 
-/* Hook to fetch existing grants and generate revoke messages */
+/**
+ * Creates an async function that fetches existing feegrant and authz grants for a grantee and builds the corresponding revoke messages.
+ *
+ * @param params - Input object
+ * @param params.chainId - Chain identifier to query grants on
+ * @param params.grantee - Address of the grantee whose grants should be revoked
+ * @returns An array of revoke messages (feegrant revoke and/or authz revokes) suitable for inclusion in a transaction
+ * @throws Error - If the granter wallet is not initialized
+ */
 function useFetchRevokeMessages() {
   const granter = useInitiaAddress()
   const messageTypes = useAutoSignMessageTypes()
@@ -54,7 +62,20 @@ function useFetchRevokeMessages() {
   }
 }
 
-/* Enable AutoSign by deriving wallet from signature and granting permissions */
+/**
+ * Creates a mutation that enables AutoSign for the current Initia wallet by deriving a per-chain wallet,
+ * revoking conflicting grants, and submitting feegrant + authz grant messages for the derived grantee.
+ *
+ * The mutation function accepts a duration in milliseconds; a value of 0 results in no expiration on grants.
+ * On success the auto-sign expirations cache is invalidated and the pending request is resolved; on error the pending
+ * request is rejected. The drawer UI is closed and the pending request cleared when the mutation settles.
+ *
+ * @returns A React Query mutation that, when executed, derives a wallet for the pending request's chain, clears
+ *          signing-client cache, builds revoke/feegrant/authz messages for the derived grantee, and submits them
+ *          as an internal transaction.
+ * @throws Error - "No pending request" if there is no pending AutoSign request to fulfill.
+ * @throws Error - "Wallet not connected" if the current Initia wallet is not available.
+ */
 export function useEnableAutoSign() {
   const initiaAddress = useInitiaAddress()
   const messageTypes = useAutoSignMessageTypes()
@@ -135,7 +156,20 @@ export function useEnableAutoSign() {
   })
 }
 
-/* Revoke AutoSign permissions and clear derived wallet from memory */
+/**
+ * Revoke AutoSign permissions for a grantee on a chain and clear the derived wallet from memory.
+ *
+ * The returned mutation, when executed, resolves the grantee (from options, the derived wallet for the chain, or stored auto-sign status),
+ * fetches revoke messages for that grantee on the chain, and submits a transaction to revoke permissions. On success the derived wallet
+ * for the chain is cleared and related AutoSign query caches are invalidated.
+ *
+ * @param options - Optional configuration for the revoke operation.
+ * @param options.grantee - Explicit grantee address to revoke. If omitted, the hook will use the derived wallet address for the chain or fall back to stored auto-sign status.
+ * @param options.messageTypes - Map of supported message type categories to specific msg type strings; used when constructing grant/revoke messages (optional).
+ * @param options.internal - When true, marks the transaction as internal.
+ * @returns A React Query mutation object that accepts an optional `chainId` (defaults to the configured default chain) and performs the revoke transaction when executed.
+ * @throws Error If no grantee address can be resolved for the target chain ("No grantee address available").
+ */
 export function useDisableAutoSign(options?: {
   grantee: string
   messageTypes: Record<string, string[]>

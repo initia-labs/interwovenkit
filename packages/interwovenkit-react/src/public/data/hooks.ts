@@ -19,6 +19,11 @@ export function useInitiaAddress() {
   return InitiaAddress(hexAddress).bech32
 }
 
+/**
+ * Provide the hex InitiaAddress representation for the currently connected account.
+ *
+ * @returns The `hex` field of the InitiaAddress constructed from the connected account address, or an empty string if no address is connected.
+ */
 export function useHexAddress() {
   const { address } = useAccount()
   if (!address) return ""

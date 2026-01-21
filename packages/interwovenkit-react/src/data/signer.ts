@@ -220,11 +220,22 @@ export function useOfflineSigner() {
 const comet38ClientCache = new Map<string, Comet38Client>()
 const signingStargateClientCache = new Map<string, SigningStargateClient>()
 
+/**
+ * Invalidates the cached SigningStargateClient for a specific wallet address and chain.
+ *
+ * @param address - Wallet address whose cached client should be removed
+ * @param chainId - Chain identifier corresponding to the cached client
+ */
 export function clearSigningClientCache(address: string, chainId: string) {
   const cacheKey = `${address}:${chainId}`
   signingStargateClientCache.delete(cacheKey)
 }
 
+/**
+ * Create a function that retrieves a cached or newly constructed Comet38Client for a given chain ID.
+ *
+ * @returns An async function that takes `chainId` and returns the corresponding `Comet38Client`. The returned client is reused from an internal cache when available; otherwise a new client is created using the chain's RPC URL, cached, and returned.
+ */
 export function useCreateComet38Client() {
   const findChain = useFindChain()
 

@@ -3,9 +3,13 @@ import { toBech32 } from "@cosmjs/encoding"
 import { type Hex, keccak256 } from "viem"
 import type { DerivedWallet } from "./store"
 
-/* EIP-712 typed data for wallet derivation signature. Origin and chainId scope derived wallets:
- * the same user signing on different apps or chains will derive different wallets,
- * preventing cross-app or cross-chain grant reuse. */
+/**
+ * Create EIP-712 typed data that requests enabling "Auto-Sign" scoped to an origin and chain.
+ *
+ * @param origin - The requesting application's origin (e.g., window.location.origin)
+ * @param chainId - The target chain identifier to scope the derived wallet
+ * @returns An EIP-712 typed data object with domain, types, primaryType "AutoSign", and a message containing `action: "Enable Auto-Sign"`, `origin`, and `chainId`
+ */
 export function getAutoSignTypedData(origin: string, chainId: string) {
   return {
     domain: { name: "InterwovenKit", version: "1" },
@@ -26,9 +30,11 @@ export function getAutoSignTypedData(origin: string, chainId: string) {
 }
 
 /**
- * Derive an HD wallet from an Ethereum signature.
- * Based on dYdX's implementation:
- * https://github.com/dydxprotocol/v4-clients/blob/main/v4-client-js/src/lib/onboarding.ts#L42-L60
+ * Derives a deterministic HD wallet (private key, compressed public key, and address) from an Ethereum signature.
+ *
+ * @param signature - An Ethereum signature as a hex string expected to encode 65 bytes (r + s + v)
+ * @returns An object containing `privateKey` (derived private key), `publicKey` (compressed public key), and `address` (Bech32 address with the `init` prefix)
+ * @throws Error if `signature` does not decode to exactly 65 bytes
  */
 export async function deriveWalletFromSignature(signature: Hex): Promise<DerivedWallet> {
   const signatureBytes = hexToBytes(signature)
@@ -69,10 +75,24 @@ export async function deriveWalletFromSignature(signature: Hex): Promise<Derived
   }
 }
 
+/**
+ * Create a deterministic storage key for a derived wallet scoped to an origin and chain.
+ *
+ * @param origin - The requesting origin (e.g., website or dApp identifier)
+ * @param chainId - The blockchain chain identifier
+ * @returns A string key composed of `origin` and `chainId` separated by a colon (`origin:chainId`)
+ */
 export function getDerivedWalletKey(origin: string, chainId: string): string {
   return `${origin}:${chainId}`
 }
 
+/**
+ * Convert a hexadecimal string into a byte array.
+ *
+ * @param hex - Hexadecimal string to convert; may include a leading `0x` prefix.
+ * @returns A `Uint8Array` containing the bytes represented by the hex string.
+ * @throws Error if `hex` is empty, has an odd length, or contains non-hexadecimal characters.
+ */
 function hexToBytes(hex: Hex): Uint8Array {
   const cleanHex = hex.startsWith("0x") ? hex.slice(2) : hex
 
@@ -95,6 +115,12 @@ function hexToBytes(hex: Hex): Uint8Array {
   return bytes
 }
 
+/**
+ * Converts a byte array to a lowercase hexadecimal string without a `0x` prefix.
+ *
+ * @param bytes - The input byte array to convert.
+ * @returns The hexadecimal representation of `bytes` in lowercase with no `0x` prefix.
+ */
 function bytesToHex(bytes: Uint8Array): string {
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, "0"))

@@ -66,6 +66,21 @@ export function useTxRequestHandler() {
   return txRequest
 }
 
+/**
+ * Provides transaction utilities and orchestrates signing, broadcasting, and confirmation flows.
+ *
+ * Exposes helpers to estimate gas, simulate transactions, present a UI for interactive signing,
+ * broadcast transactions synchronously or wait for block inclusion, and poll for confirmation.
+ *
+ * @returns An object with the following methods:
+ * - `estimateGas({ messages, memo?, chainId? })` — Returns the estimated gas for the provided messages.
+ * - `simulateTx({ messages, memo?, chainId? })` — Returns the result of simulating the transaction via the tx extension.
+ * - `requestTxSync(txRequest)` — Opens the signing UI, requests a signed transaction, broadcasts it synchronously, and returns the transaction hash (`string`).
+ * - `requestTxBlock(txRequest, timeoutMs?, intervalMs?)` — Requests a signed transaction, broadcasts and waits for block inclusion, and returns the `DeliverTxResponse`.
+ * - `submitTxSync(txParams)` — Signs (auto or manual) and broadcasts the provided messages synchronously, returning the transaction hash (`string`).
+ * - `submitTxBlock(txParams, timeoutMs?, intervalMs?)` — Signs and broadcasts the provided messages and waits for block inclusion, returning the `DeliverTxResponse`.
+ * - `waitForTxConfirmation({ txHash, chainId?, timeoutMs?, intervalMs? })` — Polls for and returns the confirmed transaction result or throws if not found or failed.
+ */
 export function useTx() {
   const navigate = useNavigate()
   const address = useInitiaAddress()

@@ -58,6 +58,11 @@ export function useModal() {
   return { isModalOpen: isOpen, openModal: open, closeModal: close }
 }
 
+/**
+ * Provide a callback that fully disconnects the user and clears related UI and bridge state.
+ *
+ * @returns A function that navigates to "/blank", closes any open drawer and modal, disconnects the wallet connection, resets derived wallets state, and removes bridge-related entries from localStorage.
+ */
 export function useDisconnect() {
   const navigate = useNavigate()
   const { closeDrawer } = useDrawer()

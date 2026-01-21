@@ -59,7 +59,16 @@ export function useValidateAutoSign() {
   }
 }
 
-/* Get current AutoSign status including enabled state and expiration dates by chain */
+/**
+ * Retrieve AutoSign status per chain, including the grantee, earliest expiration, and whether AutoSign is enabled.
+ *
+ * The returned query's `data` contains three maps keyed by chain ID:
+ * - `expiredAtByChain`: maps to a `Date` for the earliest expiration, `undefined` when enabled without an expiration, or `null` when no valid grantee/feegrant exists or an error occurred.
+ * - `isEnabledByChain`: maps to `true` when AutoSign is currently enabled for the chain, `false` otherwise.
+ * - `granteeByChain`: maps to the grantee address used for AutoSign on the chain, or `undefined` if none was found.
+ *
+ * @returns The React Query result whose `data` exposes `expiredAtByChain`, `isEnabledByChain`, and `granteeByChain`
+ */
 export function useAutoSignStatus() {
   const initiaAddress = useInitiaAddress()
   const messageTypes = useAutoSignMessageTypes()
@@ -142,6 +151,13 @@ interface GrantWithGrantee {
   grants: Array<{ authorization: { msg: string }; expiration?: string }>
 }
 
+/**
+ * Find a grantee that has granted all of the specified message types.
+ *
+ * @param allGrants - Array of grant records, each containing a `grantee`, an `authorization.msg` indicating the granted message type, and an optional `expiration`.
+ * @param requiredMsgTypes - List of message type URLs that must be present among a grantee's grants.
+ * @returns A `GrantWithGrantee` for the first grantee whose grants include every `requiredMsgTypes` entry, or `null` if no such grantee exists.
+ */
 export function findValidGrantee(
   allGrants: Array<{ grantee: string; authorization: { msg: string }; expiration?: string }>,
   requiredMsgTypes: string[],
@@ -168,7 +184,13 @@ export function findValidGrantee(
   return null
 }
 
-/* Initialize AutoSign by querying grants and feegrants to determine enabled status and expiration */
+/**
+ * Schedule a refresh of AutoSign status when the nearest future expiration is reached.
+ *
+ * Subscribes to AutoSign status and, if there are future expiration Date values, sets a timer
+ * to call `refetch` when the earliest expiration occurs (with a small buffer). Expirations that
+ * are `null` (no permission) or `undefined` (permanent permission) are ignored.
+ */
 export function useInitializeAutoSign() {
   const { data, refetch } = useAutoSignStatus()
 

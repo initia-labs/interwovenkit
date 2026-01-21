@@ -34,10 +34,15 @@ export interface FeegrantResponse {
   allowance: FeegrantAllowance
 }
 
-/*
- * Hook to create API functions for querying grants and feegrants.
- * Note: grantee parameter is required because the settings page (ManageAutoSign)
- * allows revoking grants for any grantee, not just the derived wallet.
+/**
+ * Creates API functions to query authorization grants and fee grants for the current initiating address.
+ *
+ * @returns An object containing:
+ *  - `fetchFeegrant(chainId, grantee)`: Returns the fee grant allowance for the initiating address and the specified `grantee`, or `null` if none exists or on error.
+ *  - `fetchGrants(chainId, grantee)`: Returns an array of grants where the initiating address is the granter and `grantee` is the grantee.
+ *  - `fetchAllGrants(chainId)`: Returns an array of grants issued by the initiating address filtered to `GenericAuthorization` grants and normalized to objects with `grantee`, `authorization.msg`, and optional `expiration`; returns an empty array if the initiating address is missing or on error.
+ *
+ * Note: The `grantee` parameter is required for `fetchFeegrant` and `fetchGrants` because callers (e.g., the ManageAutoSign UI) may revoke grants for any grantee.
  */
 export function useAutoSignApi() {
   const initiaAddress = useInitiaAddress()

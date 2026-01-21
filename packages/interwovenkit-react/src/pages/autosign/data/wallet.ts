@@ -57,7 +57,17 @@ export class DerivedWalletSigner implements OfflineAminoSigner {
   }
 }
 
-/* Derive and store wallet from EIP-712 signature for autosign delegation */
+/**
+ * Manage deriving, caching, and lifecycle of derived wallets for the current origin and a given chainId.
+ *
+ * Derives a wallet from an EIP-712 signature (prompting the user once per origin+chainId), caches derived wallets in state, deduplicates concurrent derivations, and provides accessors to retrieve or clear stored wallets.
+ *
+ * @returns An object with:
+ * - `deriveWallet(chainId)` - Derives (or returns a cached) `DerivedWallet` for the current origin and `chainId`; concurrent calls for the same origin+chainId return the same in-flight promise.
+ * - `getWallet(chainId)` - Returns the cached `DerivedWallet` for the current origin and `chainId`, or `undefined` if none exists.
+ * - `clearWallet(chainId)` - Removes the cached derived wallet for the current origin and `chainId`.
+ * - `clearAllWallets()` - Clears all cached derived wallets for the current origin.
+ */
 export function useDeriveWallet() {
   const [derivedWallets, setDerivedWallets] = useAtom(derivedWalletsAtom)
   const { signTypedDataAsync } = useSignTypedData()
@@ -119,13 +129,24 @@ export function useDeriveWallet() {
   return { deriveWallet, getWallet, clearWallet, clearAllWallets }
 }
 
-/* Get derived wallet address for current origin and chain */
+/**
+ * Get the derived wallet address for the current origin and given chain ID.
+ *
+ * @param chainId - The target chain identifier
+ * @returns The derived wallet address for the origin and `chainId`, or `undefined` if no derived wallet exists
+ */
 export function useDerivedWalletAddress(chainId: string) {
   const { getWallet } = useDeriveWallet()
   return getWallet(chainId)?.address
 }
 
-/* Sign auto-sign transactions with derived wallet by wrapping messages in MsgExec and delegating fees */
+/**
+ * Provide a signer function that wraps messages in an authz MsgExec and signs the delegated transaction with a derived wallet.
+ *
+ * The returned async function will ensure a derived wallet exists for the given chainId (deriving one if necessary), wrap the provided messages in a MsgExec with the derived wallet as grantee, set the fee's granter to the provided granter address, and produce a signed TxRaw using the derived wallet.
+ *
+ * @returns An async function (chainId, granterAddress, messages, fee, memo) that signs the delegated transaction and resolves to the resulting `TxRaw`.
+ */
 export function useSignWithDerivedWallet() {
   const { getWallet, deriveWallet } = useDeriveWallet()
   const registry = useRegistry()
