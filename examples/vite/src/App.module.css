@@ -1,8 +1,3 @@
-.container,
-.header {
-  font-family: system-ui, sans-serif;
-}
-
 .container {
   margin: 32px auto;
   max-width: 540px;
@@ -38,4 +33,55 @@
   cursor: pointer;
   font-size: 1rem;
   padding: 0.5rem;
+}
+
+.desktopButtons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hamburger {
+  display: none;
+
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.5rem;
+  padding: 0.5rem;
+}
+
+.mobileMenu {
+  position: absolute;
+
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+
+  width: 100%;
+
+  border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+  padding: 16px 32px;
+}
+
+[data-theme="light"] .mobileMenu {
+  background: #ffffff;
+}
+
+[data-theme="dark"] .mobileMenu {
+  background: #1b1c1d;
+}
+
+@media (max-width: 830px) {
+  .mobileMenu {
+    display: flex;
+  }
+
+  .desktopButtons {
+    display: none;
+  }
+
+  .hamburger {
+    display: block;
+  }
 }
