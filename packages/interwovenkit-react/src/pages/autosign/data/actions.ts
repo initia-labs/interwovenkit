@@ -162,13 +162,13 @@ export function useDisableAutoSign(options?: {
       await requestTxBlock({ messages, chainId, internal: options?.internal })
     },
     onSuccess: async (_, chainId = config.defaultChainId) => {
-      clearWallet(chainId)
-
       const queryKeys = [autoSignQueryKeys.expirations._def, autoSignQueryKeys.grants._def]
 
       for (const queryKey of queryKeys) {
         await queryClient.invalidateQueries({ queryKey })
       }
+
+      clearWallet(chainId)
     },
   })
 }

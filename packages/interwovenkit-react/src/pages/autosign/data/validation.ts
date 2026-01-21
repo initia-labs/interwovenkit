@@ -187,6 +187,8 @@ export function useInitializeAutoSign() {
     if (futureExpirations.length === 0) return
 
     const earliestExpiration = findEarliestDate(futureExpirations)
+    if (!earliestExpiration) return
+
     const timeUntilExpiration = earliestExpiration.getTime() - now.getTime()
 
     if (timeUntilExpiration <= 0) return
@@ -200,8 +202,8 @@ export function useInitializeAutoSign() {
 }
 
 /* Find earliest date from array of dates, handling string and undefined values */
-export function findEarliestDate<T extends Date | string | undefined>(dates: T[]): T {
-  return dates
-    .filter((date) => date !== undefined)
-    .toSorted((a, b) => new Date(a).getTime() - new Date(b).getTime())[0]!
+export function findEarliestDate<T extends Date | string>(dates: (T | undefined)[]): T | undefined {
+  const filtered = dates.filter((date): date is T => date !== undefined)
+  if (filtered.length === 0) return undefined
+  return filtered.toSorted((a, b) => new Date(a).getTime() - new Date(b).getTime())[0]
 }
