@@ -24,7 +24,7 @@ import { type DerivedWallet, derivedWalletsAtom } from "./store"
 const pendingDerivations = new Map<string, Promise<DerivedWallet>>()
 
 /* Offline signer implementation for derived wallet */
-class DerivedWalletSigner implements OfflineAminoSigner {
+export class DerivedWalletSigner implements OfflineAminoSigner {
   constructor(private wallet: DerivedWallet) {}
 
   async getAccounts(): Promise<readonly AccountData[]> {

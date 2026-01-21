@@ -142,7 +142,7 @@ interface GrantWithGrantee {
   grants: Array<{ authorization: { msg: string }; expiration?: string }>
 }
 
-function findValidGrantee(
+export function findValidGrantee(
   allGrants: Array<{ grantee: string; authorization: { msg: string }; expiration?: string }>,
   requiredMsgTypes: string[],
 ): GrantWithGrantee | null {
