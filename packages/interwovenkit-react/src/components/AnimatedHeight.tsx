@@ -5,18 +5,31 @@ import type { PropsWithChildren } from "react"
 
 const AnimatedHeight = ({ children }: PropsWithChildren) => {
   const contentRef = useRef<HTMLDivElement>(null)
-  const [contentHeight, setContentHeight] = useState(0)
+  const [contentHeight, setContentHeight] = useState<number | "auto">(0)
+  const [hasInitialized, setHasInitialized] = useState(false)
 
   const style = useSpring({
     height: contentHeight,
     config: { tension: 500, friction: 30, clamp: true },
+    immediate: !hasInitialized,
   })
 
   useEffect(() => {
-    if (contentRef.current) {
-      const { height } = contentRef.current.getBoundingClientRect()
+    const element = contentRef.current
+    if (!element) return
+
+    const updateHeight = () => {
+      const { height } = element.getBoundingClientRect()
       setContentHeight(height)
+      setHasInitialized(true)
     }
+
+    updateHeight()
+
+    const resizeObserver = new ResizeObserver(updateHeight)
+    resizeObserver.observe(element)
+
+    return () => resizeObserver.disconnect()
   }, [children])
 
   if (!children) {

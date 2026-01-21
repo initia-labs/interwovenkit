@@ -28,6 +28,8 @@ export function useRouteQuery(
   const track = useAnalyticsTrack()
 
   const debouncedValues = { ...values, quantity: debouncedQuantity }
+  const isDisabled =
+    !values.srcChainId || !values.srcDenom || !values.dstChainId || !values.dstDenom
 
   const queryClient = useQueryClient()
   return useQuery({
@@ -66,7 +68,7 @@ export function useRouteQuery(
 
       return response
     },
-    enabled: !!Number(debouncedValues.quantity) && !opWithdrawal?.disabled,
+    enabled: !!Number(debouncedValues.quantity) && !opWithdrawal?.disabled && !isDisabled,
     staleTime: STALE_TIMES.MINUTE,
   })
 }

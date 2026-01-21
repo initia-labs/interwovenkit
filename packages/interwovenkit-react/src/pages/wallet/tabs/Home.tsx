@@ -1,7 +1,7 @@
 import clsx from "clsx"
 import { useRef } from "react"
 import { Tabs } from "@base-ui/react/tabs"
-import { IconArrowRight, IconQrCode, IconSwap } from "@initia/icons-react"
+import { IconBridge, IconQrCode, IconSend } from "@initia/icons-react"
 import Scrollable from "@/components/Scrollable"
 import { usePortfolio } from "@/data/portfolio"
 import { formatValue } from "@/lib/format"
@@ -33,12 +33,12 @@ const Home = () => {
 
         <div className={styles.nav}>
           <Link to="/send" className={styles.item}>
-            <IconArrowRight size={16} />
+            <IconSend size={16} />
             <span>Send</span>
           </Link>
 
           <Link to="/bridge" className={styles.item}>
-            <IconSwap size={16} />
+            <IconBridge size={16} />
             <span>Bridge/Swap</span>
           </Link>
 

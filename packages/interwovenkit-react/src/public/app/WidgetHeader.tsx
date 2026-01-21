@@ -1,20 +1,20 @@
 import { animated, useSpring } from "@react-spring/web"
 import clsx from "clsx"
-import { useAccount } from "wagmi"
 import { useEffect, useRef, useState } from "react"
 import { IconCopy, IconSettingFilled, IconSignOut } from "@initia/icons-react"
 import { truncate } from "@initia/utils"
 import CopyButton from "@/components/CopyButton"
 import Image from "@/components/Image"
 import { useDisconnect } from "@/data/ui"
+import { useConnectedWalletIcon } from "@/hooks/useConnectedWalletIcon"
 import { Link } from "@/lib/router"
 import { useInterwovenKit } from "@/public/data/hooks"
 import styles from "./WidgetHeader.module.css"
 
 const WidgetHeader = () => {
-  const { connector } = useAccount()
   const disconnect = useDisconnect()
   const { address, username } = useInterwovenKit()
+  const icon = useConnectedWalletIcon()
   const name = username ?? address
 
   const [isExpanded, setIsExpanded] = useState(false)
@@ -56,14 +56,9 @@ const WidgetHeader = () => {
     }
   }, [])
 
-  if (!connector || !address) {
+  if (!address) {
     return null
   }
-
-  const icon =
-    connector.id === "io.privy.wallet"
-      ? "https://assets.initia.xyz/images/wallets/Privy.webp"
-      : connector.icon
 
   return (
     <header className={styles.header}>

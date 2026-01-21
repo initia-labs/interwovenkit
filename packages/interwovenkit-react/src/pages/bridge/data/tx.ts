@@ -1,5 +1,5 @@
 import { toBase64 } from "@cosmjs/encoding"
-import { calculateFee, GasPrice, SigningStargateClient } from "@cosmjs/stargate"
+import { calculateFee, GasPrice, SigningStargateClient, type StdFee } from "@cosmjs/stargate"
 import type { StatusResponseJson, TrackResponseJson, TxJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
 import { AuthInfo, Tx, TxBody } from "cosmjs-types/cosmos/tx/v1beta1/tx"
@@ -54,7 +54,24 @@ export function useBridgePreviewState() {
   return useLocationState<BridgePreviewState>()
 }
 
-export function useBridgeTx(tx: TxJson) {
+export type BridgeTxResult =
+  | {
+      txhash: string
+      chainId: string
+      timestamp: number
+      success: true
+      route: RouterRouteResponseJson
+      values: FormValues
+    }
+  | { success: false; error: string; route: RouterRouteResponseJson; values: FormValues }
+
+interface UseBridgeTxOptions {
+  customFee?: StdFee
+  onCompleted?: (result: BridgeTxResult) => void
+}
+
+export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
+  const { customFee, onCompleted } = options ?? {}
   const navigate = useNavigate()
   const { showNotification, updateNotification, hideNotification } = useNotification()
   const { addHistoryItem } = useBridgeHistoryList()
@@ -64,7 +81,7 @@ export function useBridgeTx(tx: TxJson) {
   const { srcChainId, sender, recipient, cosmosWalletName } = values
 
   const getProvider = useGetProvider()
-  const { requestTxSync, waitForTxConfirmation } = useInterwovenKit()
+  const { requestTxSync, submitTxSync, waitForTxConfirmation } = useInterwovenKit()
   const { find } = useCosmosWallets()
   const registry = useRegistry()
   const aminoTypes = useAminoTypes()
@@ -96,12 +113,18 @@ export function useBridgeTx(tx: TxJson) {
           if (srcChainType === "initia") {
             const { srcDenom, quantity } = values
             const { decimals } = findAsset(srcDenom)
-            const txHash = await requestTxSync({
-              messages,
-              chainId: srcChainId,
-              internal: 1,
-              spendCoins: [{ denom: srcDenom, amount: toBaseUnit(quantity, { decimals }) }],
-            })
+            const txHash = customFee
+              ? await submitTxSync({
+                  messages,
+                  chainId: srcChainId,
+                  fee: customFee,
+                })
+              : await requestTxSync({
+                  messages,
+                  chainId: srcChainId,
+                  internal: 1,
+                  spendCoins: [{ denom: srcDenom, amount: toBaseUnit(quantity, { decimals }) }],
+                })
             const wait = waitForTxConfirmation({ txHash, chainId: srcChainId })
             return { txHash, wait }
           }
@@ -158,11 +181,24 @@ export function useBridgeTx(tx: TxJson) {
     onSuccess: async ({ txHash, wait }) => {
       // Clean up and navigate
       localStorage.removeItem(LocalStorageKey.BRIDGE_QUANTITY)
-      navigate(-1)
-      showNotification({
-        type: "loading",
-        title: "Transaction is pending...",
-      })
+
+      if (onCompleted) {
+        onCompleted({
+          txhash: txHash,
+          chainId: srcChainId,
+          timestamp: Date.now(),
+          success: true,
+          route,
+          values,
+        })
+      } else {
+        navigate(-1)
+
+        showNotification({
+          type: "loading",
+          title: "Transaction is pending...",
+        })
+      }
 
       try {
         // Wait for transaction confirmation
@@ -176,7 +212,7 @@ export function useBridgeTx(tx: TxJson) {
           ? { success: true, error: null }
           : await trackTransaction(skip, txHash, srcChainId)
 
-        if (!trackingResult.success && trackingResult.error) {
+        if (!onCompleted && !trackingResult.success && trackingResult.error) {
           const errorMessage =
             trackingResult.error instanceof Error
               ? trackingResult.error.message
@@ -196,8 +232,10 @@ export function useBridgeTx(tx: TxJson) {
         const historyResult = createHistoryItem(context, tracked)
         addHistoryItem(historyResult.tx, historyResult.details)
 
-        // Update notification
-        updateNotification(createSuccessNotification(hideNotification))
+        if (!onCompleted) {
+          // Update notification
+          updateNotification(createSuccessNotification(hideNotification))
+        }
 
         // Track analytics
         const analyticsParams = createAnalyticsParams(values, txHash)
@@ -211,11 +249,15 @@ export function useBridgeTx(tx: TxJson) {
       } catch (error) {
         // Handle transaction failure
         const errorMessage = error instanceof Error ? error.message : String(error)
-        updateNotification({
-          type: "error",
-          title: "Transaction not confirmed",
-          description: errorMessage,
-        })
+        if (onCompleted) {
+          onCompleted({ success: false, error: errorMessage, route, values })
+        } else {
+          updateNotification({
+            type: "error",
+            title: "Transaction not confirmed",
+            description: errorMessage,
+          })
+        }
 
         const analyticsParams = {
           ...createAnalyticsParams(values, txHash),
@@ -234,11 +276,17 @@ export function useBridgeTx(tx: TxJson) {
         srcChainType === "initia"
           ? await formatMoveError(error, findChain(srcChainId), registryUrl)
           : error
-      showNotification({
-        type: "error",
-        title: "Transaction failed",
-        description: formattedError.message,
-      })
+
+      if (onCompleted) {
+        onCompleted({ success: false, error: formattedError.message, route, values })
+      } else {
+        showNotification({
+          type: "error",
+          title: "Transaction failed",
+          description: formattedError.message,
+        })
+      }
+
       const analyticsParams = createAnalyticsParams(values)
       track("Bridge Transaction Failed", {
         ...analyticsParams,

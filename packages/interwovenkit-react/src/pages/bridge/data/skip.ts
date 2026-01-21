@@ -6,8 +6,10 @@ import type { FormValues } from "./form"
 
 export const skipQueryKeys = createQueryKeys("interwovenkit:skip", {
   chains: null,
+  allAssets: () => ["allAssets"],
   assets: (chainId: string) => [chainId],
   asset: (chainId: string, denom: string) => [chainId, denom],
+  allBalances: (chainIds: string[], addresses: string[]) => [chainIds, addresses],
   balances: (chainId: string, address: string) => [chainId, address],
   route: (values: FormValues, isOpWithdraw?: boolean) => [values, isOpWithdraw],
   routeErrorInfo: (error: Error) => [error],
