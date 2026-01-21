@@ -19,6 +19,7 @@ import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
 import { useFindChain } from "@/data/chains"
 import { encodeEthSecp256k1Signature } from "@/data/patches/signature"
 import { useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
+import { useInitiaAddress } from "@/public/data/hooks"
 import { deriveWalletFromSignature, getAutoSignTypedData, getDerivedWalletKey } from "./derivation"
 import { type DerivedWallet, derivedWalletsAtom } from "./store"
 
@@ -63,10 +64,15 @@ export function useDeriveWallet() {
   const [derivedWallets, setDerivedWallets] = useAtom(derivedWalletsAtom)
   const { signTypedDataAsync } = useSignTypedData()
   const findChain = useFindChain()
+  const userAddress = useInitiaAddress()
 
   const deriveWallet = async (chainId: string): Promise<DerivedWallet> => {
+    if (!userAddress) {
+      throw new Error("User address not available")
+    }
+
     const origin = window.location.origin
-    const key = getDerivedWalletKey(origin, chainId)
+    const key = getDerivedWalletKey(origin, chainId, userAddress)
 
     if (derivedWallets[key]) {
       return derivedWallets[key]
@@ -100,14 +106,18 @@ export function useDeriveWallet() {
   }
 
   const getWallet = (chainId: string): DerivedWallet | undefined => {
+    if (!userAddress) return undefined
+
     const origin = window.location.origin
-    const key = getDerivedWalletKey(origin, chainId)
+    const key = getDerivedWalletKey(origin, chainId, userAddress)
     return derivedWallets[key]
   }
 
   const clearWallet = (chainId: string) => {
+    if (!userAddress) return
+
     const origin = window.location.origin
-    const key = getDerivedWalletKey(origin, chainId)
+    const key = getDerivedWalletKey(origin, chainId, userAddress)
     setDerivedWallets((prev) => {
       const next = { ...prev }
       delete next[key]
@@ -116,6 +126,7 @@ export function useDeriveWallet() {
   }
 
   const clearAllWallets = () => {
+    pendingDerivations.clear()
     setDerivedWallets({})
   }
 

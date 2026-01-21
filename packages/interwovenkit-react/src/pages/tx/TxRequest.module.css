@@ -21,17 +21,3 @@
 
   width: var(--button-height);
 }
-
-.unlockPrompt {
-  background: var(--color-bg-secondary);
-  border-radius: 8px;
-  margin-bottom: 16px;
-  padding: 16px;
-  text-align: center;
-}
-
-.unlockPrompt p {
-  color: var(--color-text-secondary);
-  font-size: 14px;
-  margin-bottom: 12px;
-}

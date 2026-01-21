@@ -72,8 +72,8 @@ export async function deriveWalletFromSignature(
   }
 }
 
-export function getDerivedWalletKey(origin: string, chainId: string): string {
-  return `${origin}:${chainId}`
+export function getDerivedWalletKey(origin: string, chainId: string, userAddress: string): string {
+  return `${origin}:${chainId}:${userAddress}`
 }
 
 function hexToBytes(hex: Hex): Uint8Array {
