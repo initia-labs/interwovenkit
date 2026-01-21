@@ -30,7 +30,10 @@ export function getAutoSignTypedData(origin: string, chainId: string) {
  * Based on dYdX's implementation:
  * https://github.com/dydxprotocol/v4-clients/blob/main/v4-client-js/src/lib/onboarding.ts#L42-L60
  */
-export async function deriveWalletFromSignature(signature: Hex): Promise<DerivedWallet> {
+export async function deriveWalletFromSignature(
+  signature: Hex,
+  bech32Prefix: string,
+): Promise<DerivedWallet> {
   const signatureBytes = hexToBytes(signature)
 
   if (signatureBytes.length !== 65) {
@@ -60,7 +63,7 @@ export async function deriveWalletFromSignature(signature: Hex): Promise<Derived
   const pubkeyHex = `0x${bytesToHex(pubkeyWithoutPrefix)}` as Hex
   const addressHash = keccak256(pubkeyHex)
   const addressBytes = hexToBytes(addressHash).slice(-20)
-  const address = toBech32("init", addressBytes)
+  const address = toBech32(bech32Prefix, addressBytes)
 
   return {
     privateKey: privkey,

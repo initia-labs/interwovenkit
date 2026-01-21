@@ -16,6 +16,7 @@ import { useSignTypedData } from "wagmi"
 import { useAtom } from "jotai"
 import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
+import { useFindChain } from "@/data/chains"
 import { encodeEthSecp256k1Signature } from "@/data/patches/signature"
 import { useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
 import { deriveWalletFromSignature, getAutoSignTypedData, getDerivedWalletKey } from "./derivation"
@@ -61,6 +62,7 @@ export class DerivedWalletSigner implements OfflineAminoSigner {
 export function useDeriveWallet() {
   const [derivedWallets, setDerivedWallets] = useAtom(derivedWalletsAtom)
   const { signTypedDataAsync } = useSignTypedData()
+  const findChain = useFindChain()
 
   const deriveWallet = async (chainId: string): Promise<DerivedWallet> => {
     const origin = window.location.origin
@@ -76,6 +78,7 @@ export function useDeriveWallet() {
 
     const derivationPromise = (async () => {
       try {
+        const chain = findChain(chainId)
         const typedData = getAutoSignTypedData(origin, chainId)
         const signature = await signTypedDataAsync({
           domain: typedData.domain,
@@ -84,7 +87,7 @@ export function useDeriveWallet() {
           message: typedData.message,
         })
 
-        const wallet = await deriveWalletFromSignature(signature as Hex)
+        const wallet = await deriveWalletFromSignature(signature as Hex, chain.bech32_prefix)
         setDerivedWallets((prev) => ({ ...prev, [key]: wallet }))
         return wallet
       } finally {

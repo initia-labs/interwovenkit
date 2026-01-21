@@ -101,8 +101,8 @@ describe("deriveWalletFromSignature", () => {
 
   describe("deterministic derivation", () => {
     it("produces the same wallet for the same signature", async () => {
-      const wallet1 = await deriveWalletFromSignature(validSignature)
-      const wallet2 = await deriveWalletFromSignature(validSignature)
+      const wallet1 = await deriveWalletFromSignature(validSignature, "init")
+      const wallet2 = await deriveWalletFromSignature(validSignature, "init")
 
       expect(wallet1.address).toBe(wallet2.address)
       expect(wallet1.privateKey).toEqual(wallet2.privateKey)
@@ -111,11 +111,11 @@ describe("deriveWalletFromSignature", () => {
 
     it("produces consistent results across multiple calls", async () => {
       const results = await Promise.all([
-        deriveWalletFromSignature(validSignature),
-        deriveWalletFromSignature(validSignature),
-        deriveWalletFromSignature(validSignature),
-        deriveWalletFromSignature(validSignature),
-        deriveWalletFromSignature(validSignature),
+        deriveWalletFromSignature(validSignature, "init"),
+        deriveWalletFromSignature(validSignature, "init"),
+        deriveWalletFromSignature(validSignature, "init"),
+        deriveWalletFromSignature(validSignature, "init"),
+        deriveWalletFromSignature(validSignature, "init"),
       ])
 
       const firstAddress = results[0].address
@@ -127,8 +127,8 @@ describe("deriveWalletFromSignature", () => {
 
   describe("different inputs produce different outputs", () => {
     it("produces different wallets for different signatures", async () => {
-      const wallet1 = await deriveWalletFromSignature(validSignature)
-      const wallet2 = await deriveWalletFromSignature(anotherSignature)
+      const wallet1 = await deriveWalletFromSignature(validSignature, "init")
+      const wallet2 = await deriveWalletFromSignature(anotherSignature, "init")
 
       expect(wallet1.address).not.toBe(wallet2.address)
       expect(wallet1.privateKey).not.toEqual(wallet2.privateKey)
@@ -142,8 +142,8 @@ describe("deriveWalletFromSignature", () => {
       const sig2: Hex =
         "0x0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000"
 
-      const wallet1 = await deriveWalletFromSignature(sig1)
-      const wallet2 = await deriveWalletFromSignature(sig2)
+      const wallet1 = await deriveWalletFromSignature(sig1, "init")
+      const wallet2 = await deriveWalletFromSignature(sig2, "init")
 
       expect(wallet1.address).not.toBe(wallet2.address)
     })
@@ -155,8 +155,8 @@ describe("deriveWalletFromSignature", () => {
       const sig2: Hex =
         "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1c"
 
-      const wallet1 = await deriveWalletFromSignature(sig1)
-      const wallet2 = await deriveWalletFromSignature(sig2)
+      const wallet1 = await deriveWalletFromSignature(sig1, "init")
+      const wallet2 = await deriveWalletFromSignature(sig2, "init")
 
       expect(wallet1.address).toBe(wallet2.address)
     })
@@ -164,7 +164,7 @@ describe("deriveWalletFromSignature", () => {
 
   describe("return value structure", () => {
     it("returns an object with privateKey, publicKey, and address", async () => {
-      const wallet = await deriveWalletFromSignature(validSignature)
+      const wallet = await deriveWalletFromSignature(validSignature, "init")
 
       expect(wallet).toHaveProperty("privateKey")
       expect(wallet).toHaveProperty("publicKey")
@@ -172,19 +172,19 @@ describe("deriveWalletFromSignature", () => {
     })
 
     it("returns privateKey as Uint8Array", async () => {
-      const wallet = await deriveWalletFromSignature(validSignature)
+      const wallet = await deriveWalletFromSignature(validSignature, "init")
 
       expect(wallet.privateKey).toBeInstanceOf(Uint8Array)
     })
 
     it("returns publicKey as Uint8Array", async () => {
-      const wallet = await deriveWalletFromSignature(validSignature)
+      const wallet = await deriveWalletFromSignature(validSignature, "init")
 
       expect(wallet.publicKey).toBeInstanceOf(Uint8Array)
     })
 
     it("returns address as string", async () => {
-      const wallet = await deriveWalletFromSignature(validSignature)
+      const wallet = await deriveWalletFromSignature(validSignature, "init")
 
       expect(typeof wallet.address).toBe("string")
     })
@@ -192,19 +192,19 @@ describe("deriveWalletFromSignature", () => {
 
   describe("key format validation", () => {
     it("returns a 32-byte private key", async () => {
-      const wallet = await deriveWalletFromSignature(validSignature)
+      const wallet = await deriveWalletFromSignature(validSignature, "init")
 
       expect(wallet.privateKey.length).toBe(32)
     })
 
     it("returns a 33-byte compressed public key", async () => {
-      const wallet = await deriveWalletFromSignature(validSignature)
+      const wallet = await deriveWalletFromSignature(validSignature, "init")
 
       expect(wallet.publicKey.length).toBe(33)
     })
 
     it("public key starts with 0x02 or 0x03 (compressed format)", async () => {
-      const wallet = await deriveWalletFromSignature(validSignature)
+      const wallet = await deriveWalletFromSignature(validSignature, "init")
       const firstByte = wallet.publicKey[0]
 
       expect(firstByte === 0x02 || firstByte === 0x03).toBe(true)
@@ -213,27 +213,27 @@ describe("deriveWalletFromSignature", () => {
 
   describe("address format validation", () => {
     it("returns address with 'init' prefix", async () => {
-      const wallet = await deriveWalletFromSignature(validSignature)
+      const wallet = await deriveWalletFromSignature(validSignature, "init")
 
       expect(wallet.address.startsWith("init1")).toBe(true)
     })
 
     it("returns address with correct bech32 length", async () => {
-      const wallet = await deriveWalletFromSignature(validSignature)
+      const wallet = await deriveWalletFromSignature(validSignature, "init")
 
       expect(wallet.address.length).toBe(43)
     })
 
     it("returns valid bech32 address format", async () => {
-      const wallet = await deriveWalletFromSignature(validSignature)
+      const wallet = await deriveWalletFromSignature(validSignature, "init")
       const bech32Regex = /^init1[a-z0-9]{38}$/
 
       expect(bech32Regex.test(wallet.address)).toBe(true)
     })
 
     it("different signatures produce addresses with same format", async () => {
-      const wallet1 = await deriveWalletFromSignature(validSignature)
-      const wallet2 = await deriveWalletFromSignature(anotherSignature)
+      const wallet1 = await deriveWalletFromSignature(validSignature, "init")
+      const wallet2 = await deriveWalletFromSignature(anotherSignature, "init")
 
       expect(wallet1.address.startsWith("init1")).toBe(true)
       expect(wallet2.address.startsWith("init1")).toBe(true)
@@ -243,14 +243,14 @@ describe("deriveWalletFromSignature", () => {
 
   describe("cryptographic properties", () => {
     it("uses BIP-39 mnemonic derivation path m/44'/60'/0'/0/0", async () => {
-      const wallet = await deriveWalletFromSignature(validSignature)
+      const wallet = await deriveWalletFromSignature(validSignature, "init")
 
       expect(wallet.privateKey.length).toBe(32)
       expect(wallet.publicKey.length).toBe(33)
     })
 
     it("derived keys are non-zero", async () => {
-      const wallet = await deriveWalletFromSignature(validSignature)
+      const wallet = await deriveWalletFromSignature(validSignature, "init")
       const privateKeyAllZero = wallet.privateKey.every((byte: number) => byte === 0)
       const publicKeyAllZero = wallet.publicKey.every((byte: number) => byte === 0)
 
@@ -262,9 +262,43 @@ describe("deriveWalletFromSignature", () => {
       const standardEthSig: Hex =
         "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12345678901c"
 
-      const wallet = await deriveWalletFromSignature(standardEthSig)
+      const wallet = await deriveWalletFromSignature(standardEthSig, "init")
 
       expect(wallet.address.startsWith("init1")).toBe(true)
+    })
+  })
+
+  describe("bech32 prefix support", () => {
+    it("uses provided bech32 prefix for address encoding", async () => {
+      const wallet = await deriveWalletFromSignature(validSignature, "cosmos")
+
+      expect(wallet.address.startsWith("cosmos1")).toBe(true)
+    })
+
+    it("same signature with different prefixes produces different addresses", async () => {
+      const initWallet = await deriveWalletFromSignature(validSignature, "init")
+      const cosmosWallet = await deriveWalletFromSignature(validSignature, "cosmos")
+
+      expect(initWallet.address).not.toBe(cosmosWallet.address)
+      expect(initWallet.address.startsWith("init1")).toBe(true)
+      expect(cosmosWallet.address.startsWith("cosmos1")).toBe(true)
+    })
+
+    it("same signature with different prefixes produces same keys", async () => {
+      const initWallet = await deriveWalletFromSignature(validSignature, "init")
+      const cosmosWallet = await deriveWalletFromSignature(validSignature, "cosmos")
+
+      expect(initWallet.privateKey).toEqual(cosmosWallet.privateKey)
+      expect(initWallet.publicKey).toEqual(cosmosWallet.publicKey)
+    })
+
+    it("supports various cosmos chain prefixes", async () => {
+      const prefixes = ["init", "cosmos", "osmo", "neutron", "celestia"]
+
+      for (const prefix of prefixes) {
+        const wallet = await deriveWalletFromSignature(validSignature, prefix)
+        expect(wallet.address.startsWith(`${prefix}1`)).toBe(true)
+      }
     })
   })
 })
@@ -336,7 +370,7 @@ describe("integration: full derivation flow", () => {
     const mockSignature: Hex =
       "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1c"
 
-    const wallet = await deriveWalletFromSignature(mockSignature)
+    const wallet = await deriveWalletFromSignature(mockSignature, "init")
     const cacheKey = getDerivedWalletKey(origin, chainId)
 
     expect(wallet.address.startsWith("init1")).toBe(true)
