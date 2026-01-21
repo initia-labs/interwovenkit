@@ -78,5 +78,36 @@ export function useAutoSignApi() {
     return grants
   }
 
-  return { fetchFeegrant, fetchGrants }
+  const fetchAllGrants = async (chainId: string) => {
+    const chain = findChain(chainId)
+    const address = initiaAddress
+
+    if (!address) return []
+
+    try {
+      const data = await ky
+        .create({ prefixUrl: chain.restUrl })
+        .get(`cosmos/authz/v1beta1/grants/granter/${address}`)
+        .json<{
+          grants: Array<{
+            grantee: string
+            granter: string
+            authorization: { "@type": string; msg: string }
+            expiration?: string
+          }>
+        }>()
+
+      return data.grants.map((grant) => ({
+        grantee: grant.grantee,
+        authorization: {
+          msg: grant.authorization.msg,
+        },
+        expiration: grant.expiration,
+      }))
+    } catch {
+      return []
+    }
+  }
+
+  return { fetchFeegrant, fetchGrants, fetchAllGrants }
 }
