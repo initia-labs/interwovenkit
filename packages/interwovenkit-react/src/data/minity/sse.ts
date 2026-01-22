@@ -21,7 +21,7 @@ import type {
 const DEFAULT_SSE_DATA: SSEPortfolioData = {
   balances: [],
   positions: [],
-  isLoading: false,
+  isLoading: true,
   isComplete: false,
 }
 
