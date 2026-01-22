@@ -148,7 +148,10 @@ export function useEnableAutoSign() {
   })
 }
 
-/* Revoke AutoSign permissions and clear derived wallet from memory */
+/* Revoke AutoSign permissions and clear derived wallet from memory.
+   Revokes all existing grants for the grantee rather than accepting a list of message types,
+   since selective revocation was never supported (the old parameter would attempt to revoke
+   all configured types regardless of whether grants existed). */
 export function useDisableAutoSign(options?: { grantee: string; internal: boolean }) {
   const config = useConfig()
   const { getWallet, clearWallet } = useDeriveWallet()
