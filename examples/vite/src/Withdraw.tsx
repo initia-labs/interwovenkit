@@ -1,5 +1,5 @@
 import { useInterwovenKit } from "@initia/interwovenkit-react"
-import styles from "./Bridge.module.css"
+import styles from "./Button.module.css"
 
 const Withdraw = () => {
   const { address, openWithdraw } = useInterwovenKit()
@@ -20,7 +20,7 @@ const Withdraw = () => {
         })
       }
     >
-      Open withdraw
+      Withdraw
     </button>
   )
 }

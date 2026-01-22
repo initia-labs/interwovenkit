@@ -1,5 +1,5 @@
 import { useInterwovenKit } from "@initia/interwovenkit-react"
-import styles from "./Bridge.module.css"
+import styles from "./Button.module.css"
 
 const Deposit = () => {
   const { address, openDeposit } = useInterwovenKit()
@@ -20,7 +20,7 @@ const Deposit = () => {
         })
       }
     >
-      Open deposit
+      Deposit
     </button>
   )
 }
