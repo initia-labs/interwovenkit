@@ -39,43 +39,29 @@ export function usePortfolioSSE() {
   const { minityUrl } = useConfig()
 
   /**
-   * Handle balance events from SSE
+   * Handle balance events from SSE (updates map only, no query update)
    */
   const handleBalances = useEffectEvent(
     (event: SSEBalanceEvent, balancesMap: Map<string, ChainBalanceData>) => {
-      const queryKey = minityQueryKeys.ssePortfolio(address ?? "", minityUrl).queryKey
-      // Ensure balances is always an array (defensive check for malformed API response)
       const balances = Array.isArray(event.balances) ? event.balances : []
       balancesMap.set(event.chain, {
         chainName: event.chain,
         chainId: event.chainId,
         balances,
       })
-      const current = queryClient.getQueryData<SSEPortfolioData>(queryKey) ?? DEFAULT_SSE_DATA
-      queryClient.setQueryData(queryKey, {
-        ...current,
-        balances: Array.from(balancesMap.values()),
-      })
     },
   )
 
   /**
-   * Handle position events from SSE
+   * Handle position events from SSE (updates map only, no query update)
    */
   const handlePositions = useEffectEvent(
     (event: SSEPositionEvent, positionsMap: Map<string, ChainPositionData>) => {
-      const queryKey = minityQueryKeys.ssePortfolio(address ?? "", minityUrl).queryKey
-      // Ensure positions is always an array (defensive check for malformed API response)
       const positions = Array.isArray(event.positions) ? event.positions : []
       positionsMap.set(event.chain, {
         chainName: event.chain,
         chainId: event.chainId,
         positions,
-      })
-      const current = queryClient.getQueryData<SSEPortfolioData>(queryKey) ?? DEFAULT_SSE_DATA
-      queryClient.setQueryData(queryKey, {
-        ...current,
-        positions: Array.from(positionsMap.values()),
       })
     },
   )
@@ -127,7 +113,6 @@ export function usePortfolioSSE() {
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null
     let reconnectAttempt = 0
     let stopped = false
-    let hasLoggedParseError = false
 
     const setConnectingState = () => {
       const existing = queryClient.getQueryData<SSEPortfolioData>(queryKey)
@@ -178,7 +163,6 @@ export function usePortfolioSSE() {
 
       eventSource.onopen = () => {
         reconnectAttempt = 0
-        hasLoggedParseError = false
       }
 
       eventSource.onmessage = (event) => {
@@ -192,9 +176,6 @@ export function usePortfolioSSE() {
           }
           updateAggregated(balancesMap, positionsMap)
         } catch {
-          if (!hasLoggedParseError) {
-            hasLoggedParseError = true
-          }
           scheduleReconnect()
         }
       }
