@@ -71,3 +71,10 @@
     border-bottom-right-radius: 0;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .content {
+    transition: none;
+  }
+}

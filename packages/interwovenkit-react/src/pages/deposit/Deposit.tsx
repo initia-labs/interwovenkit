@@ -1,4 +1,4 @@
-import { animated, useTransition } from "@react-spring/web"
+import { animated, useReducedMotion, useTransition } from "@react-spring/web"
 import { FormProvider, useForm } from "react-hook-form"
 import AnimatedHeight from "../../components/AnimatedHeight"
 import DepositFields from "./DepositFields"
@@ -32,6 +32,7 @@ export const Deposit = () => {
 const DepositRoutes = () => {
   const { watch } = useTransferForm()
   const page = watch("page")
+  const reducedMotion = useReducedMotion()
 
   const transition = useTransition(page, {
     keys: page,
@@ -39,6 +40,7 @@ const DepositRoutes = () => {
     enter: { opacity: 1 },
     leave: { opacity: 0, position: "absolute" as const, inset: 0 },
     config: { tension: 500, friction: 30, clamp: true, duration: 150 },
+    immediate: reducedMotion ?? false,
   })
 
   const renderPage = (currentPage: typeof page) => {

@@ -154,3 +154,13 @@
   font-weight: 600;
   padding: 1.5px 9px;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .trigger,
+  .icon,
+  .popoverBackdrop,
+  .popoverPopup,
+  .item {
+    transition: none;
+  }
+}
