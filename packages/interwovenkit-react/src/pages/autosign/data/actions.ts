@@ -62,7 +62,7 @@ export function useEnableAutoSign() {
   const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
   const { closeDrawer } = useDrawer()
   const fetchRevokeMessages = useFetchRevokeMessages()
-  const { deriveWallet, getWallet } = useDeriveWallet()
+  const { deriveWallet } = useDeriveWallet()
 
   return useMutation({
     mutationFn: async (durationInMs: number) => {
@@ -116,21 +116,15 @@ export function useEnableAutoSign() {
 
       const messages = [...revokeMessages, feegrantMessage, ...authzMessages]
       await requestTxBlock({ messages, chainId, internal: true })
+
+      return derivedWallet
     },
-    onSuccess: async () => {
+    onSuccess: async (derivedWallet) => {
       // Store the derived address in localStorage so we can verify on-chain grants
       // were created by this derivation method.
       if (pendingRequest && initiaAddress) {
         const { chainId } = pendingRequest
-        const derivedWallet = getWallet(chainId)
-        if (derivedWallet) {
-          storeExpectedAddress(
-            window.location.origin,
-            chainId,
-            initiaAddress,
-            derivedWallet.address,
-          )
-        }
+        storeExpectedAddress(window.location.origin, chainId, initiaAddress, derivedWallet.address)
       }
 
       await queryClient.invalidateQueries({

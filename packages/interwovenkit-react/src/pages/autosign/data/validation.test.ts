@@ -107,7 +107,7 @@ describe("findValidGrantee", () => {
 
   describe("expiration handling", () => {
     it("includes expiration in returned grants", () => {
-      const expiration = "2025-12-31T23:59:59Z"
+      const expiration = "2099-12-31T23:59:59Z"
       const grants = [{ grantee: "init1abc", authorization: { msg: msgType1 }, expiration }]
 
       const result = findValidGrantee(grants, [msgType1])
@@ -128,7 +128,7 @@ describe("findValidGrantee", () => {
         {
           grantee: "init1abc",
           authorization: { msg: msgType1 },
-          expiration: "2025-12-31T23:59:59Z",
+          expiration: "2099-12-31T23:59:59Z",
         },
         { grantee: "init1abc", authorization: { msg: msgType2 } },
       ]
@@ -140,6 +140,58 @@ describe("findValidGrantee", () => {
       expect(
         result?.grants.find((g) => g.authorization.msg === msgType2)?.expiration,
       ).toBeUndefined()
+    })
+
+    it("filters out expired grants", () => {
+      const grants = [
+        {
+          grantee: "init1abc",
+          authorization: { msg: msgType1 },
+          expiration: "2020-01-01T00:00:00Z",
+        },
+      ]
+
+      const result = findValidGrantee(grants, [msgType1])
+
+      expect(result).toBeNull()
+    })
+
+    it("returns null when all matching grants are expired", () => {
+      const grants = [
+        {
+          grantee: "init1abc",
+          authorization: { msg: msgType1 },
+          expiration: "2020-01-01T00:00:00Z",
+        },
+        {
+          grantee: "init1abc",
+          authorization: { msg: msgType2 },
+          expiration: "2099-12-31T23:59:59Z",
+        },
+      ]
+
+      const result = findValidGrantee(grants, [msgType1, msgType2])
+
+      expect(result).toBeNull()
+    })
+
+    it("finds grantee with valid grants when another has expired grants", () => {
+      const grants = [
+        {
+          grantee: "init1expired",
+          authorization: { msg: msgType1 },
+          expiration: "2020-01-01T00:00:00Z",
+        },
+        {
+          grantee: "init1valid",
+          authorization: { msg: msgType1 },
+          expiration: "2099-12-31T23:59:59Z",
+        },
+      ]
+
+      const result = findValidGrantee(grants, [msgType1])
+
+      expect(result?.grantee).toBe("init1valid")
     })
   })
 

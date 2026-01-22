@@ -167,10 +167,11 @@ export function findValidGrantee(
   }
 
   for (const [grantee, grants] of grantsByGrantee) {
-    const grantedMsgTypes = grants.map((g) => g.authorization.msg)
+    const validGrants = grants.filter((g) => !g.expiration || isFuture(new Date(g.expiration)))
+    const grantedMsgTypes = validGrants.map((g) => g.authorization.msg)
     const hasAllTypes = requiredMsgTypes.every((msgType) => grantedMsgTypes.includes(msgType))
     if (hasAllTypes) {
-      return { grantee, grants }
+      return { grantee, grants: validGrants }
     }
   }
 
