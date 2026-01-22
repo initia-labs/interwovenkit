@@ -12,7 +12,11 @@ import { getExpectedAddress } from "./wallet"
 
 export const autoSignQueryKeys = createQueryKeys("interwovenkit:autosign", {
   expirations: (address: string | undefined) => [address],
-  grants: (chainId: string, address: string | undefined) => [chainId, address],
+  grants: (chainId: string, address: string | undefined, origin: string) => [
+    chainId,
+    address,
+    origin,
+  ],
 })
 
 /* Get configured AutoSign message types for the default chain based on chain type */

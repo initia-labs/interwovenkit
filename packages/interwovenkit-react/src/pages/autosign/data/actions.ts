@@ -18,7 +18,7 @@ import { pendingAutoSignRequestAtom } from "./store"
 import { autoSignQueryKeys, useAutoSignMessageTypes, useAutoSignStatus } from "./validation"
 import { storeExpectedAddress, useDeriveWallet } from "./wallet"
 
-/* Hook to fetch existing grants and generate revoke messages */
+/* Hook to fetch existing grants and generate revoke messages for a specific grantee */
 function useFetchRevokeMessages() {
   const granter = useInitiaAddress()
   const { fetchFeegrant, fetchGrants } = useAutoSignApi()
@@ -132,9 +132,10 @@ export function useEnableAutoSign() {
         storeExpectedAddress(window.location.origin, chainId, initiaAddress, derivedWallet.address)
       }
 
-      await queryClient.invalidateQueries({
-        queryKey: autoSignQueryKeys.expirations._def,
-      })
+      const queryKeys = [autoSignQueryKeys.expirations._def, autoSignQueryKeys.grants._def]
+      for (const queryKey of queryKeys) {
+        await queryClient.invalidateQueries({ queryKey })
+      }
 
       pendingRequest?.resolve()
     },
