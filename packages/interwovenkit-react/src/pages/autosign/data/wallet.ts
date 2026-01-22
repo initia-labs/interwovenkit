@@ -119,6 +119,8 @@ export function useDeriveWallet() {
       return pendingDerivations.get(key)!
     }
 
+    const promiseRef: { current?: Promise<DerivedWallet> } = {}
+
     const derivationPromise = (async () => {
       try {
         const chain = findChain(chainId)
@@ -138,11 +140,14 @@ export function useDeriveWallet() {
 
         return wallet
       } finally {
-        pendingDerivations.delete(key)
+        if (pendingDerivations.get(key) === promiseRef.current) {
+          pendingDerivations.delete(key)
+        }
         cancelledDerivations.delete(key)
       }
     })()
 
+    promiseRef.current = derivationPromise
     pendingDerivations.set(key, derivationPromise)
     return derivationPromise
   }
