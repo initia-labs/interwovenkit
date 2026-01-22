@@ -113,7 +113,6 @@ export function usePortfolioSSE() {
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null
     let reconnectAttempt = 0
     let stopped = false
-    let hasLoggedParseError = false
 
     const setConnectingState = () => {
       const existing = queryClient.getQueryData<SSEPortfolioData>(queryKey)
@@ -164,7 +163,6 @@ export function usePortfolioSSE() {
 
       eventSource.onopen = () => {
         reconnectAttempt = 0
-        hasLoggedParseError = false
       }
 
       eventSource.onmessage = (event) => {
@@ -177,12 +175,7 @@ export function usePortfolioSSE() {
             handlePositions(parsed as SSEPositionEvent, positionsMap)
           }
           updateAggregated(balancesMap, positionsMap)
-        } catch (error) {
-          if (!hasLoggedParseError) {
-            hasLoggedParseError = true
-            // eslint-disable-next-line no-console -- Intentional error logging for SSE debugging
-            console.error("[SSE] Failed to parse event:", error)
-          }
+        } catch {
           scheduleReconnect()
         }
       }
