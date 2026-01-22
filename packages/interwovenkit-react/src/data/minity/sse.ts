@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent } from "react"
 import { useQueryClient } from "@tanstack/react-query"
+import { useIsTestnet } from "@/pages/bridge/data/form"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useConfig } from "../config"
 import { SSE_RECONNECT_BASE_DELAY, SSE_RECONNECT_MAX_DELAY } from "./client"
@@ -37,6 +38,7 @@ export function usePortfolioSSE() {
   const queryClient = useQueryClient()
   const address = useInitiaAddress()
   const { minityUrl } = useConfig()
+  const isTestnet = useIsTestnet()
 
   /**
    * Handle balance events from SSE
@@ -101,7 +103,8 @@ export function usePortfolioSSE() {
   )
 
   useEffect(() => {
-    if (!address) {
+    // Skip SSE connection on testnet - Minity doesn't support testnet
+    if (!address || isTestnet) {
       return
     }
 
@@ -209,8 +212,8 @@ export function usePortfolioSSE() {
     return () => {
       cleanup()
     }
-    // Re-run when address changes (user connects/disconnects wallet)
+    // Re-run when address or network changes
     // minityUrl and queryClient accessed via useEffectEvent handlers (always read latest values)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address])
+  }, [address, isTestnet])
 }

@@ -1,3 +1,4 @@
+import clsx from "clsx"
 import { useRef } from "react"
 import { Tabs } from "@base-ui/react/tabs"
 import { IconBridge, IconQrCode, IconSend } from "@initia/icons-react"
@@ -6,14 +7,31 @@ import Scrollable from "@/components/Scrollable"
 import Skeleton from "@/components/Skeleton"
 import { useL1PositionsTotal } from "@/data/initia-positions-total"
 import { useAppchainPositionsBalance, useLiquidAssetsBalance } from "@/data/minity"
+import { usePortfolio } from "@/data/portfolio"
 import { formatValue } from "@/lib/format"
 import { Link, useNavigate, usePath } from "@/lib/router"
+import { useIsTestnet } from "@/pages/bridge/data/form"
 import { useClaimableModal } from "@/pages/bridge/op/reminder"
 import Activity from "./activity/Activity"
 import Nfts from "./nft/Nfts"
+import OnchainAssets from "./portfolio/OnchainAssets"
 import Portfolio from "./portfolio/Portfolio"
 import { ScrollableContext } from "./ScrollableContext"
 import styles from "./Home.module.css"
+
+/**
+ * TestnetTotalBalance - uses direct chain queries via usePortfolio.
+ * Used when Minity is unavailable (testnet).
+ * Only shows liquid asset value (no positions data on testnet).
+ */
+const TestnetTotalBalance = () => {
+  const { totalValue, isLoading } = usePortfolio()
+  return (
+    <div className={clsx(styles.totalAmount, { [styles.loading]: isLoading })}>
+      {formatValue(totalValue)}
+    </div>
+  )
+}
 
 /**
  * TotalBalance component - fetches and displays total portfolio value.
@@ -32,7 +50,7 @@ const TotalBalance = () => {
 
 const Home = () => {
   useClaimableModal()
-
+  const isTestnet = useIsTestnet()
   const navigate = useNavigate()
   const path = usePath()
 
@@ -50,7 +68,7 @@ const Home = () => {
               </div>
             }
           >
-            <TotalBalance />
+            {isTestnet ? <TestnetTotalBalance /> : <TotalBalance />}
           </AsyncBoundary>
         </div>
 
@@ -74,7 +92,7 @@ const Home = () => {
         <Tabs.Root value={path} onValueChange={navigate}>
           <Tabs.List className={styles.tabs}>
             <Tabs.Tab className={styles.tab} value="/">
-              Portfolio
+              {isTestnet ? "Assets" : "Portfolio"}
             </Tabs.Tab>
 
             <Tabs.Tab className={styles.tab} value="/nfts">
@@ -86,9 +104,7 @@ const Home = () => {
             </Tabs.Tab>
           </Tabs.List>
 
-          <Tabs.Panel value="/">
-            <Portfolio />
-          </Tabs.Panel>
+          <Tabs.Panel value="/">{isTestnet ? <OnchainAssets /> : <Portfolio />}</Tabs.Panel>
 
           <Tabs.Panel value="/nfts">
             <Nfts />
