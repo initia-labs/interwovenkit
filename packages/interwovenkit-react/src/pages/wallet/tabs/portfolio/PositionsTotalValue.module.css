@@ -1,0 +1,6 @@
+.totalValue {
+  color: var(--gray-2);
+  font-family: var(--monospace);
+  font-size: 13px;
+  font-weight: 500;
+}

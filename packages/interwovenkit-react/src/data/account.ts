@@ -28,13 +28,15 @@ function useCreateBalancesQuery() {
   const address = useInitiaAddress()
   return (chain: NormalizedChain) => {
     return queryOptions({
-      queryKey: accountQueryKeys.balances(chain.restUrl, address).queryKey,
-      queryFn: () =>
-        fetchAllPages<"balances", Coin>(
+      queryKey: accountQueryKeys.balances(chain.restUrl, address || "").queryKey,
+      queryFn: () => {
+        if (!address) return []
+        return fetchAllPages<"balances", Coin>(
           `cosmos/bank/v1beta1/balances/${address}`,
           { prefixUrl: chain.restUrl },
           "balances",
-        ),
+        )
+      },
       staleTime: STALE_TIMES.SECOND,
     })
   }

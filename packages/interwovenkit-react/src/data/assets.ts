@@ -1,6 +1,12 @@
 import ky from "ky"
 import { head } from "ramda"
-import { queryOptions, useQueries, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
+import {
+  queryOptions,
+  useQueries,
+  useQueryClient,
+  useSuspenseQueries,
+  useSuspenseQuery,
+} from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import type { Asset, AssetList } from "@initia/initia-registry-types"
 import { getIbcDenom } from "@initia/utils"
@@ -65,7 +71,7 @@ export function useAssets(chain?: NormalizedChain) {
   return data
 }
 
-export function useAllChainAssetsQueries() {
+export function useAllChainsAssetsQueries() {
   const chains = useInitiaRegistry()
   const createAssetsQuery = useCreateAssetsQuery()
   return useQueries({
@@ -127,4 +133,29 @@ export function useGetLayer1Denom(chain: NormalizedChain) {
 
     return ""
   }
+}
+
+/**
+ * Fetches denom from metadata addresses using the Move denom API.
+ * Returns a Map of metadata -> denom.
+ */
+export function useDenoms(metadatas: string[]) {
+  const layer1 = useLayer1()
+  const restClient = ky.create({ prefixUrl: layer1.restUrl })
+
+  const result = useSuspenseQueries({
+    queries: metadatas.map((metadata) => ({
+      queryFn: async () => {
+        const response = await restClient
+          .get("initia/move/v1/denom", { searchParams: { metadata } })
+          .json<{ denom: string }>()
+        return response.denom
+      },
+      queryKey: assetQueryKeys.denom(layer1.restUrl, metadata).queryKey,
+      select: (data: string): [string, string] => [metadata, data],
+      staleTime: STALE_TIMES.INFINITY,
+    })),
+  })
+
+  return new Map(result.map(({ data }) => data!))
 }

@@ -16,11 +16,11 @@ describe("formatValue", () => {
     expect(formatValue("0")).toBe("$0")
   })
 
-  it("should return <$0.01 for values less than 0.01", () => {
-    expect(formatValue(0.001)).toBe("<$0.01")
-    expect(formatValue(0.009)).toBe("<$0.01")
-    expect(formatValue(0.0099)).toBe("<$0.01")
-    expect(formatValue("0.005")).toBe("<$0.01")
+  it("should return < $0.01 for values less than 0.01", () => {
+    expect(formatValue(0.001)).toBe("< $0.01")
+    expect(formatValue(0.009)).toBe("< $0.01")
+    expect(formatValue(0.0099)).toBe("< $0.01")
+    expect(formatValue("0.005")).toBe("< $0.01")
   })
 
   it("should format regular values with dollar sign", () => {
@@ -43,16 +43,22 @@ describe("formatValue", () => {
   it("should handle string number inputs", () => {
     expect(formatValue("100")).toBe("$100.00")
     expect(formatValue("1000.50")).toBe("$1,000.50")
-    expect(formatValue("0.001")).toBe("<$0.01")
+    expect(formatValue("0.001")).toBe("< $0.01")
   })
 
   it("should handle negative values", () => {
-    expect(formatValue(-100)).toBe("$-100.00")
-    expect(formatValue(-1000)).toBe("$-1,000.00")
+    expect(formatValue(-100)).toBe("-$100.00")
+    expect(formatValue(-1000)).toBe("-$1,000.00")
+  })
+
+  it("should handle negative small values (less than 0.01)", () => {
+    expect(formatValue(-0.005)).toBe("< $0.01")
+    expect(formatValue(-0.001)).toBe("< $0.01")
+    expect(formatValue(-0.009)).toBe("< $0.01")
   })
 
   it("should handle BigNumber-compatible inputs", () => {
     expect(formatValue("123456789.123456789")).toBe("$123,456,789.12")
-    expect(formatValue("0.000000001")).toBe("<$0.01")
+    expect(formatValue("0.000000001")).toBe("< $0.01")
   })
 })

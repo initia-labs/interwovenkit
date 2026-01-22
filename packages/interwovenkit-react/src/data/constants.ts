@@ -1,5 +1,19 @@
 const NAMESPACE = "interwovenkit"
 
+// Blockchain constants
+export const INIT_DENOM = "uinit"
+export const INIT_SYMBOL = "INIT"
+export const INIT_DECIMALS = 6
+
+// omniINIT (Minitswap LP token)
+export const OMNI_INIT_DENOM = "uoinit"
+export const OMNI_INIT_SYMBOL = "omniINIT"
+
+// External URLs
+export const INITIA_APP_URL = "https://app.initia.xyz"
+export const INITIA_LIQUIDITY_URL = `${INITIA_APP_URL}/liquidity/my`
+export const INITIA_VIP_URL = `${INITIA_APP_URL}/vip/my`
+
 // Time constants in milliseconds
 export const SECOND_IN_MS = 1000
 export const MINUTE_IN_MS = 60 * SECOND_IN_MS

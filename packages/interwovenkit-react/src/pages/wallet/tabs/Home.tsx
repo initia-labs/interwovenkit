@@ -1,24 +1,41 @@
-import clsx from "clsx"
 import { useRef } from "react"
 import { Tabs } from "@base-ui/react/tabs"
 import { IconBridge, IconQrCode, IconSend } from "@initia/icons-react"
+import AsyncBoundary from "@/components/AsyncBoundary"
 import Scrollable from "@/components/Scrollable"
-import { usePortfolio } from "@/data/portfolio"
+import Skeleton from "@/components/Skeleton"
+import { useL1PositionsTotal } from "@/data/initia-positions-total"
+import { useAppchainPositionsBalance, useLiquidAssetsBalance } from "@/data/minity"
 import { formatValue } from "@/lib/format"
 import { Link, useNavigate, usePath } from "@/lib/router"
 import { useClaimableModal } from "@/pages/bridge/op/reminder"
 import Activity from "./activity/Activity"
-import Assets from "./assets/Assets"
 import Nfts from "./nft/Nfts"
+import Portfolio from "./portfolio/Portfolio"
 import { ScrollableContext } from "./ScrollableContext"
 import styles from "./Home.module.css"
+
+/**
+ * TotalBalance component - fetches and displays total portfolio value.
+ * Uses individual hooks so each can load independently (same as app-v2).
+ * Isolated in its own AsyncBoundary so the rest of Home renders immediately.
+ */
+const TotalBalance = () => {
+  const liquidAssetsBalance = useLiquidAssetsBalance()
+  const appchainPositionsBalance = useAppchainPositionsBalance()
+  const l1PositionsBalance = useL1PositionsTotal()
+
+  const totalBalance = liquidAssetsBalance + l1PositionsBalance + appchainPositionsBalance
+
+  return <div className={styles.totalAmount}>{formatValue(totalBalance)}</div>
+}
 
 const Home = () => {
   useClaimableModal()
 
   const navigate = useNavigate()
   const path = usePath()
-  const { totalValue, isLoading } = usePortfolio()
+
   const scrollableRef = useRef<HTMLDivElement>(null)
 
   return (
@@ -26,9 +43,15 @@ const Home = () => {
       <Scrollable ref={scrollableRef}>
         <div className={styles.totalValue}>
           <div className={styles.totalLabel}>Total value</div>
-          <div className={clsx(styles.totalAmount, { [styles.loading]: isLoading })}>
-            {formatValue(totalValue)}
-          </div>
+          <AsyncBoundary
+            suspenseFallback={
+              <div className={styles.skeletonWrapper}>
+                <Skeleton height={48} width={120} />
+              </div>
+            }
+          >
+            <TotalBalance />
+          </AsyncBoundary>
         </div>
 
         <div className={styles.nav}>
@@ -51,7 +74,7 @@ const Home = () => {
         <Tabs.Root value={path} onValueChange={navigate}>
           <Tabs.List className={styles.tabs}>
             <Tabs.Tab className={styles.tab} value="/">
-              Assets
+              Portfolio
             </Tabs.Tab>
 
             <Tabs.Tab className={styles.tab} value="/nfts">
@@ -64,7 +87,7 @@ const Home = () => {
           </Tabs.List>
 
           <Tabs.Panel value="/">
-            <Assets />
+            <Portfolio />
           </Tabs.Panel>
 
           <Tabs.Panel value="/nfts">

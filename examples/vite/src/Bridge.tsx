@@ -1,11 +1,14 @@
 import { useInterwovenKit } from "@initia/interwovenkit-react"
-import styles from "./Bridge.module.css"
+import styles from "./Button.module.css"
 
 const Bridge = () => {
-  const { openBridge } = useInterwovenKit()
+  const { address, openBridge } = useInterwovenKit()
+
+  if (!address) return null
+
   return (
     <button className={styles.button} onClick={() => openBridge()}>
-      Open bridge
+      Bridge
     </button>
   )
 }
