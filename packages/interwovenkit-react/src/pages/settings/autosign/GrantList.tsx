@@ -8,7 +8,7 @@ interface GrantListProps {
 }
 
 const GrantList = ({ chainId, grants }: GrantListProps) => {
-  // Group grants by grantee to find the earliest expiration across all their grants
+  // Group grants by grantee
   const groupedGrants = Object.values(
     grants.reduce(
       (acc, grant) => {
