@@ -8,6 +8,7 @@ import { useConfig } from "@/data/config"
 import { STALE_TIMES } from "@/data/http"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useAutoSignApi } from "./fetch"
+import { getExpectedAddress } from "./wallet"
 
 export const autoSignQueryKeys = createQueryKeys("interwovenkit:autosign", {
   expirations: (address: string | undefined) => [address],
@@ -111,17 +112,25 @@ export function useAutoSignStatus() {
         }
       }
 
+      const origin = typeof window !== "undefined" ? window.location.origin : ""
       const isEnabledByChain: Record<string, boolean> = {}
       for (const [chainId, expiration] of Object.entries(expiredAtByChain)) {
+        const grantee = granteeByChain[chainId]
+        const expectedAddress = getExpectedAddress(origin, chainId, initiaAddress)
+        // Only enable auto-sign if the on-chain grantee matches the expected derived address.
+        // This prevents false positives from previous grants (e.g., Privy-derived wallets) that
+        // the current derivation method cannot access.
+        const addressMatches = grantee && expectedAddress === grantee
+
         switch (expiration) {
           case null:
             isEnabledByChain[chainId] = false
             break
           case undefined:
-            isEnabledByChain[chainId] = true
+            isEnabledByChain[chainId] = !!addressMatches
             break
           default:
-            isEnabledByChain[chainId] = isFuture(expiration)
+            isEnabledByChain[chainId] = !!addressMatches && isFuture(expiration)
             break
         }
       }

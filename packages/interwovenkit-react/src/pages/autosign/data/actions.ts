@@ -16,7 +16,7 @@ import { useInitiaAddress } from "@/public/data/hooks"
 import { useAutoSignApi } from "./fetch"
 import { pendingAutoSignRequestAtom } from "./store"
 import { autoSignQueryKeys, useAutoSignMessageTypes, useAutoSignStatus } from "./validation"
-import { useDeriveWallet } from "./wallet"
+import { storeExpectedAddress, useDeriveWallet } from "./wallet"
 
 /* Hook to fetch existing grants and generate revoke messages */
 function useFetchRevokeMessages() {
@@ -62,7 +62,7 @@ export function useEnableAutoSign() {
   const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
   const { closeDrawer } = useDrawer()
   const fetchRevokeMessages = useFetchRevokeMessages()
-  const { deriveWallet } = useDeriveWallet()
+  const { deriveWallet, getWallet } = useDeriveWallet()
 
   return useMutation({
     mutationFn: async (durationInMs: number) => {
@@ -118,6 +118,21 @@ export function useEnableAutoSign() {
       await requestTxBlock({ messages, chainId, internal: true })
     },
     onSuccess: async () => {
+      // Store the derived address in localStorage so we can verify on-chain grants
+      // were created by this derivation method.
+      if (pendingRequest && initiaAddress) {
+        const { chainId } = pendingRequest
+        const derivedWallet = getWallet(chainId)
+        if (derivedWallet) {
+          storeExpectedAddress(
+            window.location.origin,
+            chainId,
+            initiaAddress,
+            derivedWallet.address,
+          )
+        }
+      }
+
       await queryClient.invalidateQueries({
         queryKey: autoSignQueryKeys.expirations._def,
       })

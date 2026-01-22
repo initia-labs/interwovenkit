@@ -26,6 +26,42 @@ import { type DerivedWallet, derivedWalletsAtom } from "./store"
 const pendingDerivations = new Map<string, Promise<DerivedWallet>>()
 const cancelledDerivations = new Set<string>()
 
+/* Expected address storage for wallet migration detection.
+ * Stores the derived wallet address in localStorage to detect when on-chain grants
+ * were created by a different derivation method (e.g., previous Privy-based system).
+ * Without this, users with previous grants would see auto-sign as "enabled" but transactions
+ * would fail because the current derivation produces a different wallet address. */
+const AUTOSIGN_STORAGE_PREFIX = "autosign:"
+
+export function getExpectedAddressKey(
+  origin: string,
+  chainId: string,
+  userAddress: string,
+): string {
+  return `${AUTOSIGN_STORAGE_PREFIX}${origin}:${chainId}:${userAddress}`
+}
+
+export function getExpectedAddress(
+  origin: string,
+  chainId: string,
+  userAddress: string,
+): string | null {
+  return localStorage.getItem(getExpectedAddressKey(origin, chainId, userAddress))
+}
+
+export function storeExpectedAddress(
+  origin: string,
+  chainId: string,
+  userAddress: string,
+  address: string,
+): void {
+  localStorage.setItem(getExpectedAddressKey(origin, chainId, userAddress), address)
+}
+
+export function clearExpectedAddress(origin: string, chainId: string, userAddress: string): void {
+  localStorage.removeItem(getExpectedAddressKey(origin, chainId, userAddress))
+}
+
 /* Offline signer implementation for derived wallet */
 export class DerivedWalletSigner implements OfflineAminoSigner {
   constructor(private wallet: DerivedWallet) {}
@@ -130,6 +166,8 @@ export function useDeriveWallet() {
       pendingDerivations.delete(key)
     }
 
+    clearExpectedAddress(origin, chainId, userAddress)
+
     setDerivedWallets((prev) => {
       const next = { ...prev }
       delete next[key]
@@ -142,6 +180,12 @@ export function useDeriveWallet() {
       cancelledDerivations.add(key)
     }
     pendingDerivations.clear()
+
+    const keysToRemove = Object.keys(localStorage).filter((key) =>
+      key.startsWith(AUTOSIGN_STORAGE_PREFIX),
+    )
+    keysToRemove.forEach((key) => localStorage.removeItem(key))
+
     setDerivedWallets({})
   }
 
