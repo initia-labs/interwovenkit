@@ -127,9 +127,8 @@ export function useEnableAutoSign() {
     onSuccess: async (derivedWallet) => {
       // Store the derived address in localStorage so we can verify on-chain grants
       // were created by this derivation method.
-      if (pendingRequest && initiaAddress) {
-        const { chainId } = pendingRequest
-        storeExpectedAddress(window.location.origin, chainId, initiaAddress, derivedWallet.address)
+      if (initiaAddress) {
+        storeExpectedAddress(initiaAddress, derivedWallet.address)
       }
 
       const queryKeys = [autoSignQueryKeys.expirations._def, autoSignQueryKeys.grants._def]
@@ -160,7 +159,7 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
 
   return useMutation({
     mutationFn: async (chainId: string = config.defaultChainId) => {
-      const derivedWallet = getWallet(chainId)
+      const derivedWallet = getWallet()
       const grantee =
         options?.grantee || derivedWallet?.address || autoSignStatus?.granteeByChain[chainId]
 
@@ -171,14 +170,14 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
       const messages = await fetchRevokeMessages({ chainId, grantee })
       await requestTxBlock({ messages, chainId, internal: options?.internal })
     },
-    onSuccess: async (_, chainId = config.defaultChainId) => {
+    onSuccess: async () => {
       const queryKeys = [autoSignQueryKeys.expirations._def, autoSignQueryKeys.grants._def]
 
       for (const queryKey of queryKeys) {
         await queryClient.invalidateQueries({ queryKey })
       }
 
-      clearWallet(chainId)
+      clearWallet()
     },
   })
 }

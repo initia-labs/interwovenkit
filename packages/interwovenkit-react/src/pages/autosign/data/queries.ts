@@ -13,20 +13,17 @@ export type { Grant } from "./fetch"
 export function useAllGrants() {
   const initiaAddress = useInitiaAddress()
   const registry = useInitiaRegistry()
-  const origin = typeof window !== "undefined" ? window.location.origin : ""
 
   return useQueries({
     queries: registry.map((chain) => ({
-      queryKey: autoSignQueryKeys.grants(chain.chainId, initiaAddress, origin).queryKey,
+      queryKey: autoSignQueryKeys.grants(chain.chainId, initiaAddress).queryKey,
       queryFn: async () => {
         const { grants } = await ky
           .create({ prefixUrl: chain.restUrl })
           .get(`cosmos/authz/v1beta1/grants/granter/${initiaAddress}`)
           .json<GrantsResponse>()
 
-        const expectedAddress = initiaAddress
-          ? getExpectedAddress(origin, chain.chainId, initiaAddress)
-          : null
+        const expectedAddress = initiaAddress ? getExpectedAddress(initiaAddress) : null
 
         const filteredGrants = expectedAddress
           ? grants.filter((grant) => grant.grantee === expectedAddress)

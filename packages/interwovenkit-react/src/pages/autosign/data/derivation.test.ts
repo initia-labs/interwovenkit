@@ -4,7 +4,7 @@ import { deriveWalletFromSignature, getAutoSignTypedData, getDerivedWalletKey } 
 
 describe("getAutoSignTypedData", () => {
   it("returns correct EIP-712 domain", () => {
-    const result = getAutoSignTypedData("https://example.com", "initia-1")
+    const result = getAutoSignTypedData("https://example.com")
 
     expect(result.domain).toEqual({
       name: "InterwovenKit",
@@ -13,47 +13,38 @@ describe("getAutoSignTypedData", () => {
   })
 
   it("returns correct EIP-712 types structure", () => {
-    const result = getAutoSignTypedData("https://example.com", "initia-1")
+    const result = getAutoSignTypedData("https://example.com")
 
     expect(result.types).toEqual({
       AutoSign: [
         { name: "action", type: "string" },
         { name: "origin", type: "string" },
-        { name: "chainId", type: "string" },
       ],
     })
   })
 
   it("returns correct primary type", () => {
-    const result = getAutoSignTypedData("https://example.com", "initia-1")
+    const result = getAutoSignTypedData("https://example.com")
 
     expect(result.primaryType).toBe("AutoSign")
   })
 
   it("includes origin in message", () => {
     const origin = "https://myapp.initia.xyz"
-    const result = getAutoSignTypedData(origin, "initia-1")
+    const result = getAutoSignTypedData(origin)
 
     expect(result.message.origin).toBe(origin)
   })
 
-  it("includes chainId in message", () => {
-    const chainId = "minimove-1"
-    const result = getAutoSignTypedData("https://example.com", chainId)
-
-    expect(result.message.chainId).toBe(chainId)
-  })
-
   it("sets action to 'Enable Auto-Sign'", () => {
-    const result = getAutoSignTypedData("https://example.com", "initia-1")
+    const result = getAutoSignTypedData("https://example.com")
 
     expect(result.message.action).toBe("Enable Auto-Sign")
   })
 
   it("returns complete typed data structure", () => {
     const origin = "https://example.com"
-    const chainId = "initia-1"
-    const result = getAutoSignTypedData(origin, chainId)
+    const result = getAutoSignTypedData(origin)
 
     expect(result).toEqual({
       domain: { name: "InterwovenKit", version: "1" },
@@ -61,34 +52,23 @@ describe("getAutoSignTypedData", () => {
         AutoSign: [
           { name: "action", type: "string" },
           { name: "origin", type: "string" },
-          { name: "chainId", type: "string" },
         ],
       },
       primaryType: "AutoSign",
       message: {
         action: "Enable Auto-Sign",
         origin: origin,
-        chainId: chainId,
       },
     })
   })
 
   it("handles different origins correctly", () => {
-    const result1 = getAutoSignTypedData("https://app1.com", "initia-1")
-    const result2 = getAutoSignTypedData("https://app2.com", "initia-1")
+    const result1 = getAutoSignTypedData("https://app1.com")
+    const result2 = getAutoSignTypedData("https://app2.com")
 
     expect(result1.message.origin).toBe("https://app1.com")
     expect(result2.message.origin).toBe("https://app2.com")
     expect(result1.message.origin).not.toBe(result2.message.origin)
-  })
-
-  it("handles different chainIds correctly", () => {
-    const result1 = getAutoSignTypedData("https://example.com", "initia-1")
-    const result2 = getAutoSignTypedData("https://example.com", "minimove-1")
-
-    expect(result1.message.chainId).toBe("initia-1")
-    expect(result2.message.chainId).toBe("minimove-1")
-    expect(result1.message.chainId).not.toBe(result2.message.chainId)
   })
 })
 
@@ -306,58 +286,32 @@ describe("deriveWalletFromSignature", () => {
 describe("getDerivedWalletKey", () => {
   const testAddress = "init1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpqr5e3d"
 
-  it("returns key in format 'origin:chainId:userAddress'", () => {
-    const result = getDerivedWalletKey("https://example.com", "initia-1", testAddress)
+  it("returns the userAddress as the key", () => {
+    const result = getDerivedWalletKey(testAddress)
 
-    expect(result).toBe(`https://example.com:initia-1:${testAddress}`)
-  })
-
-  it("different origins produce different keys", () => {
-    const key1 = getDerivedWalletKey("https://app1.com", "initia-1", testAddress)
-    const key2 = getDerivedWalletKey("https://app2.com", "initia-1", testAddress)
-
-    expect(key1).not.toBe(key2)
-  })
-
-  it("different chainIds produce different keys", () => {
-    const key1 = getDerivedWalletKey("https://example.com", "initia-1", testAddress)
-    const key2 = getDerivedWalletKey("https://example.com", "minimove-1", testAddress)
-
-    expect(key1).not.toBe(key2)
+    expect(result).toBe(testAddress)
   })
 
   it("different user addresses produce different keys", () => {
     const address1 = "init1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpqr5e3d"
     const address2 = "init1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqz9ml8a"
-    const key1 = getDerivedWalletKey("https://example.com", "initia-1", address1)
-    const key2 = getDerivedWalletKey("https://example.com", "initia-1", address2)
+    const key1 = getDerivedWalletKey(address1)
+    const key2 = getDerivedWalletKey(address2)
 
     expect(key1).not.toBe(key2)
   })
 
-  it("same origin, chainId, and userAddress produce same key", () => {
-    const key1 = getDerivedWalletKey("https://example.com", "initia-1", testAddress)
-    const key2 = getDerivedWalletKey("https://example.com", "initia-1", testAddress)
+  it("same userAddress produces same key", () => {
+    const key1 = getDerivedWalletKey(testAddress)
+    const key2 = getDerivedWalletKey(testAddress)
 
     expect(key1).toBe(key2)
   })
 
-  it("handles empty strings", () => {
-    const result = getDerivedWalletKey("", "", "")
+  it("handles empty string", () => {
+    const result = getDerivedWalletKey("")
 
-    expect(result).toBe("::")
-  })
-
-  it("handles special characters in origin", () => {
-    const result = getDerivedWalletKey("https://app.example.com:8080/path", "chain-1", testAddress)
-
-    expect(result).toBe(`https://app.example.com:8080/path:chain-1:${testAddress}`)
-  })
-
-  it("handles hyphenated chainIds", () => {
-    const result = getDerivedWalletKey("https://example.com", "my-chain-id-123", testAddress)
-
-    expect(result).toBe(`https://example.com:my-chain-id-123:${testAddress}`)
+    expect(result).toBe("")
   })
 })
 
@@ -366,32 +320,24 @@ describe("integration: full derivation flow", () => {
 
   it("typed data + signature derivation produces valid wallet", async () => {
     const origin = "https://dapp.initia.xyz"
-    const chainId = "initia-1"
 
-    const typedData = getAutoSignTypedData(origin, chainId)
+    const typedData = getAutoSignTypedData(origin)
 
     expect(typedData.message.origin).toBe(origin)
-    expect(typedData.message.chainId).toBe(chainId)
 
     const mockSignature: Hex =
       "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1c"
 
     const wallet = await deriveWalletFromSignature(mockSignature, "init")
-    const cacheKey = getDerivedWalletKey(origin, chainId, testAddress)
+    const cacheKey = getDerivedWalletKey(testAddress)
 
     expect(wallet.address.startsWith("init1")).toBe(true)
-    expect(cacheKey).toBe(`${origin}:${chainId}:${testAddress}`)
+    expect(cacheKey).toBe(testAddress)
   })
 
-  it("cache key matches typed data parameters and includes user address", () => {
-    const origin = "https://test.com"
-    const chainId = "test-chain-1"
+  it("cache key is the user address", () => {
+    const cacheKey = getDerivedWalletKey(testAddress)
 
-    const typedData = getAutoSignTypedData(origin, chainId)
-    const cacheKey = getDerivedWalletKey(origin, chainId, testAddress)
-
-    expect(cacheKey).toContain(typedData.message.origin)
-    expect(cacheKey).toContain(typedData.message.chainId)
-    expect(cacheKey).toContain(testAddress)
+    expect(cacheKey).toBe(testAddress)
   })
 })

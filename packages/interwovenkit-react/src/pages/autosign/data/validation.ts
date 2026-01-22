@@ -12,11 +12,7 @@ import { getExpectedAddress } from "./wallet"
 
 export const autoSignQueryKeys = createQueryKeys("interwovenkit:autosign", {
   expirations: (address: string | undefined) => [address],
-  grants: (chainId: string, address: string | undefined, origin: string) => [
-    chainId,
-    address,
-    origin,
-  ],
+  grants: (chainId: string, address: string | undefined) => [chainId, address],
 })
 
 /* Get configured AutoSign message types for the default chain based on chain type */
@@ -83,17 +79,12 @@ export function useAutoSignStatus() {
 
       const expiredAtByChain: Record<string, Date | null | undefined> = {}
       const granteeByChain: Record<string, string | undefined> = {}
-      const expectedAddressByChain: Record<string, string | null> = {}
       const isBrowser = typeof window !== "undefined"
-      const origin = isBrowser ? window.location.origin : ""
+      const expectedAddress = isBrowser ? getExpectedAddress(initiaAddress) : null
 
       for (const [chainId, msgTypes] of Object.entries(messageTypes)) {
         try {
           const allGrants = await fetchAllGrants(chainId)
-          const expectedAddress = isBrowser
-            ? getExpectedAddress(origin, chainId, initiaAddress)
-            : null
-          expectedAddressByChain[chainId] = expectedAddress
 
           const grantsToCheck = expectedAddress
             ? allGrants.filter((grant) => grant.grantee === expectedAddress)
@@ -130,7 +121,6 @@ export function useAutoSignStatus() {
       const isEnabledByChain: Record<string, boolean> = {}
       for (const [chainId, expiration] of Object.entries(expiredAtByChain)) {
         const grantee = granteeByChain[chainId]
-        const expectedAddress = expectedAddressByChain[chainId]
         const addressMatches = grantee && expectedAddress === grantee
 
         switch (expiration) {

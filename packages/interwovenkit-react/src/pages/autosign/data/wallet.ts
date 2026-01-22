@@ -30,36 +30,20 @@ const cancelledDerivations = new Set<string>()
  * Stores the derived wallet address in localStorage to detect when on-chain grants
  * were created by a different derivation method (e.g., previous Privy-based system).
  * Without this, users with previous grants would see auto-sign as "enabled" but transactions
- * would fail because the current derivation produces a different wallet address. */
+ * would fail because the current derivation produces a different wallet address.
+ * Note: origin is not included in key since each origin has its own localStorage namespace. */
 const AUTOSIGN_STORAGE_PREFIX = "autosign:"
 
-export function getExpectedAddressKey(
-  origin: string,
-  chainId: string,
-  userAddress: string,
-): string {
-  return `${AUTOSIGN_STORAGE_PREFIX}${origin}:${chainId}:${userAddress}`
+export function getExpectedAddressKey(userAddress: string): string {
+  return `${AUTOSIGN_STORAGE_PREFIX}${userAddress}`
 }
 
-export function getExpectedAddress(
-  origin: string,
-  chainId: string,
-  userAddress: string,
-): string | null {
-  return localStorage.getItem(getExpectedAddressKey(origin, chainId, userAddress))
+export function getExpectedAddress(userAddress: string): string | null {
+  return localStorage.getItem(getExpectedAddressKey(userAddress))
 }
 
-export function storeExpectedAddress(
-  origin: string,
-  chainId: string,
-  userAddress: string,
-  address: string,
-): void {
-  localStorage.setItem(getExpectedAddressKey(origin, chainId, userAddress), address)
-}
-
-export function clearExpectedAddress(origin: string, chainId: string, userAddress: string): void {
-  localStorage.removeItem(getExpectedAddressKey(origin, chainId, userAddress))
+export function storeExpectedAddress(userAddress: string, address: string): void {
+  localStorage.setItem(getExpectedAddressKey(userAddress), address)
 }
 
 /* Offline signer implementation for derived wallet */
@@ -96,7 +80,8 @@ export class DerivedWalletSigner implements OfflineAminoSigner {
   }
 }
 
-/* Derive and store wallet from EIP-712 signature for autosign delegation */
+/* Derive and store wallet from EIP-712 signature for autosign delegation.
+ * The same derived wallet is used across all chains for the same user. */
 export function useDeriveWallet() {
   const [derivedWallets, setDerivedWallets] = useAtom(derivedWalletsAtom)
   const { signTypedDataAsync } = useSignTypedData()
@@ -108,8 +93,7 @@ export function useDeriveWallet() {
       throw new Error("User address not available")
     }
 
-    const origin = window.location.origin
-    const key = getDerivedWalletKey(origin, chainId, userAddress)
+    const key = getDerivedWalletKey(userAddress)
 
     if (derivedWallets[key]) {
       return derivedWallets[key]
@@ -124,7 +108,8 @@ export function useDeriveWallet() {
     const derivationPromise = (async () => {
       try {
         const chain = findChain(chainId)
-        const typedData = getAutoSignTypedData(origin, chainId)
+        const origin = window.location.origin
+        const typedData = getAutoSignTypedData(origin)
         const signature = await signTypedDataAsync({
           domain: typedData.domain,
           types: typedData.types,
@@ -152,26 +137,21 @@ export function useDeriveWallet() {
     return derivationPromise
   }
 
-  const getWallet = (chainId: string): DerivedWallet | undefined => {
+  const getWallet = (): DerivedWallet | undefined => {
     if (!userAddress) return undefined
-
-    const origin = window.location.origin
-    const key = getDerivedWalletKey(origin, chainId, userAddress)
+    const key = getDerivedWalletKey(userAddress)
     return derivedWallets[key]
   }
 
-  const clearWallet = (chainId: string) => {
+  const clearWallet = () => {
     if (!userAddress) return
 
-    const origin = window.location.origin
-    const key = getDerivedWalletKey(origin, chainId, userAddress)
+    const key = getDerivedWalletKey(userAddress)
 
     if (pendingDerivations.has(key)) {
       cancelledDerivations.add(key)
       pendingDerivations.delete(key)
     }
-
-    clearExpectedAddress(origin, chainId, userAddress)
 
     setDerivedWallets((prev) => {
       const next = { ...prev }
@@ -185,12 +165,6 @@ export function useDeriveWallet() {
       cancelledDerivations.add(key)
     }
     pendingDerivations.clear()
-
-    const keysToRemove = Object.keys(localStorage).filter((key) =>
-      key.startsWith(AUTOSIGN_STORAGE_PREFIX),
-    )
-    keysToRemove.forEach((key) => localStorage.removeItem(key))
-
     setDerivedWallets({})
   }
 
@@ -210,7 +184,7 @@ export function useSignWithDerivedWallet() {
     fee: StdFee,
     memo: string,
   ): Promise<TxRaw> => {
-    let derivedWallet = getWallet(chainId)
+    let derivedWallet = getWallet()
     if (!derivedWallet) {
       derivedWallet = await deriveWallet(chainId)
     }
