@@ -110,6 +110,7 @@
 
 .item {
   display: flex;
+  justify-content: space-between;
   align-items: center;
   gap: 8px;
 
@@ -132,8 +133,10 @@
   }
 }
 
-.name {
-  flex: 1;
+.itemContent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .extra {
@@ -141,4 +144,13 @@
   font-family: var(--monospace);
   font-size: 12px;
   font-weight: 500;
+}
+
+.connectedTag {
+  background: var(--success-bg);
+  border-radius: 4px;
+  color: var(--success);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1.5px 9px;
 }

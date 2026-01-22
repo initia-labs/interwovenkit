@@ -14,6 +14,11 @@ export interface Config {
   routerApiUrl: string
   glyphUrl: string
   usernamesModuleAddress: string
+  lockStakeModuleAddress: string
+  minityUrl: string
+  dexUrl: string
+  vipUrl: string
+  civitiaUrl: string
 
   theme: "light" | "dark"
   container?: HTMLElement

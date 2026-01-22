@@ -1,0 +1,72 @@
+/* Civitia game-specific colors (not part of global theming) */
+.section {
+  --civitia-gold-light: #fbe457;
+  --civitia-gold-dark: #e7ba38;
+  --civitia-silver-light: #fafafa;
+  --civitia-silver-dark: #aaaaaa;
+
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  padding: 12px 16px;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  height: 36px;
+}
+
+.rowLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rowIcon {
+  flex-shrink: 0;
+
+  width: 20px;
+  height: 20px;
+
+  border-radius: 50%;
+}
+
+.goldIcon {
+  background: radial-gradient(
+    50% 50% at 50% 50%,
+    var(--civitia-gold-light) 0%,
+    var(--civitia-gold-dark) 100%
+  );
+}
+
+.silverIcon {
+  background: radial-gradient(
+    50% 50% at 50% 50%,
+    var(--civitia-silver-light) 0%,
+    var(--civitia-silver-dark) 100%
+  );
+}
+
+.rowTitle {
+  color: var(--gray-0);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.rowValue {
+  color: var(--gray-0);
+  font-family: var(--monospace);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.rowSubtitle {
+  color: var(--gray-3);
+  font-family: var(--monospace);
+  font-size: 12px;
+  font-weight: 500;
+}

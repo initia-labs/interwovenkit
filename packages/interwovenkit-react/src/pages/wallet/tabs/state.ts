@@ -1,7 +1,7 @@
 import { atom } from "jotai"
 
-export const assetsSearchAtom = atom("")
-export const assetsChainAtom = atom("")
+export const portfolioSearchAtom = atom("")
+export const portfolioChainAtom = atom("")
 
 export const nftsSearchAtom = atom("")
 export const nftsChainAtom = atom("")

@@ -1,6 +1,5 @@
 import clsx from "clsx"
 import { Collapsible } from "radix-ui"
-import { uniq, without } from "ramda"
 import { useMemo } from "react"
 import { atom, useAtom } from "jotai"
 import { IconChevronDown } from "@initia/icons-react"
@@ -31,7 +30,11 @@ const AssetGroup = ({ assetGroup }: Props) => {
   const isOpen = openAssetGroups.includes(symbol)
 
   const toggleOpen = () => {
-    setOpenAssetGroups((prev) => (isOpen ? without([symbol], prev) : uniq([...prev, symbol])))
+    setOpenAssetGroups((prev) =>
+      isOpen
+        ? prev.filter((openAssetSymbol) => openAssetSymbol !== symbol)
+        : [...new Set([...prev, symbol])],
+    )
   }
 
   const renderAssetHeader = () => (
