@@ -97,7 +97,12 @@ export function useEnableAutoSign() {
         }),
       }
 
-      const authzMessages = messageTypes[chainId].map((msgType) => ({
+      const chainMsgTypes = messageTypes[chainId]
+      if (!chainMsgTypes || chainMsgTypes.length === 0) {
+        throw new Error(`No message types configured for chain ${chainId}`)
+      }
+
+      const authzMessages = chainMsgTypes.map((msgType) => ({
         typeUrl: "/cosmos.authz.v1beta1.MsgGrant",
         value: MsgGrant.fromPartial({
           granter: initiaAddress,

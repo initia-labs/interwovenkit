@@ -79,11 +79,22 @@ export function useAutoSignStatus() {
 
       const expiredAtByChain: Record<string, Date | null | undefined> = {}
       const granteeByChain: Record<string, string | undefined> = {}
+      const expectedAddressByChain: Record<string, string | null> = {}
+      const isBrowser = typeof window !== "undefined"
+      const origin = isBrowser ? window.location.origin : ""
 
       for (const [chainId, msgTypes] of Object.entries(messageTypes)) {
         try {
           const allGrants = await fetchAllGrants(chainId)
-          const validGrantee = findValidGrantee(allGrants, msgTypes)
+          const expectedAddress = isBrowser
+            ? getExpectedAddress(origin, chainId, initiaAddress)
+            : null
+          expectedAddressByChain[chainId] = expectedAddress
+
+          const grantsToCheck = expectedAddress
+            ? allGrants.filter((grant) => grant.grantee === expectedAddress)
+            : allGrants
+          const validGrantee = findValidGrantee(grantsToCheck, msgTypes)
 
           if (!validGrantee) {
             expiredAtByChain[chainId] = null
@@ -112,14 +123,10 @@ export function useAutoSignStatus() {
         }
       }
 
-      const origin = typeof window !== "undefined" ? window.location.origin : ""
       const isEnabledByChain: Record<string, boolean> = {}
       for (const [chainId, expiration] of Object.entries(expiredAtByChain)) {
         const grantee = granteeByChain[chainId]
-        const expectedAddress = getExpectedAddress(origin, chainId, initiaAddress)
-        // Only enable auto-sign if the on-chain grantee matches the expected derived address.
-        // This prevents false positives from previous grants (e.g., Privy-derived wallets) that
-        // the current derivation method cannot access.
+        const expectedAddress = expectedAddressByChain[chainId]
         const addressMatches = grantee && expectedAddress === grantee
 
         switch (expiration) {
