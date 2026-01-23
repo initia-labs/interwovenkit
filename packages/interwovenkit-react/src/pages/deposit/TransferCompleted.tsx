@@ -152,10 +152,11 @@ export function TransferCompleted({ type }: { type: "deposit" | "withdraw" }) {
             muted
             playsInline
             style={{ width: "72px", height: "72px" }}
-            onEnded={(e) => {
+            onTimeUpdate={(e) => {
               const video = e.currentTarget
-              video.currentTime = video.duration - 0.1 // Ensure it ends on the last frame
-              video.pause()
+              if (video.duration - video.currentTime < 0.1) {
+                video.pause()
+              }
             }}
           />
           {renderExplorerLinks()}
