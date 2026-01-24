@@ -1,5 +1,11 @@
 # Changelog
 
+### [2.2.1](https://github.com/initia-labs/interwovenkit/compare/v2.2.0...v2.2.1) (2026-01-24)
+
+### Performance Optimization
+
+- externalize video assets to CDN
+
 ## [2.2.0](https://github.com/initia-labs/interwovenkit/compare/v2.1.1...v2.2.0) (2026-01-23)
 
 ### Features
