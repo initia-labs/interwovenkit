@@ -191,3 +191,10 @@
     height: 0;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .collapsibleContent[data-state="open"],
+  .collapsibleContent[data-state="closed"] {
+    animation: none;
+  }
+}

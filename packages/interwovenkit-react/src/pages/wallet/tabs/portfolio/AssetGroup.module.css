@@ -148,6 +148,13 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .collapsibleContent[data-state="open"],
+  .collapsibleContent[data-state="closed"] {
+    animation: none;
+  }
+}
+
 .chainsList {
   background-color: var(--gray-8);
 }

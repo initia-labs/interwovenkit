@@ -1,4 +1,4 @@
-import { animated, useTransition } from "@react-spring/web"
+import { animated, useReducedMotion, useTransition } from "@react-spring/web"
 import clsx from "clsx"
 import { IconCheckCircleFilled, IconClose, IconCloseCircleFilled } from "@initia/icons-react"
 import type { NotificationType } from "@/public/app/NotificationContext"
@@ -14,12 +14,14 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
 }
 
 const Toast = ({ notification, onClose, ...props }: Props) => {
+  const reducedMotion = useReducedMotion()
   const transition = useTransition(notification, {
     keys: (notification) => notification?.id || "empty",
     from: { transform: "translateY(-52px)", opacity: 0 },
     enter: { transform: "translateY(0px)", opacity: 1 },
     leave: { transform: "translateY(-52px)", opacity: 0 },
     config: { tension: 500, friction: 30, clamp: true },
+    immediate: reducedMotion ?? false,
   })
 
   const getIcon = (type?: NotificationType) => {

@@ -1,4 +1,4 @@
-import { animated, useSpring } from "@react-spring/web"
+import { animated, useReducedMotion, useSpring } from "@react-spring/web"
 import { useEffect, useRef, useState } from "react"
 
 import type { PropsWithChildren } from "react"
@@ -7,11 +7,12 @@ const AnimatedHeight = ({ children }: PropsWithChildren) => {
   const contentRef = useRef<HTMLDivElement>(null)
   const [contentHeight, setContentHeight] = useState<number | "auto">(0)
   const [hasInitialized, setHasInitialized] = useState(false)
+  const reducedMotion = useReducedMotion()
 
   const style = useSpring({
     height: contentHeight,
     config: { tension: 500, friction: 30, clamp: true },
-    immediate: !hasInitialized,
+    immediate: !hasInitialized || (reducedMotion ?? false),
   })
 
   useEffect(() => {
