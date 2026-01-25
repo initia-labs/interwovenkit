@@ -1,5 +1,5 @@
-import { useEffect, useEffectEvent } from "react"
-import { useQueryClient } from "@tanstack/react-query"
+import { useCallback, useEffect, useEffectEvent } from "react"
+import { type QueryClient, useQueryClient } from "@tanstack/react-query"
 import { useIsTestnet } from "@/pages/bridge/data/form"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useConfig } from "../config"
@@ -197,4 +197,25 @@ export function usePortfolioSSE() {
     // minityUrl and queryClient accessed via useEffectEvent handlers (always read latest values)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address, isTestnet])
+}
+
+export function clearSSEPortfolioCache(
+  queryClient: QueryClient,
+  address: string,
+  minityUrl: string,
+) {
+  const queryKey = minityQueryKeys.ssePortfolio(address, minityUrl).queryKey
+  queryClient.removeQueries({ queryKey })
+}
+
+export function useClearSSECache() {
+  const queryClient = useQueryClient()
+  const address = useInitiaAddress()
+  const { minityUrl } = useConfig()
+
+  return useCallback(() => {
+    if (address) {
+      clearSSEPortfolioCache(queryClient, address, minityUrl)
+    }
+  }, [queryClient, address, minityUrl])
 }

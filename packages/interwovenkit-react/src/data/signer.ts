@@ -220,6 +220,11 @@ export function useOfflineSigner() {
 const comet38ClientCache = new Map<string, Comet38Client>()
 const signingStargateClientCache = new Map<string, SigningStargateClient>()
 
+export function clearClientCaches() {
+  comet38ClientCache.clear()
+  signingStargateClientCache.clear()
+}
+
 export function useCreateComet38Client() {
   const findChain = useFindChain()
 
