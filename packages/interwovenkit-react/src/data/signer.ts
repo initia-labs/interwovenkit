@@ -262,6 +262,11 @@ export function clearSigningClientCache(address: string, chainId: string) {
   signingStargateClientCache.delete(cacheKey)
 }
 
+export function clearClientCaches() {
+  comet38ClientCache.clear()
+  signingStargateClientCache.clear()
+}
+
 export function useCreateComet38Client() {
   const findChain = useFindChain()
 
