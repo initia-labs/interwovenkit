@@ -7,16 +7,14 @@ import styles from "./GrantItem.module.css"
 interface GrantItemProps {
   chainId: string
   grantee: string
-  messageTypes: string[]
   expiration?: Date
 }
 
-const GrantItem = ({ chainId, grantee, messageTypes, expiration }: GrantItemProps) => {
+const GrantItem = ({ chainId, grantee, expiration }: GrantItemProps) => {
   const chain = useChain(chainId)
 
   const { mutate, isPending } = useDisableAutoSign({
     grantee,
-    messageTypes: { [chainId]: messageTypes },
     internal: true,
   })
 

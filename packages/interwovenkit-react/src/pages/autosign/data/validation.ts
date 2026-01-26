@@ -8,13 +8,10 @@ import { useConfig } from "@/data/config"
 import { STALE_TIMES } from "@/data/http"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useAutoSignApi } from "./fetch"
-import { useEmbeddedWalletAddress } from "./wallet"
+import { getExpectedAddress } from "./wallet"
 
 export const autoSignQueryKeys = createQueryKeys("interwovenkit:autosign", {
-  expirations: (address: string | undefined, embeddedWalletAddress: string | undefined) => [
-    address,
-    embeddedWalletAddress,
-  ],
+  expirations: (address: string | undefined) => [address],
   grants: (chainId: string, address: string | undefined) => [chainId, address],
 })
 
@@ -66,77 +63,75 @@ export function useValidateAutoSign() {
 /* Get current AutoSign status including enabled state and expiration dates by chain */
 export function useAutoSignStatus() {
   const initiaAddress = useInitiaAddress()
-  const embeddedWalletAddress = useEmbeddedWalletAddress()
   const messageTypes = useAutoSignMessageTypes()
-  const { fetchFeegrant, fetchGrants } = useAutoSignApi()
+  const { fetchFeegrant, fetchAllGrants } = useAutoSignApi()
 
   return useQuery({
-    queryKey: autoSignQueryKeys.expirations(initiaAddress, embeddedWalletAddress).queryKey,
+    queryKey: autoSignQueryKeys.expirations(initiaAddress).queryKey,
     queryFn: async () => {
-      if (!initiaAddress || !embeddedWalletAddress) {
+      if (!initiaAddress) {
         return {
           expiredAtByChain: {},
           isEnabledByChain: {},
+          granteeByChain: {},
         }
       }
 
-      // Track expiration dates for each chain
       const expiredAtByChain: Record<string, Date | null | undefined> = {}
+      const granteeByChain: Record<string, string | undefined> = {}
+      const isBrowser = typeof window !== "undefined"
+      const expectedAddress = isBrowser ? getExpectedAddress(initiaAddress) : null
 
-      // Check each chain's grants and feegrants
       for (const [chainId, msgTypes] of Object.entries(messageTypes)) {
         try {
-          const grants = await fetchGrants(chainId, embeddedWalletAddress)
+          const allGrants = await fetchAllGrants(chainId)
 
-          // Check if all required message types are granted
-          const allTypesGranted = msgTypes.every((msgType) =>
-            grants.some((grant) => grant.authorization?.msg === msgType),
-          )
+          const grantsToCheck = expectedAddress
+            ? allGrants.filter((grant) => grant.grantee === expectedAddress)
+            : allGrants
+          const validGrantee = findValidGrantee(grantsToCheck, msgTypes)
 
-          if (!allTypesGranted) {
-            // No permission for this chain
+          if (!validGrantee) {
             expiredAtByChain[chainId] = null
             continue
           }
 
-          const feegrant = await fetchFeegrant(chainId, embeddedWalletAddress)
+          granteeByChain[chainId] = validGrantee.grantee
+
+          const feegrant = await fetchFeegrant(chainId, validGrantee.grantee)
 
           if (!feegrant) {
             expiredAtByChain[chainId] = null
             continue
           }
 
-          // Extract expiration dates from grants and feegrant
-          const grantExpirations = grants
+          const grantExpirations = validGrantee.grants
             .filter((grant) => msgTypes.includes(grant.authorization.msg))
             .map((grant) => grant.expiration)
 
           const feegrantExpiration = feegrant.allowance.expiration
-
-          // Find the earliest expiration (most restrictive)
           const allExpirations = [...grantExpirations, feegrantExpiration]
-
           const earliestExpiration = findEarliestDate(allExpirations)
           expiredAtByChain[chainId] = earliestExpiration ? new Date(earliestExpiration) : undefined
         } catch {
-          // No permission for this chain (error in fetching)
           expiredAtByChain[chainId] = null
         }
       }
 
-      // Calculate isEnabledByChain based on expiration dates
       const isEnabledByChain: Record<string, boolean> = {}
-
       for (const [chainId, expiration] of Object.entries(expiredAtByChain)) {
+        const grantee = granteeByChain[chainId]
+        const addressMatches = grantee && expectedAddress === grantee
+
         switch (expiration) {
           case null:
             isEnabledByChain[chainId] = false
             break
           case undefined:
-            isEnabledByChain[chainId] = true
+            isEnabledByChain[chainId] = !!addressMatches
             break
           default:
-            isEnabledByChain[chainId] = isFuture(expiration)
+            isEnabledByChain[chainId] = !!addressMatches && isFuture(expiration)
             break
         }
       }
@@ -144,11 +139,44 @@ export function useAutoSignStatus() {
       return {
         expiredAtByChain,
         isEnabledByChain,
+        granteeByChain,
       }
     },
     staleTime: STALE_TIMES.INFINITY,
     retry: false,
   })
+}
+
+interface GrantWithGrantee {
+  grantee: string
+  grants: Array<{ authorization: { msg: string }; expiration?: string }>
+}
+
+export function findValidGrantee(
+  allGrants: Array<{ grantee: string; authorization: { msg: string }; expiration?: string }>,
+  requiredMsgTypes: string[],
+): GrantWithGrantee | null {
+  const grantsByGrantee = new Map<
+    string,
+    Array<{ authorization: { msg: string }; expiration?: string }>
+  >()
+
+  for (const grant of allGrants) {
+    const existing = grantsByGrantee.get(grant.grantee) || []
+    existing.push({ authorization: grant.authorization, expiration: grant.expiration })
+    grantsByGrantee.set(grant.grantee, existing)
+  }
+
+  for (const [grantee, grants] of grantsByGrantee) {
+    const validGrants = grants.filter((g) => !g.expiration || isFuture(new Date(g.expiration)))
+    const grantedMsgTypes = validGrants.map((g) => g.authorization.msg)
+    const hasAllTypes = requiredMsgTypes.every((msgType) => grantedMsgTypes.includes(msgType))
+    if (hasAllTypes) {
+      return { grantee, grants: validGrants }
+    }
+  }
+
+  return null
 }
 
 /* Initialize AutoSign by querying grants and feegrants to determine enabled status and expiration */
@@ -170,6 +198,8 @@ export function useInitializeAutoSign() {
     if (futureExpirations.length === 0) return
 
     const earliestExpiration = findEarliestDate(futureExpirations)
+    if (!earliestExpiration) return
+
     const timeUntilExpiration = earliestExpiration.getTime() - now.getTime()
 
     if (timeUntilExpiration <= 0) return
@@ -183,8 +213,8 @@ export function useInitializeAutoSign() {
 }
 
 /* Find earliest date from array of dates, handling string and undefined values */
-export function findEarliestDate<T extends Date | string | undefined>(dates: T[]): T {
-  return dates
-    .filter((date) => date !== undefined)
-    .toSorted((a, b) => new Date(a).getTime() - new Date(b).getTime())[0]!
+export function findEarliestDate<T extends Date | string>(dates: (T | undefined)[]): T | undefined {
+  const filtered = dates.filter((date): date is T => date !== undefined)
+  if (filtered.length === 0) return undefined
+  return filtered.toSorted((a, b) => new Date(a).getTime() - new Date(b).getTime())[0]
 }
