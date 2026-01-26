@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.2.0](https://github.com/initia-labs/interwovenkit/compare/v2.1.1...v2.2.0) (2026-01-23)
+
+### Features
+
+- add portfolio ([4eea8f9](https://github.com/initia-labs/interwovenkit/commit/4eea8f90b1d38ccb8464a7cb5c996aec4f2f7110))
+- deposit and withdraw ([8d92acf](https://github.com/initia-labs/interwovenkit/commit/8d92acf63aa00c75ead83125b7feb09fdc3d17fe))
+- **deps:** upgrade [@base-ui](https://github.com/base-ui) to 1.0.0 release version ([2fe745e](https://github.com/initia-labs/interwovenkit/commit/2fe745ea87ec3760fa3f8ec5906560e7f02a3441))
+
+### Bug Fixes
+
+- **bridge:** show dash for unavailable route price ([1319c11](https://github.com/initia-labs/interwovenkit/commit/1319c112fa61a0ec70b97ae35ec1d67c9605043a))
+
 ### [2.1.1](https://github.com/initia-labs/interwovenkit/compare/v2.1.0...v2.1.1) (2025-12-17)
 
 ### Features
