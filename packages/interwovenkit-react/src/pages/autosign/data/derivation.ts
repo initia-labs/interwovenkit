@@ -3,23 +3,16 @@ import { toBech32 } from "@cosmjs/encoding"
 import { type Hex, keccak256 } from "viem"
 import type { DerivedWallet } from "./store"
 
-/* EIP-712 typed data for wallet derivation signature. Origin scopes derived wallets
- * so the same user signing on different apps will derive different wallets. */
-export function getAutoSignTypedData(origin: string) {
-  return {
-    domain: { name: "InterwovenKit", version: "1" },
-    types: {
-      AutoSign: [
-        { name: "action", type: "string" },
-        { name: "origin", type: "string" },
-      ],
-    },
-    primaryType: "AutoSign" as const,
-    message: {
-      action: "Enable Auto-Sign",
-      origin: origin,
-    },
-  }
+/* EIP-191 message for wallet derivation signature. Origin scopes derived wallets
+ * so the same user signing on different apps will derive different wallets.
+ * Uses personal_sign (EIP-191) instead of signTypedData (EIP-712) for better
+ * hardware wallet compatibility, particularly with Ledger devices. */
+export function getAutoSignMessage(origin: string): string {
+  return `Enable Auto-Sign for InterwovenKit
+
+Origin: ${origin}
+
+Sign this message to create a dedicated signing wallet for auto-sign transactions. This wallet will only be used to sign transactions on your behalf when auto-sign is enabled.`
 }
 
 /**

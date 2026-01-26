@@ -1,74 +1,47 @@
 import type { Hex } from "viem"
 import { describe, expect, it } from "vitest"
-import { deriveWalletFromSignature, getAutoSignTypedData, getDerivedWalletKey } from "./derivation"
+import { deriveWalletFromSignature, getAutoSignMessage, getDerivedWalletKey } from "./derivation"
 
-describe("getAutoSignTypedData", () => {
-  it("returns correct EIP-712 domain", () => {
-    const result = getAutoSignTypedData("https://example.com")
+describe("getAutoSignMessage", () => {
+  it("returns a string message", () => {
+    const result = getAutoSignMessage("https://example.com")
 
-    expect(result.domain).toEqual({
-      name: "InterwovenKit",
-      version: "1",
-    })
-  })
-
-  it("returns correct EIP-712 types structure", () => {
-    const result = getAutoSignTypedData("https://example.com")
-
-    expect(result.types).toEqual({
-      AutoSign: [
-        { name: "action", type: "string" },
-        { name: "origin", type: "string" },
-      ],
-    })
-  })
-
-  it("returns correct primary type", () => {
-    const result = getAutoSignTypedData("https://example.com")
-
-    expect(result.primaryType).toBe("AutoSign")
+    expect(typeof result).toBe("string")
   })
 
   it("includes origin in message", () => {
     const origin = "https://myapp.initia.xyz"
-    const result = getAutoSignTypedData(origin)
+    const result = getAutoSignMessage(origin)
 
-    expect(result.message.origin).toBe(origin)
+    expect(result).toContain(origin)
   })
 
-  it("sets action to 'Enable Auto-Sign'", () => {
-    const result = getAutoSignTypedData("https://example.com")
+  it("includes InterwovenKit branding", () => {
+    const result = getAutoSignMessage("https://example.com")
 
-    expect(result.message.action).toBe("Enable Auto-Sign")
+    expect(result).toContain("InterwovenKit")
   })
 
-  it("returns complete typed data structure", () => {
-    const origin = "https://example.com"
-    const result = getAutoSignTypedData(origin)
+  it("includes Enable Auto-Sign action", () => {
+    const result = getAutoSignMessage("https://example.com")
 
-    expect(result).toEqual({
-      domain: { name: "InterwovenKit", version: "1" },
-      types: {
-        AutoSign: [
-          { name: "action", type: "string" },
-          { name: "origin", type: "string" },
-        ],
-      },
-      primaryType: "AutoSign",
-      message: {
-        action: "Enable Auto-Sign",
-        origin: origin,
-      },
-    })
+    expect(result).toContain("Enable Auto-Sign")
   })
 
   it("handles different origins correctly", () => {
-    const result1 = getAutoSignTypedData("https://app1.com")
-    const result2 = getAutoSignTypedData("https://app2.com")
+    const result1 = getAutoSignMessage("https://app1.com")
+    const result2 = getAutoSignMessage("https://app2.com")
 
-    expect(result1.message.origin).toBe("https://app1.com")
-    expect(result2.message.origin).toBe("https://app2.com")
-    expect(result1.message.origin).not.toBe(result2.message.origin)
+    expect(result1).toContain("https://app1.com")
+    expect(result2).toContain("https://app2.com")
+    expect(result1).not.toBe(result2)
+  })
+
+  it("produces different messages for different origins", () => {
+    const message1 = getAutoSignMessage("https://app1.com")
+    const message2 = getAutoSignMessage("https://app2.com")
+
+    expect(message1).not.toBe(message2)
   })
 })
 
@@ -318,12 +291,12 @@ describe("getDerivedWalletKey", () => {
 describe("integration: full derivation flow", () => {
   const testAddress = "init1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpqr5e3d"
 
-  it("typed data + signature derivation produces valid wallet", async () => {
+  it("message + signature derivation produces valid wallet", async () => {
     const origin = "https://dapp.initia.xyz"
 
-    const typedData = getAutoSignTypedData(origin)
+    const message = getAutoSignMessage(origin)
 
-    expect(typedData.message.origin).toBe(origin)
+    expect(message).toContain(origin)
 
     const mockSignature: Hex =
       "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1c"

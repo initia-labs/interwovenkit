@@ -12,7 +12,7 @@ import { fromHex } from "@cosmjs/encoding"
 import type { EncodeObject } from "@cosmjs/proto-signing"
 import { ethers } from "ethers"
 import type { Hex } from "viem"
-import { useSignTypedData } from "wagmi"
+import { useSignMessage } from "wagmi"
 import { useAtom } from "jotai"
 import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
@@ -20,7 +20,7 @@ import { useFindChain } from "@/data/chains"
 import { encodeEthSecp256k1Signature } from "@/data/patches/signature"
 import { useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { deriveWalletFromSignature, getAutoSignTypedData, getDerivedWalletKey } from "./derivation"
+import { deriveWalletFromSignature, getAutoSignMessage, getDerivedWalletKey } from "./derivation"
 import { type DerivedWallet, derivedWalletsAtom } from "./store"
 
 const pendingDerivations = new Map<string, Promise<DerivedWallet>>()
@@ -80,11 +80,12 @@ export class DerivedWalletSigner implements OfflineAminoSigner {
   }
 }
 
-/* Derive and store wallet from EIP-712 signature for autosign delegation.
+/* Derive and store wallet from EIP-191 signature for autosign delegation.
+ * Uses personal_sign instead of signTypedData for better hardware wallet compatibility.
  * The same derived wallet is used across all chains for the same user. */
 export function useDeriveWallet() {
   const [derivedWallets, setDerivedWallets] = useAtom(derivedWalletsAtom)
-  const { signTypedDataAsync } = useSignTypedData()
+  const { signMessageAsync } = useSignMessage()
   const findChain = useFindChain()
   const userAddress = useInitiaAddress()
 
@@ -109,13 +110,8 @@ export function useDeriveWallet() {
       try {
         const chain = findChain(chainId)
         const origin = window.location.origin
-        const typedData = getAutoSignTypedData(origin)
-        const signature = await signTypedDataAsync({
-          domain: typedData.domain,
-          types: typedData.types,
-          primaryType: typedData.primaryType,
-          message: typedData.message,
-        })
+        const message = getAutoSignMessage(origin)
+        const signature = await signMessageAsync({ message })
 
         const wallet = await deriveWalletFromSignature(signature as Hex, chain.bech32_prefix)
 
