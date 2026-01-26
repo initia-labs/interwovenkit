@@ -55,17 +55,20 @@ const VipRow = ({ row }: VipRowProps) => {
     row
   const [isOpen, setIsOpen] = useState(false)
 
-  // Calculate total value for this row
   const totalValue = lockedRewardValue + claimableRewardValue
+  const hasContent = lockedReward > 0 || claimableReward > 0
 
   return (
-    <Collapsible.Root open={isOpen} onOpenChange={setIsOpen}>
+    <Collapsible.Root open={isOpen} onOpenChange={setIsOpen} disabled={!hasContent}>
       <Collapsible.Trigger asChild>
-        <button className={styles.tokenTrigger}>
+        <button className={styles.tokenTrigger} data-disabled={!hasContent || undefined}>
           <div className={styles.tokenInfo}>
             <IconChevronDown
               size={14}
-              className={clsx(styles.tokenChevron, { [styles.expanded]: isOpen })}
+              className={clsx(styles.tokenChevron, {
+                [styles.expanded]: isOpen,
+                [styles.hidden]: !hasContent,
+              })}
             />
             <div className={styles.tokenInfoLabel}>
               {logoUrl && (

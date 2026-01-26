@@ -73,12 +73,16 @@
   padding: 12px 16px;
   transition: background-color var(--transition) ease;
 
-  &:hover {
+  &:hover:not([data-disabled]) {
     background-color: var(--gray-6);
 
     .tokenChevron {
       color: var(--gray-1);
     }
+  }
+
+  &[data-disabled] {
+    cursor: default;
   }
 }
 
@@ -89,6 +93,10 @@
 
 .tokenChevron.expanded {
   transform: rotate(180deg);
+}
+
+.tokenChevron.hidden {
+  visibility: hidden;
 }
 
 .tokenInfo {
