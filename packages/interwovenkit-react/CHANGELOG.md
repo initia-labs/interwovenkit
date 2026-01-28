@@ -1,5 +1,12 @@
 # Changelog
 
+### [2.2.2](https://github.com/initia-labs/interwovenkit/compare/v2.2.1...v2.2.2) (2026-01-28)
+
+### Bug Fixes
+
+- **home:** increase navigation icon size from 16 to 20px ([e69ba44](https://github.com/initia-labs/interwovenkit/commit/e69ba44bfab32b7238a2a49bb891e8ded79f4d6e))
+- **minity:** simplify SSE reconnection and add refresh trigger ([56ae7e1](https://github.com/initia-labs/interwovenkit/commit/56ae7e19f42f8cfdebfbaa5bfaacb403129499d1))
+
 ### [2.2.1](https://github.com/initia-labs/interwovenkit/compare/v2.2.0...v2.2.1) (2026-01-24)
 
 ### Performance Optimization
