@@ -28,11 +28,19 @@ const DEFAULT_SSE_DATA: SSEPortfolioData = {
 // Atom to trigger SSE refresh (increment to reconnect)
 const portfolioRefreshTriggerAtom = atom(0)
 
-// Hook to trigger portfolio SSE refresh
+// Throttle state for refresh trigger (max once per second)
+const REFRESH_THROTTLE_MS = 1000
+let lastRefreshTime = 0
+
+// Hook to trigger portfolio SSE refresh (throttled to max once per second)
 export function useRefreshPortfolio() {
   const setTrigger = useSetAtom(portfolioRefreshTriggerAtom)
   useEffect(() => {
-    setTrigger((n) => n + 1)
+    const now = Date.now()
+    if (now - lastRefreshTime >= REFRESH_THROTTLE_MS) {
+      lastRefreshTime = now
+      setTrigger((n) => n + 1)
+    }
   }, [setTrigger])
 }
 
