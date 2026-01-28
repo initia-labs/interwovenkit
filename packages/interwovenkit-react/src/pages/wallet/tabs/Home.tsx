@@ -74,17 +74,17 @@ const Home = () => {
 
         <div className={styles.nav}>
           <Link to="/send" className={styles.item}>
-            <IconSend size={16} />
+            <IconSend size={20} />
             <span>Send</span>
           </Link>
 
           <Link to="/bridge" className={styles.item}>
-            <IconBridge size={16} />
+            <IconBridge size={20} />
             <span>Bridge/Swap</span>
           </Link>
 
           <Link to="/receive" className={styles.item}>
-            <IconQrCode size={16} />
+            <IconQrCode size={20} />
             <span>Receive</span>
           </Link>
         </div>
