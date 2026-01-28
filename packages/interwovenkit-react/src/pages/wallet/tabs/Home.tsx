@@ -7,6 +7,7 @@ import Scrollable from "@/components/Scrollable"
 import Skeleton from "@/components/Skeleton"
 import { useL1PositionsTotal } from "@/data/initia-positions-total"
 import { useAppchainPositionsBalance, useLiquidAssetsBalance } from "@/data/minity"
+import { useRefreshPortfolio } from "@/data/minity/sse"
 import { usePortfolio } from "@/data/portfolio"
 import { formatValue } from "@/lib/format"
 import { Link, useNavigate, usePath } from "@/lib/router"
@@ -50,6 +51,8 @@ const TotalBalance = () => {
 
 const Home = () => {
   useClaimableModal()
+  useRefreshPortfolio()
+
   const isTestnet = useIsTestnet()
   const navigate = useNavigate()
   const path = usePath()
