@@ -50,6 +50,39 @@ const formatWalletName = (name: string) => {
   return name.replace(/\s*Wallet\s*/gi, "").trim()
 }
 
+const POPULAR_WALLETS = [
+  {
+    id: "io.rabby",
+    name: "Rabby",
+    icon: "https://assets.initia.xyz/images/wallets/Rabby.webp",
+    url: "https://rabby.io",
+  },
+  {
+    id: "app.phantom",
+    name: "Phantom",
+    icon: "https://assets.initia.xyz/images/wallets/Phantom.webp",
+    url: "https://phantom.com",
+  },
+  {
+    id: "app.keplr",
+    name: "Keplr",
+    icon: "https://assets.initia.xyz/images/wallets/Keplr.webp",
+    url: "https://keplr.app",
+  },
+  {
+    id: "io.leapwallet",
+    name: "Leap",
+    icon: "https://assets.initia.xyz/images/wallets/Leap.webp",
+    url: "https://leapwallet.io",
+  },
+  {
+    id: "io.metamask",
+    name: "MetaMask",
+    icon: "https://assets.initia.xyz/images/wallets/MetaMask.webp",
+    url: "https://metamask.io",
+  },
+]
+
 interface Props {
   walletConnectors: Connector[]
   privyConnector: Connector | undefined
@@ -67,8 +100,11 @@ const SignIn = ({
   onConnect,
   onShowAll,
 }: Props) => {
-  const displayWallets = walletConnectors.slice(0, 5)
-  const hasMoreWallets = walletConnectors.length > 5
+  const installedWallets = walletConnectors.slice(0, 5)
+  const installedIds = new Set(walletConnectors.map((c) => c.id))
+
+  const slotsToFill = Math.max(0, 5 - installedWallets.length)
+  const popularToShow = POPULAR_WALLETS.filter((w) => !installedIds.has(w.id)).slice(0, slotsToFill)
 
   return (
     <div className={styles.page}>
@@ -79,7 +115,7 @@ const SignIn = ({
       </header>
 
       <div className={styles.grid}>
-        {displayWallets.map((connector) => {
+        {installedWallets.map((connector) => {
           const { name, icon, id } = connector
           const isPendingConnection = pendingConnectorId === id
 
@@ -104,16 +140,29 @@ const SignIn = ({
           )
         })}
 
-        {hasMoreWallets && (
-          <button className={styles.gridItem} onClick={onShowAll} disabled={isPending}>
+        {popularToShow.map((wallet) => (
+          <a
+            className={styles.gridItem}
+            href={wallet.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            key={wallet.id}
+          >
             <div className={styles.iconWrapper}>
-              <div className={styles.moreIcon}>
-                <MoreDotsIcon />
-              </div>
+              <Image src={wallet.icon} width={44} height={44} className={styles.icon} />
             </div>
-            <span className={styles.gridName}>More</span>
-          </button>
-        )}
+            <span className={styles.gridName}>{wallet.name}</span>
+          </a>
+        ))}
+
+        <button className={styles.gridItem} onClick={onShowAll} disabled={isPending}>
+          <div className={styles.iconWrapper}>
+            <div className={styles.moreIcon}>
+              <MoreDotsIcon />
+            </div>
+          </div>
+          <span className={styles.gridName}>More</span>
+        </button>
       </div>
 
       {privyConnector && (

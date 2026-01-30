@@ -13,6 +13,7 @@ export interface WalletInfo {
   id: string
   name: string
   image_url: { sm: string; md: string; lg: string }
+  homepage?: string
   rdns?: string | null
 }
 

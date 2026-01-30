@@ -123,12 +123,18 @@ const AllWallets = ({
           })}
 
           {additionalWallets.map((wallet) => (
-            <div className={styles.listItemDisabled} key={wallet.id}>
+            <a
+              className={styles.listItem}
+              href={wallet.homepage}
+              target="_blank"
+              rel="noopener noreferrer"
+              key={wallet.id}
+            >
               <div className={styles.listIconWrapper}>
                 <Image src={wallet.image_url.sm} width={32} height={32} className={styles.icon} />
               </div>
-              <span className={styles.listNameDimmed}>{wallet.name}</span>
-            </div>
+              <span className={styles.listName}>{wallet.name}</span>
+            </a>
           ))}
         </div>
       </Scrollable>
