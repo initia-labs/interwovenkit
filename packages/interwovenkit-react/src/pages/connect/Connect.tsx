@@ -1,20 +1,20 @@
 import { descend } from "ramda"
 import type { Connector } from "wagmi"
 import { useConnect } from "wagmi"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useReadLocalStorage } from "usehooks-ts"
 import { useMutation } from "@tanstack/react-query"
 import { normalizeError } from "@/data/http"
 import { initiaPrivyWalletOptions } from "@/public/data/connectors"
 import AllWallets from "./AllWallets"
 import SignIn from "./SignIn"
+import { useWalletConnectWallets } from "./useWalletConnectWallets"
 
 export interface WalletInfo {
   id: string
   name: string
-  image_url: { sm: string; md: string; lg: string }
+  image_url?: Partial<{ sm: string; md: string; lg: string }>
   homepage?: string
-  rdns?: string | null
 }
 
 const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
@@ -23,14 +23,19 @@ const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
   const [pendingConnectorId, setPendingConnectorId] = useState<string | null>(null)
   const [view, setView] = useState<"signin" | "all">("signin")
 
+  // Prefetch wallet list so it's ready when user clicks "More wallets"
+  useWalletConnectWallets()
+
   const { mutate, isPending } = useMutation({
     mutationFn: async (connector: Connector) => {
-      setPendingConnectorId(connector.id)
       try {
         await connectAsync({ connector })
       } catch (error) {
         throw await normalizeError(error)
       }
+    },
+    onMutate: (connector: Connector) => {
+      setPendingConnectorId(connector.id)
     },
     onSettled: () => {
       setPendingConnectorId(null)
@@ -40,12 +45,19 @@ const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
     },
   })
 
-  const sortedConnectors = connectors.toSorted(
-    descend((connector) => connector.id === recentConnectorId),
+  const sortedConnectors = useMemo(
+    () => [...connectors].sort(descend((connector) => connector.id === recentConnectorId)),
+    [connectors, recentConnectorId],
   )
 
-  const privyConnector = sortedConnectors.find((c) => c.id === initiaPrivyWalletOptions.id)
-  const walletConnectors = sortedConnectors.filter((c) => c.id !== initiaPrivyWalletOptions.id)
+  const privyConnector = useMemo(
+    () => sortedConnectors.find((c) => c.id === initiaPrivyWalletOptions.id),
+    [sortedConnectors],
+  )
+  const walletConnectors = useMemo(
+    () => sortedConnectors.filter((c) => c.id !== initiaPrivyWalletOptions.id),
+    [sortedConnectors],
+  )
 
   if (view === "all") {
     return (

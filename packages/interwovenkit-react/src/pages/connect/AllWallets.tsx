@@ -1,17 +1,28 @@
 import clsx from "clsx"
 import type { Connector } from "wagmi"
 import { useMemo, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { IconChevronLeft } from "@initia/icons-react"
+import { IconBack } from "@initia/icons-react"
 import SearchInput from "@/components/form/SearchInput"
 import Image from "@/components/Image"
 import Loader from "@/components/Loader"
 import Scrollable from "@/components/Scrollable"
-import type { WalletInfo } from "./Connect"
+import { useWalletConnectWallets } from "./useWalletConnectWallets"
 import styles from "./Connect.module.css"
 
-const WALLETCONNECT_PROJECT_ID = "5722e7dffb709492cf5312446ceeff73"
-const WALLETCONNECT_API = `https://explorer-api.walletconnect.com/v3/wallets?projectId=${WALLETCONNECT_PROJECT_ID}`
+const isSafeHttpsUrl = (url: string): boolean => {
+  try {
+    const u = new URL(url.trim())
+    return u.protocol === "https:" && !u.username && !u.password
+  } catch {
+    return false
+  }
+}
+
+const normalizeWalletName = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/\s*(wallet|extension|app)$/, "")
+    .trim()
 
 interface Props {
   walletConnectors: Connector[]
@@ -31,21 +42,7 @@ const AllWallets = ({
   onBack,
 }: Props) => {
   const [search, setSearch] = useState("")
-
-  const { data: wcWallets = [] } = useQuery({
-    queryKey: ["walletconnect-wallets"],
-    queryFn: async () => {
-      const response = await fetch(WALLETCONNECT_API)
-      if (!response.ok) {
-        throw new Error(`Failed to fetch wallets: ${response.status}`)
-      }
-      const data = await response.json()
-      const wallets: WalletInfo[] = Object.values(data.listings || data || {})
-      return wallets
-    },
-    staleTime: 1000 * 60 * 60,
-    retry: 2,
-  })
+  const { data: wcWallets = [] } = useWalletConnectWallets()
 
   const filteredConnectors = useMemo(() => {
     let result = [...walletConnectors]
@@ -63,8 +60,13 @@ const AllWallets = ({
   }, [walletConnectors, search, recentConnectorId])
 
   const additionalWallets = useMemo(() => {
-    const connectorNames = new Set(walletConnectors.map((c) => c.name.toLowerCase()))
-    let filtered = wcWallets.filter((w) => !connectorNames.has(w.name.toLowerCase()))
+    const connectorNamesNormalized = new Set(
+      walletConnectors.map((c) => normalizeWalletName(c.name)),
+    )
+
+    let filtered = wcWallets.filter(
+      (w) => !connectorNamesNormalized.has(normalizeWalletName(w.name)),
+    )
 
     if (search) {
       const searchLower = search.toLowerCase()
@@ -75,10 +77,10 @@ const AllWallets = ({
   }, [wcWallets, walletConnectors, search])
 
   return (
-    <div className={styles.page}>
+    <div className={styles.pageTop}>
       <header className={styles.header}>
-        <button className={styles.backButton} onClick={onBack}>
-          <IconChevronLeft size={20} />
+        <button type="button" className={styles.backButton} onClick={onBack} aria-label="Back">
+          <IconBack size={16} aria-hidden="true" />
         </button>
         <h1 className={styles.title}>All wallets</h1>
         <div className={styles.headerSpacer} />
@@ -87,7 +89,8 @@ const AllWallets = ({
       <div className={styles.searchWrapper}>
         <SearchInput
           rootClassName={styles.searchInput}
-          placeholder="Search wallets"
+          placeholder="Search wallets…"
+          aria-label="Search wallets"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onClear={() => setSearch("")}
@@ -100,42 +103,63 @@ const AllWallets = ({
             const { name, icon, id } = connector
             const isRecent = recentConnectorId === id
             const isPendingConnection = pendingConnectorId === id
+            const isReady = "ready" in connector ? Boolean(connector.ready) : true
 
             return (
               <button
+                type="button"
                 className={clsx(styles.listItem, { [styles.loading]: isPendingConnection })}
                 onClick={() => onConnect(connector)}
-                disabled={isPending}
-                key={id}
+                disabled={isPending || !isReady}
+                aria-busy={isPendingConnection}
+                key={`connector:${id}`}
               >
                 <div className={styles.listIconWrapper}>
-                  <Image src={icon} width={32} height={32} className={styles.icon} />
-                  <span className={styles.installedDot} />
+                  <Image src={icon} width={32} height={32} alt="" className={styles.icon} />
                 </div>
                 <span className={styles.listName}>{name}</span>
                 {isPendingConnection ? (
                   <Loader size={16} />
                 ) : isRecent ? (
                   <span className={styles.recentBadge}>Recent</span>
+                ) : isReady ? (
+                  <span className={styles.installedText}>Installed</span>
                 ) : null}
               </button>
             )
           })}
 
-          {additionalWallets.map((wallet) => (
-            <a
-              className={styles.listItem}
-              href={wallet.homepage}
-              target="_blank"
-              rel="noopener noreferrer"
-              key={wallet.id}
-            >
-              <div className={styles.listIconWrapper}>
-                <Image src={wallet.image_url.sm} width={32} height={32} className={styles.icon} />
-              </div>
-              <span className={styles.listName}>{wallet.name}</span>
-            </a>
-          ))}
+          {additionalWallets.map((wallet) => {
+            const href = wallet.homepage
+            const iconSrc = wallet.image_url?.sm || wallet.image_url?.md || wallet.image_url?.lg
+            const safeIconSrc = iconSrc && isSafeHttpsUrl(iconSrc) ? iconSrc : undefined
+
+            if (!href || !isSafeHttpsUrl(href)) return null
+
+            return (
+              <a
+                className={styles.listItem}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${wallet.name} (opens in new tab)`}
+                key={`wc:${wallet.id}`}
+              >
+                <div className={styles.listIconWrapper}>
+                  {safeIconSrc && (
+                    <Image
+                      src={safeIconSrc}
+                      width={32}
+                      height={32}
+                      alt=""
+                      className={styles.icon}
+                    />
+                  )}
+                </div>
+                <span className={styles.listName}>{wallet.name}</span>
+              </a>
+            )
+          })}
         </div>
       </Scrollable>
     </div>

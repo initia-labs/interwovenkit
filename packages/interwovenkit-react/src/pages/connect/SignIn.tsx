@@ -1,11 +1,12 @@
 import clsx from "clsx"
 import type { Connector } from "wagmi"
+import { IconExternalLink } from "@initia/icons-react"
 import Image from "@/components/Image"
 import Loader from "@/components/Loader"
 import styles from "./Connect.module.css"
 
 const MoreDotsIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
     <circle cx="6" cy="12" r="2" />
     <circle cx="12" cy="12" r="2" />
     <circle cx="18" cy="12" r="2" />
@@ -13,7 +14,7 @@ const MoreDotsIcon = () => (
 )
 
 const GoogleIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24">
+  <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
     <path
       fill="#4285F4"
       d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -34,21 +35,25 @@ const GoogleIcon = () => (
 )
 
 const XIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
   </svg>
 )
 
 const EmailIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    aria-hidden="true"
+  >
     <rect x="2" y="4" width="20" height="16" rx="2" />
     <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
   </svg>
 )
-
-const formatWalletName = (name: string) => {
-  return name.replace(/\s*Wallet\s*/gi, "").trim()
-}
 
 const POPULAR_WALLETS = [
   {
@@ -100,96 +105,130 @@ const SignIn = ({
   onConnect,
   onShowAll,
 }: Props) => {
-  const installedWallets = walletConnectors.slice(0, 5)
-  const installedIds = new Set(walletConnectors.map((c) => c.id))
+  const readyConnectors = walletConnectors.filter((c) => !("ready" in c) || Boolean(c.ready))
+  const suggestedWallets = readyConnectors.slice(0, 5)
+  const readyConnectorIds = new Set(readyConnectors.map((c) => c.id))
 
-  const slotsToFill = Math.max(0, 5 - installedWallets.length)
-  const popularToShow = POPULAR_WALLETS.filter((w) => !installedIds.has(w.id)).slice(0, slotsToFill)
+  const slotsToFill = Math.max(0, 5 - suggestedWallets.length)
+  const popularToShow = POPULAR_WALLETS.filter((w) => !readyConnectorIds.has(w.id)).slice(
+    0,
+    slotsToFill,
+  )
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <div className={styles.headerSpacer} />
-        <h1 className={styles.title}>Sign in</h1>
-        <div className={styles.headerSpacer} />
-      </header>
+      <div className={styles.pageContent}>
+        <header className={styles.header}>
+          <div className={styles.headerSpacer} />
+          <h1 className={styles.title}>Sign in</h1>
+          <div className={styles.headerSpacer} />
+        </header>
 
-      <div className={styles.grid}>
-        {installedWallets.map((connector) => {
-          const { name, icon, id } = connector
-          const isPendingConnection = pendingConnectorId === id
+        <div className={styles.divider}>
+          <span className={styles.dividerText}>Suggested Wallets</span>
+        </div>
 
-          return (
-            <button
-              className={clsx(styles.gridItem, { [styles.loading]: isPendingConnection })}
-              onClick={() => onConnect(connector)}
-              disabled={isPending}
-              key={id}
-            >
-              <div className={styles.iconWrapper}>
-                <Image src={icon} width={44} height={44} className={styles.icon} />
-                <span className={styles.installedDot} />
-              </div>
-              <span className={styles.gridName}>{formatWalletName(name)}</span>
-              {isPendingConnection && (
-                <div className={styles.loadingOverlay}>
-                  <Loader size={20} />
+        <div className={styles.list}>
+          {suggestedWallets.map((connector) => {
+            const { name, icon, id } = connector
+            const isPendingConnection = pendingConnectorId === id
+
+            return (
+              <button
+                type="button"
+                className={clsx(styles.listItem, { [styles.loading]: isPendingConnection })}
+                onClick={() => onConnect(connector)}
+                disabled={isPending}
+                aria-busy={isPendingConnection}
+                key={id}
+              >
+                <div className={styles.listIconWrapper}>
+                  <Image src={icon} width={32} height={32} alt="" className={styles.icon} />
                 </div>
-              )}
-            </button>
-          )
-        })}
+                <span className={styles.listName}>{name}</span>
+                {isPendingConnection ? (
+                  <Loader size={16} />
+                ) : (
+                  <span className={styles.installedText}>Installed</span>
+                )}
+              </button>
+            )
+          })}
 
-        {popularToShow.map((wallet) => (
-          <a
-            className={styles.gridItem}
-            href={wallet.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            key={wallet.id}
-          >
-            <div className={styles.iconWrapper}>
-              <Image src={wallet.icon} width={44} height={44} className={styles.icon} />
-            </div>
-            <span className={styles.gridName}>{wallet.name}</span>
-          </a>
-        ))}
-
-        <button className={styles.gridItem} onClick={onShowAll} disabled={isPending}>
-          <div className={styles.iconWrapper}>
-            <div className={styles.moreIcon}>
-              <MoreDotsIcon />
-            </div>
-          </div>
-          <span className={styles.gridName}>More</span>
-        </button>
-      </div>
-
-      {privyConnector && (
-        <>
-          <div className={styles.divider}>
-            <span className={styles.dividerText}>or</span>
-          </div>
+          {popularToShow.map((wallet) => (
+            <a
+              className={styles.listItem}
+              href={wallet.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`${wallet.name} (opens in new tab)`}
+              key={wallet.id}
+            >
+              <div className={styles.listIconWrapper}>
+                <Image src={wallet.icon} width={32} height={32} alt="" className={styles.icon} />
+              </div>
+              <span className={styles.listName}>{wallet.name}</span>
+            </a>
+          ))}
 
           <button
-            className={clsx(styles.socialButton, {
-              [styles.loading]: pendingConnectorId === privyConnector.id,
-            })}
-            onClick={() => onConnect(privyConnector)}
+            type="button"
+            className={styles.listItem}
+            onClick={onShowAll}
             disabled={isPending}
           >
-            <div className={styles.socialIcons}>
-              <GoogleIcon />
-              <XIcon />
-              <EmailIcon />
+            <div className={styles.listIconWrapper}>
+              <div className={styles.moreIconSmall}>
+                <MoreDotsIcon />
+              </div>
             </div>
-            <span className={styles.socialText}>Sign in with Socials</span>
-            <span className={styles.loaderSlot}>
-              {pendingConnectorId === privyConnector.id && <Loader size={16} />}
+            <span className={styles.listName}>More wallets</span>
+            <span className={styles.arrowIcon} aria-hidden="true">
+              →
             </span>
           </button>
-        </>
-      )}
+        </div>
+
+        {privyConnector && (
+          <>
+            <div className={styles.divider}>
+              <span className={styles.dividerText}>or</span>
+            </div>
+
+            <button
+              type="button"
+              className={clsx(styles.socialButton, {
+                [styles.loading]: pendingConnectorId === privyConnector.id,
+              })}
+              onClick={() => onConnect(privyConnector)}
+              disabled={isPending}
+              aria-busy={pendingConnectorId === privyConnector.id}
+            >
+              <div className={styles.socialIcons}>
+                <GoogleIcon />
+                <XIcon />
+                <EmailIcon />
+              </div>
+              <span className={styles.socialText}>Sign in with Socials</span>
+              <span className={styles.loaderSlot}>
+                {pendingConnectorId === privyConnector.id && <Loader size={16} />}
+              </span>
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* TODO: Update link to actual wallet documentation page */}
+      <a
+        className={styles.learnMoreLink}
+        href="https://docs.initia.xyz"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Learn more (opens in new tab)"
+      >
+        Learn more
+        <IconExternalLink size={14} aria-hidden="true" />
+      </a>
     </div>
   )
 }
