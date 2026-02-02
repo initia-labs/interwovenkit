@@ -8,53 +8,31 @@
   height: 100dvh;
 
   background-color: rgba(0, 0, 0, 0.8);
-  padding: var(--padding);
-  padding-top: 48px;
-
-  transition: opacity var(--transition) cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: opacity;
-
-  svg {
-    fill: var(--gray-2);
-    transform: rotate(90deg);
-  }
-
-  &[data-starting-style],
-  &[data-ending-style] {
-    opacity: 0;
-  }
+  cursor: pointer;
+  pointer-events: auto;
 }
 
-.content {
+.mobileContent {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: var(--z-index);
+
+  height: calc(100vh - 80px); /* fallback */
+  height: calc(100dvh - 80px);
+
+  outline: none;
+}
+
+.desktopContent {
   position: fixed;
   top: var(--drawer-offset);
   bottom: var(--drawer-offset);
   right: var(--drawer-offset);
   z-index: var(--z-index);
 
-  transition: all var(--transition) cubic-bezier(0.4, 0, 0.2, 1);
-  transition-property: transform, opacity;
-  will-change: transform;
-
-  @media (max-width: 576px) {
-    top: 80px;
-    bottom: 0;
-    left: 0;
-    right: 0;
-
-    height: calc(100vh - 80px); /* fallback */
-    height: calc(100dvh - 80px);
-  }
-
-  &[data-starting-style],
-  &[data-ending-style] {
-    opacity: 0;
-    transform: translateX(100%);
-
-    @media (max-width: 576px) {
-      transform: translateY(100%);
-    }
-  }
+  outline: none;
 }
 
 .inner {
