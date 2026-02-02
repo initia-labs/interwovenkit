@@ -167,7 +167,7 @@ const DepositFields = () => {
           </button>
         </div>
       )}
-      {!routeForState ? (
+      {!state.route || !!disabledMessage ? (
         <Footer>
           <Button.White
             type="submit"

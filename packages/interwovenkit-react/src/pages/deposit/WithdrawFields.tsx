@@ -169,7 +169,7 @@ const WithdrawFields = () => {
         </p>
         <IconChevronDown className={styles.chevron} size={16} />
       </button>
-      {!routeForState ? (
+      {!state.route || !!disabledMessage ? (
         <Footer>
           <Button.White
             type="submit"
