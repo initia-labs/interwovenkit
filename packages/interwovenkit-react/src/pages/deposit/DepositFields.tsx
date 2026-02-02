@@ -1,3 +1,4 @@
+import BigNumber from "bignumber.js"
 import { useEffect, useEffectEvent, useMemo } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
@@ -39,6 +40,7 @@ const DepositFields = () => {
 
   const { watch, setValue, getValues } = useTransferForm()
   const { srcDenom, srcChainId, quantity } = watch()
+  const rawQuantity = quantity ?? ""
 
   const localAsset = useLocalAssetDepositAsset()
   const externalAsset = useExternalDepositAsset()
@@ -46,29 +48,30 @@ const DepositFields = () => {
   const balance = balances?.[srcChainId]?.[srcDenom]?.amount
   const price = balances?.[srcChainId]?.[srcDenom]?.price || 0
 
-  const quantityValue = Number(price) * Number(quantity || 0)
+  const quantityValue = BigNumber(price || 0).times(rawQuantity || 0)
 
-  const [debouncedQuantity] = useDebounceValue(Number(quantity), 300)
+  const [debouncedQuantity] = useDebounceValue(rawQuantity, 300)
 
   const disabledMessage = useMemo(() => {
     if (!externalAsset) return "Select asset"
-    if (!Number(quantity)) return "Enter amount"
-    if (
-      Number(quantity) > Number(fromBaseUnit(balance, { decimals: externalAsset?.decimals || 6 }))
-    )
-      return "Insufficient balance"
+    const quantityBn = new BigNumber(rawQuantity || 0)
+    if (!quantityBn.isFinite() || quantityBn.lte(0)) return "Enter amount"
+    const balanceAmount = fromBaseUnit(balance ?? "0", {
+      decimals: externalAsset?.decimals || 6,
+    })
+    if (quantityBn.gt(balanceAmount)) return "Insufficient balance"
+  }, [rawQuantity, balance, externalAsset])
 
-    // Destructure error fields in deps to properly track each field change
-  }, [quantity, balance, externalAsset])
-
-  const { data: route, error: routeError } = useRouteQuery(debouncedQuantity.toString(), {
+  const { data: route, error: routeError } = useRouteQuery(debouncedQuantity, {
     disabled: !!disabledMessage,
   })
+
+  const routeForState = !routeError && !disabledMessage ? route : undefined
 
   const updateNavigationState = useEffectEvent(() => {
     navigate(0, {
       ...state,
-      route,
+      route: routeForState,
       values: {
         sender: hexAddress,
         recipient: state.recipientAddress ? InitiaAddress(state.recipientAddress).hex : hexAddress,
@@ -80,7 +83,7 @@ const DepositFields = () => {
 
   useEffect(() => {
     updateNavigationState()
-  }, [route, hexAddress])
+  }, [routeForState, hexAddress])
 
   if (!localAsset || !externalAsset) return null
 
@@ -88,6 +91,8 @@ const DepositFields = () => {
     <div className={styles.container}>
       {options.length > 1 && (
         <button
+          type="button"
+          aria-label="Back"
           className={styles.back}
           onClick={() => {
             setValue("quantity", "")
@@ -140,15 +145,19 @@ const DepositFields = () => {
         decimals={externalAsset?.decimals || 6}
         className={styles.input}
       />
-      {balance && (
+      {balance !== undefined && balance !== null && (
         <div className={styles.balanceContainer}>
-          <p className={styles.value}>{quantityValue ? formatValue(quantityValue) : "$-"}</p>
+          <p className={styles.value}>
+            {quantityValue.gt(0) ? formatValue(quantityValue.toString()) : "$-"}
+          </p>
 
           <button
             className={styles.maxButton}
             onClick={() => {
-              const maxAmount = fromBaseUnit(balance, { decimals: externalAsset?.decimals || 6 })
-              if (Number(quantity) === Number(maxAmount)) return
+              const maxAmount = fromBaseUnit(balance ?? "0", {
+                decimals: externalAsset?.decimals || 6,
+              })
+              if (new BigNumber(rawQuantity || 0).eq(maxAmount)) return
 
               setValue("quantity", maxAmount)
             }}
@@ -158,7 +167,7 @@ const DepositFields = () => {
           </button>
         </div>
       )}
-      {!state.route || !!disabledMessage ? (
+      {!routeForState ? (
         <Footer>
           <Button.White
             type="submit"

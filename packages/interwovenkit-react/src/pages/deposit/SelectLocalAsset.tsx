@@ -37,7 +37,7 @@ const SelectLocalAsset = () => {
     }
   }, [options])
 
-  if (options.length === 1) {
+  if (options.length === 0) {
     return <div>No assets found</div>
   }
 

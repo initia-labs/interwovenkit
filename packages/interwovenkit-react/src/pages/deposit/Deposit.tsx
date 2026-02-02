@@ -2,21 +2,23 @@ import { animated, useTransition } from "@react-spring/web"
 import { FormProvider, useForm } from "react-hook-form"
 import AnimatedHeight from "../../components/AnimatedHeight"
 import DepositFields from "./DepositFields"
-import { useAllBalancesQuery, useTransferForm } from "./hooks"
+import { type TransferFormValues, useAllBalancesQuery, useTransferForm } from "./hooks"
 import SelectExternalAsset from "./SelectExternalAsset"
 import SelectLocalAsset from "./SelectLocalAsset"
 import { TransferCompleted } from "./TransferCompleted"
 import styles from "./Deposit.module.css"
 
-export interface FormValues {
-  page: "select-local" | "select-external" | "fields" | "completed"
-  quantity: string
-}
-
 export const Deposit = () => {
-  const form = useForm<FormValues>({
+  const form = useForm<TransferFormValues>({
     mode: "onChange",
-    defaultValues: { page: "select-local", quantity: "" },
+    defaultValues: {
+      page: "select-local",
+      quantity: "",
+      srcDenom: "",
+      srcChainId: "",
+      dstDenom: "",
+      dstChainId: "",
+    },
   })
 
   // prefetch balances

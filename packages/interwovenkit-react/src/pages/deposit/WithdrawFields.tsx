@@ -1,3 +1,4 @@
+import BigNumber from "bignumber.js"
 import { useEffect, useEffectEvent, useMemo } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
@@ -39,6 +40,7 @@ const WithdrawFields = () => {
 
   const { watch, setValue, getValues } = useTransferForm()
   const { srcChainId, srcDenom, dstChainId, quantity } = watch()
+  const rawQuantity = quantity ?? ""
 
   const localAsset = useLocalAssetDepositAsset()
   const externalAsset = useExternalDepositAsset()
@@ -46,27 +48,27 @@ const WithdrawFields = () => {
   const balance = balances?.[srcChainId]?.[srcDenom]?.amount
   const price = balances?.[srcChainId]?.[srcDenom]?.price || 0
 
-  const quantityValue = Number(price) * Number(quantity || 0)
+  const quantityValue = BigNumber(price || 0).times(rawQuantity || 0)
 
-  const [debouncedQuantity] = useDebounceValue(Number(quantity), 300)
+  const [debouncedQuantity] = useDebounceValue(rawQuantity, 300)
 
   const disabledMessage = useMemo(() => {
-    if (!Number(quantity)) return "Enter amount"
-    if (Number(quantity) > Number(fromBaseUnit(balance, { decimals: localAsset?.decimals || 6 })))
-      return "Insufficient balance"
+    const quantityBn = new BigNumber(rawQuantity || 0)
+    if (!quantityBn.isFinite() || quantityBn.lte(0)) return "Enter amount"
+    const balanceAmount = fromBaseUnit(balance ?? "0", { decimals: localAsset?.decimals || 6 })
+    if (quantityBn.gt(balanceAmount)) return "Insufficient balance"
     if (!externalAsset) return "Select destination"
-    // Forced to use eslint-disable due to an issue with react-hooks/exhaustive-deps
-    // which for some reason thinks quantity is not a stable dependency even tho it works fine in DepositFields
-    // eslint-disable-next-line react-hooks/preserve-manual-memoization
-  }, [quantity, balance, externalAsset, localAsset])
-  const { data: route, error: routeError } = useRouteQuery(debouncedQuantity.toString(), {
+  }, [rawQuantity, balance, externalAsset, localAsset])
+  const { data: route, error: routeError } = useRouteQuery(debouncedQuantity, {
     disabled: !!disabledMessage,
   })
+
+  const routeForState = !routeError && !disabledMessage ? route : undefined
 
   const updateNavigationState = useEffectEvent(() => {
     navigate(0, {
       ...state,
-      route,
+      route: routeForState,
       values: {
         sender: hexAddress,
         recipient: state.recipientAddress ? InitiaAddress(state.recipientAddress).hex : hexAddress,
@@ -78,7 +80,7 @@ const WithdrawFields = () => {
 
   useEffect(() => {
     updateNavigationState()
-  }, [route, hexAddress])
+  }, [routeForState, hexAddress])
 
   if (!localAsset) return null
 
@@ -86,6 +88,8 @@ const WithdrawFields = () => {
     <div className={styles.container}>
       {options.length > 1 && (
         <button
+          type="button"
+          aria-label="Back"
           className={styles.back}
           onClick={() => {
             setValue("dstDenom", "")
@@ -108,15 +112,19 @@ const WithdrawFields = () => {
         decimals={localAsset?.decimals || 6}
         className={styles.input}
       />
-      {balance && (
+      {balance !== undefined && balance !== null && (
         <div className={styles.balanceContainer}>
-          <p className={styles.value}>{quantityValue ? formatValue(quantityValue) : "$-"}</p>
+          <p className={styles.value}>
+            {quantityValue.gt(0) ? formatValue(quantityValue.toString()) : "$-"}
+          </p>
 
           <button
             className={styles.maxButton}
             onClick={() => {
-              const maxAmount = fromBaseUnit(balance, { decimals: localAsset?.decimals || 6 })
-              if (Number(quantity) === Number(maxAmount)) return
+              const maxAmount = fromBaseUnit(balance ?? "0", {
+                decimals: localAsset?.decimals || 6,
+              })
+              if (new BigNumber(rawQuantity || 0).eq(maxAmount)) return
 
               setValue("quantity", maxAmount)
             }}
@@ -161,7 +169,7 @@ const WithdrawFields = () => {
         </p>
         <IconChevronDown className={styles.chevron} size={16} />
       </button>
-      {!state.route || !!disabledMessage ? (
+      {!routeForState ? (
         <Footer>
           <Button.White
             type="submit"
