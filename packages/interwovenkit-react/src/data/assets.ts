@@ -145,14 +145,12 @@ export function useDenoms(metadatas: string[]) {
 
   const result = useSuspenseQueries({
     queries: metadatas.map((metadata) => ({
-      queryFn: async () => {
-        const response = await restClient
+      queryFn: () =>
+        restClient
           .get("initia/move/v1/denom", { searchParams: { metadata } })
-          .json<{ denom: string }>()
-        return response.denom
-      },
+          .json<{ denom: string }>(),
       queryKey: assetQueryKeys.denom(layer1.restUrl, metadata).queryKey,
-      select: (data: string): [string, string] => [metadata, data],
+      select: (data: { denom: string }): [string, string] => [metadata, data.denom],
       staleTime: STALE_TIMES.INFINITY,
     })),
   })

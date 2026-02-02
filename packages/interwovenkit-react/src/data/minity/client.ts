@@ -13,8 +13,12 @@ export const SSE_RECONNECT_MAX_DELAY = 10000
 // ============================================
 
 export function createMinityClient(minityUrl?: string) {
+  if (!minityUrl) {
+    throw new Error("Minity URL is required to create Minity client")
+  }
+
   return ky.create({
-    prefixUrl: minityUrl || "https://portfolio-api.minity.xyz",
+    prefixUrl: minityUrl,
     timeout: 30000, // 30 seconds timeout for portfolio API
   })
 }
