@@ -54,7 +54,7 @@ const DepositFields = () => {
 
   const disabledMessage = useMemo(() => {
     if (!externalAsset) return "Select asset"
-    const quantityBn = new BigNumber(rawQuantity || 0)
+    const quantityBn = BigNumber(rawQuantity || 0)
     if (!quantityBn.isFinite() || quantityBn.lte(0)) return "Enter amount"
     const balanceAmount = fromBaseUnit(balance ?? "0", {
       decimals: externalAsset?.decimals || 6,
@@ -157,7 +157,7 @@ const DepositFields = () => {
               const maxAmount = fromBaseUnit(balance ?? "0", {
                 decimals: externalAsset?.decimals || 6,
               })
-              if (new BigNumber(rawQuantity || 0).eq(maxAmount)) return
+              if (BigNumber(rawQuantity || 0).eq(maxAmount)) return
 
               setValue("quantity", maxAmount)
             }}

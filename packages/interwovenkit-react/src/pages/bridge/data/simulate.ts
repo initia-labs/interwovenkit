@@ -31,7 +31,7 @@ export function useRouteQuery(
   const debouncedValues = { ...values, quantity: debouncedQuantity }
   const isDisabled =
     !values.srcChainId || !values.srcDenom || !values.dstChainId || !values.dstDenom
-  const quantityBn = new BigNumber(debouncedValues.quantity || 0)
+  const quantityBn = BigNumber(debouncedValues.quantity || 0)
   const isQuantityValid = quantityBn.isFinite() && quantityBn.gt(0)
 
   const queryClient = useQueryClient()

@@ -53,7 +53,7 @@ const WithdrawFields = () => {
   const [debouncedQuantity] = useDebounceValue(rawQuantity, 300)
 
   const disabledMessage = useMemo(() => {
-    const quantityBn = new BigNumber(rawQuantity || 0)
+    const quantityBn = BigNumber(rawQuantity || 0)
     if (!quantityBn.isFinite() || quantityBn.lte(0)) return "Enter amount"
     const balanceAmount = fromBaseUnit(balance ?? "0", { decimals: localAsset?.decimals || 6 })
     if (quantityBn.gt(balanceAmount)) return "Insufficient balance"
@@ -124,7 +124,7 @@ const WithdrawFields = () => {
               const maxAmount = fromBaseUnit(balance ?? "0", {
                 decimals: localAsset?.decimals || 6,
               })
-              if (new BigNumber(rawQuantity || 0).eq(maxAmount)) return
+              if (BigNumber(rawQuantity || 0).eq(maxAmount)) return
 
               setValue("quantity", maxAmount)
             }}
