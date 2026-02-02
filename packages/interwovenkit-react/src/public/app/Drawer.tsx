@@ -60,7 +60,7 @@ const Drawer = ({ children }: PropsWithChildren) => {
 
       return (
         <Scrollable>
-          <Status error>{error.message}</Status>
+          <Status error>{error instanceof Error ? error.message : String(error)}</Status>
           <Footer>
             <Button.White onClick={retry}>Retry</Button.White>
           </Footer>
