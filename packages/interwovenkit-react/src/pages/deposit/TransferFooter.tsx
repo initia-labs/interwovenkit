@@ -203,6 +203,7 @@ const TransferFooter = ({ tx, gas, mode }: Props) => {
 
   const confirmMessage = mode === "withdraw" ? "Withdraw" : "Deposit"
 
+  // TransferFooterWithFee assumes `gas` exists and `tx` is a cosmos tx.
   if (!gas || !("cosmos_tx" in tx)) {
     return (
       <TransferFooterWithoutFee tx={tx} onCompleted={onCompleted} confirmMessage={confirmMessage} />

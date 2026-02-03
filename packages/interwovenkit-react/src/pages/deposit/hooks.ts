@@ -2,7 +2,7 @@ import type { BalancesResponseJson } from "@skip-go/client"
 import { useFormContext } from "react-hook-form"
 import { useQuery } from "@tanstack/react-query"
 import { STALE_TIMES } from "@/data/http"
-import { useLocationState, usePath } from "@/lib/router"
+import { useLocationState } from "@/lib/router"
 import { useHexAddress, useInitiaAddress } from "@/public/data/hooks"
 import { useAllSkipAssets } from "../bridge/data/assets"
 import { useFindSkipChain, useSkipChains } from "../bridge/data/chains"
@@ -59,13 +59,8 @@ const TRANSFER_MODE_CONFIG: Record<TransferMode, TransferModeConfig> = {
   },
 }
 
-export function getTransferModeFromPath(path: string): TransferMode {
-  return path.startsWith("/withdraw") ? "withdraw" : "deposit"
-}
-
-export function useTransferMode(mode?: TransferMode) {
-  const path = usePath()
-  return TRANSFER_MODE_CONFIG[mode ?? getTransferModeFromPath(path)]
+export function useTransferMode(mode: TransferMode) {
+  return TRANSFER_MODE_CONFIG[mode]
 }
 
 export function useAllBalancesQuery() {
@@ -107,7 +102,7 @@ export function useLocalAssetOptions() {
   )
 }
 
-export function useLocalAssetDepositAsset(mode?: TransferMode) {
+export function useLocalAssetDepositAsset(mode: TransferMode) {
   const { local } = useTransferMode(mode)
   const skipAssets = useAllSkipAssets()
   const { watch } = useTransferForm()
@@ -118,7 +113,7 @@ export function useLocalAssetDepositAsset(mode?: TransferMode) {
   return skipAssets.find(({ denom: d, chain_id }) => denom === d && chain_id === chainId) || null
 }
 
-export function useExternalDepositAsset(mode?: TransferMode) {
+export function useExternalDepositAsset(mode: TransferMode) {
   const { external } = useTransferMode(mode)
   const skipAssets = useAllSkipAssets()
   const { watch } = useTransferForm()
@@ -129,13 +124,12 @@ export function useExternalDepositAsset(mode?: TransferMode) {
   return skipAssets.find(({ denom: d, chain_id }) => denom === d && chain_id === chainId) || null
 }
 
-export function useExternalAssetOptions(mode?: TransferMode) {
-  const { mode: currentMode } = useTransferMode(mode)
+export function useExternalAssetOptions(mode: TransferMode) {
   const skipAssets = useAllSkipAssets()
   const findChain = useFindSkipChain()
   const { data: balances, isLoading } = useAllBalancesQuery()
   const { remoteOptions = [] } = useLocationState<{ remoteOptions?: AssetOption[] }>()
-  const localAsset = useLocalAssetDepositAsset(currentMode)
+  const localAsset = useLocalAssetDepositAsset(mode)
 
   if (!localAsset) return { data: [], isLoading }
 
@@ -157,7 +151,7 @@ export function useExternalAssetOptions(mode?: TransferMode) {
       const balance = balances?.[chain.chain_id]?.[asset.denom]
 
       // during deposit, show only assets with balance
-      if (currentMode === "deposit" && (!balance || !Number(balance.amount))) return null
+      if (mode === "deposit" && (!balance || !Number(balance.amount))) return null
 
       return { asset, chain, balance }
     })
