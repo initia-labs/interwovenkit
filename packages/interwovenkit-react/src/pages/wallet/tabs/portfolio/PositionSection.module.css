@@ -234,6 +234,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .tokenChevron {
+    transition: none;
+  }
+
   .collapsibleContent[data-state="open"],
   .collapsibleContent[data-state="closed"] {
     animation: none;
