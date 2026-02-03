@@ -8,8 +8,8 @@ import EmptyIconLight from "./assets/EmptyLight.svg"
 import {
   type TransferMode,
   useExternalAssetOptions,
-  useLocalAssetDepositAsset,
   useLocalAssetOptions,
+  useLocalTransferAsset,
   useTransferForm,
   useTransferMode,
 } from "./hooks"
@@ -23,7 +23,7 @@ const SelectExternalAsset = ({ mode }: Props) => {
   const { external } = useTransferMode(mode)
   const { data: filteredAssets, isLoading } = useExternalAssetOptions(mode)
   const { setValue, watch } = useTransferForm()
-  const localAsset = useLocalAssetDepositAsset(mode)
+  const localAsset = useLocalTransferAsset(mode)
   const options = useLocalAssetOptions()
   const { theme } = useConfig()
   const values = watch()

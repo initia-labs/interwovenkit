@@ -18,9 +18,9 @@ import FooterWithTxFee from "./FooterWithTxFee"
 import {
   type TransferMode,
   useAllBalancesQuery,
-  useExternalDepositAsset,
-  useLocalAssetDepositAsset,
+  useExternalTransferAsset,
   useLocalAssetOptions,
+  useLocalTransferAsset,
   useTransferForm,
   useTransferMode,
 } from "./hooks"
@@ -49,8 +49,8 @@ const TransferFields = ({ mode }: Props) => {
   const values = watch()
   const { srcChainId, srcDenom, quantity: rawQuantity = "" } = values
 
-  const localAsset = useLocalAssetDepositAsset(mode)
-  const externalAsset = useExternalDepositAsset(mode)
+  const localAsset = useLocalTransferAsset(mode)
+  const externalAsset = useExternalTransferAsset(mode)
   const externalChainId = values[modeConfig.external.chainIdKey]
   const externalChain = externalChainId ? findChain(externalChainId) : null
 

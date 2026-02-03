@@ -102,7 +102,7 @@ export function useLocalAssetOptions() {
   )
 }
 
-export function useLocalAssetDepositAsset(mode: TransferMode) {
+export function useLocalTransferAsset(mode: TransferMode) {
   const { local } = useTransferMode(mode)
   const skipAssets = useAllSkipAssets()
   const { watch } = useTransferForm()
@@ -113,7 +113,7 @@ export function useLocalAssetDepositAsset(mode: TransferMode) {
   return skipAssets.find(({ denom: d, chain_id }) => denom === d && chain_id === chainId) || null
 }
 
-export function useExternalDepositAsset(mode: TransferMode) {
+export function useExternalTransferAsset(mode: TransferMode) {
   const { external } = useTransferMode(mode)
   const skipAssets = useAllSkipAssets()
   const { watch } = useTransferForm()
@@ -129,7 +129,7 @@ export function useExternalAssetOptions(mode: TransferMode) {
   const findChain = useFindSkipChain()
   const { data: balances, isLoading } = useAllBalancesQuery()
   const { remoteOptions = [] } = useLocationState<{ remoteOptions?: AssetOption[] }>()
-  const localAsset = useLocalAssetDepositAsset(mode)
+  const localAsset = useLocalTransferAsset(mode)
 
   if (!localAsset) return { data: [], isLoading }
 
