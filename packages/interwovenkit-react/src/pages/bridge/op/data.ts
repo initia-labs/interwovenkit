@@ -225,3 +225,24 @@ export function computeWithdrawalHash(withdrawalTx: WithdrawalTx) {
   )
   return sha3(sha3(buffer))
 }
+
+/**
+ * Check if a bridge has been migrated to instant withdrawal.
+ * Migrated bridges return migration_info, non-migrated bridges return 404.
+ */
+export async function checkMigrationInfo(
+  restUrl: string,
+  bridgeId: number,
+  l1Denom: string,
+): Promise<boolean> {
+  try {
+    await ky
+      .get(`${restUrl}/opinit/ophost/v1/bridges/${bridgeId}/migration_info/by_l1_denom`, {
+        searchParams: { l1_denom: l1Denom },
+      })
+      .json()
+    return true
+  } catch {
+    return false
+  }
+}

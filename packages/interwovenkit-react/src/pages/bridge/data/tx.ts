@@ -9,7 +9,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { aminoConverters, aminoTypes } from "@initia/amino-converter"
 import { InitiaAddress, toBaseUnit } from "@initia/utils"
 import { useAnalyticsTrack } from "@/data/analytics"
-import { useFindChain } from "@/data/chains"
+import { useFindChain, useLayer1 } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import { LocalStorageKey } from "@/data/constants"
 import { formatMoveError } from "@/data/errors"
@@ -20,6 +20,7 @@ import { Link, useLocationState, useNavigate } from "@/lib/router"
 import { useNotification } from "@/public/app/NotificationContext"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useInitiaAddress, useInterwovenKit } from "@/public/data/hooks"
+import { checkMigrationInfo } from "../op/data"
 import { useClaimableReminders } from "../op/reminder"
 import { waitForAccountCreation } from "./account"
 import { useFindSkipAsset } from "./assets"
@@ -92,6 +93,7 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
 
   const { registryUrl } = useConfig()
   const findChain = useFindChain()
+  const layer1 = useLayer1()
 
   const { addReminder } = useClaimableReminders()
   const skip = useSkip()
@@ -241,10 +243,20 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
         const analyticsParams = createAnalyticsParams(values, txHash)
         track("Bridge Transaction Success", analyticsParams)
 
-        // Add reminder for OP withdrawals
+        // Add reminder for OP withdrawals (only for non-migrated bridges)
         if (isOpWithdraw) {
-          const reminder = createReminder(historyResult.tx, route, recipient)
-          addReminder(historyResult.tx, reminder)
+          const bridgeId = findChain(srcChainId).metadata?.op_bridge_id
+          if (bridgeId) {
+            const isMigrated = await checkMigrationInfo(
+              layer1.restUrl,
+              Number(bridgeId),
+              route.dest_asset_denom,
+            )
+            if (!isMigrated) {
+              const reminder = createReminder(historyResult.tx, route, recipient)
+              addReminder(historyResult.tx, reminder)
+            }
+          }
         }
       } catch (error) {
         // Handle transaction failure
