@@ -16,11 +16,13 @@ import FooterWithMsgs from "../bridge/FooterWithMsgs"
 import FooterWithSignedOpHook from "../bridge/FooterWithSignedOpHook"
 import FooterWithTxFee from "./FooterWithTxFee"
 import {
+  type TransferMode,
   useAllBalancesQuery,
   useExternalDepositAsset,
   useLocalAssetDepositAsset,
   useLocalAssetOptions,
   useTransferForm,
+  useTransferMode,
 } from "./hooks"
 import TransferFooter from "./TransferFooter"
 import styles from "./Fields.module.css"
@@ -30,7 +32,12 @@ interface State {
   recipientAddress?: string
 }
 
-const DepositFields = () => {
+interface Props {
+  mode: TransferMode
+}
+
+const TransferFields = ({ mode }: Props) => {
+  const modeConfig = useTransferMode(mode)
   const navigate = useNavigate()
   const state = useLocationState<State>()
   const options = useLocalAssetOptions()
@@ -39,11 +46,14 @@ const DepositFields = () => {
   const hexAddress = useHexAddress()
 
   const { watch, setValue, getValues } = useTransferForm()
-  const { srcDenom, srcChainId, quantity: rawQuantity = "" } = watch()
+  const values = watch()
+  const { srcChainId, srcDenom, quantity: rawQuantity = "" } = values
 
-  const localAsset = useLocalAssetDepositAsset()
-  const externalAsset = useExternalDepositAsset()
-  const srcChain = srcChainId ? findChain(srcChainId) : null
+  const localAsset = useLocalAssetDepositAsset(mode)
+  const externalAsset = useExternalDepositAsset(mode)
+  const externalChainId = values[modeConfig.external.chainIdKey]
+  const externalChain = externalChainId ? findChain(externalChainId) : null
+
   const balance = balances?.[srcChainId]?.[srcDenom]?.amount
   const price = balances?.[srcChainId]?.[srcDenom]?.price || 0
 
@@ -51,15 +61,19 @@ const DepositFields = () => {
 
   const [debouncedQuantity] = useDebounceValue(rawQuantity, 300)
 
+  const amountAsset = mode === "withdraw" ? localAsset : externalAsset
+
   const disabledMessage = useMemo(() => {
-    if (!externalAsset) return "Select asset"
+    if (mode === "deposit" && !externalAsset) return "Select asset"
+
     const quantityBn = BigNumber(rawQuantity || 0)
     if (!quantityBn.isFinite() || quantityBn.lte(0)) return "Enter amount"
-    const balanceAmount = fromBaseUnit(balance ?? "0", {
-      decimals: externalAsset?.decimals || 6,
-    })
+
+    const balanceAmount = fromBaseUnit(balance ?? "0", { decimals: amountAsset?.decimals || 6 })
     if (quantityBn.gt(balanceAmount)) return "Insufficient balance"
-  }, [rawQuantity, balance, externalAsset])
+
+    if (mode === "withdraw" && !externalAsset) return "Select destination"
+  }, [mode, rawQuantity, balance, amountAsset, externalAsset])
 
   const { data: route, error: routeError } = useRouteQuery(debouncedQuantity, {
     disabled: !!disabledMessage,
@@ -84,28 +98,28 @@ const DepositFields = () => {
     updateNavigationState()
   }, [routeForState, hexAddress])
 
-  if (!localAsset || !externalAsset) return null
+  if (!localAsset) return null
+  if (mode === "deposit" && !externalAsset) return null
 
-  return (
-    <div className={styles.container}>
-      {options.length > 1 && (
-        <button
-          type="button"
-          aria-label="Back"
-          className={styles.back}
-          onClick={() => {
-            setValue("quantity", "")
-            setValue("srcDenom", "")
-            setValue("srcChainId", "")
-            // navigate to dst page
-            setValue("page", "select-external")
-          }}
-        >
-          <IconBack size={20} />
-        </button>
-      )}
-      <h3 className={styles.title}>Deposit {localAsset.symbol}</h3>
-      <p className={styles.label}>From</p>
+  const amountDecimals = amountAsset?.decimals || 6
+  const externalEmptyLabel = mode === "withdraw" ? "Select chain" : "Select asset"
+
+  const resetToPreviousPage = () => {
+    setValue("quantity", "")
+    setValue(modeConfig.external.denomKey, "")
+    setValue(modeConfig.external.chainIdKey, "")
+
+    if (mode === "withdraw") {
+      setValue(modeConfig.local.denomKey, "")
+      setValue(modeConfig.local.chainIdKey, "")
+    }
+
+    setValue("page", mode === "withdraw" ? "select-local" : "select-external")
+  }
+
+  const externalSection = (
+    <>
+      <p className={styles.label}>{mode === "withdraw" ? "Destination" : "From"}</p>
       <button
         className={styles.asset}
         onClick={() => {
@@ -113,37 +127,39 @@ const DepositFields = () => {
         }}
       >
         <div className={styles.assetIcon}>
-          {!!externalAsset && (
+          {externalAsset ? (
             <>
-              <img src={externalAsset?.logo_uri} alt={externalAsset.symbol} />
+              <img src={externalAsset.logo_uri} alt={externalAsset.symbol} />
               <img
-                src={srcChain?.logo_uri || ""}
-                alt={srcChain?.pretty_name}
+                src={externalChain?.logo_uri || ""}
+                alt={externalChain?.pretty_name}
                 className={styles.chainIcon}
               />
             </>
+          ) : (
+            mode === "withdraw" && <div className={styles.chainIcon} />
           )}
         </div>
         <p className={styles.assetName}>
           {!externalAsset ? (
-            "Select asset"
+            externalEmptyLabel
           ) : (
             <>
               {externalAsset.symbol}
               <br />
-              <span>on {srcChain?.pretty_name}</span>
+              <span>on {externalChain?.pretty_name}</span>
             </>
           )}
         </p>
         <IconChevronDown className={styles.chevron} size={16} />
       </button>
-      <div className={styles.divider} />
+    </>
+  )
+
+  const amountSection = (
+    <>
       <p className={styles.label}>Amount</p>
-      <QuantityInput
-        balance={balance}
-        decimals={externalAsset?.decimals || 6}
-        className={styles.input}
-      />
+      <QuantityInput balance={balance} decimals={amountDecimals} className={styles.input} />
       {Number(balance) > 0 && (
         <div className={styles.balanceContainer}>
           <p className={styles.value}>
@@ -153,19 +169,50 @@ const DepositFields = () => {
           <button
             className={styles.maxButton}
             onClick={() => {
-              const maxAmount = fromBaseUnit(balance ?? "0", {
-                decimals: externalAsset?.decimals || 6,
-              })
+              const maxAmount = fromBaseUnit(balance ?? "0", { decimals: amountDecimals })
               if (BigNumber(rawQuantity || 0).eq(maxAmount)) return
 
               setValue("quantity", maxAmount)
             }}
           >
-            <IconWallet size={16} />{" "}
-            {formatAmount(balance, { decimals: externalAsset?.decimals || 6 })} <span>MAX</span>
+            <IconWallet size={16} /> {formatAmount(balance, { decimals: amountDecimals })}{" "}
+            <span>MAX</span>
           </button>
         </div>
       )}
+    </>
+  )
+
+  return (
+    <div className={styles.container}>
+      {options.length > 1 && (
+        <button
+          type="button"
+          aria-label="Back"
+          className={styles.back}
+          onClick={resetToPreviousPage}
+        >
+          <IconBack size={20} />
+        </button>
+      )}
+      <h3 className={styles.title}>
+        {modeConfig.label} {localAsset.symbol}
+      </h3>
+
+      {mode === "withdraw" ? (
+        <>
+          {amountSection}
+          <div className={styles.divider} />
+          {externalSection}
+        </>
+      ) : (
+        <>
+          {externalSection}
+          <div className={styles.divider} />
+          {amountSection}
+        </>
+      )}
+
       {!state.route || !!disabledMessage ? (
         <Footer>
           <Button.White
@@ -185,7 +232,7 @@ const DepositFields = () => {
                 <FooterWithMsgs addressList={addressList} signedOpHook={signedOpHook}>
                   {(tx) => (
                     <FooterWithTxFee tx={tx}>
-                      {(gas) => <TransferFooter tx={tx} gas={gas} />}
+                      {(gas) => <TransferFooter tx={tx} gas={gas} mode={mode} />}
                     </FooterWithTxFee>
                   )}
                 </FooterWithMsgs>
@@ -198,4 +245,4 @@ const DepositFields = () => {
   )
 }
 
-export default DepositFields
+export default TransferFields

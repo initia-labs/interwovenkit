@@ -14,6 +14,60 @@ export interface AssetOption {
   chainId: string
 }
 
+export type TransferPage = "select-local" | "select-external" | "fields" | "completed"
+
+export interface TransferFormValues {
+  page: TransferPage
+  quantity: string
+  srcDenom: string
+  srcChainId: string
+  dstDenom: string
+  dstChainId: string
+  // TX completion data
+  result?: BridgeTxResult
+}
+
+export type TransferMode = "deposit" | "withdraw"
+
+type TransferAssetDenomKey = "srcDenom" | "dstDenom"
+type TransferAssetChainIdKey = "srcChainId" | "dstChainId"
+
+interface TransferAssetKeys {
+  denomKey: TransferAssetDenomKey
+  chainIdKey: TransferAssetChainIdKey
+}
+
+export interface TransferModeConfig {
+  mode: TransferMode
+  label: "Deposit" | "Withdraw"
+  local: TransferAssetKeys
+  external: TransferAssetKeys
+}
+
+const TRANSFER_MODE_CONFIG: Record<TransferMode, TransferModeConfig> = {
+  deposit: {
+    mode: "deposit",
+    label: "Deposit",
+    local: { denomKey: "dstDenom", chainIdKey: "dstChainId" },
+    external: { denomKey: "srcDenom", chainIdKey: "srcChainId" },
+  },
+  withdraw: {
+    mode: "withdraw",
+    label: "Withdraw",
+    local: { denomKey: "srcDenom", chainIdKey: "srcChainId" },
+    external: { denomKey: "dstDenom", chainIdKey: "dstChainId" },
+  },
+}
+
+export function getTransferModeFromPath(path: string): TransferMode {
+  return path.startsWith("/withdraw") ? "withdraw" : "deposit"
+}
+
+export function useTransferMode(mode?: TransferMode) {
+  const path = usePath()
+  return TRANSFER_MODE_CONFIG[mode ?? getTransferModeFromPath(path)]
+}
+
 export function useAllBalancesQuery() {
   const skip = useSkip()
   const hexAddress = useHexAddress()
@@ -53,44 +107,35 @@ export function useLocalAssetOptions() {
   )
 }
 
-export function useLocalAssetDepositAsset() {
-  const path = usePath()
-  const isWithdraw = path === "/withdraw"
+export function useLocalAssetDepositAsset(mode?: TransferMode) {
+  const { local } = useTransferMode(mode)
   const skipAssets = useAllSkipAssets()
   const { watch } = useTransferForm()
-
-  const { dstChainId, dstDenom, srcChainId, srcDenom } = watch()
-
-  // Local asset is destination during deposit, source during withdraw
-  const chainId = isWithdraw ? srcChainId : dstChainId
-  const denom = isWithdraw ? srcDenom : dstDenom
+  const values = watch()
+  const chainId = values[local.chainIdKey]
+  const denom = values[local.denomKey]
 
   return skipAssets.find(({ denom: d, chain_id }) => denom === d && chain_id === chainId) || null
 }
 
-export function useExternalDepositAsset() {
-  const path = usePath()
-  const isWithdraw = path === "/withdraw"
+export function useExternalDepositAsset(mode?: TransferMode) {
+  const { external } = useTransferMode(mode)
   const skipAssets = useAllSkipAssets()
   const { watch } = useTransferForm()
-
-  const { srcChainId, srcDenom, dstChainId, dstDenom } = watch()
-
-  // External asset is source during deposit, destination during withdraw
-  const chainId = isWithdraw ? dstChainId : srcChainId
-  const denom = isWithdraw ? dstDenom : srcDenom
+  const values = watch()
+  const chainId = values[external.chainIdKey]
+  const denom = values[external.denomKey]
 
   return skipAssets.find(({ denom: d, chain_id }) => denom === d && chain_id === chainId) || null
 }
 
-export function useExternalAssetOptions() {
-  const path = usePath()
-  const isWithdraw = path === "/withdraw"
+export function useExternalAssetOptions(mode?: TransferMode) {
+  const { mode: currentMode } = useTransferMode(mode)
   const skipAssets = useAllSkipAssets()
   const findChain = useFindSkipChain()
   const { data: balances, isLoading } = useAllBalancesQuery()
   const { remoteOptions = [] } = useLocationState<{ remoteOptions?: AssetOption[] }>()
-  const localAsset = useLocalAssetDepositAsset()
+  const localAsset = useLocalAssetDepositAsset(currentMode)
 
   if (!localAsset) return { data: [], isLoading }
 
@@ -112,26 +157,13 @@ export function useExternalAssetOptions() {
       const balance = balances?.[chain.chain_id]?.[asset.denom]
 
       // during deposit, show only assets with balance
-      if (!isWithdraw && (!balance || !Number(balance.amount))) return null
+      if (currentMode === "deposit" && (!balance || !Number(balance.amount))) return null
 
       return { asset, chain, balance }
     })
     .filter((item): item is NonNullable<typeof item> => item !== null)
 
   return { data, isLoading }
-}
-
-export type TransferPage = "select-local" | "select-external" | "fields" | "completed"
-
-export interface TransferFormValues {
-  page: TransferPage
-  quantity: string
-  srcDenom: string
-  srcChainId: string
-  dstDenom: string
-  dstChainId: string
-  // TX completion data
-  result?: BridgeTxResult
 }
 
 export function useTransferForm() {
