@@ -39,8 +39,7 @@ const DepositFields = () => {
   const hexAddress = useHexAddress()
 
   const { watch, setValue, getValues } = useTransferForm()
-  const { srcDenom, srcChainId, quantity } = watch()
-  const rawQuantity = quantity ?? ""
+  const { srcDenom, srcChainId, quantity: rawQuantity = "" } = watch()
 
   const localAsset = useLocalAssetDepositAsset()
   const externalAsset = useExternalDepositAsset()
@@ -145,7 +144,7 @@ const DepositFields = () => {
         decimals={externalAsset?.decimals || 6}
         className={styles.input}
       />
-      {balance !== undefined && balance !== null && (
+      {Number(balance) > 0 && (
         <div className={styles.balanceContainer}>
           <p className={styles.value}>
             {quantityValue.gt(0) ? formatValue(quantityValue.toString()) : "$-"}

@@ -76,11 +76,9 @@ export function useRouteQuery(
   })
 }
 
-const NO_ERROR = new Error("no-error")
-
 export function useRouteErrorInfo(error: Error | null) {
   return useQuery({
-    queryKey: skipQueryKeys.routeErrorInfo(error || NO_ERROR).queryKey,
+    queryKey: skipQueryKeys.routeErrorInfo(error ?? undefined).queryKey,
     queryFn: async () => {
       if (!error) return null
       if (!(error instanceof HTTPError)) return null

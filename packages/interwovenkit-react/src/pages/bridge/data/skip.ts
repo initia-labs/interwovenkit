@@ -16,7 +16,7 @@ export const skipQueryKeys = createQueryKeys("interwovenkit:skip", {
     { ...values, quantity: BigNumber(values.quantity || 0).toString() },
     isOpWithdraw,
   ],
-  routeErrorInfo: (error: Error) => [error],
+  routeErrorInfo: (error?: Error) => [error],
   txTrack: (chainId: string, txHash?: string) => [chainId, txHash],
   txStatus: (chainId: string, txHash?: string) => [chainId, txHash],
 })
