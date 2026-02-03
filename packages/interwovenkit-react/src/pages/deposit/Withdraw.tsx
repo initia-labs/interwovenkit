@@ -1,22 +1,24 @@
 import { animated, useTransition } from "@react-spring/web"
 import { FormProvider, useForm } from "react-hook-form"
 import AnimatedHeight from "@/components/AnimatedHeight"
-import { useAllBalancesQuery, useTransferForm } from "./hooks"
+import { type TransferFormValues, useAllBalancesQuery, useTransferForm } from "./hooks"
 import SelectExternalAsset from "./SelectExternalAsset"
 import SelectLocalAsset from "./SelectLocalAsset"
 import { TransferCompleted } from "./TransferCompleted"
 import WithdrawFields from "./WithdrawFields"
 import styles from "./Withdraw.module.css"
 
-export interface FormValues {
-  page: "select-local" | "select-external" | "fields" | "completed"
-  quantity: string
-}
-
 export const Withdraw = () => {
-  const form = useForm<FormValues>({
+  const form = useForm<TransferFormValues>({
     mode: "onChange",
-    defaultValues: { page: "select-local", quantity: "" },
+    defaultValues: {
+      page: "select-local",
+      quantity: "",
+      srcDenom: "",
+      srcChainId: "",
+      dstDenom: "",
+      dstChainId: "",
+    },
   })
 
   // prefetch balances

@@ -123,7 +123,7 @@ export function useExternalAssetOptions() {
 
 export type TransferPage = "select-local" | "select-external" | "fields" | "completed"
 
-interface TransferForm {
+export interface TransferFormValues {
   page: TransferPage
   quantity: string
   srcDenom: string
@@ -135,5 +135,5 @@ interface TransferForm {
 }
 
 export function useTransferForm() {
-  return useFormContext<TransferForm>()
+  return useFormContext<TransferFormValues>()
 }
