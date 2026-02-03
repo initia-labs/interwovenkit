@@ -63,7 +63,9 @@ const SelectExternalAsset = ({ mode }: Props) => {
           className={styles.emptyIcon}
         />
         <p className={styles.empty}>
-          You do not have supported assets to deposit {localAsset.symbol}.
+          {mode === "withdraw"
+            ? `No supported destinations to withdraw ${localAsset.symbol}.`
+            : `No supported assets to deposit ${localAsset.symbol}.`}
         </p>
       </div>
     )
