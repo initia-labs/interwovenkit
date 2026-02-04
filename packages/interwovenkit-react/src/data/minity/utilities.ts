@@ -18,22 +18,33 @@ interface AssetQueryResult {
   data?: Array<{ denom: string; symbol: string; logoUrl?: string }>
 }
 
-/** Build denom -> logo and symbol -> logo maps from asset queries (fast, no balance dependency) */
-export function buildAssetLogoMaps(assetQueries: AssetQueryResult[]): {
+interface ChainWithId {
+  chainId: string
+}
+
+/** Build chainId:denom -> logo and symbol -> logo maps from asset queries (fast, no balance dependency) */
+export function buildAssetLogoMaps(
+  assetQueries: AssetQueryResult[],
+  chains: ChainWithId[],
+): {
   denomLogos: Map<string, string>
   symbolLogos: Map<string, string>
 } {
   const denomMap = new Map<string, string>()
   const symbolMap = new Map<string, string>()
 
-  for (const query of assetQueries) {
+  for (let i = 0; i < assetQueries.length; i++) {
+    const query = assetQueries[i]
+    const chain = chains[i]
     const assets = query.data
-    if (!assets) continue
+    if (!chain || !assets) continue
 
     for (const asset of assets) {
       if (asset.logoUrl && !asset.logoUrl.includes("undefined")) {
-        if (!denomMap.has(asset.denom)) {
-          denomMap.set(asset.denom, asset.logoUrl)
+        // Use chainId:denom as key (prevents cross-chain denom collision)
+        const chainDenomKey = `${chain.chainId}:${asset.denom}`
+        if (!denomMap.has(chainDenomKey)) {
+          denomMap.set(chainDenomKey, asset.logoUrl)
         }
         const upperSymbol = asset.symbol.toUpperCase()
         if (!symbolMap.has(upperSymbol)) {
@@ -422,7 +433,9 @@ export function applyLogosToGroups(
   return groups.map((group) => {
     const assetsWithLogos = group.assets.map((asset) => {
       const upperSymbol = asset.symbol.toUpperCase()
-      const logoUrl = denomLogos.get(asset.denom) ?? symbolLogos.get(upperSymbol) ?? ""
+      // Try chainId:denom key first (for chain-specific logos), then fall back to denom-only and symbol
+      const chainDenomKey = `${asset.chain.chainId}:${asset.denom}`
+      const logoUrl = denomLogos.get(chainDenomKey) ?? symbolLogos.get(upperSymbol) ?? ""
       return logoUrl !== asset.logoUrl ? { ...asset, logoUrl } : asset
     })
 

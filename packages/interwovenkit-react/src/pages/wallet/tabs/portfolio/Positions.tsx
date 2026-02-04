@@ -95,6 +95,7 @@ const Positions = memo(({ searchQuery, selectedChain, chainInfoMap }: PositionsP
       }, 0)
 
       result.push({
+        chainId: chainInfo?.chainId ?? "",
         chainName: chainInfo?.prettyName ?? chainData.chainName,
         chainLogo: chainInfo?.logoUrl ?? "",
         protocols: filteredProtocols,

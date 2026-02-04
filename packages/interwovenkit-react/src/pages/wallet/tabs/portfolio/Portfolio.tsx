@@ -92,8 +92,8 @@ const Portfolio = () => {
   // This prevents re-fetching on every search keystroke
   const assetsQueries = useAllChainsAssetsQueries()
   const { denomLogos, symbolLogos } = useMemo(
-    () => buildAssetLogoMaps(assetsQueries),
-    [assetsQueries],
+    () => buildAssetLogoMaps(assetsQueries, chains),
+    [assetsQueries, chains],
   )
 
   // Fetch prices for all chains once at portfolio level (used for fallback pricing)
