@@ -1,7 +1,7 @@
 import { encodeSecp256k1Pubkey } from "@cosmjs/amino"
 import type { EncodeObject } from "@cosmjs/proto-signing"
 import type { DeliverTxResponse, SigningStargateClient, StdFee } from "@cosmjs/stargate"
-import { QueryClient, setupTxExtension } from "@cosmjs/stargate"
+import { calculateFee, GasPrice, QueryClient, setupTxExtension } from "@cosmjs/stargate"
 import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import { atom, useAtomValue, useSetAtom } from "jotai"
@@ -14,6 +14,7 @@ import { useInitiaAddress } from "@/public/data/hooks"
 import { useFindChain } from "./chains"
 import { useConfig } from "./config"
 import { formatMoveError } from "./errors"
+import { fetchGasPrices } from "./fee"
 import {
   useCreateComet38Client,
   useCreateSigningStargateClient,
@@ -28,6 +29,7 @@ export interface TxParams {
   memo?: string
   chainId?: string
   fee: StdFee
+  preferredFeeDenom?: string
 }
 
 export interface TxRequest {
@@ -60,6 +62,82 @@ export const TX_APPROVAL_MUTATION_KEY = "approve"
 export const txRequestHandlerAtom = atom<TxRequestHandler>()
 export const txStatusAtom = atom<TxStatus | null>(null)
 
+const DEFAULT_AUTOSIGN_GAS_MULTIPLIER = 1.2
+const DEFAULT_AUTOSIGN_MAX_GAS_MULTIPLIER = 1.5
+
+interface ResolvedAutoSignFeePolicy {
+  gasMultiplier: number
+  maxGasMultiplierFromSim: number
+  allowedFeeDenoms?: string[]
+}
+
+export function selectAutoSignGasPrice({
+  gasPrices,
+  preferredFeeDenom,
+  fallbackFeeDenom,
+  allowedFeeDenoms,
+}: {
+  gasPrices: Coin[]
+  preferredFeeDenom?: string
+  fallbackFeeDenom?: string
+  allowedFeeDenoms?: string[]
+}): Coin {
+  const filteredGasPrices = allowedFeeDenoms?.length
+    ? gasPrices.filter(({ denom }) => allowedFeeDenoms.includes(denom))
+    : gasPrices
+
+  if (filteredGasPrices.length === 0) {
+    throw new Error("No allowed gas price tokens available for auto-sign")
+  }
+
+  const findDenom = (denom?: string) =>
+    denom ? filteredGasPrices.find((price) => price.denom === denom) : undefined
+
+  return findDenom(preferredFeeDenom) ?? findDenom(fallbackFeeDenom) ?? filteredGasPrices[0]!
+}
+
+export function buildAutoSignFeeFromSimulation({
+  simulatedGas,
+  gasPrices,
+  preferredFeeDenom,
+  fallbackFeeDenom,
+  policy,
+}: {
+  simulatedGas: number
+  gasPrices: Coin[]
+  preferredFeeDenom?: string
+  fallbackFeeDenom?: string
+  policy: ResolvedAutoSignFeePolicy
+}): StdFee {
+  if (!Number.isFinite(simulatedGas) || simulatedGas <= 0) {
+    throw new Error("Auto-sign gas simulation failed")
+  }
+
+  const { gasMultiplier, maxGasMultiplierFromSim, allowedFeeDenoms } = policy
+  if (
+    gasMultiplier <= 0 ||
+    maxGasMultiplierFromSim <= 0 ||
+    gasMultiplier > maxGasMultiplierFromSim
+  ) {
+    throw new Error("Invalid auto-sign gas multiplier policy")
+  }
+
+  const gasLimit = Math.ceil(simulatedGas * gasMultiplier)
+  const maxAllowedGas = Math.ceil(simulatedGas * maxGasMultiplierFromSim)
+  if (gasLimit > maxAllowedGas) {
+    throw new Error("Auto-sign gas limit exceeded policy bounds")
+  }
+
+  const gasPrice = selectAutoSignGasPrice({
+    gasPrices,
+    preferredFeeDenom,
+    fallbackFeeDenom,
+    allowedFeeDenoms,
+  })
+
+  return calculateFee(gasLimit, GasPrice.fromString(`${gasPrice.amount}${gasPrice.denom}`))
+}
+
 export function useTxRequestHandler() {
   const txRequest = useAtomValue(txRequestHandlerAtom)
   if (!txRequest) throw new Error("Tx request not found")
@@ -69,7 +147,7 @@ export function useTxRequestHandler() {
 export function useTx() {
   const navigate = useNavigate()
   const address = useInitiaAddress()
-  const { defaultChainId, registryUrl } = useConfig()
+  const { defaultChainId, registryUrl, autoSignFeePolicy } = useConfig()
   const findChain = useFindChain()
   const { openDrawer, closeDrawer } = useDrawer()
   const { openModal, closeModal } = useModal()
@@ -82,6 +160,45 @@ export function useTx() {
   const validateAutoSign = useValidateAutoSign()
   const signWithDerivedWallet = useSignWithDerivedWallet()
   const signWithEthSecp256k1 = useSignWithEthSecp256k1()
+
+  const getAutoSignFeePolicy = (chainId: string): ResolvedAutoSignFeePolicy => {
+    const policy = autoSignFeePolicy?.[chainId]
+    return {
+      gasMultiplier: policy?.gasMultiplier ?? DEFAULT_AUTOSIGN_GAS_MULTIPLIER,
+      maxGasMultiplierFromSim:
+        policy?.maxGasMultiplierFromSim ?? DEFAULT_AUTOSIGN_MAX_GAS_MULTIPLIER,
+      allowedFeeDenoms: policy?.allowedFeeDenoms,
+    }
+  }
+
+  const computeAutoSignFee = async ({
+    chainId,
+    messages,
+    memo,
+    preferredFeeDenom,
+    fallbackFeeDenom,
+    client,
+  }: {
+    chainId: string
+    messages: EncodeObject[]
+    memo: string
+    preferredFeeDenom?: string
+    fallbackFeeDenom?: string
+    client: SigningStargateClient
+  }): Promise<StdFee> => {
+    const chain = findChain(chainId)
+    const gasPrices = await fetchGasPrices(chain)
+    const simulatedGas = await client.simulate(address, messages, memo)
+    const policy = getAutoSignFeePolicy(chainId)
+
+    return buildAutoSignFeeFromSimulation({
+      simulatedGas,
+      gasPrices,
+      preferredFeeDenom,
+      fallbackFeeDenom,
+      policy,
+    })
+  }
 
   const estimateGas = async ({ messages, memo, chainId = defaultChainId }: TxRequest) => {
     try {
@@ -218,12 +335,29 @@ export function useTx() {
   const submitTxSync = async (txParams: TxParams): Promise<string> => {
     const chainId = txParams.chainId ?? defaultChainId
     try {
-      const { messages, memo = "", fee } = txParams
+      const { messages, memo = "", fee, preferredFeeDenom } = txParams
       const client = await createSigningStargateClient(chainId)
 
       const isAutoSignValid = await validateAutoSign(chainId, messages)
-      const signedTx = isAutoSignValid
-        ? await signWithDerivedWallet(chainId, address, messages, fee, memo)
+      let autoSignFee: StdFee | null = null
+
+      if (isAutoSignValid) {
+        try {
+          autoSignFee = await computeAutoSignFee({
+            chainId,
+            messages,
+            memo,
+            preferredFeeDenom,
+            fallbackFeeDenom: fee.amount[0]?.denom,
+            client,
+          })
+        } catch {
+          autoSignFee = null
+        }
+      }
+
+      const signedTx = autoSignFee
+        ? await signWithDerivedWallet(chainId, address, messages, autoSignFee, memo)
         : await signWithEthSecp256k1(chainId, address, messages, fee, memo)
 
       return await client.broadcastTxSync(TxRaw.encode(signedTx).finish())
@@ -239,12 +373,29 @@ export function useTx() {
   ): Promise<DeliverTxResponse> => {
     const chainId = txParams.chainId ?? defaultChainId
     try {
-      const { messages, memo = "", fee } = txParams
+      const { messages, memo = "", fee, preferredFeeDenom } = txParams
       const client = await createSigningStargateClient(chainId)
 
       const isAutoSignValid = await validateAutoSign(chainId, messages)
-      const signedTx = isAutoSignValid
-        ? await signWithDerivedWallet(chainId, address, messages, fee, memo)
+      let autoSignFee: StdFee | null = null
+
+      if (isAutoSignValid) {
+        try {
+          autoSignFee = await computeAutoSignFee({
+            chainId,
+            messages,
+            memo,
+            preferredFeeDenom,
+            fallbackFeeDenom: fee.amount[0]?.denom,
+            client,
+          })
+        } catch {
+          autoSignFee = null
+        }
+      }
+
+      const signedTx = autoSignFee
+        ? await signWithDerivedWallet(chainId, address, messages, autoSignFee, memo)
         : await signWithEthSecp256k1(chainId, address, messages, fee, memo)
 
       const response = await client.broadcastTx(
