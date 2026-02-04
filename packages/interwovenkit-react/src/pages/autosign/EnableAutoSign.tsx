@@ -55,13 +55,19 @@ const EnableAutoSignComponent = () => {
     hostname: window.location.hostname,
   }
 
-  // Check if website is verified in Initia Registry
-  const isVerified = chains.some((chain) => {
-    if (!chain.website) return false
-    const registryDomain = getBaseDomain(new URL(chain.website).hostname)
-    const websiteDomain = getBaseDomain(window.location.hostname)
-    return registryDomain === websiteDomain
-  })
+  // Check if website is verified in Initia Registry for the requested chain only
+  const targetChain = chains.find((chain) => chain.chainId === pendingRequest.chainId)
+  const isVerified = (() => {
+    if (!targetChain?.website) return false
+
+    try {
+      const registryDomain = getBaseDomain(new URL(targetChain.website).hostname)
+      const websiteDomain = getBaseDomain(window.location.hostname)
+      return registryDomain === websiteDomain
+    } catch {
+      return false
+    }
+  })()
 
   const handleEnable = () => {
     mutate(duration)
