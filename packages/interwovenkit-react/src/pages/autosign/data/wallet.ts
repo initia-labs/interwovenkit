@@ -21,10 +21,11 @@ import { encodeEthSecp256k1Signature } from "@/data/patches/signature"
 import { useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { deriveWalletFromSignature, getAutoSignMessage, getDerivedWalletKey } from "./derivation"
-import { type DerivedWallet, derivedWalletsAtom } from "./store"
+import { type DerivedWallet, type DerivedWalletPublic, derivedWalletsAtom } from "./store"
 
-const pendingDerivations = new Map<string, Promise<DerivedWallet>>()
+const pendingDerivations = new Map<string, Promise<DerivedWalletPublic>>()
 const cancelledDerivations = new Set<string>()
+const privateKeyVault = new Map<string, Uint8Array>()
 
 /* Expected address storage for wallet migration detection.
  * Stores the derived wallet address in localStorage to detect when on-chain grants
@@ -46,9 +47,24 @@ export function storeExpectedAddress(userAddress: string, address: string): void
   localStorage.setItem(getExpectedAddressKey(userAddress), address)
 }
 
+function toPublicWallet(wallet: DerivedWallet): DerivedWalletPublic {
+  return {
+    publicKey: wallet.publicKey,
+    address: wallet.address,
+  }
+}
+
+function zeroizePrivateKey(privateKey: Uint8Array | undefined) {
+  if (!privateKey) return
+  privateKey.fill(0)
+}
+
 /* Offline signer implementation for derived wallet */
 export class DerivedWalletSigner implements OfflineAminoSigner {
-  constructor(private wallet: DerivedWallet) {}
+  constructor(
+    private wallet: DerivedWalletPublic,
+    private privateKey: Uint8Array,
+  ) {}
 
   async getAccounts(): Promise<readonly AccountData[]> {
     return [
@@ -71,7 +87,7 @@ export class DerivedWalletSigner implements OfflineAminoSigner {
     const messageHash = ethers.hashMessage(signDocAminoJSON)
     const messageHashBytes = fromHex(messageHash.replace("0x", ""))
 
-    const signature = await Secp256k1.createSignature(messageHashBytes, this.wallet.privateKey)
+    const signature = await Secp256k1.createSignature(messageHashBytes, this.privateKey)
     const signatureBytes = new Uint8Array([...signature.r(32), ...signature.s(32)])
 
     const encodedSignature = encodeEthSecp256k1Signature(this.wallet.publicKey, signatureBytes)
@@ -89,14 +105,14 @@ export function useDeriveWallet() {
   const findChain = useFindChain()
   const userAddress = useInitiaAddress()
 
-  const deriveWallet = async (chainId: string): Promise<DerivedWallet> => {
+  const deriveWallet = async (chainId: string): Promise<DerivedWalletPublic> => {
     if (!userAddress) {
       throw new Error("User address not available")
     }
 
     const key = getDerivedWalletKey(userAddress)
 
-    if (derivedWallets[key]) {
+    if (derivedWallets[key] && privateKeyVault.has(key)) {
       return derivedWallets[key]
     }
 
@@ -104,7 +120,7 @@ export function useDeriveWallet() {
       return pendingDerivations.get(key)!
     }
 
-    const promiseRef: { current?: Promise<DerivedWallet> } = {}
+    const promiseRef: { current?: Promise<DerivedWalletPublic> } = {}
 
     const derivationPromise = (async () => {
       try {
@@ -114,12 +130,16 @@ export function useDeriveWallet() {
         const signature = await signMessageAsync({ message })
 
         const wallet = await deriveWalletFromSignature(signature as Hex, chain.bech32_prefix)
+        const publicWallet = toPublicWallet(wallet)
 
         if (!cancelledDerivations.has(key)) {
-          setDerivedWallets((prev) => ({ ...prev, [key]: wallet }))
+          privateKeyVault.set(key, wallet.privateKey)
+          setDerivedWallets((prev) => ({ ...prev, [key]: publicWallet }))
+        } else {
+          zeroizePrivateKey(wallet.privateKey)
         }
 
-        return wallet
+        return publicWallet
       } finally {
         if (pendingDerivations.get(key) === promiseRef.current) {
           pendingDerivations.delete(key)
@@ -133,21 +153,31 @@ export function useDeriveWallet() {
     return derivationPromise
   }
 
-  const getWallet = (): DerivedWallet | undefined => {
+  const getWallet = (): DerivedWalletPublic | undefined => {
     if (!userAddress) return undefined
     const key = getDerivedWalletKey(userAddress)
     return derivedWallets[key]
+  }
+
+  const getWalletPrivateKey = (): Uint8Array | undefined => {
+    if (!userAddress) return undefined
+    const key = getDerivedWalletKey(userAddress)
+    return privateKeyVault.get(key)
   }
 
   const clearWallet = () => {
     if (!userAddress) return
 
     const key = getDerivedWalletKey(userAddress)
+    const privateKey = privateKeyVault.get(key)
 
     if (pendingDerivations.has(key)) {
       cancelledDerivations.add(key)
       pendingDerivations.delete(key)
     }
+
+    zeroizePrivateKey(privateKey)
+    privateKeyVault.delete(key)
 
     setDerivedWallets((prev) => {
       const next = { ...prev }
@@ -161,15 +191,19 @@ export function useDeriveWallet() {
       cancelledDerivations.add(key)
     }
     pendingDerivations.clear()
+    for (const privateKey of privateKeyVault.values()) {
+      zeroizePrivateKey(privateKey)
+    }
+    privateKeyVault.clear()
     setDerivedWallets({})
   }
 
-  return { deriveWallet, getWallet, clearWallet, clearAllWallets }
+  return { deriveWallet, getWallet, getWalletPrivateKey, clearWallet, clearAllWallets }
 }
 
 /* Sign auto-sign transactions with derived wallet by wrapping messages in MsgExec and delegating fees */
 export function useSignWithDerivedWallet() {
-  const { getWallet, deriveWallet } = useDeriveWallet()
+  const { getWallet, deriveWallet, getWalletPrivateKey } = useDeriveWallet()
   const registry = useRegistry()
   const signWithEthSecp256k1 = useSignWithEthSecp256k1()
 
@@ -183,6 +217,10 @@ export function useSignWithDerivedWallet() {
     let derivedWallet = getWallet()
     if (!derivedWallet) {
       derivedWallet = await deriveWallet(chainId)
+    }
+    const privateKey = getWalletPrivateKey()
+    if (!privateKey) {
+      throw new Error("Derived wallet key not initialized")
     }
 
     const authzExecuteMessage: EncodeObject[] = [
@@ -203,7 +241,7 @@ export function useSignWithDerivedWallet() {
       granter: granterAddress,
     }
 
-    const derivedSigner = new DerivedWalletSigner(derivedWallet)
+    const derivedSigner = new DerivedWalletSigner(derivedWallet, privateKey)
 
     return await signWithEthSecp256k1(
       chainId,
