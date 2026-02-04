@@ -125,7 +125,7 @@ const createMockChainInfo = (overrides: Partial<ChainInfo> = {}): ChainInfo => (
   chainId: "initiation-1",
   chainName: "initia",
   prettyName: "Initia",
-  logoUrl: "https://example.com/initia.png",
+  logoUrl: "https://registry.initia.xyz/images/initia.png",
   ...overrides,
 })
 
@@ -133,7 +133,7 @@ const createMockAssetGroup = (
   overrides: Partial<PortfolioAssetGroup> = {},
 ): PortfolioAssetGroup => ({
   symbol: "INIT",
-  logoUrl: "https://example.com/init.png",
+  logoUrl: "https://registry.initia.xyz/images/init.png",
   assets: [],
   totalValue: 100,
   totalAmount: 1,
@@ -142,7 +142,7 @@ const createMockAssetGroup = (
 
 const createMockAssetItem = (overrides: Partial<PortfolioAssetItem> = {}): PortfolioAssetItem => ({
   symbol: "INIT",
-  logoUrl: "https://example.com/init.png",
+  logoUrl: "https://registry.initia.xyz/images/init.png",
   denom: "uinit",
   amount: "1000000",
   decimals: 6,
@@ -151,7 +151,7 @@ const createMockAssetItem = (overrides: Partial<PortfolioAssetItem> = {}): Portf
   chain: {
     chainId: "initiation-1",
     name: "Initia",
-    logoUrl: "https://example.com/initia.png",
+    logoUrl: "https://registry.initia.xyz/images/initia.png",
   },
   ...overrides,
 })
@@ -163,28 +163,42 @@ const createMockAssetItem = (overrides: Partial<PortfolioAssetItem> = {}): Portf
 describe("minity/utilities", () => {
   describe("Map Builders", () => {
     describe("buildAssetLogoMaps", () => {
-      it("should build denom and symbol logo maps", () => {
+      it("should build denom and symbol logo maps with chainId:denom keys", () => {
         const queries = [
           {
             data: [
-              { denom: "uinit", symbol: "INIT", logoUrl: "https://example.com/init.png" },
-              { denom: "uusdc", symbol: "USDC", logoUrl: "https://example.com/usdc.png" },
+              {
+                denom: "uinit",
+                symbol: "INIT",
+                logoUrl: "https://registry.initia.xyz/images/init.png",
+              },
+              {
+                denom: "uusdc",
+                symbol: "USDC",
+                logoUrl: "https://registry.initia.xyz/images/usdc.png",
+              },
             ],
           },
         ]
+        const chains = [{ chainId: "initiation-1" }]
 
-        const { denomLogos, symbolLogos } = buildAssetLogoMaps(queries)
+        const { denomLogos, symbolLogos } = buildAssetLogoMaps(queries, chains)
 
-        expect(denomLogos.get("uinit")).toBe("https://example.com/init.png")
-        expect(denomLogos.get("uusdc")).toBe("https://example.com/usdc.png")
-        expect(symbolLogos.get("INIT")).toBe("https://example.com/init.png")
-        expect(symbolLogos.get("USDC")).toBe("https://example.com/usdc.png")
+        expect(denomLogos.get("initiation-1:uinit")).toBe(
+          "https://registry.initia.xyz/images/init.png",
+        )
+        expect(denomLogos.get("initiation-1:uusdc")).toBe(
+          "https://registry.initia.xyz/images/usdc.png",
+        )
+        expect(symbolLogos.get("INIT")).toBe("https://registry.initia.xyz/images/init.png")
+        expect(symbolLogos.get("USDC")).toBe("https://registry.initia.xyz/images/usdc.png")
       })
 
-      it("should skip queries without data", () => {
+      it("should skip queries without data or chain", () => {
         const queries = [{ data: undefined }, {}]
+        const chains = [{ chainId: "chain-1" }, { chainId: "chain-2" }]
 
-        const { denomLogos, symbolLogos } = buildAssetLogoMaps(queries)
+        const { denomLogos, symbolLogos } = buildAssetLogoMaps(queries, chains)
 
         expect(denomLogos.size).toBe(0)
         expect(symbolLogos.size).toBe(0)
@@ -199,8 +213,9 @@ describe("minity/utilities", () => {
             ],
           },
         ]
+        const chains = [{ chainId: "initiation-1" }]
 
-        const { denomLogos, symbolLogos } = buildAssetLogoMaps(queries)
+        const { denomLogos, symbolLogos } = buildAssetLogoMaps(queries, chains)
 
         expect(denomLogos.size).toBe(0)
         expect(symbolLogos.size).toBe(0)
@@ -210,12 +225,17 @@ describe("minity/utilities", () => {
         const queries = [
           {
             data: [
-              { denom: "uinit", symbol: "INIT", logoUrl: "https://example.com/undefined.png" },
+              {
+                denom: "uinit",
+                symbol: "INIT",
+                logoUrl: "https://registry.initia.xyz/images/undefined.png",
+              },
             ],
           },
         ]
+        const chains = [{ chainId: "initiation-1" }]
 
-        const { denomLogos, symbolLogos } = buildAssetLogoMaps(queries)
+        const { denomLogos, symbolLogos } = buildAssetLogoMaps(queries, chains)
 
         expect(denomLogos.size).toBe(0)
         expect(symbolLogos.size).toBe(0)
@@ -225,29 +245,82 @@ describe("minity/utilities", () => {
         const queries = [
           {
             data: [
-              { denom: "uinit", symbol: "INIT", logoUrl: "https://example.com/init1.png" },
-              { denom: "uinit", symbol: "INIT", logoUrl: "https://example.com/init2.png" },
+              {
+                denom: "uinit",
+                symbol: "INIT",
+                logoUrl: "https://registry.initia.xyz/images/init1.png",
+              },
+              {
+                denom: "uinit",
+                symbol: "INIT",
+                logoUrl: "https://registry.initia.xyz/images/init2.png",
+              },
             ],
           },
         ]
+        const chains = [{ chainId: "initiation-1" }]
 
-        const { denomLogos, symbolLogos } = buildAssetLogoMaps(queries)
+        const { denomLogos, symbolLogos } = buildAssetLogoMaps(queries, chains)
 
-        expect(denomLogos.get("uinit")).toBe("https://example.com/init1.png")
-        expect(symbolLogos.get("INIT")).toBe("https://example.com/init1.png")
+        expect(denomLogos.get("initiation-1:uinit")).toBe(
+          "https://registry.initia.xyz/images/init1.png",
+        )
+        expect(symbolLogos.get("INIT")).toBe("https://registry.initia.xyz/images/init1.png")
       })
 
       it("should convert symbols to uppercase for symbol map", () => {
         const queries = [
           {
-            data: [{ denom: "uinit", symbol: "init", logoUrl: "https://example.com/init.png" }],
+            data: [
+              {
+                denom: "uinit",
+                symbol: "init",
+                logoUrl: "https://registry.initia.xyz/images/init.png",
+              },
+            ],
           },
         ]
+        const chains = [{ chainId: "initiation-1" }]
 
-        const { symbolLogos } = buildAssetLogoMaps(queries)
+        const { symbolLogos } = buildAssetLogoMaps(queries, chains)
 
-        expect(symbolLogos.get("INIT")).toBe("https://example.com/init.png")
+        expect(symbolLogos.get("INIT")).toBe("https://registry.initia.xyz/images/init.png")
         expect(symbolLogos.get("init")).toBeUndefined()
+      })
+
+      it("should use chainId:denom keys to prevent cross-chain collision", () => {
+        const queries = [
+          {
+            data: [
+              {
+                denom: "uinit",
+                symbol: "INIT",
+                logoUrl: "https://registry.initia.xyz/images/chain-1/INIT.png",
+              },
+            ],
+          },
+          {
+            data: [
+              {
+                denom: "uinit",
+                symbol: "INIT",
+                logoUrl: "https://registry.initia.xyz/images/chain-2/INIT.png",
+              },
+            ],
+          },
+        ]
+        const chains = [{ chainId: "chain-1" }, { chainId: "chain-2" }]
+
+        const { denomLogos, symbolLogos } = buildAssetLogoMaps(queries, chains)
+
+        expect(denomLogos.get("chain-1:uinit")).toBe(
+          "https://registry.initia.xyz/images/chain-1/INIT.png",
+        )
+        expect(denomLogos.get("chain-2:uinit")).toBe(
+          "https://registry.initia.xyz/images/chain-2/INIT.png",
+        )
+        // Symbol takes first logo encountered
+        expect(symbolLogos.get("INIT")).toBe("https://registry.initia.xyz/images/chain-1/INIT.png")
       })
     })
 
@@ -822,18 +895,21 @@ describe("minity/utilities", () => {
     })
 
     describe("applyLogosToGroups", () => {
-      it("should apply denom logos to assets", () => {
+      it("should apply denom logos to assets using chainId:denom key", () => {
         const groups = [
           createMockAssetGroup({
             assets: [createMockAssetItem({ denom: "uinit", logoUrl: "" })],
           }),
         ]
-        const denomLogos = new Map([["uinit", "https://example.com/init.png"]])
+        // Key format: chainId:denom (asset uses chainId "initiation-1" by default)
+        const denomLogos = new Map([
+          ["initiation-1:uinit", "https://registry.initia.xyz/images/init.png"],
+        ])
         const symbolLogos = new Map()
 
         const result = applyLogosToGroups(groups, denomLogos, symbolLogos)
 
-        expect(result[0].assets[0].logoUrl).toBe("https://example.com/init.png")
+        expect(result[0].assets[0].logoUrl).toBe("https://registry.initia.xyz/images/init.png")
       })
 
       it("should fallback to symbol logos", () => {
@@ -844,11 +920,11 @@ describe("minity/utilities", () => {
           }),
         ]
         const denomLogos = new Map()
-        const symbolLogos = new Map([["INIT", "https://example.com/init.png"]])
+        const symbolLogos = new Map([["INIT", "https://registry.initia.xyz/images/init.png"]])
 
         const result = applyLogosToGroups(groups, denomLogos, symbolLogos)
 
-        expect(result[0].assets[0].logoUrl).toBe("https://example.com/init.png")
+        expect(result[0].assets[0].logoUrl).toBe("https://registry.initia.xyz/images/init.png")
       })
 
       it("should set group logo from first asset with logo from denom map", () => {
@@ -862,13 +938,16 @@ describe("minity/utilities", () => {
             ],
           }),
         ]
-        const denomLogos = new Map([["uusdc", "https://example.com/usdc.png"]])
+        // Key format: chainId:denom (asset uses chainId "initiation-1" by default)
+        const denomLogos = new Map([
+          ["initiation-1:uusdc", "https://registry.initia.xyz/images/usdc.png"],
+        ])
 
         const result = applyLogosToGroups(groups, denomLogos, new Map())
 
         // First asset with logo from denom map should be used as group logo
-        expect(result[0].assets[1].logoUrl).toBe("https://example.com/usdc.png")
-        expect(result[0].logoUrl).toBe("https://example.com/usdc.png")
+        expect(result[0].assets[1].logoUrl).toBe("https://registry.initia.xyz/images/usdc.png")
+        expect(result[0].logoUrl).toBe("https://registry.initia.xyz/images/usdc.png")
       })
     })
 

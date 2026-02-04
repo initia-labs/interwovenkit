@@ -5,6 +5,7 @@ import { atom, useAtom } from "jotai"
 import { IconChevronDown, IconExternalLink } from "@initia/icons-react"
 import Image from "@/components/Image"
 import { useAllChainsAssetsQueries } from "@/data/assets"
+import { useInitiaRegistry } from "@/data/chains"
 import {
   buildAssetLogoMaps,
   getPositionValue,
@@ -33,10 +34,11 @@ const AppchainPositionContent = ({ chainGroup }: PositionSectionContentProps) =>
   const { chainLogo, protocols } = chainGroup
 
   // Asset logos (non-blocking - renders immediately, logos appear when ready)
+  const chains = useInitiaRegistry()
   const assetsQueries = useAllChainsAssetsQueries()
   const { denomLogos, symbolLogos } = useMemo(
-    () => buildAssetLogoMaps(assetsQueries),
-    [assetsQueries],
+    () => buildAssetLogoMaps(assetsQueries, chains),
+    [assetsQueries, chains],
   )
 
   // Build combined denom -> logo map with fallback logic

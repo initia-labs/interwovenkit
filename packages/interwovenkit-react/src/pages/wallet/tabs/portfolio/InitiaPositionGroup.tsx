@@ -8,7 +8,7 @@ import AsyncBoundary from "@/components/AsyncBoundary"
 import Image from "@/components/Image"
 import Skeletons from "@/components/Skeletons"
 import { useAllChainsAssetsQueries } from "@/data/assets"
-import { useLayer1, usePricesQuery } from "@/data/chains"
+import { useInitiaRegistry, useLayer1, usePricesQuery } from "@/data/chains"
 import { INIT_DECIMALS, INIT_DENOM, INITIA_LIQUIDITY_URL } from "@/data/constants"
 import { useInitiaLiquidityPositions } from "@/data/initia-liquidity"
 import {
@@ -202,10 +202,11 @@ const InitiaPositionGroup = ({ chainGroup }: Props) => {
   const [isOpen, setIsOpen] = useAtom(openInitiaGroupAtom)
 
   // Shared asset logos - fetch once and pass to child components
+  const chains = useInitiaRegistry()
   const assetsQueries = useAllChainsAssetsQueries()
   const { denomLogos, symbolLogos } = useMemo(
-    () => buildAssetLogoMaps(assetsQueries),
-    [assetsQueries],
+    () => buildAssetLogoMaps(assetsQueries, chains),
+    [assetsQueries, chains],
   )
 
   // Shared INIT price - fetch once and pass to staking section

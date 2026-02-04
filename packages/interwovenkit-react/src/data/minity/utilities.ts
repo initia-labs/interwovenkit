@@ -25,7 +25,7 @@ interface ChainWithId {
 /** Build chainId:denom -> logo and symbol -> logo maps from asset queries (fast, no balance dependency) */
 export function buildAssetLogoMaps(
   assetQueries: AssetQueryResult[],
-  chains?: ChainWithId[],
+  chains: ChainWithId[],
 ): {
   denomLogos: Map<string, string>
   symbolLogos: Map<string, string>
@@ -35,16 +35,16 @@ export function buildAssetLogoMaps(
 
   for (let i = 0; i < assetQueries.length; i++) {
     const query = assetQueries[i]
-    const chainId = chains?.[i]?.chainId
+    const chain = chains[i]
     const assets = query.data
-    if (!assets) continue
+    if (!chain || !assets) continue
 
     for (const asset of assets) {
       if (asset.logoUrl && !asset.logoUrl.includes("undefined")) {
-        // Use chainId:denom as key if chainId is available (prevents cross-chain denom collision)
-        const denomKey = chainId ? `${chainId}:${asset.denom}` : asset.denom
-        if (!denomMap.has(denomKey)) {
-          denomMap.set(denomKey, asset.logoUrl)
+        // Use chainId:denom as key (prevents cross-chain denom collision)
+        const chainDenomKey = `${chain.chainId}:${asset.denom}`
+        if (!denomMap.has(chainDenomKey)) {
+          denomMap.set(chainDenomKey, asset.logoUrl)
         }
         const upperSymbol = asset.symbol.toUpperCase()
         if (!symbolMap.has(upperSymbol)) {
@@ -435,11 +435,7 @@ export function applyLogosToGroups(
       const upperSymbol = asset.symbol.toUpperCase()
       // Try chainId:denom key first (for chain-specific logos), then fall back to denom-only and symbol
       const chainDenomKey = `${asset.chain.chainId}:${asset.denom}`
-      const logoUrl =
-        denomLogos.get(chainDenomKey) ??
-        denomLogos.get(asset.denom) ??
-        symbolLogos.get(upperSymbol) ??
-        ""
+      const logoUrl = denomLogos.get(chainDenomKey) ?? symbolLogos.get(upperSymbol) ?? ""
       return logoUrl !== asset.logoUrl ? { ...asset, logoUrl } : asset
     })
 
