@@ -1,5 +1,19 @@
 # Changelog
 
+### [2.2.4](https://github.com/initia-labs/interwovenkit/compare/v2.2.3...v2.2.4) (2026-02-04)
+
+### Features
+
+- **portfolio:** include VIP reward in Initia chain total balance ([425b2dc](https://github.com/initia-labs/interwovenkit/commit/425b2dceac00d800d5cda1739c2d1392d0efe416))
+- **bridge:** skip OP withdrawal reminder for migrated bridges ([1ed2df2](https://github.com/initia-labs/interwovenkit/commit/1ed2df2dfc6791a612a1cb599d5fb94b931a1559))
+
+### Bug Fixes
+
+- deposit and withdraw bugs and inconsistencies ([#133](https://github.com/initia-labs/interwovenkit/issues/133)) ([6b692d9](https://github.com/initia-labs/interwovenkit/commit/6b692d90ed04bab69185278c6b667fe6c48793ef))
+- **portfolio:** prevent cross-chain denom logo collision ([bd907a5](https://github.com/initia-labs/interwovenkit/commit/bd907a51f3d567e7ff56fe20756fa0d95717b569))
+- **bridge:** add route data conditions to Fast/Lossless toggle ([251110e](https://github.com/initia-labs/interwovenkit/commit/251110e1022d6e59fdb67710f6a5a8c7056b1c16))
+- **deps:** patch brace-expansion transitive vulnerability ([08c9555](https://github.com/initia-labs/interwovenkit/commit/08c95555ddb5ca62b1f6eae3118e5ac46812ec10))
+
 ### [2.2.3](https://github.com/initia-labs/interwovenkit/compare/v2.2.2...v2.2.3) (2026-02-01)
 
 ### Bug Fixes
