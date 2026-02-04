@@ -7,7 +7,7 @@ import { useDefaultChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import { STALE_TIMES } from "@/data/http"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { useAutoSignApi } from "./fetch"
+import { getFeegrantAllowedMessages, getFeegrantExpiration, useAutoSignApi } from "./fetch"
 import { getExpectedAddress } from "./wallet"
 
 export const autoSignQueryKeys = createQueryKeys("interwovenkit:autosign", {
@@ -105,11 +105,21 @@ export function useAutoSignStatus() {
             continue
           }
 
+          const feegrantAllowedMessages = getFeegrantAllowedMessages(feegrant.allowance)
+          const allowsAuthzExec =
+            !feegrantAllowedMessages ||
+            feegrantAllowedMessages.includes("/cosmos.authz.v1beta1.MsgExec")
+
+          if (!allowsAuthzExec) {
+            expiredAtByChain[chainId] = null
+            continue
+          }
+
           const grantExpirations = validGrantee.grants
             .filter((grant) => msgTypes.includes(grant.authorization.msg))
             .map((grant) => grant.expiration)
 
-          const feegrantExpiration = feegrant.allowance.expiration
+          const feegrantExpiration = getFeegrantExpiration(feegrant.allowance)
           const allExpirations = [...grantExpirations, feegrantExpiration]
           const earliestExpiration = findEarliestDate(allExpirations)
           expiredAtByChain[chainId] = earliestExpiration ? new Date(earliestExpiration) : undefined

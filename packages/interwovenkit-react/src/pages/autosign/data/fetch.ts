@@ -27,11 +27,37 @@ export interface FeegrantAllowance {
   allowance: {
     "@type": string
     expiration?: string
+    allowance?: {
+      "@type": string
+      expiration?: string
+    }
+    allowed_messages?: string[]
+    allowedMessages?: string[]
   }
 }
 
 export interface FeegrantResponse {
   allowance: FeegrantAllowance
+}
+
+export function getFeegrantExpiration(
+  allowance: FeegrantAllowance["allowance"],
+): string | undefined {
+  if (allowance["@type"] === "/cosmos.feegrant.v1beta1.AllowedMsgAllowance") {
+    return allowance.allowance?.expiration
+  }
+
+  return allowance.expiration
+}
+
+export function getFeegrantAllowedMessages(
+  allowance: FeegrantAllowance["allowance"],
+): string[] | undefined {
+  if (allowance["@type"] !== "/cosmos.feegrant.v1beta1.AllowedMsgAllowance") {
+    return undefined
+  }
+
+  return allowance.allowedMessages ?? allowance.allowed_messages ?? []
 }
 
 /*
