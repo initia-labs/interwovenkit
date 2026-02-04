@@ -1,3 +1,5 @@
+import type { Coin } from "@cosmjs/proto-signing"
+import BigNumber from "bignumber.js"
 import { addMilliseconds } from "date-fns"
 import { useAtom } from "jotai"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
@@ -11,7 +13,9 @@ import {
   MsgGrantAllowance,
   MsgRevokeAllowance,
 } from "@initia/initia.proto/cosmos/feegrant/v1beta1/tx"
+import { useFindChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
+import { fetchGasPrices } from "@/data/fee"
 import { clearSigningClientCache } from "@/data/signer"
 import { useTx } from "@/data/tx"
 import { useDrawer } from "@/data/ui"
@@ -20,6 +24,30 @@ import { useAutoSignApi } from "./fetch"
 import { pendingAutoSignRequestAtom } from "./store"
 import { autoSignQueryKeys, useAutoSignMessageTypes, useAutoSignStatus } from "./validation"
 import { storeExpectedAddress, useDeriveWallet } from "./wallet"
+
+const DAY_IN_MS = 24 * 60 * 60 * 1000
+const DEFAULT_FEEGRANT_GAS_PER_TX = 300_000
+const DEFAULT_FEEGRANT_MAX_TX_PER_DAY = 200
+const DEFAULT_FEEGRANT_MAX_TX_INDEFINITE = 2_000
+
+export function calculateFeegrantSpendLimit(gasPrices: Coin[], durationInMs: number): Coin[] {
+  const maxTxCount =
+    durationInMs === 0
+      ? DEFAULT_FEEGRANT_MAX_TX_INDEFINITE
+      : Math.max(1, Math.ceil(durationInMs / DAY_IN_MS)) * DEFAULT_FEEGRANT_MAX_TX_PER_DAY
+
+  return gasPrices.map(({ denom, amount }) => {
+    const spendLimit = new BigNumber(amount)
+      .times(DEFAULT_FEEGRANT_GAS_PER_TX)
+      .times(maxTxCount)
+      .integerValue(BigNumber.ROUND_CEIL)
+
+    return {
+      denom,
+      amount: spendLimit.isLessThan(1) ? "1" : spendLimit.toFixed(0),
+    }
+  })
+}
 
 /* Hook to fetch existing grants and generate revoke messages for a specific grantee */
 function useFetchRevokeMessages() {
@@ -59,6 +87,7 @@ function useFetchRevokeMessages() {
 /* Enable AutoSign by deriving wallet from signature and granting permissions */
 export function useEnableAutoSign() {
   const initiaAddress = useInitiaAddress()
+  const findChain = useFindChain()
   const messageTypes = useAutoSignMessageTypes()
   const { requestTxBlock } = useTx()
   const queryClient = useQueryClient()
@@ -79,6 +108,9 @@ export function useEnableAutoSign() {
         throw new Error("Wallet not connected")
       }
 
+      const chain = findChain(chainId)
+      const gasPrices = await fetchGasPrices(chain)
+      const spendLimit = calculateFeegrantSpendLimit(gasPrices, durationInMs)
       const derivedWallet = await deriveWallet(chainId)
 
       // Clear cached signing client to ensure fresh account data after wallet derivation
@@ -89,7 +121,9 @@ export function useEnableAutoSign() {
       const expiration = durationInMs === 0 ? undefined : addMilliseconds(new Date(), durationInMs)
       const basicAllowance = {
         typeUrl: "/cosmos.feegrant.v1beta1.BasicAllowance",
-        value: BasicAllowance.encode(BasicAllowance.fromPartial({ expiration })).finish(),
+        value: BasicAllowance.encode(
+          BasicAllowance.fromPartial({ expiration, spendLimit }),
+        ).finish(),
       }
 
       const feegrantMessage = {
