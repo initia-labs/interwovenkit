@@ -31,7 +31,7 @@ interface PositionSectionContentProps {
 }
 
 const AppchainPositionContent = ({ chainGroup }: PositionSectionContentProps) => {
-  const { chainLogo, protocols } = chainGroup
+  const { chainId, chainLogo, protocols } = chainGroup
 
   // Asset logos (non-blocking - renders immediately, logos appear when ready)
   const chains = useInitiaRegistry()
@@ -52,7 +52,8 @@ const AppchainPositionContent = ({ chainGroup }: PositionSectionContentProps) =>
 
         const { denom, symbol } = position.balance
         const upperSymbol = symbol.toUpperCase()
-        const assetLogo = denomLogos.get(denom) ?? symbolLogos.get(upperSymbol)
+        const chainDenomKey = `${chainId}:${denom}`
+        const assetLogo = denomLogos.get(chainDenomKey) ?? symbolLogos.get(upperSymbol)
 
         if (assetLogo) {
           map.set(denom, { assetLogo, chainLogo: chainLogo ?? "" })
@@ -61,7 +62,7 @@ const AppchainPositionContent = ({ chainGroup }: PositionSectionContentProps) =>
     }
 
     return map
-  }, [protocols, denomLogos, symbolLogos, chainLogo])
+  }, [protocols, denomLogos, symbolLogos, chainId, chainLogo])
 
   return <PositionSectionList protocols={protocols} denomLogoMap={denomLogoMap} />
 }

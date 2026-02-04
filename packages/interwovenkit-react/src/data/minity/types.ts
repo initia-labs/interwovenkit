@@ -246,6 +246,7 @@ export interface SSEPortfolioData {
 
 /** Position group by chain */
 export interface PortfolioChainPositionGroup {
+  chainId: string
   chainName: string
   chainLogo: string
   protocols: ProtocolPosition[]
