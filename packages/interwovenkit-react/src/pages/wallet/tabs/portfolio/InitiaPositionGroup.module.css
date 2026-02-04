@@ -115,3 +115,14 @@
     height: 0;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .expandIcon {
+    transition: none;
+  }
+
+  .collapsibleContent[data-state="open"],
+  .collapsibleContent[data-state="closed"] {
+    animation: none;
+  }
+}
