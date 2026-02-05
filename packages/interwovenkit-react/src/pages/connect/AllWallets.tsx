@@ -1,0 +1,176 @@
+import clsx from "clsx"
+import type { Connector } from "wagmi"
+import { useMemo, useState } from "react"
+import { IconBack, IconExternalLink } from "@initia/icons-react"
+import SearchInput from "@/components/form/SearchInput"
+import Image from "@/components/Image"
+import Loader from "@/components/Loader"
+import Scrollable from "@/components/Scrollable"
+import { useWalletConnectWallets } from "./useWalletConnectWallets"
+import styles from "./Connect.module.css"
+
+const isSafeHttpsUrl = (url: string): boolean => {
+  try {
+    const u = new URL(url.trim())
+    return u.protocol === "https:" && !u.username && !u.password
+  } catch {
+    return false
+  }
+}
+
+const normalizeWalletName = (name: string) =>
+  name
+    .toLowerCase()
+    .replace(/\s*(wallet|extension|app)$/, "")
+    .trim()
+
+interface Props {
+  walletConnectors: Connector[]
+  isPending: boolean
+  pendingConnectorId: string | null
+  recentConnectorId: string | null
+  onConnect: (connector: Connector) => void
+  onBack: () => void
+}
+
+const AllWallets = ({
+  walletConnectors,
+  isPending,
+  pendingConnectorId,
+  recentConnectorId,
+  onConnect,
+  onBack,
+}: Props) => {
+  const [search, setSearch] = useState("")
+  const { data: wcWallets = [] } = useWalletConnectWallets()
+
+  const filteredConnectors = useMemo(() => {
+    let result = [...walletConnectors]
+
+    if (search) {
+      const searchLower = search.toLowerCase()
+      result = result.filter((c) => c.name.toLowerCase().includes(searchLower))
+    }
+
+    return result.sort((a, b) => {
+      if (a.id === recentConnectorId) return -1
+      if (b.id === recentConnectorId) return 1
+      return a.name.localeCompare(b.name)
+    })
+  }, [walletConnectors, search, recentConnectorId])
+
+  const additionalWallets = useMemo(() => {
+    const connectorNamesNormalized = new Set(
+      walletConnectors.map((c) => normalizeWalletName(c.name)),
+    )
+
+    let filtered = wcWallets.filter(
+      (w) => !connectorNamesNormalized.has(normalizeWalletName(w.name)),
+    )
+
+    if (search) {
+      const searchLower = search.toLowerCase()
+      filtered = filtered.filter((w) => w.name.toLowerCase().includes(searchLower))
+    }
+
+    return filtered.sort((a, b) => a.name.localeCompare(b.name))
+  }, [wcWallets, walletConnectors, search])
+
+  return (
+    <div className={styles.pageTop}>
+      <button type="button" className={styles.backButtonFixed} onClick={onBack} aria-label="Back">
+        <IconBack size={16} aria-hidden="true" />
+      </button>
+
+      <header className={styles.header}>
+        <div className={styles.headerSpacer} />
+        <h1 className={styles.title}>All Wallets</h1>
+        <div className={styles.headerSpacer} />
+      </header>
+
+      <div className={styles.searchWrapper}>
+        <SearchInput
+          rootClassName={styles.searchInputUnderline}
+          placeholder="Search Wallet"
+          aria-label="Search wallets"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onClear={() => setSearch("")}
+        />
+      </div>
+
+      <Scrollable className={styles.scrollable}>
+        <div className={styles.list}>
+          {filteredConnectors.map((connector) => {
+            const { name, icon, id } = connector
+            const isRecent = recentConnectorId === id
+            const isPendingConnection = pendingConnectorId === id
+            const isReady = "ready" in connector ? Boolean(connector.ready) : true
+
+            return (
+              <button
+                type="button"
+                className={clsx(styles.listItem, { [styles.loading]: isPendingConnection })}
+                onClick={() => onConnect(connector)}
+                disabled={isPending || !isReady}
+                aria-busy={isPendingConnection}
+                key={`connector:${id}`}
+              >
+                <div className={styles.listIconWrapper}>
+                  <Image src={icon} width={24} height={24} alt="" className={styles.icon} />
+                </div>
+                <span className={styles.listName}>{name}</span>
+                {isPendingConnection ? (
+                  <Loader size={16} />
+                ) : isRecent ? (
+                  <span className={styles.recentBadge}>Recent</span>
+                ) : isReady ? (
+                  <span className={styles.installedText}>Installed</span>
+                ) : null}
+              </button>
+            )
+          })}
+
+          {additionalWallets.map((wallet) => {
+            const href = wallet.homepage
+            const iconSrc = wallet.image_url?.sm || wallet.image_url?.md || wallet.image_url?.lg
+            const safeIconSrc = iconSrc && isSafeHttpsUrl(iconSrc) ? iconSrc : undefined
+
+            if (!href || !isSafeHttpsUrl(href)) return null
+
+            return (
+              <a
+                className={styles.listItem}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${wallet.name} (opens in new tab)`}
+                key={`wc:${wallet.id}`}
+              >
+                <div className={styles.listIconWrapper}>
+                  {safeIconSrc && (
+                    <Image
+                      src={safeIconSrc}
+                      width={24}
+                      height={24}
+                      alt=""
+                      className={styles.icon}
+                    />
+                  )}
+                </div>
+                <span className={styles.listNameMuted}>{wallet.name}</span>
+                <IconExternalLink
+                  size={10}
+                  className={styles.externalLinkIcon}
+                  aria-hidden="true"
+                />
+              </a>
+            )
+          })}
+        </div>
+      </Scrollable>
+    </div>
+  )
+}
+
+export default AllWallets
