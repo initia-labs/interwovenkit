@@ -2,7 +2,11 @@ import { useDisconnect as useDisconnectWagmi } from "wagmi"
 import { atom, useAtom, useSetAtom } from "jotai"
 import { useAnalyticsTrack } from "@/data/analytics"
 import { useNavigate, useReset } from "@/lib/router"
+import { useInitiaAddress } from "@/public/data/hooks"
+import { useClearSSECache } from "./minity/sse"
 import { LocalStorageKey } from "./constants"
+import { clearErrorCache } from "./errors"
+import { clearClientCaches } from "./signer"
 
 const isDrawerOpenAtom = atom<boolean>(false)
 const isModalOpenAtom = atom<boolean>(false)
@@ -62,19 +66,32 @@ export function useDisconnect() {
   const { closeDrawer } = useDrawer()
   const { closeModal } = useModal()
   const { disconnect } = useDisconnectWagmi()
+  const address = useInitiaAddress()
+  const clearSSECache = useClearSSECache()
 
   return () => {
     navigate("/blank")
     closeDrawer()
     closeModal()
+
+    // Clear all in-memory caches before wallet disconnect
+    clearClientCaches()
+    clearErrorCache()
+    clearSSECache()
+
     disconnect()
 
-    // Clear bridge form values on disconnect
+    // Clear localStorage values on disconnect
     localStorage.removeItem(LocalStorageKey.BRIDGE_SRC_CHAIN_ID)
     localStorage.removeItem(LocalStorageKey.BRIDGE_SRC_DENOM)
     localStorage.removeItem(LocalStorageKey.BRIDGE_DST_CHAIN_ID)
     localStorage.removeItem(LocalStorageKey.BRIDGE_DST_DENOM)
     localStorage.removeItem(LocalStorageKey.BRIDGE_QUANTITY)
     localStorage.removeItem(LocalStorageKey.BRIDGE_SLIPPAGE_PERCENT)
+
+    // Clear cached public key for current address
+    if (address) {
+      localStorage.removeItem(`${LocalStorageKey.PUBLIC_KEY}:${address}`)
+    }
   }
 }
