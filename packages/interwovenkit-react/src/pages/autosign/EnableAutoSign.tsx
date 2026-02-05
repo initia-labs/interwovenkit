@@ -61,9 +61,7 @@ const EnableAutoSignComponent = () => {
     if (!targetChain?.website) return false
 
     try {
-      const registryDomain = getBaseDomain(new URL(targetChain.website).hostname)
-      const websiteDomain = getBaseDomain(window.location.hostname)
-      return registryDomain === websiteDomain
+      return isVerifiedWebsiteHost(targetChain.website, window.location.hostname)
     } catch {
       return false
     }
@@ -195,11 +193,11 @@ const EnableAutoSign = () => {
 
 export default EnableAutoSign
 
-/**
- * Extract base domain from hostname (e.g., subdomain.example.com -> example.com)
- */
-function getBaseDomain(hostname: string): string {
-  const parts = hostname.split(".")
-  if (parts.length < 2) return hostname
-  return parts.slice(-2).join(".")
+function isVerifiedWebsiteHost(registeredWebsite: string, currentHostname: string): boolean {
+  const registeredHostname = new URL(registeredWebsite).hostname.toLowerCase()
+  const current = currentHostname.toLowerCase()
+
+  if (!registeredHostname || !current) return false
+
+  return current === registeredHostname || current.endsWith(`.${registeredHostname}`)
 }
