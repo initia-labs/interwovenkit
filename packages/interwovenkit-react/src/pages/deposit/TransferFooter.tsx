@@ -9,32 +9,32 @@ import { useBalances } from "@/data/account"
 import { useFindAsset } from "@/data/assets"
 import { useChain } from "@/data/chains"
 import { useGasPrices, useLastFeeDenom } from "@/data/fee"
-import { usePath } from "@/lib/router"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import BridgePreviewFooter from "../bridge/BridgePreviewFooter"
 import { useAllSkipAssets } from "../bridge/data/assets"
 import { type BridgeTxResult, useBridgePreviewState } from "../bridge/data/tx"
 import FooterWithErc20Approval from "../bridge/FooterWithErc20Approval"
-import { useTransferForm } from "./hooks"
+import { type TransferMode, useTransferForm } from "./hooks"
 import TransferTxDetails from "./TransferTxDetails"
 import styles from "./TransferFooter.module.css"
 
 interface Props {
   tx: TxJson
   gas: number | null
+  mode: TransferMode
 }
 
-const TransferFooterWithFee = ({ tx, gas }: Props) => {
-  const path = usePath()
-  const isWithdraw = path.startsWith("/withdraw")
-  const confirmMessage = isWithdraw ? "Withdraw" : "Deposit"
-  const { setValue } = useTransferForm()
+interface FooterBaseProps {
+  tx: TxJson
+  confirmMessage: "Deposit" | "Withdraw"
+  onCompleted: (result: BridgeTxResult) => void
+}
 
-  const onCompleted = (result: BridgeTxResult) => {
-    setValue("page", "completed")
-    setValue("result", result)
-  }
+interface FooterWithFeeProps extends FooterBaseProps {
+  gas: number
+}
 
+const TransferFooterWithFee = ({ tx, gas, confirmMessage, onCompleted }: FooterWithFeeProps) => {
   const { values } = useBridgePreviewState()
   const { srcChainId, srcDenom, quantity } = values
   const skipAssets = useAllSkipAssets()
@@ -50,17 +50,11 @@ const TransferFooterWithFee = ({ tx, gas }: Props) => {
   const findAsset = useFindAsset(chain)
 
   // Only calculate fees for cosmos transactions with valid gas
-  const feeOptions: StdFee[] | null =
-    gas && "cosmos_tx" in tx
-      ? gasPrices.map(({ amount, denom }) =>
-          calculateFee(
-            Math.ceil(gas * DEFAULT_GAS_ADJUSTMENT),
-            GasPrice.fromString(amount + denom),
-          ),
-        )
-      : null
+  const feeOptions: StdFee[] = gasPrices.map(({ amount, denom }) =>
+    calculateFee(Math.ceil(gas * DEFAULT_GAS_ADJUSTMENT), GasPrice.fromString(amount + denom)),
+  )
 
-  const feeCoins = feeOptions?.map((fee) => fee.amount[0]) ?? []
+  const feeCoins = feeOptions.map((fee) => fee.amount[0])
 
   const getFeeDetails = (feeDenom: string) => {
     const balance = balances.find((balance) => balance.denom === feeDenom)?.amount ?? "0"
@@ -108,7 +102,7 @@ const TransferFooterWithFee = ({ tx, gas }: Props) => {
 
   const [feeDenom, setFeeDenom] = useState(getInitialFeeDenom)
 
-  const selectedFee = feeOptions?.find((fee) => fee.amount[0].denom === feeDenom) ?? undefined
+  const selectedFee = feeOptions.find((fee) => fee.amount[0].denom === feeDenom) ?? undefined
 
   // Check if balance is sufficient for both fee and transfer amount
   const feeDetails = feeDenom ? getFeeDetails(feeDenom) : null
@@ -129,7 +123,7 @@ const TransferFooterWithFee = ({ tx, gas }: Props) => {
   }
 
   const renderFee = () => {
-    if (!feeOptions || feeOptions.length === 0) return null
+    if (feeOptions.length === 0) return null
 
     // Single fee option - just display it
     if (feeOptions.length === 1) {
@@ -169,7 +163,7 @@ const TransferFooterWithFee = ({ tx, gas }: Props) => {
 
   return (
     <>
-      <TransferTxDetails renderFee={feeOptions && feeOptions.length > 0 ? renderFee : undefined} />
+      <TransferTxDetails renderFee={feeOptions.length > 0 ? renderFee : undefined} />
       <FooterWithErc20Approval tx={tx}>
         <BridgePreviewFooter
           tx={tx}
@@ -183,8 +177,23 @@ const TransferFooterWithFee = ({ tx, gas }: Props) => {
   )
 }
 
-const TransferFooter = ({ tx, gas }: Props) => {
-  const path = usePath()
+const TransferFooterWithoutFee = ({ tx, confirmMessage, onCompleted }: FooterBaseProps) => {
+  return (
+    <>
+      <TransferTxDetails />
+      <FooterWithErc20Approval tx={tx}>
+        <BridgePreviewFooter
+          tx={tx}
+          fee={undefined}
+          onCompleted={onCompleted}
+          confirmMessage={confirmMessage}
+        />
+      </FooterWithErc20Approval>
+    </>
+  )
+}
+
+const TransferFooter = ({ tx, gas, mode }: Props) => {
   const { setValue } = useTransferForm()
 
   const onCompleted = (result: BridgeTxResult) => {
@@ -192,26 +201,23 @@ const TransferFooter = ({ tx, gas }: Props) => {
     setValue("result", result)
   }
 
-  const isWithdraw = path.startsWith("/withdraw")
-  const confirmMessage = isWithdraw ? "Withdraw" : "Deposit"
+  const confirmMessage = mode === "withdraw" ? "Withdraw" : "Deposit"
 
+  // TransferFooterWithFee assumes `gas` exists and `tx` is a cosmos tx.
   if (!gas || !("cosmos_tx" in tx)) {
     return (
-      <>
-        <TransferTxDetails />
-        <FooterWithErc20Approval tx={tx}>
-          <BridgePreviewFooter
-            tx={tx}
-            fee={undefined}
-            onCompleted={onCompleted}
-            confirmMessage={confirmMessage}
-          />
-        </FooterWithErc20Approval>
-      </>
+      <TransferFooterWithoutFee tx={tx} onCompleted={onCompleted} confirmMessage={confirmMessage} />
     )
   }
 
-  return <TransferFooterWithFee tx={tx} gas={gas} />
+  return (
+    <TransferFooterWithFee
+      tx={tx}
+      gas={gas}
+      onCompleted={onCompleted}
+      confirmMessage={confirmMessage}
+    />
+  )
 }
 
 export default TransferFooter
