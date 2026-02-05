@@ -1,52 +1,195 @@
-import type { StdFee } from "@cosmjs/amino"
+import type {
+  AccountData,
+  Algo,
+  AminoSignResponse,
+  OfflineAminoSigner,
+  StdFee,
+  StdSignDoc,
+} from "@cosmjs/amino"
+import { escapeCharacters, sortedJsonStringify } from "@cosmjs/amino/build/signdoc"
+import { Secp256k1 } from "@cosmjs/crypto"
+import { fromHex } from "@cosmjs/encoding"
 import type { EncodeObject } from "@cosmjs/proto-signing"
+import { ethers } from "ethers"
+import type { Hex } from "viem"
+import { useSignMessage } from "wagmi"
+import { useAtom } from "jotai"
 import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
-import { InitiaAddress } from "@initia/utils"
 import { useFindChain } from "@/data/chains"
-import { useConfig } from "@/data/config"
-import { useIsPrivyConnected } from "@/data/privy"
-import { OfflineSigner, useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
+import { encodeEthSecp256k1Signature } from "@/data/patches/signature"
+import { useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
+import { useInitiaAddress } from "@/public/data/hooks"
+import { deriveWalletFromSignature, getAutoSignMessage, getDerivedWalletKey } from "./derivation"
+import { type DerivedWallet, derivedWalletsAtom } from "./store"
 
-/* Retrieve embedded wallet instance from Privy context for auto-sign delegation */
-export function useEmbeddedWallet() {
-  const { privyContext } = useConfig()
-  const isConnected = useIsPrivyConnected()
-  if (!privyContext || !isConnected) return undefined
-  return privyContext.wallets.find((wallet) => wallet.connectorType === "embedded")
+const pendingDerivations = new Map<string, Promise<DerivedWallet>>()
+const cancelledDerivations = new Set<string>()
+
+/* Expected address storage for wallet migration detection.
+ * Stores the derived wallet address in localStorage to detect when on-chain grants
+ * were created by a different derivation method (e.g., previous Privy-based system).
+ * Without this, users with previous grants would see auto-sign as "enabled" but transactions
+ * would fail because the current derivation produces a different wallet address.
+ * Note: origin is not included in key since each origin has its own localStorage namespace. */
+const AUTOSIGN_STORAGE_PREFIX = "autosign:"
+
+export function getExpectedAddressKey(userAddress: string): string {
+  return `${AUTOSIGN_STORAGE_PREFIX}${userAddress}`
 }
 
-/* Extract embedded wallet address and convert to Initia Bech32 format */
-export function useEmbeddedWalletAddress() {
-  const wallet = useEmbeddedWallet()
-  return wallet?.address ? InitiaAddress(wallet.address).bech32 : undefined
+export function getExpectedAddress(userAddress: string): string | null {
+  return localStorage.getItem(getExpectedAddressKey(userAddress))
 }
 
-/* Sign auto-sign transactions with embedded wallet by wrapping messages in MsgExec and delegating fees */
-export function useSignWithEmbeddedWallet() {
-  const embeddedWallet = useEmbeddedWallet()
-  const embeddedWalletAddress = useEmbeddedWalletAddress()
-  const registry = useRegistry()
+export function storeExpectedAddress(userAddress: string, address: string): void {
+  localStorage.setItem(getExpectedAddressKey(userAddress), address)
+}
+
+/* Offline signer implementation for derived wallet */
+export class DerivedWalletSigner implements OfflineAminoSigner {
+  constructor(private wallet: DerivedWallet) {}
+
+  async getAccounts(): Promise<readonly AccountData[]> {
+    return [
+      {
+        address: this.wallet.address,
+        algo: "ethsecp256k1" as Algo,
+        pubkey: this.wallet.publicKey,
+      },
+    ]
+  }
+
+  /* Initia uses ethsecp256k1 with Amino signing. The sign doc is serialized to JSON
+   * and hashed with EIP-191 personal message prefix before signing. */
+  async signAmino(signerAddress: string, signDoc: StdSignDoc): Promise<AminoSignResponse> {
+    if (this.wallet.address !== signerAddress) {
+      throw new Error("Signer address does not match the derived wallet address")
+    }
+
+    const signDocAminoJSON = escapeCharacters(sortedJsonStringify(signDoc))
+    const messageHash = ethers.hashMessage(signDocAminoJSON)
+    const messageHashBytes = fromHex(messageHash.replace("0x", ""))
+
+    const signature = await Secp256k1.createSignature(messageHashBytes, this.wallet.privateKey)
+    const signatureBytes = new Uint8Array([...signature.r(32), ...signature.s(32)])
+
+    const encodedSignature = encodeEthSecp256k1Signature(this.wallet.publicKey, signatureBytes)
+
+    return { signed: signDoc, signature: encodedSignature }
+  }
+}
+
+/* Derive and store wallet from EIP-191 signature for autosign delegation.
+ * Uses personal_sign instead of signTypedData for better hardware wallet compatibility.
+ * The same derived wallet is used across all chains for the same user. */
+export function useDeriveWallet() {
+  const [derivedWallets, setDerivedWallets] = useAtom(derivedWalletsAtom)
+  const { signMessageAsync } = useSignMessage()
   const findChain = useFindChain()
+  const userAddress = useInitiaAddress()
+
+  const deriveWallet = async (chainId: string): Promise<DerivedWallet> => {
+    if (!userAddress) {
+      throw new Error("User address not available")
+    }
+
+    const key = getDerivedWalletKey(userAddress)
+
+    if (derivedWallets[key]) {
+      return derivedWallets[key]
+    }
+
+    if (pendingDerivations.has(key)) {
+      return pendingDerivations.get(key)!
+    }
+
+    const promiseRef: { current?: Promise<DerivedWallet> } = {}
+
+    const derivationPromise = (async () => {
+      try {
+        const chain = findChain(chainId)
+        const origin = window.location.origin
+        const message = getAutoSignMessage(origin)
+        const signature = await signMessageAsync({ message })
+
+        const wallet = await deriveWalletFromSignature(signature as Hex, chain.bech32_prefix)
+
+        if (!cancelledDerivations.has(key)) {
+          setDerivedWallets((prev) => ({ ...prev, [key]: wallet }))
+        }
+
+        return wallet
+      } finally {
+        if (pendingDerivations.get(key) === promiseRef.current) {
+          pendingDerivations.delete(key)
+        }
+        cancelledDerivations.delete(key)
+      }
+    })()
+
+    promiseRef.current = derivationPromise
+    pendingDerivations.set(key, derivationPromise)
+    return derivationPromise
+  }
+
+  const getWallet = (): DerivedWallet | undefined => {
+    if (!userAddress) return undefined
+    const key = getDerivedWalletKey(userAddress)
+    return derivedWallets[key]
+  }
+
+  const clearWallet = () => {
+    if (!userAddress) return
+
+    const key = getDerivedWalletKey(userAddress)
+
+    if (pendingDerivations.has(key)) {
+      cancelledDerivations.add(key)
+      pendingDerivations.delete(key)
+    }
+
+    setDerivedWallets((prev) => {
+      const next = { ...prev }
+      delete next[key]
+      return next
+    })
+  }
+
+  const clearAllWallets = () => {
+    for (const key of pendingDerivations.keys()) {
+      cancelledDerivations.add(key)
+    }
+    pendingDerivations.clear()
+    setDerivedWallets({})
+  }
+
+  return { deriveWallet, getWallet, clearWallet, clearAllWallets }
+}
+
+/* Sign auto-sign transactions with derived wallet by wrapping messages in MsgExec and delegating fees */
+export function useSignWithDerivedWallet() {
+  const { getWallet, deriveWallet } = useDeriveWallet()
+  const registry = useRegistry()
   const signWithEthSecp256k1 = useSignWithEthSecp256k1()
 
   return async (
     chainId: string,
-    address: string,
+    granterAddress: string,
     messages: EncodeObject[],
     fee: StdFee,
     memo: string,
   ): Promise<TxRaw> => {
-    if (!embeddedWallet || !embeddedWalletAddress) {
-      throw new Error("Embedded wallet not initialized")
+    let derivedWallet = getWallet()
+    if (!derivedWallet) {
+      derivedWallet = await deriveWallet(chainId)
     }
 
-    // Wrap messages in MsgExec for authz delegation
     const authzExecuteMessage: EncodeObject[] = [
       {
         typeUrl: "/cosmos.authz.v1beta1.MsgExec",
         value: MsgExec.fromPartial({
-          grantee: embeddedWalletAddress,
+          grantee: derivedWallet.address,
           msgs: messages.map((msg) => ({
             typeUrl: msg.typeUrl,
             value: registry.encode(msg),
@@ -55,27 +198,20 @@ export function useSignWithEmbeddedWallet() {
       },
     ]
 
-    // Set fee granter for delegated transaction
     const delegatedFee: StdFee = {
       ...fee,
-      granter: address,
+      granter: granterAddress,
     }
 
-    // Create signer instance for delegate wallet
-    const delegateSigner = new OfflineSigner(
-      embeddedWalletAddress,
-      embeddedWallet.sign,
-      findChain(chainId).restUrl,
-    )
+    const derivedSigner = new DerivedWalletSigner(derivedWallet)
 
-    // Sign transaction with delegate wallet
     return await signWithEthSecp256k1(
       chainId,
-      embeddedWalletAddress,
+      derivedWallet.address,
       authzExecuteMessage,
       delegatedFee,
       memo,
-      { customSigner: delegateSigner },
+      { customSigner: derivedSigner },
     )
   }
 }

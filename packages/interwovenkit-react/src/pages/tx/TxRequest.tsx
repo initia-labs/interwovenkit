@@ -17,7 +17,7 @@ import { useSignWithEthSecp256k1 } from "@/data/signer"
 import { TX_APPROVAL_MUTATION_KEY, useTxRequestHandler } from "@/data/tx"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useValidateAutoSign } from "../autosign/data/validation"
-import { useSignWithEmbeddedWallet } from "../autosign/data/wallet"
+import { useSignWithDerivedWallet } from "../autosign/data/wallet"
 import TxFee from "./TxFee"
 import TxFeeInsufficient from "./TxFeeInsufficient"
 import TxMessage from "./TxMessage"
@@ -37,7 +37,7 @@ const TxRequest = () => {
   const lastUsedFeeDenom = useLastFeeDenom(chain)
   const findAsset = useFindAsset(chain)
   const validateAutoSign = useValidateAutoSign()
-  const signWithEmbeddedWallet = useSignWithEmbeddedWallet()
+  const signWithDerivedWallet = useSignWithDerivedWallet()
 
   const feeOptions = (txRequest.gasPrices ?? gasPrices).map(({ amount, denom }) =>
     calculateFee(Math.ceil(gas * gasAdjustment), GasPrice.fromString(amount + denom)),
@@ -89,9 +89,10 @@ const TxRequest = () => {
       const fee = feeOptions.find((fee) => fee.amount[0].denom === feeDenom)
       if (!fee) throw new Error("Fee not found")
 
-      const isAutoSignValid = !txRequest.internal && (await validateAutoSign(chainId, messages))
-      const signedTx = isAutoSignValid
-        ? await signWithEmbeddedWallet(chainId, address, messages, fee, memo || "")
+      const canAutoSign = !txRequest.internal && (await validateAutoSign(chainId, messages))
+
+      const signedTx = canAutoSign
+        ? await signWithDerivedWallet(chainId, address, messages, fee, memo || "")
         : await signWithEthSecp256k1(chainId, address, messages, fee, memo)
 
       await resolve(signedTx)

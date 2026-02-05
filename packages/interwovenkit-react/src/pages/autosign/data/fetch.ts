@@ -37,7 +37,7 @@ export interface FeegrantResponse {
 /*
  * Hook to create API functions for querying grants and feegrants.
  * Note: grantee parameter is required because the settings page (ManageAutoSign)
- * allows revoking grants for any grantee, not just the embedded wallet.
+ * allows revoking grants for any grantee, not just the derived wallet.
  */
 export function useAutoSignApi() {
   const initiaAddress = useInitiaAddress()
@@ -78,5 +78,38 @@ export function useAutoSignApi() {
     return grants
   }
 
-  return { fetchFeegrant, fetchGrants }
+  const fetchAllGrants = async (chainId: string) => {
+    const chain = findChain(chainId)
+    const address = initiaAddress
+
+    if (!address) return []
+
+    try {
+      const data = await ky
+        .create({ prefixUrl: chain.restUrl })
+        .get(`cosmos/authz/v1beta1/grants/granter/${address}`)
+        .json<{
+          grants: Array<{
+            grantee: string
+            granter: string
+            authorization: { "@type": string; msg: string }
+            expiration?: string
+          }>
+        }>()
+
+      return data.grants
+        .filter((grant) => grant.authorization["@type"].includes("GenericAuthorization"))
+        .map((grant) => ({
+          grantee: grant.grantee,
+          authorization: {
+            msg: grant.authorization.msg,
+          },
+          expiration: grant.expiration,
+        }))
+    } catch {
+      return []
+    }
+  }
+
+  return { fetchFeegrant, fetchGrants, fetchAllGrants }
 }

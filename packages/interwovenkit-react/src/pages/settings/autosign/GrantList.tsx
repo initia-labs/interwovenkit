@@ -18,7 +18,6 @@ const GrantList = ({ chainId, grants }: GrantListProps) => {
             ...acc,
             [grant.grantee]: {
               ...existing,
-              messageTypes: [...existing.messageTypes, grant.authorization.msg],
               expiration: findEarliestDate([
                 existing.expiration,
                 grant.expiration ? new Date(grant.expiration) : undefined,
@@ -30,12 +29,11 @@ const GrantList = ({ chainId, grants }: GrantListProps) => {
           ...acc,
           [grant.grantee]: {
             grantee: grant.grantee,
-            messageTypes: [grant.authorization.msg],
             expiration: grant.expiration ? new Date(grant.expiration) : undefined,
           },
         }
       },
-      {} as Record<string, { grantee: string; messageTypes: string[]; expiration?: Date }>,
+      {} as Record<string, { grantee: string; expiration?: Date }>,
     ),
   )
 
