@@ -78,6 +78,7 @@ const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
       privyConnector={privyConnector}
       isPending={isPending}
       pendingConnectorId={pendingConnectorId}
+      recentConnectorId={recentConnectorId}
       onConnect={mutate}
       onShowAll={() => setView("all")}
     />

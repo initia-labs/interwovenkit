@@ -1,7 +1,7 @@
 import clsx from "clsx"
 import type { Connector } from "wagmi"
 import { useMemo, useState } from "react"
-import { IconBack } from "@initia/icons-react"
+import { IconBack, IconExternalLink } from "@initia/icons-react"
 import SearchInput from "@/components/form/SearchInput"
 import Image from "@/components/Image"
 import Loader from "@/components/Loader"
@@ -78,18 +78,20 @@ const AllWallets = ({
 
   return (
     <div className={styles.pageTop}>
+      <button type="button" className={styles.backButtonFixed} onClick={onBack} aria-label="Back">
+        <IconBack size={16} aria-hidden="true" />
+      </button>
+
       <header className={styles.header}>
-        <button type="button" className={styles.backButton} onClick={onBack} aria-label="Back">
-          <IconBack size={16} aria-hidden="true" />
-        </button>
-        <h1 className={styles.title}>All wallets</h1>
+        <div className={styles.headerSpacer} />
+        <h1 className={styles.title}>All Wallets</h1>
         <div className={styles.headerSpacer} />
       </header>
 
       <div className={styles.searchWrapper}>
         <SearchInput
-          rootClassName={styles.searchInput}
-          placeholder="Search wallets…"
+          rootClassName={styles.searchInputUnderline}
+          placeholder="Search Wallet"
           aria-label="Search wallets"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -115,7 +117,7 @@ const AllWallets = ({
                 key={`connector:${id}`}
               >
                 <div className={styles.listIconWrapper}>
-                  <Image src={icon} width={32} height={32} alt="" className={styles.icon} />
+                  <Image src={icon} width={24} height={24} alt="" className={styles.icon} />
                 </div>
                 <span className={styles.listName}>{name}</span>
                 {isPendingConnection ? (
@@ -149,14 +151,19 @@ const AllWallets = ({
                   {safeIconSrc && (
                     <Image
                       src={safeIconSrc}
-                      width={32}
-                      height={32}
+                      width={24}
+                      height={24}
                       alt=""
                       className={styles.icon}
                     />
                   )}
                 </div>
-                <span className={styles.listName}>{wallet.name}</span>
+                <span className={styles.listNameMuted}>{wallet.name}</span>
+                <IconExternalLink
+                  size={10}
+                  className={styles.externalLinkIcon}
+                  aria-hidden="true"
+                />
               </a>
             )
           })}

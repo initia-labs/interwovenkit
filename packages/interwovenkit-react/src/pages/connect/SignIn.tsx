@@ -6,10 +6,10 @@ import Loader from "@/components/Loader"
 import styles from "./Connect.module.css"
 
 const MoreDotsIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-    <circle cx="6" cy="12" r="2" />
-    <circle cx="12" cy="12" r="2" />
-    <circle cx="18" cy="12" r="2" />
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+    <circle cx="4" cy="8" r="1.5" />
+    <circle cx="8" cy="8" r="1.5" />
+    <circle cx="12" cy="8" r="1.5" />
   </svg>
 )
 
@@ -93,6 +93,7 @@ interface Props {
   privyConnector: Connector | undefined
   isPending: boolean
   pendingConnectorId: string | null
+  recentConnectorId: string | null
   onConnect: (connector: Connector) => void
   onShowAll: () => void
 }
@@ -102,6 +103,7 @@ const SignIn = ({
   privyConnector,
   isPending,
   pendingConnectorId,
+  recentConnectorId,
   onConnect,
   onShowAll,
 }: Props) => {
@@ -120,18 +122,44 @@ const SignIn = ({
       <div className={styles.pageContent}>
         <header className={styles.header}>
           <div className={styles.headerSpacer} />
-          <h1 className={styles.title}>Sign in</h1>
+          <h1 className={styles.title}>Sign In</h1>
           <div className={styles.headerSpacer} />
         </header>
 
-        <div className={styles.divider}>
-          <span className={styles.dividerText}>Suggested Wallets</span>
-        </div>
+        {privyConnector && (
+          <>
+            <button
+              type="button"
+              className={clsx(styles.socialButton, {
+                [styles.loading]: pendingConnectorId === privyConnector.id,
+              })}
+              onClick={() => onConnect(privyConnector)}
+              disabled={isPending}
+              aria-busy={pendingConnectorId === privyConnector.id}
+            >
+              <span className={styles.socialText}>Email / Socials</span>
+              {pendingConnectorId === privyConnector.id ? (
+                <Loader size={16} />
+              ) : (
+                <div className={styles.socialIcons}>
+                  <GoogleIcon />
+                  <EmailIcon />
+                  <XIcon />
+                </div>
+              )}
+            </button>
+
+            <div className={styles.divider}>
+              <span className={styles.dividerText}>or</span>
+            </div>
+          </>
+        )}
 
         <div className={styles.list}>
           {suggestedWallets.map((connector) => {
             const { name, icon, id } = connector
             const isPendingConnection = pendingConnectorId === id
+            const isRecent = recentConnectorId === id
 
             return (
               <button
@@ -143,11 +171,13 @@ const SignIn = ({
                 key={id}
               >
                 <div className={styles.listIconWrapper}>
-                  <Image src={icon} width={32} height={32} alt="" className={styles.icon} />
+                  <Image src={icon} width={24} height={24} alt="" className={styles.icon} />
                 </div>
                 <span className={styles.listName}>{name}</span>
                 {isPendingConnection ? (
                   <Loader size={16} />
+                ) : isRecent ? (
+                  <span className={styles.recentBadge}>Recent</span>
                 ) : (
                   <span className={styles.installedText}>Installed</span>
                 )}
@@ -165,9 +195,10 @@ const SignIn = ({
               key={wallet.id}
             >
               <div className={styles.listIconWrapper}>
-                <Image src={wallet.icon} width={32} height={32} alt="" className={styles.icon} />
+                <Image src={wallet.icon} width={24} height={24} alt="" className={styles.icon} />
               </div>
-              <span className={styles.listName}>{wallet.name}</span>
+              <span className={styles.listNameMuted}>{wallet.name}</span>
+              <IconExternalLink size={10} className={styles.externalLinkIcon} aria-hidden="true" />
             </a>
           ))}
 
@@ -182,43 +213,16 @@ const SignIn = ({
                 <MoreDotsIcon />
               </div>
             </div>
-            <span className={styles.listName}>More wallets</span>
+            <span className={styles.listNameMuted}>More wallets</span>
             <span className={styles.arrowIcon} aria-hidden="true">
               →
             </span>
           </button>
         </div>
-
-        {privyConnector && (
-          <>
-            <div className={styles.divider}>
-              <span className={styles.dividerText}>or</span>
-            </div>
-
-            <button
-              type="button"
-              className={clsx(styles.socialButton, {
-                [styles.loading]: pendingConnectorId === privyConnector.id,
-              })}
-              onClick={() => onConnect(privyConnector)}
-              disabled={isPending}
-              aria-busy={pendingConnectorId === privyConnector.id}
-            >
-              <div className={styles.socialIcons}>
-                <GoogleIcon />
-                <XIcon />
-                <EmailIcon />
-              </div>
-              <span className={styles.socialText}>Sign in with Socials</span>
-              <span className={styles.loaderSlot}>
-                {pendingConnectorId === privyConnector.id && <Loader size={16} />}
-              </span>
-            </button>
-          </>
-        )}
       </div>
 
-      {/* TODO: Update link to actual wallet documentation page */}
+      <div className={styles.spacer} />
+
       <a
         className={styles.learnMoreLink}
         href="https://docs.initia.xyz"
