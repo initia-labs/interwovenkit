@@ -225,7 +225,7 @@ const SignIn = ({
 
       <a
         className={styles.learnMoreLink}
-        href="https://docs.initia.xyz"
+        href="https://docs.initia.xyz/home/tools/wallet"
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Learn more (opens in new tab)"
