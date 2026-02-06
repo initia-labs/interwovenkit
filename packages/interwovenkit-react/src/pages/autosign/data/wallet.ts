@@ -135,11 +135,11 @@ export function useDeriveWallet() {
         if (!cancelledDerivations.has(key)) {
           privateKeyVault.set(key, wallet.privateKey)
           setDerivedWallets((prev) => ({ ...prev, [key]: publicWallet }))
-        } else {
-          zeroizePrivateKey(wallet.privateKey)
+          return publicWallet
         }
 
-        return publicWallet
+        zeroizePrivateKey(wallet.privateKey)
+        throw new Error("Wallet derivation was cancelled")
       } finally {
         if (pendingDerivations.get(key) === promiseRef.current) {
           pendingDerivations.delete(key)
@@ -156,6 +156,7 @@ export function useDeriveWallet() {
   const getWallet = (): DerivedWalletPublic | undefined => {
     if (!userAddress) return undefined
     const key = getDerivedWalletKey(userAddress)
+    if (!privateKeyVault.has(key)) return undefined
     return derivedWallets[key]
   }
 
