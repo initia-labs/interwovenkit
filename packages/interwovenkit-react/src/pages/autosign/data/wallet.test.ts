@@ -45,7 +45,7 @@ describe("DerivedWalletSigner", () => {
   describe("getAccounts", () => {
     it("returns array with single account", async () => {
       const wallet = await createTestWallet()
-      const signer = new DerivedWalletSigner(wallet)
+      const signer = new DerivedWalletSigner(wallet, wallet.privateKey)
 
       const accounts = await signer.getAccounts()
 
@@ -54,7 +54,7 @@ describe("DerivedWalletSigner", () => {
 
     it("returns account with correct address", async () => {
       const wallet = await createTestWallet()
-      const signer = new DerivedWalletSigner(wallet)
+      const signer = new DerivedWalletSigner(wallet, wallet.privateKey)
 
       const accounts = await signer.getAccounts()
 
@@ -63,7 +63,7 @@ describe("DerivedWalletSigner", () => {
 
     it("returns account with ethsecp256k1 algo", async () => {
       const wallet = await createTestWallet()
-      const signer = new DerivedWalletSigner(wallet)
+      const signer = new DerivedWalletSigner(wallet, wallet.privateKey)
 
       const accounts = await signer.getAccounts()
 
@@ -72,7 +72,7 @@ describe("DerivedWalletSigner", () => {
 
     it("returns account with correct public key", async () => {
       const wallet = await createTestWallet()
-      const signer = new DerivedWalletSigner(wallet)
+      const signer = new DerivedWalletSigner(wallet, wallet.privateKey)
 
       const accounts = await signer.getAccounts()
 
@@ -81,7 +81,7 @@ describe("DerivedWalletSigner", () => {
 
     it("returns readonly array", async () => {
       const wallet = await createTestWallet()
-      const signer = new DerivedWalletSigner(wallet)
+      const signer = new DerivedWalletSigner(wallet, wallet.privateKey)
 
       const accounts = await signer.getAccounts()
 
@@ -93,7 +93,7 @@ describe("DerivedWalletSigner", () => {
   describe("signAmino", () => {
     it("throws when signer address does not match wallet address", async () => {
       const wallet = await createTestWallet()
-      const signer = new DerivedWalletSigner(wallet)
+      const signer = new DerivedWalletSigner(wallet, wallet.privateKey)
       const signDoc = createTestSignDoc()
 
       await expect(
@@ -103,7 +103,7 @@ describe("DerivedWalletSigner", () => {
 
     it("returns signed document unchanged", async () => {
       const wallet = await createTestWallet()
-      const signer = new DerivedWalletSigner(wallet)
+      const signer = new DerivedWalletSigner(wallet, wallet.privateKey)
       const signDoc = createTestSignDoc()
 
       const result = await signer.signAmino(wallet.address, signDoc)
@@ -113,7 +113,7 @@ describe("DerivedWalletSigner", () => {
 
     it("returns signature with pub_key", async () => {
       const wallet = await createTestWallet()
-      const signer = new DerivedWalletSigner(wallet)
+      const signer = new DerivedWalletSigner(wallet, wallet.privateKey)
       const signDoc = createTestSignDoc()
 
       const result = await signer.signAmino(wallet.address, signDoc)
@@ -124,7 +124,7 @@ describe("DerivedWalletSigner", () => {
 
     it("returns signature as base64 string", async () => {
       const wallet = await createTestWallet()
-      const signer = new DerivedWalletSigner(wallet)
+      const signer = new DerivedWalletSigner(wallet, wallet.privateKey)
       const signDoc = createTestSignDoc()
 
       const result = await signer.signAmino(wallet.address, signDoc)
@@ -135,7 +135,7 @@ describe("DerivedWalletSigner", () => {
 
     it("produces 64-byte signature", async () => {
       const wallet = await createTestWallet()
-      const signer = new DerivedWalletSigner(wallet)
+      const signer = new DerivedWalletSigner(wallet, wallet.privateKey)
       const signDoc = createTestSignDoc()
 
       const result = await signer.signAmino(wallet.address, signDoc)
@@ -146,7 +146,7 @@ describe("DerivedWalletSigner", () => {
 
     it("produces deterministic signature for same input", async () => {
       const wallet = await createTestWallet()
-      const signer = new DerivedWalletSigner(wallet)
+      const signer = new DerivedWalletSigner(wallet, wallet.privateKey)
       const signDoc = createTestSignDoc()
 
       const result1 = await signer.signAmino(wallet.address, signDoc)
@@ -157,7 +157,7 @@ describe("DerivedWalletSigner", () => {
 
     it("produces different signature for different sign docs", async () => {
       const wallet = await createTestWallet()
-      const signer = new DerivedWalletSigner(wallet)
+      const signer = new DerivedWalletSigner(wallet, wallet.privateKey)
       const signDoc1 = createTestSignDoc()
       const signDoc2 = { ...createTestSignDoc(), memo: "different memo" }
 
@@ -169,7 +169,7 @@ describe("DerivedWalletSigner", () => {
 
     it("produces verifiable signature", async () => {
       const wallet = await createTestWallet()
-      const signer = new DerivedWalletSigner(wallet)
+      const signer = new DerivedWalletSigner(wallet, wallet.privateKey)
       const signDoc = createTestSignDoc()
 
       const result = await signer.signAmino(wallet.address, signDoc)

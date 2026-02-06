@@ -14,7 +14,11 @@ export interface DerivedWallet {
   address: string
 }
 
-/* Memory-only storage: private keys exist only in browser memory and are cleared on page refresh.
- * The wallet can always be re-derived from the same signature, so persistence is unnecessary
- * and would increase attack surface. */
-export const derivedWalletsAtom = atom<Record<string, DerivedWallet>>({})
+export interface DerivedWalletPublic {
+  publicKey: Uint8Array
+  address: string
+}
+
+/* Memory-only storage for non-sensitive wallet metadata.
+ * Private keys are intentionally excluded from atom state to reduce exposure. */
+export const derivedWalletsAtom = atom<Record<string, DerivedWalletPublic>>({})
