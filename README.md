@@ -7,6 +7,7 @@ See [README.md](packages/interwovenkit-react/README.md) for detailed package doc
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [Running Locally](#running-locally)
+- [Deployment Security Headers](#deployment-security-headers)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
 - [Scripts](#scripts)
@@ -55,6 +56,40 @@ pnpm watch  # Serve the demo using the built package and styles.
 
 - In production mode, the package and its styles will be injected into a Shadow DOM.
 - The demo site will be available at: [http://localhost:5173](http://localhost:5173)
+
+## Deployment Security Headers
+
+InterwovenKit handles high-impact actions (wallet connections, approvals, deposits, and withdrawals). Security response headers must be configured by the host app/server/CDN, not by this library.
+
+### Recommended baseline
+
+- Use `Content-Security-Policy` with strict directives.
+- Use `frame-ancestors` in CSP to enforce clickjacking protection.
+- Optionally add `X-Frame-Options` for legacy browser coverage.
+- Set explicit `Content-Type` with charset for HTML responses (`text/html; charset=utf-8`).
+
+### CSP example (adjust to your app)
+
+```http
+Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://<rpc-origin> https://<api-origin> https://<wallet-provider-origin>; frame-src 'self' https://<wallet-provider-origin>
+```
+
+Allowlist only the exact third-party origins your app uses, especially in `connect-src` and `frame-src`.
+
+### Clickjacking headers
+
+- Preferred: `frame-ancestors` in CSP.
+- Optional legacy fallback: `X-Frame-Options: DENY` or `X-Frame-Options: SAMEORIGIN`.
+
+### Content-Type and charset
+
+- HTML: `Content-Type: text/html; charset=utf-8`.
+- JS/CSS: set appropriate `Content-Type` values and include charset where applicable.
+
+### Verify in production
+
+- Check headers via `curl -I https://your-app.example`.
+- Confirm effective CSP and frame protections in browser DevTools Network panel.
 
 ## Tech Stack
 
