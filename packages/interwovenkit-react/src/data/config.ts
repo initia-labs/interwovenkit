@@ -3,6 +3,12 @@ import type { AminoConverters } from "@cosmjs/stargate"
 import { createContext, useContext } from "react"
 import type { Chain } from "@initia/initia-registry-types"
 
+export interface AutoSignFeePolicy {
+  gasMultiplier?: number
+  maxGasMultiplierFromSim?: number
+  allowedFeeDenoms?: string[]
+}
+
 export interface Config {
   defaultChainId: string
   customChain?: Chain
@@ -23,6 +29,7 @@ export interface Config {
   container?: HTMLElement
   disableAnalytics?: boolean
   enableAutoSign?: boolean | Record<string, string[]>
+  autoSignFeePolicy?: Record<string, AutoSignFeePolicy>
 }
 
 export const ConfigContext = createContext<Config | null>(null)

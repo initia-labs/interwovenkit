@@ -3,7 +3,10 @@ import { useAtom } from "jotai"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { GenericAuthorization } from "@initia/initia.proto/cosmos/authz/v1beta1/authz"
 import { MsgGrant, MsgRevoke } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
-import { BasicAllowance } from "@initia/initia.proto/cosmos/feegrant/v1beta1/feegrant"
+import {
+  AllowedMsgAllowance,
+  BasicAllowance,
+} from "@initia/initia.proto/cosmos/feegrant/v1beta1/feegrant"
 import {
   MsgGrantAllowance,
   MsgRevokeAllowance,
@@ -84,6 +87,10 @@ export function useEnableAutoSign() {
       const revokeMessages = await fetchRevokeMessages({ chainId, grantee: derivedWallet.address })
 
       const expiration = durationInMs === 0 ? undefined : addMilliseconds(new Date(), durationInMs)
+      const basicAllowance = {
+        typeUrl: "/cosmos.feegrant.v1beta1.BasicAllowance",
+        value: BasicAllowance.encode(BasicAllowance.fromPartial({ expiration })).finish(),
+      }
 
       const feegrantMessage = {
         typeUrl: "/cosmos.feegrant.v1beta1.MsgGrantAllowance",
@@ -91,8 +98,13 @@ export function useEnableAutoSign() {
           granter: initiaAddress,
           grantee: derivedWallet.address,
           allowance: {
-            typeUrl: "/cosmos.feegrant.v1beta1.BasicAllowance",
-            value: BasicAllowance.encode(BasicAllowance.fromPartial({ expiration })).finish(),
+            typeUrl: "/cosmos.feegrant.v1beta1.AllowedMsgAllowance",
+            value: AllowedMsgAllowance.encode(
+              AllowedMsgAllowance.fromPartial({
+                allowance: basicAllowance,
+                allowedMessages: ["/cosmos.authz.v1beta1.MsgExec"],
+              }),
+            ).finish(),
           },
         }),
       }
