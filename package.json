@@ -17,6 +17,13 @@
     "stylelint": "^16.25.0",
     "stylelint-order": "^7.0.0"
   },
+  "pnpm": {
+    "overrides": {
+      "lodash": "4.17.23",
+      "diff": "8.0.3",
+      "@isaacs/brace-expansion": "5.0.1"
+    }
+  },
   "simple-git-hooks": {
     "pre-commit": "pnpm lint-staged"
   },
