@@ -13,7 +13,7 @@ import type { EncodeObject } from "@cosmjs/proto-signing"
 import { ethers } from "ethers"
 import type { Hex } from "viem"
 import { useSignMessage } from "wagmi"
-import { useAtom } from "jotai"
+import { useSetAtom, useStore } from "jotai"
 import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
 import { useFindChain } from "@/data/chains"
@@ -100,7 +100,8 @@ export class DerivedWalletSigner implements OfflineAminoSigner {
  * Uses personal_sign instead of signTypedData for better hardware wallet compatibility.
  * The same derived wallet is used across all chains for the same user. */
 export function useDeriveWallet() {
-  const [derivedWallets, setDerivedWallets] = useAtom(derivedWalletsAtom)
+  const setDerivedWallets = useSetAtom(derivedWalletsAtom)
+  const store = useStore()
   const { signMessageAsync } = useSignMessage()
   const findChain = useFindChain()
   const userAddress = useInitiaAddress()
@@ -111,9 +112,10 @@ export function useDeriveWallet() {
     }
 
     const key = getDerivedWalletKey(userAddress)
+    const currentWallet = store.get(derivedWalletsAtom)[key]
 
-    if (derivedWallets[key] && privateKeyVault.has(key)) {
-      return derivedWallets[key]
+    if (currentWallet && privateKeyVault.has(key)) {
+      return currentWallet
     }
 
     if (pendingDerivations.has(key)) {
@@ -157,7 +159,7 @@ export function useDeriveWallet() {
     if (!userAddress) return undefined
     const key = getDerivedWalletKey(userAddress)
     if (!privateKeyVault.has(key)) return undefined
-    return derivedWallets[key]
+    return store.get(derivedWalletsAtom)[key]
   }
 
   const getWalletPrivateKey = (): Uint8Array | undefined => {
