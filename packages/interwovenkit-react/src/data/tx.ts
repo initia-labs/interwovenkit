@@ -123,10 +123,6 @@ export function buildAutoSignFeeFromSimulation({
   }
 
   const gasLimit = Math.ceil(simulatedGas * gasMultiplier)
-  const maxAllowedGas = Math.ceil(simulatedGas * maxGasMultiplierFromSim)
-  if (gasLimit > maxAllowedGas) {
-    throw new Error("Auto-sign gas limit exceeded policy bounds")
-  }
 
   const gasPrice = selectAutoSignGasPrice({
     gasPrices,
