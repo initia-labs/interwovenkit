@@ -1,5 +1,6 @@
 .page {
   --connect-padding: 60px;
+  --connect-content-width: 280px;
 
   position: relative;
 
@@ -24,6 +25,7 @@
 
 .pageTop {
   --connect-padding: 60px;
+  --connect-content-width: 280px;
 
   display: flex;
   flex-direction: column;
