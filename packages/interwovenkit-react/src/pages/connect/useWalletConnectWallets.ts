@@ -1,4 +1,6 @@
+import ky from "ky"
 import { useQuery } from "@tanstack/react-query"
+import { STALE_TIMES } from "@/data/http"
 import type { WalletInfo } from "./Connect"
 
 const WALLETCONNECT_PROJECT_ID = "5722e7dffb709492cf5312446ceeff73"
@@ -15,11 +17,7 @@ const isWalletInfoLike = (w: unknown): w is WalletInfo =>
   typeof w.name === "string"
 
 export const fetchWalletConnectWallets = async (signal?: AbortSignal): Promise<WalletInfo[]> => {
-  const response = await fetch(WALLETCONNECT_API, { signal })
-  if (!response.ok) {
-    throw new Error(`Failed to fetch wallets: ${response.status}`)
-  }
-  const data: unknown = await response.json()
+  const data = await ky.get(WALLETCONNECT_API, { signal }).json<unknown>()
   const listings =
     data !== null && typeof data === "object" && "listings" in data ? data.listings : data
   const raw = Object.values((listings as Record<string, unknown>) ?? {})
@@ -30,7 +28,8 @@ export const useWalletConnectWallets = () => {
   return useQuery({
     queryKey: walletConnectWalletsQueryKey,
     queryFn: ({ signal }) => fetchWalletConnectWallets(signal),
-    staleTime: 1000 * 60 * 60,
+    staleTime: STALE_TIMES.INFINITY,
+    gcTime: STALE_TIMES.INFINITY,
     retry: 2,
   })
 }

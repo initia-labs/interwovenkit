@@ -96,6 +96,7 @@ interface Props {
   recentConnectorId: string | null
   onConnect: (connector: Connector) => void
   onShowAll: () => void
+  onPrefetchWallets: () => void
 }
 
 const SignIn = ({
@@ -106,6 +107,7 @@ const SignIn = ({
   recentConnectorId,
   onConnect,
   onShowAll,
+  onPrefetchWallets,
 }: Props) => {
   const readyConnectors = walletConnectors.filter((c) => !("ready" in c) || Boolean(c.ready))
   const suggestedWallets = readyConnectors.slice(0, 5)
@@ -206,6 +208,8 @@ const SignIn = ({
             type="button"
             className={styles.listItem}
             onClick={onShowAll}
+            onMouseEnter={onPrefetchWallets}
+            onFocus={onPrefetchWallets}
             disabled={isPending}
           >
             <div className={styles.listIconWrapper}>

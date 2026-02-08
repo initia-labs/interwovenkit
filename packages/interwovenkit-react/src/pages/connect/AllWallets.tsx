@@ -2,6 +2,7 @@ import clsx from "clsx"
 import type { Connector } from "wagmi"
 import { useMemo, useState } from "react"
 import { IconBack, IconExternalLink } from "@initia/icons-react"
+import FormHelp from "@/components/form/FormHelp"
 import SearchInput from "@/components/form/SearchInput"
 import Image from "@/components/Image"
 import Loader from "@/components/Loader"
@@ -42,7 +43,7 @@ const AllWallets = ({
   onBack,
 }: Props) => {
   const [search, setSearch] = useState("")
-  const { data: wcWallets = [] } = useWalletConnectWallets()
+  const { data: wcWallets = [], isError: isWalletConnectWalletsError } = useWalletConnectWallets()
 
   const filteredConnectors = useMemo(() => {
     let result = [...walletConnectors]
@@ -52,12 +53,8 @@ const AllWallets = ({
       result = result.filter((c) => c.name.toLowerCase().includes(searchLower))
     }
 
-    return result.sort((a, b) => {
-      if (a.id === recentConnectorId) return -1
-      if (b.id === recentConnectorId) return 1
-      return a.name.localeCompare(b.name)
-    })
-  }, [walletConnectors, search, recentConnectorId])
+    return result
+  }, [walletConnectors, search])
 
   const additionalWallets = useMemo(() => {
     const connectorNamesNormalized = new Set(
@@ -167,6 +164,10 @@ const AllWallets = ({
               </a>
             )
           })}
+
+          {isWalletConnectWalletsError && (
+            <FormHelp level="error">Couldn&apos;t load additional wallets.</FormHelp>
+          )}
         </div>
       </Scrollable>
     </div>

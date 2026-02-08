@@ -1,14 +1,13 @@
-import { descend } from "ramda"
 import type { Connector } from "wagmi"
 import { useConnect } from "wagmi"
 import { useMemo, useState } from "react"
 import { useReadLocalStorage } from "usehooks-ts"
-import { useMutation } from "@tanstack/react-query"
-import { normalizeError } from "@/data/http"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { normalizeError, STALE_TIMES } from "@/data/http"
 import { initiaPrivyWalletOptions } from "@/public/data/connectors"
 import AllWallets from "./AllWallets"
 import SignIn from "./SignIn"
-import { useWalletConnectWallets } from "./useWalletConnectWallets"
+import { fetchWalletConnectWallets, walletConnectWalletsQueryKey } from "./useWalletConnectWallets"
 
 export interface WalletInfo {
   id: string
@@ -22,9 +21,14 @@ const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
   const recentConnectorId = useReadLocalStorage<string>("wagmi.recentConnectorId")
   const [pendingConnectorId, setPendingConnectorId] = useState<string | null>(null)
   const [view, setView] = useState<"signin" | "all">("signin")
-
-  // Prefetch wallet list so it's ready when user clicks "More wallets"
-  useWalletConnectWallets()
+  const queryClient = useQueryClient()
+  const prefetchWalletConnectWallets = () =>
+    queryClient.prefetchQuery({
+      queryKey: walletConnectWalletsQueryKey,
+      queryFn: ({ signal }) => fetchWalletConnectWallets(signal),
+      staleTime: STALE_TIMES.INFINITY,
+      gcTime: STALE_TIMES.INFINITY,
+    })
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (connector: Connector) => {
@@ -46,7 +50,12 @@ const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
   })
 
   const sortedConnectors = useMemo(
-    () => [...connectors].sort(descend((connector) => connector.id === recentConnectorId)),
+    () =>
+      [...connectors].sort((a, b) => {
+        if (a.id === recentConnectorId) return -1
+        if (b.id === recentConnectorId) return 1
+        return a.name.localeCompare(b.name)
+      }),
     [connectors, recentConnectorId],
   )
 
@@ -81,6 +90,7 @@ const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
       recentConnectorId={recentConnectorId}
       onConnect={mutate}
       onShowAll={() => setView("all")}
+      onPrefetchWallets={prefetchWalletConnectWallets}
     />
   )
 }
