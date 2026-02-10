@@ -236,11 +236,9 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
         .map((candidate) => candidate.chain_id)
         .filter((candidateChainId) => candidateChainId !== chainId)
 
-      let hasEnabledSibling = siblingChainIds.some(
-        (candidateChainId) => autoSignStatus?.isEnabledByChain[candidateChainId],
-      )
+      let hasEnabledSibling = false
 
-      if (!hasEnabledSibling && siblingChainIds.length > 0) {
+      if (siblingChainIds.length > 0) {
         const refreshedStatus = await refetchAutoSignStatus()
         hasEnabledSibling = siblingChainIds.some(
           (candidateChainId) => refreshedStatus.data?.isEnabledByChain[candidateChainId],

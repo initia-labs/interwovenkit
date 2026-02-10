@@ -224,15 +224,22 @@ function isUserRejectedRequestError(error: unknown): boolean {
     }
   ).cause?.code
 
+  const isUserRejectedMessage =
+    normalizedMessage.includes("user rejected") ||
+    normalizedMessage.includes("rejected the request") ||
+    normalizedMessage.includes("user denied") ||
+    normalizedMessage.includes("denied by user") ||
+    normalizedMessage.includes("user cancelled") ||
+    normalizedMessage.includes("user canceled") ||
+    normalizedMessage.includes("cancelled by user") ||
+    normalizedMessage.includes("canceled by user")
+
   return (
     maybeCode === 4001 ||
     maybeCode === "ACTION_REJECTED" ||
     maybeCauseCode === 4001 ||
     maybeCauseCode === "ACTION_REJECTED" ||
-    normalizedMessage.includes("user rejected") ||
-    normalizedMessage.includes("rejected the request") ||
-    normalizedMessage.includes("denied") ||
-    normalizedMessage.includes("cancelled")
+    isUserRejectedMessage
   )
 }
 
