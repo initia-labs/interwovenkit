@@ -79,6 +79,11 @@ export function useEnableAutoSign() {
         throw new Error("Wallet not connected")
       }
 
+      const chainMsgTypes = messageTypes[chainId]
+      if (!chainMsgTypes || chainMsgTypes.length === 0) {
+        throw new Error(`No message types configured for chain ${chainId}`)
+      }
+
       const derivedWallet = await deriveWallet(chainId)
 
       // Clear cached signing client to ensure fresh account data after wallet derivation
@@ -107,11 +112,6 @@ export function useEnableAutoSign() {
             ).finish(),
           },
         }),
-      }
-
-      const chainMsgTypes = messageTypes[chainId]
-      if (!chainMsgTypes || chainMsgTypes.length === 0) {
-        throw new Error(`No message types configured for chain ${chainId}`)
       }
 
       const authzMessages = chainMsgTypes.map((msgType) => ({
@@ -167,13 +167,18 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
   const { requestTxBlock } = useTx()
   const queryClient = useQueryClient()
   const fetchRevokeMessages = useFetchRevokeMessages()
-  const { data: autoSignStatus } = useAutoSignStatus()
+  const { data: autoSignStatus, refetch: refetchAutoSignStatus } = useAutoSignStatus()
 
   return useMutation({
     mutationFn: async (chainId: string = config.defaultChainId) => {
       const derivedWallet = getWallet()
-      const grantee =
+      let grantee =
         options?.grantee || derivedWallet?.address || autoSignStatus?.granteeByChain[chainId]
+
+      if (!grantee && !options?.grantee && !derivedWallet) {
+        const refreshedStatus = await refetchAutoSignStatus()
+        grantee = refreshedStatus.data?.granteeByChain[chainId]
+      }
 
       if (!grantee) {
         throw new Error("No grantee address available")

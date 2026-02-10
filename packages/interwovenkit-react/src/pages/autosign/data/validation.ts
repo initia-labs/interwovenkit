@@ -226,5 +226,5 @@ export function useInitializeAutoSign() {
 export function findEarliestDate<T extends Date | string>(dates: (T | undefined)[]): T | undefined {
   const filtered = dates.filter((date): date is T => date !== undefined)
   if (filtered.length === 0) return undefined
-  return filtered.toSorted((a, b) => new Date(a).getTime() - new Date(b).getTime())[0]
+  return [...filtered].sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0]
 }

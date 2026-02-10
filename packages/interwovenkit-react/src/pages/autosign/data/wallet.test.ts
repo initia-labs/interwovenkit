@@ -79,7 +79,7 @@ describe("DerivedWalletSigner", () => {
       expect(accounts[0].pubkey).toEqual(wallet.publicKey)
     })
 
-    it("returns readonly array", async () => {
+    it("returns array (not frozen at runtime)", async () => {
       const wallet = await createTestWallet()
       const signer = new DerivedWalletSigner(wallet, wallet.privateKey)
 
