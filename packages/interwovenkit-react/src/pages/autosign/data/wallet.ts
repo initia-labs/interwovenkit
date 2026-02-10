@@ -206,8 +206,9 @@ export function useSignWithDerivedWallet() {
     messages: EncodeObject[],
     fee: StdFee,
     memo: string,
+    derivedWalletOverride?: DerivedWallet,
   ): Promise<TxRaw> => {
-    let derivedWallet = getWallet()
+    let derivedWallet = derivedWalletOverride ?? getWallet()
     if (!derivedWallet) {
       derivedWallet = await deriveWallet(chainId)
     }

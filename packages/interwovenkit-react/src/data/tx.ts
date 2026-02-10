@@ -200,6 +200,7 @@ export function useTx() {
     chainId,
     messages,
     memo,
+    derivedWallet,
     preferredFeeDenom,
     fallbackFeeDenom,
     client,
@@ -207,27 +208,43 @@ export function useTx() {
     chainId: string
     messages: EncodeObject[]
     memo: string
+    derivedWallet: {
+      address: string
+      publicKey: Uint8Array
+    }
     preferredFeeDenom?: string
     fallbackFeeDenom?: string
     client: SigningStargateClient
   }): Promise<StdFee> => {
     const chain = findChain(chainId)
     const gasPrices = await fetchGasPrices(chain)
-    let derivedWallet = getWallet()
-    if (!derivedWallet) {
-      derivedWallet = await deriveWallet(chainId)
-    }
 
     const simulationInput = buildAutoSignSimulationInput({
       derivedAddress: derivedWallet.address,
       messages,
       encoder: registry,
     })
-    const simulatedGas = await client.simulate(
-      simulationInput.signerAddress,
-      simulationInput.messages,
-      memo,
-    )
+    const anyMessages = simulationInput.messages.map((msg) => registry.encodeAsAny(msg))
+    const pubkey = encodeSecp256k1Pubkey(derivedWallet.publicKey)
+
+    let sequence = 0
+    try {
+      const accountSequence = await client.getSequence(derivedWallet.address)
+      sequence = accountSequence.sequence
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        !/does not exist on chain/i.test(error.message) ||
+        !error.message.includes(derivedWallet.address)
+      ) {
+        throw error
+      }
+    }
+
+    const cometClient = await createComet38Client(chainId)
+    const queryClient = QueryClient.withExtensions(cometClient, setupTxExtension)
+    const { gasInfo } = await queryClient.tx.simulate(anyMessages, memo, pubkey, sequence)
+    const simulatedGas = gasInfo ? Number(gasInfo.gasUsed.toString()) : 0
     const policy = getAutoSignFeePolicy(chainId)
 
     return buildAutoSignFeeFromSimulation({
@@ -255,25 +272,38 @@ export function useTx() {
     client: SigningStargateClient
   }): Promise<TxRaw> => {
     const isAutoSignValid = await validateAutoSign(chainId, messages)
-    let autoSignFee: StdFee | null = null
+    let derivedWallet = getWallet()
+    let signingFee = fee
 
     if (isAutoSignValid) {
+      if (!derivedWallet) {
+        try {
+          derivedWallet = await deriveWallet(chainId)
+        } catch {
+          derivedWallet = undefined
+        }
+      }
+
       try {
-        autoSignFee = await computeAutoSignFee({
+        if (!derivedWallet) {
+          throw new Error("Derived wallet unavailable")
+        }
+        signingFee = await computeAutoSignFee({
           chainId,
           messages,
           memo,
+          derivedWallet,
           preferredFeeDenom,
           fallbackFeeDenom: fee.amount[0]?.denom,
           client,
         })
       } catch {
-        autoSignFee = null
+        // Keep provided fee when simulation fails (e.g. derived account sequence not found yet).
       }
     }
 
-    return autoSignFee
-      ? await signWithDerivedWallet(chainId, address, messages, autoSignFee, memo)
+    return isAutoSignValid && derivedWallet
+      ? await signWithDerivedWallet(chainId, address, messages, signingFee, memo, derivedWallet)
       : await signWithEthSecp256k1(chainId, address, messages, fee, memo)
   }
 
