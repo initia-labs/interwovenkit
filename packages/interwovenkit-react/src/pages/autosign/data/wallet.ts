@@ -27,6 +27,11 @@ const pendingDerivations = new Map<string, Promise<DerivedWalletPublic>>()
 const cancelledDerivations = new Set<string>()
 const privateKeyVault = new Map<string, Uint8Array>()
 
+export interface KeyValueStorage {
+  getItem: (key: string) => string | null
+  setItem: (key: string, value: string) => void
+}
+
 interface MessageEncoder {
   encode: (message: EncodeObject) => Uint8Array
 }
@@ -43,22 +48,46 @@ export function getExpectedAddressKey(userAddress: string, chainId: string): str
   return `${AUTOSIGN_STORAGE_PREFIX}${userAddress}:${chainId}`
 }
 
-export function getExpectedAddress(userAddress: string, chainId: string): string | null {
-  if (typeof window === "undefined") return null
+export function readExpectedAddressFromStorage(
+  storage: KeyValueStorage,
+  userAddress: string,
+  chainId: string,
+): string | null {
   try {
-    return localStorage.getItem(getExpectedAddressKey(userAddress, chainId))
+    return storage.getItem(getExpectedAddressKey(userAddress, chainId))
   } catch {
     return null
   }
 }
 
-export function storeExpectedAddress(userAddress: string, chainId: string, address: string): void {
-  if (typeof window === "undefined") return
+export function writeExpectedAddressToStorage(
+  storage: KeyValueStorage,
+  userAddress: string,
+  chainId: string,
+  address: string,
+): void {
   try {
-    localStorage.setItem(getExpectedAddressKey(userAddress, chainId), address)
+    storage.setItem(getExpectedAddressKey(userAddress, chainId), address)
   } catch {
     // Ignore localStorage write failures (e.g. sandboxed iframes).
   }
+}
+
+function getStorage(): KeyValueStorage | null {
+  if (typeof window === "undefined") return null
+  return localStorage
+}
+
+export function getExpectedAddress(userAddress: string, chainId: string): string | null {
+  const storage = getStorage()
+  if (!storage) return null
+  return readExpectedAddressFromStorage(storage, userAddress, chainId)
+}
+
+export function storeExpectedAddress(userAddress: string, chainId: string, address: string): void {
+  const storage = getStorage()
+  if (!storage) return
+  writeExpectedAddressToStorage(storage, userAddress, chainId, address)
 }
 
 function toPublicWallet(wallet: DerivedWallet): DerivedWalletPublic {

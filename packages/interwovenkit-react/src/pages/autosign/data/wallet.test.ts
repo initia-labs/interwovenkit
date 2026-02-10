@@ -4,7 +4,12 @@ import { fromBase64, fromHex } from "@cosmjs/encoding"
 import { ethers } from "ethers"
 import { describe, expect, it } from "vitest"
 import type { DerivedWallet } from "./store"
-import { DerivedWalletSigner } from "./wallet"
+import {
+  DerivedWalletSigner,
+  getExpectedAddressKey,
+  readExpectedAddressFromStorage,
+  writeExpectedAddressToStorage,
+} from "./wallet"
 
 async function createTestWallet(): Promise<DerivedWallet> {
   const privateKey = fromHex("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")
@@ -185,5 +190,50 @@ describe("DerivedWalletSigner", () => {
 
       expect(signatureBytes).toEqual(expectedSignatureBytes)
     })
+  })
+})
+
+describe("expected address storage", () => {
+  it("uses chain-scoped key format", () => {
+    const key = getExpectedAddressKey("init1user", "chain-a")
+    expect(key).toBe("autosign:init1user:chain-a")
+  })
+
+  it("writes and reads expected address per chain", () => {
+    const data = new Map<string, string>()
+    const storage = {
+      getItem: (key: string) => data.get(key) ?? null,
+      setItem: (key: string, value: string) => data.set(key, value),
+    }
+
+    writeExpectedAddressToStorage(storage, "init1user", "chain-a", "init1granteeA")
+    writeExpectedAddressToStorage(storage, "init1user", "chain-b", "init1granteeB")
+
+    expect(readExpectedAddressFromStorage(storage, "init1user", "chain-a")).toBe("init1granteeA")
+    expect(readExpectedAddressFromStorage(storage, "init1user", "chain-b")).toBe("init1granteeB")
+  })
+
+  it("returns null when storage read throws", () => {
+    const storage = {
+      getItem: () => {
+        throw new Error("denied")
+      },
+      setItem: () => {},
+    }
+
+    expect(readExpectedAddressFromStorage(storage, "init1user", "chain-a")).toBeNull()
+  })
+
+  it("does not throw when storage write fails", () => {
+    const storage = {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error("denied")
+      },
+    }
+
+    expect(() =>
+      writeExpectedAddressToStorage(storage, "init1user", "chain-a", "init1grantee"),
+    ).not.toThrow()
   })
 })

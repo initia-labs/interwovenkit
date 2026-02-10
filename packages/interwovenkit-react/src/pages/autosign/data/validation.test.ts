@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { findValidGrantee } from "./validation"
+import { findValidGrantee, resolveAutoSignEnabledForChain } from "./validation"
 
 describe("findValidGrantee", () => {
   const msgType1 = "/initia.move.v1.MsgExecute"
@@ -210,5 +210,67 @@ describe("findValidGrantee", () => {
 
       expect(result).toBeNull()
     })
+  })
+})
+
+describe("resolveAutoSignEnabledForChain", () => {
+  it("returns false when expiration is null", () => {
+    const result = resolveAutoSignEnabledForChain({
+      expiration: null,
+      grantee: "init1grantee",
+      expectedAddress: "init1grantee",
+    })
+
+    expect(result).toBe(false)
+  })
+
+  it("returns true for permanent grant when addresses match", () => {
+    const result = resolveAutoSignEnabledForChain({
+      expiration: undefined,
+      grantee: "init1grantee",
+      expectedAddress: "init1grantee",
+    })
+
+    expect(result).toBe(true)
+  })
+
+  it("returns false for permanent grant when addresses do not match", () => {
+    const result = resolveAutoSignEnabledForChain({
+      expiration: undefined,
+      grantee: "init1grantee",
+      expectedAddress: "init1other",
+    })
+
+    expect(result).toBe(false)
+  })
+
+  it("returns true for future expiration when addresses match", () => {
+    const result = resolveAutoSignEnabledForChain({
+      expiration: new Date("2099-01-01T00:00:00Z"),
+      grantee: "init1grantee",
+      expectedAddress: "init1grantee",
+    })
+
+    expect(result).toBe(true)
+  })
+
+  it("returns false for future expiration when addresses do not match", () => {
+    const result = resolveAutoSignEnabledForChain({
+      expiration: new Date("2099-01-01T00:00:00Z"),
+      grantee: "init1grantee",
+      expectedAddress: "init1other",
+    })
+
+    expect(result).toBe(false)
+  })
+
+  it("returns false for expired grants", () => {
+    const result = resolveAutoSignEnabledForChain({
+      expiration: new Date("2020-01-01T00:00:00Z"),
+      grantee: "init1grantee",
+      expectedAddress: "init1grantee",
+    })
+
+    expect(result).toBe(false)
   })
 })

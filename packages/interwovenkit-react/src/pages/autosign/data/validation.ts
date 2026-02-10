@@ -131,21 +131,11 @@ export function useAutoSignStatus() {
 
       const isEnabledByChain: Record<string, boolean> = {}
       for (const [chainId, expiration] of Object.entries(expiredAtByChain)) {
-        const grantee = granteeByChain[chainId]
-        const expectedAddress = expectedAddressByChain[chainId]
-        const addressMatches = grantee && expectedAddress === grantee
-
-        switch (expiration) {
-          case null:
-            isEnabledByChain[chainId] = false
-            break
-          case undefined:
-            isEnabledByChain[chainId] = !!addressMatches
-            break
-          default:
-            isEnabledByChain[chainId] = !!addressMatches && isFuture(expiration)
-            break
-        }
+        isEnabledByChain[chainId] = resolveAutoSignEnabledForChain({
+          expiration,
+          grantee: granteeByChain[chainId],
+          expectedAddress: expectedAddressByChain[chainId],
+        })
       }
 
       return {
@@ -189,6 +179,24 @@ export function findValidGrantee(
   }
 
   return null
+}
+
+export function resolveAutoSignEnabledForChain(params: {
+  expiration: Date | null | undefined
+  grantee?: string
+  expectedAddress?: string | null
+}): boolean {
+  const { expiration, grantee, expectedAddress } = params
+  const addressMatches = !!grantee && expectedAddress === grantee
+
+  switch (expiration) {
+    case null:
+      return false
+    case undefined:
+      return addressMatches
+    default:
+      return addressMatches && isFuture(expiration)
+  }
 }
 
 /* Initialize AutoSign by querying grants and feegrants to determine enabled status and expiration */

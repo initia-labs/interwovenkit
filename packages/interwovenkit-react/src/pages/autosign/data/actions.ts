@@ -21,6 +21,26 @@ import { pendingAutoSignRequestAtom } from "./store"
 import { autoSignQueryKeys, useAutoSignMessageTypes, useAutoSignStatus } from "./validation"
 import { storeExpectedAddress, useDeriveWallet } from "./wallet"
 
+export function resolveDisableAutoSignGrantee(params: {
+  explicitGrantee?: string
+  cachedDerivedAddress?: string
+  statusGrantee?: string
+}): string | undefined {
+  return params.explicitGrantee ?? params.cachedDerivedAddress ?? params.statusGrantee
+}
+
+export function shouldRefetchDisableAutoSignGrantee(params: {
+  explicitGrantee?: string
+  cachedDerivedAddress?: string
+  currentGrantee?: string
+}): boolean {
+  return !params.currentGrantee && !params.explicitGrantee && !params.cachedDerivedAddress
+}
+
+export function shouldBroadcastDisableAutoSign(messages: unknown[]): boolean {
+  return messages.length > 0
+}
+
 /* Hook to fetch existing grants and generate revoke messages for a specific grantee */
 function useFetchRevokeMessages() {
   const granter = useInitiaAddress()
@@ -172,10 +192,19 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
   return useMutation({
     mutationFn: async (chainId: string = config.defaultChainId) => {
       const derivedWallet = getWallet(chainId)
-      let grantee =
-        options?.grantee || derivedWallet?.address || autoSignStatus?.granteeByChain[chainId]
+      let grantee = resolveDisableAutoSignGrantee({
+        explicitGrantee: options?.grantee,
+        cachedDerivedAddress: derivedWallet?.address,
+        statusGrantee: autoSignStatus?.granteeByChain[chainId],
+      })
 
-      if (!grantee && !options?.grantee && !derivedWallet) {
+      if (
+        shouldRefetchDisableAutoSignGrantee({
+          explicitGrantee: options?.grantee,
+          cachedDerivedAddress: derivedWallet?.address,
+          currentGrantee: grantee,
+        })
+      ) {
         const refreshedStatus = await refetchAutoSignStatus()
         grantee = refreshedStatus.data?.granteeByChain[chainId]
       }
@@ -185,7 +214,7 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
       }
 
       const messages = await fetchRevokeMessages({ chainId, grantee })
-      if (messages.length === 0) {
+      if (!shouldBroadcastDisableAutoSign(messages)) {
         return { chainId }
       }
       await requestTxBlock({ messages, chainId, internal: options?.internal })
