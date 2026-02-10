@@ -11,6 +11,7 @@ import {
   MsgGrantAllowance,
   MsgRevokeAllowance,
 } from "@initia/initia.proto/cosmos/feegrant/v1beta1/tx"
+import { useFindChain, useInitiaRegistry } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import { clearSigningClientCache } from "@/data/signer"
 import { useTx } from "@/data/tx"
@@ -183,6 +184,8 @@ export function useEnableAutoSign() {
 /* Revoke AutoSign permissions and clear derived wallet from memory */
 export function useDisableAutoSign(options?: { grantee: string; internal: boolean }) {
   const config = useConfig()
+  const chains = useInitiaRegistry()
+  const findChain = useFindChain()
   const { getWallet, clearWallet } = useDeriveWallet()
   const { requestTxBlock } = useTx()
   const queryClient = useQueryClient()
@@ -227,7 +230,26 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
         await queryClient.invalidateQueries({ queryKey })
       }
 
-      clearWallet(chainId)
+      const chain = findChain(chainId)
+      const siblingChainIds = chains
+        .filter((candidate) => candidate.bech32_prefix === chain.bech32_prefix)
+        .map((candidate) => candidate.chain_id)
+        .filter((candidateChainId) => candidateChainId !== chainId)
+
+      let hasEnabledSibling = siblingChainIds.some(
+        (candidateChainId) => autoSignStatus?.isEnabledByChain[candidateChainId],
+      )
+
+      if (!hasEnabledSibling && siblingChainIds.length > 0) {
+        const refreshedStatus = await refetchAutoSignStatus()
+        hasEnabledSibling = siblingChainIds.some(
+          (candidateChainId) => refreshedStatus.data?.isEnabledByChain[candidateChainId],
+        )
+      }
+
+      if (!hasEnabledSibling) {
+        clearWallet(chainId)
+      }
     },
   })
 }
