@@ -7,6 +7,7 @@ import SearchInput from "@/components/form/SearchInput"
 import Image from "@/components/Image"
 import Loader from "@/components/Loader"
 import Scrollable from "@/components/Scrollable"
+import { normalizeWalletName } from "./normalizeWalletName"
 import { useWalletConnectWallets } from "./useWalletConnectWallets"
 import styles from "./Connect.module.css"
 
@@ -18,12 +19,6 @@ const isSafeHttpsUrl = (url: string): boolean => {
     return false
   }
 }
-
-const normalizeWalletName = (name: string) =>
-  name
-    .toLowerCase()
-    .replace(/\s*(wallet|extension|app)$/, "")
-    .trim()
 
 interface Props {
   walletConnectors: Connector[]
