@@ -1,6 +1,10 @@
 import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
-import { describe, expect, it } from "vitest"
-import { buildAutoSignFeeFromSimulation, selectAutoSignGasPrice } from "./tx"
+import { describe, expect, it, vi } from "vitest"
+import {
+  buildAutoSignFeeFromSimulation,
+  buildAutoSignSimulationInput,
+  selectAutoSignGasPrice,
+} from "./tx"
 
 const gasPrices: Coin[] = [
   { denom: "uinit", amount: "0.010000000000000000" },
@@ -86,5 +90,42 @@ describe("buildAutoSignFeeFromSimulation", () => {
         },
       }),
     ).toThrow("Invalid auto-sign gas multiplier policy")
+  })
+})
+
+describe("buildAutoSignSimulationInput", () => {
+  it("uses derived wallet address and wraps messages in MsgExec", () => {
+    const sourceMessages = [
+      { typeUrl: "/initia.move.v1.MsgExecute", value: { moduleAddress: "0x1" } },
+      { typeUrl: "/cosmos.bank.v1beta1.MsgSend", value: { fromAddress: "a", toAddress: "b" } },
+    ]
+
+    const encodedMessageA = new Uint8Array([1, 2, 3])
+    const encodedMessageB = new Uint8Array([4, 5, 6])
+
+    const encode = vi.fn().mockReturnValueOnce(encodedMessageA).mockReturnValueOnce(encodedMessageB)
+
+    const simulation = buildAutoSignSimulationInput({
+      derivedAddress: "init1derivedwallet",
+      messages: sourceMessages,
+      encoder: { encode },
+    })
+
+    expect(simulation.signerAddress).toBe("init1derivedwallet")
+    expect(simulation.messages).toHaveLength(1)
+    expect(simulation.messages[0]?.typeUrl).toBe("/cosmos.authz.v1beta1.MsgExec")
+
+    const msgExec = simulation.messages[0]?.value as {
+      grantee?: string
+      msgs?: Array<{ typeUrl: string; value: Uint8Array }>
+    }
+    expect(msgExec.grantee).toBe("init1derivedwallet")
+    expect(msgExec.msgs?.map((msg) => msg.typeUrl)).toEqual([
+      "/initia.move.v1.MsgExecute",
+      "/cosmos.bank.v1beta1.MsgSend",
+    ])
+    expect(msgExec.msgs?.[0]?.value).toEqual(encodedMessageA)
+    expect(msgExec.msgs?.[1]?.value).toEqual(encodedMessageB)
+    expect(encode).toHaveBeenCalledTimes(2)
   })
 })

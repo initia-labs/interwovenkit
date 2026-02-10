@@ -7,7 +7,11 @@ import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import { atom, useAtomValue, useSetAtom } from "jotai"
 import { useNavigate } from "@/lib/router"
 import { useValidateAutoSign } from "@/pages/autosign/data/validation"
-import { useSignWithDerivedWallet } from "@/pages/autosign/data/wallet"
+import {
+  buildAuthzExecMessages,
+  useDeriveWallet,
+  useSignWithDerivedWallet,
+} from "@/pages/autosign/data/wallet"
 import { useModal } from "@/public/app/ModalContext"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useInitiaAddress } from "@/public/data/hooks"
@@ -62,7 +66,7 @@ export const TX_APPROVAL_MUTATION_KEY = "approve"
 export const txRequestHandlerAtom = atom<TxRequestHandler>()
 export const txStatusAtom = atom<TxStatus | null>(null)
 
-const DEFAULT_AUTOSIGN_GAS_MULTIPLIER = 1.2
+const DEFAULT_AUTOSIGN_GAS_MULTIPLIER = DEFAULT_GAS_ADJUSTMENT
 const DEFAULT_AUTOSIGN_MAX_GAS_MULTIPLIER = 1.5
 
 interface ResolvedAutoSignFeePolicy {
@@ -134,6 +138,30 @@ export function buildAutoSignFeeFromSimulation({
   return calculateFee(gasLimit, GasPrice.fromString(`${gasPrice.amount}${gasPrice.denom}`))
 }
 
+interface AutoSignSimulationInput {
+  signerAddress: string
+  messages: EncodeObject[]
+}
+
+export function buildAutoSignSimulationInput({
+  derivedAddress,
+  messages,
+  encoder,
+}: {
+  derivedAddress: string
+  messages: EncodeObject[]
+  encoder: { encode: (message: EncodeObject) => Uint8Array }
+}): AutoSignSimulationInput {
+  return {
+    signerAddress: derivedAddress,
+    messages: buildAuthzExecMessages({
+      granteeAddress: derivedAddress,
+      messages,
+      encoder,
+    }),
+  }
+}
+
 export function useTxRequestHandler() {
   const txRequest = useAtomValue(txRequestHandlerAtom)
   if (!txRequest) throw new Error("Tx request not found")
@@ -154,6 +182,7 @@ export function useTx() {
   const offlineSigner = useOfflineSigner()
   const registry = useRegistry()
   const validateAutoSign = useValidateAutoSign()
+  const { getWallet, deriveWallet } = useDeriveWallet()
   const signWithDerivedWallet = useSignWithDerivedWallet()
   const signWithEthSecp256k1 = useSignWithEthSecp256k1()
 
@@ -184,7 +213,21 @@ export function useTx() {
   }): Promise<StdFee> => {
     const chain = findChain(chainId)
     const gasPrices = await fetchGasPrices(chain)
-    const simulatedGas = await client.simulate(address, messages, memo)
+    let derivedWallet = getWallet()
+    if (!derivedWallet) {
+      derivedWallet = await deriveWallet(chainId)
+    }
+
+    const simulationInput = buildAutoSignSimulationInput({
+      derivedAddress: derivedWallet.address,
+      messages,
+      encoder: registry,
+    })
+    const simulatedGas = await client.simulate(
+      simulationInput.signerAddress,
+      simulationInput.messages,
+      memo,
+    )
     const policy = getAutoSignFeePolicy(chainId)
 
     return buildAutoSignFeeFromSimulation({
