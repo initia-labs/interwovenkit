@@ -13,7 +13,7 @@
     "@initia/icons-react": "^2.0.0",
     "@initia/interwovenkit-react": "workspace:^",
     "@initia/utils": "2.0.0",
-    "@privy-io/react-auth": "^3.6.1",
+    "@privy-io/react-auth": "^3.13.1",
     "@tanstack/react-query": "^5.90.7",
     "cosmjs-types": "^0.10.1",
     "ethers": "^6.15.0",
@@ -31,7 +31,6 @@
     "@vitejs/plugin-react-swc": "^4.2.1",
     "eslint": "^9.39.1",
     "typescript": "^5.9.3",
-    "vite": "^7.2.2",
-    "vite-plugin-node-polyfills": "^0.24.0"
+    "vite": "^7.2.2"
   }
 }
