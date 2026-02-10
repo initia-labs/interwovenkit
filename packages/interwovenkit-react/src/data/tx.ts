@@ -295,7 +295,18 @@ export async function signTxWithAutoSignFeeWithDeps(
     return signManually()
   }
 
-  return deps.signWithDerivedWallet(chainId, address, messages, signingFee, memo, derivedWallet)
+  try {
+    return await deps.signWithDerivedWallet(
+      chainId,
+      address,
+      messages,
+      signingFee,
+      memo,
+      derivedWallet,
+    )
+  } catch {
+    return signManually()
+  }
 }
 
 export function useSignTxWithAutoSignFee() {

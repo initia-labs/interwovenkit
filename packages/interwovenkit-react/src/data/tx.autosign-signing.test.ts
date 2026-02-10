@@ -65,6 +65,18 @@ describe("signTxWithAutoSignFeeWithDeps", () => {
     expect(deps.signWithDerivedWallet).not.toHaveBeenCalled()
   })
 
+  it("falls back to manual signing when derived wallet signing fails", async () => {
+    const deps = createDeps({
+      signWithDerivedWallet: vi.fn().mockRejectedValue(new Error("account not found")),
+    })
+
+    const result = await signTxWithAutoSignFeeWithDeps(buildParams(), deps)
+
+    expect(result).toBe(manualSignedTx)
+    expect(deps.signWithDerivedWallet).toHaveBeenCalledTimes(1)
+    expect(deps.signWithEthSecp256k1).toHaveBeenCalledWith(chainId, address, messages, fee, memo)
+  })
+
   it("does not derive wallet for programmatic flow when derivation is disabled", async () => {
     const deps = createDeps({
       getWallet: vi.fn().mockReturnValue(undefined),

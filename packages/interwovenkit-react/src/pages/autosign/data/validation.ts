@@ -158,6 +158,10 @@ export function findValidGrantee(
   allGrants: Array<{ grantee: string; authorization: { msg: string }; expiration?: string }>,
   requiredMsgTypes: string[],
 ): GrantWithGrantee | null {
+  if (requiredMsgTypes.length === 0) {
+    return null
+  }
+
   const grantsByGrantee = new Map<
     string,
     Array<{ authorization: { msg: string }; expiration?: string }>

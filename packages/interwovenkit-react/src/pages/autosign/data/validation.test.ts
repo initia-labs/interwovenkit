@@ -196,13 +196,12 @@ describe("findValidGrantee", () => {
   })
 
   describe("empty required types", () => {
-    it("returns first grantee when no types required", () => {
+    it("returns null when no message types are required", () => {
       const grants = [{ grantee: "init1abc", authorization: { msg: msgType1 } }]
 
       const result = findValidGrantee(grants, [])
 
-      expect(result).not.toBeNull()
-      expect(result?.grantee).toBe("init1abc")
+      expect(result).toBeNull()
     })
 
     it("returns null for empty grants with empty required types", () => {
