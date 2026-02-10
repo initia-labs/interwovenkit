@@ -55,17 +55,12 @@ const AllWallets = ({
     const connectorNamesNormalized = new Set(
       walletConnectors.map((c) => normalizeWalletName(c.name)),
     )
+    const searchLower = search.toLowerCase()
 
-    let filtered = wcWallets.filter(
-      (w) => !connectorNamesNormalized.has(normalizeWalletName(w.name)),
-    )
-
-    if (search) {
-      const searchLower = search.toLowerCase()
-      filtered = filtered.filter((w) => w.name.toLowerCase().includes(searchLower))
-    }
-
-    return filtered.sort((a, b) => a.name.localeCompare(b.name))
+    return wcWallets
+      .filter((w) => !connectorNamesNormalized.has(normalizeWalletName(w.name)))
+      .filter((w) => !search || w.name.toLowerCase().includes(searchLower))
+      .sort((a, b) => a.name.localeCompare(b.name))
   }, [wcWallets, walletConnectors, search])
 
   return (
