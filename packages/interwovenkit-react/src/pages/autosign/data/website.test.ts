@@ -10,6 +10,14 @@ describe("isVerifiedWebsiteHost", () => {
     expect(isVerifiedWebsiteHost("https://app.initia.xyz", "api.app.initia.xyz")).toBe(true)
   })
 
+  it("returns false when current host is parent of registered host", () => {
+    expect(isVerifiedWebsiteHost("https://app.initia.xyz", "initia.xyz")).toBe(false)
+  })
+
+  it("returns false for sibling subdomain", () => {
+    expect(isVerifiedWebsiteHost("https://app.initia.xyz", "other.initia.xyz")).toBe(false)
+  })
+
   it("returns false for different domain", () => {
     expect(isVerifiedWebsiteHost("https://app.initia.xyz", "evil.com")).toBe(false)
   })
