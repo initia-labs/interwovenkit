@@ -23,7 +23,9 @@ export function useAllGrants() {
           .get(`cosmos/authz/v1beta1/grants/granter/${initiaAddress}`)
           .json<GrantsResponse>()
 
-        const expectedAddress = initiaAddress ? getExpectedAddress(initiaAddress) : null
+        const expectedAddress = initiaAddress
+          ? getExpectedAddress(initiaAddress, chain.chainId)
+          : null
 
         const filteredGrants = expectedAddress
           ? grants.filter((grant) => grant.grantee === expectedAddress)

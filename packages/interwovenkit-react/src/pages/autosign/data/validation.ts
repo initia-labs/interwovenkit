@@ -79,11 +79,12 @@ export function useAutoSignStatus() {
 
       const expiredAtByChain: Record<string, Date | null | undefined> = {}
       const granteeByChain: Record<string, string | undefined> = {}
-      const isBrowser = typeof window !== "undefined"
-      const expectedAddress = isBrowser ? getExpectedAddress(initiaAddress) : null
+      const expectedAddressByChain: Record<string, string | null> = {}
 
       for (const [chainId, msgTypes] of Object.entries(messageTypes)) {
         try {
+          const expectedAddress = getExpectedAddress(initiaAddress, chainId)
+          expectedAddressByChain[chainId] = expectedAddress
           const allGrants = await fetchAllGrants(chainId)
 
           const grantsToCheck = expectedAddress
@@ -131,6 +132,7 @@ export function useAutoSignStatus() {
       const isEnabledByChain: Record<string, boolean> = {}
       for (const [chainId, expiration] of Object.entries(expiredAtByChain)) {
         const grantee = granteeByChain[chainId]
+        const expectedAddress = expectedAddressByChain[chainId]
         const addressMatches = grantee && expectedAddress === grantee
 
         switch (expiration) {

@@ -32,23 +32,33 @@ interface MessageEncoder {
 }
 
 /* Expected address storage for wallet migration detection.
- * Stores the derived wallet address in localStorage to detect when on-chain grants
- * were created by a different derivation method (e.g., previous Privy-based system).
+ * Stores the derived wallet address in localStorage per chain to detect when on-chain
+ * grants were created by a different derivation method (e.g., previous Privy-based system).
  * Without this, users with previous grants would see auto-sign as "enabled" but transactions
  * would fail because the current derivation produces a different wallet address.
  * Note: origin is not included in key since each origin has its own localStorage namespace. */
 const AUTOSIGN_STORAGE_PREFIX = "autosign:"
 
-export function getExpectedAddressKey(userAddress: string): string {
-  return `${AUTOSIGN_STORAGE_PREFIX}${userAddress}`
+export function getExpectedAddressKey(userAddress: string, chainId: string): string {
+  return `${AUTOSIGN_STORAGE_PREFIX}${userAddress}:${chainId}`
 }
 
-export function getExpectedAddress(userAddress: string): string | null {
-  return localStorage.getItem(getExpectedAddressKey(userAddress))
+export function getExpectedAddress(userAddress: string, chainId: string): string | null {
+  if (typeof window === "undefined") return null
+  try {
+    return localStorage.getItem(getExpectedAddressKey(userAddress, chainId))
+  } catch {
+    return null
+  }
 }
 
-export function storeExpectedAddress(userAddress: string, address: string): void {
-  localStorage.setItem(getExpectedAddressKey(userAddress), address)
+export function storeExpectedAddress(userAddress: string, chainId: string, address: string): void {
+  if (typeof window === "undefined") return
+  try {
+    localStorage.setItem(getExpectedAddressKey(userAddress, chainId), address)
+  } catch {
+    // Ignore localStorage write failures (e.g. sandboxed iframes).
+  }
 }
 
 function toPublicWallet(wallet: DerivedWallet): DerivedWalletPublic {

@@ -131,4 +131,22 @@ describe("signTxWithAutoSignFeeWithDeps", () => {
     expect(deps.signWithDerivedWallet).not.toHaveBeenCalled()
     expect(deps.signWithEthSecp256k1).toHaveBeenCalledWith(chainId, address, messages, fee, memo)
   })
+
+  it("propagates user rejection when derivation is cancelled", async () => {
+    const userRejectedError = new Error("User rejected the request")
+    const deps = createDeps({
+      getWallet: vi.fn().mockReturnValue(undefined),
+      deriveWallet: vi.fn().mockRejectedValue(userRejectedError),
+    })
+
+    await expect(
+      signTxWithAutoSignFeeWithDeps(
+        buildParams({ allowAutoSign: true, allowWalletDerivation: true }),
+        deps,
+      ),
+    ).rejects.toThrow(userRejectedError)
+
+    expect(deps.signWithEthSecp256k1).not.toHaveBeenCalled()
+    expect(deps.signWithDerivedWallet).not.toHaveBeenCalled()
+  })
 })

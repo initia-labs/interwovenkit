@@ -208,6 +208,34 @@ interface SignTxWithAutoSignFeeDeps {
   ) => Promise<TxRaw>
 }
 
+function isUserRejectedRequestError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+
+  const normalizedMessage = error.message.toLowerCase()
+  const maybeCode = (
+    error as Error & {
+      code?: string | number
+      cause?: { code?: string | number; message?: string }
+    }
+  ).code
+  const maybeCauseCode = (
+    error as Error & {
+      cause?: { code?: string | number; message?: string }
+    }
+  ).cause?.code
+
+  return (
+    maybeCode === 4001 ||
+    maybeCode === "ACTION_REJECTED" ||
+    maybeCauseCode === 4001 ||
+    maybeCauseCode === "ACTION_REJECTED" ||
+    normalizedMessage.includes("user rejected") ||
+    normalizedMessage.includes("rejected the request") ||
+    normalizedMessage.includes("denied") ||
+    normalizedMessage.includes("cancelled")
+  )
+}
+
 export async function signTxWithAutoSignFeeWithDeps(
   {
     address,
@@ -237,7 +265,10 @@ export async function signTxWithAutoSignFeeWithDeps(
   if (!derivedWallet && allowWalletDerivation) {
     try {
       derivedWallet = await deps.deriveWallet(chainId)
-    } catch {
+    } catch (error) {
+      if (isUserRejectedRequestError(error)) {
+        throw error
+      }
       derivedWallet = undefined
     }
   }
@@ -520,19 +551,39 @@ export function useTx() {
     })
   }
 
+  const signTxForSubmission = async ({
+    chainId,
+    messages,
+    memo = "",
+    fee,
+    preferredFeeDenom,
+  }: {
+    chainId: string
+    messages: EncodeObject[]
+    memo?: string
+    fee: StdFee
+    preferredFeeDenom?: string
+  }) => {
+    const client = await createSigningStargateClient(chainId)
+    const signedTx = await signTxWithAutoSignFee({
+      chainId,
+      messages,
+      memo,
+      fee,
+      preferredFeeDenom,
+      client,
+      allowWalletDerivation: false,
+    })
+
+    return { client, signedTx }
+  }
+
   const submitTxSync = async (txParams: TxParams): Promise<string> => {
     const chainId = txParams.chainId ?? defaultChainId
     try {
-      const { messages, memo = "", fee, preferredFeeDenom } = txParams
-      const client = await createSigningStargateClient(chainId)
-      const signedTx = await signTxWithAutoSignFee({
+      const { client, signedTx } = await signTxForSubmission({
+        ...txParams,
         chainId,
-        messages,
-        memo,
-        fee,
-        preferredFeeDenom,
-        client,
-        allowWalletDerivation: false,
       })
 
       return await client.broadcastTxSync(TxRaw.encode(signedTx).finish())
@@ -548,16 +599,9 @@ export function useTx() {
   ): Promise<DeliverTxResponse> => {
     const chainId = txParams.chainId ?? defaultChainId
     try {
-      const { messages, memo = "", fee, preferredFeeDenom } = txParams
-      const client = await createSigningStargateClient(chainId)
-      const signedTx = await signTxWithAutoSignFee({
+      const { client, signedTx } = await signTxForSubmission({
+        ...txParams,
         chainId,
-        messages,
-        memo,
-        fee,
-        preferredFeeDenom,
-        client,
-        allowWalletDerivation: false,
       })
 
       const response = await client.broadcastTx(

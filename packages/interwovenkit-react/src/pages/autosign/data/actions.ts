@@ -134,13 +134,13 @@ export function useEnableAutoSign() {
       const messages = [...revokeMessages, feegrantMessage, ...authzMessages]
       await requestTxBlock({ messages, chainId, internal: true })
 
-      return derivedWallet
+      return { chainId, derivedWallet }
     },
-    onSuccess: async (derivedWallet) => {
+    onSuccess: async ({ chainId, derivedWallet }) => {
       // Store the derived address in localStorage so we can verify on-chain grants
       // were created by this derivation method.
       if (initiaAddress) {
-        storeExpectedAddress(initiaAddress, derivedWallet.address)
+        storeExpectedAddress(initiaAddress, chainId, derivedWallet.address)
       }
 
       const queryKeys = [autoSignQueryKeys.expirations._def, autoSignQueryKeys.grants._def]
@@ -185,9 +185,13 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
       }
 
       const messages = await fetchRevokeMessages({ chainId, grantee })
+      if (messages.length === 0) {
+        return { chainId }
+      }
       await requestTxBlock({ messages, chainId, internal: options?.internal })
+      return { chainId }
     },
-    onSuccess: async (_, chainId = config.defaultChainId) => {
+    onSuccess: async ({ chainId }) => {
       const queryKeys = [autoSignQueryKeys.expirations._def, autoSignQueryKeys.grants._def]
 
       for (const queryKey of queryKeys) {
