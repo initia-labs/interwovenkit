@@ -196,6 +196,44 @@ export function useTx() {
     })
   }
 
+  const signTxWithAutoSignFee = async ({
+    chainId,
+    messages,
+    memo,
+    fee,
+    preferredFeeDenom,
+    client,
+  }: {
+    chainId: string
+    messages: EncodeObject[]
+    memo: string
+    fee: StdFee
+    preferredFeeDenom?: string
+    client: SigningStargateClient
+  }): Promise<TxRaw> => {
+    const isAutoSignValid = await validateAutoSign(chainId, messages)
+    let autoSignFee: StdFee | null = null
+
+    if (isAutoSignValid) {
+      try {
+        autoSignFee = await computeAutoSignFee({
+          chainId,
+          messages,
+          memo,
+          preferredFeeDenom,
+          fallbackFeeDenom: fee.amount[0]?.denom,
+          client,
+        })
+      } catch {
+        autoSignFee = null
+      }
+    }
+
+    return autoSignFee
+      ? await signWithDerivedWallet(chainId, address, messages, autoSignFee, memo)
+      : await signWithEthSecp256k1(chainId, address, messages, fee, memo)
+  }
+
   const estimateGas = async ({ messages, memo, chainId = defaultChainId }: TxRequest) => {
     try {
       const client = await createSigningStargateClient(chainId)
@@ -333,28 +371,14 @@ export function useTx() {
     try {
       const { messages, memo = "", fee, preferredFeeDenom } = txParams
       const client = await createSigningStargateClient(chainId)
-
-      const isAutoSignValid = await validateAutoSign(chainId, messages)
-      let autoSignFee: StdFee | null = null
-
-      if (isAutoSignValid) {
-        try {
-          autoSignFee = await computeAutoSignFee({
-            chainId,
-            messages,
-            memo,
-            preferredFeeDenom,
-            fallbackFeeDenom: fee.amount[0]?.denom,
-            client,
-          })
-        } catch {
-          autoSignFee = null
-        }
-      }
-
-      const signedTx = autoSignFee
-        ? await signWithDerivedWallet(chainId, address, messages, autoSignFee, memo)
-        : await signWithEthSecp256k1(chainId, address, messages, fee, memo)
+      const signedTx = await signTxWithAutoSignFee({
+        chainId,
+        messages,
+        memo,
+        fee,
+        preferredFeeDenom,
+        client,
+      })
 
       return await client.broadcastTxSync(TxRaw.encode(signedTx).finish())
     } catch (error) {
@@ -371,28 +395,14 @@ export function useTx() {
     try {
       const { messages, memo = "", fee, preferredFeeDenom } = txParams
       const client = await createSigningStargateClient(chainId)
-
-      const isAutoSignValid = await validateAutoSign(chainId, messages)
-      let autoSignFee: StdFee | null = null
-
-      if (isAutoSignValid) {
-        try {
-          autoSignFee = await computeAutoSignFee({
-            chainId,
-            messages,
-            memo,
-            preferredFeeDenom,
-            fallbackFeeDenom: fee.amount[0]?.denom,
-            client,
-          })
-        } catch {
-          autoSignFee = null
-        }
-      }
-
-      const signedTx = autoSignFee
-        ? await signWithDerivedWallet(chainId, address, messages, autoSignFee, memo)
-        : await signWithEthSecp256k1(chainId, address, messages, fee, memo)
+      const signedTx = await signTxWithAutoSignFee({
+        chainId,
+        messages,
+        memo,
+        fee,
+        preferredFeeDenom,
+        client,
+      })
 
       const response = await client.broadcastTx(
         TxRaw.encode(signedTx).finish(),
