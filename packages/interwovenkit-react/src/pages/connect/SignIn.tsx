@@ -3,6 +3,7 @@ import type { Connector } from "wagmi"
 import { IconExternalLink } from "@initia/icons-react"
 import Image from "@/components/Image"
 import Loader from "@/components/Loader"
+import { normalizeWalletName } from "./normalizeWalletName"
 import styles from "./Connect.module.css"
 
 const MoreDotsIcon = () => (
@@ -112,12 +113,16 @@ const SignIn = ({
   const readyConnectors = walletConnectors.filter((c) => !("ready" in c) || Boolean(c.ready))
   const suggestedWallets = readyConnectors.slice(0, 5)
   const readyConnectorIds = new Set(readyConnectors.map((c) => c.id))
+  const readyConnectorNamesNormalized = new Set(
+    readyConnectors.map((c) => normalizeWalletName(c.name)),
+  )
 
   const slotsToFill = Math.max(0, 5 - suggestedWallets.length)
-  const popularToShow = POPULAR_WALLETS.filter((w) => !readyConnectorIds.has(w.id)).slice(
-    0,
-    slotsToFill,
-  )
+  const popularToShow = POPULAR_WALLETS.filter(
+    (w) =>
+      !readyConnectorIds.has(w.id) &&
+      !readyConnectorNamesNormalized.has(normalizeWalletName(w.name)),
+  ).slice(0, slotsToFill)
 
   return (
     <div className={styles.page}>
