@@ -104,7 +104,7 @@ const AllWallets = ({
                 key={`connector:${id}`}
               >
                 <div className={styles.listIconWrapper}>
-                  <Image src={icon} width={24} height={24} alt="" className={styles.icon} />
+                  <Image src={icon} width={26} height={26} alt="" className={styles.icon} />
                 </div>
                 <span className={styles.listName}>{name}</span>
                 {isPendingConnection ? (
@@ -138,8 +138,8 @@ const AllWallets = ({
                   {safeIconSrc && (
                     <Image
                       src={safeIconSrc}
-                      width={24}
-                      height={24}
+                      width={26}
+                      height={26}
                       alt=""
                       className={styles.icon}
                     />

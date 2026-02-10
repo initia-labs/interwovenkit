@@ -173,7 +173,7 @@ const SignIn = ({
                 key={id}
               >
                 <div className={styles.listIconWrapper}>
-                  <Image src={icon} width={24} height={24} alt="" className={styles.icon} />
+                  <Image src={icon} width={26} height={26} alt="" className={styles.icon} />
                 </div>
                 <span className={styles.listName}>{name}</span>
                 {isPendingConnection ? (
@@ -197,7 +197,7 @@ const SignIn = ({
               key={wallet.id}
             >
               <div className={styles.listIconWrapper}>
-                <Image src={wallet.icon} width={24} height={24} alt="" className={styles.icon} />
+                <Image src={wallet.icon} width={26} height={26} alt="" className={styles.icon} />
               </div>
               <span className={styles.listNameMuted}>{wallet.name}</span>
               <IconExternalLink size={10} className={styles.externalLinkIcon} aria-hidden="true" />
