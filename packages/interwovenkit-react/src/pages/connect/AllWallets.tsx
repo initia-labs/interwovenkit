@@ -46,14 +46,9 @@ const AllWallets = ({
   const { data: wcWallets = [], isError: isWalletConnectWalletsError } = useWalletConnectWallets()
 
   const filteredConnectors = useMemo(() => {
-    let result = [...walletConnectors]
-
-    if (search) {
-      const searchLower = search.toLowerCase()
-      result = result.filter((c) => c.name.toLowerCase().includes(searchLower))
-    }
-
-    return result
+    if (!search) return walletConnectors
+    const searchLower = search.toLowerCase()
+    return walletConnectors.filter((c) => c.name.toLowerCase().includes(searchLower))
   }, [walletConnectors, search])
 
   const additionalWallets = useMemo(() => {
