@@ -17,6 +17,7 @@ import { useInterwovenKit } from "@/public/data/hooks"
 import { useEnableAutoSign } from "./data/actions"
 import { DEFAULT_DURATION, DURATION_OPTIONS } from "./data/constants"
 import { pendingAutoSignRequestAtom } from "./data/store"
+import { isVerifiedWebsiteHost } from "./data/website"
 import styles from "./EnableAutoSign.module.css"
 
 const accountQueries = createQueryKeys("interwovenkit:account", {
@@ -60,13 +61,7 @@ const EnableAutoSignComponent = () => {
   const isVerified = (() => {
     if (!targetChain?.website) return false
 
-    try {
-      const registryDomain = getBaseDomain(new URL(targetChain.website).hostname)
-      const websiteDomain = getBaseDomain(window.location.hostname)
-      return registryDomain === websiteDomain
-    } catch {
-      return false
-    }
+    return isVerifiedWebsiteHost(targetChain.website, window.location.hostname)
   })()
 
   const handleEnable = () => {
@@ -195,12 +190,3 @@ const EnableAutoSign = () => {
 }
 
 export default EnableAutoSign
-
-/**
- * Extract base domain from hostname (e.g., subdomain.example.com -> example.com)
- */
-function getBaseDomain(hostname: string): string {
-  const parts = hostname.split(".")
-  if (parts.length < 2) return hostname
-  return parts.slice(-2).join(".")
-}
