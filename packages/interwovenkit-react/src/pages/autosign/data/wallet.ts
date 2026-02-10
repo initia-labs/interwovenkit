@@ -27,6 +27,10 @@ const pendingDerivations = new Map<string, Promise<DerivedWalletPublic>>()
 const cancelledDerivations = new Set<string>()
 const privateKeyVault = new Map<string, Uint8Array>()
 
+interface MessageEncoder {
+  encode: (message: EncodeObject) => Uint8Array
+}
+
 /* Expected address storage for wallet migration detection.
  * Stores the derived wallet address in localStorage to detect when on-chain grants
  * were created by a different derivation method (e.g., previous Privy-based system).
@@ -204,6 +208,29 @@ export function useDeriveWallet() {
   return { deriveWallet, getWallet, getWalletPrivateKey, clearWallet, clearAllWallets }
 }
 
+export function buildAuthzExecMessages({
+  granteeAddress,
+  messages,
+  encoder,
+}: {
+  granteeAddress: string
+  messages: EncodeObject[]
+  encoder: MessageEncoder
+}): EncodeObject[] {
+  return [
+    {
+      typeUrl: "/cosmos.authz.v1beta1.MsgExec",
+      value: MsgExec.fromPartial({
+        grantee: granteeAddress,
+        msgs: messages.map((msg) => ({
+          typeUrl: msg.typeUrl,
+          value: encoder.encode(msg),
+        })),
+      }),
+    },
+  ]
+}
+
 /* Sign auto-sign transactions with derived wallet by wrapping messages in MsgExec and delegating fees */
 export function useSignWithDerivedWallet() {
   const { getWallet, deriveWallet, getWalletPrivateKey } = useDeriveWallet()
@@ -216,8 +243,9 @@ export function useSignWithDerivedWallet() {
     messages: EncodeObject[],
     fee: StdFee,
     memo: string,
+    derivedWalletOverride?: DerivedWallet,
   ): Promise<TxRaw> => {
-    let derivedWallet = getWallet()
+    let derivedWallet = derivedWalletOverride ?? getWallet()
     if (!derivedWallet) {
       derivedWallet = await deriveWallet(chainId)
     }
@@ -226,18 +254,11 @@ export function useSignWithDerivedWallet() {
       throw new Error("Derived wallet key not initialized")
     }
 
-    const authzExecuteMessage: EncodeObject[] = [
-      {
-        typeUrl: "/cosmos.authz.v1beta1.MsgExec",
-        value: MsgExec.fromPartial({
-          grantee: derivedWallet.address,
-          msgs: messages.map((msg) => ({
-            typeUrl: msg.typeUrl,
-            value: registry.encode(msg),
-          })),
-        }),
-      },
-    ]
+    const authzExecuteMessage = buildAuthzExecMessages({
+      granteeAddress: derivedWallet.address,
+      messages,
+      encoder: registry,
+    })
 
     const delegatedFee: StdFee = {
       ...fee,
