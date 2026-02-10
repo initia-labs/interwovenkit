@@ -7,6 +7,7 @@ import Skeletons from "@/components/Skeletons"
 import { useAllChainsAssetsQueries } from "@/data/assets"
 import { useAllChainPriceQueries, useInitiaRegistry, useLayer1 } from "@/data/chains"
 import { useConfig } from "@/data/config"
+import { useInitiaVipPositions } from "@/data/initia-vip"
 import {
   buildAssetLogoMaps,
   buildPriceMap,
@@ -35,6 +36,7 @@ const ChainSelectWithData = ({
   const { defaultChainId } = useConfig()
   const layer1 = useLayer1()
   const chainBreakdown = useMinityChainBreakdown()
+  const { totalValue: vipTotalValue } = useInitiaVipPositions()
 
   // Derive chainIds and value map from chainBreakdown (single data source)
   // Sort: connected chain first, then Initia (L1), then by value descending
@@ -45,6 +47,12 @@ const ChainSelectWithData = ({
     for (const chain of chainBreakdown) {
       valueMap.set(chain.chainId, chain.totalBalance)
       total += chain.totalBalance
+    }
+
+    // Add VIP reward value to Initia (L1) chain and total
+    if (vipTotalValue > 0) {
+      valueMap.set(layer1.chainId, (valueMap.get(layer1.chainId) ?? 0) + vipTotalValue)
+      total += vipTotalValue
     }
 
     // Sort chainIds: connected chain first, then L1, then by value descending
@@ -58,7 +66,7 @@ const ChainSelectWithData = ({
     )
 
     return { chainIds: sortedIds, chainIdToValueMap: valueMap, totalBalance: total }
-  }, [chainBreakdown, defaultChainId, layer1])
+  }, [chainBreakdown, defaultChainId, layer1, vipTotalValue])
 
   return (
     <ChainSelect
@@ -84,8 +92,8 @@ const Portfolio = () => {
   // This prevents re-fetching on every search keystroke
   const assetsQueries = useAllChainsAssetsQueries()
   const { denomLogos, symbolLogos } = useMemo(
-    () => buildAssetLogoMaps(assetsQueries),
-    [assetsQueries],
+    () => buildAssetLogoMaps(assetsQueries, chains),
+    [assetsQueries, chains],
   )
 
   // Fetch prices for all chains once at portfolio level (used for fallback pricing)

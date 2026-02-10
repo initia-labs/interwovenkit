@@ -6,7 +6,7 @@ import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import { atom, useAtomValue, useSetAtom } from "jotai"
 import { useNavigate } from "@/lib/router"
-import type { DerivedWallet } from "@/pages/autosign/data/store"
+import type { DerivedWalletPublic } from "@/pages/autosign/data/store"
 import { useValidateAutoSign } from "@/pages/autosign/data/validation"
 import {
   buildAuthzExecMessages,
@@ -179,7 +179,7 @@ interface ComputeAutoSignFeeParams {
   chainId: string
   messages: EncodeObject[]
   memo: string
-  derivedWallet: DerivedWallet
+  derivedWallet: DerivedWalletPublic
   preferredFeeDenom?: string
   fallbackFeeDenom?: string
   client: SigningStargateClient
@@ -187,8 +187,8 @@ interface ComputeAutoSignFeeParams {
 
 interface SignTxWithAutoSignFeeDeps {
   validateAutoSign: (chainId: string, messages: EncodeObject[]) => Promise<boolean>
-  getWallet: () => DerivedWallet | undefined
-  deriveWallet: (chainId: string) => Promise<DerivedWallet>
+  getWallet: () => DerivedWalletPublic | undefined
+  deriveWallet: (chainId: string) => Promise<DerivedWalletPublic>
   getSigningClient: (chainId: string) => Promise<SigningStargateClient>
   computeAutoSignFee: (params: ComputeAutoSignFeeParams) => Promise<StdFee>
   signWithDerivedWallet: (
@@ -197,7 +197,7 @@ interface SignTxWithAutoSignFeeDeps {
     messages: EncodeObject[],
     fee: StdFee,
     memo: string,
-    derivedWalletOverride?: DerivedWallet,
+    derivedWalletOverride?: DerivedWalletPublic,
   ) => Promise<TxRaw>
   signWithEthSecp256k1: (
     chainId: string,

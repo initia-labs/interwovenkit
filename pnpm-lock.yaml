@@ -132,11 +132,11 @@ importers:
         specifier: ^0.36.2
         version: 0.36.2(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       '@initia/amino-converter':
-        specifier: ^1.0.13
-        version: 1.0.13(@cosmjs/cosmwasm-stargate@0.33.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))(@cosmjs/proto-signing@0.36.2)(@cosmjs/stargate@0.36.2(bufferutil@4.1.0)(utf-8-validate@5.0.10))(@initia/initia.proto@1.0.3(google-protobuf@3.21.4))(@initia/opinit.proto@1.0.2(google-protobuf@3.21.4))
+        specifier: ^1.0.16
+        version: 1.0.16(@cosmjs/cosmwasm-stargate@0.33.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))(@cosmjs/proto-signing@0.36.2)(@cosmjs/stargate@0.36.2(bufferutil@4.1.0)(utf-8-validate@5.0.10))(@initia/initia.proto@1.0.4(google-protobuf@3.21.4))(@initia/opinit.proto@1.0.2(google-protobuf@3.21.4))
       '@initia/initia.proto':
-        specifier: ^1.0.3
-        version: 1.0.3(google-protobuf@3.21.4)
+        specifier: ^1.0.4
+        version: 1.0.4(google-protobuf@3.21.4)
       '@initia/utils':
         specifier: 2.0.0
         version: 2.0.0(@cosmjs/encoding@0.36.2)(@mysten/bcs@1.9.2)(@noble/hashes@1.8.0)(bignumber.js@9.3.1)(ky@1.14.0)(viem@2.39.0(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@3.25.76))
@@ -982,8 +982,8 @@ packages:
     peerDependencies:
       google-protobuf: ^3.14.0
 
-  '@initia/amino-converter@1.0.13':
-    resolution: {integrity: sha512-iGVUprinkAJA8jUCWtkivLTd8tEWFAlzU+NL6Avi+NDEmkxhnFOQHzsJyNt+nVE2tIOUUyidHSuUHveBcctXIw==}
+  '@initia/amino-converter@1.0.16':
+    resolution: {integrity: sha512-zs0uUZAuBLQP6gj8UMnUTXQt1wy10XqBkcvSbxLd9odgmiVKbU4cOQ2XCEW7nXmaqdOIKkQoKaC7M0KiNzZYFw==}
     peerDependencies:
       '@cosmjs/cosmwasm-stargate': '>=0.36.0'
       '@cosmjs/proto-signing': '>=0.36.0'
@@ -1004,8 +1004,8 @@ packages:
   '@initia/initia-registry-types@1.0.12':
     resolution: {integrity: sha512-VVZiSJiw9Tm92q1tVvtjrPzB6IYJarMzMTTC0+h3h+CDfeKDDv8NuNSvdz6650xFb4Vy9HQQZm79rkAMXJVJxg==}
 
-  '@initia/initia.proto@1.0.3':
-    resolution: {integrity: sha512-A6p8EgjE32ALnPgikmNBkFfmwhxvZSGAIuNF49PnFo4m8eqggN3vrvypW/hELZeCCoP46hwacK8cfYwXh2Mfyw==}
+  '@initia/initia.proto@1.0.4':
+    resolution: {integrity: sha512-CJ70B4IDvDH/rxeDVmJc0kNK5DpMOYeL6OtSP1ezz/TjoXObqdA2O9IGW3d+iWV8QKwJNfGII0v2aqJGecxpkw==}
 
   '@initia/opinit.proto@1.0.2':
     resolution: {integrity: sha512-iKnM52NT4J3unzj2IytCbBiwZX9iSfvUnZNJTdl77VDqzHtTuACXO+rM6LWIBgQRz+RyOsCBN/d3r2xZ42GFfg==}
@@ -8541,12 +8541,12 @@ snapshots:
       browser-headers: 0.4.1
       google-protobuf: 3.21.4
 
-  '@initia/amino-converter@1.0.13(@cosmjs/cosmwasm-stargate@0.33.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))(@cosmjs/proto-signing@0.36.2)(@cosmjs/stargate@0.36.2(bufferutil@4.1.0)(utf-8-validate@5.0.10))(@initia/initia.proto@1.0.3(google-protobuf@3.21.4))(@initia/opinit.proto@1.0.2(google-protobuf@3.21.4))':
+  '@initia/amino-converter@1.0.16(@cosmjs/cosmwasm-stargate@0.33.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))(@cosmjs/proto-signing@0.36.2)(@cosmjs/stargate@0.36.2(bufferutil@4.1.0)(utf-8-validate@5.0.10))(@initia/initia.proto@1.0.4(google-protobuf@3.21.4))(@initia/opinit.proto@1.0.2(google-protobuf@3.21.4))':
     dependencies:
       '@cosmjs/cosmwasm-stargate': 0.33.1(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       '@cosmjs/proto-signing': 0.36.2
       '@cosmjs/stargate': 0.36.2(bufferutil@4.1.0)(utf-8-validate@5.0.10)
-      '@initia/initia.proto': 1.0.3(google-protobuf@3.21.4)
+      '@initia/initia.proto': 1.0.4(google-protobuf@3.21.4)
       '@initia/opinit.proto': 1.0.2(google-protobuf@3.21.4)
 
   '@initia/eslint-config-react-app@1.2.1(eslint@9.39.1)(typescript@5.9.3)':
@@ -8575,7 +8575,7 @@ snapshots:
     dependencies:
       zod: 3.25.76
 
-  '@initia/initia.proto@1.0.3(google-protobuf@3.21.4)':
+  '@initia/initia.proto@1.0.4(google-protobuf@3.21.4)':
     dependencies:
       '@bufbuild/protobuf': 2.10.1
       '@improbable-eng/grpc-web': 0.15.0(google-protobuf@3.21.4)

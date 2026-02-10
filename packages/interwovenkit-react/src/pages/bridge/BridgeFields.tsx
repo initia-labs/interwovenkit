@@ -211,7 +211,13 @@ const BridgeFields = () => {
     [isMobile],
   )
 
-  const shouldShowRouteOptions = BigNumber(quantity).gt(0) && isOpWithdrawable
+  const shouldShowRouteOptions =
+    BigNumber(quantity).gt(0) &&
+    isOpWithdrawable &&
+    routeQueryDefault.data &&
+    routeQueryOpWithdrawal.data &&
+    routeQueryOpWithdrawal.data.estimated_route_duration_seconds >
+      routeQueryDefault.data.estimated_route_duration_seconds
 
   const metaRows = useMemo(() => {
     if (!route) return []

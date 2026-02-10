@@ -5,6 +5,7 @@ import { atom, useAtom } from "jotai"
 import { IconChevronDown, IconExternalLink } from "@initia/icons-react"
 import Image from "@/components/Image"
 import { useAllChainsAssetsQueries } from "@/data/assets"
+import { useInitiaRegistry } from "@/data/chains"
 import {
   buildAssetLogoMaps,
   getPositionValue,
@@ -30,13 +31,14 @@ interface PositionSectionContentProps {
 }
 
 const AppchainPositionContent = ({ chainGroup }: PositionSectionContentProps) => {
-  const { chainLogo, protocols } = chainGroup
+  const { chainId, chainLogo, protocols } = chainGroup
 
   // Asset logos (non-blocking - renders immediately, logos appear when ready)
+  const chains = useInitiaRegistry()
   const assetsQueries = useAllChainsAssetsQueries()
   const { denomLogos, symbolLogos } = useMemo(
-    () => buildAssetLogoMaps(assetsQueries),
-    [assetsQueries],
+    () => buildAssetLogoMaps(assetsQueries, chains),
+    [assetsQueries, chains],
   )
 
   // Build combined denom -> logo map with fallback logic
@@ -50,7 +52,8 @@ const AppchainPositionContent = ({ chainGroup }: PositionSectionContentProps) =>
 
         const { denom, symbol } = position.balance
         const upperSymbol = symbol.toUpperCase()
-        const assetLogo = denomLogos.get(denom) ?? symbolLogos.get(upperSymbol)
+        const chainDenomKey = `${chainId}:${denom}`
+        const assetLogo = denomLogos.get(chainDenomKey) ?? symbolLogos.get(upperSymbol)
 
         if (assetLogo) {
           map.set(denom, { assetLogo, chainLogo: chainLogo ?? "" })
@@ -59,7 +62,7 @@ const AppchainPositionContent = ({ chainGroup }: PositionSectionContentProps) =>
     }
 
     return map
-  }, [protocols, denomLogos, symbolLogos, chainLogo])
+  }, [protocols, denomLogos, symbolLogos, chainId, chainLogo])
 
   return <PositionSectionList protocols={protocols} denomLogoMap={denomLogoMap} />
 }

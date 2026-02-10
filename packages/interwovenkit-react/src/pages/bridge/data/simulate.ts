@@ -1,4 +1,5 @@
 import type { OperationJson, RouteResponseJson } from "@skip-go/client"
+import BigNumber from "bignumber.js"
 import { HTTPError } from "ky"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toBaseUnit } from "@initia/utils"
@@ -30,6 +31,8 @@ export function useRouteQuery(
   const debouncedValues = { ...values, quantity: debouncedQuantity }
   const isDisabled =
     !values.srcChainId || !values.srcDenom || !values.dstChainId || !values.dstDenom
+  const quantityBn = BigNumber(debouncedValues.quantity || 0)
+  const isQuantityValid = quantityBn.isFinite() && quantityBn.gt(0)
 
   const queryClient = useQueryClient()
   return useQuery({
@@ -68,14 +71,14 @@ export function useRouteQuery(
 
       return response
     },
-    enabled: !!Number(debouncedValues.quantity) && !opWithdrawal?.disabled && !isDisabled,
+    enabled: isQuantityValid && !opWithdrawal?.disabled && !isDisabled,
     staleTime: STALE_TIMES.MINUTE,
   })
 }
 
 export function useRouteErrorInfo(error: Error | null) {
   return useQuery({
-    queryKey: skipQueryKeys.routeErrorInfo(error || new Error()).queryKey,
+    queryKey: skipQueryKeys.routeErrorInfo(error ?? undefined).queryKey,
     queryFn: async () => {
       if (!error) return null
       if (!(error instanceof HTTPError)) return null
@@ -85,6 +88,7 @@ export function useRouteErrorInfo(error: Error | null) {
       const data = await response.json()
       return data.info ?? null
     },
+    enabled: !!error,
   })
 }
 

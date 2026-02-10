@@ -1,8 +1,9 @@
 import { useEffect, useEffectEvent } from "react"
+import { atom, useAtomValue, useSetAtom } from "jotai"
 import { useQueryClient } from "@tanstack/react-query"
+import { useIsTestnet } from "@/pages/bridge/data/form"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useConfig } from "../config"
-import { SSE_RECONNECT_BASE_DELAY, SSE_RECONNECT_MAX_DELAY } from "./client"
 import { minityQueryKeys } from "./query-keys"
 import type {
   ChainBalanceData,
@@ -20,8 +21,27 @@ import type {
 const DEFAULT_SSE_DATA: SSEPortfolioData = {
   balances: [],
   positions: [],
-  isLoading: false,
+  isLoading: true,
   isComplete: false,
+}
+
+// Atom to trigger SSE refresh (increment to reconnect)
+const portfolioRefreshTriggerAtom = atom(0)
+
+// Throttle state for refresh trigger (max once per second)
+const REFRESH_THROTTLE_MS = 1000
+let lastRefreshTime = 0
+
+// Hook to trigger portfolio SSE refresh (throttled to max once per second)
+export function useRefreshPortfolio() {
+  const setTrigger = useSetAtom(portfolioRefreshTriggerAtom)
+  useEffect(() => {
+    const now = Date.now()
+    if (now - lastRefreshTime >= REFRESH_THROTTLE_MS) {
+      lastRefreshTime = now
+      setTrigger((n) => n + 1)
+    }
+  }, [setTrigger])
 }
 
 // ============================================
@@ -37,45 +57,33 @@ export function usePortfolioSSE() {
   const queryClient = useQueryClient()
   const address = useInitiaAddress()
   const { minityUrl } = useConfig()
+  const isTestnet = useIsTestnet()
+  const refreshTrigger = useAtomValue(portfolioRefreshTriggerAtom)
 
   /**
-   * Handle balance events from SSE
+   * Handle balance events from SSE (updates map only, no query update)
    */
   const handleBalances = useEffectEvent(
     (event: SSEBalanceEvent, balancesMap: Map<string, ChainBalanceData>) => {
-      const queryKey = minityQueryKeys.ssePortfolio(address ?? "", minityUrl).queryKey
-      // Ensure balances is always an array (defensive check for malformed API response)
       const balances = Array.isArray(event.balances) ? event.balances : []
       balancesMap.set(event.chain, {
         chainName: event.chain,
         chainId: event.chainId,
         balances,
       })
-      const current = queryClient.getQueryData<SSEPortfolioData>(queryKey) ?? DEFAULT_SSE_DATA
-      queryClient.setQueryData(queryKey, {
-        ...current,
-        balances: Array.from(balancesMap.values()),
-      })
     },
   )
 
   /**
-   * Handle position events from SSE
+   * Handle position events from SSE (updates map only, no query update)
    */
   const handlePositions = useEffectEvent(
     (event: SSEPositionEvent, positionsMap: Map<string, ChainPositionData>) => {
-      const queryKey = minityQueryKeys.ssePortfolio(address ?? "", minityUrl).queryKey
-      // Ensure positions is always an array (defensive check for malformed API response)
       const positions = Array.isArray(event.positions) ? event.positions : []
       positionsMap.set(event.chain, {
         chainName: event.chain,
         chainId: event.chainId,
         positions,
-      })
-      const current = queryClient.getQueryData<SSEPortfolioData>(queryKey) ?? DEFAULT_SSE_DATA
-      queryClient.setQueryData(queryKey, {
-        ...current,
-        positions: Array.from(positionsMap.values()),
       })
     },
   )
@@ -101,7 +109,8 @@ export function usePortfolioSSE() {
   )
 
   useEffect(() => {
-    if (!address) {
+    // Skip SSE connection on testnet - Minity doesn't support testnet
+    if (!address || isTestnet) {
       return
     }
 
@@ -124,93 +133,45 @@ export function usePortfolioSSE() {
     const url = `${baseUrl}/v1/chain/all/${encodeURIComponent(address)}`
 
     let eventSource: EventSource | null = null
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
-    let reconnectAttempt = 0
     let stopped = false
-    let hasLoggedParseError = false
 
-    const setConnectingState = () => {
-      const existing = queryClient.getQueryData<SSEPortfolioData>(queryKey)
-      queryClient.setQueryData(queryKey, {
-        balances: existing?.balances ?? [],
-        positions: existing?.positions ?? [],
-        isLoading: true,
-        isComplete: false,
-      })
-    }
+    // Set loading state
+    queryClient.setQueryData(queryKey, {
+      balances: existingData?.balances ?? [],
+      positions: existingData?.positions ?? [],
+      isLoading: true,
+      isComplete: false,
+    })
 
-    const cleanup = () => {
-      stopped = true
-      if (reconnectTimer) {
-        clearTimeout(reconnectTimer)
-        reconnectTimer = null
-      }
-      if (eventSource) {
-        eventSource.close()
-        eventSource = null
-      }
-    }
+    eventSource = new EventSource(url)
 
-    const scheduleReconnect = () => {
+    eventSource.onmessage = (event) => {
       if (stopped) return
-      if (reconnectTimer) return
-      setConnectingState()
-      const delay = Math.min(
-        SSE_RECONNECT_MAX_DELAY,
-        SSE_RECONNECT_BASE_DELAY * 2 ** reconnectAttempt,
-      )
-      reconnectAttempt += 1
-      reconnectTimer = setTimeout(() => {
-        reconnectTimer = null
-        connect()
-      }, delay)
-    }
-
-    const connect = () => {
-      if (stopped) return
-      setConnectingState()
-
-      if (eventSource) {
-        eventSource.close()
-      }
-
-      eventSource = new EventSource(url)
-
-      eventSource.onopen = () => {
-        reconnectAttempt = 0
-        hasLoggedParseError = false
-      }
-
-      eventSource.onmessage = (event) => {
-        if (stopped) return
-        try {
-          const parsed = JSON.parse(event.data) as SSEEvent
-          if (parsed.type === "balances") {
-            handleBalances(parsed as SSEBalanceEvent, balancesMap)
-          } else if (parsed.type === "positions") {
-            handlePositions(parsed as SSEPositionEvent, positionsMap)
-          }
-          updateAggregated(balancesMap, positionsMap)
-        } catch {
-          if (!hasLoggedParseError) {
-            hasLoggedParseError = true
-          }
-          scheduleReconnect()
+      try {
+        const parsed = JSON.parse(event.data) as SSEEvent
+        if (parsed.type === "balances") {
+          handleBalances(parsed as SSEBalanceEvent, balancesMap)
+        } else if (parsed.type === "positions") {
+          handlePositions(parsed as SSEPositionEvent, positionsMap)
         }
-      }
-
-      eventSource.onerror = () => {
-        scheduleReconnect()
+        updateAggregated(balancesMap, positionsMap)
+      } catch {
+        // Ignore parse errors
       }
     }
 
-    connect()
+    eventSource.onerror = () => {
+      // Connection closed by server, do not reconnect
+      eventSource?.close()
+    }
 
     return () => {
-      cleanup()
+      stopped = true
+      eventSource?.close()
     }
-    // Re-run when address changes (user connects/disconnects wallet)
+
+    // Re-run when address, network, or refresh trigger changes
     // minityUrl and queryClient accessed via useEffectEvent handlers (always read latest values)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address])
+  }, [address, isTestnet, refreshTrigger])
 }

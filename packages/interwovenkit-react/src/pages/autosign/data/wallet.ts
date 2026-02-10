@@ -243,7 +243,7 @@ export function useSignWithDerivedWallet() {
     messages: EncodeObject[],
     fee: StdFee,
     memo: string,
-    derivedWalletOverride?: DerivedWallet,
+    derivedWalletOverride?: DerivedWalletPublic,
   ): Promise<TxRaw> => {
     let derivedWallet = derivedWalletOverride ?? getWallet()
     if (!derivedWallet) {

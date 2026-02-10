@@ -4,12 +4,8 @@ import { useDrawer, useModal } from "@/data/ui"
 import { useSkipAsset } from "../bridge/data/assets"
 import { formatDuration } from "../bridge/data/format"
 import { useTrackTxQuery, useTxStatusQuery } from "../bridge/data/tx"
-import CompletedDarkAnimation from "./assets/CompletedDark.mp4"
-import CompletedLightAnimation from "./assets/CompletedLight.mp4"
 import FailedDarkIcon from "./assets/FailedDark.svg"
 import FailedLightIcon from "./assets/FailedLight.svg"
-import LoadingDarkAnimation from "./assets/LoadingDark.mp4"
-import LoadingLightAnimation from "./assets/LoadingLight.mp4"
 import { useTransferForm } from "./hooks"
 import styles from "./TransferCompleted.module.css"
 
@@ -79,8 +75,8 @@ export function TransferCompleted({ type }: { type: "deposit" | "withdraw" }) {
 
   // icons
   const failedIcon = theme === "dark" ? FailedDarkIcon : FailedLightIcon
-  const loadingAnimation = theme === "dark" ? LoadingDarkAnimation : LoadingLightAnimation
-  const completedAnimation = theme === "dark" ? CompletedDarkAnimation : CompletedLightAnimation
+  const loadingAnimation = `https://assets.initia.xyz/videos/Loading${theme === "dark" ? "Dark" : "Light"}.mp4`
+  const completedAnimation = `https://assets.initia.xyz/videos/Completed${theme === "dark" ? "Dark" : "Light"}.mp4`
 
   // Error state handling
   if (isError) {
@@ -156,10 +152,11 @@ export function TransferCompleted({ type }: { type: "deposit" | "withdraw" }) {
             muted
             playsInline
             style={{ width: "72px", height: "72px" }}
-            onEnded={(e) => {
+            onTimeUpdate={(e) => {
               const video = e.currentTarget
-              video.currentTime = video.duration
-              video.pause()
+              if (video.duration - video.currentTime < 0.1) {
+                video.pause()
+              }
             }}
           />
           {renderExplorerLinks()}

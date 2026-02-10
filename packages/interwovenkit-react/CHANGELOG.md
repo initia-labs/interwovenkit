@@ -1,5 +1,50 @@
 # Changelog
 
+### [2.2.4](https://github.com/initia-labs/interwovenkit/compare/v2.2.3...v2.2.4) (2026-02-04)
+
+### Features
+
+- **portfolio:** include VIP reward in Initia chain total balance ([425b2dc](https://github.com/initia-labs/interwovenkit/commit/425b2dceac00d800d5cda1739c2d1392d0efe416))
+- **bridge:** skip OP withdrawal reminder for migrated bridges ([1ed2df2](https://github.com/initia-labs/interwovenkit/commit/1ed2df2dfc6791a612a1cb599d5fb94b931a1559))
+
+### Bug Fixes
+
+- deposit and withdraw bugs and inconsistencies ([#133](https://github.com/initia-labs/interwovenkit/issues/133)) ([6b692d9](https://github.com/initia-labs/interwovenkit/commit/6b692d90ed04bab69185278c6b667fe6c48793ef))
+- **portfolio:** prevent cross-chain denom logo collision ([bd907a5](https://github.com/initia-labs/interwovenkit/commit/bd907a51f3d567e7ff56fe20756fa0d95717b569))
+- **bridge:** add route data conditions to Fast/Lossless toggle ([251110e](https://github.com/initia-labs/interwovenkit/commit/251110e1022d6e59fdb67710f6a5a8c7056b1c16))
+- **deps:** patch brace-expansion transitive vulnerability ([08c9555](https://github.com/initia-labs/interwovenkit/commit/08c95555ddb5ca62b1f6eae3118e5ac46812ec10))
+
+### [2.2.3](https://github.com/initia-labs/interwovenkit/compare/v2.2.2...v2.2.3) (2026-02-01)
+
+### Bug Fixes
+
+- **assets:** resolve query key collision between useDenoms and WithDenom ([0579b82](https://github.com/initia-labs/interwovenkit/commit/0579b8277f9788c06282e01d08fc507bb2018ff5))
+
+### [2.2.2](https://github.com/initia-labs/interwovenkit/compare/v2.2.1...v2.2.2) (2026-01-28)
+
+### Bug Fixes
+
+- **home:** increase navigation icon size from 16 to 20px ([e69ba44](https://github.com/initia-labs/interwovenkit/commit/e69ba44bfab32b7238a2a49bb891e8ded79f4d6e))
+- **minity:** simplify SSE reconnection and add refresh trigger ([56ae7e1](https://github.com/initia-labs/interwovenkit/commit/56ae7e19f42f8cfdebfbaa5bfaacb403129499d1))
+
+### [2.2.1](https://github.com/initia-labs/interwovenkit/compare/v2.2.0...v2.2.1) (2026-01-24)
+
+### Performance Optimization
+
+- externalize video assets to CDN
+
+## [2.2.0](https://github.com/initia-labs/interwovenkit/compare/v2.1.1...v2.2.0) (2026-01-23)
+
+### Features
+
+- add portfolio ([4eea8f9](https://github.com/initia-labs/interwovenkit/commit/4eea8f90b1d38ccb8464a7cb5c996aec4f2f7110))
+- deposit and withdraw ([8d92acf](https://github.com/initia-labs/interwovenkit/commit/8d92acf63aa00c75ead83125b7feb09fdc3d17fe))
+- **deps:** upgrade [@base-ui](https://github.com/base-ui) to 1.0.0 release version ([2fe745e](https://github.com/initia-labs/interwovenkit/commit/2fe745ea87ec3760fa3f8ec5906560e7f02a3441))
+
+### Bug Fixes
+
+- **bridge:** show dash for unavailable route price ([1319c11](https://github.com/initia-labs/interwovenkit/commit/1319c112fa61a0ec70b97ae35ec1d67c9605043a))
+
 ### [2.1.1](https://github.com/initia-labs/interwovenkit/compare/v2.1.0...v2.1.1) (2025-12-17)
 
 ### Features

@@ -8,7 +8,7 @@ import AsyncBoundary from "@/components/AsyncBoundary"
 import Image from "@/components/Image"
 import Skeletons from "@/components/Skeletons"
 import { useAllChainsAssetsQueries } from "@/data/assets"
-import { useLayer1, usePricesQuery } from "@/data/chains"
+import { useInitiaRegistry, useLayer1, usePricesQuery } from "@/data/chains"
 import { INIT_DECIMALS, INIT_DENOM, INITIA_LIQUIDITY_URL } from "@/data/constants"
 import { useInitiaLiquidityPositions } from "@/data/initia-liquidity"
 import {
@@ -49,6 +49,7 @@ const InitiaTotalValue = () => {
 /* -------------------------------------------------------------------------- */
 
 interface StakingSectionProps {
+  chainId: string
   chainLogo: string
   denomLogos: Map<string, string>
   symbolLogos: Map<string, string>
@@ -56,6 +57,7 @@ interface StakingSectionProps {
 }
 
 const InitiaStakingSection = ({
+  chainId,
   chainLogo,
   denomLogos,
   symbolLogos,
@@ -75,7 +77,8 @@ const InitiaStakingSection = ({
 
       const { denom, symbol } = position.balance
       const upperSymbol = symbol.toUpperCase()
-      const assetLogo = denomLogos.get(denom) ?? symbolLogos.get(upperSymbol)
+      const chainDenomKey = `${chainId}:${denom}`
+      const assetLogo = denomLogos.get(chainDenomKey) ?? symbolLogos.get(upperSymbol)
 
       if (assetLogo) {
         map.set(denom, { assetLogo, chainLogo })
@@ -83,7 +86,7 @@ const InitiaStakingSection = ({
     }
 
     return map
-  }, [stakingPositions, denomLogos, symbolLogos, chainLogo])
+  }, [stakingPositions, denomLogos, symbolLogos, chainId, chainLogo])
 
   // Get claimable INIT for a specific position type
   const getClaimableInitByType = useMemo(
@@ -141,12 +144,14 @@ const InitiaStakingSection = ({
 /* -------------------------------------------------------------------------- */
 
 interface LiquiditySectionWrapperProps {
+  chainId: string
   chainLogo: string
   denomLogos: Map<string, string>
   symbolLogos: Map<string, string>
 }
 
 const InitiaLiquiditySectionWrapper = ({
+  chainId,
   chainLogo,
   denomLogos,
   symbolLogos,
@@ -162,7 +167,8 @@ const InitiaLiquiditySectionWrapper = ({
     for (const row of liquidityData.rows) {
       const { denom, symbol } = row
       const upperSymbol = symbol.toUpperCase()
-      const assetLogo = denomLogos.get(denom) ?? symbolLogos.get(upperSymbol)
+      const chainDenomKey = `${chainId}:${denom}`
+      const assetLogo = denomLogos.get(chainDenomKey) ?? symbolLogos.get(upperSymbol)
 
       if (assetLogo) {
         map.set(denom, { assetLogo, chainLogo })
@@ -170,7 +176,7 @@ const InitiaLiquiditySectionWrapper = ({
     }
 
     return map
-  }, [liquidityData.rows, denomLogos, symbolLogos, chainLogo])
+  }, [liquidityData.rows, denomLogos, symbolLogos, chainId, chainLogo])
 
   if (liquidityData.rows.length === 0) {
     return null
@@ -198,14 +204,15 @@ const InitiaVipSectionWrapper = () => {
 /* -------------------------------------------------------------------------- */
 
 const InitiaPositionGroup = ({ chainGroup }: Props) => {
-  const { chainName, chainLogo } = chainGroup
+  const { chainId, chainName, chainLogo } = chainGroup
   const [isOpen, setIsOpen] = useAtom(openInitiaGroupAtom)
 
   // Shared asset logos - fetch once and pass to child components
+  const chains = useInitiaRegistry()
   const assetsQueries = useAllChainsAssetsQueries()
   const { denomLogos, symbolLogos } = useMemo(
-    () => buildAssetLogoMaps(assetsQueries),
-    [assetsQueries],
+    () => buildAssetLogoMaps(assetsQueries, chains),
+    [assetsQueries, chains],
   )
 
   // Shared INIT price - fetch once and pass to staking section
@@ -255,6 +262,7 @@ const InitiaPositionGroup = ({ chainGroup }: Props) => {
             {/* Staking section */}
             <AsyncBoundary suspenseFallback={<Skeletons height={36} length={2} />}>
               <InitiaStakingSection
+                chainId={chainId}
                 chainLogo={chainLogo}
                 denomLogos={denomLogos}
                 symbolLogos={symbolLogos}
@@ -265,6 +273,7 @@ const InitiaPositionGroup = ({ chainGroup }: Props) => {
             {/* Liquidity section */}
             <AsyncBoundary suspenseFallback={<Skeletons height={36} length={2} />}>
               <InitiaLiquiditySectionWrapper
+                chainId={chainId}
                 chainLogo={chainLogo}
                 denomLogos={denomLogos}
                 symbolLogos={symbolLogos}
