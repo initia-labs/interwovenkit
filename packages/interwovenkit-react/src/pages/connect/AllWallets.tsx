@@ -38,7 +38,14 @@ const AllWallets = ({
   onBack,
 }: Props) => {
   const [search, setSearch] = useState("")
-  const { data: wcWallets = [], isError: isWalletConnectWalletsError } = useWalletConnectWallets()
+  const {
+    data: wcWallets = [],
+    isError: isWalletConnectWalletsError,
+    isLoading: isWalletConnectWalletsLoading,
+    isFetching: isWalletConnectWalletsFetching,
+  } = useWalletConnectWallets()
+  const showWalletConnectLoading =
+    isWalletConnectWalletsLoading || (isWalletConnectWalletsFetching && wcWallets.length === 0)
 
   const filteredConnectors = useMemo(() => {
     if (!search) return walletConnectors
@@ -112,6 +119,15 @@ const AllWallets = ({
               </button>
             )
           })}
+
+          {showWalletConnectLoading && (
+            <div className={clsx(styles.listItem, styles.loading)} role="status" aria-live="polite">
+              <div className={styles.listIconWrapper}>
+                <Loader size={16} />
+              </div>
+              <span className={styles.listNameMuted}>Loading more wallets...</span>
+            </div>
+          )}
 
           {additionalWallets.map((wallet) => {
             const href = wallet.homepage
