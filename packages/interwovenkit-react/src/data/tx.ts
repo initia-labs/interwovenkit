@@ -6,6 +6,7 @@ import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import { atom, useAtomValue, useSetAtom } from "jotai"
 import { useNavigate } from "@/lib/router"
+import type { DerivedWallet } from "@/pages/autosign/data/store"
 import { useValidateAutoSign } from "@/pages/autosign/data/validation"
 import {
   buildAuthzExecMessages,
@@ -162,24 +163,116 @@ export function buildAutoSignSimulationInput({
   }
 }
 
-export function useTxRequestHandler() {
-  const txRequest = useAtomValue(txRequestHandlerAtom)
-  if (!txRequest) throw new Error("Tx request not found")
-  return txRequest
+interface SignTxWithAutoSignFeeParams {
+  address: string
+  chainId: string
+  messages: EncodeObject[]
+  memo: string
+  fee: StdFee
+  preferredFeeDenom?: string
+  client?: SigningStargateClient
+  allowAutoSign?: boolean
+  allowWalletDerivation?: boolean
 }
 
-export function useTx() {
-  const navigate = useNavigate()
+interface ComputeAutoSignFeeParams {
+  chainId: string
+  messages: EncodeObject[]
+  memo: string
+  derivedWallet: DerivedWallet
+  preferredFeeDenom?: string
+  fallbackFeeDenom?: string
+  client: SigningStargateClient
+}
+
+interface SignTxWithAutoSignFeeDeps {
+  validateAutoSign: (chainId: string, messages: EncodeObject[]) => Promise<boolean>
+  getWallet: () => DerivedWallet | undefined
+  deriveWallet: (chainId: string) => Promise<DerivedWallet>
+  getSigningClient: (chainId: string) => Promise<SigningStargateClient>
+  computeAutoSignFee: (params: ComputeAutoSignFeeParams) => Promise<StdFee>
+  signWithDerivedWallet: (
+    chainId: string,
+    granterAddress: string,
+    messages: EncodeObject[],
+    fee: StdFee,
+    memo: string,
+    derivedWalletOverride?: DerivedWallet,
+  ) => Promise<TxRaw>
+  signWithEthSecp256k1: (
+    chainId: string,
+    signerAddress: string,
+    messages: EncodeObject[],
+    fee: StdFee,
+    memo: string,
+  ) => Promise<TxRaw>
+}
+
+export async function signTxWithAutoSignFeeWithDeps(
+  {
+    address,
+    chainId,
+    messages,
+    memo,
+    fee,
+    preferredFeeDenom,
+    client,
+    allowAutoSign = true,
+    allowWalletDerivation = false,
+  }: SignTxWithAutoSignFeeParams,
+  deps: SignTxWithAutoSignFeeDeps,
+): Promise<TxRaw> {
+  const signManually = async () => deps.signWithEthSecp256k1(chainId, address, messages, fee, memo)
+
+  if (!allowAutoSign) {
+    return signManually()
+  }
+
+  const isAutoSignValid = await deps.validateAutoSign(chainId, messages)
+  if (!isAutoSignValid) {
+    return signManually()
+  }
+
+  let derivedWallet = deps.getWallet()
+  if (!derivedWallet && allowWalletDerivation) {
+    try {
+      derivedWallet = await deps.deriveWallet(chainId)
+    } catch {
+      derivedWallet = undefined
+    }
+  }
+
+  if (!derivedWallet) {
+    // Skip auto-sign if no derived wallet is cached to avoid unexpected wallet popups.
+    return signManually()
+  }
+
+  const signingClient = client ?? (await deps.getSigningClient(chainId))
+
+  let signingFee: StdFee
+  try {
+    signingFee = await deps.computeAutoSignFee({
+      chainId,
+      messages,
+      memo,
+      derivedWallet,
+      preferredFeeDenom,
+      fallbackFeeDenom: fee.amount[0]?.denom,
+      client: signingClient,
+    })
+  } catch {
+    return signManually()
+  }
+
+  return deps.signWithDerivedWallet(chainId, address, messages, signingFee, memo, derivedWallet)
+}
+
+export function useSignTxWithAutoSignFee() {
   const address = useInitiaAddress()
-  const { defaultChainId, registryUrl, autoSignFeePolicy } = useConfig()
+  const { autoSignFeePolicy } = useConfig()
   const findChain = useFindChain()
-  const { openDrawer, closeDrawer } = useDrawer()
-  const { openModal, closeModal } = useModal()
-  const setTxRequestHandler = useSetAtom(txRequestHandlerAtom)
-  const setTxStatus = useSetAtom(txStatusAtom)
   const createComet38Client = useCreateComet38Client()
   const createSigningStargateClient = useCreateSigningStargateClient()
-  const offlineSigner = useOfflineSigner()
   const registry = useRegistry()
   const validateAutoSign = useValidateAutoSign()
   const { getWallet, deriveWallet } = useDeriveWallet()
@@ -256,56 +349,44 @@ export function useTx() {
     })
   }
 
-  const signTxWithAutoSignFee = async ({
-    chainId,
-    messages,
-    memo,
-    fee,
-    preferredFeeDenom,
-    client,
-  }: {
-    chainId: string
-    messages: EncodeObject[]
-    memo: string
-    fee: StdFee
-    preferredFeeDenom?: string
-    client: SigningStargateClient
-  }): Promise<TxRaw> => {
-    const isAutoSignValid = await validateAutoSign(chainId, messages)
-    let derivedWallet = getWallet()
-    let signingFee = fee
+  return (params: Omit<SignTxWithAutoSignFeeParams, "address">): Promise<TxRaw> =>
+    signTxWithAutoSignFeeWithDeps(
+      {
+        ...params,
+        address,
+      },
+      {
+        validateAutoSign,
+        getWallet,
+        deriveWallet,
+        getSigningClient: createSigningStargateClient,
+        computeAutoSignFee,
+        signWithDerivedWallet,
+        signWithEthSecp256k1,
+      },
+    )
+}
 
-    if (isAutoSignValid) {
-      if (!derivedWallet) {
-        try {
-          derivedWallet = await deriveWallet(chainId)
-        } catch {
-          derivedWallet = undefined
-        }
-      }
+export function useTxRequestHandler() {
+  const txRequest = useAtomValue(txRequestHandlerAtom)
+  if (!txRequest) throw new Error("Tx request not found")
+  return txRequest
+}
 
-      try {
-        if (!derivedWallet) {
-          throw new Error("Derived wallet unavailable")
-        }
-        signingFee = await computeAutoSignFee({
-          chainId,
-          messages,
-          memo,
-          derivedWallet,
-          preferredFeeDenom,
-          fallbackFeeDenom: fee.amount[0]?.denom,
-          client,
-        })
-      } catch {
-        // Keep provided fee when simulation fails (e.g. derived account sequence not found yet).
-      }
-    }
-
-    return isAutoSignValid && derivedWallet
-      ? await signWithDerivedWallet(chainId, address, messages, signingFee, memo, derivedWallet)
-      : await signWithEthSecp256k1(chainId, address, messages, fee, memo)
-  }
+export function useTx() {
+  const navigate = useNavigate()
+  const address = useInitiaAddress()
+  const { defaultChainId, registryUrl } = useConfig()
+  const findChain = useFindChain()
+  const { openDrawer, closeDrawer } = useDrawer()
+  const { openModal, closeModal } = useModal()
+  const setTxRequestHandler = useSetAtom(txRequestHandlerAtom)
+  const setTxStatus = useSetAtom(txStatusAtom)
+  const createComet38Client = useCreateComet38Client()
+  const createSigningStargateClient = useCreateSigningStargateClient()
+  const offlineSigner = useOfflineSigner()
+  const registry = useRegistry()
+  const signTxWithAutoSignFee = useSignTxWithAutoSignFee()
 
   const estimateGas = async ({ messages, memo, chainId = defaultChainId }: TxRequest) => {
     try {
@@ -451,6 +532,7 @@ export function useTx() {
         fee,
         preferredFeeDenom,
         client,
+        allowWalletDerivation: false,
       })
 
       return await client.broadcastTxSync(TxRaw.encode(signedTx).finish())
@@ -475,6 +557,7 @@ export function useTx() {
         fee,
         preferredFeeDenom,
         client,
+        allowWalletDerivation: false,
       })
 
       const response = await client.broadcastTx(
