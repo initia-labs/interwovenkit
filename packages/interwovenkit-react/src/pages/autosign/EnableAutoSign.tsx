@@ -144,6 +144,7 @@ const EnableAutoSignComponent = () => {
           <a
             href="https://docs.initia.xyz/user-guides/wallet/auto-signing/introduction"
             target="_blank"
+            rel="noopener noreferrer"
             className={styles.learnMoreLink}
           >
             Learn more <IconExternalLink size={12} />
