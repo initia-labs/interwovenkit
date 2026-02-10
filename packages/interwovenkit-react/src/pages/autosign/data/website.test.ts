@@ -18,6 +18,16 @@ describe("isVerifiedWebsiteHost", () => {
     expect(isVerifiedWebsiteHost("https://app.initia.xyz", "other.initia.xyz")).toBe(false)
   })
 
+  it("returns false when registered host is public-suffix-like", () => {
+    expect(isVerifiedWebsiteHost("https://co.uk", "evil.co.uk")).toBe(false)
+    expect(isVerifiedWebsiteHost("https://com.au", "evil.com.au")).toBe(false)
+    expect(isVerifiedWebsiteHost("https://org.uk", "evil.org.uk")).toBe(false)
+  })
+
+  it("returns true for registrable domain under multi-part suffix", () => {
+    expect(isVerifiedWebsiteHost("https://app.example.co.uk", "api.app.example.co.uk")).toBe(true)
+  })
+
   it("returns false for different domain", () => {
     expect(isVerifiedWebsiteHost("https://app.initia.xyz", "evil.com")).toBe(false)
   })
@@ -36,5 +46,17 @@ describe("isVerifiedWebsiteHost", () => {
 
   it("returns false for malformed registered website URL", () => {
     expect(isVerifiedWebsiteHost("not-a-url", "app.initia.xyz")).toBe(false)
+  })
+
+  it("returns false for non-https registered website URL", () => {
+    expect(isVerifiedWebsiteHost("http://app.initia.xyz", "app.initia.xyz")).toBe(false)
+  })
+
+  it("returns false for localhost registered website URL", () => {
+    expect(isVerifiedWebsiteHost("https://localhost", "localhost")).toBe(false)
+  })
+
+  it("returns false for ip registered website URL", () => {
+    expect(isVerifiedWebsiteHost("https://127.0.0.1", "127.0.0.1")).toBe(false)
   })
 })
