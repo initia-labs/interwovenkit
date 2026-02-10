@@ -17,6 +17,7 @@ import { useInterwovenKit } from "@/public/data/hooks"
 import { useEnableAutoSign } from "./data/actions"
 import { DEFAULT_DURATION, DURATION_OPTIONS } from "./data/constants"
 import { pendingAutoSignRequestAtom } from "./data/store"
+import { isVerifiedWebsiteHost } from "./data/website"
 import styles from "./EnableAutoSign.module.css"
 
 const accountQueries = createQueryKeys("interwovenkit:account", {
@@ -60,11 +61,7 @@ const EnableAutoSignComponent = () => {
   const isVerified = (() => {
     if (!targetChain?.website) return false
 
-    try {
-      return isVerifiedWebsiteHost(targetChain.website, window.location.hostname)
-    } catch {
-      return false
-    }
+    return isVerifiedWebsiteHost(targetChain.website, window.location.hostname)
   })()
 
   const handleEnable = () => {
@@ -193,12 +190,3 @@ const EnableAutoSign = () => {
 }
 
 export default EnableAutoSign
-
-function isVerifiedWebsiteHost(registeredWebsite: string, currentHostname: string): boolean {
-  const registeredHostname = new URL(registeredWebsite).hostname.toLowerCase()
-  const current = currentHostname.toLowerCase()
-
-  if (!registeredHostname || !current) return false
-
-  return current === registeredHostname || current.endsWith(`.${registeredHostname}`)
-}
