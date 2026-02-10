@@ -102,7 +102,7 @@ export class DerivedWalletSigner implements OfflineAminoSigner {
 
 /* Derive and store wallet from EIP-191 signature for autosign delegation.
  * Uses personal_sign instead of signTypedData for better hardware wallet compatibility.
- * The same derived wallet is used across all chains for the same user. */
+ * Wallets are cached per user + bech32 prefix to avoid cross-chain prefix mismatches. */
 export function useDeriveWallet() {
   const setDerivedWallets = useSetAtom(derivedWalletsAtom)
   const store = useStore()
@@ -115,7 +115,8 @@ export function useDeriveWallet() {
       throw new Error("User address not available")
     }
 
-    const key = getDerivedWalletKey(userAddress)
+    const chain = findChain(chainId)
+    const key = getDerivedWalletKey(userAddress, chain.bech32_prefix)
     const currentWallet = store.get(derivedWalletsAtom)[key]
 
     if (currentWallet && privateKeyVault.has(key)) {
@@ -130,7 +131,6 @@ export function useDeriveWallet() {
 
     const derivationPromise = (async () => {
       try {
-        const chain = findChain(chainId)
         const origin = window.location.origin
         const message = getAutoSignMessage(origin)
         const signature = await signMessageAsync({ message })
@@ -159,23 +159,26 @@ export function useDeriveWallet() {
     return derivationPromise
   }
 
-  const getWallet = (): DerivedWalletPublic | undefined => {
+  const getWallet = (chainId: string): DerivedWalletPublic | undefined => {
     if (!userAddress) return undefined
-    const key = getDerivedWalletKey(userAddress)
+    const chain = findChain(chainId)
+    const key = getDerivedWalletKey(userAddress, chain.bech32_prefix)
     if (!privateKeyVault.has(key)) return undefined
     return store.get(derivedWalletsAtom)[key]
   }
 
-  const getWalletPrivateKey = (): Uint8Array | undefined => {
+  const getWalletPrivateKey = (chainId: string): Uint8Array | undefined => {
     if (!userAddress) return undefined
-    const key = getDerivedWalletKey(userAddress)
+    const chain = findChain(chainId)
+    const key = getDerivedWalletKey(userAddress, chain.bech32_prefix)
     return privateKeyVault.get(key)
   }
 
-  const clearWallet = () => {
+  const clearWallet = (chainId: string) => {
     if (!userAddress) return
 
-    const key = getDerivedWalletKey(userAddress)
+    const chain = findChain(chainId)
+    const key = getDerivedWalletKey(userAddress, chain.bech32_prefix)
     const privateKey = privateKeyVault.get(key)
 
     if (pendingDerivations.has(key)) {
@@ -245,11 +248,11 @@ export function useSignWithDerivedWallet() {
     memo: string,
     derivedWalletOverride?: DerivedWalletPublic,
   ): Promise<TxRaw> => {
-    let derivedWallet = derivedWalletOverride ?? getWallet()
+    let derivedWallet = derivedWalletOverride ?? getWallet(chainId)
     if (!derivedWallet) {
       derivedWallet = await deriveWallet(chainId)
     }
-    const privateKey = getWalletPrivateKey()
+    const privateKey = getWalletPrivateKey(chainId)
     if (!privateKey) {
       throw new Error("Derived wallet key not initialized")
     }

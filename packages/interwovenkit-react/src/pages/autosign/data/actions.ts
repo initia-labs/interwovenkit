@@ -171,7 +171,7 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
 
   return useMutation({
     mutationFn: async (chainId: string = config.defaultChainId) => {
-      const derivedWallet = getWallet()
+      const derivedWallet = getWallet(chainId)
       let grantee =
         options?.grantee || derivedWallet?.address || autoSignStatus?.granteeByChain[chainId]
 
@@ -187,14 +187,14 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
       const messages = await fetchRevokeMessages({ chainId, grantee })
       await requestTxBlock({ messages, chainId, internal: options?.internal })
     },
-    onSuccess: async () => {
+    onSuccess: async (_, chainId = config.defaultChainId) => {
       const queryKeys = [autoSignQueryKeys.expirations._def, autoSignQueryKeys.grants._def]
 
       for (const queryKey of queryKeys) {
         await queryClient.invalidateQueries({ queryKey })
       }
 
-      clearWallet()
+      clearWallet(chainId)
     },
   })
 }

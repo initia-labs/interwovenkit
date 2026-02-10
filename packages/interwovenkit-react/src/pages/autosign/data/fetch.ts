@@ -1,6 +1,6 @@
 import ky from "ky"
 import { useFindChain } from "@/data/chains"
-import { getNextPageParam } from "@/data/pagination"
+import { fetchAllPages } from "@/data/pagination"
 import { useInitiaAddress } from "@/public/data/hooks"
 
 /* Shared types for authz grants and feegrant */
@@ -112,27 +112,12 @@ export function useAutoSignApi() {
     if (!address) return []
 
     try {
-      const api = ky.create({ prefixUrl: chain.restUrl })
       const endpoint = `cosmos/authz/v1beta1/grants/granter/${address}`
-      const allGrants: Grant[] = []
-      let paginationKey: string | null = null
-
-      while (true) {
-        const data: GrantsResponse = await api
-          .get(endpoint, {
-            ...(paginationKey ? { searchParams: { "pagination.key": paginationKey } } : {}),
-          })
-          .json<GrantsResponse>()
-
-        allGrants.push(...data.grants)
-
-        paginationKey = getNextPageParam<"grants", Grant>({
-          grants: data.grants,
-          pagination: data.pagination ?? null,
-        })
-
-        if (!paginationKey) break
-      }
+      const allGrants = await fetchAllPages<"grants", Grant>(
+        endpoint,
+        { prefixUrl: chain.restUrl },
+        "grants",
+      )
 
       return allGrants
         .filter((grant) => grant.authorization["@type"].includes("GenericAuthorization"))

@@ -187,7 +187,7 @@ interface ComputeAutoSignFeeParams {
 
 interface SignTxWithAutoSignFeeDeps {
   validateAutoSign: (chainId: string, messages: EncodeObject[]) => Promise<boolean>
-  getWallet: () => DerivedWalletPublic | undefined
+  getWallet: (chainId: string) => DerivedWalletPublic | undefined
   deriveWallet: (chainId: string) => Promise<DerivedWalletPublic>
   getSigningClient: (chainId: string) => Promise<SigningStargateClient>
   computeAutoSignFee: (params: ComputeAutoSignFeeParams) => Promise<StdFee>
@@ -233,7 +233,7 @@ export async function signTxWithAutoSignFeeWithDeps(
     return signManually()
   }
 
-  let derivedWallet = deps.getWallet()
+  let derivedWallet = deps.getWallet(chainId)
   if (!derivedWallet && allowWalletDerivation) {
     try {
       derivedWallet = await deps.deriveWallet(chainId)

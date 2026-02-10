@@ -258,33 +258,41 @@ describe("deriveWalletFromSignature", () => {
 
 describe("getDerivedWalletKey", () => {
   const testAddress = "init1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpqr5e3d"
+  const testPrefix = "init"
 
-  it("returns the userAddress as the key", () => {
-    const result = getDerivedWalletKey(testAddress)
+  it("includes userAddress and bech32 prefix in key", () => {
+    const result = getDerivedWalletKey(testAddress, testPrefix)
 
-    expect(result).toBe(testAddress)
+    expect(result).toBe(`${testAddress}:${testPrefix}`)
   })
 
   it("different user addresses produce different keys", () => {
     const address1 = "init1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpqr5e3d"
     const address2 = "init1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqz9ml8a"
-    const key1 = getDerivedWalletKey(address1)
-    const key2 = getDerivedWalletKey(address2)
+    const key1 = getDerivedWalletKey(address1, testPrefix)
+    const key2 = getDerivedWalletKey(address2, testPrefix)
 
     expect(key1).not.toBe(key2)
   })
 
-  it("same userAddress produces same key", () => {
-    const key1 = getDerivedWalletKey(testAddress)
-    const key2 = getDerivedWalletKey(testAddress)
+  it("different prefixes produce different keys for the same user", () => {
+    const key1 = getDerivedWalletKey(testAddress, "init")
+    const key2 = getDerivedWalletKey(testAddress, "cosmos")
+
+    expect(key1).not.toBe(key2)
+  })
+
+  it("same userAddress and prefix produce same key", () => {
+    const key1 = getDerivedWalletKey(testAddress, testPrefix)
+    const key2 = getDerivedWalletKey(testAddress, testPrefix)
 
     expect(key1).toBe(key2)
   })
 
   it("handles empty string", () => {
-    const result = getDerivedWalletKey("")
+    const result = getDerivedWalletKey("", "")
 
-    expect(result).toBe("")
+    expect(result).toBe(":")
   })
 })
 
@@ -302,15 +310,15 @@ describe("integration: full derivation flow", () => {
       "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1c"
 
     const wallet = await deriveWalletFromSignature(mockSignature, "init")
-    const cacheKey = getDerivedWalletKey(testAddress)
+    const cacheKey = getDerivedWalletKey(testAddress, "init")
 
     expect(wallet.address.startsWith("init1")).toBe(true)
-    expect(cacheKey).toBe(testAddress)
+    expect(cacheKey).toBe(`${testAddress}:init`)
   })
 
-  it("cache key is the user address", () => {
-    const cacheKey = getDerivedWalletKey(testAddress)
+  it("cache key includes bech32 prefix", () => {
+    const cacheKey = getDerivedWalletKey(testAddress, "init")
 
-    expect(cacheKey).toBe(testAddress)
+    expect(cacheKey).toBe(`${testAddress}:init`)
   })
 })
