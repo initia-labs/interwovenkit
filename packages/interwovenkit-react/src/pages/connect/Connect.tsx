@@ -9,13 +9,6 @@ import AllWallets from "./AllWallets"
 import SignIn from "./SignIn"
 import { fetchWalletConnectWallets, walletConnectWalletsQueryKey } from "./useWalletConnectWallets"
 
-export interface WalletInfo {
-  id: string
-  name: string
-  image_url?: Partial<{ sm: string; md: string; lg: string }>
-  homepage?: string
-}
-
 const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
   const { connectors, connectAsync } = useConnect()
   const recentConnectorId = useReadLocalStorage<string>("wagmi.recentConnectorId")

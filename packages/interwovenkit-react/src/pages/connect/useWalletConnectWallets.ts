@@ -1,7 +1,13 @@
 import ky from "ky"
 import { useQuery } from "@tanstack/react-query"
 import { STALE_TIMES } from "@/data/http"
-import type { WalletInfo } from "./Connect"
+
+export interface WalletInfo {
+  id: string
+  name: string
+  image_url?: Partial<{ sm: string; md: string; lg: string }>
+  homepage?: string
+}
 
 const WALLETCONNECT_PROJECT_ID = "5722e7dffb709492cf5312446ceeff73"
 const WALLETCONNECT_API = `https://explorer-api.walletconnect.com/v3/wallets?projectId=${WALLETCONNECT_PROJECT_ID}`
