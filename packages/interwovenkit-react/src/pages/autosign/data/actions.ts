@@ -1,6 +1,6 @@
 import { addMilliseconds } from "date-fns"
 import { useAtom } from "jotai"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query"
 import { GenericAuthorization } from "@initia/initia.proto/cosmos/authz/v1beta1/authz"
 import { MsgGrant, MsgRevoke } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import {
@@ -30,16 +30,42 @@ export function resolveDisableAutoSignGrantee(params: {
   return params.explicitGrantee ?? params.cachedDerivedAddress ?? params.statusGrantee
 }
 
-export function shouldRefetchDisableAutoSignGrantee(params: {
-  explicitGrantee?: string
-  cachedDerivedAddress?: string
-  currentGrantee?: string
-}): boolean {
-  return !params.currentGrantee && !params.explicitGrantee && !params.cachedDerivedAddress
+export function shouldRefetchDisableAutoSignGrantee(params: { explicitGrantee?: string }): boolean {
+  return !params.explicitGrantee
 }
 
 export function shouldBroadcastDisableAutoSign(messages: unknown[]): boolean {
   return messages.length > 0
+}
+
+export function resolveDisableAutoSignGranteeCandidates(params: {
+  explicitGrantee?: string
+  cachedDerivedAddress?: string
+  statusGrantee?: string
+  refetchedStatusGrantee?: string
+}): string[] {
+  const values = [
+    params.explicitGrantee,
+    params.cachedDerivedAddress,
+    params.statusGrantee,
+    params.refetchedStatusGrantee,
+  ]
+
+  const unique = new Set<string>()
+  for (const value of values) {
+    if (value) {
+      unique.add(value)
+    }
+  }
+
+  return [...unique]
+}
+
+async function invalidateAutoSignQueries(queryClient: QueryClient) {
+  const queryKeys = [autoSignQueryKeys.expirations._def, autoSignQueryKeys.grants._def]
+  for (const queryKey of queryKeys) {
+    await queryClient.invalidateQueries({ queryKey })
+  }
 }
 
 /* Hook to fetch existing grants and generate revoke messages for a specific grantee */
@@ -164,10 +190,7 @@ export function useEnableAutoSign() {
         storeExpectedAddress(initiaAddress, chainId, derivedWallet.address)
       }
 
-      const queryKeys = [autoSignQueryKeys.expirations._def, autoSignQueryKeys.grants._def]
-      for (const queryKey of queryKeys) {
-        await queryClient.invalidateQueries({ queryKey })
-      }
+      await invalidateAutoSignQueries(queryClient)
 
       pendingRequest?.resolve()
     },
@@ -195,28 +218,37 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
   return useMutation({
     mutationFn: async (chainId: string = config.defaultChainId) => {
       const derivedWallet = getWallet(chainId)
-      let grantee = resolveDisableAutoSignGrantee({
-        explicitGrantee: options?.grantee,
-        cachedDerivedAddress: derivedWallet?.address,
-        statusGrantee: autoSignStatus?.granteeByChain[chainId],
-      })
+      const statusGrantee = autoSignStatus?.granteeByChain[chainId]
+      let refetchedStatusGrantee: string | undefined
 
       if (
         shouldRefetchDisableAutoSignGrantee({
           explicitGrantee: options?.grantee,
-          cachedDerivedAddress: derivedWallet?.address,
-          currentGrantee: grantee,
         })
       ) {
         const refreshedStatus = await refetchAutoSignStatus()
-        grantee = refreshedStatus.data?.granteeByChain[chainId]
+        refetchedStatusGrantee = refreshedStatus.data?.granteeByChain[chainId]
       }
 
-      if (!grantee) {
+      const granteeCandidates = resolveDisableAutoSignGranteeCandidates({
+        explicitGrantee: options?.grantee,
+        cachedDerivedAddress: derivedWallet?.address,
+        statusGrantee,
+        refetchedStatusGrantee,
+      })
+
+      if (granteeCandidates.length === 0) {
         throw new Error("No grantee address available")
       }
 
-      const messages = await fetchRevokeMessages({ chainId, grantee })
+      let messages: Awaited<ReturnType<ReturnType<typeof useFetchRevokeMessages>>> = []
+      for (const grantee of granteeCandidates) {
+        messages = await fetchRevokeMessages({ chainId, grantee })
+        if (shouldBroadcastDisableAutoSign(messages)) {
+          break
+        }
+      }
+
       if (!shouldBroadcastDisableAutoSign(messages)) {
         return { chainId }
       }
@@ -224,11 +256,7 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
       return { chainId }
     },
     onSuccess: async ({ chainId }) => {
-      const queryKeys = [autoSignQueryKeys.expirations._def, autoSignQueryKeys.grants._def]
-
-      for (const queryKey of queryKeys) {
-        await queryClient.invalidateQueries({ queryKey })
-      }
+      await invalidateAutoSignQueries(queryClient)
 
       const chain = findChain(chainId)
       const siblingChainIds = chains

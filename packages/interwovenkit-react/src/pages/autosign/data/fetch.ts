@@ -1,4 +1,4 @@
-import ky from "ky"
+import ky, { HTTPError } from "ky"
 import { useFindChain } from "@/data/chains"
 import { fetchAllPages } from "@/data/pagination"
 import { useInitiaAddress } from "@/public/data/hooks"
@@ -86,8 +86,11 @@ export function useAutoSignApi() {
         .json<FeegrantResponse>()
 
       return allowance
-    } catch {
-      return null
+    } catch (error) {
+      if (error instanceof HTTPError && [404, 500].includes(error.response.status)) {
+        return null
+      }
+      throw error
     }
   }
 
@@ -111,26 +114,22 @@ export function useAutoSignApi() {
 
     if (!address) return []
 
-    try {
-      const endpoint = `cosmos/authz/v1beta1/grants/granter/${address}`
-      const allGrants = await fetchAllPages<"grants", Grant>(
-        endpoint,
-        { prefixUrl: chain.restUrl },
-        "grants",
-      )
+    const endpoint = `cosmos/authz/v1beta1/grants/granter/${address}`
+    const allGrants = await fetchAllPages<"grants", Grant>(
+      endpoint,
+      { prefixUrl: chain.restUrl },
+      "grants",
+    )
 
-      return allGrants
-        .filter((grant) => grant.authorization["@type"].includes("GenericAuthorization"))
-        .map((grant) => ({
-          grantee: grant.grantee,
-          authorization: {
-            msg: grant.authorization.msg,
-          },
-          expiration: grant.expiration,
-        }))
-    } catch {
-      return []
-    }
+    return allGrants
+      .filter((grant) => grant.authorization["@type"].includes("GenericAuthorization"))
+      .map((grant) => ({
+        grantee: grant.grantee,
+        authorization: {
+          msg: grant.authorization.msg,
+        },
+        expiration: grant.expiration,
+      }))
   }
 
   return { fetchFeegrant, fetchGrants, fetchAllGrants }

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { findValidGrantee, resolveAutoSignEnabledForChain } from "./validation"
+import type { FeegrantAllowance } from "./fetch"
+import {
+  findValidGrantee,
+  findValidGranteeCandidates,
+  findValidGranteeWithFeegrant,
+  resolveAutoSignEnabledForChain,
+} from "./validation"
 
 describe("findValidGrantee", () => {
   const msgType1 = "/initia.move.v1.MsgExecute"
@@ -209,6 +215,90 @@ describe("findValidGrantee", () => {
 
       expect(result).toBeNull()
     })
+  })
+})
+
+describe("findValidGranteeCandidates", () => {
+  it("returns all authz-valid grantees in encounter order", () => {
+    const msgType = "/initia.move.v1.MsgExecute"
+    const grants = [
+      { grantee: "init1first", authorization: { msg: msgType } },
+      { grantee: "init1second", authorization: { msg: msgType } },
+    ]
+
+    const result = findValidGranteeCandidates(grants, [msgType])
+
+    expect(result.map((candidate) => candidate.grantee)).toEqual(["init1first", "init1second"])
+  })
+})
+
+describe("findValidGranteeWithFeegrant", () => {
+  const allowExecFeegrant: FeegrantAllowance = {
+    granter: "init1granter",
+    grantee: "init1candidate",
+    allowance: {
+      "@type": "/cosmos.feegrant.v1beta1.AllowedMsgAllowance",
+      allowance: {
+        "@type": "/cosmos.feegrant.v1beta1.BasicAllowance",
+      },
+      allowedMessages: ["/cosmos.authz.v1beta1.MsgExec"],
+    },
+  }
+
+  it("skips candidate without feegrant and selects next eligible candidate", async () => {
+    const candidates = [
+      {
+        grantee: "init1candidateA",
+        grants: [{ authorization: { msg: "/initia.move.v1.MsgExecute" } }],
+      },
+      {
+        grantee: "init1candidateB",
+        grants: [{ authorization: { msg: "/initia.move.v1.MsgExecute" } }],
+      },
+    ]
+
+    const result = await findValidGranteeWithFeegrant({
+      chainId: "initia-1",
+      candidates,
+      fetchFeegrant: async (_chainId, grantee) =>
+        grantee === "init1candidateB" ? allowExecFeegrant : null,
+    })
+
+    expect(result?.grantee.grantee).toBe("init1candidateB")
+  })
+
+  it("skips feegrant that does not allow MsgExec", async () => {
+    const candidates = [
+      {
+        grantee: "init1candidateA",
+        grants: [{ authorization: { msg: "/initia.move.v1.MsgExecute" } }],
+      },
+      {
+        grantee: "init1candidateB",
+        grants: [{ authorization: { msg: "/initia.move.v1.MsgExecute" } }],
+      },
+    ]
+
+    const disallowExecFeegrant: FeegrantAllowance = {
+      granter: "init1granter",
+      grantee: "init1candidateA",
+      allowance: {
+        "@type": "/cosmos.feegrant.v1beta1.AllowedMsgAllowance",
+        allowance: {
+          "@type": "/cosmos.feegrant.v1beta1.BasicAllowance",
+        },
+        allowedMessages: ["/cosmos.bank.v1beta1.MsgSend"],
+      },
+    }
+
+    const result = await findValidGranteeWithFeegrant({
+      chainId: "initia-1",
+      candidates,
+      fetchFeegrant: async (_chainId, grantee) =>
+        grantee === "init1candidateA" ? disallowExecFeegrant : allowExecFeegrant,
+    })
+
+    expect(result?.grantee.grantee).toBe("init1candidateB")
   })
 })
 

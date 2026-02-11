@@ -1,9 +1,9 @@
-import ky from "ky"
 import { useQueries } from "@tanstack/react-query"
 import { useInitiaRegistry } from "@/data/chains"
 import { STALE_TIMES } from "@/data/http"
+import { fetchAllPages } from "@/data/pagination"
 import { useInitiaAddress } from "@/public/data/hooks"
-import type { GrantsResponse } from "./fetch"
+import type { Grant } from "./fetch"
 import { autoSignQueryKeys } from "./validation"
 import { getExpectedAddress } from "./wallet"
 
@@ -18,10 +18,11 @@ export function useAllGrants() {
     queries: registry.map((chain) => ({
       queryKey: autoSignQueryKeys.grants(chain.chainId, initiaAddress).queryKey,
       queryFn: async () => {
-        const { grants } = await ky
-          .create({ prefixUrl: chain.restUrl })
-          .get(`cosmos/authz/v1beta1/grants/granter/${initiaAddress}`)
-          .json<GrantsResponse>()
+        const grants = await fetchAllPages<"grants", Grant>(
+          `cosmos/authz/v1beta1/grants/granter/${initiaAddress}`,
+          { prefixUrl: chain.restUrl },
+          "grants",
+        )
 
         const expectedAddress = initiaAddress
           ? getExpectedAddress(initiaAddress, chain.chainId)

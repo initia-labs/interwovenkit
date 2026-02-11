@@ -24,9 +24,20 @@ import { useInitiaAddress } from "@/public/data/hooks"
 import { deriveWalletFromSignature, getAutoSignMessage, getDerivedWalletKey } from "./derivation"
 import { type DerivedWallet, type DerivedWalletPublic, derivedWalletsAtom } from "./store"
 
-const pendingDerivations = new Map<string, Promise<DerivedWalletPublic>>()
-const cancelledDerivations = new Set<string>()
+interface PendingDerivation {
+  promise: Promise<DerivedWalletPublic>
+  token: string
+}
+
+const pendingDerivations = new Map<string, PendingDerivation>()
+const cancelledDerivationTokens = new Set<string>()
 const privateKeyVault = new Map<string, Uint8Array>()
+let derivationSequence = 0
+
+function createDerivationToken(key: string): string {
+  derivationSequence += 1
+  return `${key}:${derivationSequence}`
+}
 
 export interface KeyValueStorage {
   getItem: (key: string) => string | null
@@ -76,7 +87,11 @@ export function writeExpectedAddressToStorage(
 
 function getStorage(): KeyValueStorage | null {
   if (typeof window === "undefined") return null
-  return localStorage
+  try {
+    return window.localStorage
+  } catch {
+    return null
+  }
 }
 
 export function getExpectedAddress(userAddress: string, chainId: string): string | null {
@@ -106,8 +121,8 @@ function zeroizePrivateKey(privateKey: Uint8Array | undefined) {
 function clearAllWalletState(
   setDerivedWallets: (wallets: Record<string, DerivedWalletPublic>) => void,
 ) {
-  for (const key of pendingDerivations.keys()) {
-    cancelledDerivations.add(key)
+  for (const { token } of pendingDerivations.values()) {
+    cancelledDerivationTokens.add(token)
   }
   pendingDerivations.clear()
   for (const privateKey of privateKeyVault.values()) {
@@ -200,11 +215,12 @@ export function useDeriveWallet() {
       return currentWallet
     }
 
-    if (pendingDerivations.has(key)) {
-      return pendingDerivations.get(key)!
+    const pendingDerivation = pendingDerivations.get(key)
+    if (pendingDerivation) {
+      return pendingDerivation.promise
     }
 
-    const promiseRef: { current?: Promise<DerivedWalletPublic> } = {}
+    const token = createDerivationToken(key)
 
     const derivationPromise = (async () => {
       try {
@@ -215,7 +231,7 @@ export function useDeriveWallet() {
         const wallet = await deriveWalletFromSignature(signature as Hex, chain.bech32_prefix)
         const publicWallet = toPublicWallet(wallet)
 
-        if (!cancelledDerivations.has(key)) {
+        if (!cancelledDerivationTokens.has(token)) {
           privateKeyVault.set(key, wallet.privateKey)
           setDerivedWallets((prev) => ({ ...prev, [key]: publicWallet }))
           return publicWallet
@@ -224,15 +240,14 @@ export function useDeriveWallet() {
         zeroizePrivateKey(wallet.privateKey)
         throw new Error("Wallet derivation was cancelled")
       } finally {
-        if (pendingDerivations.get(key) === promiseRef.current) {
+        if (pendingDerivations.get(key)?.token === token) {
           pendingDerivations.delete(key)
         }
-        cancelledDerivations.delete(key)
+        cancelledDerivationTokens.delete(token)
       }
     })()
 
-    promiseRef.current = derivationPromise
-    pendingDerivations.set(key, derivationPromise)
+    pendingDerivations.set(key, { promise: derivationPromise, token })
     return derivationPromise
   }
 
@@ -258,8 +273,9 @@ export function useDeriveWallet() {
     const key = getDerivedWalletKey(userAddress, chain.bech32_prefix)
     const privateKey = privateKeyVault.get(key)
 
-    if (pendingDerivations.has(key)) {
-      cancelledDerivations.add(key)
+    const pendingDerivation = pendingDerivations.get(key)
+    if (pendingDerivation) {
+      cancelledDerivationTokens.add(pendingDerivation.token)
       pendingDerivations.delete(key)
     }
 

@@ -7,6 +7,7 @@ import { useDefaultChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import { STALE_TIMES } from "@/data/http"
 import { useInitiaAddress } from "@/public/data/hooks"
+import type { FeegrantAllowance } from "./fetch"
 import { getFeegrantAllowedMessages, getFeegrantExpiration, useAutoSignApi } from "./fetch"
 import { getExpectedAddress } from "./wallet"
 
@@ -85,42 +86,36 @@ export function useAutoSignStatus() {
         try {
           const expectedAddress = getExpectedAddress(initiaAddress, chainId)
           expectedAddressByChain[chainId] = expectedAddress
-          const allGrants = await fetchAllGrants(chainId)
+          const allGrants = await fetchWithRetry(() => fetchAllGrants(chainId))
 
           const grantsToCheck = expectedAddress
             ? allGrants.filter((grant) => grant.grantee === expectedAddress)
             : allGrants
-          const validGrantee = findValidGrantee(grantsToCheck, msgTypes)
+          const validGranteeCandidates = findValidGranteeCandidates(grantsToCheck, msgTypes)
+          if (validGranteeCandidates.length === 0) {
+            expiredAtByChain[chainId] = null
+            continue
+          }
+
+          const validGrantee = await findValidGranteeWithFeegrant({
+            chainId,
+            candidates: validGranteeCandidates,
+            fetchFeegrant: async (innerChainId, grantee) =>
+              fetchWithRetry(() => fetchFeegrant(innerChainId, grantee)),
+          })
 
           if (!validGrantee) {
             expiredAtByChain[chainId] = null
             continue
           }
 
-          granteeByChain[chainId] = validGrantee.grantee
+          granteeByChain[chainId] = validGrantee.grantee.grantee
 
-          const feegrant = await fetchFeegrant(chainId, validGrantee.grantee)
-
-          if (!feegrant) {
-            expiredAtByChain[chainId] = null
-            continue
-          }
-
-          const feegrantAllowedMessages = getFeegrantAllowedMessages(feegrant.allowance)
-          const allowsAuthzExec =
-            !feegrantAllowedMessages ||
-            feegrantAllowedMessages.includes("/cosmos.authz.v1beta1.MsgExec")
-
-          if (!allowsAuthzExec) {
-            expiredAtByChain[chainId] = null
-            continue
-          }
-
-          const grantExpirations = validGrantee.grants
+          const grantExpirations = validGrantee.grantee.grants
             .filter((grant) => msgTypes.includes(grant.authorization.msg))
             .map((grant) => grant.expiration)
 
-          const feegrantExpiration = getFeegrantExpiration(feegrant.allowance)
+          const feegrantExpiration = getFeegrantExpiration(validGrantee.feegrant.allowance)
           const allExpirations = [...grantExpirations, feegrantExpiration]
           const earliestExpiration = findEarliestDate(allExpirations)
           expiredAtByChain[chainId] = earliestExpiration ? new Date(earliestExpiration) : undefined
@@ -144,9 +139,25 @@ export function useAutoSignStatus() {
         granteeByChain,
       }
     },
-    staleTime: STALE_TIMES.INFINITY,
-    retry: false,
+    staleTime: STALE_TIMES.MINUTE,
+    retry: 1,
   })
+}
+
+async function fetchWithRetry<T>(fn: () => Promise<T>, maxRetries = 1): Promise<T> {
+  let lastError: unknown
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      lastError = error
+      if (attempt === maxRetries) {
+        throw error
+      }
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("Request failed")
 }
 
 interface GrantWithGrantee {
@@ -154,12 +165,40 @@ interface GrantWithGrantee {
   grants: Array<{ authorization: { msg: string }; expiration?: string }>
 }
 
-export function findValidGrantee(
+export function isFeegrantEligibleForAutoSign(feegrant: FeegrantAllowance): boolean {
+  const feegrantAllowedMessages = getFeegrantAllowedMessages(feegrant.allowance)
+  return (
+    !feegrantAllowedMessages || feegrantAllowedMessages.includes("/cosmos.authz.v1beta1.MsgExec")
+  )
+}
+
+export async function findValidGranteeWithFeegrant(params: {
+  chainId: string
+  candidates: GrantWithGrantee[]
+  fetchFeegrant: (chainId: string, grantee: string) => Promise<FeegrantAllowance | null>
+}): Promise<{ grantee: GrantWithGrantee; feegrant: FeegrantAllowance } | null> {
+  const { chainId, candidates, fetchFeegrant } = params
+
+  for (const candidate of candidates) {
+    const feegrant = await fetchFeegrant(chainId, candidate.grantee)
+    if (!feegrant) {
+      continue
+    }
+
+    if (isFeegrantEligibleForAutoSign(feegrant)) {
+      return { grantee: candidate, feegrant }
+    }
+  }
+
+  return null
+}
+
+export function findValidGranteeCandidates(
   allGrants: Array<{ grantee: string; authorization: { msg: string }; expiration?: string }>,
   requiredMsgTypes: string[],
-): GrantWithGrantee | null {
+): GrantWithGrantee[] {
   if (requiredMsgTypes.length === 0) {
-    return null
+    return []
   }
 
   const grantsByGrantee = new Map<
@@ -173,16 +212,24 @@ export function findValidGrantee(
     grantsByGrantee.set(grant.grantee, existing)
   }
 
+  const candidates: GrantWithGrantee[] = []
   for (const [grantee, grants] of grantsByGrantee) {
     const validGrants = grants.filter((g) => !g.expiration || isFuture(new Date(g.expiration)))
     const grantedMsgTypes = validGrants.map((g) => g.authorization.msg)
     const hasAllTypes = requiredMsgTypes.every((msgType) => grantedMsgTypes.includes(msgType))
     if (hasAllTypes) {
-      return { grantee, grants: validGrants }
+      candidates.push({ grantee, grants: validGrants })
     }
   }
 
-  return null
+  return candidates
+}
+
+export function findValidGrantee(
+  allGrants: Array<{ grantee: string; authorization: { msg: string }; expiration?: string }>,
+  requiredMsgTypes: string[],
+): GrantWithGrantee | null {
+  return findValidGranteeCandidates(allGrants, requiredMsgTypes)[0] ?? null
 }
 
 export function resolveAutoSignEnabledForChain(params: {

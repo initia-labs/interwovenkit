@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   resolveDisableAutoSignGrantee,
+  resolveDisableAutoSignGranteeCandidates,
   shouldBroadcastDisableAutoSign,
   shouldRefetchDisableAutoSignGrantee,
 } from "./actions"
@@ -35,11 +36,9 @@ describe("resolveDisableAutoSignGrantee", () => {
 })
 
 describe("shouldRefetchDisableAutoSignGrantee", () => {
-  it("returns true when no grantee source is available", () => {
+  it("returns true when explicit grantee is missing", () => {
     const result = shouldRefetchDisableAutoSignGrantee({
       explicitGrantee: undefined,
-      cachedDerivedAddress: undefined,
-      currentGrantee: undefined,
     })
 
     expect(result).toBe(true)
@@ -48,21 +47,22 @@ describe("shouldRefetchDisableAutoSignGrantee", () => {
   it("returns false when explicit grantee exists", () => {
     const result = shouldRefetchDisableAutoSignGrantee({
       explicitGrantee: "init1explicit",
-      cachedDerivedAddress: undefined,
-      currentGrantee: undefined,
     })
 
     expect(result).toBe(false)
   })
+})
 
-  it("returns false when current grantee already exists", () => {
-    const result = shouldRefetchDisableAutoSignGrantee({
-      explicitGrantee: undefined,
-      cachedDerivedAddress: undefined,
-      currentGrantee: "init1status",
+describe("resolveDisableAutoSignGranteeCandidates", () => {
+  it("returns candidates in priority order with deduplication", () => {
+    const result = resolveDisableAutoSignGranteeCandidates({
+      explicitGrantee: "init1explicit",
+      cachedDerivedAddress: "init1cached",
+      statusGrantee: "init1cached",
+      refetchedStatusGrantee: "init1refetched",
     })
 
-    expect(result).toBe(false)
+    expect(result).toEqual(["init1explicit", "init1cached", "init1refetched"])
   })
 })
 
