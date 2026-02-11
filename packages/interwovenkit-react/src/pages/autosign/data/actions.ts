@@ -22,12 +22,9 @@ import { pendingAutoSignRequestAtom } from "./store"
 import { autoSignQueryKeys, useAutoSignMessageTypes, useAutoSignStatus } from "./validation"
 import { storeExpectedAddress, useDeriveWallet } from "./wallet"
 
-export function shouldRefetchDisableAutoSignGrantee(params: { explicitGrantee?: string }): boolean {
-  return !params.explicitGrantee
-}
-
-export function shouldBroadcastDisableAutoSign(messages: unknown[]): boolean {
-  return messages.length > 0
+type RevokeMessage = {
+  typeUrl: string
+  value: MsgRevoke | MsgRevokeAllowance
 }
 
 export function resolveDisableAutoSignGranteeCandidates(params: {
@@ -40,16 +37,13 @@ export function resolveDisableAutoSignGranteeCandidates(params: {
     return [params.explicitGrantee]
   }
 
-  const values = [params.cachedDerivedAddress, params.statusGrantee, params.refetchedStatusGrantee]
+  const candidates = [
+    params.cachedDerivedAddress,
+    params.statusGrantee,
+    params.refetchedStatusGrantee,
+  ].filter((value): value is string => !!value)
 
-  const unique = new Set<string>()
-  for (const value of values) {
-    if (value) {
-      unique.add(value)
-    }
-  }
-
-  return [...unique]
+  return [...new Set(candidates)]
 }
 
 export function resolveEnableAutoSignGranteeCandidates(params: {
@@ -84,7 +78,7 @@ function useFetchRevokeMessages() {
   const messageTypes = useAutoSignMessageTypes()
   const { fetchFeegrant, fetchGrants } = useAutoSignApi()
 
-  return async (params: { chainId: string; grantee: string }) => {
+  return async (params: { chainId: string; grantee: string }): Promise<RevokeMessage[]> => {
     const { chainId, grantee } = params
 
     if (!granter) {
@@ -245,11 +239,7 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
       const statusGrantee = autoSignStatus?.granteeByChain[chainId]
       let refetchedStatusGrantee: string | undefined
 
-      if (
-        shouldRefetchDisableAutoSignGrantee({
-          explicitGrantee: options?.grantee,
-        })
-      ) {
+      if (!options?.grantee) {
         const refreshedStatus = await refetchAutoSignStatus()
         refetchedStatusGrantee = refreshedStatus.data?.granteeByChain[chainId]
       }
@@ -265,26 +255,22 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
         throw new Error("No grantee address available")
       }
 
-      let messages: Awaited<ReturnType<ReturnType<typeof useFetchRevokeMessages>>> = []
+      let messages: RevokeMessage[] = []
       for (const grantee of granteeCandidates) {
         messages = await fetchRevokeMessages({ chainId, grantee })
-        if (shouldBroadcastDisableAutoSign(messages)) {
+        if (messages.length > 0) {
           break
         }
       }
 
-      if (!shouldBroadcastDisableAutoSign(messages)) {
-        return { chainId, didRevoke: false }
+      if (messages.length === 0) {
+        return { chainId, didBroadcast: false }
       }
       await requestTxBlock({ messages, chainId, internal: options?.internal })
-      return { chainId, didRevoke: true }
+      return { chainId, didBroadcast: true }
     },
-    onSuccess: async ({ chainId, didRevoke }) => {
+    onSuccess: async ({ chainId, didBroadcast }) => {
       await invalidateAutoSignQueries(queryClient)
-
-      if (!didRevoke) {
-        return
-      }
 
       const chain = findChain(chainId)
       const siblingChainIds = chains
@@ -292,16 +278,23 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
         .map((candidate) => candidate.chain_id)
         .filter((candidateChainId) => candidateChainId !== chainId)
 
-      let hasEnabledSibling = false
-
-      if (siblingChainIds.length > 0) {
+      let latestStatus = autoSignStatus
+      if (siblingChainIds.length > 0 || !didBroadcast) {
         const refreshedStatus = await refetchAutoSignStatus()
+        latestStatus = refreshedStatus.data
+      }
+
+      let hasEnabledSibling = false
+      if (siblingChainIds.length > 0 && latestStatus) {
         hasEnabledSibling = siblingChainIds.some(
-          (candidateChainId) => refreshedStatus.data?.isEnabledByChain[candidateChainId],
+          (candidateChainId) => latestStatus?.isEnabledByChain[candidateChainId],
         )
       }
 
-      if (!hasEnabledSibling) {
+      const isEnabledOnTargetChain = latestStatus?.isEnabledByChain[chainId] ?? false
+      const shouldClearWallet = didBroadcast || !isEnabledOnTargetChain
+
+      if (shouldClearWallet && !hasEnabledSibling) {
         clearWallet(chainId)
       }
     },
