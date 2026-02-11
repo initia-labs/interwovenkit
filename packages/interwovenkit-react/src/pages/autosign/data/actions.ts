@@ -22,14 +22,6 @@ import { pendingAutoSignRequestAtom } from "./store"
 import { autoSignQueryKeys, useAutoSignMessageTypes, useAutoSignStatus } from "./validation"
 import { storeExpectedAddress, useDeriveWallet } from "./wallet"
 
-export function resolveDisableAutoSignGrantee(params: {
-  explicitGrantee?: string
-  cachedDerivedAddress?: string
-  statusGrantee?: string
-}): string | undefined {
-  return params.explicitGrantee ?? params.cachedDerivedAddress ?? params.statusGrantee
-}
-
 export function shouldRefetchDisableAutoSignGrantee(params: { explicitGrantee?: string }): boolean {
   return !params.explicitGrantee
 }
@@ -44,12 +36,11 @@ export function resolveDisableAutoSignGranteeCandidates(params: {
   statusGrantee?: string
   refetchedStatusGrantee?: string
 }): string[] {
-  const values = [
-    params.explicitGrantee,
-    params.cachedDerivedAddress,
-    params.statusGrantee,
-    params.refetchedStatusGrantee,
-  ]
+  if (params.explicitGrantee) {
+    return [params.explicitGrantee]
+  }
+
+  const values = [params.cachedDerivedAddress, params.statusGrantee, params.refetchedStatusGrantee]
 
   const unique = new Set<string>()
   for (const value of values) {
@@ -59,6 +50,25 @@ export function resolveDisableAutoSignGranteeCandidates(params: {
   }
 
   return [...unique]
+}
+
+export function resolveEnableAutoSignGranteeCandidates(params: {
+  currentGrantee: string
+  existingGrants: Array<{ grantee: string; authorization: { msg: string } }>
+  allowedMessageTypes: string[]
+}): string[] {
+  const { currentGrantee, existingGrants, allowedMessageTypes } = params
+  const allowedSet = new Set(allowedMessageTypes)
+  const grantees = new Set<string>([currentGrantee])
+
+  for (const grant of existingGrants) {
+    if (!allowedSet.has(grant.authorization.msg)) {
+      continue
+    }
+    grantees.add(grant.grantee)
+  }
+
+  return [...grantees]
 }
 
 async function invalidateAutoSignQueries(queryClient: QueryClient) {
@@ -71,6 +81,7 @@ async function invalidateAutoSignQueries(queryClient: QueryClient) {
 /* Hook to fetch existing grants and generate revoke messages for a specific grantee */
 function useFetchRevokeMessages() {
   const granter = useInitiaAddress()
+  const messageTypes = useAutoSignMessageTypes()
   const { fetchFeegrant, fetchGrants } = useAutoSignApi()
 
   return async (params: { chainId: string; grantee: string }) => {
@@ -92,12 +103,15 @@ function useFetchRevokeMessages() {
         ]
       : []
 
-    const revokeAuthzMessages = grants
-      .filter((grant) => grant?.authorization?.msg)
-      .map((grant) => ({
-        typeUrl: "/cosmos.authz.v1beta1.MsgRevoke",
-        value: MsgRevoke.fromPartial({ granter, grantee, msgTypeUrl: grant.authorization.msg }),
-      }))
+    const configuredTypes = new Set(messageTypes[chainId] ?? [])
+    const autoSignGrantTypes = [...new Set(grants.map((grant) => grant?.authorization?.msg))]
+      .filter((msgType): msgType is string => !!msgType)
+      .filter((msgType) => configuredTypes.has(msgType))
+
+    const revokeAuthzMessages = autoSignGrantTypes.map((msgType) => ({
+      typeUrl: "/cosmos.authz.v1beta1.MsgRevoke",
+      value: MsgRevoke.fromPartial({ granter, grantee, msgTypeUrl: msgType }),
+    }))
 
     return [...revokeFeegrantMessages, ...revokeAuthzMessages]
   }
@@ -112,6 +126,7 @@ export function useEnableAutoSign() {
   const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
   const { closeDrawer } = useDrawer()
   const fetchRevokeMessages = useFetchRevokeMessages()
+  const { fetchAllGrants } = useAutoSignApi()
   const { deriveWallet } = useDeriveWallet()
 
   return useMutation({
@@ -136,7 +151,16 @@ export function useEnableAutoSign() {
       // Clear cached signing client to ensure fresh account data after wallet derivation
       clearSigningClientCache(initiaAddress, chainId)
 
-      const revokeMessages = await fetchRevokeMessages({ chainId, grantee: derivedWallet.address })
+      const existingGrants = await fetchAllGrants(chainId)
+      const granteesToRevoke = resolveEnableAutoSignGranteeCandidates({
+        currentGrantee: derivedWallet.address,
+        existingGrants,
+        allowedMessageTypes: chainMsgTypes,
+      })
+      const revokeMessagesByGrantee = await Promise.all(
+        granteesToRevoke.map((grantee) => fetchRevokeMessages({ chainId, grantee })),
+      )
+      const revokeMessages = revokeMessagesByGrantee.flat()
 
       const expiration = durationInMs === 0 ? undefined : addMilliseconds(new Date(), durationInMs)
       const basicAllowance = {

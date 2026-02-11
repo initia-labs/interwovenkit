@@ -300,6 +300,46 @@ describe("findValidGranteeWithFeegrant", () => {
 
     expect(result?.grantee.grantee).toBe("init1candidateB")
   })
+
+  it("skips expired feegrant and selects candidate with active feegrant", async () => {
+    const candidates = [
+      {
+        grantee: "init1candidateA",
+        grants: [{ authorization: { msg: "/initia.move.v1.MsgExecute" } }],
+      },
+      {
+        grantee: "init1candidateB",
+        grants: [{ authorization: { msg: "/initia.move.v1.MsgExecute" } }],
+      },
+    ]
+
+    const expiredFeegrant: FeegrantAllowance = {
+      granter: "init1granter",
+      grantee: "init1candidateA",
+      allowance: {
+        "@type": "/cosmos.feegrant.v1beta1.BasicAllowance",
+        expiration: "2020-01-01T00:00:00Z",
+      },
+    }
+
+    const activeFeegrant: FeegrantAllowance = {
+      granter: "init1granter",
+      grantee: "init1candidateB",
+      allowance: {
+        "@type": "/cosmos.feegrant.v1beta1.BasicAllowance",
+        expiration: "2099-01-01T00:00:00Z",
+      },
+    }
+
+    const result = await findValidGranteeWithFeegrant({
+      chainId: "initia-1",
+      candidates,
+      fetchFeegrant: async (_chainId, grantee) =>
+        grantee === "init1candidateA" ? expiredFeegrant : activeFeegrant,
+    })
+
+    expect(result?.grantee.grantee).toBe("init1candidateB")
+  })
 })
 
 describe("resolveAutoSignEnabledForChain", () => {

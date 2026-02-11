@@ -167,9 +167,19 @@ interface GrantWithGrantee {
 
 export function isFeegrantEligibleForAutoSign(feegrant: FeegrantAllowance): boolean {
   const feegrantAllowedMessages = getFeegrantAllowedMessages(feegrant.allowance)
-  return (
+  const allowsAuthzExec =
     !feegrantAllowedMessages || feegrantAllowedMessages.includes("/cosmos.authz.v1beta1.MsgExec")
-  )
+  if (!allowsAuthzExec) {
+    return false
+  }
+
+  const expiration = getFeegrantExpiration(feegrant.allowance)
+  if (!expiration) {
+    return true
+  }
+
+  const expirationDate = new Date(expiration)
+  return !Number.isNaN(expirationDate.getTime()) && isFuture(expirationDate)
 }
 
 export async function findValidGranteeWithFeegrant(params: {

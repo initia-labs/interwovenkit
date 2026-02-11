@@ -1,39 +1,10 @@
 import { describe, expect, it } from "vitest"
 import {
-  resolveDisableAutoSignGrantee,
   resolveDisableAutoSignGranteeCandidates,
+  resolveEnableAutoSignGranteeCandidates,
   shouldBroadcastDisableAutoSign,
   shouldRefetchDisableAutoSignGrantee,
 } from "./actions"
-
-describe("resolveDisableAutoSignGrantee", () => {
-  it("prioritizes explicit grantee", () => {
-    const result = resolveDisableAutoSignGrantee({
-      explicitGrantee: "init1explicit",
-      cachedDerivedAddress: "init1cached",
-      statusGrantee: "init1status",
-    })
-
-    expect(result).toBe("init1explicit")
-  })
-
-  it("falls back to cached derived wallet address", () => {
-    const result = resolveDisableAutoSignGrantee({
-      cachedDerivedAddress: "init1cached",
-      statusGrantee: "init1status",
-    })
-
-    expect(result).toBe("init1cached")
-  })
-
-  it("falls back to status grantee when no explicit or cached address exists", () => {
-    const result = resolveDisableAutoSignGrantee({
-      statusGrantee: "init1status",
-    })
-
-    expect(result).toBe("init1status")
-  })
-})
 
 describe("shouldRefetchDisableAutoSignGrantee", () => {
   it("returns true when explicit grantee is missing", () => {
@@ -54,15 +25,50 @@ describe("shouldRefetchDisableAutoSignGrantee", () => {
 })
 
 describe("resolveDisableAutoSignGranteeCandidates", () => {
-  it("returns candidates in priority order with deduplication", () => {
+  it("uses only explicit grantee when provided", () => {
     const result = resolveDisableAutoSignGranteeCandidates({
       explicitGrantee: "init1explicit",
+      cachedDerivedAddress: "init1cached",
+      statusGrantee: "init1status",
+      refetchedStatusGrantee: "init1refetched",
+    })
+
+    expect(result).toEqual(["init1explicit"])
+  })
+
+  it("returns candidates in priority order with deduplication", () => {
+    const result = resolveDisableAutoSignGranteeCandidates({
       cachedDerivedAddress: "init1cached",
       statusGrantee: "init1cached",
       refetchedStatusGrantee: "init1refetched",
     })
 
-    expect(result).toEqual(["init1explicit", "init1cached", "init1refetched"])
+    expect(result).toEqual(["init1cached", "init1refetched"])
+  })
+})
+
+describe("resolveEnableAutoSignGranteeCandidates", () => {
+  it("includes current grantee and legacy autosign grantees", () => {
+    const result = resolveEnableAutoSignGranteeCandidates({
+      currentGrantee: "init1current",
+      existingGrants: [
+        {
+          grantee: "init1legacy",
+          authorization: {
+            msg: "/initia.move.v1.MsgExecute",
+          },
+        },
+        {
+          grantee: "init1ignored",
+          authorization: {
+            msg: "/cosmos.bank.v1beta1.MsgSend",
+          },
+        },
+      ],
+      allowedMessageTypes: ["/initia.move.v1.MsgExecute"],
+    })
+
+    expect(result).toEqual(["init1current", "init1legacy"])
   })
 })
 
