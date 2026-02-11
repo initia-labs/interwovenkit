@@ -84,7 +84,8 @@ const BridgeFields = () => {
   const preferOp = isOpWithdrawable && selectedType === "op"
   const preferred = preferOp ? routeQueryOpWithdrawal : routeQueryDefault
   const fallback = preferOp ? routeQueryDefault : routeQueryOpWithdrawal
-  const routeQuery = preferred.error && isOpWithdrawable ? fallback : preferred
+  const fallbackEnabled = preferOp ? !isExternalRoute : isOpWithdrawable
+  const routeQuery = preferred.error && fallbackEnabled ? fallback : preferred
   const { data: route, isLoading, isFetching, error } = routeQuery
   const { data: routeErrorInfo } = useRouteErrorInfo(error)
 
