@@ -17,7 +17,7 @@ import { clearSigningClientCache } from "@/data/signer"
 import { useTx } from "@/data/tx"
 import { useDrawer } from "@/data/ui"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { useAutoSignApi } from "./fetch"
+import { type FeegrantAllowance, getFeegrantAllowedMessages, useAutoSignApi } from "./fetch"
 import { pendingAutoSignRequestAtom } from "./store"
 import { autoSignQueryKeys, useAutoSignMessageTypes, useAutoSignStatus } from "./validation"
 import { storeExpectedAddress, useDeriveWallet } from "./wallet"
@@ -26,6 +26,8 @@ type RevokeMessage = {
   typeUrl: string
   value: MsgRevoke | MsgRevokeAllowance
 }
+
+const AUTHZ_EXEC_MESSAGE_TYPE = "/cosmos.authz.v1beta1.MsgExec"
 
 export function resolveDisableAutoSignGranteeCandidates(params: {
   explicitGrantee?: string
@@ -49,11 +51,12 @@ export function resolveDisableAutoSignGranteeCandidates(params: {
 export function resolveEnableAutoSignGranteeCandidates(params: {
   currentGrantee: string
   existingGrants: Array<{ grantee: string; authorization: { msg: string } }>
+  feegrantGrantees: string[]
   allowedMessageTypes: string[]
 }): string[] {
-  const { currentGrantee, existingGrants, allowedMessageTypes } = params
+  const { currentGrantee, existingGrants, feegrantGrantees, allowedMessageTypes } = params
   const allowedSet = new Set(allowedMessageTypes)
-  const grantees = new Set<string>([currentGrantee])
+  const grantees = new Set<string>([currentGrantee, ...feegrantGrantees])
 
   for (const grant of existingGrants) {
     if (!allowedSet.has(grant.authorization.msg)) {
@@ -63,6 +66,16 @@ export function resolveEnableAutoSignGranteeCandidates(params: {
   }
 
   return [...grantees]
+}
+
+export function resolveAutoSignFeegrantGranteeCandidates(feegrants: FeegrantAllowance[]): string[] {
+  const candidates = feegrants
+    .filter((feegrant) =>
+      getFeegrantAllowedMessages(feegrant.allowance)?.includes(AUTHZ_EXEC_MESSAGE_TYPE),
+    )
+    .map((feegrant) => feegrant.grantee)
+
+  return [...new Set(candidates)]
 }
 
 async function invalidateAutoSignQueries(queryClient: QueryClient) {
@@ -120,7 +133,7 @@ export function useEnableAutoSign() {
   const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
   const { closeDrawer } = useDrawer()
   const fetchRevokeMessages = useFetchRevokeMessages()
-  const { fetchAllGrants } = useAutoSignApi()
+  const { fetchAllFeegrants, fetchAllGrants } = useAutoSignApi()
   const { deriveWallet } = useDeriveWallet()
 
   return useMutation({
@@ -145,10 +158,15 @@ export function useEnableAutoSign() {
       // Clear cached signing client to ensure fresh account data after wallet derivation
       clearSigningClientCache(initiaAddress, chainId)
 
-      const existingGrants = await fetchAllGrants(chainId)
+      const [existingGrants, existingFeegrants] = await Promise.all([
+        fetchAllGrants(chainId),
+        fetchAllFeegrants(chainId),
+      ])
+      const feegrantGrantees = resolveAutoSignFeegrantGranteeCandidates(existingFeegrants)
       const granteesToRevoke = resolveEnableAutoSignGranteeCandidates({
         currentGrantee: derivedWallet.address,
         existingGrants,
+        feegrantGrantees,
         allowedMessageTypes: chainMsgTypes,
       })
       const revokeMessagesByGrantee = await Promise.all(
@@ -172,7 +190,7 @@ export function useEnableAutoSign() {
             value: AllowedMsgAllowance.encode(
               AllowedMsgAllowance.fromPartial({
                 allowance: basicAllowance,
-                allowedMessages: ["/cosmos.authz.v1beta1.MsgExec"],
+                allowedMessages: [AUTHZ_EXEC_MESSAGE_TYPE],
               }),
             ).finish(),
           },

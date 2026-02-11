@@ -132,5 +132,25 @@ export function useAutoSignApi() {
       }))
   }
 
-  return { fetchFeegrant, fetchGrants, fetchAllGrants }
+  const fetchAllFeegrants = async (chainId: string): Promise<FeegrantAllowance[]> => {
+    const chain = findChain(chainId)
+    const address = initiaAddress
+
+    if (!address) return []
+
+    try {
+      return await fetchAllPages<"allowances", FeegrantAllowance>(
+        `cosmos/feegrant/v1beta1/allowances/${address}`,
+        { prefixUrl: chain.restUrl },
+        "allowances",
+      )
+    } catch (error) {
+      if (error instanceof HTTPError && [404, 500].includes(error.response.status)) {
+        return []
+      }
+      throw error
+    }
+  }
+
+  return { fetchFeegrant, fetchGrants, fetchAllGrants, fetchAllFeegrants }
 }
