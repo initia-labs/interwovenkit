@@ -25,9 +25,10 @@ import { BrowserProvider, ethers } from "ethers"
 import ky from "ky"
 import { useAccount, useSignMessage } from "wagmi"
 import { useMemo } from "react"
-import { aminoConverters, protoRegistry } from "@initia/amino-converter"
+import { protoRegistry } from "@initia/amino-converter"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { parseAccount } from "./patches/accounts"
+import { patchedAminoConverters } from "./patches/amino"
 import { encodeEthSecp256k1Pubkey } from "./patches/encoding"
 import { encodePubkeyInitia } from "./patches/pubkeys"
 import { encodeEthSecp256k1Signature } from "./patches/signature"
@@ -42,7 +43,7 @@ export const useRegistry = () => {
 
 export const useAminoTypes = () => {
   const config = useConfig()
-  return new AminoTypes({ ...aminoConverters, ...config.aminoConverters })
+  return new AminoTypes({ ...patchedAminoConverters, ...config.aminoConverters })
 }
 
 export class OfflineSigner implements OfflineAminoSigner {
