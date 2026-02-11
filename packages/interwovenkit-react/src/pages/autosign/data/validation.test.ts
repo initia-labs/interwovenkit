@@ -1,19 +1,25 @@
 import { describe, expect, it } from "vitest"
 import type { FeegrantAllowance } from "./fetch"
 import {
-  findValidGrantee,
   findValidGranteeCandidates,
   findValidGranteeWithFeegrant,
   resolveAutoSignEnabledForChain,
 } from "./validation"
 
-describe("findValidGrantee", () => {
+const findFirstValidGrantee = (
+  grants: Parameters<typeof findValidGranteeCandidates>[0],
+  requiredMsgTypes: Parameters<typeof findValidGranteeCandidates>[1],
+) => {
+  return findValidGranteeCandidates(grants, requiredMsgTypes)[0] ?? null
+}
+
+describe("findFirstValidGrantee", () => {
   const msgType1 = "/initia.move.v1.MsgExecute"
   const msgType2 = "/cosmos.bank.v1beta1.MsgSend"
 
   describe("no matching grantee", () => {
     it("returns null for empty grants array", () => {
-      const result = findValidGrantee([], [msgType1])
+      const result = findFirstValidGrantee([], [msgType1])
 
       expect(result).toBeNull()
     })
@@ -24,7 +30,7 @@ describe("findValidGrantee", () => {
         { grantee: "init1def", authorization: { msg: "/another.MsgType" } },
       ]
 
-      const result = findValidGrantee(grants, [msgType1])
+      const result = findFirstValidGrantee(grants, [msgType1])
 
       expect(result).toBeNull()
     })
@@ -32,7 +38,7 @@ describe("findValidGrantee", () => {
     it("returns null when grantee has partial match", () => {
       const grants = [{ grantee: "init1abc", authorization: { msg: msgType1 } }]
 
-      const result = findValidGrantee(grants, [msgType1, msgType2])
+      const result = findFirstValidGrantee(grants, [msgType1, msgType2])
 
       expect(result).toBeNull()
     })
@@ -43,7 +49,7 @@ describe("findValidGrantee", () => {
         { grantee: "init1def", authorization: { msg: msgType2 } },
       ]
 
-      const result = findValidGrantee(grants, [msgType1, msgType2])
+      const result = findFirstValidGrantee(grants, [msgType1, msgType2])
 
       expect(result).toBeNull()
     })
@@ -53,7 +59,7 @@ describe("findValidGrantee", () => {
     it("finds grantee with matching message type", () => {
       const grants = [{ grantee: "init1abc", authorization: { msg: msgType1 } }]
 
-      const result = findValidGrantee(grants, [msgType1])
+      const result = findFirstValidGrantee(grants, [msgType1])
 
       expect(result).not.toBeNull()
       expect(result?.grantee).toBe("init1abc")
@@ -65,7 +71,7 @@ describe("findValidGrantee", () => {
         { grantee: "init1second", authorization: { msg: msgType1 } },
       ]
 
-      const result = findValidGrantee(grants, [msgType1])
+      const result = findFirstValidGrantee(grants, [msgType1])
 
       expect(result?.grantee).toBe("init1first")
     })
@@ -78,7 +84,7 @@ describe("findValidGrantee", () => {
         { grantee: "init1abc", authorization: { msg: msgType2 } },
       ]
 
-      const result = findValidGrantee(grants, [msgType1, msgType2])
+      const result = findFirstValidGrantee(grants, [msgType1, msgType2])
 
       expect(result).not.toBeNull()
       expect(result?.grantee).toBe("init1abc")
@@ -92,7 +98,7 @@ describe("findValidGrantee", () => {
         { grantee: "init1complete", authorization: { msg: msgType2 } },
       ]
 
-      const result = findValidGrantee(grants, [msgType1, msgType2])
+      const result = findFirstValidGrantee(grants, [msgType1, msgType2])
 
       expect(result?.grantee).toBe("init1complete")
     })
@@ -104,7 +110,7 @@ describe("findValidGrantee", () => {
         { grantee: "init1abc", authorization: { msg: msgType2 } },
       ]
 
-      const result = findValidGrantee(grants, [msgType1, msgType2])
+      const result = findFirstValidGrantee(grants, [msgType1, msgType2])
 
       expect(result).not.toBeNull()
       expect(result?.grantee).toBe("init1abc")
@@ -116,7 +122,7 @@ describe("findValidGrantee", () => {
       const expiration = "2099-12-31T23:59:59Z"
       const grants = [{ grantee: "init1abc", authorization: { msg: msgType1 }, expiration }]
 
-      const result = findValidGrantee(grants, [msgType1])
+      const result = findFirstValidGrantee(grants, [msgType1])
 
       expect(result?.grants[0].expiration).toBe(expiration)
     })
@@ -124,7 +130,7 @@ describe("findValidGrantee", () => {
     it("handles grants without expiration", () => {
       const grants = [{ grantee: "init1abc", authorization: { msg: msgType1 } }]
 
-      const result = findValidGrantee(grants, [msgType1])
+      const result = findFirstValidGrantee(grants, [msgType1])
 
       expect(result?.grants[0].expiration).toBeUndefined()
     })
@@ -139,7 +145,7 @@ describe("findValidGrantee", () => {
         { grantee: "init1abc", authorization: { msg: msgType2 } },
       ]
 
-      const result = findValidGrantee(grants, [msgType1, msgType2])
+      const result = findFirstValidGrantee(grants, [msgType1, msgType2])
 
       expect(result?.grants).toHaveLength(2)
       expect(result?.grants.find((g) => g.authorization.msg === msgType1)?.expiration).toBeDefined()
@@ -157,7 +163,7 @@ describe("findValidGrantee", () => {
         },
       ]
 
-      const result = findValidGrantee(grants, [msgType1])
+      const result = findFirstValidGrantee(grants, [msgType1])
 
       expect(result).toBeNull()
     })
@@ -176,7 +182,7 @@ describe("findValidGrantee", () => {
         },
       ]
 
-      const result = findValidGrantee(grants, [msgType1, msgType2])
+      const result = findFirstValidGrantee(grants, [msgType1, msgType2])
 
       expect(result).toBeNull()
     })
@@ -195,7 +201,7 @@ describe("findValidGrantee", () => {
         },
       ]
 
-      const result = findValidGrantee(grants, [msgType1])
+      const result = findFirstValidGrantee(grants, [msgType1])
 
       expect(result?.grantee).toBe("init1valid")
     })
@@ -205,13 +211,13 @@ describe("findValidGrantee", () => {
     it("returns null when no message types are required", () => {
       const grants = [{ grantee: "init1abc", authorization: { msg: msgType1 } }]
 
-      const result = findValidGrantee(grants, [])
+      const result = findFirstValidGrantee(grants, [])
 
       expect(result).toBeNull()
     })
 
     it("returns null for empty grants with empty required types", () => {
-      const result = findValidGrantee([], [])
+      const result = findFirstValidGrantee([], [])
 
       expect(result).toBeNull()
     })

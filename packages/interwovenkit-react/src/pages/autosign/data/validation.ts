@@ -235,13 +235,6 @@ export function findValidGranteeCandidates(
   return candidates
 }
 
-export function findValidGrantee(
-  allGrants: Array<{ grantee: string; authorization: { msg: string }; expiration?: string }>,
-  requiredMsgTypes: string[],
-): GrantWithGrantee | null {
-  return findValidGranteeCandidates(allGrants, requiredMsgTypes)[0] ?? null
-}
-
 export function resolveAutoSignEnabledForChain(params: {
   expiration: Date | null | undefined
   grantee?: string
