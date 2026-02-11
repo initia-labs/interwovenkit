@@ -8,6 +8,7 @@ import {
   DerivedWalletSigner,
   getExpectedAddressKey,
   readExpectedAddressFromStorage,
+  shouldClearWalletsOnAddressChange,
   writeExpectedAddressToStorage,
 } from "./wallet"
 
@@ -235,5 +236,23 @@ describe("expected address storage", () => {
     expect(() =>
       writeExpectedAddressToStorage(storage, "init1user", "chain-a", "init1grantee"),
     ).not.toThrow()
+  })
+})
+
+describe("shouldClearWalletsOnAddressChange", () => {
+  it("returns false for initial connect", () => {
+    expect(shouldClearWalletsOnAddressChange("", "init1new")).toBe(false)
+  })
+
+  it("returns false when address is unchanged", () => {
+    expect(shouldClearWalletsOnAddressChange("init1same", "init1same")).toBe(false)
+  })
+
+  it("returns true when switching to another address", () => {
+    expect(shouldClearWalletsOnAddressChange("init1old", "init1new")).toBe(true)
+  })
+
+  it("returns true when disconnecting after a connected session", () => {
+    expect(shouldClearWalletsOnAddressChange("init1old", "")).toBe(true)
   })
 })

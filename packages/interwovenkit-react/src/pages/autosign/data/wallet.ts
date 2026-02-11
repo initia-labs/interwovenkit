@@ -13,6 +13,7 @@ import type { EncodeObject } from "@cosmjs/proto-signing"
 import { ethers } from "ethers"
 import type { Hex } from "viem"
 import { useSignMessage } from "wagmi"
+import { useEffect, useRef } from "react"
 import { useSetAtom, useStore } from "jotai"
 import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
@@ -100,6 +101,43 @@ function toPublicWallet(wallet: DerivedWallet): DerivedWalletPublic {
 function zeroizePrivateKey(privateKey: Uint8Array | undefined) {
   if (!privateKey) return
   privateKey.fill(0)
+}
+
+function clearAllWalletState(
+  setDerivedWallets: (wallets: Record<string, DerivedWalletPublic>) => void,
+) {
+  for (const key of pendingDerivations.keys()) {
+    cancelledDerivations.add(key)
+  }
+  pendingDerivations.clear()
+  for (const privateKey of privateKeyVault.values()) {
+    zeroizePrivateKey(privateKey)
+  }
+  privateKeyVault.clear()
+  setDerivedWallets({})
+}
+
+export function shouldClearWalletsOnAddressChange(
+  previousUserAddress: string,
+  nextUserAddress: string,
+): boolean {
+  return previousUserAddress !== "" && previousUserAddress !== nextUserAddress
+}
+
+/* Clear in-memory derived wallets whenever the connected account changes so keys from
+ * the previous account do not remain resident until explicit disconnect. */
+export function useClearWalletsOnAddressChange() {
+  const userAddress = useInitiaAddress()
+  const setDerivedWallets = useSetAtom(derivedWalletsAtom)
+  const previousAddressRef = useRef(userAddress)
+
+  useEffect(() => {
+    const previousUserAddress = previousAddressRef.current
+    if (shouldClearWalletsOnAddressChange(previousUserAddress, userAddress)) {
+      clearAllWalletState(setDerivedWallets)
+    }
+    previousAddressRef.current = userAddress
+  }, [setDerivedWallets, userAddress])
 }
 
 /* Offline signer implementation for derived wallet */
@@ -236,15 +274,7 @@ export function useDeriveWallet() {
   }
 
   const clearAllWallets = () => {
-    for (const key of pendingDerivations.keys()) {
-      cancelledDerivations.add(key)
-    }
-    pendingDerivations.clear()
-    for (const privateKey of privateKeyVault.values()) {
-      zeroizePrivateKey(privateKey)
-    }
-    privateKeyVault.clear()
-    setDerivedWallets({})
+    clearAllWalletState(setDerivedWallets)
   }
 
   return { deriveWallet, getWallet, getWalletPrivateKey, clearWallet, clearAllWallets }
