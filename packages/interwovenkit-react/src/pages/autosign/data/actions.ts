@@ -255,13 +255,10 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
         throw new Error("No grantee address available")
       }
 
-      let messages: RevokeMessage[] = []
-      for (const grantee of granteeCandidates) {
-        messages = await fetchRevokeMessages({ chainId, grantee })
-        if (messages.length > 0) {
-          break
-        }
-      }
+      const messagesByGrantee = await Promise.all(
+        granteeCandidates.map((grantee) => fetchRevokeMessages({ chainId, grantee })),
+      )
+      const messages = messagesByGrantee.flat()
 
       if (messages.length === 0) {
         return { chainId, didBroadcast: false }
