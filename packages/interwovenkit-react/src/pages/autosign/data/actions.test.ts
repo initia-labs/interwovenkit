@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest"
 import {
-  resolveAutoSignFeegrantGranteeCandidates,
   resolveDisableAutoSignGranteeCandidates,
   resolveEnableAutoSignGranteeCandidates,
   shouldClearDerivedWalletAfterDisable,
@@ -44,121 +43,26 @@ describe("resolveEnableAutoSignGranteeCandidates", () => {
     const result = resolveEnableAutoSignGranteeCandidates({
       currentGrantee: "init1current",
       expectedGrantee: "init1expected",
-      existingGrants: [],
-      existingFeegrants: [],
-      allowedMessageTypes: ["/initia.move.v1.MsgExecute"],
     })
 
     expect(result).toEqual(["init1current", "init1expected"])
   })
 
-  it("includes legacy autosign grantees with full authz coverage and eligible feegrant", () => {
+  it("deduplicates identical current and expected grantees", () => {
     const result = resolveEnableAutoSignGranteeCandidates({
       currentGrantee: "init1current",
-      existingGrants: [
-        {
-          grantee: "init1legacy",
-          authorization: {
-            msg: "/initia.move.v1.MsgExecute",
-          },
-        },
-        {
-          grantee: "init1legacy",
-          authorization: {
-            msg: "/initia.move.v1.MsgPublish",
-          },
-        },
-        {
-          grantee: "init1ignored",
-          authorization: {
-            msg: "/cosmos.bank.v1beta1.MsgSend",
-          },
-        },
-      ],
-      existingFeegrants: [
-        {
-          granter: "init1granter",
-          grantee: "init1legacy",
-          allowance: {
-            "@type": "/cosmos.feegrant.v1beta1.AllowedMsgAllowance",
-            allowedMessages: ["/cosmos.authz.v1beta1.MsgExec"],
-          },
-        },
-      ],
-      allowedMessageTypes: ["/initia.move.v1.MsgExecute", "/initia.move.v1.MsgPublish"],
-    })
-
-    expect(result).toEqual(["init1current", "init1legacy"])
-  })
-
-  it("does not include grantees with partial authz overlap even with feegrant", () => {
-    const result = resolveEnableAutoSignGranteeCandidates({
-      currentGrantee: "init1current",
-      existingGrants: [
-        {
-          grantee: "init1third-party",
-          authorization: {
-            msg: "/initia.move.v1.MsgExecute",
-          },
-        },
-      ],
-      existingFeegrants: [
-        {
-          granter: "init1granter",
-          grantee: "init1third-party",
-          allowance: {
-            "@type": "/cosmos.feegrant.v1beta1.AllowedMsgAllowance",
-            allowedMessages: ["/cosmos.authz.v1beta1.MsgExec"],
-          },
-        },
-      ],
-      allowedMessageTypes: ["/initia.move.v1.MsgExecute", "/initia.move.v1.MsgPublish"],
+      expectedGrantee: "init1current",
     })
 
     expect(result).toEqual(["init1current"])
   })
-})
 
-describe("resolveAutoSignFeegrantGranteeCandidates", () => {
-  it("includes known MsgExec and basic feegrants, and excludes unknown grantees", () => {
-    const result = resolveAutoSignFeegrantGranteeCandidates({
-      feegrants: [
-        {
-          granter: "init1granter",
-          grantee: "init1autosign",
-          allowance: {
-            "@type": "/cosmos.feegrant.v1beta1.AllowedMsgAllowance",
-            allowedMessages: ["/cosmos.authz.v1beta1.MsgExec"],
-          },
-        },
-        {
-          granter: "init1granter",
-          grantee: "init1legacy-basic",
-          allowance: {
-            "@type": "/cosmos.feegrant.v1beta1.BasicAllowance",
-          },
-        },
-        {
-          granter: "init1granter",
-          grantee: "init1unknown",
-          allowance: {
-            "@type": "/cosmos.feegrant.v1beta1.AllowedMsgAllowance",
-            allowedMessages: ["/cosmos.authz.v1beta1.MsgExec"],
-          },
-        },
-        {
-          granter: "init1granter",
-          grantee: "init1known-non-exec",
-          allowance: {
-            "@type": "/cosmos.feegrant.v1beta1.AllowedMsgAllowance",
-            allowedMessages: ["/cosmos.bank.v1beta1.MsgSend"],
-          },
-        },
-      ],
-      knownAutoSignGrantees: ["init1autosign", "init1legacy-basic", "init1known-non-exec"],
+  it("returns only the trusted current grantee when no expected grantee exists", () => {
+    const result = resolveEnableAutoSignGranteeCandidates({
+      currentGrantee: "init1current",
     })
 
-    expect(result).toEqual(["init1autosign", "init1legacy-basic"])
+    expect(result).toEqual(["init1current"])
   })
 })
 
@@ -167,15 +71,41 @@ describe("shouldClearDerivedWalletAfterDisable", () => {
     const shouldClearWallet = shouldClearDerivedWalletAfterDisable({
       isEnabledOnTargetChain: true,
       hasEnabledSibling: false,
+      didBroadcast: true,
+      hasExplicitGrantee: false,
     })
 
     expect(shouldClearWallet).toBe(false)
   })
 
-  it("does not clear wallet when target chain status is unknown", () => {
+  it("does not clear wallet when target chain status is unknown and no transaction was broadcast", () => {
     const shouldClearWallet = shouldClearDerivedWalletAfterDisable({
       isEnabledOnTargetChain: undefined,
       hasEnabledSibling: false,
+      didBroadcast: false,
+      hasExplicitGrantee: false,
+    })
+
+    expect(shouldClearWallet).toBe(false)
+  })
+
+  it("clears wallet when target chain status is unknown after broadcast in default disable flow", () => {
+    const shouldClearWallet = shouldClearDerivedWalletAfterDisable({
+      isEnabledOnTargetChain: undefined,
+      hasEnabledSibling: false,
+      didBroadcast: true,
+      hasExplicitGrantee: false,
+    })
+
+    expect(shouldClearWallet).toBe(true)
+  })
+
+  it("does not clear wallet when status is unknown after explicit grantee revoke", () => {
+    const shouldClearWallet = shouldClearDerivedWalletAfterDisable({
+      isEnabledOnTargetChain: undefined,
+      hasEnabledSibling: false,
+      didBroadcast: true,
+      hasExplicitGrantee: true,
     })
 
     expect(shouldClearWallet).toBe(false)
@@ -185,6 +115,8 @@ describe("shouldClearDerivedWalletAfterDisable", () => {
     const shouldClearWallet = shouldClearDerivedWalletAfterDisable({
       isEnabledOnTargetChain: false,
       hasEnabledSibling: true,
+      didBroadcast: true,
+      hasExplicitGrantee: false,
     })
 
     expect(shouldClearWallet).toBe(false)
@@ -194,6 +126,8 @@ describe("shouldClearDerivedWalletAfterDisable", () => {
     const shouldClearWallet = shouldClearDerivedWalletAfterDisable({
       isEnabledOnTargetChain: false,
       hasEnabledSibling: false,
+      didBroadcast: false,
+      hasExplicitGrantee: false,
     })
 
     expect(shouldClearWallet).toBe(true)

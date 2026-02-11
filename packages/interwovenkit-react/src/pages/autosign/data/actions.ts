@@ -17,7 +17,7 @@ import { clearSigningClientCache } from "@/data/signer"
 import { useTx } from "@/data/tx"
 import { useDrawer } from "@/data/ui"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { type FeegrantAllowance, getFeegrantAllowedMessages, useAutoSignApi } from "./fetch"
+import { useAutoSignApi } from "./fetch"
 import { pendingAutoSignRequestAtom } from "./store"
 import { autoSignQueryKeys, useAutoSignMessageTypes, useAutoSignStatus } from "./validation"
 import { getExpectedAddress, storeExpectedAddress, useDeriveWallet } from "./wallet"
@@ -51,86 +51,32 @@ export function resolveDisableAutoSignGranteeCandidates(params: {
 export function resolveEnableAutoSignGranteeCandidates(params: {
   currentGrantee: string
   expectedGrantee?: string | null
-  existingGrants: Array<{ grantee: string; authorization: { msg: string } }>
-  existingFeegrants: FeegrantAllowance[]
-  allowedMessageTypes: string[]
 }): string[] {
-  const {
-    currentGrantee,
-    expectedGrantee,
-    existingGrants,
-    existingFeegrants,
-    allowedMessageTypes,
-  } = params
-  const baselineCandidates = [currentGrantee, expectedGrantee].filter(
+  const candidates = [params.currentGrantee, params.expectedGrantee].filter(
     (value): value is string => !!value,
   )
-  const knownCandidates = new Set(baselineCandidates)
-  const allowedSet = new Set(allowedMessageTypes)
-  const grantedTypesByGrantee = new Map<string, Set<string>>()
-
-  for (const grant of existingGrants) {
-    if (!allowedSet.has(grant.authorization.msg)) {
-      continue
-    }
-    const grantedTypes = grantedTypesByGrantee.get(grant.grantee) ?? new Set<string>()
-    grantedTypes.add(grant.authorization.msg)
-    grantedTypesByGrantee.set(grant.grantee, grantedTypes)
-  }
-
-  for (const [grantee, grantedTypes] of grantedTypesByGrantee) {
-    const hasFullConfiguredCoverage = allowedMessageTypes.every((msgType) =>
-      grantedTypes.has(msgType),
-    )
-    if (hasFullConfiguredCoverage) {
-      knownCandidates.add(grantee)
-    }
-  }
-
-  const eligibleFeegrantGrantees = resolveAutoSignFeegrantGranteeCandidates({
-    feegrants: existingFeegrants,
-    knownAutoSignGrantees: [...knownCandidates],
-  })
-  const eligibleFeegrantSet = new Set(eligibleFeegrantGrantees)
-  const granteesToRevoke = new Set<string>(baselineCandidates)
-
-  for (const grantee of knownCandidates) {
-    const grantedTypes = grantedTypesByGrantee.get(grantee)
-    const hasFullConfiguredCoverage =
-      !!grantedTypes && allowedMessageTypes.every((msgType) => grantedTypes.has(msgType))
-    if (hasFullConfiguredCoverage && eligibleFeegrantSet.has(grantee)) {
-      granteesToRevoke.add(grantee)
-    }
-  }
-
-  return [...granteesToRevoke]
-}
-
-export function resolveAutoSignFeegrantGranteeCandidates(params: {
-  feegrants: FeegrantAllowance[]
-  knownAutoSignGrantees: string[]
-}): string[] {
-  const { feegrants, knownAutoSignGrantees } = params
-  const knownGrantees = new Set(knownAutoSignGrantees)
-  const candidates = feegrants
-    .filter((feegrant) => knownGrantees.has(feegrant.grantee))
-    .filter((feegrant) => {
-      const allowedMessages = getFeegrantAllowedMessages(feegrant.allowance)
-      // BasicAllowance (undefined allowed messages) is treated as legacy-compatible and
-      // revoked only for known autosign grantees.
-      return !allowedMessages || allowedMessages.includes(AUTHZ_EXEC_MESSAGE_TYPE)
-    })
-    .map((feegrant) => feegrant.grantee)
-
   return [...new Set(candidates)]
 }
 
 export function shouldClearDerivedWalletAfterDisable(params: {
   isEnabledOnTargetChain?: boolean
   hasEnabledSibling: boolean
+  didBroadcast: boolean
+  hasExplicitGrantee: boolean
 }): boolean {
-  const { isEnabledOnTargetChain, hasEnabledSibling } = params
-  return isEnabledOnTargetChain === false && !hasEnabledSibling
+  const { isEnabledOnTargetChain, hasEnabledSibling, didBroadcast, hasExplicitGrantee } = params
+
+  if (hasEnabledSibling) {
+    return false
+  }
+
+  if (isEnabledOnTargetChain === false) {
+    return true
+  }
+
+  // If revoke was broadcast for the primary disable flow and status cannot be
+  // refreshed, prefer clearing in-memory keys rather than retaining secrets.
+  return isEnabledOnTargetChain === undefined && didBroadcast && !hasExplicitGrantee
 }
 
 async function invalidateAutoSignQueries(queryClient: QueryClient) {
@@ -188,7 +134,6 @@ export function useEnableAutoSign() {
   const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
   const { closeDrawer } = useDrawer()
   const fetchRevokeMessages = useFetchRevokeMessages()
-  const { fetchAllFeegrants, fetchAllGrants } = useAutoSignApi()
   const { deriveWallet } = useDeriveWallet()
 
   return useMutation({
@@ -213,17 +158,10 @@ export function useEnableAutoSign() {
       // Clear cached signing client to ensure fresh account data after wallet derivation
       clearSigningClientCache(initiaAddress, chainId)
 
-      const [existingGrants, existingFeegrants] = await Promise.all([
-        fetchAllGrants(chainId),
-        fetchAllFeegrants(chainId),
-      ])
       const expectedGrantee = getExpectedAddress(initiaAddress, chainId)
       const granteesToRevoke = resolveEnableAutoSignGranteeCandidates({
         currentGrantee: derivedWallet.address,
         expectedGrantee,
-        existingGrants,
-        existingFeegrants,
-        allowedMessageTypes: chainMsgTypes,
       })
       const revokeMessagesByGrantee = await Promise.all(
         granteesToRevoke.map((grantee) => fetchRevokeMessages({ chainId, grantee })),
@@ -340,7 +278,7 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
       await requestTxBlock({ messages, chainId, internal: options?.internal })
       return { chainId, didBroadcast: true }
     },
-    onSuccess: async ({ chainId }) => {
+    onSuccess: async ({ chainId, didBroadcast }) => {
       await invalidateAutoSignQueries(queryClient)
 
       const chain = findChain(chainId)
@@ -349,23 +287,30 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
         .map((candidate) => candidate.chain_id)
         .filter((candidateChainId) => candidateChainId !== chainId)
 
-      let latestStatus = autoSignStatus
-      const refreshedStatus = await refetchAutoSignStatus()
-      if (refreshedStatus.data) {
-        latestStatus = refreshedStatus.data
+      let refreshedStatusData = undefined as typeof autoSignStatus
+      try {
+        const refreshedStatus = await refetchAutoSignStatus()
+        refreshedStatusData = refreshedStatus.data
+      } catch {
+        refreshedStatusData = undefined
       }
+      const statusForSiblingChecks = refreshedStatusData ?? autoSignStatus
 
       let hasEnabledSibling = false
-      if (siblingChainIds.length > 0 && latestStatus) {
+      if (siblingChainIds.length > 0 && statusForSiblingChecks) {
         hasEnabledSibling = siblingChainIds.some(
-          (candidateChainId) => latestStatus?.isEnabledByChain[candidateChainId],
+          (candidateChainId) => statusForSiblingChecks?.isEnabledByChain[candidateChainId],
         )
       }
 
-      const isEnabledOnTargetChain = latestStatus?.isEnabledByChain[chainId]
+      const isEnabledOnTargetChain = didBroadcast
+        ? refreshedStatusData?.isEnabledByChain[chainId]
+        : (refreshedStatusData ?? autoSignStatus)?.isEnabledByChain[chainId]
       const shouldClearWallet = shouldClearDerivedWalletAfterDisable({
         isEnabledOnTargetChain,
         hasEnabledSibling,
+        didBroadcast,
+        hasExplicitGrantee: !!options?.grantee,
       })
 
       if (shouldClearWallet) {
