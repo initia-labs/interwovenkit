@@ -40,7 +40,19 @@ describe("resolveDisableAutoSignGranteeCandidates", () => {
 })
 
 describe("resolveEnableAutoSignGranteeCandidates", () => {
-  it("includes current grantee and legacy autosign grantees", () => {
+  it("includes current and expected grantees", () => {
+    const result = resolveEnableAutoSignGranteeCandidates({
+      currentGrantee: "init1current",
+      expectedGrantee: "init1expected",
+      existingGrants: [],
+      existingFeegrants: [],
+      allowedMessageTypes: ["/initia.move.v1.MsgExecute"],
+    })
+
+    expect(result).toEqual(["init1current", "init1expected"])
+  })
+
+  it("includes legacy autosign grantees with full authz coverage and eligible feegrant", () => {
     const result = resolveEnableAutoSignGranteeCandidates({
       currentGrantee: "init1current",
       existingGrants: [
@@ -51,78 +63,102 @@ describe("resolveEnableAutoSignGranteeCandidates", () => {
           },
         },
         {
+          grantee: "init1legacy",
+          authorization: {
+            msg: "/initia.move.v1.MsgPublish",
+          },
+        },
+        {
           grantee: "init1ignored",
           authorization: {
             msg: "/cosmos.bank.v1beta1.MsgSend",
           },
         },
       ],
-      feegrantGrantees: [],
-      allowedMessageTypes: ["/initia.move.v1.MsgExecute"],
+      existingFeegrants: [
+        {
+          granter: "init1granter",
+          grantee: "init1legacy",
+          allowance: {
+            "@type": "/cosmos.feegrant.v1beta1.AllowedMsgAllowance",
+            allowedMessages: ["/cosmos.authz.v1beta1.MsgExec"],
+          },
+        },
+      ],
+      allowedMessageTypes: ["/initia.move.v1.MsgExecute", "/initia.move.v1.MsgPublish"],
     })
 
     expect(result).toEqual(["init1current", "init1legacy"])
   })
 
-  it("includes feegrant-only grantees for revocation", () => {
-    const result = resolveEnableAutoSignGranteeCandidates({
-      currentGrantee: "init1current",
-      existingGrants: [],
-      feegrantGrantees: ["init1feegrant-only"],
-      allowedMessageTypes: ["/initia.move.v1.MsgExecute"],
-    })
-
-    expect(result).toEqual(["init1current", "init1feegrant-only"])
-  })
-
-  it("deduplicates grantees coming from grants and feegrants", () => {
+  it("does not include grantees with partial authz overlap even with feegrant", () => {
     const result = resolveEnableAutoSignGranteeCandidates({
       currentGrantee: "init1current",
       existingGrants: [
         {
-          grantee: "init1shared",
+          grantee: "init1third-party",
           authorization: {
             msg: "/initia.move.v1.MsgExecute",
           },
         },
       ],
-      feegrantGrantees: ["init1shared"],
-      allowedMessageTypes: ["/initia.move.v1.MsgExecute"],
+      existingFeegrants: [
+        {
+          granter: "init1granter",
+          grantee: "init1third-party",
+          allowance: {
+            "@type": "/cosmos.feegrant.v1beta1.AllowedMsgAllowance",
+            allowedMessages: ["/cosmos.authz.v1beta1.MsgExec"],
+          },
+        },
+      ],
+      allowedMessageTypes: ["/initia.move.v1.MsgExecute", "/initia.move.v1.MsgPublish"],
     })
 
-    expect(result).toEqual(["init1current", "init1shared"])
+    expect(result).toEqual(["init1current"])
   })
 })
 
 describe("resolveAutoSignFeegrantGranteeCandidates", () => {
-  it("returns only grantees with MsgExec-allowed feegrants", () => {
-    const result = resolveAutoSignFeegrantGranteeCandidates([
-      {
-        granter: "init1granter",
-        grantee: "init1autosign",
-        allowance: {
-          "@type": "/cosmos.feegrant.v1beta1.AllowedMsgAllowance",
-          allowedMessages: ["/cosmos.authz.v1beta1.MsgExec"],
+  it("includes known MsgExec and basic feegrants, and excludes unknown grantees", () => {
+    const result = resolveAutoSignFeegrantGranteeCandidates({
+      feegrants: [
+        {
+          granter: "init1granter",
+          grantee: "init1autosign",
+          allowance: {
+            "@type": "/cosmos.feegrant.v1beta1.AllowedMsgAllowance",
+            allowedMessages: ["/cosmos.authz.v1beta1.MsgExec"],
+          },
         },
-      },
-      {
-        granter: "init1granter",
-        grantee: "init1other",
-        allowance: {
-          "@type": "/cosmos.feegrant.v1beta1.AllowedMsgAllowance",
-          allowedMessages: ["/cosmos.bank.v1beta1.MsgSend"],
+        {
+          granter: "init1granter",
+          grantee: "init1legacy-basic",
+          allowance: {
+            "@type": "/cosmos.feegrant.v1beta1.BasicAllowance",
+          },
         },
-      },
-      {
-        granter: "init1granter",
-        grantee: "init1unbounded",
-        allowance: {
-          "@type": "/cosmos.feegrant.v1beta1.BasicAllowance",
+        {
+          granter: "init1granter",
+          grantee: "init1unknown",
+          allowance: {
+            "@type": "/cosmos.feegrant.v1beta1.AllowedMsgAllowance",
+            allowedMessages: ["/cosmos.authz.v1beta1.MsgExec"],
+          },
         },
-      },
-    ])
+        {
+          granter: "init1granter",
+          grantee: "init1known-non-exec",
+          allowance: {
+            "@type": "/cosmos.feegrant.v1beta1.AllowedMsgAllowance",
+            allowedMessages: ["/cosmos.bank.v1beta1.MsgSend"],
+          },
+        },
+      ],
+      knownAutoSignGrantees: ["init1autosign", "init1legacy-basic", "init1known-non-exec"],
+    })
 
-    expect(result).toEqual(["init1autosign"])
+    expect(result).toEqual(["init1autosign", "init1legacy-basic"])
   })
 })
 

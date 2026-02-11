@@ -20,7 +20,7 @@ import { useInitiaAddress } from "@/public/data/hooks"
 import { type FeegrantAllowance, getFeegrantAllowedMessages, useAutoSignApi } from "./fetch"
 import { pendingAutoSignRequestAtom } from "./store"
 import { autoSignQueryKeys, useAutoSignMessageTypes, useAutoSignStatus } from "./validation"
-import { storeExpectedAddress, useDeriveWallet } from "./wallet"
+import { getExpectedAddress, storeExpectedAddress, useDeriveWallet } from "./wallet"
 
 type RevokeMessage = {
   typeUrl: string
@@ -50,29 +50,76 @@ export function resolveDisableAutoSignGranteeCandidates(params: {
 
 export function resolveEnableAutoSignGranteeCandidates(params: {
   currentGrantee: string
+  expectedGrantee?: string | null
   existingGrants: Array<{ grantee: string; authorization: { msg: string } }>
-  feegrantGrantees: string[]
+  existingFeegrants: FeegrantAllowance[]
   allowedMessageTypes: string[]
 }): string[] {
-  const { currentGrantee, existingGrants, feegrantGrantees, allowedMessageTypes } = params
+  const {
+    currentGrantee,
+    expectedGrantee,
+    existingGrants,
+    existingFeegrants,
+    allowedMessageTypes,
+  } = params
+  const baselineCandidates = [currentGrantee, expectedGrantee].filter(
+    (value): value is string => !!value,
+  )
+  const knownCandidates = new Set(baselineCandidates)
   const allowedSet = new Set(allowedMessageTypes)
-  const grantees = new Set<string>([currentGrantee, ...feegrantGrantees])
+  const grantedTypesByGrantee = new Map<string, Set<string>>()
 
   for (const grant of existingGrants) {
     if (!allowedSet.has(grant.authorization.msg)) {
       continue
     }
-    grantees.add(grant.grantee)
+    const grantedTypes = grantedTypesByGrantee.get(grant.grantee) ?? new Set<string>()
+    grantedTypes.add(grant.authorization.msg)
+    grantedTypesByGrantee.set(grant.grantee, grantedTypes)
   }
 
-  return [...grantees]
+  for (const [grantee, grantedTypes] of grantedTypesByGrantee) {
+    const hasFullConfiguredCoverage = allowedMessageTypes.every((msgType) =>
+      grantedTypes.has(msgType),
+    )
+    if (hasFullConfiguredCoverage) {
+      knownCandidates.add(grantee)
+    }
+  }
+
+  const eligibleFeegrantGrantees = resolveAutoSignFeegrantGranteeCandidates({
+    feegrants: existingFeegrants,
+    knownAutoSignGrantees: [...knownCandidates],
+  })
+  const eligibleFeegrantSet = new Set(eligibleFeegrantGrantees)
+  const granteesToRevoke = new Set<string>(baselineCandidates)
+
+  for (const grantee of knownCandidates) {
+    const grantedTypes = grantedTypesByGrantee.get(grantee)
+    const hasFullConfiguredCoverage =
+      !!grantedTypes && allowedMessageTypes.every((msgType) => grantedTypes.has(msgType))
+    if (hasFullConfiguredCoverage && eligibleFeegrantSet.has(grantee)) {
+      granteesToRevoke.add(grantee)
+    }
+  }
+
+  return [...granteesToRevoke]
 }
 
-export function resolveAutoSignFeegrantGranteeCandidates(feegrants: FeegrantAllowance[]): string[] {
+export function resolveAutoSignFeegrantGranteeCandidates(params: {
+  feegrants: FeegrantAllowance[]
+  knownAutoSignGrantees: string[]
+}): string[] {
+  const { feegrants, knownAutoSignGrantees } = params
+  const knownGrantees = new Set(knownAutoSignGrantees)
   const candidates = feegrants
-    .filter((feegrant) =>
-      getFeegrantAllowedMessages(feegrant.allowance)?.includes(AUTHZ_EXEC_MESSAGE_TYPE),
-    )
+    .filter((feegrant) => knownGrantees.has(feegrant.grantee))
+    .filter((feegrant) => {
+      const allowedMessages = getFeegrantAllowedMessages(feegrant.allowance)
+      // BasicAllowance (undefined allowed messages) is treated as legacy-compatible and
+      // revoked only for known autosign grantees.
+      return !allowedMessages || allowedMessages.includes(AUTHZ_EXEC_MESSAGE_TYPE)
+    })
     .map((feegrant) => feegrant.grantee)
 
   return [...new Set(candidates)]
@@ -170,11 +217,12 @@ export function useEnableAutoSign() {
         fetchAllGrants(chainId),
         fetchAllFeegrants(chainId),
       ])
-      const feegrantGrantees = resolveAutoSignFeegrantGranteeCandidates(existingFeegrants)
+      const expectedGrantee = getExpectedAddress(initiaAddress, chainId)
       const granteesToRevoke = resolveEnableAutoSignGranteeCandidates({
         currentGrantee: derivedWallet.address,
+        expectedGrantee,
         existingGrants,
-        feegrantGrantees,
+        existingFeegrants,
         allowedMessageTypes: chainMsgTypes,
       })
       const revokeMessagesByGrantee = await Promise.all(
