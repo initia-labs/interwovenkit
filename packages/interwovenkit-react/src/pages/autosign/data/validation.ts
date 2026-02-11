@@ -249,7 +249,7 @@ export function resolveAutoSignEnabledForChain(params: {
 }): boolean {
   const { expiration, grantee, expectedAddress } = params
   const addressMatches =
-    expectedAddress === undefined ? !!grantee : !!grantee && expectedAddress === grantee
+    expectedAddress == null ? !!grantee : !!grantee && expectedAddress === grantee
 
   switch (expiration) {
     case null:

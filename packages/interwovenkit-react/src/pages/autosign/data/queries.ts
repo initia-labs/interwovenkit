@@ -9,6 +9,17 @@ import { getExpectedAddress } from "./wallet"
 
 export type { Grant } from "./fetch"
 
+export function filterAutoSignGrantsByExpectedAddress(
+  grants: Grant[],
+  expectedAddress: string | null | undefined,
+): Grant[] {
+  if (expectedAddress == null) {
+    return grants
+  }
+
+  return grants.filter((grant) => grant.grantee === expectedAddress)
+}
+
 /* Fetch authz grants from all chains in the registry, filtered to only show this app's grants */
 export function useAllGrants() {
   const initiaAddress = useInitiaAddress()
@@ -28,12 +39,7 @@ export function useAllGrants() {
           ? getExpectedAddress(initiaAddress, chain.chainId)
           : null
 
-        const filteredGrants =
-          expectedAddress === undefined
-            ? grants
-            : expectedAddress
-              ? grants.filter((grant) => grant.grantee === expectedAddress)
-              : []
+        const filteredGrants = filterAutoSignGrantsByExpectedAddress(grants, expectedAddress)
 
         return { chainId: chain.chainId, grants: filteredGrants }
       },
