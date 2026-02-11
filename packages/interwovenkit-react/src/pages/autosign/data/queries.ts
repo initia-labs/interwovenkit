@@ -28,9 +28,12 @@ export function useAllGrants() {
           ? getExpectedAddress(initiaAddress, chain.chainId)
           : null
 
-        const filteredGrants = expectedAddress
-          ? grants.filter((grant) => grant.grantee === expectedAddress)
-          : []
+        const filteredGrants =
+          expectedAddress === undefined
+            ? grants
+            : expectedAddress
+              ? grants.filter((grant) => grant.grantee === expectedAddress)
+              : []
 
         return { chainId: chain.chainId, grants: filteredGrants }
       },

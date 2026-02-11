@@ -80,7 +80,7 @@ export function useAutoSignStatus() {
 
       const expiredAtByChain: Record<string, Date | null | undefined> = {}
       const granteeByChain: Record<string, string | undefined> = {}
-      const expectedAddressByChain: Record<string, string | null> = {}
+      const expectedAddressByChain: Record<string, string | null | undefined> = {}
 
       for (const [chainId, msgTypes] of Object.entries(messageTypes)) {
         try {
@@ -245,10 +245,11 @@ export function findValidGrantee(
 export function resolveAutoSignEnabledForChain(params: {
   expiration: Date | null | undefined
   grantee?: string
-  expectedAddress?: string | null
+  expectedAddress?: string | null | undefined
 }): boolean {
   const { expiration, grantee, expectedAddress } = params
-  const addressMatches = !!grantee && expectedAddress === grantee
+  const addressMatches =
+    expectedAddress === undefined ? !!grantee : !!grantee && expectedAddress === grantee
 
   switch (expiration) {
     case null:

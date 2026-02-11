@@ -274,13 +274,17 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
       }
 
       if (!shouldBroadcastDisableAutoSign(messages)) {
-        return { chainId }
+        return { chainId, didRevoke: false }
       }
       await requestTxBlock({ messages, chainId, internal: options?.internal })
-      return { chainId }
+      return { chainId, didRevoke: true }
     },
-    onSuccess: async ({ chainId }) => {
+    onSuccess: async ({ chainId, didRevoke }) => {
       await invalidateAutoSignQueries(queryClient)
+
+      if (!didRevoke) {
+        return
+      }
 
       const chain = findChain(chainId)
       const siblingChainIds = chains

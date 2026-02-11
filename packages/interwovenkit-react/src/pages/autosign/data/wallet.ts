@@ -94,9 +94,12 @@ function getStorage(): KeyValueStorage | null {
   }
 }
 
-export function getExpectedAddress(userAddress: string, chainId: string): string | null {
+export function getExpectedAddress(
+  userAddress: string,
+  chainId: string,
+): string | null | undefined {
   const storage = getStorage()
-  if (!storage) return null
+  if (!storage) return undefined
   return readExpectedAddressFromStorage(storage, userAddress, chainId)
 }
 
