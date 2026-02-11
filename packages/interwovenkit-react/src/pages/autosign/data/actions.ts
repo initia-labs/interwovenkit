@@ -78,6 +78,14 @@ export function resolveAutoSignFeegrantGranteeCandidates(feegrants: FeegrantAllo
   return [...new Set(candidates)]
 }
 
+export function shouldClearDerivedWalletAfterDisable(params: {
+  isEnabledOnTargetChain?: boolean
+  hasEnabledSibling: boolean
+}): boolean {
+  const { isEnabledOnTargetChain, hasEnabledSibling } = params
+  return isEnabledOnTargetChain === false && !hasEnabledSibling
+}
+
 async function invalidateAutoSignQueries(queryClient: QueryClient) {
   const queryKeys = [autoSignQueryKeys.expirations._def, autoSignQueryKeys.grants._def]
   for (const queryKey of queryKeys) {
@@ -284,7 +292,7 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
       await requestTxBlock({ messages, chainId, internal: options?.internal })
       return { chainId, didBroadcast: true }
     },
-    onSuccess: async ({ chainId, didBroadcast }) => {
+    onSuccess: async ({ chainId }) => {
       await invalidateAutoSignQueries(queryClient)
 
       const chain = findChain(chainId)
@@ -294,8 +302,8 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
         .filter((candidateChainId) => candidateChainId !== chainId)
 
       let latestStatus = autoSignStatus
-      if (siblingChainIds.length > 0 || !didBroadcast) {
-        const refreshedStatus = await refetchAutoSignStatus()
+      const refreshedStatus = await refetchAutoSignStatus()
+      if (refreshedStatus.data) {
         latestStatus = refreshedStatus.data
       }
 
@@ -306,10 +314,13 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
         )
       }
 
-      const isEnabledOnTargetChain = latestStatus?.isEnabledByChain[chainId] ?? false
-      const shouldClearWallet = didBroadcast || !isEnabledOnTargetChain
+      const isEnabledOnTargetChain = latestStatus?.isEnabledByChain[chainId]
+      const shouldClearWallet = shouldClearDerivedWalletAfterDisable({
+        isEnabledOnTargetChain,
+        hasEnabledSibling,
+      })
 
-      if (shouldClearWallet && !hasEnabledSibling) {
+      if (shouldClearWallet) {
         clearWallet(chainId)
       }
     },

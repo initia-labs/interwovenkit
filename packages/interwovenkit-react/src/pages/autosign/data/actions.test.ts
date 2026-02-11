@@ -3,6 +3,7 @@ import {
   resolveAutoSignFeegrantGranteeCandidates,
   resolveDisableAutoSignGranteeCandidates,
   resolveEnableAutoSignGranteeCandidates,
+  shouldClearDerivedWalletAfterDisable,
 } from "./actions"
 
 describe("resolveDisableAutoSignGranteeCandidates", () => {
@@ -122,5 +123,43 @@ describe("resolveAutoSignFeegrantGranteeCandidates", () => {
     ])
 
     expect(result).toEqual(["init1autosign"])
+  })
+})
+
+describe("shouldClearDerivedWalletAfterDisable", () => {
+  it("does not clear wallet when target chain is still enabled", () => {
+    const shouldClearWallet = shouldClearDerivedWalletAfterDisable({
+      isEnabledOnTargetChain: true,
+      hasEnabledSibling: false,
+    })
+
+    expect(shouldClearWallet).toBe(false)
+  })
+
+  it("does not clear wallet when target chain status is unknown", () => {
+    const shouldClearWallet = shouldClearDerivedWalletAfterDisable({
+      isEnabledOnTargetChain: undefined,
+      hasEnabledSibling: false,
+    })
+
+    expect(shouldClearWallet).toBe(false)
+  })
+
+  it("does not clear wallet when another sibling chain remains enabled", () => {
+    const shouldClearWallet = shouldClearDerivedWalletAfterDisable({
+      isEnabledOnTargetChain: false,
+      hasEnabledSibling: true,
+    })
+
+    expect(shouldClearWallet).toBe(false)
+  })
+
+  it("clears wallet when target chain is disabled and no siblings are enabled", () => {
+    const shouldClearWallet = shouldClearDerivedWalletAfterDisable({
+      isEnabledOnTargetChain: false,
+      hasEnabledSibling: false,
+    })
+
+    expect(shouldClearWallet).toBe(true)
   })
 })
