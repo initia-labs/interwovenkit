@@ -103,6 +103,21 @@ export function useAsset(denom: string, chain: NormalizedChain) {
   return findAsset(denom)
 }
 
+export function findAssetByCounterpartyDenom(
+  assets: NormalizedAsset[],
+  chain: NormalizedChain,
+  denom: string,
+) {
+  return assets.find((asset) =>
+    asset.traces?.some((trace) => {
+      const { counterparty } = trace
+      const belongsToChain =
+        counterparty.chain_id === chain.chain_id || counterparty.chain_name === chain.chain_name
+      return belongsToChain && counterparty.base_denom === denom
+    }),
+  )
+}
+
 export function useGetLayer1Denom(chain: NormalizedChain) {
   const layer1 = useLayer1()
   const assets = useAssets(chain)
@@ -115,9 +130,7 @@ export function useGetLayer1Denom(chain: NormalizedChain) {
     if (denom.startsWith("l2/") || denom.startsWith("ibc/")) {
       const asset =
         assets.find((asset) => asset.denom === denom) ??
-        assets.find((asset) =>
-          asset.traces?.some((trace) => trace.counterparty.base_denom === denom),
-        )
+        findAssetByCounterpartyDenom(assets, chain, denom)
       if (asset?.traces) {
         for (const trace of asset.traces) {
           if (trace.counterparty.chain_name === layer1.chain_name) {
