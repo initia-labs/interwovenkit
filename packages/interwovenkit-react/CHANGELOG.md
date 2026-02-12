@@ -1,5 +1,16 @@
 # Changelog
 
+### [2.2.5](https://github.com/initia-labs/interwovenkit/compare/v2.2.4...v2.2.5) (2026-02-12)
+
+### Features
+
+- **deposit:** refactor transfer flow for deposit and withdraw ([e5039f0](https://github.com/initia-labs/interwovenkit/commit/e5039f0bd20438fbccc10907c4b438e3cb095e0e))
+- redesigned wallet connection ui ([5472a77](https://github.com/initia-labs/interwovenkit/commit/5472a776f275b3504235c8eb4de08d2584b59570))
+
+### Bug Fixes
+
+- **bridge:** fall back to alternative route on error ([36cda10](https://github.com/initia-labs/interwovenkit/commit/36cda101afcde6797ba97cd69c863c743b283486))
+
 ### [2.2.4](https://github.com/initia-labs/interwovenkit/compare/v2.2.3...v2.2.4) (2026-02-04)
 
 ### Features
