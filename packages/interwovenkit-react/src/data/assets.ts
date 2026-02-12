@@ -113,9 +113,13 @@ export function useGetLayer1Denom(chain: NormalizedChain) {
     }
 
     if (denom.startsWith("l2/") || denom.startsWith("ibc/")) {
-      const traces = assets.find((asset) => asset.denom === denom)?.traces
-      if (traces) {
-        for (const trace of traces) {
+      const asset =
+        assets.find((asset) => asset.denom === denom) ??
+        assets.find((asset) =>
+          asset.traces?.some((trace) => trace.counterparty.base_denom === denom),
+        )
+      if (asset?.traces) {
+        for (const trace of asset.traces) {
           if (trace.counterparty.chain_name === layer1.chain_name) {
             return trace.counterparty.base_denom
           }
