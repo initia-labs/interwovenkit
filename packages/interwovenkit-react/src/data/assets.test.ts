@@ -56,11 +56,7 @@ describe("findAssetByCounterpartyDenom", () => {
       ],
     } as NormalizedAsset
 
-    const asset = findAssetByCounterpartyDenom(
-      [unrelatedAsset, relatedAsset],
-      currentChain,
-      denom,
-    )
+    const asset = findAssetByCounterpartyDenom([unrelatedAsset, relatedAsset], currentChain, denom)
 
     expect(asset?.denom).toBe("evm/correct")
   })
