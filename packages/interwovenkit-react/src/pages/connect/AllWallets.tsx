@@ -130,12 +130,8 @@ const AllWallets = ({
           )}
 
           {additionalWallets.map((wallet) => {
-            const href = wallet.homepage
             const iconSrc = wallet.image_url?.sm || wallet.image_url?.md || wallet.image_url?.lg
             const safeIconSrc = iconSrc && isSafeHttpsUrl(iconSrc) ? iconSrc : undefined
-            const hasSafeHomepage = href && isSafeHttpsUrl(href)
-
-            if (!hasSafeHomepage) return null
 
             return (
               <button
