@@ -1,13 +1,10 @@
-import { useEffect, useMemo } from "react"
+import { useEffect } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import Button from "@/components/Button"
-import Footer from "@/components/Footer"
 import Indicator from "@/components/Indicator"
 import Page from "@/components/Page"
-import Status from "@/components/Status"
 import { LocalStorageKey } from "@/data/constants"
-import { useDrawer } from "@/data/ui"
 import { useHistory, useNavigate } from "@/lib/router"
 import { useAddress } from "@/public/data/hooks"
 import { useGetDefaultAddress, useValidateAddress } from "./data/address"
@@ -22,7 +19,6 @@ const BridgeForm = () => {
 
   const history = useHistory()
   const navigate = useNavigate()
-  const { closeDrawer } = useDrawer()
   const address = useAddress()
 
   const defaultValues = useDefaultValues()
@@ -62,43 +58,42 @@ const BridgeForm = () => {
   const srcAssets = useSkipAssets(srcChainId)
   const dstAssets = useSkipAssets(dstChainId)
 
-  const errorMessage = useMemo(() => {
-    if (!srcAssets.find((srcAsset) => srcAsset.denom === srcDenom)) {
-      return `${srcDenom} is not available for bridge/swap on ${srcChainId}`
+  // Fall back to the first available asset when the selected denom is not supported
+  const isSrcDenomValid = srcAssets.some((asset) => asset.denom === srcDenom)
+  const isDstDenomValid = dstAssets.some((asset) => asset.denom === dstDenom)
+  useEffect(() => {
+    if (srcAssets.length > 0 && !isSrcDenomValid) {
+      setValue("srcDenom", srcAssets[0].denom)
     }
-    if (!dstAssets.find((dstAsset) => dstAsset.denom === dstDenom)) {
-      return `${dstDenom} is not available for bridge/swap on ${dstChainId}`
+  }, [srcAssets, isSrcDenomValid, setValue])
+  useEffect(() => {
+    if (dstAssets.length > 0 && !isDstDenomValid) {
+      setValue("dstDenom", dstAssets[0].denom)
     }
-  }, [dstAssets, dstChainId, dstDenom, srcAssets, srcChainId, srcDenom])
+  }, [dstAssets, isDstDenomValid, setValue])
 
   // localStorage
   useEffect(() => {
-    if (errorMessage) return
+    if (!isSrcDenomValid || !isDstDenomValid) return
     localStorage.setItem(LocalStorageKey.BRIDGE_SRC_CHAIN_ID, srcChainId)
     localStorage.setItem(LocalStorageKey.BRIDGE_SRC_DENOM, srcDenom)
     localStorage.setItem(LocalStorageKey.BRIDGE_DST_CHAIN_ID, dstChainId)
     localStorage.setItem(LocalStorageKey.BRIDGE_DST_DENOM, dstDenom)
     localStorage.setItem(LocalStorageKey.BRIDGE_QUANTITY, quantity)
     localStorage.setItem(LocalStorageKey.BRIDGE_SLIPPAGE_PERCENT, slippagePercent)
-  }, [srcChainId, srcDenom, dstChainId, dstDenom, quantity, slippagePercent, errorMessage])
+  }, [
+    srcChainId,
+    srcDenom,
+    dstChainId,
+    dstDenom,
+    quantity,
+    slippagePercent,
+    isSrcDenomValid,
+    isDstDenomValid,
+  ])
 
   // render
   const isBridge = history[0].path === "/bridge"
-
-  const renderError = () => {
-    return (
-      <>
-        <Status error>{errorMessage}</Status>
-        <Footer>
-          {isBridge ? (
-            <Button.White onClick={closeDrawer}>Close</Button.White>
-          ) : (
-            <Button.White onClick={() => navigate(-1)}>Go back</Button.White>
-          )}
-        </Footer>
-      </>
-    )
-  }
 
   const { reminders } = useClaimableReminders()
 
@@ -122,9 +117,7 @@ const BridgeForm = () => {
         </>
       }
     >
-      {errorMessage ? (
-        renderError()
-      ) : (
+      {isSrcDenomValid && isDstDenomValid && (
         <FormProvider {...form}>
           <AsyncBoundary>
             <BridgeFields />
