@@ -1,7 +1,7 @@
 import clsx from "clsx"
 import type { Connector } from "wagmi"
 import { useMemo, useState } from "react"
-import { IconBack, IconExternalLink } from "@initia/icons-react"
+import { IconBack } from "@initia/icons-react"
 import FormHelp from "@/components/form/FormHelp"
 import SearchInput from "@/components/form/SearchInput"
 import Image from "@/components/Image"
@@ -133,16 +133,16 @@ const AllWallets = ({
             const href = wallet.homepage
             const iconSrc = wallet.image_url?.sm || wallet.image_url?.md || wallet.image_url?.lg
             const safeIconSrc = iconSrc && isSafeHttpsUrl(iconSrc) ? iconSrc : undefined
+            const hasSafeHomepage = href && isSafeHttpsUrl(href)
 
-            if (!href || !isSafeHttpsUrl(href)) return null
+            if (!hasSafeHomepage) return null
 
             return (
-              <a
+              <button
+                type="button"
                 className={styles.listItem}
-                href={href}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`${wallet.name} (opens in new tab)`}
+                disabled
+                aria-label={`${wallet.name} (not installed)`}
                 key={`wc:${wallet.id}`}
               >
                 <div className={styles.listIconWrapper}>
@@ -157,12 +157,7 @@ const AllWallets = ({
                   )}
                 </div>
                 <span className={styles.listNameMuted}>{wallet.name}</span>
-                <IconExternalLink
-                  size={10}
-                  className={styles.externalLinkIcon}
-                  aria-hidden="true"
-                />
-              </a>
+              </button>
             )
           })}
 
