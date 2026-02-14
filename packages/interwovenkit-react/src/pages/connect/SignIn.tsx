@@ -133,36 +133,36 @@ const SignIn = ({
         <div className={styles.headerSpacer} />
       </header>
 
+      {privyConnector && (
+        <>
+          <button
+            type="button"
+            className={clsx(styles.socialButton, {
+              [styles.loading]: pendingConnectorId === privyConnector.id,
+            })}
+            onClick={() => onConnect(privyConnector)}
+            disabled={isPending}
+            aria-busy={pendingConnectorId === privyConnector.id}
+          >
+            <span className={styles.socialText}>Email / Socials</span>
+            {pendingConnectorId === privyConnector.id ? (
+              <Loader size={16} />
+            ) : (
+              <div className={styles.socialIcons}>
+                <GoogleIcon />
+                <EmailIcon />
+                <XIcon />
+              </div>
+            )}
+          </button>
+
+          <div className={styles.divider}>
+            <span className={styles.dividerText}>or</span>
+          </div>
+        </>
+      )}
+
       <Scrollable className={styles.scrollable}>
-        {privyConnector && (
-          <>
-            <button
-              type="button"
-              className={clsx(styles.socialButton, {
-                [styles.loading]: pendingConnectorId === privyConnector.id,
-              })}
-              onClick={() => onConnect(privyConnector)}
-              disabled={isPending}
-              aria-busy={pendingConnectorId === privyConnector.id}
-            >
-              <span className={styles.socialText}>Email / Socials</span>
-              {pendingConnectorId === privyConnector.id ? (
-                <Loader size={16} />
-              ) : (
-                <div className={styles.socialIcons}>
-                  <GoogleIcon />
-                  <EmailIcon />
-                  <XIcon />
-                </div>
-              )}
-            </button>
-
-            <div className={styles.divider}>
-              <span className={styles.dividerText}>or</span>
-            </div>
-          </>
-        )}
-
         <div className={styles.list}>
           {suggestedWallets.map((connector) => {
             const { name, icon, id } = connector
