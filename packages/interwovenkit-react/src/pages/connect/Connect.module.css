@@ -16,14 +16,6 @@
   padding: 56px var(--connect-padding) 20px;
 }
 
-.pageContent {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-
-  width: 100%;
-}
-
 .pageTop {
   --connect-padding: 60px;
   --connect-content-width: 300px;
@@ -123,10 +115,6 @@
 
 .headerSpacer {
   width: 20px;
-}
-
-.spacer {
-  flex: 1;
 }
 
 .icon {
