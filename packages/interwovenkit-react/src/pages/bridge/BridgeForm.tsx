@@ -4,8 +4,10 @@ import AsyncBoundary from "@/components/AsyncBoundary"
 import Button from "@/components/Button"
 import Indicator from "@/components/Indicator"
 import Page from "@/components/Page"
+import { useChain } from "@/data/chains"
 import { LocalStorageKey } from "@/data/constants"
 import { useHistory, useNavigate } from "@/lib/router"
+import { useNotification } from "@/public/app/NotificationContext"
 import { useAddress } from "@/public/data/hooks"
 import { useGetDefaultAddress, useValidateAddress } from "./data/address"
 import { useSkipAssets } from "./data/assets"
@@ -55,6 +57,9 @@ const BridgeForm = () => {
   }, [defaultRecipientAddress, isValidRecipient, setValue])
 
   // assets
+  const { showNotification } = useNotification()
+  const srcChain = useChain(srcChainId)
+  const dstChain = useChain(dstChainId)
   const srcAssets = useSkipAssets(srcChainId)
   const dstAssets = useSkipAssets(dstChainId)
 
@@ -64,13 +69,25 @@ const BridgeForm = () => {
   useEffect(() => {
     if (srcAssets.length > 0 && !isSrcDenomValid) {
       setValue("srcDenom", srcAssets[0].denom)
+      showNotification({
+        type: "info",
+        title: `Switched to ${srcAssets[0].symbol}`,
+        description: `The selected asset is not available on ${srcChain.name}.`,
+        autoHide: true,
+      })
     }
-  }, [srcAssets, isSrcDenomValid, setValue])
+  }, [srcAssets, isSrcDenomValid, setValue, showNotification, srcChain.name])
   useEffect(() => {
     if (dstAssets.length > 0 && !isDstDenomValid) {
       setValue("dstDenom", dstAssets[0].denom)
+      showNotification({
+        type: "info",
+        title: `Switched to ${dstAssets[0].symbol}`,
+        description: `The selected asset is not available on ${dstChain.name}.`,
+        autoHide: true,
+      })
     }
-  }, [dstAssets, isDstDenomValid, setValue])
+  }, [dstAssets, isDstDenomValid, setValue, showNotification, dstChain.name])
 
   // localStorage
   useEffect(() => {
