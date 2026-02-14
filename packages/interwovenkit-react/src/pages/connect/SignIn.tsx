@@ -3,6 +3,7 @@ import type { Connector } from "wagmi"
 import { IconExternalLink } from "@initia/icons-react"
 import Image from "@/components/Image"
 import Loader from "@/components/Loader"
+import Scrollable from "@/components/Scrollable"
 import { normalizeWalletName } from "./normalizeWalletName"
 import styles from "./Connect.module.css"
 
@@ -126,13 +127,13 @@ const SignIn = ({
 
   return (
     <div className={styles.page}>
-      <div className={styles.pageContent}>
-        <header className={styles.header}>
-          <div className={styles.headerSpacer} />
-          <h1 className={styles.title}>Sign In</h1>
-          <div className={styles.headerSpacer} />
-        </header>
+      <header className={styles.header}>
+        <div className={styles.headerSpacer} />
+        <h1 className={styles.title}>Sign In</h1>
+        <div className={styles.headerSpacer} />
+      </header>
 
+      <Scrollable className={styles.scrollable}>
         {privyConnector && (
           <>
             <button
@@ -228,9 +229,7 @@ const SignIn = ({
             </span>
           </button>
         </div>
-      </div>
-
-      <div className={styles.spacer} />
+      </Scrollable>
 
       <a
         className={styles.learnMoreLink}
