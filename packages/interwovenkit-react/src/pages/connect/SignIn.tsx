@@ -3,6 +3,7 @@ import type { Connector } from "wagmi"
 import { IconExternalLink } from "@initia/icons-react"
 import Image from "@/components/Image"
 import Loader from "@/components/Loader"
+import Scrollable from "@/components/Scrollable"
 import { normalizeWalletName } from "./normalizeWalletName"
 import styles from "./Connect.module.css"
 
@@ -126,42 +127,42 @@ const SignIn = ({
 
   return (
     <div className={styles.page}>
-      <div className={styles.pageContent}>
-        <header className={styles.header}>
-          <div className={styles.headerSpacer} />
-          <h1 className={styles.title}>Sign In</h1>
-          <div className={styles.headerSpacer} />
-        </header>
+      <header className={styles.header}>
+        <div className={styles.headerSpacer} />
+        <h1 className={styles.title}>Sign In</h1>
+        <div className={styles.headerSpacer} />
+      </header>
 
-        {privyConnector && (
-          <>
-            <button
-              type="button"
-              className={clsx(styles.socialButton, {
-                [styles.loading]: pendingConnectorId === privyConnector.id,
-              })}
-              onClick={() => onConnect(privyConnector)}
-              disabled={isPending}
-              aria-busy={pendingConnectorId === privyConnector.id}
-            >
-              <span className={styles.socialText}>Email / Socials</span>
-              {pendingConnectorId === privyConnector.id ? (
-                <Loader size={16} />
-              ) : (
-                <div className={styles.socialIcons}>
-                  <GoogleIcon />
-                  <EmailIcon />
-                  <XIcon />
-                </div>
-              )}
-            </button>
+      {privyConnector && (
+        <>
+          <button
+            type="button"
+            className={clsx(styles.socialButton, {
+              [styles.loading]: pendingConnectorId === privyConnector.id,
+            })}
+            onClick={() => onConnect(privyConnector)}
+            disabled={isPending}
+            aria-busy={pendingConnectorId === privyConnector.id}
+          >
+            <span className={styles.socialText}>Email / Socials</span>
+            {pendingConnectorId === privyConnector.id ? (
+              <Loader size={16} />
+            ) : (
+              <div className={styles.socialIcons}>
+                <GoogleIcon />
+                <EmailIcon />
+                <XIcon />
+              </div>
+            )}
+          </button>
 
-            <div className={styles.divider}>
-              <span className={styles.dividerText}>or</span>
-            </div>
-          </>
-        )}
+          <div className={styles.divider}>
+            <span className={styles.dividerText}>or</span>
+          </div>
+        </>
+      )}
 
+      <Scrollable className={styles.scrollable}>
         <div className={styles.list}>
           {suggestedWallets.map((connector) => {
             const { name, icon, id } = connector
@@ -228,9 +229,7 @@ const SignIn = ({
             </span>
           </button>
         </div>
-      </div>
-
-      <div className={styles.spacer} />
+      </Scrollable>
 
       <a
         className={styles.learnMoreLink}
