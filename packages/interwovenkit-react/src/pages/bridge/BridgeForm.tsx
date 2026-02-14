@@ -4,13 +4,13 @@ import AsyncBoundary from "@/components/AsyncBoundary"
 import Button from "@/components/Button"
 import Indicator from "@/components/Indicator"
 import Page from "@/components/Page"
-import { useChain } from "@/data/chains"
 import { LocalStorageKey } from "@/data/constants"
 import { useHistory, useNavigate } from "@/lib/router"
 import { useNotification } from "@/public/app/NotificationContext"
 import { useAddress } from "@/public/data/hooks"
 import { useGetDefaultAddress, useValidateAddress } from "./data/address"
 import { useSkipAssets } from "./data/assets"
+import { useSkipChain } from "./data/chains"
 import type { FormValues } from "./data/form"
 import { useDefaultValues } from "./data/form"
 import { useClaimableModal, useClaimableReminders } from "./op/reminder"
@@ -58,8 +58,8 @@ const BridgeForm = () => {
 
   // assets
   const { showNotification } = useNotification()
-  const srcChain = useChain(srcChainId)
-  const dstChain = useChain(dstChainId)
+  const srcChain = useSkipChain(srcChainId)
+  const dstChain = useSkipChain(dstChainId)
   const srcAssets = useSkipAssets(srcChainId)
   const dstAssets = useSkipAssets(dstChainId)
 
@@ -72,22 +72,22 @@ const BridgeForm = () => {
       showNotification({
         type: "info",
         title: `Switched to ${srcAssets[0].symbol}`,
-        description: `The selected asset is not available on ${srcChain.name}.`,
+        description: `The selected asset is not available on ${srcChain.pretty_name}.`,
         autoHide: true,
       })
     }
-  }, [srcAssets, isSrcDenomValid, setValue, showNotification, srcChain.name])
+  }, [srcAssets, isSrcDenomValid, setValue, showNotification, srcChain.pretty_name])
   useEffect(() => {
     if (dstAssets.length > 0 && !isDstDenomValid) {
       setValue("dstDenom", dstAssets[0].denom)
       showNotification({
         type: "info",
         title: `Switched to ${dstAssets[0].symbol}`,
-        description: `The selected asset is not available on ${dstChain.name}.`,
+        description: `The selected asset is not available on ${dstChain.pretty_name}.`,
         autoHide: true,
       })
     }
-  }, [dstAssets, isDstDenomValid, setValue, showNotification, dstChain.name])
+  }, [dstAssets, isDstDenomValid, setValue, showNotification, dstChain.pretty_name])
 
   // localStorage
   useEffect(() => {
