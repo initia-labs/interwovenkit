@@ -1,72 +1,7 @@
-import { animated, useTransition } from "@react-spring/web"
-import { FormProvider, useForm } from "react-hook-form"
-import AnimatedHeight from "@/components/AnimatedHeight"
-import { type TransferFormValues, useAllBalancesQuery, useTransferForm } from "./hooks"
-import SelectExternalAsset from "./SelectExternalAsset"
-import SelectLocalAsset from "./SelectLocalAsset"
-import { TransferCompleted } from "./TransferCompleted"
-import WithdrawFields from "./WithdrawFields"
-import styles from "./Withdraw.module.css"
+import TransferFlow from "./TransferFlow"
 
 export const Withdraw = () => {
-  const form = useForm<TransferFormValues>({
-    mode: "onChange",
-    defaultValues: {
-      page: "select-local",
-      quantity: "",
-      srcDenom: "",
-      srcChainId: "",
-      dstDenom: "",
-      dstChainId: "",
-    },
-  })
-
-  // prefetch balances
-  useAllBalancesQuery()
-
-  return (
-    <FormProvider {...form}>
-      <WithdrawRoutes />
-    </FormProvider>
-  )
-}
-
-const WithdrawRoutes = () => {
-  const { watch } = useTransferForm()
-  const page = watch("page")
-
-  const transition = useTransition(page, {
-    keys: page,
-    from: { opacity: 0 },
-    enter: { opacity: 1 },
-    leave: { opacity: 0, position: "absolute" as const, inset: 0 },
-    config: { tension: 500, friction: 30, clamp: true, duration: 150 },
-  })
-
-  const renderPage = (currentPage: typeof page) => {
-    switch (currentPage) {
-      case "select-local":
-        return <SelectLocalAsset />
-      case "select-external":
-        return <SelectExternalAsset />
-      case "fields":
-        return <WithdrawFields />
-      case "completed":
-        return <TransferCompleted type="withdraw" />
-    }
-  }
-
-  return (
-    <AnimatedHeight>
-      <div className={styles.container}>
-        {transition((style, currentPage) => (
-          <animated.div style={style} className={styles.page}>
-            {renderPage(currentPage)}
-          </animated.div>
-        ))}
-      </div>
-    </AnimatedHeight>
-  )
+  return <TransferFlow mode="withdraw" />
 }
 
 export default Withdraw

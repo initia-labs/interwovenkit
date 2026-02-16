@@ -13,29 +13,32 @@ import { useInitiaAddress } from "@/public/data/hooks"
 import { chainQueryKeys, type NormalizedChain } from "./chains"
 import { STALE_TIMES } from "./http"
 
+export async function fetchGasPrices(chain: NormalizedChain) {
+  if (chain.metadata?.is_l1) {
+    const { restUrl } = chain
+    const { gas_prices } = await ky
+      .create({ prefixUrl: restUrl })
+      .get("initia/tx/v1/gas_prices")
+      .json<{ gas_prices: Coin[] }>()
+    return gas_prices
+      .toSorted(descend(({ denom }) => denom === "uinit"))
+      .map(({ denom, amount }) => {
+        const multiplier = denom === "uinit" ? 1 : DEFAULT_GAS_PRICE_MULTIPLIER
+        const price = BigNumber(amount).times(multiplier).toFixed(18)
+        return { amount: price, denom }
+      })
+  }
+
+  return chain.fees.fee_tokens.map(({ denom, fixed_min_gas_price: price }) => {
+    if (isNil(price)) throw new Error(`${denom} has no price`)
+    return { amount: String(price), denom }
+  })
+}
+
 export function useGasPrices(chain: NormalizedChain) {
   const { data } = useSuspenseQuery({
     queryKey: chainQueryKeys.gasPrices(chain).queryKey,
-    queryFn: async () => {
-      if (chain.metadata?.is_l1) {
-        const { restUrl } = chain
-        const { gas_prices } = await ky
-          .create({ prefixUrl: restUrl })
-          .get("initia/tx/v1/gas_prices")
-          .json<{ gas_prices: Coin[] }>()
-        return gas_prices
-          .toSorted(descend(({ denom }) => denom === "uinit"))
-          .map(({ denom, amount }) => {
-            const multiplier = denom === "uinit" ? 1 : DEFAULT_GAS_PRICE_MULTIPLIER
-            const price = BigNumber(amount).times(multiplier).toFixed(18)
-            return { amount: price, denom }
-          })
-      }
-      return chain.fees.fee_tokens.map(({ denom, fixed_min_gas_price: price }) => {
-        if (isNil(price)) throw new Error(`${denom} has no price`)
-        return { amount: String(price), denom }
-      })
-    },
+    queryFn: () => fetchGasPrices(chain),
     staleTime: STALE_TIMES.SECOND,
   })
 

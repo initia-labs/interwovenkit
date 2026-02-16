@@ -1,5 +1,19 @@
 # Changelog
 
+### [2.2.5](https://github.com/initia-labs/interwovenkit/compare/v2.2.4...v2.2.5) (2026-02-14)
+
+### Features
+
+- redesigned wallet connection ui ([5472a77](https://github.com/initia-labs/interwovenkit/commit/5472a776f275b3504235c8eb4de08d2584b59570))
+- **deposit:** refactor transfer flow for deposit and withdraw ([e5039f0](https://github.com/initia-labs/interwovenkit/commit/e5039f0bd20438fbccc10907c4b438e3cb095e0e))
+
+### Bug Fixes
+
+- **deps:** add @initia/opinit.proto peer dependency ([09b3736](https://github.com/initia-labs/interwovenkit/commit/09b37362dc24d08abfd132af48097ae8820af424))
+- **assets:** resolve l2/ denom via trace counterparty lookup ([805f856](https://github.com/initia-labs/interwovenkit/commit/805f8568a66c4c833ea30947b2491a21e46be207))
+- **bridge:** fall back to valid asset on unsupported denom ([0f48821](https://github.com/initia-labs/interwovenkit/commit/0f488216925db2dd4f37295b99adf2309e2614a1))
+- **bridge:** fall back to alternative route on error ([36cda10](https://github.com/initia-labs/interwovenkit/commit/36cda101afcde6797ba97cd69c863c743b283486))
+
 ### [2.2.4](https://github.com/initia-labs/interwovenkit/compare/v2.2.3...v2.2.4) (2026-02-04)
 
 ### Features

@@ -1,29 +1,26 @@
 import { useEffect, useEffectEvent } from "react"
-import { usePath } from "@/lib/router"
-import { useLocalAssetOptions, useTransferForm } from "./hooks"
+import { type TransferMode, useLocalAssetOptions, useTransferForm, useTransferMode } from "./hooks"
 import styles from "./SelectLocalAsset.module.css"
 
-const SelectLocalAsset = () => {
-  const path = usePath()
+interface Props {
+  mode: TransferMode
+}
+
+const SelectLocalAsset = ({ mode }: Props) => {
+  const { local, external } = useTransferMode(mode)
   const { setValue } = useTransferForm()
   const options = useLocalAssetOptions()
-  const isWithdraw = path === "/withdraw"
-
-  const localDenomKey = isWithdraw ? "srcDenom" : "dstDenom"
-  const localChainIdKey = isWithdraw ? "srcChainId" : "dstChainId"
-  const externalDenomKey = isWithdraw ? "dstDenom" : "srcDenom"
-  const externalChainIdKey = isWithdraw ? "dstChainId" : "srcChainId"
 
   const selectLocalAsset = (denom: string, chain_id: string) => {
-    setValue(localDenomKey, denom)
-    setValue(localChainIdKey, chain_id)
+    setValue(local.denomKey, denom)
+    setValue(local.chainIdKey, chain_id)
     // reset other values
     setValue("quantity", "")
-    setValue(externalDenomKey, "")
-    setValue(externalChainIdKey, "")
+    setValue(external.denomKey, "")
+    setValue(external.chainIdKey, "")
 
     // navigate to the next page
-    setValue("page", isWithdraw ? "fields" : "select-external")
+    setValue("page", mode === "withdraw" ? "fields" : "select-external")
   }
 
   const selectDefaultAsset = useEffectEvent(() => {
@@ -44,7 +41,7 @@ const SelectLocalAsset = () => {
   return (
     <>
       <h3 className={styles.title}>
-        {isWithdraw ? "Select an asset to withdraw" : "Select an asset to receive"}
+        {mode === "withdraw" ? "Select an asset to withdraw" : "Select an asset to receive"}
       </h3>
       <div className={styles.list}>
         {options.map(({ denom, chain_id, symbol, logo_uri }) => (

@@ -19,6 +19,8 @@
   },
   "pnpm": {
     "overrides": {
+      "lodash": "4.17.23",
+      "diff": "8.0.3",
       "@isaacs/brace-expansion": "5.0.1"
     }
   },
