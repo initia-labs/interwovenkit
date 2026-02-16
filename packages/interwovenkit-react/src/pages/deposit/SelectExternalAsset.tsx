@@ -38,12 +38,14 @@ const SelectExternalAsset = ({ mode }: Props) => {
     const isSelected =
       selectedExternalDenom === asset.denom && selectedExternalChainId === chain.chain_id
 
-    if (!isSelected) {
-      setValue(external.denomKey, asset.denom)
-      setValue(external.chainIdKey, chain.chain_id)
-      if (mode === "deposit") setValue("quantity", "")
+    if (isSelected) {
+      setValue("page", "fields")
+      return
     }
 
+    setValue(external.denomKey, asset.denom)
+    setValue(external.chainIdKey, chain.chain_id)
+    if (mode === "deposit") setValue("quantity", "")
     setValue("page", "fields")
   }, [
     external.chainIdKey,
