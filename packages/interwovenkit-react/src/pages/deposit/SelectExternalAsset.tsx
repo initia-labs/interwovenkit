@@ -30,6 +30,7 @@ const SelectExternalAsset = ({ mode }: Props) => {
   const values = watch()
   const selectedExternalDenom = values[external.denomKey]
   const selectedExternalChainId = values[external.chainIdKey]
+  const currentPage = values.page
 
   useEffect(() => {
     if (isLoading || filteredAssets.length !== 1) return
@@ -39,7 +40,7 @@ const SelectExternalAsset = ({ mode }: Props) => {
       selectedExternalDenom === asset.denom && selectedExternalChainId === chain.chain_id
 
     if (isSelected) {
-      setValue("page", "fields")
+      if (currentPage !== "fields") setValue("page", "fields")
       return
     }
 
@@ -56,6 +57,7 @@ const SelectExternalAsset = ({ mode }: Props) => {
     selectedExternalChainId,
     selectedExternalDenom,
     setValue,
+    currentPage,
   ])
 
   function renderBackButton() {
