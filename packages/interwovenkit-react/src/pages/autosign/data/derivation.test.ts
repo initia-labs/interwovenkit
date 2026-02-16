@@ -77,9 +77,7 @@ describe("deriveWalletFromSignature", () => {
   })
 
   it("rejects non-hex signatures", async () => {
-    await expect(deriveWalletFromSignature("0xnothex" as Hex, "init")).rejects.toThrow(
-      "Invalid hex: contains non-hexadecimal characters",
-    )
+    await expect(deriveWalletFromSignature("0xnothex" as Hex, "init")).rejects.toThrow("Invalid")
   })
 })
 

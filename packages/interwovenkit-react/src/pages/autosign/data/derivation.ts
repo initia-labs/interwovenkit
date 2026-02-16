@@ -1,6 +1,6 @@
 import { Bip39, Secp256k1, Slip10, Slip10Curve, stringToPath } from "@cosmjs/crypto"
 import { toBech32 } from "@cosmjs/encoding"
-import { type Hex, keccak256 } from "viem"
+import { bytesToHex, type Hex, hexToBytes, keccak256 } from "viem"
 import type { DerivedWallet } from "./store"
 
 /* EIP-191 message for wallet derivation signature. Origin scopes derived wallets
@@ -37,7 +37,7 @@ export async function deriveWalletFromSignature(
   // or 0/1 for modern), but r,s are consistent for the same signature.
   // See dYdX: https://github.com/dydxprotocol/v4-clients/blob/main/v4-client-js/src/lib/onboarding.ts#L56
   const rsValues = signatureBytes.slice(0, 64)
-  const entropy = hexToBytes(keccak256(`0x${bytesToHex(rsValues)}`))
+  const entropy = hexToBytes(keccak256(bytesToHex(rsValues)))
 
   const mnemonic = Bip39.encode(entropy)
   const seed = await Bip39.mnemonicToSeed(mnemonic)
@@ -50,7 +50,7 @@ export async function deriveWalletFromSignature(
 
   const uncompressedPubkey = keypair.pubkey
   const pubkeyWithoutPrefix = uncompressedPubkey.slice(1)
-  const pubkeyHex = `0x${bytesToHex(pubkeyWithoutPrefix)}` as Hex
+  const pubkeyHex = bytesToHex(pubkeyWithoutPrefix)
   const addressHash = keccak256(pubkeyHex)
   const addressBytes = hexToBytes(addressHash).slice(-20)
   const address = toBech32(bech32Prefix, addressBytes)
@@ -64,32 +64,4 @@ export async function deriveWalletFromSignature(
 
 export function getDerivedWalletKey(userAddress: string, bech32Prefix: string): string {
   return `${userAddress}:${bech32Prefix}`
-}
-
-function hexToBytes(hex: Hex): Uint8Array {
-  const cleanHex = hex.startsWith("0x") ? hex.slice(2) : hex
-
-  if (cleanHex.length === 0) {
-    throw new Error("Invalid hex: empty string")
-  }
-
-  if (cleanHex.length % 2 !== 0) {
-    throw new Error(`Invalid hex: odd length (${cleanHex.length})`)
-  }
-
-  if (!/^[0-9a-fA-F]+$/.test(cleanHex)) {
-    throw new Error("Invalid hex: contains non-hexadecimal characters")
-  }
-
-  const bytes = new Uint8Array(cleanHex.length / 2)
-  for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(cleanHex.slice(i * 2, i * 2 + 2), 16)
-  }
-  return bytes
-}
-
-function bytesToHex(bytes: Uint8Array): string {
-  return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("")
 }
