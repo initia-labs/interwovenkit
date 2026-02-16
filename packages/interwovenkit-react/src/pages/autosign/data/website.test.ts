@@ -25,6 +25,12 @@ describe("isVerifiedWebsiteHost", () => {
   })
 
   it("returns false when registered host is a shared-hosting public suffix", () => {
+    expect(isVerifiedWebsiteHost("https://pages.dev", "evil.pages.dev")).toBe(false)
+    expect(isVerifiedWebsiteHost("https://web.app", "evil.web.app")).toBe(false)
+    expect(isVerifiedWebsiteHost("https://firebaseapp.com", "evil.firebaseapp.com")).toBe(false)
+    expect(isVerifiedWebsiteHost("https://fly.dev", "evil.fly.dev")).toBe(false)
+    expect(isVerifiedWebsiteHost("https://railway.app", "evil.railway.app")).toBe(false)
+    expect(isVerifiedWebsiteHost("https://surge.sh", "evil.surge.sh")).toBe(false)
     expect(isVerifiedWebsiteHost("https://github.io", "evil.github.io")).toBe(false)
     expect(isVerifiedWebsiteHost("https://vercel.app", "evil.vercel.app")).toBe(false)
     expect(isVerifiedWebsiteHost("https://netlify.app", "evil.netlify.app")).toBe(false)
@@ -36,6 +42,14 @@ describe("isVerifiedWebsiteHost", () => {
   })
 
   it("returns true for registrable domain under shared-hosting suffix", () => {
+    expect(isVerifiedWebsiteHost("https://my-app.pages.dev", "my-app.pages.dev")).toBe(true)
+    expect(isVerifiedWebsiteHost("https://my-app.web.app", "my-app.web.app")).toBe(true)
+    expect(isVerifiedWebsiteHost("https://my-app.firebaseapp.com", "my-app.firebaseapp.com")).toBe(
+      true,
+    )
+    expect(isVerifiedWebsiteHost("https://my-app.fly.dev", "my-app.fly.dev")).toBe(true)
+    expect(isVerifiedWebsiteHost("https://my-app.railway.app", "my-app.railway.app")).toBe(true)
+    expect(isVerifiedWebsiteHost("https://my-app.surge.sh", "my-app.surge.sh")).toBe(true)
     expect(isVerifiedWebsiteHost("https://my-app.github.io", "my-app.github.io")).toBe(true)
     expect(isVerifiedWebsiteHost("https://my-app.vercel.app", "my-app.vercel.app")).toBe(true)
     expect(isVerifiedWebsiteHost("https://my-app.netlify.app", "my-app.netlify.app")).toBe(true)

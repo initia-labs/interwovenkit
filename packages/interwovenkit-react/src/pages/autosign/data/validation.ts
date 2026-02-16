@@ -12,9 +12,16 @@ import { getFeegrantAllowedMessages, getFeegrantExpiration, useAutoSignApi } fro
 import { getExpectedAddress } from "./wallet"
 
 export const autoSignQueryKeys = createQueryKeys("interwovenkit:autosign", {
-  expirations: (address: string | undefined) => [address],
+  expirations: (address: string | undefined, messageTypesKey: string) => [address, messageTypesKey],
   grants: (chainId: string, address: string | undefined) => [chainId, address],
 })
+
+export function createAutoSignMessageTypesKey(messageTypes: Record<string, string[]>): string {
+  return Object.entries(messageTypes)
+    .sort(([chainA], [chainB]) => chainA.localeCompare(chainB))
+    .map(([chainId, types]) => `${chainId}:${[...types].sort().join(",")}`)
+    .join("|")
+}
 
 /* Get configured AutoSign message types for the default chain based on chain type */
 export function useAutoSignMessageTypes() {
@@ -65,10 +72,11 @@ export function useValidateAutoSign() {
 export function useAutoSignStatus() {
   const initiaAddress = useInitiaAddress()
   const messageTypes = useAutoSignMessageTypes()
+  const messageTypesKey = createAutoSignMessageTypesKey(messageTypes)
   const { fetchFeegrant, fetchAllGrants } = useAutoSignApi()
 
   return useQuery({
-    queryKey: autoSignQueryKeys.expirations(initiaAddress).queryKey,
+    queryKey: autoSignQueryKeys.expirations(initiaAddress, messageTypesKey).queryKey,
     queryFn: async () => {
       if (!initiaAddress) {
         return {

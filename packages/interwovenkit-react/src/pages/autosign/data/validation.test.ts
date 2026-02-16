@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import type { FeegrantAllowance } from "./fetch"
 import {
+  createAutoSignMessageTypesKey,
   findValidGranteeCandidates,
   findValidGranteeWithFeegrant,
   resolveAutoSignEnabledForChain,
@@ -427,5 +428,45 @@ describe("resolveAutoSignEnabledForChain", () => {
     })
 
     expect(result).toBe(false)
+  })
+})
+
+describe("createAutoSignMessageTypesKey", () => {
+  it("creates a stable key regardless of chain order", () => {
+    const first = createAutoSignMessageTypesKey({
+      "initia-2": ["/initia.move.v1.MsgExecute"],
+      "initia-1": ["/cosmwasm.wasm.v1.MsgExecuteContract"],
+    })
+
+    const second = createAutoSignMessageTypesKey({
+      "initia-1": ["/cosmwasm.wasm.v1.MsgExecuteContract"],
+      "initia-2": ["/initia.move.v1.MsgExecute"],
+    })
+
+    expect(first).toBe(second)
+  })
+
+  it("creates a stable key regardless of message type order", () => {
+    const first = createAutoSignMessageTypesKey({
+      "initia-1": ["/b.Msg", "/a.Msg"],
+    })
+
+    const second = createAutoSignMessageTypesKey({
+      "initia-1": ["/a.Msg", "/b.Msg"],
+    })
+
+    expect(first).toBe(second)
+  })
+
+  it("changes key when message type configuration changes", () => {
+    const current = createAutoSignMessageTypesKey({
+      "initia-1": ["/initia.move.v1.MsgExecute"],
+    })
+
+    const next = createAutoSignMessageTypesKey({
+      "initia-1": ["/initia.move.v1.MsgExecute", "/cosmos.bank.v1beta1.MsgSend"],
+    })
+
+    expect(current).not.toBe(next)
   })
 })

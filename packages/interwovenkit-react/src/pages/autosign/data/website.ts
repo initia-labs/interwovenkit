@@ -1,9 +1,15 @@
 const GENERIC_SECOND_LEVEL_DOMAINS = new Set(["ac", "co", "com", "edu", "gov", "mil", "net", "org"])
 const SHARED_HOSTING_PUBLIC_SUFFIXES = new Set([
+  "firebaseapp.com",
+  "fly.dev",
   "github.io",
   "herokuapp.com",
   "netlify.app",
+  "pages.dev",
+  "railway.app",
+  "surge.sh",
   "vercel.app",
+  "web.app",
 ])
 
 function isIpv4(hostname: string): boolean {
