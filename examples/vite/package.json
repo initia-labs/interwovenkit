@@ -13,7 +13,6 @@
     "@initia/icons-react": "^2.0.0",
     "@initia/interwovenkit-react": "workspace:^",
     "@initia/utils": "2.0.0",
-    "@privy-io/react-auth": "^3.13.1",
     "@tanstack/react-query": "^5.90.7",
     "cosmjs-types": "^0.10.1",
     "ethers": "^6.15.0",

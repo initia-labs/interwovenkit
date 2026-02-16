@@ -3,7 +3,7 @@ import { useInitiaRegistry } from "@/data/chains"
 import { STALE_TIMES } from "@/data/http"
 import { fetchAllPages } from "@/data/pagination"
 import { useInitiaAddress } from "@/public/data/hooks"
-import type { Grant } from "./fetch"
+import { type Grant, normalizeAutoSignGrants } from "./fetch"
 import { autoSignQueryKeys } from "./validation"
 import { getExpectedAddress } from "./wallet"
 
@@ -34,12 +34,16 @@ export function useAllGrants() {
           { prefixUrl: chain.restUrl },
           "grants",
         )
+        const normalizedGrants = normalizeAutoSignGrants(grants)
 
         const expectedAddress = initiaAddress
           ? getExpectedAddress(initiaAddress, chain.chainId)
           : null
 
-        const filteredGrants = filterAutoSignGrantsByExpectedAddress(grants, expectedAddress)
+        const filteredGrants = filterAutoSignGrantsByExpectedAddress(
+          normalizedGrants,
+          expectedAddress,
+        )
 
         return { chainId: chain.chainId, grants: filteredGrants }
       },

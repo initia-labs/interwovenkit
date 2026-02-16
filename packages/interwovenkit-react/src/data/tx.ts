@@ -151,7 +151,6 @@ export function buildAutoSignFeeFromSimulation({
 }
 
 interface AutoSignSimulationInput {
-  signerAddress: string
   messages: EncodeObject[]
 }
 
@@ -165,7 +164,6 @@ export function buildAutoSignSimulationInput({
   encoder: { encode: (message: EncodeObject) => Uint8Array }
 }): AutoSignSimulationInput {
   return {
-    signerAddress: derivedAddress,
     messages: buildAuthzExecMessages({
       granteeAddress: derivedAddress,
       messages,

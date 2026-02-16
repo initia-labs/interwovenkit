@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  collectRevokeAuthzMessageTypes,
   resolveDisableAutoSignGranteeCandidates,
   resolveEnableAutoSignGranteeCandidates,
   shouldClearDerivedWalletAfterDisable,
@@ -63,6 +64,28 @@ describe("resolveEnableAutoSignGranteeCandidates", () => {
     })
 
     expect(result).toEqual(["init1current"])
+  })
+})
+
+describe("collectRevokeAuthzMessageTypes", () => {
+  it("returns all unique grant message types regardless of current config", () => {
+    const result = collectRevokeAuthzMessageTypes([
+      { authorization: { msg: "/cosmos.bank.v1beta1.MsgSend" } },
+      { authorization: { msg: "/initia.move.v1.MsgExecute" } },
+      { authorization: { msg: "/cosmos.bank.v1beta1.MsgSend" } },
+    ])
+
+    expect(result).toEqual(["/cosmos.bank.v1beta1.MsgSend", "/initia.move.v1.MsgExecute"])
+  })
+
+  it("drops empty message types", () => {
+    const result = collectRevokeAuthzMessageTypes([
+      { authorization: { msg: "/cosmos.bank.v1beta1.MsgSend" } },
+      { authorization: {} },
+      { authorization: { msg: "" } },
+    ])
+
+    expect(result).toEqual(["/cosmos.bank.v1beta1.MsgSend"])
   })
 })
 

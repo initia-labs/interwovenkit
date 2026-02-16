@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
-import type { FeegrantAllowance } from "./fetch"
-import { getFeegrantAllowedMessages, getFeegrantExpiration } from "./fetch"
+import type { FeegrantAllowance, Grant } from "./fetch"
+import { getFeegrantAllowedMessages, getFeegrantExpiration, normalizeAutoSignGrants } from "./fetch"
 
 describe("feegrant helpers", () => {
   it("returns expiration from BasicAllowance", () => {
@@ -35,5 +35,38 @@ describe("feegrant helpers", () => {
     }
 
     expect(getFeegrantAllowedMessages(allowance)).toEqual(["/cosmos.authz.v1beta1.MsgExec"])
+  })
+})
+
+describe("normalizeAutoSignGrants", () => {
+  it("keeps only GenericAuthorization grants with message types", () => {
+    const grants: Grant[] = [
+      {
+        granter: "init1granter",
+        grantee: "init1grantee",
+        authorization: {
+          "@type": "/cosmos.authz.v1beta1.GenericAuthorization",
+          msg: "/initia.move.v1.MsgExecute",
+        },
+      },
+      {
+        granter: "init1granter",
+        grantee: "init1grantee",
+        authorization: {
+          "@type": "/cosmos.authz.v1beta1.SendAuthorization",
+          msg: "",
+        },
+      },
+      {
+        granter: "init1granter",
+        grantee: "init1grantee",
+        authorization: {
+          "@type": "/cosmos.authz.v1beta1.GenericAuthorization",
+          msg: "",
+        },
+      },
+    ]
+
+    expect(normalizeAutoSignGrants(grants)).toEqual([grants[0]])
   })
 })

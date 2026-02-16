@@ -12,9 +12,16 @@ import { getFeegrantAllowedMessages, getFeegrantExpiration, useAutoSignApi } fro
 import { getExpectedAddress } from "./wallet"
 
 export const autoSignQueryKeys = createQueryKeys("interwovenkit:autosign", {
-  expirations: (address: string | undefined, messageTypesKey: string) => [address, messageTypesKey],
+  expirations: (
+    address: string | undefined,
+    messageTypesKey: string,
+    messageTypes: Record<string, string[]>,
+  ) => [address, messageTypesKey, messageTypes],
   grants: (chainId: string, address: string | undefined) => [chainId, address],
 })
+
+const CHAIN_STATUS_CONCURRENCY = 4
+const FEEGRANT_CANDIDATE_CONCURRENCY = 4
 
 export function createAutoSignMessageTypesKey(messageTypes: Record<string, string[]>): string {
   return Object.entries(messageTypes)
@@ -76,7 +83,7 @@ export function useAutoSignStatus() {
   const { fetchFeegrant, fetchAllGrants } = useAutoSignApi()
 
   return useQuery({
-    queryKey: autoSignQueryKeys.expirations(initiaAddress, messageTypesKey).queryKey,
+    queryKey: autoSignQueryKeys.expirations(initiaAddress, messageTypesKey, messageTypes).queryKey,
     queryFn: async () => {
       if (!initiaAddress) {
         return {
@@ -89,47 +96,73 @@ export function useAutoSignStatus() {
       const expiredAtByChain: Record<string, Date | null | undefined> = {}
       const granteeByChain: Record<string, string | undefined> = {}
       const expectedAddressByChain: Record<string, string | null | undefined> = {}
+      const chainEntries = Object.entries(messageTypes)
 
-      for (const [chainId, msgTypes] of Object.entries(messageTypes)) {
-        try {
+      const chainResults = await mapWithConcurrency(
+        chainEntries,
+        CHAIN_STATUS_CONCURRENCY,
+        async ([chainId, msgTypes]) => {
           const expectedAddress = getExpectedAddress(initiaAddress, chainId)
-          expectedAddressByChain[chainId] = expectedAddress
-          const allGrants = await fetchWithRetry(() => fetchAllGrants(chainId))
 
-          const grantsToCheck = expectedAddress
-            ? allGrants.filter((grant) => grant.grantee === expectedAddress)
-            : allGrants
-          const validGranteeCandidates = findValidGranteeCandidates(grantsToCheck, msgTypes)
-          if (validGranteeCandidates.length === 0) {
-            expiredAtByChain[chainId] = null
-            continue
+          try {
+            const allGrants = await fetchAllGrants(chainId)
+            const grantsToCheck = expectedAddress
+              ? allGrants.filter((grant) => grant.grantee === expectedAddress)
+              : allGrants
+            const validGranteeCandidates = findValidGranteeCandidates(grantsToCheck, msgTypes)
+
+            if (validGranteeCandidates.length === 0) {
+              return {
+                chainId,
+                expectedAddress,
+                expiration: null,
+                grantee: undefined as string | undefined,
+              }
+            }
+
+            const validGrantee = await findValidGranteeWithFeegrant({
+              chainId,
+              candidates: validGranteeCandidates,
+              fetchFeegrant,
+              concurrency: FEEGRANT_CANDIDATE_CONCURRENCY,
+            })
+            if (!validGrantee) {
+              return {
+                chainId,
+                expectedAddress,
+                expiration: null,
+                grantee: undefined as string | undefined,
+              }
+            }
+
+            const grantExpirations = validGrantee.grantee.grants
+              .filter((grant) => msgTypes.includes(grant.authorization.msg))
+              .map((grant) => grant.expiration)
+            const feegrantExpiration = getFeegrantExpiration(validGrantee.feegrant.allowance)
+            const allExpirations = [...grantExpirations, feegrantExpiration]
+            const earliestExpiration = findEarliestDate(allExpirations)
+
+            return {
+              chainId,
+              expectedAddress,
+              expiration: earliestExpiration ? new Date(earliestExpiration) : undefined,
+              grantee: validGrantee.grantee.grantee,
+            }
+          } catch {
+            return {
+              chainId,
+              expectedAddress,
+              expiration: null,
+              grantee: undefined as string | undefined,
+            }
           }
+        },
+      )
 
-          const validGrantee = await findValidGranteeWithFeegrant({
-            chainId,
-            candidates: validGranteeCandidates,
-            fetchFeegrant: async (innerChainId, grantee) =>
-              fetchWithRetry(() => fetchFeegrant(innerChainId, grantee)),
-          })
-
-          if (!validGrantee) {
-            expiredAtByChain[chainId] = null
-            continue
-          }
-
-          granteeByChain[chainId] = validGrantee.grantee.grantee
-
-          const grantExpirations = validGrantee.grantee.grants
-            .filter((grant) => msgTypes.includes(grant.authorization.msg))
-            .map((grant) => grant.expiration)
-
-          const feegrantExpiration = getFeegrantExpiration(validGrantee.feegrant.allowance)
-          const allExpirations = [...grantExpirations, feegrantExpiration]
-          const earliestExpiration = findEarliestDate(allExpirations)
-          expiredAtByChain[chainId] = earliestExpiration ? new Date(earliestExpiration) : undefined
-        } catch {
-          expiredAtByChain[chainId] = null
-        }
+      for (const result of chainResults) {
+        expectedAddressByChain[result.chainId] = result.expectedAddress
+        expiredAtByChain[result.chainId] = result.expiration
+        granteeByChain[result.chainId] = result.grantee
       }
 
       const isEnabledByChain: Record<string, boolean> = {}
@@ -152,20 +185,30 @@ export function useAutoSignStatus() {
   })
 }
 
-async function fetchWithRetry<T>(fn: () => Promise<T>, maxRetries = 1): Promise<T> {
-  let lastError: unknown
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await fn()
-    } catch (error) {
-      lastError = error
-      if (attempt === maxRetries) {
-        throw error
-      }
-    }
-  }
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  const maxConcurrency = Math.max(1, concurrency)
+  let nextIndex = 0
 
-  throw lastError instanceof Error ? lastError : new Error("Request failed")
+  const workers = Array.from({ length: Math.min(maxConcurrency, items.length) }, async () => {
+    while (true) {
+      const currentIndex = nextIndex
+      nextIndex += 1
+
+      if (currentIndex >= items.length) {
+        return
+      }
+
+      results[currentIndex] = await mapper(items[currentIndex]!, currentIndex)
+    }
+  })
+
+  await Promise.all(workers)
+  return results
 }
 
 interface GrantWithGrantee {
@@ -194,17 +237,30 @@ export async function findValidGranteeWithFeegrant(params: {
   chainId: string
   candidates: GrantWithGrantee[]
   fetchFeegrant: (chainId: string, grantee: string) => Promise<FeegrantAllowance | null>
+  concurrency?: number
 }): Promise<{ grantee: GrantWithGrantee; feegrant: FeegrantAllowance } | null> {
-  const { chainId, candidates, fetchFeegrant } = params
-
-  for (const candidate of candidates) {
+  const {
+    chainId,
+    candidates,
+    fetchFeegrant,
+    concurrency = FEEGRANT_CANDIDATE_CONCURRENCY,
+  } = params
+  const feegrantChecks = await mapWithConcurrency(candidates, concurrency, async (candidate) => {
     const feegrant = await fetchFeegrant(chainId, candidate.grantee)
     if (!feegrant) {
-      continue
+      return null
     }
 
     if (isFeegrantEligibleForAutoSign(feegrant)) {
       return { grantee: candidate, feegrant }
+    }
+
+    return null
+  })
+
+  for (const result of feegrantChecks) {
+    if (result) {
+      return result
     }
   }
 

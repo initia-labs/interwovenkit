@@ -41,6 +41,12 @@ export interface FeegrantResponse {
   allowance: FeegrantAllowance
 }
 
+export function normalizeAutoSignGrants(grants: Grant[]): Grant[] {
+  return grants
+    .filter((grant) => grant.authorization["@type"].includes("GenericAuthorization"))
+    .filter((grant) => !!grant.authorization.msg)
+}
+
 export function getFeegrantExpiration(
   allowance: FeegrantAllowance["allowance"],
 ): string | undefined {
@@ -120,16 +126,7 @@ export function useAutoSignApi() {
       { prefixUrl: chain.restUrl },
       "grants",
     )
-
-    return allGrants
-      .filter((grant) => grant.authorization["@type"].includes("GenericAuthorization"))
-      .map((grant) => ({
-        grantee: grant.grantee,
-        authorization: {
-          msg: grant.authorization.msg,
-        },
-        expiration: grant.expiration,
-      }))
+    return normalizeAutoSignGrants(allGrants)
   }
 
   return { fetchFeegrant, fetchGrants, fetchAllGrants }

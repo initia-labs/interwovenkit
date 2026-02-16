@@ -308,6 +308,33 @@ describe("findValidGranteeWithFeegrant", () => {
     expect(result?.grantee.grantee).toBe("init1candidateB")
   })
 
+  it("keeps candidate priority even when later candidates resolve faster", async () => {
+    const candidates = [
+      {
+        grantee: "init1candidateA",
+        grants: [{ authorization: { msg: "/initia.move.v1.MsgExecute" } }],
+      },
+      {
+        grantee: "init1candidateB",
+        grants: [{ authorization: { msg: "/initia.move.v1.MsgExecute" } }],
+      },
+    ]
+
+    const result = await findValidGranteeWithFeegrant({
+      chainId: "initia-1",
+      candidates,
+      fetchFeegrant: async (_chainId, grantee) => {
+        if (grantee === "init1candidateA") {
+          await new Promise((resolve) => setTimeout(resolve, 20))
+        }
+        return allowExecFeegrant
+      },
+      concurrency: 2,
+    })
+
+    expect(result?.grantee.grantee).toBe("init1candidateA")
+  })
+
   it("skips expired feegrant and selects candidate with active feegrant", async () => {
     const candidates = [
       {

@@ -79,6 +79,14 @@ export function shouldClearDerivedWalletAfterDisable(params: {
   return isEnabledOnTargetChain === undefined && didBroadcast && !hasExplicitGrantee
 }
 
+export function collectRevokeAuthzMessageTypes(
+  grants: Array<{ authorization: { msg?: string } }>,
+): string[] {
+  return [...new Set(grants.map((grant) => grant.authorization.msg))].filter(
+    (msgType): msgType is string => !!msgType,
+  )
+}
+
 async function invalidateAutoSignQueries(queryClient: QueryClient) {
   const queryKeys = [autoSignQueryKeys.expirations._def, autoSignQueryKeys.grants._def]
   for (const queryKey of queryKeys) {
@@ -89,7 +97,6 @@ async function invalidateAutoSignQueries(queryClient: QueryClient) {
 /* Hook to fetch existing grants and generate revoke messages for a specific grantee */
 function useFetchRevokeMessages() {
   const granter = useInitiaAddress()
-  const messageTypes = useAutoSignMessageTypes()
   const { fetchFeegrant, fetchGrants } = useAutoSignApi()
 
   return async (params: { chainId: string; grantee: string }): Promise<RevokeMessage[]> => {
@@ -111,10 +118,7 @@ function useFetchRevokeMessages() {
         ]
       : []
 
-    const configuredTypes = new Set(messageTypes[chainId] ?? [])
-    const autoSignGrantTypes = [...new Set(grants.map((grant) => grant?.authorization?.msg))]
-      .filter((msgType): msgType is string => !!msgType)
-      .filter((msgType) => configuredTypes.has(msgType))
+    const autoSignGrantTypes = collectRevokeAuthzMessageTypes(grants)
 
     const revokeAuthzMessages = autoSignGrantTypes.map((msgType) => ({
       typeUrl: "/cosmos.authz.v1beta1.MsgRevoke",

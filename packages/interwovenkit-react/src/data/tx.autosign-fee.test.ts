@@ -111,7 +111,6 @@ describe("buildAutoSignSimulationInput", () => {
       encoder: { encode },
     })
 
-    expect(simulation.signerAddress).toBe("init1derivedwallet")
     expect(simulation.messages).toHaveLength(1)
     expect(simulation.messages[0]?.typeUrl).toBe("/cosmos.authz.v1beta1.MsgExec")
 

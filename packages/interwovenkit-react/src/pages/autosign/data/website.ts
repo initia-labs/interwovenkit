@@ -1,16 +1,5 @@
-const GENERIC_SECOND_LEVEL_DOMAINS = new Set(["ac", "co", "com", "edu", "gov", "mil", "net", "org"])
-const SHARED_HOSTING_PUBLIC_SUFFIXES = new Set([
-  "firebaseapp.com",
-  "fly.dev",
-  "github.io",
-  "herokuapp.com",
-  "netlify.app",
-  "pages.dev",
-  "railway.app",
-  "surge.sh",
-  "vercel.app",
-  "web.app",
-])
+// @ts-expect-error psl does not currently export its declaration entry via package "exports".
+import { parse } from "psl"
 
 function isIpv4(hostname: string): boolean {
   const parts = hostname.split(".")
@@ -27,14 +16,10 @@ function isIpHostname(hostname: string): boolean {
   return isIpv4(hostname) || hostname.includes(":")
 }
 
-function isPublicSuffixLike(hostname: string): boolean {
-  if (SHARED_HOSTING_PUBLIC_SUFFIXES.has(hostname)) return true
-
-  const parts = hostname.split(".")
-  if (parts.length !== 2) return false
-
-  const [sld, tld] = parts
-  return tld.length === 2 && GENERIC_SECOND_LEVEL_DOMAINS.has(sld)
+function getRegistrableDomain(hostname: string): string | null {
+  const parsed = parse(hostname)
+  if ("error" in parsed) return null
+  return parsed.domain
 }
 
 function isAllowedRegisteredHost(url: URL): boolean {
@@ -44,9 +29,11 @@ function isAllowedRegisteredHost(url: URL): boolean {
   if (!hostname || !hostname.includes(".")) return false
   if (hostname === "localhost") return false
   if (isIpHostname(hostname)) return false
-  if (isPublicSuffixLike(hostname)) return false
 
-  return true
+  const registrableDomain = getRegistrableDomain(hostname)
+  if (!registrableDomain) return false
+
+  return hostname === registrableDomain || hostname.endsWith(`.${registrableDomain}`)
 }
 
 export function isVerifiedWebsiteHost(registeredWebsite: string, currentHostname: string): boolean {
@@ -58,6 +45,10 @@ export function isVerifiedWebsiteHost(registeredWebsite: string, currentHostname
     const current = currentHostname.toLowerCase()
 
     if (!registeredHostname || !current) return false
+    if (isIpHostname(current) || current === "localhost") return false
+
+    const currentRegistrableDomain = getRegistrableDomain(current)
+    if (!currentRegistrableDomain) return false
 
     return current === registeredHostname || current.endsWith(`.${registeredHostname}`)
   } catch {
