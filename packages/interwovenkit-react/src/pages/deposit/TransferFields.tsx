@@ -18,6 +18,7 @@ import FooterWithTxFee from "./FooterWithTxFee"
 import {
   type TransferMode,
   useAllBalancesQuery,
+  useExternalAssetOptions,
   useExternalTransferAsset,
   useLocalAssetOptions,
   useLocalTransferAsset,
@@ -48,9 +49,36 @@ const TransferFields = ({ mode }: Props) => {
   const { watch, setValue, getValues } = useTransferForm()
   const values = watch()
   const { srcChainId, srcDenom, quantity: rawQuantity = "" } = values
+  const selectedExternalDenom = values[modeConfig.external.denomKey]
+  const selectedExternalChainId = values[modeConfig.external.chainIdKey]
 
   const localAsset = useLocalTransferAsset(mode)
   const externalAsset = useExternalTransferAsset(mode)
+  const { data: externalAssetOptions, isLoading: isExternalAssetOptionsLoading } =
+    useExternalAssetOptions(mode)
+  const hasSingleExternalAssetOption =
+    !isExternalAssetOptionsLoading && externalAssetOptions.length === 1
+  const hasSingleWithdrawChainOption = useMemo(() => {
+    if (mode !== "withdraw" || isExternalAssetOptionsLoading || !externalAssetOptions.length) {
+      return false
+    }
+
+    return new Set(externalAssetOptions.map(({ chain }) => chain.chain_id)).size === 1
+  }, [externalAssetOptions, isExternalAssetOptionsLoading, mode])
+  const autoExternalAssetOption = useMemo(() => {
+    if (isExternalAssetOptionsLoading || !externalAssetOptions.length) return null
+    if (hasSingleExternalAssetOption) return externalAssetOptions[0]
+    if (!hasSingleWithdrawChainOption) return null
+
+    return [...externalAssetOptions].sort(
+      ({ balance: a }, { balance: b }) => Number(b?.value_usd ?? 0) - Number(a?.value_usd ?? 0),
+    )[0]
+  }, [
+    externalAssetOptions,
+    hasSingleExternalAssetOption,
+    hasSingleWithdrawChainOption,
+    isExternalAssetOptionsLoading,
+  ])
   const externalChainId = values[modeConfig.external.chainIdKey]
   const externalChain = externalChainId ? findChain(externalChainId) : null
 
@@ -98,6 +126,28 @@ const TransferFields = ({ mode }: Props) => {
     updateNavigationState()
   }, [routeForState, hexAddress])
 
+  useEffect(() => {
+    if (!autoExternalAssetOption) return
+
+    const { asset, chain } = autoExternalAssetOption
+    const isSelected =
+      selectedExternalDenom === asset.denom && selectedExternalChainId === chain.chain_id
+
+    if (isSelected) return
+
+    setValue(modeConfig.external.denomKey, asset.denom)
+    setValue(modeConfig.external.chainIdKey, chain.chain_id)
+    if (mode === "deposit") setValue("quantity", "")
+  }, [
+    autoExternalAssetOption,
+    mode,
+    modeConfig.external.chainIdKey,
+    modeConfig.external.denomKey,
+    selectedExternalChainId,
+    selectedExternalDenom,
+    setValue,
+  ])
+
   if (!localAsset) return null
   if (mode === "deposit" && !externalAsset) return null
 
@@ -123,6 +173,7 @@ const TransferFields = ({ mode }: Props) => {
       <button
         className={styles.asset}
         onClick={() => {
+          if (hasSingleExternalAssetOption) return
           setValue("page", "select-external")
         }}
       >
@@ -151,7 +202,7 @@ const TransferFields = ({ mode }: Props) => {
             </>
           )}
         </p>
-        <IconChevronDown className={styles.chevron} size={16} />
+        {!hasSingleExternalAssetOption && <IconChevronDown className={styles.chevron} size={16} />}
       </button>
     </>
   )
