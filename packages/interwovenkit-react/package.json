@@ -1,6 +1,6 @@
 {
   "name": "@initia/interwovenkit-react",
-  "version": "2.2.4",
+  "version": "2.2.5",
   "description": "Connect dApps to Initia and Interwoven Rollups",
   "author": "Initia (https://initia.xyz)",
   "repository": "github:initia-labs/interwovenkit",
@@ -102,6 +102,7 @@
     "@cosmjs/tendermint-rpc": "0.36.x",
     "@initia/amino-converter": ">=1.0.0",
     "@initia/icons-react": ">=2.0.0",
+    "@initia/opinit.proto": ">=1.0.3",
     "@initia/utils": "2.0.0",
     "@lukemorales/query-key-factory": ">=1.0.0",
     "@mysten/bcs": "1.8.0",
