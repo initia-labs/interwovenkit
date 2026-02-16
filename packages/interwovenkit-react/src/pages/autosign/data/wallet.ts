@@ -19,7 +19,6 @@ import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
 import { useFindChain } from "@/data/chains"
 import { encodeEthSecp256k1Signature } from "@/data/patches/signature"
-import { useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { deriveWalletFromSignature, getAutoSignMessage, getDerivedWalletKey } from "./derivation"
 import { type DerivedWallet, type DerivedWalletPublic, derivedWalletsAtom } from "./store"
@@ -375,41 +374,4 @@ export async function signWithDerivedWalletWithPrivateKey({
     memo,
     { customSigner: derivedSigner },
   )
-}
-
-/* Sign auto-sign transactions with derived wallet by wrapping messages in MsgExec and delegating fees */
-export function useSignWithDerivedWallet() {
-  const { getWallet, deriveWallet, getWalletPrivateKey } = useDeriveWallet()
-  const registry = useRegistry()
-  const signWithEthSecp256k1 = useSignWithEthSecp256k1()
-
-  return async (
-    chainId: string,
-    granterAddress: string,
-    messages: EncodeObject[],
-    fee: StdFee,
-    memo: string,
-    derivedWalletOverride?: DerivedWalletPublic,
-  ): Promise<TxRaw> => {
-    let derivedWallet = derivedWalletOverride ?? getWallet(chainId)
-    if (!derivedWallet) {
-      derivedWallet = await deriveWallet(chainId)
-    }
-    const privateKey = getWalletPrivateKey(chainId)
-    if (!privateKey) {
-      throw new Error("Derived wallet key not initialized")
-    }
-
-    return await signWithDerivedWalletWithPrivateKey({
-      chainId,
-      granterAddress,
-      messages,
-      fee,
-      memo,
-      derivedWallet,
-      privateKey,
-      encoder: registry,
-      signWithEthSecp256k1,
-    })
-  }
 }
