@@ -1,4 +1,10 @@
 const GENERIC_SECOND_LEVEL_DOMAINS = new Set(["ac", "co", "com", "edu", "gov", "mil", "net", "org"])
+const SHARED_HOSTING_PUBLIC_SUFFIXES = new Set([
+  "github.io",
+  "herokuapp.com",
+  "netlify.app",
+  "vercel.app",
+])
 
 function isIpv4(hostname: string): boolean {
   const parts = hostname.split(".")
@@ -16,6 +22,8 @@ function isIpHostname(hostname: string): boolean {
 }
 
 function isPublicSuffixLike(hostname: string): boolean {
+  if (SHARED_HOSTING_PUBLIC_SUFFIXES.has(hostname)) return true
+
   const parts = hostname.split(".")
   if (parts.length !== 2) return false
 

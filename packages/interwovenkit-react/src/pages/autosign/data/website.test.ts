@@ -24,8 +24,22 @@ describe("isVerifiedWebsiteHost", () => {
     expect(isVerifiedWebsiteHost("https://org.uk", "evil.org.uk")).toBe(false)
   })
 
+  it("returns false when registered host is a shared-hosting public suffix", () => {
+    expect(isVerifiedWebsiteHost("https://github.io", "evil.github.io")).toBe(false)
+    expect(isVerifiedWebsiteHost("https://vercel.app", "evil.vercel.app")).toBe(false)
+    expect(isVerifiedWebsiteHost("https://netlify.app", "evil.netlify.app")).toBe(false)
+    expect(isVerifiedWebsiteHost("https://herokuapp.com", "evil.herokuapp.com")).toBe(false)
+  })
+
   it("returns true for registrable domain under multi-part suffix", () => {
     expect(isVerifiedWebsiteHost("https://app.example.co.uk", "api.app.example.co.uk")).toBe(true)
+  })
+
+  it("returns true for registrable domain under shared-hosting suffix", () => {
+    expect(isVerifiedWebsiteHost("https://my-app.github.io", "my-app.github.io")).toBe(true)
+    expect(isVerifiedWebsiteHost("https://my-app.vercel.app", "my-app.vercel.app")).toBe(true)
+    expect(isVerifiedWebsiteHost("https://my-app.netlify.app", "my-app.netlify.app")).toBe(true)
+    expect(isVerifiedWebsiteHost("https://my-app.herokuapp.com", "my-app.herokuapp.com")).toBe(true)
   })
 
   it("returns false for different domain", () => {
