@@ -211,7 +211,7 @@ function zeroizePrivateKey(privateKey: Uint8Array | undefined) {
   privateKey.fill(0)
 }
 
-function clearAllWalletState(store: WalletStore) {
+export function clearAllWalletState(store: WalletStore) {
   const pendingDerivations: Record<string, PendingDerivationState> =
     store.get(pendingDerivationsAtom)
   for (const { token } of Object.values(pendingDerivations)) {
@@ -225,8 +225,8 @@ function clearAllWalletState(store: WalletStore) {
     zeroizePrivateKey(privateKey)
   }
   store.set(derivedWalletPrivateKeysAtom, {})
-  store.set(cancelledDerivationTokensAtom, {})
-  store.set(derivationSequenceAtom, 0)
+  // Keep cancellation tokens until each in-flight derivation clears its own token in finally.
+  // Clearing this map early can allow cancelled derivations to repopulate key material.
   store.set(derivedWalletsAtom, {})
 }
 

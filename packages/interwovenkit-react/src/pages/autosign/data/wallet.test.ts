@@ -3,8 +3,17 @@ import { Secp256k1 } from "@cosmjs/crypto"
 import { fromBase64, fromHex } from "@cosmjs/encoding"
 import { ethers } from "ethers"
 import { describe, expect, it } from "vitest"
-import type { DerivedWallet } from "./store"
+import { createStore } from "jotai/vanilla"
 import {
+  cancelledDerivationTokensAtom,
+  derivationSequenceAtom,
+  type DerivedWallet,
+  derivedWalletPrivateKeysAtom,
+  derivedWalletsAtom,
+  pendingDerivationsAtom,
+} from "./store"
+import {
+  clearAllWalletState,
   DerivedWalletSigner,
   getExpectedAddressKey,
   readExpectedAddressFromStorage,
@@ -236,6 +245,44 @@ describe("expected address storage", () => {
     expect(() =>
       writeExpectedAddressToStorage(storage, "init1user", "chain-a", "init1grantee"),
     ).not.toThrow()
+  })
+})
+
+describe("clearAllWalletState", () => {
+  it("preserves cancellation marks for in-flight derivations", async () => {
+    const store = createStore()
+    const privateKey = fromHex("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+    const walletKey = "wallet-key"
+    const token = "wallet-key:9"
+
+    const pendingPromise = Promise.resolve({
+      address: "init1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqgkcpfs",
+      publicKey: new Uint8Array([1, 2, 3]),
+    })
+
+    store.set(pendingDerivationsAtom, {
+      [walletKey]: {
+        promise: pendingPromise,
+        token,
+      },
+    })
+    store.set(derivedWalletPrivateKeysAtom, { [walletKey]: privateKey })
+    store.set(derivedWalletsAtom, {
+      [walletKey]: {
+        address: "init1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqgkcpfs",
+        publicKey: new Uint8Array([4, 5, 6]),
+      },
+    })
+    store.set(derivationSequenceAtom, 9)
+
+    clearAllWalletState(store)
+
+    expect(store.get(pendingDerivationsAtom)).toEqual({})
+    expect(store.get(cancelledDerivationTokensAtom)).toEqual({ [token]: true })
+    expect(store.get(derivedWalletPrivateKeysAtom)).toEqual({})
+    expect(store.get(derivedWalletsAtom)).toEqual({})
+    expect(Array.from(privateKey)).toEqual(new Array(32).fill(0))
+    expect(store.get(derivationSequenceAtom)).toBe(9)
   })
 })
 
