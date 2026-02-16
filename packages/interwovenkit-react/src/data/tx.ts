@@ -32,6 +32,7 @@ import { useConfig } from "./config"
 import { formatMoveError } from "./errors"
 import { fetchGasPrices } from "./fee"
 import {
+  resolveSignerAccountSequence,
   useCreateComet38Client,
   useCreateSigningStargateClient,
   useOfflineSigner,
@@ -418,19 +419,12 @@ export function useSignTxWithAutoSignFee() {
     const anyMessages = simulationInput.messages.map((msg) => registry.encodeAsAny(msg))
     const pubkey = encodePubkeyInitia(encodeEthSecp256k1Pubkey(derivedWallet.publicKey))
 
-    let sequence = 0
-    try {
-      const accountSequence = await client.getSequence(derivedWallet.address)
-      sequence = accountSequence.sequence
-    } catch (error) {
-      if (
-        !(error instanceof Error) ||
-        !/does not exist on chain/i.test(error.message) ||
-        !error.message.includes(derivedWallet.address)
-      ) {
-        throw error
-      }
-    }
+    const { sequence } = await resolveSignerAccountSequence({
+      getSequence: (address) => client.getSequence(address),
+      signerAddress: derivedWallet.address,
+      incrementSequence: 0,
+      allowMissingAccount: true,
+    })
 
     const cometClient = await createComet38Client(chainId)
     const queryClient = QueryClient.withExtensions(cometClient, setupTxExtension)
