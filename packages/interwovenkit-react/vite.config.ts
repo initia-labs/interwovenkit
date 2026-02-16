@@ -1,10 +1,11 @@
 /* eslint-disable no-console */
+import react from "@vitejs/plugin-react-swc"
 import fs from "fs"
 import path from "path"
 import type { Plugin } from "vite"
 import { defineConfig } from "vite"
-import react from "@vitejs/plugin-react-swc"
 import dts from "vite-plugin-dts"
+import pkg from "./package.json"
 
 function emitCssAsJsString(): Plugin {
   return {
@@ -50,6 +51,9 @@ function appendJsExtension(): Plugin {
 
 export default defineConfig(({ mode }) => {
   return {
+    define: {
+      __INTERWOVENKIT_VERSION__: JSON.stringify(pkg.version),
+    },
     plugins: [
       dts({ rollupTypes: mode !== "fast" }),
       react(),

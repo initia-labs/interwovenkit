@@ -23,5 +23,12 @@ export const skipQueryKeys = createQueryKeys("interwovenkit:skip", {
 
 export function useSkip() {
   const { routerApiUrl } = useConfig()
-  return useMemo(() => ky.create({ prefixUrl: routerApiUrl }), [routerApiUrl])
+  return useMemo(
+    () =>
+      ky.create({
+        prefixUrl: routerApiUrl,
+        headers: { "InterwovenKit-Version": __INTERWOVENKIT_VERSION__ },
+      }),
+    [routerApiUrl],
+  )
 }

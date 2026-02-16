@@ -6,5 +6,6 @@
       "@initia/interwovenkit-react": ["../../packages/interwovenkit-react/src"],
       "@/*": ["../../packages/interwovenkit-react/src/*"]
     }
-  }
+  },
+  "include": ["src", "../../packages/interwovenkit-react/env.d.ts"]
 }
