@@ -5,7 +5,6 @@ import { accountQueryKeys, useUsernameClient } from "@/data/account"
 import { useDefaultChain } from "@/data/chains"
 import { useOpenDeposit, useOpenWithdraw } from "@/data/deposit"
 import { STALE_TIMES } from "@/data/http"
-import { useIsPrivyConnected } from "@/data/privy"
 import { useOfflineSigner } from "@/data/signer"
 import { useTx } from "@/data/tx"
 import { useDisconnect, useDrawer, useModal } from "@/data/ui"
@@ -22,9 +21,7 @@ export function useInitiaAddress() {
 
 export function useHexAddress() {
   const { address } = useAccount()
-  const isPrivyConnected = useIsPrivyConnected()
-  // address undefined if privy is needed but not yet connected
-  if (!address || !isPrivyConnected) return ""
+  if (!address) return ""
   return InitiaAddress(address).hex
 }
 

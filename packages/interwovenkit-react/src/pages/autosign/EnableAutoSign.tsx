@@ -17,6 +17,7 @@ import { useInterwovenKit } from "@/public/data/hooks"
 import { useEnableAutoSign } from "./data/actions"
 import { DEFAULT_DURATION, DURATION_OPTIONS } from "./data/constants"
 import { pendingAutoSignRequestAtom } from "./data/store"
+import { isVerifiedWebsiteHost } from "./data/website"
 import styles from "./EnableAutoSign.module.css"
 
 const accountQueries = createQueryKeys("interwovenkit:account", {
@@ -55,13 +56,13 @@ const EnableAutoSignComponent = () => {
     hostname: window.location.hostname,
   }
 
-  // Check if website is verified in Initia Registry
-  const isVerified = chains.some((chain) => {
-    if (!chain.website) return false
-    const registryDomain = getBaseDomain(new URL(chain.website).hostname)
-    const websiteDomain = getBaseDomain(window.location.hostname)
-    return registryDomain === websiteDomain
-  })
+  // Check if website is verified in Initia Registry for the requested chain only
+  const targetChain = chains.find((chain) => chain.chainId === pendingRequest.chainId)
+  const isVerified = (() => {
+    if (!targetChain?.website) return false
+
+    return isVerifiedWebsiteHost(targetChain.website, window.location.hostname)
+  })()
 
   const handleEnable = () => {
     mutate(duration)
@@ -128,7 +129,7 @@ const EnableAutoSignComponent = () => {
           <ul className={styles.featureList}>
             {[
               "Send transactions without confirmation pop-ups",
-              "Protected by Privy embedded wallet",
+              "Secured by your wallet signature",
               "Revoke permissions any time in settings",
             ].map((item) => (
               <li key={item} className={styles.featureItem}>
@@ -140,6 +141,7 @@ const EnableAutoSignComponent = () => {
           <a
             href="https://docs.initia.xyz/user-guides/wallet/auto-signing/introduction"
             target="_blank"
+            rel="noopener noreferrer"
             className={styles.learnMoreLink}
           >
             Learn more <IconExternalLink size={12} />
@@ -188,12 +190,3 @@ const EnableAutoSign = () => {
 }
 
 export default EnableAutoSign
-
-/**
- * Extract base domain from hostname (e.g., subdomain.example.com -> example.com)
- */
-function getBaseDomain(hostname: string): string {
-  const parts = hostname.split(".")
-  if (parts.length < 2) return hostname
-  return parts.slice(-2).join(".")
-}
