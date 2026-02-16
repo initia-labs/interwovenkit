@@ -1,5 +1,5 @@
 import BigNumber from "bignumber.js"
-import { useEffect, useEffectEvent, useMemo } from "react"
+import { useEffect, useEffectEvent, useMemo, useRef } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
 import { formatAmount, fromBaseUnit, InitiaAddress } from "@initia/utils"
@@ -79,6 +79,8 @@ const TransferFields = ({ mode }: Props) => {
     hasSingleWithdrawChainOption,
     isExternalAssetOptionsLoading,
   ])
+  const autoFillKey = `${mode}:${localAsset?.chain_id ?? ""}:${localAsset?.denom ?? ""}`
+  const lastAutoFillKeyRef = useRef<string | null>(null)
   const externalChainId = values[modeConfig.external.chainIdKey]
   const externalChain = externalChainId ? findChain(externalChainId) : null
 
@@ -128,17 +130,17 @@ const TransferFields = ({ mode }: Props) => {
 
   useEffect(() => {
     if (!autoExternalAssetOption) return
+    if (selectedExternalDenom && selectedExternalChainId) return
+    if (lastAutoFillKeyRef.current === autoFillKey) return
 
     const { asset, chain } = autoExternalAssetOption
-    const isSelected =
-      selectedExternalDenom === asset.denom && selectedExternalChainId === chain.chain_id
-
-    if (isSelected) return
 
     setValue(modeConfig.external.denomKey, asset.denom)
     setValue(modeConfig.external.chainIdKey, chain.chain_id)
     if (mode === "deposit") setValue("quantity", "")
+    lastAutoFillKeyRef.current = autoFillKey
   }, [
+    autoFillKey,
     autoExternalAssetOption,
     mode,
     modeConfig.external.chainIdKey,
