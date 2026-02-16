@@ -1,21 +1,32 @@
 import { encodeSecp256k1Pubkey } from "@cosmjs/amino"
 import type { EncodeObject } from "@cosmjs/proto-signing"
 import type { DeliverTxResponse, SigningStargateClient, StdFee } from "@cosmjs/stargate"
-import { calculateFee, GasPrice, QueryClient, setupTxExtension } from "@cosmjs/stargate"
+import {
+  calculateFee,
+  createProtobufRpcClient,
+  GasPrice,
+  QueryClient,
+  setupTxExtension,
+} from "@cosmjs/stargate"
 import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
-import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
+import { SignMode } from "cosmjs-types/cosmos/tx/signing/v1beta1/signing"
+import { ServiceClientImpl, SimulateRequest } from "cosmjs-types/cosmos/tx/v1beta1/service"
+import { AuthInfo, Fee, Tx, TxBody, TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
+import type { Any } from "cosmjs-types/google/protobuf/any"
 import { atom, useAtomValue, useSetAtom } from "jotai"
 import { useNavigate } from "@/lib/router"
 import type { DerivedWalletPublic } from "@/pages/autosign/data/store"
 import { useValidateAutoSign } from "@/pages/autosign/data/validation"
 import {
   buildAuthzExecMessages,
+  signWithDerivedWalletWithPrivateKey,
   useDeriveWallet,
-  useSignWithDerivedWallet,
 } from "@/pages/autosign/data/wallet"
 import { useModal } from "@/public/app/ModalContext"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useInitiaAddress } from "@/public/data/hooks"
+import { encodeEthSecp256k1Pubkey } from "./patches/encoding"
+import { encodePubkeyInitia } from "./patches/pubkeys"
 import { useFindChain } from "./chains"
 import { useConfig } from "./config"
 import { formatMoveError } from "./errors"
@@ -243,6 +254,47 @@ function isUserRejectedRequestError(error: unknown): boolean {
   )
 }
 
+async function simulateWithCustomPubkey({
+  queryClient,
+  messages,
+  memo,
+  pubkey,
+  sequence,
+}: {
+  queryClient: QueryClient
+  messages: readonly Any[]
+  memo?: string
+  pubkey: Any
+  sequence: number
+}) {
+  const rpcClient = createProtobufRpcClient(queryClient)
+  const queryService = new ServiceClientImpl(rpcClient)
+
+  const tx = Tx.fromPartial({
+    authInfo: AuthInfo.fromPartial({
+      fee: Fee.fromPartial({}),
+      signerInfos: [
+        {
+          publicKey: pubkey,
+          sequence: BigInt(sequence),
+          modeInfo: { single: { mode: SignMode.SIGN_MODE_UNSPECIFIED } },
+        },
+      ],
+    }),
+    body: TxBody.fromPartial({
+      messages: Array.from(messages),
+      memo,
+    }),
+    signatures: [new Uint8Array()],
+  })
+
+  return await queryService.Simulate(
+    SimulateRequest.fromPartial({
+      txBytes: Tx.encode(tx).finish(),
+    }),
+  )
+}
+
 export async function signTxWithAutoSignFeeWithDeps(
   {
     address,
@@ -324,8 +376,7 @@ export function useSignTxWithAutoSignFee() {
   const createSigningStargateClient = useCreateSigningStargateClient()
   const registry = useRegistry()
   const validateAutoSign = useValidateAutoSign()
-  const { getWallet, deriveWallet } = useDeriveWallet()
-  const signWithDerivedWallet = useSignWithDerivedWallet()
+  const { getWallet, deriveWallet, getWalletPrivateKey } = useDeriveWallet()
   const signWithEthSecp256k1 = useSignWithEthSecp256k1()
 
   const getAutoSignFeePolicy = (chainId: string): ResolvedAutoSignFeePolicy => {
@@ -367,7 +418,7 @@ export function useSignTxWithAutoSignFee() {
       encoder: registry,
     })
     const anyMessages = simulationInput.messages.map((msg) => registry.encodeAsAny(msg))
-    const pubkey = encodeSecp256k1Pubkey(derivedWallet.publicKey)
+    const pubkey = encodePubkeyInitia(encodeEthSecp256k1Pubkey(derivedWallet.publicKey))
 
     let sequence = 0
     try {
@@ -385,7 +436,13 @@ export function useSignTxWithAutoSignFee() {
 
     const cometClient = await createComet38Client(chainId)
     const queryClient = QueryClient.withExtensions(cometClient, setupTxExtension)
-    const { gasInfo } = await queryClient.tx.simulate(anyMessages, memo, pubkey, sequence)
+    const { gasInfo } = await simulateWithCustomPubkey({
+      queryClient,
+      messages: anyMessages,
+      memo,
+      pubkey,
+      sequence,
+    })
     const simulatedGas = gasInfo ? Number(gasInfo.gasUsed.toString()) : 0
     const policy = getAutoSignFeePolicy(chainId)
 
@@ -395,6 +452,37 @@ export function useSignTxWithAutoSignFee() {
       preferredFeeDenom,
       fallbackFeeDenom,
       policy,
+    })
+  }
+
+  const signWithDerivedWallet: SignTxWithAutoSignFeeDeps["signWithDerivedWallet"] = async (
+    chainId,
+    granterAddress,
+    messages,
+    fee,
+    memo,
+    derivedWalletOverride,
+  ) => {
+    let derivedWallet = derivedWalletOverride ?? getWallet(chainId)
+    if (!derivedWallet) {
+      derivedWallet = await deriveWallet(chainId)
+    }
+
+    const privateKey = getWalletPrivateKey(chainId)
+    if (!privateKey) {
+      throw new Error("Derived wallet key not initialized")
+    }
+
+    return await signWithDerivedWalletWithPrivateKey({
+      chainId,
+      granterAddress,
+      messages,
+      fee,
+      memo,
+      derivedWallet,
+      privateKey,
+      encoder: registry,
+      signWithEthSecp256k1,
     })
   }
 

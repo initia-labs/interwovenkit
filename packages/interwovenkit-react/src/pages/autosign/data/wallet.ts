@@ -48,6 +48,17 @@ interface MessageEncoder {
   encode: (message: EncodeObject) => Uint8Array
 }
 
+interface SignWithEthSecp256k1Fn {
+  (
+    chainId: string,
+    signerAddress: string,
+    messages: EncodeObject[],
+    fee: StdFee,
+    memo: string,
+    options?: { incrementSequence?: number; customSigner?: OfflineAminoSigner },
+  ): Promise<TxRaw>
+}
+
 /* Expected address storage for wallet migration detection.
  * Stores the derived wallet address in localStorage per chain to detect when on-chain
  * grants were created by a different derivation method (e.g., previous Privy-based system).
@@ -322,6 +333,50 @@ export function buildAuthzExecMessages({
   ]
 }
 
+export async function signWithDerivedWalletWithPrivateKey({
+  chainId,
+  granterAddress,
+  messages,
+  fee,
+  memo,
+  derivedWallet,
+  privateKey,
+  encoder,
+  signWithEthSecp256k1,
+}: {
+  chainId: string
+  granterAddress: string
+  messages: EncodeObject[]
+  fee: StdFee
+  memo: string
+  derivedWallet: DerivedWalletPublic
+  privateKey: Uint8Array
+  encoder: MessageEncoder
+  signWithEthSecp256k1: SignWithEthSecp256k1Fn
+}): Promise<TxRaw> {
+  const authzExecuteMessage = buildAuthzExecMessages({
+    granteeAddress: derivedWallet.address,
+    messages,
+    encoder,
+  })
+
+  const delegatedFee: StdFee = {
+    ...fee,
+    granter: granterAddress,
+  }
+
+  const derivedSigner = new DerivedWalletSigner(derivedWallet, privateKey)
+
+  return await signWithEthSecp256k1(
+    chainId,
+    derivedWallet.address,
+    authzExecuteMessage,
+    delegatedFee,
+    memo,
+    { customSigner: derivedSigner },
+  )
+}
+
 /* Sign auto-sign transactions with derived wallet by wrapping messages in MsgExec and delegating fees */
 export function useSignWithDerivedWallet() {
   const { getWallet, deriveWallet, getWalletPrivateKey } = useDeriveWallet()
@@ -345,26 +400,16 @@ export function useSignWithDerivedWallet() {
       throw new Error("Derived wallet key not initialized")
     }
 
-    const authzExecuteMessage = buildAuthzExecMessages({
-      granteeAddress: derivedWallet.address,
-      messages,
-      encoder: registry,
-    })
-
-    const delegatedFee: StdFee = {
-      ...fee,
-      granter: granterAddress,
-    }
-
-    const derivedSigner = new DerivedWalletSigner(derivedWallet, privateKey)
-
-    return await signWithEthSecp256k1(
+    return await signWithDerivedWalletWithPrivateKey({
       chainId,
-      derivedWallet.address,
-      authzExecuteMessage,
-      delegatedFee,
+      granterAddress,
+      messages,
+      fee,
       memo,
-      { customSigner: derivedSigner },
-    )
+      derivedWallet,
+      privateKey,
+      encoder: registry,
+      signWithEthSecp256k1,
+    })
   }
 }
