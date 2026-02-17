@@ -24,9 +24,9 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
-  const addressListKey = JSON.stringify(addressList)
-  const operationsKey = JSON.stringify(route.operations)
-  const signedOpHookKey = JSON.stringify(signedOpHook ?? null)
+  const addressListKey = useMemo(() => JSON.stringify(addressList), [addressList])
+  const operationsKey = useMemo(() => JSON.stringify(route.operations), [route.operations])
+  const signedOpHookKey = useMemo(() => JSON.stringify(signedOpHook ?? null), [signedOpHook])
 
   const params = useMemo(
     () => ({
