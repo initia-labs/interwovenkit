@@ -57,6 +57,7 @@ const BridgeFields = () => {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const [previewRefreshError, setPreviewRefreshError] = useState<string | undefined>(undefined)
+  const [previewRefreshing, setPreviewRefreshing] = useState(false)
 
   const [selectedType, setSelectedType] = useLocalStorage<RouteType>(
     LocalStorageKey.BRIDGE_ROUTE_TYPE,
@@ -109,7 +110,7 @@ const BridgeFields = () => {
   const { data: route, isLoading, isFetching, error } = routeQuery
   const { data: routeErrorInfo } = useRouteErrorInfo(error)
 
-  const isSimulating = debouncedQuantity && (isLoading || isFetching)
+  const isSimulating = debouncedQuantity && (isLoading || isFetching) && !previewRefreshing
 
   const flip = () => {
     setValue("srcChainId", dstChainId)
@@ -124,18 +125,23 @@ const BridgeFields = () => {
   const { openModal, closeModal } = useModal()
   const submit = handleSubmit(async (values: FormValues) => {
     setPreviewRefreshError(undefined)
-    const {
-      data: latestRoute,
-      dataUpdatedAt: quoteVerifiedAt,
-      error: refreshError,
-    } = await routeQuery.refetch()
-    if (refreshError || !latestRoute || !quoteVerifiedAt) {
-      setPreviewRefreshError(
-        refreshError instanceof Error
-          ? refreshError.message
-          : "Failed to refresh route. Please try again.",
-      )
-      return
+    setPreviewRefreshing(true)
+    let latestRoute: typeof route
+    let quoteVerifiedAt: number
+    try {
+      const result = await routeQuery.refetch()
+      if (result.error || !result.data || !result.dataUpdatedAt) {
+        setPreviewRefreshError(
+          result.error instanceof Error
+            ? result.error.message
+            : "Failed to refresh route. Please try again.",
+        )
+        return
+      }
+      latestRoute = result.data
+      quoteVerifiedAt = result.dataUpdatedAt
+    } finally {
+      setPreviewRefreshing(false)
     }
 
     if (latestRoute.warning) {
@@ -405,7 +411,10 @@ const BridgeFields = () => {
           </>
         }
       >
-        <Button.White loading={isSimulating && "Simulating..."} disabled={!!disabledMessage}>
+        <Button.White
+          loading={previewRefreshing ? "Refreshing route..." : isSimulating && "Simulating..."}
+          disabled={!!disabledMessage || previewRefreshing}
+        >
           {disabledMessage ?? "Preview route"}
         </Button.White>
       </Footer>

@@ -1,6 +1,7 @@
 import type { OperationJson, RouteResponseJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
 import { HTTPError } from "ky"
+import type { QueryClient } from "@tanstack/react-query"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toBaseUnit } from "@initia/utils"
 import { useAnalyticsTrack } from "@/data/analytics"
@@ -16,6 +17,38 @@ export interface RouterRouteResponseJson extends RouteResponseJson {
   required_op_hook?: boolean
   extra_infos?: string[]
   extra_warnings?: string[]
+}
+
+export function fetchRoute(
+  skip: ReturnType<typeof useSkip>,
+  queryClient: QueryClient,
+  values: {
+    srcChainId: string
+    srcDenom: string
+    dstChainId: string
+    dstDenom: string
+    quantity: string
+  },
+  options?: { isOpWithdraw?: boolean; signal?: AbortSignal },
+) {
+  const { srcChainId, srcDenom, quantity, dstChainId, dstDenom } = values
+  const { decimals: srcDecimals } = queryClient.getQueryData<RouterAsset>(
+    skipQueryKeys.asset(srcChainId, srcDenom).queryKey,
+  ) ?? { decimals: 0 }
+
+  return skip
+    .post("v2/fungible/route", {
+      signal: options?.signal,
+      json: {
+        amount_in: toBaseUnit(quantity, { decimals: srcDecimals }),
+        source_asset_chain_id: srcChainId,
+        source_asset_denom: srcDenom,
+        dest_asset_chain_id: dstChainId,
+        dest_asset_denom: dstDenom,
+        is_op_withdraw: options?.isOpWithdraw,
+      },
+    })
+    .json<RouterRouteResponseJson>()
 }
 
 export function useRouteQuery(
@@ -37,38 +70,22 @@ export function useRouteQuery(
 
   const queryClient = useQueryClient()
   return useQuery({
+    // eslint-disable-next-line @tanstack/query/exhaustive-deps -- skip and queryClient are stable refs
     queryKey: skipQueryKeys.route(debouncedValues, opWithdrawal?.isOpWithdraw).queryKey,
     queryFn: async () => {
       // This query may produce specific errors that need separate handling.
       // Therefore, we do not use try-catch or normalizeError here.
+      const response = await fetchRoute(skip, queryClient, debouncedValues, {
+        isOpWithdraw: opWithdrawal?.isOpWithdraw,
+      })
 
-      const { srcChainId, srcDenom, quantity, dstChainId, dstDenom } = debouncedValues
-
-      const { decimals: srcDecimals } = queryClient.getQueryData<RouterAsset>(
-        skipQueryKeys.asset(srcChainId, srcDenom).queryKey,
-      ) ?? { decimals: 0 }
-
-      const params = {
-        amount_in: toBaseUnit(quantity, { decimals: srcDecimals }),
-        source_asset_chain_id: srcChainId,
-        source_asset_denom: srcDenom,
-        dest_asset_chain_id: dstChainId,
-        dest_asset_denom: dstDenom,
-        is_op_withdraw: opWithdrawal?.isOpWithdraw,
-      }
-
-      const response = await skip
-        .post("v2/fungible/route", { json: params })
-        .json<RouterRouteResponseJson>()
-
-      const trackParams = {
+      track("Bridge Simulation Success", {
         quantity: debouncedValues.quantity,
         srcChainId: debouncedValues.srcChainId,
         srcDenom: debouncedValues.srcDenom,
         dstChainId: debouncedValues.dstChainId,
         dstDenom: debouncedValues.dstDenom,
-      }
-      track("Bridge Simulation Success", trackParams)
+      })
 
       return response
     },

@@ -85,6 +85,10 @@ const TransferFields = ({ mode }: Props) => {
   })
 
   const routeForState = !routeError && !disabledMessage ? route : undefined
+  // Derive quoteVerifiedAt only when a valid route exists.
+  // Not added to useEffect deps because dataUpdatedAt changes on every refetch
+  // even when data is identical, which would cause unnecessary navigate(0, ...) calls.
+  // useEffectEvent captures the latest value without being a dependency.
   const quoteVerifiedAt = routeForState && routeUpdatedAt > 0 ? routeUpdatedAt : undefined
 
   const updateNavigationState = useEffectEvent(() => {
@@ -103,7 +107,7 @@ const TransferFields = ({ mode }: Props) => {
 
   useEffect(() => {
     updateNavigationState()
-  }, [routeForState, quoteVerifiedAt, hexAddress])
+  }, [routeForState, hexAddress])
 
   if (!localAsset) return null
   if (mode === "deposit" && !externalAsset) return null

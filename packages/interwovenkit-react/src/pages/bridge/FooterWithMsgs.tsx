@@ -23,49 +23,41 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
-  const addressListKey = useMemo(() => JSON.stringify(addressList), [addressList])
-  const operationsKey = useMemo(() => JSON.stringify(route.operations), [route.operations])
-  const signedOpHookKey = useMemo(() => JSON.stringify(signedOpHook ?? null), [signedOpHook])
+  // Stabilize reference-type deps to avoid unnecessary refetches
+  // when the containing arrays/objects are recreated with identical content
+  const addressListKey = JSON.stringify(addressList)
+  const operationsKey = JSON.stringify(route.operations)
+  const signedOpHookKey = JSON.stringify(signedOpHook ?? null)
 
-  // Depend on canonical serialized keys so reference-only changes with identical
-  // content do not retrigger message fetch parameter recomputation.
-  /* eslint-disable react-hooks/exhaustive-deps */
-  const params = useMemo(() => {
-    return {
-      address_list: addressList,
-      amount_in: route.amount_in,
-      amount_out: route.amount_out,
-      source_asset_chain_id: route.source_asset_chain_id,
-      source_asset_denom: route.source_asset_denom,
-      dest_asset_chain_id: route.dest_asset_chain_id,
-      dest_asset_denom: route.dest_asset_denom,
-      slippage_tolerance_percent: values.slippagePercent,
-      operations: route.operations,
-      signed_op_hook: signedOpHook ?? undefined,
-    }
-  }, [
-    addressListKey,
-    operationsKey,
-    signedOpHookKey,
-    route.amount_in,
-    route.amount_out,
-    route.source_asset_chain_id,
-    route.source_asset_denom,
-    route.dest_asset_chain_id,
-    route.dest_asset_denom,
-    values.slippagePercent,
-  ])
-  /* eslint-enable react-hooks/exhaustive-deps */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableAddressList = useMemo(() => addressList, [addressListKey])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableOperations = useMemo(() => route.operations, [operationsKey])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableSignedOpHook = useMemo(() => signedOpHook, [signedOpHookKey])
 
   useEffect(() => {
     const fetchMessages = async () => {
       try {
-        if (route.required_op_hook && !params.signed_op_hook) {
+        if (route.required_op_hook && !stableSignedOpHook) {
           throw new Error("Op hook is required")
         }
 
         setLoading(true)
         setError(null)
+
+        const params = {
+          address_list: stableAddressList,
+          amount_in: route.amount_in,
+          amount_out: route.amount_out,
+          source_asset_chain_id: route.source_asset_chain_id,
+          source_asset_denom: route.source_asset_denom,
+          dest_asset_chain_id: route.dest_asset_chain_id,
+          dest_asset_denom: route.dest_asset_denom,
+          slippage_tolerance_percent: values.slippagePercent,
+          operations: stableOperations,
+          signed_op_hook: stableSignedOpHook,
+        }
 
         const { txs } = await skip
           .post("v2/fungible/msgs", { json: params })
@@ -81,7 +73,20 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
     }
 
     fetchMessages()
-  }, [params, route.required_op_hook, skip])
+  }, [
+    stableAddressList,
+    stableOperations,
+    stableSignedOpHook,
+    route.amount_in,
+    route.amount_out,
+    route.source_asset_chain_id,
+    route.source_asset_denom,
+    route.dest_asset_chain_id,
+    route.dest_asset_denom,
+    route.required_op_hook,
+    values.slippagePercent,
+    skip,
+  ])
 
   if (error) {
     return <FooterWithError error={error} />
