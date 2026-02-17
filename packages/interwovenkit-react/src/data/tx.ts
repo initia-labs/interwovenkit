@@ -336,10 +336,9 @@ export async function signTxWithAutoSignFeeWithDeps(
     return signManually()
   }
 
-  const signingClient = client ?? (await deps.getSigningClient(chainId))
-
   let signingFee: StdFee
   try {
+    const signingClient = client ?? (await deps.getSigningClient(chainId))
     signingFee = await deps.computeAutoSignFee({
       chainId,
       messages,

@@ -137,6 +137,7 @@ const TxRequest = () => {
           onClick={() => reject(new Error("User rejected"))}
           disabled={isPending}
           className={styles.rejectButton}
+          aria-label="Reject"
         >
           <IconClose size={16} />
         </Button.Outline>
