@@ -7,7 +7,6 @@ import { ethers } from "ethers"
 import { describe, expect, it } from "vitest"
 import { createStore } from "jotai/vanilla"
 import {
-  cancelledDerivationTokensAtom,
   derivationSequenceAtom,
   type DerivedWallet,
   derivedWalletPrivateKeysAtom,
@@ -316,11 +315,10 @@ describe("expected address storage", () => {
 })
 
 describe("clearAllWalletState", () => {
-  it("preserves cancellation marks for in-flight derivations", async () => {
+  it("clears pending derivations and zeroizes cached key material", async () => {
     const store = createStore()
     const privateKey = fromHex("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
     const walletKey = "wallet-key"
-    const token = "wallet-key:9"
 
     const pendingPromise = Promise.resolve({
       address: "init1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqgkcpfs",
@@ -330,7 +328,7 @@ describe("clearAllWalletState", () => {
     store.set(pendingDerivationsAtom, {
       [walletKey]: {
         promise: pendingPromise,
-        token,
+        token: "wallet-key:9",
       },
     })
     store.set(derivedWalletPrivateKeysAtom, { [walletKey]: privateKey })
@@ -345,7 +343,6 @@ describe("clearAllWalletState", () => {
     clearAllWalletState(store)
 
     expect(store.get(pendingDerivationsAtom)).toEqual({})
-    expect(store.get(cancelledDerivationTokensAtom)).toEqual({ [token]: true })
     expect(store.get(derivedWalletPrivateKeysAtom)).toEqual({})
     expect(store.get(derivedWalletsAtom)).toEqual({})
     expect(Array.from(privateKey)).toEqual(new Array(32).fill(0))

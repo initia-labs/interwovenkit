@@ -407,14 +407,14 @@ describe("resolveAutoSignEnabledForChain", () => {
     expect(result).toBe(true)
   })
 
-  it("returns true for permanent grant when expected address key is missing", () => {
+  it("returns false for permanent grant when expected address key is missing", () => {
     const result = resolveAutoSignEnabledForChain({
       expiration: undefined,
       grantee: "init1grantee",
       expectedAddress: null,
     })
 
-    expect(result).toBe(true)
+    expect(result).toBe(false)
   })
 
   it("returns false for permanent grant when addresses do not match", () => {

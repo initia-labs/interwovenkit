@@ -30,5 +30,4 @@ export interface PendingDerivationState {
 /* Memory-only key material and derivation control state. */
 export const derivedWalletPrivateKeysAtom = atom<Record<string, Uint8Array>>({})
 export const pendingDerivationsAtom = atom<Record<string, PendingDerivationState>>({})
-export const cancelledDerivationTokensAtom = atom<Record<string, true>>({})
 export const derivationSequenceAtom = atom(0)

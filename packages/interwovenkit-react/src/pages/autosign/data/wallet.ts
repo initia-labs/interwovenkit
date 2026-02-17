@@ -22,7 +22,6 @@ import { encodeEthSecp256k1Signature } from "@/data/patches/signature"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { deriveWalletFromSignature, getAutoSignMessage, getDerivedWalletKey } from "./derivation"
 import {
-  cancelledDerivationTokensAtom,
   derivationSequenceAtom,
   type DerivedWallet,
   derivedWalletPrivateKeysAtom,
@@ -93,23 +92,9 @@ function clearPendingDerivationIfMatching(store: WalletStore, key: string, token
   clearPendingDerivation(store, key)
 }
 
-function isDerivationCancelled(store: WalletStore, token: string): boolean {
-  return !!store.get(cancelledDerivationTokensAtom)[token]
-}
-
-function markDerivationCancelled(store: WalletStore, token: string) {
-  store.set(cancelledDerivationTokensAtom, (prev: Record<string, true>) => ({
-    ...prev,
-    [token]: true,
-  }))
-}
-
-function clearDerivationCancelledToken(store: WalletStore, token: string) {
-  store.set(cancelledDerivationTokensAtom, (prev: Record<string, true>) => {
-    const next = { ...prev }
-    delete next[token]
-    return next
-  })
+function shouldPersistDerivedWallet(store: WalletStore, key: string, token: string): boolean {
+  const pending = getPendingDerivation(store, key)
+  return !!pending && pending.token === token
 }
 
 function getWalletPrivateKeyByKey(store: WalletStore, key: string): Uint8Array | undefined {
@@ -212,12 +197,6 @@ function zeroizePrivateKey(privateKey: Uint8Array | undefined) {
 }
 
 export function clearAllWalletState(store: WalletStore) {
-  const pendingDerivations: Record<string, PendingDerivationState> =
-    store.get(pendingDerivationsAtom)
-  for (const { token } of Object.values(pendingDerivations)) {
-    markDerivationCancelled(store, token)
-  }
-
   store.set(pendingDerivationsAtom, {})
 
   const privateKeys: Record<string, Uint8Array> = store.get(derivedWalletPrivateKeysAtom)
@@ -225,8 +204,6 @@ export function clearAllWalletState(store: WalletStore) {
     zeroizePrivateKey(privateKey)
   }
   store.set(derivedWalletPrivateKeysAtom, {})
-  // Keep cancellation tokens until each in-flight derivation clears its own token in finally.
-  // Clearing this map early can allow cancelled derivations to repopulate key material.
   store.set(derivedWalletsAtom, {})
 }
 
@@ -328,7 +305,7 @@ export function useDeriveWallet() {
         const wallet = await deriveWalletFromSignature(signature as Hex, chain.bech32_prefix)
         const publicWallet = toPublicWallet(wallet)
 
-        if (!isDerivationCancelled(store, token)) {
+        if (shouldPersistDerivedWallet(store, key, token)) {
           setWalletPrivateKeyByKey(store, key, wallet.privateKey)
           setDerivedWalletByKey(store, key, publicWallet)
           return publicWallet
@@ -338,7 +315,6 @@ export function useDeriveWallet() {
         throw new Error("Wallet derivation was cancelled")
       } finally {
         clearPendingDerivationIfMatching(store, key, token)
-        clearDerivationCancelledToken(store, token)
       }
     })()
 
@@ -370,7 +346,6 @@ export function useDeriveWallet() {
 
     const pendingDerivation = getPendingDerivation(store, key)
     if (pendingDerivation) {
-      markDerivationCancelled(store, pendingDerivation.token)
       clearPendingDerivation(store, key)
     }
 

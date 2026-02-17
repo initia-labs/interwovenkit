@@ -106,9 +106,12 @@ export function useAutoSignStatus() {
 
           try {
             const allGrants = await fetchAllGrants(chainId)
-            const grantsToCheck = expectedAddress
-              ? allGrants.filter((grant) => grant.grantee === expectedAddress)
-              : allGrants
+            const grantsToCheck =
+              expectedAddress === undefined
+                ? allGrants
+                : expectedAddress === null
+                  ? []
+                  : allGrants.filter((grant) => grant.grantee === expectedAddress)
             const validGranteeCandidates = findValidGranteeCandidates(grantsToCheck, msgTypes)
 
             if (validGranteeCandidates.length === 0) {
@@ -306,7 +309,7 @@ export function resolveAutoSignEnabledForChain(params: {
 }): boolean {
   const { expiration, grantee, expectedAddress } = params
   const addressMatches =
-    expectedAddress == null ? !!grantee : !!grantee && expectedAddress === grantee
+    expectedAddress === undefined ? !!grantee : !!grantee && expectedAddress === grantee
 
   switch (expiration) {
     case null:
