@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.3.0](https://github.com/initia-labs/interwovenkit/compare/v2.2.5...v2.3.0) (2026-02-16)
+
+### Features
+
+- **wallet:** send version header in Router API requests ([51a8396](https://github.com/initia-labs/interwovenkit/commit/51a8396472151a26b3f2d1f8fefa8f93e6b8d46e))
+
 ### [2.2.5](https://github.com/initia-labs/interwovenkit/compare/v2.2.4...v2.2.5) (2026-02-14)
 
 ### Features
