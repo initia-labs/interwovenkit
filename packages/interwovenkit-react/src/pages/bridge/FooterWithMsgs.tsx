@@ -1,7 +1,8 @@
 import type { MsgsResponseJson, TxJson } from "@skip-go/client"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
+import type { RouterRouteResponseJson } from "./data/simulate"
 import { useSkip } from "./data/skip"
 import type { SignedOpHook } from "./data/tx"
 import { useBridgePreviewState } from "./data/tx"
@@ -23,28 +24,46 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
+  const addressListKey = JSON.stringify(addressList)
+  const operationsKey = JSON.stringify(route.operations)
+  const signedOpHookKey = JSON.stringify(signedOpHook ?? null)
+
+  const params = useMemo(
+    () => ({
+      address_list: JSON.parse(addressListKey) as string[],
+      amount_in: route.amount_in,
+      amount_out: route.amount_out,
+      source_asset_chain_id: route.source_asset_chain_id,
+      source_asset_denom: route.source_asset_denom,
+      dest_asset_chain_id: route.dest_asset_chain_id,
+      dest_asset_denom: route.dest_asset_denom,
+      slippage_tolerance_percent: values.slippagePercent,
+      operations: JSON.parse(operationsKey) as RouterRouteResponseJson["operations"],
+      signed_op_hook: (JSON.parse(signedOpHookKey) as SignedOpHook | null) ?? undefined,
+    }),
+    [
+      addressListKey,
+      operationsKey,
+      route.amount_in,
+      route.amount_out,
+      route.source_asset_chain_id,
+      route.source_asset_denom,
+      route.dest_asset_chain_id,
+      route.dest_asset_denom,
+      values.slippagePercent,
+      signedOpHookKey,
+    ],
+  )
+
   useEffect(() => {
     const fetchMessages = async () => {
       try {
-        if (route.required_op_hook && !signedOpHook) {
+        if (route.required_op_hook && !params.signed_op_hook) {
           throw new Error("Op hook is required")
         }
 
         setLoading(true)
         setError(null)
-
-        const params = {
-          address_list: addressList,
-          amount_in: route.amount_in,
-          amount_out: route.amount_out,
-          source_asset_chain_id: route.source_asset_chain_id,
-          source_asset_denom: route.source_asset_denom,
-          dest_asset_chain_id: route.dest_asset_chain_id,
-          dest_asset_denom: route.dest_asset_denom,
-          slippage_tolerance_percent: values.slippagePercent,
-          operations: route.operations,
-          signed_op_hook: signedOpHook,
-        }
 
         const { txs } = await skip
           .post("v2/fungible/msgs", { json: params })
@@ -60,9 +79,7 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
     }
 
     fetchMessages()
-    // addressList is serialized inside the effect to avoid triggering on array reference changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route, values, JSON.stringify(addressList), signedOpHook, skip])
+  }, [params, route.required_op_hook, skip])
 
   if (error) {
     return <FooterWithError error={error} />
