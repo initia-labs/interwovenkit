@@ -159,6 +159,7 @@ const TransferFields = ({ mode }: Props) => {
     setValue("quantity", "")
     setValue(modeConfig.external.denomKey, "")
     setValue(modeConfig.external.chainIdKey, "")
+    lastAutoFillKeyRef.current = null
 
     if (mode === "withdraw" || hasSingleExternalAssetOption) {
       setValue(modeConfig.local.denomKey, "")
