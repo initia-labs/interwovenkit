@@ -25,11 +25,13 @@ pnpm build  # Build the package at least once before running in development mode
 
 ```bash
 cd examples/vite
-cp .env.development .env.development.local  # Toggle between mainnet and testnet in this file
+cp .env.example .env.local  # Copy and edit as needed
 ```
 
 ```env
-INITIA_NETWORK_TYPE=mainnet  # Network Configuration
+INITIA_NETWORK_TYPE=mainnet  # mainnet | testnet
+INITIA_ROUTER_API_URL=       # Optional: custom router API URL
+INITIA_TEST_MNEMONIC=        # Optional: mnemonic for E2E test wallet
 ```
 
 ## Running Locally

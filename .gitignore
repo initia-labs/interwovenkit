@@ -2,3 +2,6 @@ node_modules
 dist
 *.local
 .worktrees
+.env
+.env.*
+!.env.example
