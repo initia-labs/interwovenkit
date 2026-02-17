@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.0](https://github.com/initia-labs/interwovenkit/compare/v2.3.0...v2.4.0) (2026-02-17)
+
+### Features
+
+- **autosign:** replace privy with signature-derived wallet ([1a9a20b](https://github.com/initia-labs/interwovenkit/commit/1a9a20b5e9dad2555ce97cf6bc9fe91c6ea6cc4f))
+- **example:** add programmatic test wallet for E2E testing ([636e6e6](https://github.com/initia-labs/interwovenkit/commit/636e6e69a80c26346041c9d3ca0883c43689b1ac))
+
 ## [2.3.0](https://github.com/initia-labs/interwovenkit/compare/v2.2.5...v2.3.0) (2026-02-16)
 
 ### Features
