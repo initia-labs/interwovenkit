@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import type { FeegrantAllowance } from "./fetch"
 import {
   createAutoSignMessageTypesKey,
+  findEarliestDate,
   findValidGranteeCandidates,
   findValidGranteeWithFeegrant,
   resolveAutoSignEnabledForChain,
@@ -495,5 +496,38 @@ describe("createAutoSignMessageTypesKey", () => {
     })
 
     expect(current).not.toBe(next)
+  })
+})
+
+describe("findEarliestDate", () => {
+  it("returns undefined for empty array", () => {
+    expect(findEarliestDate([])).toBeUndefined()
+  })
+
+  it("returns undefined when all elements are undefined", () => {
+    expect(findEarliestDate([undefined, undefined])).toBeUndefined()
+  })
+
+  it("returns the earliest Date from Date array", () => {
+    const earliest = new Date("2024-01-01T00:00:00Z")
+    const later = new Date("2025-06-15T00:00:00Z")
+    const latest = new Date("2026-12-31T00:00:00Z")
+
+    expect(findEarliestDate([later, latest, earliest])).toBe(earliest)
+  })
+
+  it("returns the earliest string from string array", () => {
+    const earliest = "2024-01-01T00:00:00Z"
+    const later = "2025-06-15T00:00:00Z"
+    const latest = "2026-12-31T00:00:00Z"
+
+    expect(findEarliestDate([later, latest, earliest])).toBe(earliest)
+  })
+
+  it("filters out undefined values and returns the earliest", () => {
+    const earliest = new Date("2024-01-01T00:00:00Z")
+    const later = new Date("2025-06-15T00:00:00Z")
+
+    expect(findEarliestDate([undefined, later, undefined, earliest])).toBe(earliest)
   })
 })
