@@ -44,8 +44,12 @@ export function isVerifiedWebsiteHost(registeredWebsite: string, currentHostname
     if (!registeredHostname || !current) return false
     if (isIpHostname(current) || current === "localhost") return false
 
+    const registeredRegistrableDomain = getRegistrableDomain(registeredHostname)
+    if (!registeredRegistrableDomain) return false
+
     const currentRegistrableDomain = getRegistrableDomain(current)
     if (!currentRegistrableDomain) return false
+    if (currentRegistrableDomain !== registeredRegistrableDomain) return false
 
     return current === registeredHostname || current.endsWith(`.${registeredHostname}`)
   } catch {
