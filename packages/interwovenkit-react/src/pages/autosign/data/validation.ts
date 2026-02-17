@@ -12,7 +12,11 @@ import { getFeegrantAllowedMessages, getFeegrantExpiration, useAutoSignApi } fro
 import { getExpectedAddress } from "./wallet"
 
 export const autoSignQueryKeys = createQueryKeys("interwovenkit:autosign", {
-  expirations: (address: string | undefined, messageTypesKey: string) => [address, messageTypesKey],
+  expirations: (
+    address: string | undefined,
+    messageTypesKey: string,
+    messageTypes: Record<string, string[]>,
+  ) => [address, messageTypesKey, messageTypes],
   grants: (chainId: string, address: string | undefined) => [chainId, address],
 })
 
@@ -24,26 +28,6 @@ export function createAutoSignMessageTypesKey(messageTypes: Record<string, strin
     .sort(([chainA], [chainB]) => chainA.localeCompare(chainB))
     .map(([chainId, types]) => `${chainId}:${[...types].sort().join(",")}`)
     .join("|")
-}
-
-function parseAutoSignMessageTypesKey(messageTypesKey: string): Array<[string, string[]]> {
-  if (!messageTypesKey) return []
-
-  return messageTypesKey
-    .split("|")
-    .filter(Boolean)
-    .map((entry): [string, string[]] => {
-      const separatorIndex = entry.indexOf(":")
-      if (separatorIndex === -1) {
-        return [entry, []]
-      }
-
-      const chainId = entry.slice(0, separatorIndex)
-      const joinedTypes = entry.slice(separatorIndex + 1)
-      const types = joinedTypes ? joinedTypes.split(",").filter(Boolean) : []
-
-      return [chainId, types]
-    })
 }
 
 /* Get configured AutoSign message types for the default chain based on chain type */
@@ -99,7 +83,7 @@ export function useAutoSignStatus() {
   const { fetchFeegrant, fetchAllGrants } = useAutoSignApi()
 
   return useQuery({
-    queryKey: autoSignQueryKeys.expirations(initiaAddress, messageTypesKey).queryKey,
+    queryKey: autoSignQueryKeys.expirations(initiaAddress, messageTypesKey, messageTypes).queryKey,
     queryFn: async () => {
       if (!initiaAddress) {
         return {
@@ -112,7 +96,7 @@ export function useAutoSignStatus() {
       const expiredAtByChain: Record<string, Date | null | undefined> = {}
       const granteeByChain: Record<string, string | undefined> = {}
       const expectedAddressByChain: Record<string, string | null | undefined> = {}
-      const chainEntries = parseAutoSignMessageTypesKey(messageTypesKey)
+      const chainEntries = Object.entries(messageTypes)
 
       const chainResults = await mapWithConcurrency(
         chainEntries,
