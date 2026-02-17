@@ -441,14 +441,20 @@ export async function signWithDerivedWalletWithPrivateKey({
     granter: granterAddress,
   }
 
-  const derivedSigner = new DerivedWalletSigner(derivedWallet, privateKey)
+  // Snapshot key material so concurrent wallet cleanup cannot mutate in-flight signing state.
+  const signingPrivateKey = new Uint8Array(privateKey)
+  const derivedSigner = new DerivedWalletSigner(derivedWallet, signingPrivateKey)
 
-  return await signWithEthSecp256k1(
-    chainId,
-    derivedWallet.address,
-    authzExecuteMessage,
-    delegatedFee,
-    memo,
-    { customSigner: derivedSigner },
-  )
+  try {
+    return await signWithEthSecp256k1(
+      chainId,
+      derivedWallet.address,
+      authzExecuteMessage,
+      delegatedFee,
+      memo,
+      { customSigner: derivedSigner },
+    )
+  } finally {
+    zeroizePrivateKey(signingPrivateKey)
+  }
 }

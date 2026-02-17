@@ -1,6 +1,8 @@
 import type { StdSignDoc } from "@cosmjs/amino"
 import { Secp256k1 } from "@cosmjs/crypto"
 import { fromBase64, fromHex } from "@cosmjs/encoding"
+import type { EncodeObject } from "@cosmjs/proto-signing"
+import type { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import { ethers } from "ethers"
 import { describe, expect, it } from "vitest"
 import { createStore } from "jotai/vanilla"
@@ -18,6 +20,7 @@ import {
   getExpectedAddressKey,
   readExpectedAddressFromStorage,
   shouldClearWalletsOnAddressChange,
+  signWithDerivedWalletWithPrivateKey,
   writeExpectedAddressToStorage,
 } from "./wallet"
 
@@ -200,6 +203,70 @@ describe("DerivedWalletSigner", () => {
 
       expect(signatureBytes).toEqual(expectedSignatureBytes)
     })
+  })
+})
+
+describe("signWithDerivedWalletWithPrivateKey", () => {
+  it("uses a private key snapshot during signing to avoid concurrent zeroization races", async () => {
+    const wallet = await createTestWallet()
+    const originalPrivateKey = new Uint8Array(wallet.privateKey)
+    const signDoc = createTestSignDoc()
+    const messages: EncodeObject[] = [
+      { typeUrl: "/cosmos.bank.v1beta1.MsgSend", value: { fromAddress: "a", toAddress: "b" } },
+    ]
+    let signedResponse:
+      | {
+          signature: { signature: string }
+        }
+      | undefined
+
+    await signWithDerivedWalletWithPrivateKey({
+      chainId: "initia-1",
+      granterAddress: "init1granter",
+      messages,
+      fee: signDoc.fee,
+      memo: signDoc.memo,
+      derivedWallet: {
+        address: wallet.address,
+        publicKey: wallet.publicKey,
+      },
+      privateKey: wallet.privateKey,
+      encoder: {
+        encode: () => new Uint8Array([1, 2, 3]),
+      },
+      signWithEthSecp256k1: async (
+        _chainId,
+        _signerAddress,
+        _messages,
+        _fee,
+        _memo,
+        options,
+      ): Promise<TxRaw> => {
+        const customSigner = options?.customSigner
+        if (!customSigner) {
+          throw new Error("Custom signer was not provided")
+        }
+
+        // Simulate concurrent clearWallet() zeroizing the original in-memory key.
+        wallet.privateKey.fill(0)
+        signedResponse = await customSigner.signAmino(wallet.address, signDoc)
+
+        return { signatures: [new Uint8Array([7])] } as unknown as TxRaw
+      },
+    })
+
+    const { escapeCharacters, sortedJsonStringify } = await import("@cosmjs/amino/build/signdoc")
+    const signDocJSON = escapeCharacters(sortedJsonStringify(signDoc))
+    const messageHash = ethers.hashMessage(signDocJSON)
+    const messageHashBytes = fromHex(messageHash.replace("0x", ""))
+    const expectedSignature = await Secp256k1.createSignature(messageHashBytes, originalPrivateKey)
+    const expectedSignatureBytes = new Uint8Array([
+      ...expectedSignature.r(32),
+      ...expectedSignature.s(32),
+    ])
+
+    expect(signedResponse).toBeDefined()
+    expect(fromBase64(signedResponse!.signature.signature)).toEqual(expectedSignatureBytes)
   })
 })
 
