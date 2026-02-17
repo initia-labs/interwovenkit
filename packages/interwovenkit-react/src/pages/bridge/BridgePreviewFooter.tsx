@@ -1,6 +1,6 @@
 import type { StdFee } from "@cosmjs/stargate"
 import type { TxJson } from "@skip-go/client"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { toBaseUnit } from "@initia/utils"
 import Button from "@/components/Button"
@@ -49,14 +49,18 @@ const BridgePreviewFooter = ({ tx, fee, onCompleted, confirmMessage, error }: Pr
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const skip = useSkip()
-  const { route, values, quoteVerifiedAt } = useBridgePreviewState()
+  const { route, values, quoteVerifiedAt, requiresReconfirm } = useBridgePreviewState()
   const { mutate, isPending } = useBridgeTx(tx, { customFee: fee, onCompleted })
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [requiresReconfirm, setRequiresReconfirm] = useState(false)
   const [refreshError, setRefreshError] = useState<string | undefined>(undefined)
+  const [lastVerifiedAt, setLastVerifiedAt] = useState(quoteVerifiedAt ?? 0)
+
+  useEffect(() => {
+    setLastVerifiedAt(quoteVerifiedAt ?? 0)
+  }, [quoteVerifiedAt])
 
   const refreshRouteIfNeeded = async () => {
-    const verifiedAt = quoteVerifiedAt ?? 0
+    const verifiedAt = Math.max(quoteVerifiedAt ?? 0, lastVerifiedAt)
     if (Date.now() - verifiedAt <= ROUTE_MAX_AGE_MS) return false
 
     setIsRefreshing(true)
@@ -85,17 +89,18 @@ const BridgePreviewFooter = ({ tx, fee, onCompleted, confirmMessage, error }: Pr
         .json<RouterRouteResponseJson>()
 
       const routeChanged = getRouteSignature(refreshedRoute) !== getRouteSignature(route)
-      setRequiresReconfirm(routeChanged)
-      navigate(0, {
-        route: refreshedRoute,
-        values,
-        quoteVerifiedAt: Date.now(),
-      })
-
+      const refreshedAt = Date.now()
       if (routeChanged) {
+        navigate(0, {
+          route: refreshedRoute,
+          values,
+          quoteVerifiedAt: refreshedAt,
+          requiresReconfirm: true,
+        })
         return true
       }
 
+      setLastVerifiedAt(refreshedAt)
       return false
     } catch (error) {
       setRefreshError((await normalizeError(error)).message)
@@ -108,11 +113,18 @@ const BridgePreviewFooter = ({ tx, fee, onCompleted, confirmMessage, error }: Pr
   const onConfirm = async () => {
     if (isPending || isRefreshing) return
 
+    if (requiresReconfirm) {
+      navigate(0, {
+        route,
+        values,
+        quoteVerifiedAt: Math.max(quoteVerifiedAt ?? 0, lastVerifiedAt),
+        requiresReconfirm: false,
+      })
+      return
+    }
+
     if (await refreshRouteIfNeeded()) return
 
-    if (requiresReconfirm) {
-      setRequiresReconfirm(false)
-    }
     setRefreshError(undefined)
     mutate()
   }

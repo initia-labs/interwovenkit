@@ -37,6 +37,7 @@ export interface BridgePreviewState {
   route: RouterRouteResponseJson
   values: FormValues
   quoteVerifiedAt?: number
+  requiresReconfirm?: boolean
 }
 
 export interface SignedOpHook {
