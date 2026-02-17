@@ -8,19 +8,40 @@ interface BridgePreviewStateInput<TState extends object> {
   quoteVerifiedAt: number
 }
 
+interface BridgePreviewLocationStateInput<TState extends object>
+  extends BridgePreviewStateInput<TState> {
+  requiresReconfirm: boolean
+}
+
+function buildBridgePreviewLocationState<TState extends object>({
+  currentState,
+  route,
+  values,
+  quoteVerifiedAt,
+  requiresReconfirm,
+}: BridgePreviewLocationStateInput<TState>) {
+  return {
+    ...currentState,
+    route,
+    values,
+    quoteVerifiedAt,
+    requiresReconfirm,
+  }
+}
+
 export function buildRouteRefreshLocationState<TState extends object>({
   currentState,
   route,
   values,
   quoteVerifiedAt,
 }: BridgePreviewStateInput<TState>) {
-  return {
-    ...currentState,
+  return buildBridgePreviewLocationState({
+    currentState,
     route,
     values,
     quoteVerifiedAt,
     requiresReconfirm: true,
-  }
+  })
 }
 
 export function buildReconfirmLocationState<TState extends object>({
@@ -29,11 +50,11 @@ export function buildReconfirmLocationState<TState extends object>({
   values,
   quoteVerifiedAt,
 }: BridgePreviewStateInput<TState>) {
-  return {
-    ...currentState,
+  return buildBridgePreviewLocationState({
+    currentState,
     route,
     values,
     quoteVerifiedAt,
     requiresReconfirm: false,
-  }
+  })
 }
