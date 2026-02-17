@@ -4,6 +4,7 @@ import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import FormHelp from "@/components/form/FormHelp"
 import { useLocationState, useNavigate } from "@/lib/router"
+import { buildReconfirmLocationState } from "./data/locationState"
 import { type BridgeTxResult, useBridgePreviewState, useBridgeTx } from "./data/tx"
 import { useRouteRefresh } from "./data/useRouteRefresh"
 
@@ -32,13 +33,15 @@ const BridgePreviewFooter = ({ tx, fee, onCompleted, confirmMessage, error }: Pr
     if (requiresReconfirm) {
       // quoteVerifiedAt is always defined here (set when navigating with requiresReconfirm: true).
       // Date.now() fallback is safer than 0, which would immediately mark the route as stale.
-      navigate(0, {
-        ...state,
-        route,
-        values,
-        quoteVerifiedAt: quoteVerifiedAt ?? Date.now(),
-        requiresReconfirm: false,
-      })
+      navigate(
+        0,
+        buildReconfirmLocationState({
+          currentState: state,
+          route,
+          values,
+          quoteVerifiedAt: quoteVerifiedAt ?? Date.now(),
+        }),
+      )
       return
     }
 

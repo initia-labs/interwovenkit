@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { normalizeError } from "@/data/http"
 import { useLocationState, useNavigate } from "@/lib/router"
 import type { FormValues } from "./form"
+import { buildRouteRefreshLocationState } from "./locationState"
 import type { RouterRouteResponseJson } from "./simulate"
 import { fetchRoute } from "./simulate"
 import { useSkip } from "./skip"
@@ -78,13 +79,15 @@ export function useRouteRefresh(
       const routeChanged = getRouteSignature(refreshedRoute) !== getRouteSignature(route)
       const refreshedAt = Date.now()
       if (routeChanged) {
-        navigate(0, {
-          ...state,
-          route: refreshedRoute,
-          values,
-          quoteVerifiedAt: refreshedAt,
-          requiresReconfirm: true,
-        })
+        navigate(
+          0,
+          buildRouteRefreshLocationState({
+            currentState: state,
+            route: refreshedRoute,
+            values,
+            quoteVerifiedAt: refreshedAt,
+          }),
+        )
         return true
       }
 

@@ -2,7 +2,7 @@ import BigNumber from "bignumber.js"
 import { useEffect, useEffectEvent, useMemo } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
-import { formatAmount, fromBaseUnit, InitiaAddress } from "@initia/utils"
+import { formatAmount, fromBaseUnit } from "@initia/utils"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import QuantityInput from "@/components/form/QuantityInput"
@@ -10,7 +10,7 @@ import { formatValue } from "@/lib/format"
 import { useLocationState, useNavigate } from "@/lib/router"
 import { useHexAddress } from "@/public/data/hooks"
 import { useFindSkipChain } from "../bridge/data/chains"
-import { type RouterRouteResponseJson, useRouteQuery } from "../bridge/data/simulate"
+import { useRouteQuery } from "../bridge/data/simulate"
 import FooterWithAddressList from "../bridge/FooterWithAddressList"
 import FooterWithMsgs from "../bridge/FooterWithMsgs"
 import FooterWithSignedOpHook from "../bridge/FooterWithSignedOpHook"
@@ -24,14 +24,9 @@ import {
   useTransferForm,
   useTransferMode,
 } from "./hooks"
+import { buildTransferLocationState, type TransferLocationState } from "./state"
 import TransferFooter from "./TransferFooter"
 import styles from "./Fields.module.css"
-
-interface State {
-  route?: RouterRouteResponseJson
-  quoteVerifiedAt?: number
-  recipientAddress?: string
-}
 
 interface Props {
   mode: TransferMode
@@ -40,7 +35,7 @@ interface Props {
 const TransferFields = ({ mode }: Props) => {
   const modeConfig = useTransferMode(mode)
   const navigate = useNavigate()
-  const state = useLocationState<State>()
+  const state = useLocationState<TransferLocationState>()
   const options = useLocalAssetOptions()
   const findChain = useFindSkipChain()
   const { data: balances } = useAllBalancesQuery()
@@ -88,17 +83,16 @@ const TransferFields = ({ mode }: Props) => {
   const quoteVerifiedAt = routeForState && routeUpdatedAt > 0 ? routeUpdatedAt : undefined
 
   const updateNavigationState = useEffectEvent(() => {
-    navigate(0, {
-      ...state,
-      route: routeForState,
-      quoteVerifiedAt,
-      values: {
-        sender: hexAddress,
-        recipient: state.recipientAddress ? InitiaAddress(state.recipientAddress).hex : hexAddress,
-        slippagePercent: "1",
-        ...getValues(),
-      },
-    })
+    navigate(
+      0,
+      buildTransferLocationState({
+        currentState: state,
+        route: routeForState,
+        quoteVerifiedAt,
+        hexAddress,
+        values: getValues(),
+      }),
+    )
   })
 
   // quoteVerifiedAt is intentionally excluded from deps.
