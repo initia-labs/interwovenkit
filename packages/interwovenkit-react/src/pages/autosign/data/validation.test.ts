@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
 import type { FeegrantAllowance } from "./fetch"
 import {
   createAutoSignMessageTypesKey,
+  fetchAutoSignStatus,
   findEarliestDate,
   findValidGranteeCandidates,
   findValidGranteeWithFeegrant,
@@ -14,6 +15,61 @@ const findFirstValidGrantee = (
 ) => {
   return findValidGranteeCandidates(grants, requiredMsgTypes)[0] ?? null
 }
+
+describe("fetchAutoSignStatus", () => {
+  it("short-circuits when all configured message type arrays are empty", async () => {
+    const fetchAllGrants = vi.fn().mockResolvedValue([])
+    const fetchFeegrant = vi.fn().mockResolvedValue(null)
+
+    const result = await fetchAutoSignStatus({
+      initiaAddress: "init1granter",
+      messageTypes: {
+        "initia-1": [],
+        "initia-2": [],
+      },
+      fetchAllGrants,
+      fetchFeegrant,
+    })
+
+    expect(fetchAllGrants).not.toHaveBeenCalled()
+    expect(fetchFeegrant).not.toHaveBeenCalled()
+    expect(result).toEqual({
+      expiredAtByChain: {
+        "initia-1": null,
+        "initia-2": null,
+      },
+      isEnabledByChain: {
+        "initia-1": false,
+        "initia-2": false,
+      },
+      granteeByChain: {
+        "initia-1": undefined,
+        "initia-2": undefined,
+      },
+    })
+  })
+
+  it("only fetches grants for chains with configured message types", async () => {
+    const fetchAllGrants = vi.fn().mockResolvedValue([])
+    const fetchFeegrant = vi.fn().mockResolvedValue(null)
+
+    const result = await fetchAutoSignStatus({
+      initiaAddress: "init1granter",
+      messageTypes: {
+        "initia-empty": [],
+        "initia-active": ["/initia.move.v1.MsgExecute"],
+      },
+      fetchAllGrants,
+      fetchFeegrant,
+    })
+
+    expect(fetchAllGrants).toHaveBeenCalledTimes(1)
+    expect(fetchAllGrants).toHaveBeenCalledWith("initia-active")
+    expect(fetchFeegrant).not.toHaveBeenCalled()
+    expect(result.expiredAtByChain["initia-empty"]).toBeNull()
+    expect(result.isEnabledByChain["initia-empty"]).toBe(false)
+  })
+})
 
 describe("findFirstValidGrantee", () => {
   const msgType1 = "/initia.move.v1.MsgExecute"
