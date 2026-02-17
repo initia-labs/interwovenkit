@@ -81,8 +81,7 @@ const TransferFields = ({ mode }: Props) => {
   ])
   const autoFillKey = `${mode}:${localAsset?.chain_id ?? ""}:${localAsset?.denom ?? ""}`
   const lastAutoFillKeyRef = useRef<string | null>(null)
-  const externalChainId = values[modeConfig.external.chainIdKey]
-  const externalChain = externalChainId ? findChain(externalChainId) : null
+  const externalChain = selectedExternalChainId ? findChain(selectedExternalChainId) : null
 
   const balance = balances?.[srcChainId]?.[srcDenom]?.amount
   const price = balances?.[srcChainId]?.[srcDenom]?.price || 0
@@ -161,12 +160,18 @@ const TransferFields = ({ mode }: Props) => {
     setValue(modeConfig.external.denomKey, "")
     setValue(modeConfig.external.chainIdKey, "")
 
-    if (mode === "withdraw") {
+    if (mode === "withdraw" || hasSingleExternalAssetOption) {
       setValue(modeConfig.local.denomKey, "")
       setValue(modeConfig.local.chainIdKey, "")
     }
 
-    setValue("page", mode === "withdraw" ? "select-local" : "select-external")
+    // When hasSingleExternalAssetOption, navigating to select-external would
+    // immediately auto-fill and jump back to fields, creating an infinite loop.
+    // Go directly to select-local instead, which is safe because the Back button
+    // only renders when options.length > 1 (so select-local won't auto-skip).
+    const previousPage =
+      mode === "withdraw" || hasSingleExternalAssetOption ? "select-local" : "select-external"
+    setValue("page", previousPage)
   }
 
   const externalSection = (
@@ -174,10 +179,8 @@ const TransferFields = ({ mode }: Props) => {
       <p className={styles.label}>{mode === "withdraw" ? "Destination" : "From"}</p>
       <button
         className={styles.asset}
-        onClick={() => {
-          if (hasSingleExternalAssetOption) return
-          setValue("page", "select-external")
-        }}
+        disabled={hasSingleExternalAssetOption}
+        onClick={() => setValue("page", "select-external")}
       >
         <div className={styles.assetIcon}>
           {externalAsset ? (
