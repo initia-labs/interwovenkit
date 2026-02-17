@@ -34,6 +34,8 @@ export function fetchRoute(
   const srcAsset = queryClient.getQueryData<RouterAsset>(
     skipQueryKeys.asset(srcChainId, srcDenom).queryKey,
   )
+  // Asset metadata must already be cached before route fetching.
+  // Silently falling back to decimals=0 would send an incorrect amount_in to the API.
   if (!srcAsset || srcAsset.decimals == null) {
     throw new Error("Failed to refresh route: source asset metadata is unavailable.")
   }
