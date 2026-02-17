@@ -2,7 +2,7 @@ import type { FeeJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
 import { sentenceCase } from "change-case"
 import { isAddress } from "ethers"
-import { useCallback, useMemo } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useDebounceValue, useLocalStorage } from "usehooks-ts"
 import {
   IconChevronDown,
@@ -56,6 +56,7 @@ function getRouteRefreshMs({
 const BridgeFields = () => {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
+  const [previewRefreshError, setPreviewRefreshError] = useState<string | undefined>(undefined)
 
   const [selectedType, setSelectedType] = useLocalStorage<RouteType>(
     LocalStorageKey.BRIDGE_ROUTE_TYPE,
@@ -122,9 +123,20 @@ const BridgeFields = () => {
   // submit
   const { openModal, closeModal } = useModal()
   const submit = handleSubmit(async (values: FormValues) => {
-    const { data: refreshedRoute } = await routeQuery.refetch()
-    const latestRoute = refreshedRoute ?? route
-    if (!latestRoute) return
+    setPreviewRefreshError(undefined)
+    const {
+      data: latestRoute,
+      dataUpdatedAt: quoteVerifiedAt,
+      error: refreshError,
+    } = await routeQuery.refetch()
+    if (refreshError || !latestRoute || !quoteVerifiedAt) {
+      setPreviewRefreshError(
+        refreshError instanceof Error
+          ? refreshError.message
+          : "Failed to refresh route. Please try again.",
+      )
+      return
+    }
 
     if (latestRoute.warning) {
       const { type = "", message } = latestRoute.warning ?? {}
@@ -141,7 +153,7 @@ const BridgeFields = () => {
                 navigate("/bridge/preview", {
                   route: latestRoute,
                   values,
-                  quoteVerifiedAt: Date.now(),
+                  quoteVerifiedAt,
                 })
                 closeModal()
               },
@@ -157,7 +169,7 @@ const BridgeFields = () => {
     navigate("/bridge/preview", {
       route: latestRoute,
       values,
-      quoteVerifiedAt: Date.now(),
+      quoteVerifiedAt,
     })
   })
 
@@ -360,6 +372,7 @@ const BridgeFields = () => {
         extra={
           <>
             <FormHelp.Stack>
+              {previewRefreshError && <FormHelp level="error">{previewRefreshError}</FormHelp>}
               {route?.extra_infos?.map((info) => (
                 <FormHelp level="info" key={info}>
                   {info}
