@@ -17,12 +17,17 @@ import {
 } from "@initia/interwovenkit-react"
 import css from "@initia/interwovenkit-react/styles.css?inline"
 import { chainId, isTestnet, routerApiUrl, useTheme } from "./data"
+import { testWalletConnector } from "./test-wallet"
 
 import type { PropsWithChildren } from "react"
 
 injectStyles(css)
+const connectors = [
+  initiaPrivyWalletConnector,
+  ...(testWalletConnector ? [testWalletConnector] : []),
+]
 const wagmiConfig = createConfig({
-  connectors: [initiaPrivyWalletConnector],
+  connectors,
   chains: [mainnet],
   transports: { [mainnet.id]: http() },
 })
