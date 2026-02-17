@@ -2,7 +2,6 @@ import type { MsgsResponseJson, TxJson } from "@skip-go/client"
 import { useEffect, useMemo, useState } from "react"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
-import type { RouterRouteResponseJson } from "./data/simulate"
 import { useSkip } from "./data/skip"
 import type { SignedOpHook } from "./data/tx"
 import { useBridgePreviewState } from "./data/tx"
@@ -28,9 +27,10 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
   const operationsKey = useMemo(() => JSON.stringify(route.operations), [route.operations])
   const signedOpHookKey = useMemo(() => JSON.stringify(signedOpHook ?? null), [signedOpHook])
 
-  const params = useMemo(
-    () => ({
-      address_list: JSON.parse(addressListKey) as string[],
+  const params = useMemo(() => {
+    const hasStableKeys = !!addressListKey && !!operationsKey && !!signedOpHookKey
+    return {
+      address_list: addressList,
       amount_in: route.amount_in,
       amount_out: route.amount_out,
       source_asset_chain_id: route.source_asset_chain_id,
@@ -38,22 +38,24 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
       dest_asset_chain_id: route.dest_asset_chain_id,
       dest_asset_denom: route.dest_asset_denom,
       slippage_tolerance_percent: values.slippagePercent,
-      operations: JSON.parse(operationsKey) as RouterRouteResponseJson["operations"],
-      signed_op_hook: (JSON.parse(signedOpHookKey) as SignedOpHook | null) ?? undefined,
-    }),
-    [
-      addressListKey,
-      operationsKey,
-      route.amount_in,
-      route.amount_out,
-      route.source_asset_chain_id,
-      route.source_asset_denom,
-      route.dest_asset_chain_id,
-      route.dest_asset_denom,
-      values.slippagePercent,
-      signedOpHookKey,
-    ],
-  )
+      operations: route.operations,
+      signed_op_hook: hasStableKeys ? (signedOpHook ?? undefined) : undefined,
+    }
+  }, [
+    addressList,
+    addressListKey,
+    route.operations,
+    operationsKey,
+    signedOpHookKey,
+    signedOpHook,
+    route.amount_in,
+    route.amount_out,
+    route.source_asset_chain_id,
+    route.source_asset_denom,
+    route.dest_asset_chain_id,
+    route.dest_asset_denom,
+    values.slippagePercent,
+  ])
 
   useEffect(() => {
     const fetchMessages = async () => {

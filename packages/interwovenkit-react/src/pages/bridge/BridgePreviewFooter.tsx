@@ -1,6 +1,6 @@
 import type { StdFee } from "@cosmjs/stargate"
 import type { TxJson } from "@skip-go/client"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { toBaseUnit } from "@initia/utils"
 import Button from "@/components/Button"
@@ -29,8 +29,18 @@ interface Props {
 
 const ROUTE_MAX_AGE_MS = 10_000
 
+function toDeterministicString(value: unknown): string {
+  if (value === undefined) return "undefined"
+  if (value === null || typeof value !== "object") return JSON.stringify(value)
+  if (Array.isArray(value)) return `[${value.map(toDeterministicString).join(",")}]`
+  return `{${Object.entries(value)
+    .toSorted(([keyA], [keyB]) => keyA.localeCompare(keyB))
+    .map(([key, nestedValue]) => `${JSON.stringify(key)}:${toDeterministicString(nestedValue)}`)
+    .join(",")}}`
+}
+
 function getRouteSignature(route: RouterRouteResponseJson) {
-  return JSON.stringify({
+  return toDeterministicString({
     amount_in: route.amount_in,
     amount_out: route.amount_out,
     usd_amount_in: route.usd_amount_in,
@@ -45,6 +55,10 @@ function getRouteSignature(route: RouterRouteResponseJson) {
   })
 }
 
+function isAbortError(error: unknown) {
+  return !!error && typeof error === "object" && "name" in error && error.name === "AbortError"
+}
+
 const BridgePreviewFooter = ({ tx, fee, onCompleted, confirmMessage, error }: Props) => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -54,10 +68,17 @@ const BridgePreviewFooter = ({ tx, fee, onCompleted, confirmMessage, error }: Pr
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [refreshError, setRefreshError] = useState<string | undefined>(undefined)
   const [lastVerifiedAt, setLastVerifiedAt] = useState(quoteVerifiedAt ?? 0)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     setLastVerifiedAt(quoteVerifiedAt ?? 0)
   }, [quoteVerifiedAt])
+
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort()
+    }
+  }, [])
 
   const refreshRouteIfNeeded = async () => {
     const verifiedAt = Math.max(quoteVerifiedAt ?? 0, lastVerifiedAt)
@@ -65,6 +86,8 @@ const BridgePreviewFooter = ({ tx, fee, onCompleted, confirmMessage, error }: Pr
 
     setIsRefreshing(true)
     setRefreshError(undefined)
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
     try {
       const srcAsset = queryClient.getQueryData<RouterAsset>(
         skipQueryKeys.asset(values.srcChainId, values.srcDenom).queryKey,
@@ -77,6 +100,7 @@ const BridgePreviewFooter = ({ tx, fee, onCompleted, confirmMessage, error }: Pr
 
       const refreshedRoute = await skip
         .post("v2/fungible/route", {
+          signal: abortController.signal,
           json: {
             amount_in: toBaseUnit(values.quantity, { decimals: srcDecimals }),
             source_asset_chain_id: values.srcChainId,
@@ -87,6 +111,7 @@ const BridgePreviewFooter = ({ tx, fee, onCompleted, confirmMessage, error }: Pr
           },
         })
         .json<RouterRouteResponseJson>()
+      if (abortController.signal.aborted) return true
 
       const routeChanged = getRouteSignature(refreshedRoute) !== getRouteSignature(route)
       const refreshedAt = Date.now()
@@ -103,10 +128,16 @@ const BridgePreviewFooter = ({ tx, fee, onCompleted, confirmMessage, error }: Pr
       setLastVerifiedAt(refreshedAt)
       return false
     } catch (error) {
+      if (isAbortError(error) || abortController.signal.aborted) return true
       setRefreshError((await normalizeError(error)).message)
       return true
     } finally {
-      setIsRefreshing(false)
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null
+      }
+      if (!abortController.signal.aborted) {
+        setIsRefreshing(false)
+      }
     }
   }
 
