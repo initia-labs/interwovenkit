@@ -60,7 +60,7 @@ export function useValidateAutoSign() {
   const { data } = useAutoSignStatus()
   const messageTypes = useAutoSignMessageTypes()
 
-  return async (chainId: string, messages: EncodeObject[]) => {
+  return (chainId: string, messages: EncodeObject[]) => {
     // Check condition 1: All messages must be in allowed types
     const allMessagesAllowed = messages.every((msg) => {
       const chainMessageTypes = messageTypes[chainId]

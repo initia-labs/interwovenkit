@@ -1,4 +1,4 @@
-import ky from "ky"
+import ky, { HTTPError } from "ky"
 import { useState } from "react"
 import { useAtom, useAtomValue } from "jotai"
 import { useQuery } from "@tanstack/react-query"
@@ -20,13 +20,25 @@ import { pendingAutoSignRequestAtom } from "./data/store"
 import { isVerifiedWebsiteHost } from "./data/website"
 import styles from "./EnableAutoSign.module.css"
 
+function isAccountNotFoundError(error: unknown): boolean {
+  return error instanceof HTTPError && error.response.status === 404
+}
+
 const accountQueries = createQueryKeys("interwovenkit:account", {
   info: (restUrl: string, address: string) => ({
     queryKey: [restUrl, address],
     queryFn: async () => {
       const rest = ky.create({ prefixUrl: restUrl })
       const path = `cosmos/auth/v1beta1/account_info/${address}`
-      return rest.get(path).json()
+      try {
+        await rest.get(path).json()
+        return true
+      } catch (error) {
+        if (isAccountNotFoundError(error)) {
+          return false
+        }
+        throw error
+      }
     },
   }),
 })
@@ -45,9 +57,11 @@ const EnableAutoSignComponent = () => {
   if (!pendingRequest) throw new Error("Pending request not found")
 
   const { logoUrl, name, restUrl } = findChain(pendingRequest.chainId)
-  const { data: isAccountCreated, isLoading: isCheckingAccount } = useQuery(
-    accountQueries.info(restUrl, address),
-  )
+  const {
+    data: isAccountCreated,
+    isLoading: isCheckingAccount,
+    isError: isAccountQueryError,
+  } = useQuery(accountQueries.info(restUrl, address))
 
   // Get website information
   const websiteInfo = {
@@ -58,11 +72,9 @@ const EnableAutoSignComponent = () => {
 
   // Check if website is verified in Initia Registry for the requested chain only
   const targetChain = chains.find((chain) => chain.chainId === pendingRequest.chainId)
-  const isVerified = (() => {
-    if (!targetChain?.website) return false
-
-    return isVerifiedWebsiteHost(targetChain.website, window.location.hostname)
-  })()
+  const isVerified = targetChain?.website
+    ? isVerifiedWebsiteHost(targetChain.website, window.location.hostname)
+    : false
 
   const handleEnable = () => {
     mutate(duration)
@@ -75,6 +87,11 @@ const EnableAutoSignComponent = () => {
   }
 
   const isEnableDisabled = !isVerified && !warningIgnored
+  const showInsufficientBalanceError =
+    !isCheckingAccount && !isAccountQueryError && isAccountCreated === false
+  const showAccountQueryError = !isCheckingAccount && isAccountQueryError
+  const disableEnableButton =
+    isEnableDisabled || isCheckingAccount || isAccountQueryError || isAccountCreated === false
 
   return (
     <>
@@ -153,8 +170,11 @@ const EnableAutoSignComponent = () => {
         className={styles.footer}
         extra={
           <div className={styles.feedbackContainer}>
-            {!isCheckingAccount && !isAccountCreated && (
+            {showInsufficientBalanceError && (
               <FormHelp level="error">Insufficient balance for fee</FormHelp>
+            )}
+            {showAccountQueryError && (
+              <FormHelp level="warning">Unable to verify account status. Try again.</FormHelp>
             )}
 
             {!isVerified && !warningIgnored && (
@@ -171,11 +191,7 @@ const EnableAutoSignComponent = () => {
         }
       >
         <Button.Outline onClick={handleCancel}>Cancel</Button.Outline>
-        <Button.White
-          onClick={handleEnable}
-          disabled={isEnableDisabled || !isAccountCreated || isCheckingAccount}
-          loading={isPending}
-        >
+        <Button.White onClick={handleEnable} disabled={disableEnableButton} loading={isPending}>
           Enable
         </Button.White>
       </Footer>

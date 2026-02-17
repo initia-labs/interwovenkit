@@ -27,6 +27,7 @@ import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { encodeEthSecp256k1Pubkey } from "./patches/encoding"
 import { encodePubkeyInitia } from "./patches/pubkeys"
+import { useAnalyticsTrack } from "./analytics"
 import { useFindChain } from "./chains"
 import { useConfig } from "./config"
 import { formatMoveError } from "./errors"
@@ -195,8 +196,15 @@ interface ComputeAutoSignFeeParams {
   client: SigningStargateClient
 }
 
+type AutoSignFallbackReason =
+  | "validation_failed"
+  | "derive_wallet_failed"
+  | "missing_derived_wallet"
+  | "fee_computation_failed"
+  | "derived_wallet_sign_failed"
+
 interface SignTxWithAutoSignFeeDeps {
-  validateAutoSign: (chainId: string, messages: EncodeObject[]) => Promise<boolean>
+  validateAutoSign: (chainId: string, messages: EncodeObject[]) => boolean
   getWallet: (chainId: string) => DerivedWalletPublic | undefined
   deriveWallet: (chainId: string) => Promise<DerivedWalletPublic>
   getSigningClient: (chainId: string) => Promise<SigningStargateClient>
@@ -216,6 +224,11 @@ interface SignTxWithAutoSignFeeDeps {
     fee: StdFee,
     memo: string,
   ) => Promise<TxRaw>
+  onAutoSignFallback?: (params: {
+    chainId: string
+    reason: AutoSignFallbackReason
+    errorMessage?: string
+  }) => void
 }
 
 function isUserRejectedRequestError(error: unknown): boolean {
@@ -294,6 +307,12 @@ async function simulateWithCustomPubkey({
   )
 }
 
+function getFallbackErrorMessage(error: unknown): string | undefined {
+  if (error instanceof Error) return error.message
+  if (typeof error === "string") return error
+  return undefined
+}
+
 export async function signTxWithAutoSignFeeWithDeps(
   {
     address,
@@ -309,17 +328,26 @@ export async function signTxWithAutoSignFeeWithDeps(
   deps: SignTxWithAutoSignFeeDeps,
 ): Promise<TxRaw> {
   const signManually = async () => deps.signWithEthSecp256k1(chainId, address, messages, fee, memo)
+  const reportFallback = (reason: AutoSignFallbackReason, error?: unknown) => {
+    deps.onAutoSignFallback?.({
+      chainId,
+      reason,
+      errorMessage: getFallbackErrorMessage(error),
+    })
+  }
 
   if (!allowAutoSign) {
     return signManually()
   }
 
-  const isAutoSignValid = await deps.validateAutoSign(chainId, messages)
+  const isAutoSignValid = deps.validateAutoSign(chainId, messages)
   if (!isAutoSignValid) {
+    reportFallback("validation_failed")
     return signManually()
   }
 
   let derivedWallet = deps.getWallet(chainId)
+  let hasReportedDeriveFailure = false
   if (!derivedWallet && allowWalletDerivation) {
     try {
       derivedWallet = await deps.deriveWallet(chainId)
@@ -327,12 +355,17 @@ export async function signTxWithAutoSignFeeWithDeps(
       if (isUserRejectedRequestError(error)) {
         throw error
       }
+      reportFallback("derive_wallet_failed", error)
+      hasReportedDeriveFailure = true
       derivedWallet = undefined
     }
   }
 
   if (!derivedWallet) {
     // Skip auto-sign if no derived wallet is cached to avoid unexpected wallet popups.
+    if (!hasReportedDeriveFailure) {
+      reportFallback("missing_derived_wallet")
+    }
     return signManually()
   }
 
@@ -348,7 +381,8 @@ export async function signTxWithAutoSignFeeWithDeps(
       fallbackFeeDenom: fee.amount[0]?.denom,
       client: signingClient,
     })
-  } catch {
+  } catch (error) {
+    reportFallback("fee_computation_failed", error)
     return signManually()
   }
 
@@ -361,7 +395,8 @@ export async function signTxWithAutoSignFeeWithDeps(
       memo,
       derivedWallet,
     )
-  } catch {
+  } catch (error) {
+    reportFallback("derived_wallet_sign_failed", error)
     return signManually()
   }
 }
@@ -376,6 +411,7 @@ export function useSignTxWithAutoSignFee() {
   const validateAutoSign = useValidateAutoSign()
   const { getWallet, deriveWallet, getWalletPrivateKey } = useDeriveWallet()
   const signWithEthSecp256k1 = useSignWithEthSecp256k1()
+  const track = useAnalyticsTrack()
 
   const getAutoSignFeePolicy = (chainId: string): ResolvedAutoSignFeePolicy => {
     const policy = autoSignFeePolicy?.[chainId]
@@ -491,6 +527,13 @@ export function useSignTxWithAutoSignFee() {
         computeAutoSignFee,
         signWithDerivedWallet,
         signWithEthSecp256k1,
+        onAutoSignFallback: ({ chainId, reason, errorMessage }) => {
+          track("AutoSign Fallback", {
+            chainId,
+            reason,
+            errorMessage,
+          })
+        },
       },
     )
 }

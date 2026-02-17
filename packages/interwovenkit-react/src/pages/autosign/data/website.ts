@@ -30,10 +30,7 @@ function isAllowedRegisteredHost(url: URL): boolean {
   if (hostname === "localhost") return false
   if (isIpHostname(hostname)) return false
 
-  const registrableDomain = getRegistrableDomain(hostname)
-  if (!registrableDomain) return false
-
-  return hostname === registrableDomain || hostname.endsWith(`.${registrableDomain}`)
+  return getRegistrableDomain(hostname) !== null
 }
 
 export function isVerifiedWebsiteHost(registeredWebsite: string, currentHostname: string): boolean {
