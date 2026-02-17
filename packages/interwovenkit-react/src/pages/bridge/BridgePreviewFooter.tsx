@@ -4,6 +4,7 @@ import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import FormHelp from "@/components/form/FormHelp"
 import { useLocationState, useNavigate } from "@/lib/router"
+import { getBridgeConfirmLabel } from "./confirmLabel"
 import { buildReconfirmLocationState } from "./data/locationState"
 import { type BridgeTxResult, useBridgePreviewState, useBridgeTx } from "./data/tx"
 import { useRouteRefresh } from "./data/useRouteRefresh"
@@ -69,7 +70,7 @@ const BridgePreviewFooter = ({ tx, fee, onCompleted, confirmMessage, error }: Pr
         loading={isRefreshing ? "Refreshing route..." : isPending && "Signing transaction..."}
         disabled={!!error}
       >
-        {confirmMessage || (requiresReconfirm ? "Confirm updated route" : "Confirm")}
+        {getBridgeConfirmLabel(confirmMessage, requiresReconfirm)}
       </Button.White>
     </Footer>
   )
