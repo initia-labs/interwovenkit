@@ -27,8 +27,10 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
   const operationsKey = useMemo(() => JSON.stringify(route.operations), [route.operations])
   const signedOpHookKey = useMemo(() => JSON.stringify(signedOpHook ?? null), [signedOpHook])
 
+  // Depend on canonical serialized keys so reference-only changes with identical
+  // content do not retrigger message fetch parameter recomputation.
+  /* eslint-disable react-hooks/exhaustive-deps */
   const params = useMemo(() => {
-    const hasStableKeys = !!addressListKey && !!operationsKey && !!signedOpHookKey
     return {
       address_list: addressList,
       amount_in: route.amount_in,
@@ -39,15 +41,12 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
       dest_asset_denom: route.dest_asset_denom,
       slippage_tolerance_percent: values.slippagePercent,
       operations: route.operations,
-      signed_op_hook: hasStableKeys ? (signedOpHook ?? undefined) : undefined,
+      signed_op_hook: signedOpHook ?? undefined,
     }
   }, [
-    addressList,
     addressListKey,
-    route.operations,
     operationsKey,
     signedOpHookKey,
-    signedOpHook,
     route.amount_in,
     route.amount_out,
     route.source_asset_chain_id,
@@ -56,6 +55,7 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
     route.dest_asset_denom,
     values.slippagePercent,
   ])
+  /* eslint-enable react-hooks/exhaustive-deps */
 
   useEffect(() => {
     const fetchMessages = async () => {
