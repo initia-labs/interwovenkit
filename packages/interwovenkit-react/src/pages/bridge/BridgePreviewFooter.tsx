@@ -62,9 +62,14 @@ const BridgePreviewFooter = ({ tx, fee, onCompleted, confirmMessage, error }: Pr
     setIsRefreshing(true)
     setRefreshError(undefined)
     try {
-      const { decimals: srcDecimals } = queryClient.getQueryData<RouterAsset>(
+      const srcAsset = queryClient.getQueryData<RouterAsset>(
         skipQueryKeys.asset(values.srcChainId, values.srcDenom).queryKey,
-      ) ?? { decimals: 0 }
+      )
+      if (!srcAsset || srcAsset.decimals == null) {
+        setRefreshError("Failed to refresh route: source asset metadata is unavailable.")
+        return true
+      }
+      const srcDecimals = srcAsset.decimals
 
       const refreshedRoute = await skip
         .post("v2/fungible/route", {
