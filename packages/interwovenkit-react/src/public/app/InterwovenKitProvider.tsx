@@ -9,9 +9,9 @@ import { ConfigContext } from "@/data/config"
 import { useL1PositionsTotal } from "@/data/initia-positions-total"
 import { migrateLocalStorage } from "@/data/migration"
 import { usePortfolioSSE } from "@/data/minity"
-import { useSyncPrivyAuth } from "@/data/privy"
 import { MemoryRouter } from "@/lib/router"
 import { useInitializeAutoSign } from "@/pages/autosign/data/validation"
+import { useClearWalletsOnAddressChange } from "@/pages/autosign/data/wallet"
 import { useAllSkipAssets } from "@/pages/bridge/data/assets"
 import { useSkipChains } from "@/pages/bridge/data/chains"
 import { MAINNET } from "../data/constants"
@@ -43,7 +43,7 @@ const Fonts = () => {
 // its children.  This keeps the UI responsive when the drawer first opens.
 const Prefetch = () => {
   // autosign
-  useSyncPrivyAuth()
+  useClearWalletsOnAddressChange()
   useInitializeAutoSign()
 
   // initia registry

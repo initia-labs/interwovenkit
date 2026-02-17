@@ -25,9 +25,10 @@ import { BrowserProvider, ethers } from "ethers"
 import ky from "ky"
 import { useAccount, useSignMessage } from "wagmi"
 import { useMemo } from "react"
-import { aminoConverters, protoRegistry } from "@initia/amino-converter"
+import { protoRegistry } from "@initia/amino-converter"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { parseAccount } from "./patches/accounts"
+import { patchedAminoConverters } from "./patches/amino"
 import { encodeEthSecp256k1Pubkey } from "./patches/encoding"
 import { encodePubkeyInitia } from "./patches/pubkeys"
 import { encodeEthSecp256k1Signature } from "./patches/signature"
@@ -42,7 +43,7 @@ export const useRegistry = () => {
 
 export const useAminoTypes = () => {
   const config = useConfig()
-  return new AminoTypes({ ...aminoConverters, ...config.aminoConverters })
+  return new AminoTypes({ ...patchedAminoConverters, ...config.aminoConverters })
 }
 
 export class OfflineSigner implements OfflineAminoSigner {
@@ -162,11 +163,13 @@ export function useSignWithEthSecp256k1() {
     const signer = options?.customSigner ?? offlineSigner
     if (!signer) throw new Error("Signer not initialized")
     const client = await createSigningStargateClient(chainId)
-    const { accountNumber, ...account } = await client.getSequence(signerAddress)
-    // Handle sequence increments for minievm chains
-    // Note: minievm increases sequence by 1 per MsgCall (unlike move/wasm chains which use 1 per tx)
-    // For OP hook transactions on the same chain, we need to account for this difference
-    const sequence = account.sequence + (options?.incrementSequence ?? 0)
+    const { accountNumber, sequence } = await resolveSignerAccountSequence({
+      getSequence: (address) => client.getSequence(address),
+      signerAddress,
+      incrementSequence: options?.incrementSequence ?? 0,
+      // Derived autosign wallets may not have an account yet. In that case, use zero defaults.
+      allowMissingAccount: !!options?.customSigner,
+    })
 
     // Returns a signed tx that includes `signerInfos`, `fee`, and the `signatures` created with OfflineSigner's `signAmino()`.
     // https://github.com/cosmos/cosmjs/blob/main/packages/stargate/src/signingstargateclient.ts
@@ -206,6 +209,40 @@ export function useSignWithEthSecp256k1() {
   }
 }
 
+function isMissingAccountSequenceError(error: unknown, address: string): boolean {
+  if (!(error instanceof Error)) {
+    return false
+  }
+
+  return /does not exist on chain/i.test(error.message) && error.message.includes(address)
+}
+
+export async function resolveSignerAccountSequence({
+  getSequence,
+  signerAddress,
+  incrementSequence,
+  allowMissingAccount,
+}: {
+  getSequence: (address: string) => Promise<{ accountNumber: number; sequence: number }>
+  signerAddress: string
+  incrementSequence: number
+  allowMissingAccount: boolean
+}): Promise<{ accountNumber: number; sequence: number }> {
+  try {
+    const { accountNumber, sequence } = await getSequence(signerAddress)
+
+    // Handle sequence increments for minievm chains.
+    // Note: minievm increases sequence by 1 per MsgCall (unlike move/wasm chains which use 1 per tx).
+    return { accountNumber, sequence: sequence + incrementSequence }
+  } catch (error) {
+    if (allowMissingAccount && isMissingAccountSequenceError(error, signerAddress)) {
+      return { accountNumber: 0, sequence: incrementSequence }
+    }
+
+    throw error
+  }
+}
+
 export function useOfflineSigner() {
   const address = useInitiaAddress()
   const { signMessageAsync } = useSignMessage()
@@ -219,6 +256,11 @@ export function useOfflineSigner() {
 // Keep one client per chain to avoid repeatedly establishing RPC connections.
 const comet38ClientCache = new Map<string, Comet38Client>()
 const signingStargateClientCache = new Map<string, SigningStargateClient>()
+
+export function clearSigningClientCache(address: string, chainId: string) {
+  const cacheKey = `${address}:${chainId}`
+  signingStargateClientCache.delete(cacheKey)
+}
 
 export function useCreateComet38Client() {
   const findChain = useFindChain()

@@ -7,6 +7,7 @@ See [README.md](packages/interwovenkit-react/README.md) for detailed package doc
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [Running Locally](#running-locally)
+- [Deployment Security Headers](#deployment-security-headers)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
 - [Scripts](#scripts)
@@ -57,6 +58,40 @@ pnpm watch  # Serve the demo using the built package and styles.
 
 - In production mode, the package and its styles will be injected into a Shadow DOM.
 - The demo site will be available at: [http://localhost:5173](http://localhost:5173)
+
+## Deployment Security Headers
+
+When deploying InterwovenKit in production, configure security response headers in your host app, server, or CDN.
+
+### Recommended Headers
+
+- Set `Content-Security-Policy` with strict directives.
+- Set `frame-ancestors` in CSP for clickjacking protection.
+- Optionally set `X-Frame-Options` for legacy browser coverage.
+- Set an explicit `Content-Type` charset for HTML responses (`text/html; charset=utf-8`).
+
+### CSP Example
+
+```http
+Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://<rpc-origin> https://<api-origin> https://<wallet-provider-origin>; frame-src 'self' https://<wallet-provider-origin>
+```
+
+Allowlist only the exact third-party origins your app uses, especially in `connect-src` and `frame-src`.
+
+### Clickjacking Protection
+
+- Preferred: `frame-ancestors` in CSP.
+- Optional legacy fallback: `X-Frame-Options: DENY` or `X-Frame-Options: SAMEORIGIN`.
+
+### Content-Type Charset
+
+- HTML: `Content-Type: text/html; charset=utf-8`.
+- JS/CSS: use the appropriate `Content-Type` values and include charset where applicable.
+
+### Verify in Production
+
+- Check headers with `curl -I https://your-app.example`.
+- Confirm CSP and frame protections in the browser DevTools Network panel.
 
 ## Tech Stack
 

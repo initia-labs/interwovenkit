@@ -1,4 +1,4 @@
-import ky from "ky"
+import ky, { HTTPError } from "ky"
 import { useState } from "react"
 import { useAtom, useAtomValue } from "jotai"
 import { useQuery } from "@tanstack/react-query"
@@ -17,7 +17,12 @@ import { useInterwovenKit } from "@/public/data/hooks"
 import { useEnableAutoSign } from "./data/actions"
 import { DEFAULT_DURATION, DURATION_OPTIONS } from "./data/constants"
 import { pendingAutoSignRequestAtom } from "./data/store"
+import { isVerifiedWebsiteHost } from "./data/website"
 import styles from "./EnableAutoSign.module.css"
+
+function isAccountNotFoundError(error: unknown): boolean {
+  return error instanceof HTTPError && error.response.status === 404
+}
 
 const accountQueries = createQueryKeys("interwovenkit:account", {
   info: (restUrl: string, address: string) => ({
@@ -25,7 +30,15 @@ const accountQueries = createQueryKeys("interwovenkit:account", {
     queryFn: async () => {
       const rest = ky.create({ prefixUrl: restUrl })
       const path = `cosmos/auth/v1beta1/account_info/${address}`
-      return rest.get(path).json()
+      try {
+        await rest.get(path).json()
+        return true
+      } catch (error) {
+        if (isAccountNotFoundError(error)) {
+          return false
+        }
+        throw error
+      }
     },
   }),
 })
@@ -44,9 +57,11 @@ const EnableAutoSignComponent = () => {
   if (!pendingRequest) throw new Error("Pending request not found")
 
   const { logoUrl, name, restUrl } = findChain(pendingRequest.chainId)
-  const { data: isAccountCreated, isLoading: isCheckingAccount } = useQuery(
-    accountQueries.info(restUrl, address),
-  )
+  const {
+    data: isAccountCreated,
+    isLoading: isCheckingAccount,
+    isError: isAccountQueryError,
+  } = useQuery(accountQueries.info(restUrl, address))
 
   // Get website information
   const websiteInfo = {
@@ -55,13 +70,11 @@ const EnableAutoSignComponent = () => {
     hostname: window.location.hostname,
   }
 
-  // Check if website is verified in Initia Registry
-  const isVerified = chains.some((chain) => {
-    if (!chain.website) return false
-    const registryDomain = getBaseDomain(new URL(chain.website).hostname)
-    const websiteDomain = getBaseDomain(window.location.hostname)
-    return registryDomain === websiteDomain
-  })
+  // Check if website is verified in Initia Registry for the requested chain only
+  const targetChain = chains.find((chain) => chain.chainId === pendingRequest.chainId)
+  const isVerified = targetChain?.website
+    ? isVerifiedWebsiteHost(targetChain.website, window.location.hostname)
+    : false
 
   const handleEnable = () => {
     mutate(duration)
@@ -74,6 +87,11 @@ const EnableAutoSignComponent = () => {
   }
 
   const isEnableDisabled = !isVerified && !warningIgnored
+  const showInsufficientBalanceError =
+    !isCheckingAccount && !isAccountQueryError && isAccountCreated === false
+  const showAccountQueryError = !isCheckingAccount && isAccountQueryError
+  const disableEnableButton =
+    isEnableDisabled || isCheckingAccount || isAccountQueryError || isAccountCreated === false
 
   return (
     <>
@@ -128,7 +146,7 @@ const EnableAutoSignComponent = () => {
           <ul className={styles.featureList}>
             {[
               "Send transactions without confirmation pop-ups",
-              "Protected by Privy embedded wallet",
+              "Secured by your wallet signature",
               "Revoke permissions any time in settings",
             ].map((item) => (
               <li key={item} className={styles.featureItem}>
@@ -140,6 +158,7 @@ const EnableAutoSignComponent = () => {
           <a
             href="https://docs.initia.xyz/user-guides/wallet/auto-signing/introduction"
             target="_blank"
+            rel="noopener noreferrer"
             className={styles.learnMoreLink}
           >
             Learn more <IconExternalLink size={12} />
@@ -151,8 +170,11 @@ const EnableAutoSignComponent = () => {
         className={styles.footer}
         extra={
           <div className={styles.feedbackContainer}>
-            {!isCheckingAccount && !isAccountCreated && (
+            {showInsufficientBalanceError && (
               <FormHelp level="error">Insufficient balance for fee</FormHelp>
+            )}
+            {showAccountQueryError && (
+              <FormHelp level="warning">Unable to verify account status. Try again.</FormHelp>
             )}
 
             {!isVerified && !warningIgnored && (
@@ -169,11 +191,7 @@ const EnableAutoSignComponent = () => {
         }
       >
         <Button.Outline onClick={handleCancel}>Cancel</Button.Outline>
-        <Button.White
-          onClick={handleEnable}
-          disabled={isEnableDisabled || !isAccountCreated || isCheckingAccount}
-          loading={isPending}
-        >
+        <Button.White onClick={handleEnable} disabled={disableEnableButton} loading={isPending}>
           Enable
         </Button.White>
       </Footer>
@@ -188,12 +206,3 @@ const EnableAutoSign = () => {
 }
 
 export default EnableAutoSign
-
-/**
- * Extract base domain from hostname (e.g., subdomain.example.com -> example.com)
- */
-function getBaseDomain(hostname: string): string {
-  const parts = hostname.split(".")
-  if (parts.length < 2) return hostname
-  return parts.slice(-2).join(".")
-}

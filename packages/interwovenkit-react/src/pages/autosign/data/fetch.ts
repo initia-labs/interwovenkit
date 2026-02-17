@@ -1,5 +1,6 @@
-import ky from "ky"
+import ky, { HTTPError } from "ky"
 import { useFindChain } from "@/data/chains"
+import { fetchAllPages } from "@/data/pagination"
 import { useInitiaAddress } from "@/public/data/hooks"
 
 /* Shared types for authz grants and feegrant */
@@ -27,6 +28,12 @@ export interface FeegrantAllowance {
   allowance: {
     "@type": string
     expiration?: string
+    allowance?: {
+      "@type": string
+      expiration?: string
+    }
+    allowed_messages?: string[]
+    allowedMessages?: string[]
   }
 }
 
@@ -34,10 +41,36 @@ export interface FeegrantResponse {
   allowance: FeegrantAllowance
 }
 
+export function normalizeAutoSignGrants(grants: Grant[]): Grant[] {
+  return grants
+    .filter((grant) => grant.authorization["@type"].includes("GenericAuthorization"))
+    .filter((grant) => !!grant.authorization.msg)
+}
+
+export function getFeegrantExpiration(
+  allowance: FeegrantAllowance["allowance"],
+): string | undefined {
+  if (allowance["@type"] === "/cosmos.feegrant.v1beta1.AllowedMsgAllowance") {
+    return allowance.allowance?.expiration
+  }
+
+  return allowance.expiration
+}
+
+export function getFeegrantAllowedMessages(
+  allowance: FeegrantAllowance["allowance"],
+): string[] | undefined {
+  if (allowance["@type"] !== "/cosmos.feegrant.v1beta1.AllowedMsgAllowance") {
+    return undefined
+  }
+
+  return allowance.allowedMessages ?? allowance.allowed_messages ?? []
+}
+
 /*
  * Hook to create API functions for querying grants and feegrants.
  * Note: grantee parameter is required because the settings page (ManageAutoSign)
- * allows revoking grants for any grantee, not just the embedded wallet.
+ * allows revoking grants for any grantee, not just the derived wallet.
  */
 export function useAutoSignApi() {
   const initiaAddress = useInitiaAddress()
@@ -59,8 +92,11 @@ export function useAutoSignApi() {
         .json<FeegrantResponse>()
 
       return allowance
-    } catch {
-      return null
+    } catch (error) {
+      if (error instanceof HTTPError && [404, 500].includes(error.response.status)) {
+        return null
+      }
+      throw error
     }
   }
 
@@ -78,5 +114,20 @@ export function useAutoSignApi() {
     return grants
   }
 
-  return { fetchFeegrant, fetchGrants }
+  const fetchAllGrants = async (chainId: string) => {
+    const chain = findChain(chainId)
+    const address = initiaAddress
+
+    if (!address) return []
+
+    const endpoint = `cosmos/authz/v1beta1/grants/granter/${address}`
+    const allGrants = await fetchAllPages<"grants", Grant>(
+      endpoint,
+      { prefixUrl: chain.restUrl },
+      "grants",
+    )
+    return normalizeAutoSignGrants(allGrants)
+  }
+
+  return { fetchFeegrant, fetchGrants, fetchAllGrants }
 }
