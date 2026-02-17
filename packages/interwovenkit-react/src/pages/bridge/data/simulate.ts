@@ -4,7 +4,6 @@ import { HTTPError } from "ky"
 import type { QueryClient } from "@tanstack/react-query"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toBaseUnit } from "@initia/utils"
-import { useAnalyticsTrack } from "@/data/analytics"
 import { useInitiaRegistry, useLayer1 } from "@/data/chains"
 import type { RouterAsset } from "./assets"
 import { useSkipAsset } from "./assets"
@@ -62,7 +61,6 @@ export function useRouteQuery(
   const { watch } = useBridgeForm()
   const values = watch()
   const skip = useSkip()
-  const track = useAnalyticsTrack()
 
   const debouncedValues = { ...values, quantity: debouncedQuantity }
   const isDisabled =
@@ -81,14 +79,6 @@ export function useRouteQuery(
       // Therefore, we do not use try-catch or normalizeError here.
       const response = await fetchRoute(skip, queryClient, debouncedValues, {
         isOpWithdraw: opWithdrawal?.isOpWithdraw,
-      })
-
-      track("Bridge Simulation Success", {
-        quantity: debouncedValues.quantity,
-        srcChainId: debouncedValues.srcChainId,
-        srcDenom: debouncedValues.srcDenom,
-        dstChainId: debouncedValues.dstChainId,
-        dstDenom: debouncedValues.dstDenom,
       })
 
       return response

@@ -21,6 +21,7 @@ import QuantityInput from "@/components/form/QuantityInput"
 import ModalTrigger from "@/components/ModalTrigger"
 import PlainModalContent from "@/components/PlainModalContent"
 import WidgetTooltip from "@/components/WidgetTooltip"
+import { useAnalyticsTrack } from "@/data/analytics"
 import { useFindChain, useLayer1 } from "@/data/chains"
 import { LocalStorageKey } from "@/data/constants"
 import { useIsMobile } from "@/hooks/useIsMobile"
@@ -56,6 +57,7 @@ function getRouteRefreshMs({
 const BridgeFields = () => {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
+  const track = useAnalyticsTrack()
   const [previewRefreshError, setPreviewRefreshError] = useState<string | undefined>(undefined)
   const [previewRefreshing, setPreviewRefreshing] = useState(false)
 
@@ -143,6 +145,14 @@ const BridgeFields = () => {
     } finally {
       setPreviewRefreshing(false)
     }
+
+    track("Bridge Simulation Success", {
+      quantity: values.quantity,
+      srcChainId: values.srcChainId,
+      srcDenom: values.srcDenom,
+      dstChainId: values.dstChainId,
+      dstDenom: values.dstDenom,
+    })
 
     if (latestRoute.warning) {
       const { type = "", message } = latestRoute.warning ?? {}
