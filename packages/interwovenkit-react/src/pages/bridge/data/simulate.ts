@@ -32,9 +32,13 @@ export function fetchRoute(
   options?: { isOpWithdraw?: boolean; signal?: AbortSignal },
 ) {
   const { srcChainId, srcDenom, quantity, dstChainId, dstDenom } = values
-  const { decimals: srcDecimals } = queryClient.getQueryData<RouterAsset>(
+  const srcAsset = queryClient.getQueryData<RouterAsset>(
     skipQueryKeys.asset(srcChainId, srcDenom).queryKey,
-  ) ?? { decimals: 0 }
+  )
+  if (!srcAsset || srcAsset.decimals == null) {
+    throw new Error("Failed to refresh route: source asset metadata is unavailable.")
+  }
+  const srcDecimals = srcAsset.decimals
 
   return skip
     .post("v2/fungible/route", {
