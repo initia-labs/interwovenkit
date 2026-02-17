@@ -21,7 +21,7 @@ import QuantityInput from "@/components/form/QuantityInput"
 import ModalTrigger from "@/components/ModalTrigger"
 import PlainModalContent from "@/components/PlainModalContent"
 import WidgetTooltip from "@/components/WidgetTooltip"
-import { useFindChain } from "@/data/chains"
+import { useFindChain, useLayer1 } from "@/data/chains"
 import { LocalStorageKey } from "@/data/constants"
 import { useIsMobile } from "@/hooks/useIsMobile"
 import { formatValue } from "@/lib/format"
@@ -41,6 +41,18 @@ import SelectRouteOption from "./SelectRouteOption"
 import SlippageControl from "./SlippageControl"
 import styles from "./BridgeFields.module.css"
 
+function getRouteRefreshMs({
+  isLayer1Swap,
+  isL2Swap,
+}: {
+  isLayer1Swap: boolean
+  isL2Swap: boolean
+}) {
+  if (isLayer1Swap) return 5000
+  if (isL2Swap) return 2000
+  return 10000
+}
+
 const BridgeFields = () => {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
@@ -56,6 +68,7 @@ const BridgeFields = () => {
   const { srcChainId, srcDenom, dstChainId, dstDenom, quantity, sender, slippagePercent } = values
 
   const findChain = useFindChain()
+  const layer1 = useLayer1()
   const srcChain = useSkipChain(srcChainId)
   const srcChainType = useChainType(srcChain)
   const dstChain = useSkipChain(dstChainId)
@@ -71,15 +84,21 @@ const BridgeFields = () => {
   // Avoid hitting the simulation API on every keystroke.  Wait a short period
   // after the user stops typing before updating the debounced value.
   const [debouncedQuantity] = useDebounceValue(quantity, 300)
+  const isSameChainRoute = srcChainId === dstChainId
+  const isLayer1Swap = isSameChainRoute && srcChainId === layer1.chainId
+  const isL2Swap = isSameChainRoute && srcChainType === "initia" && !isLayer1Swap
+  const routeRefreshMs = getRouteRefreshMs({ isLayer1Swap, isL2Swap })
 
   const isExternalRoute = srcChainType !== "initia" && dstChainType !== "initia"
   const isOpWithdrawable = useIsOpWithdrawable()
   const routeQueryDefault = useRouteQuery(debouncedQuantity, {
     disabled: isExternalRoute,
+    refreshMs: routeRefreshMs,
   })
   const routeQueryOpWithdrawal = useRouteQuery(debouncedQuantity, {
     isOpWithdraw: true,
     disabled: !isOpWithdrawable,
+    refreshMs: routeRefreshMs,
   })
   const preferOp = isOpWithdrawable && selectedType === "op"
   const preferred = preferOp ? routeQueryOpWithdrawal : routeQueryDefault
@@ -102,9 +121,13 @@ const BridgeFields = () => {
 
   // submit
   const { openModal, closeModal } = useModal()
-  const submit = handleSubmit((values: FormValues) => {
-    if (route?.warning) {
-      const { type = "", message } = route.warning ?? {}
+  const submit = handleSubmit(async (values: FormValues) => {
+    const { data: refreshedRoute } = await routeQuery.refetch()
+    const latestRoute = refreshedRoute ?? route
+    if (!latestRoute) return
+
+    if (latestRoute.warning) {
+      const { type = "", message } = latestRoute.warning ?? {}
       openModal({
         content: (
           <PlainModalContent
@@ -115,7 +138,11 @@ const BridgeFields = () => {
             secondaryButton={{
               label: "Proceed anyway",
               onClick: () => {
-                navigate("/bridge/preview", { route, values })
+                navigate("/bridge/preview", {
+                  route: latestRoute,
+                  values,
+                  quoteVerifiedAt: Date.now(),
+                })
                 closeModal()
               },
             }}
@@ -127,7 +154,11 @@ const BridgeFields = () => {
       return
     }
 
-    navigate("/bridge/preview", { route, values })
+    navigate("/bridge/preview", {
+      route: latestRoute,
+      values,
+      quoteVerifiedAt: Date.now(),
+    })
   })
 
   // fees

@@ -5,7 +5,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toBaseUnit } from "@initia/utils"
 import { useAnalyticsTrack } from "@/data/analytics"
 import { useInitiaRegistry, useLayer1 } from "@/data/chains"
-import { STALE_TIMES } from "@/data/http"
 import type { RouterAsset } from "./assets"
 import { useSkipAsset } from "./assets"
 import { useChainType, useSkipChain } from "./chains"
@@ -21,7 +20,7 @@ export interface RouterRouteResponseJson extends RouteResponseJson {
 
 export function useRouteQuery(
   debouncedQuantity: string,
-  opWithdrawal?: { isOpWithdraw?: boolean; disabled?: boolean },
+  opWithdrawal?: { isOpWithdraw?: boolean; disabled?: boolean; refreshMs?: number },
 ) {
   const { watch } = useBridgeForm()
   const values = watch()
@@ -33,6 +32,8 @@ export function useRouteQuery(
     !values.srcChainId || !values.srcDenom || !values.dstChainId || !values.dstDenom
   const quantityBn = BigNumber(debouncedValues.quantity || 0)
   const isQuantityValid = quantityBn.isFinite() && quantityBn.gt(0)
+  const refreshMs = opWithdrawal?.refreshMs ?? 10_000
+  const enabled = isQuantityValid && !opWithdrawal?.disabled && !isDisabled
 
   const queryClient = useQueryClient()
   return useQuery({
@@ -71,8 +72,12 @@ export function useRouteQuery(
 
       return response
     },
-    enabled: isQuantityValid && !opWithdrawal?.disabled && !isDisabled,
-    staleTime: STALE_TIMES.MINUTE,
+    enabled,
+    staleTime: refreshMs,
+    refetchInterval: enabled ? refreshMs : false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchOnMount: "always",
   })
 }
 
