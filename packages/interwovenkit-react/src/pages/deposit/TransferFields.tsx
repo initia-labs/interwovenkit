@@ -29,6 +29,7 @@ import styles from "./Fields.module.css"
 
 interface State {
   route?: RouterRouteResponseJson
+  quoteVerifiedAt?: number
   recipientAddress?: string
 }
 
@@ -75,16 +76,22 @@ const TransferFields = ({ mode }: Props) => {
     if (mode === "withdraw" && !externalAsset) return "Select destination"
   }, [mode, rawQuantity, balance, amountAsset, externalAsset])
 
-  const { data: route, error: routeError } = useRouteQuery(debouncedQuantity, {
+  const {
+    data: route,
+    error: routeError,
+    dataUpdatedAt: routeUpdatedAt,
+  } = useRouteQuery(debouncedQuantity, {
     disabled: !!disabledMessage,
   })
 
   const routeForState = !routeError && !disabledMessage ? route : undefined
+  const quoteVerifiedAt = routeForState && routeUpdatedAt > 0 ? routeUpdatedAt : undefined
 
   const updateNavigationState = useEffectEvent(() => {
     navigate(0, {
       ...state,
       route: routeForState,
+      quoteVerifiedAt,
       values: {
         sender: hexAddress,
         recipient: state.recipientAddress ? InitiaAddress(state.recipientAddress).hex : hexAddress,
@@ -96,7 +103,7 @@ const TransferFields = ({ mode }: Props) => {
 
   useEffect(() => {
     updateNavigationState()
-  }, [routeForState, hexAddress])
+  }, [routeForState, quoteVerifiedAt, hexAddress])
 
   if (!localAsset) return null
   if (mode === "deposit" && !externalAsset) return null
