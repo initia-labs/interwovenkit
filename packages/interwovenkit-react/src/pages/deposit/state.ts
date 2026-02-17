@@ -17,7 +17,7 @@ interface BuildTransferLocationStateArgs<T extends object> {
   values: T
 }
 
-export function getTransferRecipient(recipientAddress: string | undefined, hexAddress: string) {
+function getTransferRecipient(recipientAddress: string | undefined, hexAddress: string) {
   return recipientAddress ? InitiaAddress(recipientAddress).hex : hexAddress
 }
 
