@@ -3,7 +3,7 @@ import type { TxJson } from "@skip-go/client"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import FormHelp from "@/components/form/FormHelp"
-import { useNavigate } from "@/lib/router"
+import { useLocationState, useNavigate } from "@/lib/router"
 import { type BridgeTxResult, useBridgePreviewState, useBridgeTx } from "./data/tx"
 import { useRouteRefresh } from "./data/useRouteRefresh"
 
@@ -17,6 +17,7 @@ interface Props {
 
 const BridgePreviewFooter = ({ tx, fee, onCompleted, confirmMessage, error }: Props) => {
   const navigate = useNavigate()
+  const state = useLocationState<Record<string, unknown>>()
   const { route, values, quoteVerifiedAt, requiresReconfirm } = useBridgePreviewState()
   const { mutate, isPending } = useBridgeTx(tx, { customFee: fee, onCompleted })
   const { refreshRouteIfNeeded, isRefreshing, refreshError, clearRefreshError } = useRouteRefresh(
@@ -32,6 +33,7 @@ const BridgePreviewFooter = ({ tx, fee, onCompleted, confirmMessage, error }: Pr
       // quoteVerifiedAt is always defined here (set when navigating with requiresReconfirm: true).
       // Date.now() fallback is safer than 0, which would immediately mark the route as stale.
       navigate(0, {
+        ...state,
         route,
         values,
         quoteVerifiedAt: quoteVerifiedAt ?? Date.now(),

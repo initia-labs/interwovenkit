@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { normalizeError } from "@/data/http"
-import { useNavigate } from "@/lib/router"
+import { useLocationState, useNavigate } from "@/lib/router"
 import type { FormValues } from "./form"
 import type { RouterRouteResponseJson } from "./simulate"
 import { fetchRoute } from "./simulate"
@@ -42,6 +42,7 @@ export function useRouteRefresh(
   quoteVerifiedAt?: number,
 ) {
   const navigate = useNavigate()
+  const state = useLocationState<Record<string, unknown>>()
   const queryClient = useQueryClient()
   const skip = useSkip()
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -78,6 +79,7 @@ export function useRouteRefresh(
       const refreshedAt = Date.now()
       if (routeChanged) {
         navigate(0, {
+          ...state,
           route: refreshedRoute,
           values,
           quoteVerifiedAt: refreshedAt,
