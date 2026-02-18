@@ -9,7 +9,7 @@ interface FormatAmountOptions {
   dp?: number
 }
 
-interface DisplayAmountSubscript {
+interface SubscriptParts {
   prefix: string
   hiddenZeroCount: number
   significant: string
@@ -17,7 +17,7 @@ interface DisplayAmountSubscript {
 
 interface DisplayAmountParts {
   formatted: string
-  subscript?: DisplayAmountSubscript
+  subscript?: SubscriptParts
 }
 
 function toSubscript(value: number) {
@@ -27,7 +27,7 @@ function toSubscript(value: number) {
     .join("")
 }
 
-export function formatDisplayAmountParts(
+function getDisplayAmountParts(
   amount: Parameters<typeof formatAmountBase>[0],
   options: FormatAmountOptions,
 ): DisplayAmountParts {
@@ -74,7 +74,7 @@ export function formatDisplayAmount(
   amount: Parameters<typeof formatAmountBase>[0],
   options: FormatAmountOptions,
 ) {
-  const { formatted, subscript } = formatDisplayAmountParts(amount, options)
+  const { formatted, subscript } = getDisplayAmountParts(amount, options)
   if (!subscript) return formatted
   return `${subscript.prefix}${toSubscript(subscript.hiddenZeroCount)}${subscript.significant}`
 }
