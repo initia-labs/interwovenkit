@@ -103,7 +103,7 @@ const TxRequest = () => {
   const isInsufficient = !feeDetails.isSufficient
 
   return (
-    <>
+    <div className={styles.page}>
       <Scrollable>
         <h1 className={styles.title}>Confirm tx</h1>
 
@@ -145,7 +145,7 @@ const TxRequest = () => {
           Approve
         </Button.White>
       </Footer>
-    </>
+    </div>
   )
 }
 
