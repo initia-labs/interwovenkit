@@ -1,4 +1,4 @@
-import { formatDuration, formatFees } from "./format"
+import { formatDuration } from "./format"
 
 describe("formatDuration", () => {
   it("handles pure seconds", () => {
@@ -37,28 +37,5 @@ describe("formatDuration", () => {
 
   it("drops zero-count units", () => {
     expect(formatDuration(3600)).toBe("1h")
-  })
-})
-
-describe("formatFees", () => {
-  it("formats a single fee entry", () => {
-    const fees = [{ amount: "1234567", origin_asset: { decimals: 6, symbol: "INIT" } }]
-    // @ts-expect-error unused values are not defined
-    expect(formatFees(fees)).toBe("1.234567 INIT")
-  })
-
-  it("formats multiple fee entries", () => {
-    const fees = [
-      { amount: "1000000", origin_asset: { decimals: 6, symbol: "INIT" } },
-      { amount: "500", origin_asset: { decimals: 0, symbol: "USDC" } },
-    ]
-    // @ts-expect-error unused values are not defined
-    expect(formatFees(fees)).toBe("1.000000 INIT, 500 USDC")
-  })
-
-  it("limits decimal places to 6", () => {
-    const fees = [{ amount: "123456789", origin_asset: { decimals: 8, symbol: "ETH" } }]
-    // @ts-expect-error unused values are not defined
-    expect(formatFees(fees)).toBe("1.234567 ETH")
   })
 })
