@@ -53,7 +53,9 @@ describe("recoverCompressedPublicKeyFromMessageSignature", () => {
     const recoveredPublicKey = recoverCompressedPublicKeyFromMessageSignature(message, signature)
 
     const uncompressedPublicKey = wallet.signingKey.publicKey
-    const expectedPublicKey = Secp256k1.compressPubkey(fromHex(uncompressedPublicKey.replace("0x", "")))
+    const expectedPublicKey = Secp256k1.compressPubkey(
+      fromHex(uncompressedPublicKey.replace("0x", "")),
+    )
 
     expect(toHex(recoveredPublicKey)).toBe(toHex(expectedPublicKey))
   })
