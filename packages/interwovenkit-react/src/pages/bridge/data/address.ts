@@ -4,6 +4,14 @@ import { InitiaAddress } from "@initia/utils"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useFindChainType, useFindSkipChain } from "./chains"
 
+function isBech32WithPrefix(address: string, prefix: string): boolean {
+  try {
+    return fromBech32(address).prefix === prefix
+  } catch {
+    return false
+  }
+}
+
 export function useGetDefaultAddress() {
   const { initiaAddress, hexAddress } = useInterwovenKit()
   const findSkipChain = useFindSkipChain()
@@ -34,16 +42,13 @@ export function useValidateAddress() {
     const chainType = findChainType(chain)
     switch (chainType) {
       case "initia":
-        return InitiaAddress.validate(address)
+        // Strict bech32 check: the router API expects bech32 for initia chains,
+        // so reject hex addresses even though InitiaAddress.validate() accepts both.
+        return isBech32WithPrefix(address, chain.bech32_prefix ?? "init")
       case "evm":
         return isAddress(address)
-      case "cosmos": {
-        try {
-          return fromBech32(address).prefix === chain.bech32_prefix
-        } catch {
-          return false
-        }
-      }
+      case "cosmos":
+        return chain.bech32_prefix ? isBech32WithPrefix(address, chain.bech32_prefix) : false
       default:
         return false
     }
