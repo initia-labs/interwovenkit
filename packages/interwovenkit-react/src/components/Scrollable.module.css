@@ -1,7 +1,10 @@
 .scrollable {
   flex: 1;
 
+  min-height: 0;
+
   overflow: hidden;
+  -webkit-overflow-scrolling: touch;
   overflow-y: auto;
 
   padding: var(--padding);
