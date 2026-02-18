@@ -1,6 +1,6 @@
 import { toPrivyWallet, toPrivyWalletConnector } from "@privy-io/cross-app-connect/rainbow-kit"
 
-export const PRIVY_APP_ID = "cmbq1ozyc006al70lx4uciz0q"
+export const PRIVY_APP_ID = "cmlqt67n7002t0bl44nei2pun"
 
 export const initiaPrivyWalletOptions = {
   id: PRIVY_APP_ID,
