@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { formatAmount } from "@initia/utils"
+import FormattedAmount from "@/components/FormattedAmount"
 import { formatValue } from "@/lib/format"
 import Image from "../Image"
 import Status from "../Status"
@@ -55,7 +55,11 @@ const AssetOptions = (props: Props) => {
                       <div className={styles.name}>{name}</div>
                     </div>
                     <div className={styles.balance}>
-                      {balance && <div>{formatAmount(balance, { decimals })}</div>}
+                      {balance && (
+                        <div>
+                          <FormattedAmount amount={balance} decimals={decimals} />
+                        </div>
+                      )}
                       {value > 0 && <div className={styles.value}>{formatValue(value)}</div>}
                     </div>
                   </>
