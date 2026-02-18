@@ -6,6 +6,7 @@
   overflow: hidden;
   -webkit-overflow-scrolling: touch;
   overflow-y: auto;
+  overscroll-behavior: contain;
 
   padding: var(--padding);
 }
