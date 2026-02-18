@@ -18,6 +18,7 @@ import { useEnableAutoSign } from "./data/actions"
 import { DEFAULT_DURATION, DURATION_OPTIONS } from "./data/constants"
 import { pendingAutoSignRequestAtom } from "./data/store"
 import { isVerifiedWebsiteHost } from "./data/website"
+import pageStyles from "@/components/Page.module.css"
 import styles from "./EnableAutoSign.module.css"
 
 function isAccountNotFoundError(error: unknown): boolean {
@@ -94,7 +95,7 @@ const EnableAutoSignComponent = () => {
     isEnableDisabled || isCheckingAccount || isAccountQueryError || isAccountCreated === false
 
   return (
-    <div className={styles.page}>
+    <div className={pageStyles.page}>
       <Scrollable className={styles.container}>
         <header>
           <h1 className={styles.title}>Enable auto-signing</h1>

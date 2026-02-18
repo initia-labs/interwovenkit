@@ -14,6 +14,7 @@ import { useFindAsset } from "@/data/assets"
 import { useChain } from "@/data/chains"
 import { useGasPrices, useLastFeeDenom } from "@/data/fee"
 import { TX_APPROVAL_MUTATION_KEY, useSignTxWithAutoSignFee, useTxRequestHandler } from "@/data/tx"
+import pageStyles from "@/components/Page.module.css"
 import TxFee from "./TxFee"
 import TxFeeInsufficient from "./TxFeeInsufficient"
 import TxMessage from "./TxMessage"
@@ -103,7 +104,7 @@ const TxRequest = () => {
   const isInsufficient = !feeDetails.isSufficient
 
   return (
-    <div className={styles.page}>
+    <div className={pageStyles.page}>
       <Scrollable>
         <h1 className={styles.title}>Confirm tx</h1>
 
