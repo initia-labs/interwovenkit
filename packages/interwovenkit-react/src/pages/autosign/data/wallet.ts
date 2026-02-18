@@ -18,6 +18,10 @@ import { useStore } from "jotai"
 import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
 import { useFindChain } from "@/data/chains"
+import {
+  cacheRecoveredPublicKeyFromMessageSignature,
+  getBrowserPublicKeyStorage,
+} from "@/data/publicKey"
 import { encodeEthSecp256k1Signature } from "@/data/patches/signature"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { deriveWalletFromSignature, getAutoSignMessage, getDerivedWalletKey } from "./derivation"
@@ -301,6 +305,18 @@ export function useDeriveWallet() {
         const origin = window.location.origin
         const message = getAutoSignMessage(origin)
         const signature = await signMessageAsync({ message })
+
+        // Seed the signer public-key cache from this signature so the
+        // immediate grant transaction avoids an extra first-time sign prompt.
+        const publicKeyStorage = getBrowserPublicKeyStorage()
+        if (publicKeyStorage) {
+          cacheRecoveredPublicKeyFromMessageSignature({
+            address: userAddress,
+            message,
+            signature,
+            storage: publicKeyStorage,
+          })
+        }
 
         const wallet = await deriveWalletFromSignature(signature as Hex, chain.bech32_prefix)
         const publicWallet = toPublicWallet(wallet)

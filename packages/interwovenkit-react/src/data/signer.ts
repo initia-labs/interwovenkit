@@ -11,8 +11,8 @@ import {
   makeSignDoc as makeSignDocAmino,
   sortedJsonStringify,
 } from "@cosmjs/amino/build/signdoc"
-import { Secp256k1, Secp256k1Signature } from "@cosmjs/crypto"
-import { fromBase64, fromHex, toHex } from "@cosmjs/encoding"
+import { Secp256k1Signature } from "@cosmjs/crypto"
+import { fromBase64, fromHex } from "@cosmjs/encoding"
 import { Int53 } from "@cosmjs/math"
 import type { EncodeObject, TxBodyEncodeObject } from "@cosmjs/proto-signing"
 import { makeAuthInfoBytes, Registry } from "@cosmjs/proto-signing"
@@ -34,7 +34,12 @@ import { encodePubkeyInitia } from "./patches/pubkeys"
 import { encodeEthSecp256k1Signature } from "./patches/signature"
 import { useFindChain, useLayer1 } from "./chains"
 import { useConfig } from "./config"
-import { LocalStorageKey } from "./constants"
+import {
+  getBrowserPublicKeyStorage,
+  readPublicKeyFromStorage,
+  recoverCompressedPublicKeyFromMessageSignature,
+  writePublicKeyToStorage,
+} from "./publicKey"
 
 export const useRegistry = () => {
   const config = useConfig()
@@ -61,29 +66,34 @@ export class OfflineSigner implements OfflineAminoSigner {
       return this.cachedPublicKey
     }
 
+    const storage = getBrowserPublicKeyStorage()
+
     // Persist the derived key in localStorage so reloads don't trigger another
     // sign request. Note that the host page can also access this key since
     // localStorage is scoped to the embedding origin. The key itself is not
     // secret.
-    const storageKey = `${LocalStorageKey.PUBLIC_KEY}:${this.address}`
-    const localPublicKey = localStorage.getItem(storageKey)
+    const localPublicKey = storage ? readPublicKeyFromStorage(storage, this.address) : null
     if (localPublicKey) {
-      this.cachedPublicKey = fromHex(localPublicKey)
-      return fromHex(localPublicKey)
+      this.cachedPublicKey = localPublicKey
+      return localPublicKey
     }
 
     // Try to fetch the public key from L1 REST API first
     const publicKeyFromRestApi = await this.getPublicKeyFromRestApi()
     if (publicKeyFromRestApi) {
       this.cachedPublicKey = publicKeyFromRestApi
-      localStorage.setItem(storageKey, toHex(publicKeyFromRestApi))
+      if (storage) {
+        writePublicKeyToStorage(storage, this.address, publicKeyFromRestApi)
+      }
       return publicKeyFromRestApi
     }
 
     // Fallback to signature-based derivation if API doesn't have the public key
     const publicKey = await this.getPublicKey()
     this.cachedPublicKey = publicKey
-    localStorage.setItem(storageKey, toHex(publicKey))
+    if (storage) {
+      writePublicKeyToStorage(storage, this.address, publicKey)
+    }
 
     return publicKey
   }
@@ -115,9 +125,7 @@ export class OfflineSigner implements OfflineAminoSigner {
     // The key itself is not sensitive.
     const message = "Sign this message to identify your Initia account."
     const signature = await this.signMessage(message)
-    const messageHash = ethers.hashMessage(message)
-    const uncompressedPublicKey = ethers.SigningKey.recoverPublicKey(messageHash, signature)
-    return Secp256k1.compressPubkey(fromHex(uncompressedPublicKey.replace("0x", "")))
+    return recoverCompressedPublicKeyFromMessageSignature(message, signature)
   }
 
   async getAccounts(): Promise<readonly AccountData[]> {
