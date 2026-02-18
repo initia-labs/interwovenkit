@@ -4,12 +4,10 @@ import { IconCheck, IconChevronDown } from "@initia/icons-react"
 import { usePortal } from "@/public/app/PortalContext"
 import styles from "./Dropdown.module.css"
 
-import type { ReactNode } from "react"
-
 export interface DropdownOption<T = string> {
   value: T
-  label: ReactNode
-  triggerLabel?: ReactNode
+  label: string
+  triggerLabel?: string
 }
 
 interface DropdownProps<T = string> {

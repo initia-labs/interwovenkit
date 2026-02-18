@@ -1,15 +1,13 @@
 import clsx from "clsx"
 import { useToggle } from "usehooks-ts"
 import { IconChevronDown } from "@initia/icons-react"
-import { truncate } from "@initia/utils"
+import { formatAmount, truncate } from "@initia/utils"
 import AnimatedHeight from "@/components/AnimatedHeight"
-import FormattedAmount from "@/components/FormattedAmount"
-import FormattedFeeList from "@/components/FormattedFeeList"
 import { useConnectedWalletIcon } from "@/hooks/useConnectedWalletIcon"
 import { useLocationState } from "@/lib/router"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useAllSkipAssets } from "../bridge/data/assets"
-import { formatDuration } from "../bridge/data/format"
+import { formatDuration, formatFees } from "../bridge/data/format"
 import type { RouterRouteResponseJson } from "../bridge/data/simulate"
 import { useBridgePreviewState } from "../bridge/data/tx"
 import styles from "./Fields.module.css"
@@ -62,9 +60,7 @@ const TransferTxDetails = ({ renderFee }: Props) => {
             {!!route.estimated_fees?.length && (
               <div className={styles.detail}>
                 <p className={styles.detailLabel}>Bridge fee</p>
-                <div className={styles.detailValue}>
-                  <FormattedFeeList fees={route.estimated_fees} />
-                </div>
+                <div className={styles.detailValue}>{formatFees(route.estimated_fees)}</div>
               </div>
             )}
             {renderFee && (
@@ -96,8 +92,7 @@ const TransferTxDetails = ({ renderFee }: Props) => {
           <p className={styles.detailLabel}>Minimum received</p>
           <p className={styles.detailValue}>
             <img src={dstAsset.logo_uri} alt={dstAsset.symbol} className={styles.detailToken} />{" "}
-            <FormattedAmount amount={minimumReceived} decimals={dstAsset.decimals} />{" "}
-            {dstAsset.symbol}
+            {formatAmount(minimumReceived, { decimals: dstAsset.decimals })} {dstAsset.symbol}
           </p>
         </div>
       </div>

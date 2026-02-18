@@ -1,7 +1,6 @@
 import { IconArrowDown } from "@initia/icons-react"
-import { truncate } from "@initia/utils"
+import { formatAmount, truncate } from "@initia/utils"
 import CopyButton from "@/components/CopyButton"
-import FormattedAmount from "@/components/FormattedAmount"
 import Images from "@/components/Images"
 import WidgetTooltip from "@/components/WidgetTooltip"
 import placeholder from "@/data/placeholder"
@@ -47,7 +46,7 @@ const OperationItemComponent = (props: ComponentProps) => {
 
         <div className={styles.info}>
           <div className={styles.asset}>
-            <FormattedAmount amount={amount} decimals={decimals} className={styles.amount} />
+            <span className={styles.amount}>{formatAmount(amount, { decimals })}</span>
             <span>{symbol}</span>
           </div>
 

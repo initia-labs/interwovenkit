@@ -2,10 +2,8 @@ import { format } from "date-fns"
 import { useAccount } from "wagmi"
 import { type ReactNode, useEffect, useMemo } from "react"
 import { IconArrowDown, IconExternalLink, IconWallet } from "@initia/icons-react"
-import { InitiaAddress, truncate } from "@initia/utils"
+import { formatAmount, InitiaAddress, truncate } from "@initia/utils"
 import ExplorerLink from "@/components/ExplorerLink"
-import FormattedAmount from "@/components/FormattedAmount"
-import FormattedFeeList from "@/components/FormattedFeeList"
 import Image from "@/components/Image"
 import Images from "@/components/Images"
 import Loader from "@/components/Loader"
@@ -14,6 +12,7 @@ import { useSkipAsset } from "./data/assets"
 import type { RouterChainJson } from "./data/chains"
 import { useSkipChain } from "./data/chains"
 import { useCosmosWallets } from "./data/cosmos"
+import { formatFees } from "./data/format"
 import type { TxIdentifier } from "./data/history"
 import { useBridgeHistoryDetails } from "./data/history"
 import { BridgeType, getBridgeType, useTrackTxQuery } from "./data/tx"
@@ -81,7 +80,7 @@ const BridgeHistoryItem = ({ tx }: { tx: TxIdentifier }) => {
         <Images assetLogoUrl={logo_uri} chainLogoUrl={chain.logo_uri ?? undefined} />
         <div>
           <div className={styles.asset}>
-            <FormattedAmount amount={amount} decimals={decimals} className={styles.amount} />
+            <span className={styles.amount}>{formatAmount(amount, { decimals })}</span>
             <span>{symbol}</span>
           </div>
           <div className={styles.chain}>
@@ -144,9 +143,7 @@ const BridgeHistoryItem = ({ tx }: { tx: TxIdentifier }) => {
       {estimated_fees.length > 0 && (
         <div className={styles.fees}>
           <span className={styles.label}>Fees</span>
-          <span className={styles.content}>
-            <FormattedFeeList fees={estimated_fees} />
-          </span>
+          <span className={styles.content}>{formatFees(estimated_fees)}</span>
         </div>
       )}
     </>

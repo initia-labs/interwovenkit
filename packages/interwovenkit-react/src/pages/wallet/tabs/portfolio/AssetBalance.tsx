@@ -1,4 +1,4 @@
-import FormattedAmount from "@/components/FormattedAmount"
+import { formatAmount } from "@initia/utils"
 import Images from "@/components/Images"
 import type { PortfolioAssetItem } from "@/data/portfolio"
 import { formatValue } from "@/lib/format"
@@ -11,6 +11,7 @@ interface Props {
 
 const ChainBalance = ({ asset }: Props) => {
   const { amount, value, logoUrl, chain } = asset
+  const formattedBalance = formatAmount(amount, { decimals: asset.decimals })
 
   return (
     <AssetActions asset={asset}>
@@ -27,7 +28,7 @@ const ChainBalance = ({ asset }: Props) => {
           <span className={styles.name}>{chain.name}</span>
         </div>
         <div className={styles.value}>
-          <FormattedAmount amount={amount} decimals={asset.decimals} className={styles.amount} />
+          <span className={styles.amount}>{formattedBalance}</span>
           {Number(value) > 0 && <span className={styles.usd}>{formatValue(value)}</span>}
         </div>
       </button>

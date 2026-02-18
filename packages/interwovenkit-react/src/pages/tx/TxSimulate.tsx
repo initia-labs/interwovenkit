@@ -4,9 +4,8 @@ import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import { partition } from "ramda"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
-import { fromBaseUnit } from "@initia/utils"
+import { formatAmount, fromBaseUnit } from "@initia/utils"
 import type { BaseAsset } from "@/components/form/types"
-import FormattedAmount from "@/components/FormattedAmount"
 import Image from "@/components/Image"
 import { useFindAsset } from "@/data/assets"
 import { type NormalizedChain, useChain, usePricesQuery } from "@/data/chains"
@@ -22,6 +21,7 @@ import type { ReactNode } from "react"
 
 const Change = ({ amount, asset, price }: { amount: string; asset: BaseAsset; price?: number }) => {
   const { denom, symbol, decimals, logoUrl } = asset
+  const formattedAmount = formatAmount(amount, { decimals })
   const value = price && BigNumber(fromBaseUnit(amount, { decimals })).times(price).abs()
 
   return (
@@ -29,7 +29,7 @@ const Change = ({ amount, asset, price }: { amount: string; asset: BaseAsset; pr
       <div className={styles.amount}>
         <Image src={logoUrl} width={14} height={14} logo />
         <span className={styles.text}>
-          <FormattedAmount amount={amount} decimals={decimals} /> {symbol || denom}
+          {formattedAmount} {symbol || denom}
         </span>
       </div>
       {value && <div className={styles.value}>{formatValue(value)}</div>}

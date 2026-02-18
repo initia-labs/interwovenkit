@@ -5,15 +5,12 @@ import { toBaseUnit } from "@initia/utils"
 import NumericInput from "./NumericInput"
 import styles from "./QuantityInput.module.css"
 
-import type { ReactNode } from "react"
-
-interface QuantityInputReadOnlyProps {
-  children: ReactNode
-  isPlaceholder: boolean
-}
-
-const QuantityInputReadOnly = ({ children, isPlaceholder }: QuantityInputReadOnlyProps) => {
-  return <p className={clsx(styles.input, { [styles.placeholder]: isPlaceholder })}>{children}</p>
+const QuantityInputReadOnly = ({ children }: { children: string }) => {
+  return (
+    <p className={clsx(styles.input, { [styles.placeholder]: BigNumber(children).isZero() })}>
+      {children}
+    </p>
+  )
 }
 
 interface Props {

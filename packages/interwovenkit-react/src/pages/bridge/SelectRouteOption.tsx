@@ -1,6 +1,6 @@
 import clsx from "clsx"
 import { IconCheck, IconClockFilled } from "@initia/icons-react"
-import FormattedAmount from "@/components/FormattedAmount"
+import { formatAmount } from "@initia/utils"
 import Skeleton from "@/components/Skeleton"
 import { formatValue } from "@/lib/format"
 import { useSkipAsset } from "./data/assets"
@@ -71,7 +71,7 @@ const SelectRouteOption = ({ label, query, value, onSelect, ...props }: Props) =
             {isLoading ? (
               <Skeleton width={260} height={40} />
             ) : !route ? null : (
-              <FormattedAmount amount={route.amount_out} decimals={dstAsset.decimals} />
+              formatAmount(route.amount_out, { decimals: dstAsset.decimals })
             )}
           </div>
 

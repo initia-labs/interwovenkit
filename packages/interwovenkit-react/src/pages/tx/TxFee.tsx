@@ -1,14 +1,11 @@
 import type { StdFee } from "@cosmjs/amino"
 import BigNumber from "bignumber.js"
-import { formatAmount as formatAmountBase } from "@initia/utils"
+import { formatAmount } from "@initia/utils"
 import Dropdown, { type DropdownOption } from "@/components/Dropdown"
-import FormattedAmount from "@/components/FormattedAmount"
 import { useFindAsset } from "@/data/assets"
 import { useChain } from "@/data/chains"
 import { useTxRequestHandler } from "@/data/tx"
 import styles from "./TxFee.module.css"
-
-import type { ReactNode } from "react"
 
 interface Props {
   options: StdFee[]
@@ -22,19 +19,15 @@ const TxFee = ({ options, value, onChange }: Props) => {
   const findAsset = useFindAsset(chain)
 
   const getDp = (amount: string, decimals: number) => {
-    if (formatAmountBase(amount, { decimals }) === "0.000000") return 8
+    if (formatAmount(amount, { decimals }) === "0.000000") return 8
     return undefined
   }
 
-  const getLabel = ({ amount: [{ amount, denom }] }: StdFee): ReactNode => {
+  const getLabel = ({ amount: [{ amount, denom }] }: StdFee) => {
     if (BigNumber(amount).isZero()) return "0"
     const { symbol, decimals } = findAsset(denom)
     const dp = getDp(amount, decimals)
-    return (
-      <>
-        <FormattedAmount amount={amount} decimals={decimals} dp={dp} /> {symbol}
-      </>
-    )
+    return `${formatAmount(amount, { decimals, dp })} ${symbol}`
   }
 
   const dropdownOptions: DropdownOption<string>[] = options.map((option) => {
@@ -61,7 +54,7 @@ const TxFee = ({ options, value, onChange }: Props) => {
 
   return (
     <div className={styles.root}>
-      <FormattedAmount amount={amount} decimals={decimals} dp={dp} className="monospace" />
+      <span className="monospace">{formatAmount(amount, { decimals, dp })}</span>
       <Dropdown options={dropdownOptions} value={value} onChange={onChange} classNames={styles} />
     </div>
   )
