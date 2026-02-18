@@ -23,8 +23,7 @@ export const prioritizeSignInWallets = <T extends WalletLike>(
 
   for (const wallet of readyWallets) {
     const isPopular =
-      popularIds.has(wallet.id) ||
-      popularNamesNormalized.has(normalizeWalletName(wallet.name))
+      popularIds.has(wallet.id) || popularNamesNormalized.has(normalizeWalletName(wallet.name))
 
     if (isPopular) {
       prioritized.push(wallet)
