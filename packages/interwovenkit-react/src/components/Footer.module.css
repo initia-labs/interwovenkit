@@ -1,5 +1,6 @@
 .footer {
   display: grid;
+  flex-shrink: 0;
   gap: 16px;
 
   &:not(:only-child) {
