@@ -87,7 +87,10 @@ const Drawer = ({ children }: PropsWithChildren) => {
             aria-label="Close drawer"
           />
         )}
-        <VaulDrawer.Content className={isMobile ? styles.mobileContent : styles.desktopContent}>
+        <VaulDrawer.Content
+          className={isMobile ? styles.mobileContent : styles.desktopContent}
+          onInteractOutside={isMobile ? (e) => e.preventDefault() : undefined}
+        >
           <div className={clsx(styles.inner, "body")} ref={setContainer}>
             {isMobile && <ScrollLock />}
             <TxWatcher />
