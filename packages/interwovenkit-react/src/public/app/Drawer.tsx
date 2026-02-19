@@ -10,6 +10,7 @@ import Footer from "@/components/Footer"
 import Scrollable from "@/components/Scrollable"
 import Status from "@/components/Status"
 import { LocalStorageKey } from "@/data/constants"
+import { clearInterwovenKitQueries } from "@/data/query-client"
 import { TX_APPROVAL_MUTATION_KEY, txRequestHandlerAtom } from "@/data/tx"
 import { useDrawer } from "@/data/ui"
 import { useIsMobile } from "@/hooks/useIsMobile"
@@ -61,7 +62,7 @@ const Drawer = ({ children }: PropsWithChildren) => {
         }
 
         navigate("/")
-        queryClient.clear()
+        clearInterwovenKitQueries(queryClient)
         resetErrorBoundary()
       }
 
