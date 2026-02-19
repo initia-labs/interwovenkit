@@ -1,5 +1,11 @@
 # Changelog
 
+### [2.4.1](https://github.com/initia-labs/interwovenkit/compare/v2.4.0...v2.4.1) (2026-02-19)
+
+### Bug Fixes
+
+- **autosign:** accept apex/www registry host for subdomains ([fb0b590](https://github.com/initia-labs/interwovenkit/commit/fb0b5903a3298deb7c63a3641def462ff67d6e5a))
+
 ## [2.4.0](https://github.com/initia-labs/interwovenkit/compare/v2.3.0...v2.4.0) (2026-02-17)
 
 ### Features
