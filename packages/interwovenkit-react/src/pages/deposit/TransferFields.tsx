@@ -75,6 +75,9 @@ const TransferFields = ({ mode }: Props) => {
       return optionUsd > highestUsd ? option : highest
     }, externalAssetOptions[0])
   })()
+  const autoExternalAssetOptionKey = autoExternalAssetOption
+    ? `${autoExternalAssetOption.chain.chain_id}:${autoExternalAssetOption.asset.denom}`
+    : ""
   const externalChain = selectedExternalChainId ? findChain(selectedExternalChainId) : null
 
   const balance = balances?.[srcChainId]?.[srcDenom]?.amount
@@ -134,7 +137,7 @@ const TransferFields = ({ mode }: Props) => {
 
   useEffect(() => {
     applyAutoExternalOption()
-  }, [autoExternalAssetOption, selectedExternalChainId, selectedExternalDenom])
+  }, [autoExternalAssetOptionKey, selectedExternalChainId, selectedExternalDenom])
 
   if (!localAsset) return null
   if (mode === "deposit" && !externalAsset) return null
