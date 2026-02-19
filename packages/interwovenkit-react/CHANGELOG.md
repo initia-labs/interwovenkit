@@ -1,5 +1,11 @@
 # Changelog
 
+### [2.4.2](https://github.com/initia-labs/interwovenkit/compare/v2.4.1...v2.4.2) (2026-02-19)
+
+### Bug Fixes
+
+- **autosign:** restore autosign after reload for direct submit ([c192857](https://github.com/initia-labs/interwovenkit/commit/c192857984ac836a6404958125b76b0522b17a06))
+
 ### [2.4.1](https://github.com/initia-labs/interwovenkit/compare/v2.4.0...v2.4.1) (2026-02-19)
 
 ### Bug Fixes
