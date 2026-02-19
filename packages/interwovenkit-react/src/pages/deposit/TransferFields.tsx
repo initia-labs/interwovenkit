@@ -1,5 +1,5 @@
 import BigNumber from "bignumber.js"
-import { useEffect, useEffectEvent, useMemo, useRef } from "react"
+import { useEffect, useEffectEvent, useMemo } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
 import { formatAmount, fromBaseUnit, InitiaAddress } from "@initia/utils"
@@ -58,29 +58,23 @@ const TransferFields = ({ mode }: Props) => {
     useExternalAssetOptions(mode)
   const hasSingleExternalAssetOption =
     !isExternalAssetOptionsLoading && externalAssetOptions.length === 1
-  const hasSingleWithdrawChainOption = useMemo(() => {
-    if (mode !== "withdraw" || isExternalAssetOptionsLoading || !externalAssetOptions.length) {
-      return false
-    }
-
-    return new Set(externalAssetOptions.map(({ chain }) => chain.chain_id)).size === 1
-  }, [externalAssetOptions, isExternalAssetOptionsLoading, mode])
-  const autoExternalAssetOption = useMemo(() => {
+  const hasSingleWithdrawChainOption =
+    mode === "withdraw" &&
+    !isExternalAssetOptionsLoading &&
+    externalAssetOptions.length > 0 &&
+    new Set(externalAssetOptions.map(({ chain }) => chain.chain_id)).size === 1
+  const autoExternalAssetOption = (() => {
     if (isExternalAssetOptionsLoading || !externalAssetOptions.length) return null
     if (hasSingleExternalAssetOption) return externalAssetOptions[0]
     if (!hasSingleWithdrawChainOption) return null
 
-    return [...externalAssetOptions].sort(
-      ({ balance: a }, { balance: b }) => Number(b?.value_usd ?? 0) - Number(a?.value_usd ?? 0),
-    )[0]
-  }, [
-    externalAssetOptions,
-    hasSingleExternalAssetOption,
-    hasSingleWithdrawChainOption,
-    isExternalAssetOptionsLoading,
-  ])
-  const autoFillKey = `${mode}:${localAsset?.chain_id ?? ""}:${localAsset?.denom ?? ""}`
-  const lastAutoFillKeyRef = useRef<string | null>(null)
+    return externalAssetOptions.reduce((highest, option) => {
+      const highestUsd = Number(highest.balance?.value_usd ?? 0)
+      const optionUsd = Number(option.balance?.value_usd ?? 0)
+
+      return optionUsd > highestUsd ? option : highest
+    }, externalAssetOptions[0])
+  })()
   const externalChain = selectedExternalChainId ? findChain(selectedExternalChainId) : null
 
   const balance = balances?.[srcChainId]?.[srcDenom]?.amount
@@ -127,27 +121,20 @@ const TransferFields = ({ mode }: Props) => {
     updateNavigationState()
   }, [routeForState, hexAddress])
 
-  useEffect(() => {
+  const applyAutoExternalOption = useEffectEvent(() => {
     if (!autoExternalAssetOption) return
     if (selectedExternalDenom && selectedExternalChainId) return
-    if (lastAutoFillKeyRef.current === autoFillKey) return
 
     const { asset, chain } = autoExternalAssetOption
 
     setValue(modeConfig.external.denomKey, asset.denom)
     setValue(modeConfig.external.chainIdKey, chain.chain_id)
     if (mode === "deposit") setValue("quantity", "")
-    lastAutoFillKeyRef.current = autoFillKey
-  }, [
-    autoFillKey,
-    autoExternalAssetOption,
-    mode,
-    modeConfig.external.chainIdKey,
-    modeConfig.external.denomKey,
-    selectedExternalChainId,
-    selectedExternalDenom,
-    setValue,
-  ])
+  })
+
+  useEffect(() => {
+    applyAutoExternalOption()
+  }, [autoExternalAssetOption, selectedExternalChainId, selectedExternalDenom])
 
   if (!localAsset) return null
   if (mode === "deposit" && !externalAsset) return null
@@ -159,7 +146,6 @@ const TransferFields = ({ mode }: Props) => {
     setValue("quantity", "")
     setValue(modeConfig.external.denomKey, "")
     setValue(modeConfig.external.chainIdKey, "")
-    lastAutoFillKeyRef.current = null
 
     if (mode === "withdraw" || hasSingleExternalAssetOption) {
       setValue(modeConfig.local.denomKey, "")
