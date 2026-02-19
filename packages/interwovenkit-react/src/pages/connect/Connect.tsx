@@ -3,6 +3,7 @@ import { useConnect } from "wagmi"
 import { useEffect, useMemo, useState } from "react"
 import { useReadLocalStorage } from "usehooks-ts"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { InitiaAddress } from "@initia/utils"
 import { LocalStorageKey } from "@/data/constants"
 import { normalizeError, STALE_TIMES } from "@/data/http"
 import { initiaPrivyWalletOptions, PRIVY_CONNECT_ORIGIN } from "@/public/data/connectors"
@@ -20,11 +21,15 @@ const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
     const handler = (event: MessageEvent) => {
       if (event.origin !== PRIVY_CONNECT_ORIGIN) return
       if (event.data?.type !== "privy:user-info") return
-      const { loginMethod, email, address } = event.data
+      const { loginMethod, email, address, publicKey } = event.data
       localStorage.setItem(
         `${LocalStorageKey.PRIVY_USER_INFO}:${address}`,
         JSON.stringify({ loginMethod, email }),
       )
+      if (publicKey) {
+        const initAddress = InitiaAddress(address).bech32
+        localStorage.setItem(`${LocalStorageKey.PUBLIC_KEY}:${initAddress}`, publicKey)
+      }
     }
     window.addEventListener("message", handler)
     return () => window.removeEventListener("message", handler)
