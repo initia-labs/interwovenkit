@@ -94,7 +94,7 @@ const EnableAutoSignComponent = () => {
     isEnableDisabled || isCheckingAccount || isAccountQueryError || isAccountCreated === false
 
   return (
-    <>
+    <div className={styles.page}>
       <Scrollable className={styles.container}>
         <header>
           <h1 className={styles.title}>Enable auto-signing</h1>
@@ -195,7 +195,7 @@ const EnableAutoSignComponent = () => {
           Enable
         </Button.White>
       </Footer>
-    </>
+    </div>
   )
 }
 

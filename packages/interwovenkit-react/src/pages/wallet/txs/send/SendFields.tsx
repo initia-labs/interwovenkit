@@ -4,7 +4,7 @@ import { useMemo } from "react"
 import { useFormContext } from "react-hook-form"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
-import { formatAmount, fromBaseUnit, InitiaAddress, toBaseUnit } from "@initia/utils"
+import { fromBaseUnit, InitiaAddress, toBaseUnit } from "@initia/utils"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import AssetOnChainButton from "@/components/form/AssetOnChainButton"
@@ -13,6 +13,7 @@ import ChainAssetQuantityLayout from "@/components/form/ChainAssetQuantityLayout
 import FormHelp from "@/components/form/FormHelp"
 import QuantityInput from "@/components/form/QuantityInput"
 import RecipientInput from "@/components/form/RecipientInput"
+import FormattedAmount from "@/components/FormattedAmount"
 import ModalTrigger from "@/components/ModalTrigger"
 import Page from "@/components/Page"
 import { useBalances } from "@/data/account"
@@ -134,7 +135,7 @@ export const SendFields = () => {
                 }
                 disabled={isMaxButtonDisabled}
               >
-                {formatAmount(balance ?? "0", { decimals })}
+                <FormattedAmount amount={balance ?? "0"} decimals={decimals} />
               </BalanceButton>
             }
             value={!quantity ? "$0" : !price ? "$-" : formatValue(BigNumber(quantity).times(price))}

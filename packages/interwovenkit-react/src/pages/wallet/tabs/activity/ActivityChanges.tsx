@@ -1,8 +1,8 @@
 import BigNumber from "bignumber.js"
 import clsx from "clsx"
 import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
-import { formatAmount } from "@initia/utils"
 import type { BaseAsset } from "@/components/form/types"
+import FormattedAmount from "@/components/FormattedAmount"
 import { useFindAsset } from "@/data/assets"
 import type { NormalizedChain } from "@/data/chains"
 import { useInterwovenKit } from "@/public/data/hooks"
@@ -19,7 +19,7 @@ const Change = ({ amount, asset }: { amount: string; asset: BaseAsset }) => {
   return (
     <div className={clsx(styles.change, isPositive ? styles.positive : styles.negative)}>
       {isPositive ? "+" : "-"}
-      {formatAmount(absAmount, { decimals })} {symbol || denom}
+      <FormattedAmount amount={absAmount} decimals={decimals} /> {symbol || denom}
     </div>
   )
 }

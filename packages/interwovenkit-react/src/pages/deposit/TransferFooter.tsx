@@ -3,8 +3,9 @@ import { calculateFee, GasPrice } from "@cosmjs/stargate"
 import type { TxJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
 import { useState } from "react"
-import { formatAmount } from "@initia/utils"
+import { formatAmount as formatAmountBase } from "@initia/utils"
 import Dropdown, { type DropdownOption } from "@/components/Dropdown"
+import FormattedAmount from "@/components/FormattedAmount"
 import { useBalances } from "@/data/account"
 import { useFindAsset } from "@/data/assets"
 import { useChain } from "@/data/chains"
@@ -17,6 +18,8 @@ import FooterWithErc20Approval from "../bridge/FooterWithErc20Approval"
 import { type TransferMode, useTransferForm } from "./hooks"
 import TransferTxDetails from "./TransferTxDetails"
 import styles from "./TransferFooter.module.css"
+
+import type { ReactNode } from "react"
 
 interface Props {
   tx: TxJson
@@ -110,16 +113,20 @@ const TransferFooterWithFee = ({ tx, gas, confirmMessage, onCompleted }: FooterW
 
   // Helper functions for fee display
   const getDp = (amount: string, decimals: number) => {
-    if (formatAmount(amount, { decimals }) === "0.000000") return 8
+    if (formatAmountBase(amount, { decimals }) === "0.000000") return 8
     return undefined
   }
 
-  const getFeeLabel = (fee: StdFee) => {
+  const getFeeLabel = (fee: StdFee): ReactNode => {
     const [{ amount, denom }] = fee.amount
     if (BigNumber(amount).isZero()) return "0"
     const { symbol, decimals } = findAsset(denom)
     const dp = getDp(amount, decimals)
-    return `${formatAmount(amount, { decimals, dp })} ${symbol}`
+    return (
+      <>
+        <FormattedAmount amount={amount} decimals={decimals} dp={dp} /> {symbol}
+      </>
+    )
   }
 
   const renderFee = () => {
@@ -150,7 +157,7 @@ const TransferFooterWithFee = ({ tx, gas, confirmMessage, onCompleted }: FooterW
 
     return (
       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-        <span className="monospace">{formatAmount(amount, { decimals, dp })}</span>
+        <FormattedAmount amount={amount} decimals={decimals} dp={dp} className="monospace" />
         <Dropdown
           options={dropdownOptions}
           value={feeDenom}

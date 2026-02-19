@@ -1,6 +1,6 @@
 import clsx from "clsx"
 import { IconBack, IconCheck } from "@initia/icons-react"
-import { formatAmount } from "@initia/utils"
+import FormattedAmount from "@/components/FormattedAmount"
 import { useConfig } from "@/data/config"
 import { formatValue } from "@/lib/format"
 import EmptyIconDark from "./assets/EmptyDark.svg"
@@ -128,7 +128,7 @@ const SelectExternalAsset = ({ mode }: Props) => {
                   {balance && (
                     <>
                       <p className={styles.balance}>
-                        {formatAmount(balance.amount, { decimals: balance.decimals || 6 })}
+                        <FormattedAmount amount={balance.amount} decimals={balance.decimals || 6} />
                       </p>
                       <p className={styles.value}>{formatValue(balance.value_usd || 0)}</p>
                     </>
