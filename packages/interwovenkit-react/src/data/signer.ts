@@ -113,7 +113,7 @@ export class OfflineSigner implements OfflineAminoSigner {
     // exchange. Because the message is constant it could be reused by a
     // malicious host to derive the user's public key without explicit consent.
     // The key itself is not sensitive.
-    const message = "Sign this message to identify your Initia account."
+    const message = "Sign this message to identify your Initia account..."
     const signature = await this.signMessage(message)
     const messageHash = ethers.hashMessage(message)
     const uncompressedPublicKey = ethers.SigningKey.recoverPublicKey(messageHash, signature)

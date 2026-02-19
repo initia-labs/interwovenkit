@@ -7,6 +7,7 @@ import CopyButton from "@/components/CopyButton"
 import Image from "@/components/Image"
 import { useDisconnect } from "@/data/ui"
 import { useConnectedWalletIcon } from "@/hooks/useConnectedWalletIcon"
+import { usePrivyUserInfo } from "@/hooks/usePrivyUserInfo"
 import { Link } from "@/lib/router"
 import { useInterwovenKit } from "@/public/data/hooks"
 import styles from "./WidgetHeader.module.css"
@@ -15,7 +16,8 @@ const WidgetHeader = () => {
   const disconnect = useDisconnect()
   const { address, username } = useInterwovenKit()
   const icon = useConnectedWalletIcon()
-  const name = username ?? address
+  const privyUserInfo = usePrivyUserInfo()
+  const name = username ?? privyUserInfo?.email ?? address
 
   const [isExpanded, setIsExpanded] = useState(false)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)

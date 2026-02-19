@@ -1,10 +1,11 @@
 import type { Connector } from "wagmi"
 import { useConnect } from "wagmi"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useReadLocalStorage } from "usehooks-ts"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { LocalStorageKey } from "@/data/constants"
 import { normalizeError, STALE_TIMES } from "@/data/http"
-import { initiaPrivyWalletOptions } from "@/public/data/connectors"
+import { initiaPrivyWalletOptions, PRIVY_CONNECT_ORIGIN } from "@/public/data/connectors"
 import AllWallets from "./AllWallets"
 import SignIn from "./SignIn"
 import { fetchWalletConnectWallets, walletConnectWalletsQueryKey } from "./useWalletConnectWallets"
@@ -15,6 +16,20 @@ const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
   const [pendingConnectorId, setPendingConnectorId] = useState<string | null>(null)
   const [view, setView] = useState<"signin" | "all">("signin")
   const queryClient = useQueryClient()
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (event.origin !== PRIVY_CONNECT_ORIGIN) return
+      if (event.data?.type !== "privy:user-info") return
+      const { loginMethod, email, address } = event.data
+      localStorage.setItem(
+        `${LocalStorageKey.PRIVY_USER_INFO}:${address}`,
+        JSON.stringify({ loginMethod, email }),
+      )
+    }
+    window.addEventListener("message", handler)
+    return () => window.removeEventListener("message", handler)
+  }, [])
+
   const prefetchWalletConnectWallets = () =>
     queryClient.prefetchQuery({
       queryKey: walletConnectWalletsQueryKey,

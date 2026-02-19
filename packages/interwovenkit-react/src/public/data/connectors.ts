@@ -2,6 +2,9 @@ import { toPrivyWallet, toPrivyWalletConnector } from "@privy-io/cross-app-conne
 
 export const PRIVY_APP_ID = "cmlqt67n7002t0bl44nei2pun"
 
+// TODO: replace with production origin after development
+export const PRIVY_CONNECT_ORIGIN = "https://wallet.candeago.net"
+
 export const initiaPrivyWalletOptions = {
   id: PRIVY_APP_ID,
   name: "Socials",

@@ -23,6 +23,7 @@ export const DAY_IN_MS = 24 * HOUR_IN_MS
 export const LocalStorageKey = {
   // wallet
   PUBLIC_KEY: `${NAMESPACE}:public-key`,
+  PRIVY_USER_INFO: `${NAMESPACE}:privy-user-info`,
 
   // bridge
   BRIDGE_SRC_CHAIN_ID: `${NAMESPACE}:bridge:src-chain-id`,
