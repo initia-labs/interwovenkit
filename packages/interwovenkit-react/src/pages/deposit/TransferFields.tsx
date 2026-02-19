@@ -63,7 +63,7 @@ const TransferFields = ({ mode }: Props) => {
     !isExternalAssetOptionsLoading &&
     externalAssetOptions.length > 0 &&
     new Set(externalAssetOptions.map(({ chain }) => chain.chain_id)).size === 1
-  const autoExternalAssetOption = (() => {
+  const autoExternalAssetOption = useMemo(() => {
     if (isExternalAssetOptionsLoading || !externalAssetOptions.length) return null
     if (hasSingleExternalAssetOption) return externalAssetOptions[0]
     if (!hasSingleWithdrawChainOption) return null
@@ -74,7 +74,12 @@ const TransferFields = ({ mode }: Props) => {
 
       return optionUsd > highestUsd ? option : highest
     }, externalAssetOptions[0])
-  })()
+  }, [
+    isExternalAssetOptionsLoading,
+    externalAssetOptions,
+    hasSingleExternalAssetOption,
+    hasSingleWithdrawChainOption,
+  ])
   const externalChain = selectedExternalChainId ? findChain(selectedExternalChainId) : null
 
   const balance = balances?.[srcChainId]?.[srcDenom]?.amount
