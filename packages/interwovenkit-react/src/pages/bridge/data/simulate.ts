@@ -28,20 +28,29 @@ export function useRouteQuery(
   const skip = useSkip()
   const track = useAnalyticsTrack()
 
-  const debouncedValues = { ...values, quantity: debouncedQuantity }
+  const routeParams = {
+    srcChainId: values.srcChainId,
+    srcDenom: values.srcDenom,
+    dstChainId: values.dstChainId,
+    dstDenom: values.dstDenom,
+    quantity: debouncedQuantity,
+  }
   const isDisabled =
-    !values.srcChainId || !values.srcDenom || !values.dstChainId || !values.dstDenom
-  const quantityBn = BigNumber(debouncedValues.quantity || 0)
+    !routeParams.srcChainId ||
+    !routeParams.srcDenom ||
+    !routeParams.dstChainId ||
+    !routeParams.dstDenom
+  const quantityBn = BigNumber(routeParams.quantity || 0)
   const isQuantityValid = quantityBn.isFinite() && quantityBn.gt(0)
 
   const queryClient = useQueryClient()
   return useQuery({
-    queryKey: skipQueryKeys.route(debouncedValues, opWithdrawal?.isOpWithdraw).queryKey,
+    queryKey: skipQueryKeys.route(routeParams, opWithdrawal?.isOpWithdraw).queryKey,
     queryFn: async () => {
       // This query may produce specific errors that need separate handling.
       // Therefore, we do not use try-catch or normalizeError here.
 
-      const { srcChainId, srcDenom, quantity, dstChainId, dstDenom } = debouncedValues
+      const { srcChainId, srcDenom, quantity, dstChainId, dstDenom } = routeParams
 
       const { decimals: srcDecimals } = queryClient.getQueryData<RouterAsset>(
         skipQueryKeys.asset(srcChainId, srcDenom).queryKey,
@@ -60,14 +69,7 @@ export function useRouteQuery(
         .post("v2/fungible/route", { json: params })
         .json<RouterRouteResponseJson>()
 
-      const trackParams = {
-        quantity: debouncedValues.quantity,
-        srcChainId: debouncedValues.srcChainId,
-        srcDenom: debouncedValues.srcDenom,
-        dstChainId: debouncedValues.dstChainId,
-        dstDenom: debouncedValues.dstDenom,
-      }
-      track("Bridge Simulation Success", trackParams)
+      track("Bridge Simulation Success", routeParams)
 
       return response
     },
