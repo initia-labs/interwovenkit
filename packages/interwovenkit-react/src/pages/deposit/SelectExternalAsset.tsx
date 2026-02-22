@@ -56,7 +56,7 @@ const SelectExternalAsset = ({ mode }: Props) => {
 
   useEffect(() => {
     applyAutoSelection()
-  }, [singleAssetOptionKey, selectedExternalChainId, selectedExternalDenom])
+  }, [singleAssetOptionKey])
 
   function renderBackButton() {
     const isExternalSelected = selectedExternalDenom && selectedExternalChainId

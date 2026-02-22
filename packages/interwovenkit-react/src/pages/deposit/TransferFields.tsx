@@ -137,7 +137,7 @@ const TransferFields = ({ mode }: Props) => {
 
   useEffect(() => {
     applyAutoExternalOption()
-  }, [autoExternalAssetOptionKey, selectedExternalChainId, selectedExternalDenom])
+  }, [autoExternalAssetOptionKey])
 
   if (!localAsset) return null
   if (mode === "deposit" && !externalAsset) return null
