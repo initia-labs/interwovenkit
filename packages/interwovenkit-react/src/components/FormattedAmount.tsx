@@ -3,7 +3,7 @@ import { formatDisplayAmountParts } from "@/lib/format"
 import type { ComponentPropsWithoutRef } from "react"
 
 interface Props extends ComponentPropsWithoutRef<"span"> {
-  amount: Parameters<typeof formatDisplayAmount>[0]
+  amount: Parameters<typeof formatDisplayAmountParts>[0]
   decimals: number
   dp?: number
 }
