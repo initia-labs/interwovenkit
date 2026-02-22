@@ -16,40 +16,54 @@ function toSubscript(value: number) {
     .join("")
 }
 
-export function formatDisplayAmount(
+export type FormatDisplayAmountParts =
+  | { kind: "plain"; value: string }
+  | { kind: "subscript"; prefix: string; hiddenZeroCount: number; significant: string }
+
+export function formatDisplayAmountParts(
   amount: Parameters<typeof formatAmountBase>[0],
   options: FormatAmountOptions,
-) {
+): FormatDisplayAmountParts {
   const { decimals, dp } = options
   const effectiveDp = dp ?? DEFAULT_AMOUNT_DP
   const formatted =
     dp === undefined
       ? formatAmountBase(amount, { decimals })
       : formatAmountBase(amount, { decimals, dp })
-  if (!formatted) return formatted
+  if (!formatted) return { kind: "plain", value: formatted }
 
   const bn = new BigNumber(String(amount))
-  if (!bn.isFinite() || bn.isZero() || decimals <= 0) return formatted
+  if (!bn.isFinite() || bn.isZero() || decimals <= 0) return { kind: "plain", value: formatted }
 
   const normalized = bn.abs().shiftedBy(-decimals).toFixed(decimals, BigNumber.ROUND_DOWN)
   const [, fraction = ""] = normalized.split(".")
-  if (!fraction) return formatted
+  if (!fraction) return { kind: "plain", value: formatted }
 
   const hiddenPrecision = fraction.slice(effectiveDp)
-  if (!/[1-9]/.test(hiddenPrecision)) return formatted
+  if (!/[1-9]/.test(hiddenPrecision)) return { kind: "plain", value: formatted }
 
   const leadingZeros = fraction.match(/^0*/)?.[0].length ?? 0
-  if (leadingZeros < Math.max(effectiveDp - 1, 1)) return formatted
+  if (leadingZeros < Math.max(effectiveDp - 1, 1)) return { kind: "plain", value: formatted }
 
   const significantBudget = Math.max(effectiveDp - leadingZeros, 1)
   const significant = fraction.slice(leadingZeros, leadingZeros + significantBudget)
-  if (!significant) return formatted
+  if (!significant) return { kind: "plain", value: formatted }
 
   const hiddenZeroCount = leadingZeros - 1
   const sign = bn.isNegative() ? "-" : ""
   const prefix = `${sign}0.0`
 
-  return `${prefix}${toSubscript(hiddenZeroCount)}${significant}`
+  return { kind: "subscript", prefix, hiddenZeroCount, significant }
+}
+
+export function formatDisplayAmount(
+  amount: Parameters<typeof formatAmountBase>[0],
+  options: FormatAmountOptions,
+) {
+  const parts = formatDisplayAmountParts(amount, options)
+  if (parts.kind === "plain") return parts.value
+
+  return `${parts.prefix}${toSubscript(parts.hiddenZeroCount)}${parts.significant}`
 }
 
 export function formatValue(value?: Parameters<typeof formatNumber>[0]) {

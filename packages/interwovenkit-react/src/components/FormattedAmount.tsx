@@ -1,4 +1,4 @@
-import { formatDisplayAmount } from "@/lib/format"
+import { formatDisplayAmountParts } from "@/lib/format"
 
 import type { ComponentPropsWithoutRef } from "react"
 
@@ -9,7 +9,19 @@ interface Props extends ComponentPropsWithoutRef<"span"> {
 }
 
 const FormattedAmount = ({ amount, decimals, dp, ...props }: Props) => {
-  return <span {...props}>{formatDisplayAmount(amount, { decimals, dp })}</span>
+  const parts = formatDisplayAmountParts(amount, { decimals, dp })
+
+  if (parts.kind === "plain") {
+    return <span {...props}>{parts.value}</span>
+  }
+
+  return (
+    <span {...props}>
+      {parts.prefix}
+      <sub>{parts.hiddenZeroCount}</sub>
+      {parts.significant}
+    </span>
+  )
 }
 
 export default FormattedAmount
