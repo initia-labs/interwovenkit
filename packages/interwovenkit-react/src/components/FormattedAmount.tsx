@@ -1,4 +1,4 @@
-import { formatDisplayAmountParts } from "@/lib/format"
+import { formatDisplayAmountParts, toSubscript } from "@/lib/format"
 
 import type { ComponentPropsWithoutRef } from "react"
 
@@ -18,7 +18,7 @@ const FormattedAmount = ({ amount, decimals, dp, ...props }: Props) => {
   return (
     <span {...props}>
       {parts.prefix}
-      <sub>{parts.hiddenZeroCount}</sub>
+      {toSubscript(parts.hiddenZeroCount)}
       {parts.significant}
     </span>
   )

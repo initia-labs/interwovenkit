@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest"
-import { formatDisplayAmount, formatValue } from "./format"
+import { formatDisplayAmountParts, formatValue, toSubscript } from "./format"
 
 describe("formatDisplayAmount", () => {
+  function formatDisplayAmount(
+    amount: Parameters<typeof formatDisplayAmountParts>[0],
+    options: Parameters<typeof formatDisplayAmountParts>[1],
+  ) {
+    const parts = formatDisplayAmountParts(amount, options)
+    if (parts.kind === "plain") return parts.value
+    return `${parts.prefix}${toSubscript(parts.hiddenZeroCount)}${parts.significant}`
+  }
+
   it("matches default amount formatting for regular amounts", () => {
     expect(formatDisplayAmount("1234567", { decimals: 6 })).toBe("1.234567")
     expect(formatDisplayAmount("1000000", { decimals: 6 })).toBe("1.000000")

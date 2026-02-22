@@ -9,7 +9,7 @@ interface FormatAmountOptions {
   dp?: number
 }
 
-function toSubscript(value: number) {
+export function toSubscript(value: number) {
   return String(value)
     .split("")
     .map((digit) => SUBSCRIPT_DIGITS[Number(digit)] ?? digit)
@@ -54,16 +54,6 @@ export function formatDisplayAmountParts(
   const prefix = `${sign}0.0`
 
   return { kind: "subscript", prefix, hiddenZeroCount, significant }
-}
-
-export function formatDisplayAmount(
-  amount: Parameters<typeof formatAmountBase>[0],
-  options: FormatAmountOptions,
-) {
-  const parts = formatDisplayAmountParts(amount, options)
-  if (parts.kind === "plain") return parts.value
-
-  return `${parts.prefix}${toSubscript(parts.hiddenZeroCount)}${parts.significant}`
 }
 
 export function formatValue(value?: Parameters<typeof formatNumber>[0]) {
