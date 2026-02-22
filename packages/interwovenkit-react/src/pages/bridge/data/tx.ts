@@ -36,6 +36,8 @@ import { skipQueryKeys, useSkip } from "./skip"
 export interface BridgePreviewState {
   route: RouterRouteResponseJson
   values: FormValues
+  quoteVerifiedAt?: number
+  requiresReconfirm?: boolean
 }
 
 export interface SignedOpHook {
@@ -183,6 +185,8 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
     onSuccess: async ({ txHash, wait }) => {
       // Clean up and navigate
       localStorage.removeItem(LocalStorageKey.BRIDGE_QUANTITY)
+      queryClient.removeQueries({ queryKey: skipQueryKeys.route._def })
+      queryClient.removeQueries({ queryKey: skipQueryKeys.routeErrorInfo._def })
 
       if (onCompleted) {
         onCompleted({
