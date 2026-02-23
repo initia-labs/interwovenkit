@@ -45,6 +45,8 @@ export function getNextSqrtPriceFromAmount1RoundingDown(
   amount: bigint,
   add: boolean,
 ): bigint {
+  if (liquidity === 0n) throw new Error(`ZERO_LIQUIDITY`)
+
   const numerator = add ? encode(amount) : amount * TWO_POW_64 + (liquidity - 1n)
   const quotientFp = divU128(numerator, liquidity)
 

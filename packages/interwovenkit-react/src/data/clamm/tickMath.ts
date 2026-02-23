@@ -154,6 +154,16 @@ export function getTickAtSqrtRatio(sqrtPrice: bigint): bigint {
 // tickSpacingToMaxLiquidityPerTick
 // -------------------------
 
+function floorDivBigInt(a: bigint, b: bigint): bigint {
+  if (b === 0n) throw new Error(`DIVISION_BY_ZERO`)
+  const quotient = a / b
+  const remainder = a % b
+  if (remainder !== 0n && remainder > 0n !== b > 0n) {
+    return quotient - 1n
+  }
+  return quotient
+}
+
 /**
  * Move:
  *   public fun tick_spacing_to_max_liquidity_per_tick(tick_spacing: u64): u64
@@ -161,14 +171,15 @@ export function getTickAtSqrtRatio(sqrtPrice: bigint): bigint {
  * Returns bigint (fits in u64 range in Move usage).
  */
 export function tickSpacingToMaxLiquidityPerTick(tickSpacing: bigint): bigint {
+  if (tickSpacing <= 0n) throw new Error(`NON_POSITIVE_TICK_SPACING`)
   if (tickSpacing > MAX_TICK) throw new Error(`GT_MAX_TICK`)
 
   // Move:
   // min_tick = (min_tick()/tick_spacing)*tick_spacing
   // max_tick = (max_tick()/tick_spacing)*tick_spacing
   // num_ticks = ((max_tick - min_tick)/tick_spacing) + 1
-  const minT = (-MAX_TICK / tickSpacing) * tickSpacing
-  const maxT = (MAX_TICK / tickSpacing) * tickSpacing
+  const minT = floorDivBigInt(-MAX_TICK, tickSpacing) * tickSpacing
+  const maxT = floorDivBigInt(MAX_TICK, tickSpacing) * tickSpacing
   const numTicks = (maxT - minT) / tickSpacing + 1n
 
   // denominator uses abs_u64(num_ticks) in Move (always positive here)
