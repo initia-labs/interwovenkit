@@ -3,6 +3,7 @@ import { getSqrtRatioAtTick } from "./tickMath"
 
 const TWO_POW_128 = TWO_POW_64 * TWO_POW_64
 const MIN_NON_ZERO_PRICE = Number.MIN_VALUE
+const MAX_SAFE_INTEGER_BIGINT = BigInt(Number.MAX_SAFE_INTEGER)
 
 function sqrtPriceToPrice(sqrtPrice: bigint): number {
   // sqrtPrice is Q64.64 format, so sqrtPrice^2 is Q128.128
@@ -10,6 +11,12 @@ function sqrtPriceToPrice(sqrtPrice: bigint): number {
   const priceQ128 = sqrtPrice * sqrtPrice
   const integerPart = priceQ128 / TWO_POW_128
   const fractionalPart = priceQ128 % TWO_POW_128
+
+  if (integerPart > MAX_SAFE_INTEGER_BIGINT) {
+    // Above Number.MAX_SAFE_INTEGER, we intentionally drop fractional precision.
+    return Number(integerPart)
+  }
+
   // Convert to number: integer part + fractional part
   return Number(integerPart) + Number(fractionalPart) / Number(TWO_POW_128)
 }

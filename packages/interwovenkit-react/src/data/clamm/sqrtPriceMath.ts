@@ -84,6 +84,8 @@ export function getAmount0DeltaRounded(
   if (sqrtRatioA === sqrtRatioB) return 0n
 
   const [a, b] = orderSqrtRatios(sqrtRatioA, sqrtRatioB)
+  if (a === 0n || b === 0n) return 0n
+
   const numerator1 = liquidity * TWO_POW_64
   const numerator2 = b - a
 

@@ -28,4 +28,14 @@ describe("calculateTokens", () => {
     expect(reversed.min).toBeCloseTo(1 / normal.max, 12)
     expect(reversed.max).toBeCloseTo(1 / normal.min, 12)
   })
+
+  it("keeps prices finite at extreme tick bounds", () => {
+    const tokens = calculateTokens({
+      tickLower: "18446744073709107980",
+      tickUpper: "443636",
+    })
+
+    expect(Number.isFinite(tokens.max)).toBe(true)
+    expect(tokens.max).toBeGreaterThan(tokens.min)
+  })
 })
