@@ -218,7 +218,7 @@ const ClammLiquidityRow = ({ row, denomLogoMap }: LiquidityRowProps) => {
       <Collapsible.Content className={styles.collapsibleContent}>
         <div className={styles.clammBreakdownContent}>
           <div className={styles.breakdownRow}>
-            <span className={styles.breakdownLabel}>Reward</span>
+            <span className={styles.breakdownLabel}>Total rewards</span>
             <div className={styles.breakdownValues}>
               <span className={styles.breakdownValue}>{formatValue(clamm.totalRewardValue)}</span>
             </div>
