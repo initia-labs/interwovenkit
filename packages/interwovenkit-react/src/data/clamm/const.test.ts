@@ -12,8 +12,8 @@ describe("clamm const utils", () => {
 
   it("detects full range with known spacing", () => {
     const spacing = 20
-    const fullRangeMin = Math.trunc(-Number(MAX_TICK) / spacing) * spacing
-    const fullRangeMax = Math.trunc(Number(MAX_TICK) / spacing) * spacing
+    const fullRangeMin = Math.floor(-Number(MAX_TICK) / spacing) * spacing
+    const fullRangeMax = Math.floor(Number(MAX_TICK) / spacing) * spacing
 
     const minBits =
       fullRangeMin < 0 ? (2n ** 64n + BigInt(fullRangeMin)).toString() : String(fullRangeMin)
