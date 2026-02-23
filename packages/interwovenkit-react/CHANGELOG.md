@@ -1,5 +1,11 @@
 # Changelog
 
+### [2.4.3](https://github.com/initia-labs/interwovenkit/compare/v2.4.2...v2.4.3) (2026-02-23)
+
+### Features
+
+- **liquidity:** add CLAMM liquidity positions ([063f0ff](https://github.com/initia-labs/interwovenkit/commit/063f0ffc116e3e1b4edf907064e0eed7cd343d64))
+
 ### [2.4.2](https://github.com/initia-labs/interwovenkit/compare/v2.4.1...v2.4.2) (2026-02-19)
 
 ### Bug Fixes
