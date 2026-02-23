@@ -8,6 +8,8 @@ describe("calculateTokens", () => {
       tickUpper: "443600",
     })
 
+    expect(tokens.min).toBeCloseTo(5.44076519695288e-20, 24)
+    expect(tokens.max).toBe(1.8379767623776203e19)
     expect(tokens.min).toBeGreaterThan(0)
     expect(tokens.max).toBeGreaterThan(tokens.min)
   })
@@ -37,5 +39,16 @@ describe("calculateTokens", () => {
 
     expect(Number.isFinite(tokens.max)).toBe(true)
     expect(tokens.max).toBeGreaterThan(tokens.min)
+  })
+
+  it("returns equal finite min/max for a single-tick range", () => {
+    const tokens = calculateTokens({
+      tickLower: "443600",
+      tickUpper: "443600",
+    })
+
+    expect(Number.isFinite(tokens.min)).toBe(true)
+    expect(Number.isFinite(tokens.max)).toBe(true)
+    expect(tokens.min).toBe(tokens.max)
   })
 })
