@@ -185,7 +185,7 @@ const ClammPositionRow = ({ position }: { position: ClammLiquidityPosition }) =>
       )}
 
       <div className={styles.breakdownRow}>
-        <span className={styles.breakdownLabel}>Reward</span>
+        <span className={styles.breakdownLabel}>Rewards</span>
         <div className={styles.breakdownValues}>
           <span className={styles.breakdownValue}>{formatValue(position.rewardValue)}</span>
         </div>
