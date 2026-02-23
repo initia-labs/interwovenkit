@@ -2,7 +2,7 @@ import { i64FromBits, TWO_POW_64 } from "./const"
 import { getSqrtRatioAtTick } from "./tickMath"
 
 const TWO_POW_128 = TWO_POW_64 * TWO_POW_64
-const MIN_NON_ZERO_PRICE = Number.MIN_VALUE
+const MIN_NON_ZERO_PRICE = 1e-300
 const MAX_SAFE_INTEGER_BIGINT = BigInt(Number.MAX_SAFE_INTEGER)
 
 function sqrtPriceToPrice(sqrtPrice: bigint): number {

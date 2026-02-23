@@ -32,7 +32,7 @@ export const MAX_LIQUIDITY = 40924101727524640255659n
 export function isFullRange(tickLower: string, tickUpper: string, tickSpacing: number): boolean {
   const minTick = Number(i64FromBits(tickLower))
   const maxTick = Number(i64FromBits(tickUpper))
-  const fullRangeMin = Math.trunc(-Number(MAX_TICK) / tickSpacing) * tickSpacing
-  const fullRangeMax = Math.trunc(Number(MAX_TICK) / tickSpacing) * tickSpacing
+  const fullRangeMin = Math.floor(-Number(MAX_TICK) / tickSpacing) * tickSpacing
+  const fullRangeMax = Math.floor(Number(MAX_TICK) / tickSpacing) * tickSpacing
   return minTick === fullRangeMin && maxTick === fullRangeMax
 }
