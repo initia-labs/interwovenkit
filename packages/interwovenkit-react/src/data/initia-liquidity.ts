@@ -464,7 +464,7 @@ export function useInitiaLiquidityPositions(): LiquiditySectionData {
               Number.isFinite(tickSpacing) && tickSpacing > 0
                 ? isFullRange(position.tickLower, position.tickUpper, tickSpacing)
                 : false
-            inRange = fullRange || (currentTick >= tickLower && currentTick <= tickUpper)
+            inRange = fullRange || (currentTick >= tickLower && currentTick < tickUpper)
           } catch {
             inRange = undefined
             fullRange = false

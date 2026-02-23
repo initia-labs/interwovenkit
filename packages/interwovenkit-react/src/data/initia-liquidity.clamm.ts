@@ -98,7 +98,7 @@ export function useClammDexPoolPositions(address: string) {
 
       do {
         const searchParams: Record<string, string> = { "pagination.limit": "100" }
-        if (nextKey) searchParams["pagination.offset"] = nextKey
+        if (nextKey) searchParams["pagination.key"] = nextKey
 
         const response = await ky
           .get(`${dexUrl}/indexer/clamm/v1/positions/${address}`, { searchParams })

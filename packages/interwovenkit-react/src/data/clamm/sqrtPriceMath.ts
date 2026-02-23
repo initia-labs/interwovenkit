@@ -101,7 +101,7 @@ export function getAmount1DeltaRounded(
   if (sqrtRatioA === sqrtRatioB) return 0n
 
   const [a, b] = orderSqrtRatios(sqrtRatioA, sqrtRatioB)
-  const sqrtDelta = roundUp ? b - a : b - a + 1n
+  const sqrtDelta = b - a
   const amount1Required = sqrtDelta * liquidity
 
   return roundUp
