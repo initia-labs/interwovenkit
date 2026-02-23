@@ -263,8 +263,31 @@ const BridgeFields = () => {
           </span>
         ),
       },
+      {
+        condition: route.does_swap,
+        title: "Minimum received",
+        content: (() => {
+          const minimumReceived =
+            (BigInt(route.amount_out) * BigInt(10000 - Number(slippagePercent) * 100)) /
+            BigInt(10000)
+          return (
+            <span className={styles.description}>
+              <img src={dstAsset.logo_uri} alt={dstAsset.symbol} width={12} height={12} />
+              {formatAmount(minimumReceived, { decimals: dstAsset.decimals })} {dstAsset.symbol}
+            </span>
+          )
+        })(),
+      },
     ].filter((row) => row.condition)
-  }, [additionalFees, deductedFees, renderFees, route, shouldShowRouteOptions, slippagePercent])
+  }, [
+    additionalFees,
+    deductedFees,
+    dstAsset,
+    renderFees,
+    route,
+    shouldShowRouteOptions,
+    slippagePercent,
+  ])
 
   return (
     <form className={styles.form} onSubmit={submit}>
