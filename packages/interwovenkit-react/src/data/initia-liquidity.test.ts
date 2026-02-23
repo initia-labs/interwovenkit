@@ -2,6 +2,8 @@ import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
 import { describe, expect, it } from "vitest"
 import { denomToMetadata } from "@initia/utils"
 import { INIT_DENOM } from "./constants"
+import { flattenClammPositions } from "./initia-liquidity"
+import { createClammRowKey } from "./initia-liquidity.clamm"
 
 // Import the types we need (these are not exported, so we'll use minimal mocks)
 type CoinWithMetadata = Coin & { metadata: string }
@@ -549,6 +551,76 @@ describe("initia-liquidity helpers", () => {
 
       expect(stakingReward).toBeUndefined()
       expect(lockReward).toBeUndefined()
+    })
+  })
+
+  describe("flattenClammPositions", () => {
+    it("should return flat positions when response is already flat", () => {
+      const positions = [
+        {
+          token_address: "0x1",
+          lp_metadata: "0xpool",
+          tick_lower: "1",
+          tick_upper: "2",
+          liquidity: "100",
+          incentives: [],
+        },
+      ]
+
+      const result = flattenClammPositions(positions)
+      expect(result).toHaveLength(1)
+      expect(result[0]?.token_address).toBe("0x1")
+    })
+
+    it("should flatten nested positions arrays", () => {
+      const positions = [
+        [
+          {
+            token_address: "0x1",
+            lp_metadata: "0xpool-1",
+            tick_lower: "1",
+            tick_upper: "2",
+            liquidity: "100",
+            incentives: [],
+          },
+        ],
+        [
+          {
+            token_address: "0x2",
+            lp_metadata: "0xpool-2",
+            tick_lower: "3",
+            tick_upper: "4",
+            liquidity: "200",
+            incentives: [],
+          },
+        ],
+      ]
+
+      const result = flattenClammPositions(positions)
+      expect(result).toHaveLength(2)
+      expect(result[0]?.token_address).toBe("0x1")
+      expect(result[1]?.token_address).toBe("0x2")
+    })
+
+    it("should handle empty positions", () => {
+      const result = flattenClammPositions([])
+      expect(result).toEqual([])
+    })
+  })
+
+  describe("CLAMM row key", () => {
+    it("should avoid collisions with non-CLAMM LP denoms", () => {
+      const lpDenom = "move/a83cdf62feab5f1a1e4c05005b14c534eb30266a5412522e2298a6506b3bf205"
+      const lpMetadata = "0xa83cdf62feab5f1a1e4c05005b14c534eb30266a5412522e2298a6506b3bf205"
+      const clammKey = createClammRowKey(lpMetadata)
+
+      const rowMap = new Map<string, unknown>()
+      rowMap.set(lpDenom, { type: "lp" })
+      rowMap.set(clammKey, { type: "clamm" })
+
+      expect(clammKey).toBe(`clamm:${lpMetadata}`)
+      expect(clammKey).not.toBe(lpDenom)
+      expect(rowMap.size).toBe(2)
     })
   })
 })
