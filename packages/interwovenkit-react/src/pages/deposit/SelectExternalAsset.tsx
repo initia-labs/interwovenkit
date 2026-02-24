@@ -61,9 +61,9 @@ const SelectExternalAsset = ({ mode }: Props) => {
   if (!localAsset) return <div>No assets found</div>
 
   if (!isLoading && !filteredAssets.length) {
-    const externalChainNames = supportedExternalChains.map(
-      (chain) => chain.pretty_name || chain.chain_name,
-    )
+    const externalChainNames = supportedExternalChains
+      .map((chain) => chain.pretty_name || chain.chain_name)
+      .filter((name): name is string => !!name)
     const emptyDepositCopy = getEmptyDepositCopy({
       localSymbol,
       externalSourceSymbol,
