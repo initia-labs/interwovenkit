@@ -43,7 +43,7 @@ const TransferFields = ({ mode }: Props) => {
   const state = useLocationState<State>()
   const { data: options } = useLocalAssetOptions()
   const findChain = useFindSkipChain()
-  const { data: balances, chainsError } = useAllBalancesQuery()
+  const { data: balances, error: balancesError, chainsError } = useAllBalancesQuery()
   const hexAddress = useHexAddress()
 
   const { watch, setValue, getValues } = useTransferForm()
@@ -214,7 +214,7 @@ const TransferFields = ({ mode }: Props) => {
         </>
       )}
 
-      {chainsError && <Status error>Failed to load balances</Status>}
+      {(chainsError || balancesError) && <Status error>Failed to load balances</Status>}
 
       {!state.route || !!disabledMessage ? (
         <Footer>

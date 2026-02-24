@@ -42,7 +42,9 @@ export function useAllSkipAssets() {
     for (const chainId in chain_to_assets_map) {
       if (!chains.some((chain) => chain.chain_id === chainId)) continue
       const { assets } = chain_to_assets_map[chainId] ?? { assets: [] }
-      queryClient.setQueryData(skipQueryKeys.assets(chainId).queryKey, { chain_to_assets_map })
+      queryClient.setQueryData(skipQueryKeys.assets(chainId).queryKey, {
+        chain_to_assets_map: { [chainId]: chain_to_assets_map[chainId] },
+      })
       for (const asset of assets) {
         queryClient.setQueryData(skipQueryKeys.asset(chainId, asset.denom).queryKey, asset)
       }

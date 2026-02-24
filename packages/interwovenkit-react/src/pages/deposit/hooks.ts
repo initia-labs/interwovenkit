@@ -135,10 +135,15 @@ export function useLocalAssetOptions() {
       const allAssets = Object.values(skipAssetsRaw.chain_to_assets_map).flatMap(
         (entry) => entry?.assets ?? [],
       )
-      return localOptions.flatMap(({ denom, chainId }) => {
-        const asset = allAssets.find((a) => a.denom === denom && a.chain_id === chainId)
-        if (!asset) return []
-        return [{ denom, chain_id: chainId, symbol: asset.symbol, logo_uri: asset.logo_uri ?? "" }]
+      const assetMap = new Map(allAssets.map((a) => [`${a.chain_id}:${a.denom}`, a]))
+      return localOptions.map(({ denom, chainId }) => {
+        const asset = assetMap.get(`${chainId}:${denom}`)
+        return {
+          denom,
+          chain_id: chainId,
+          symbol: asset?.symbol ?? "",
+          logo_uri: asset?.logo_uri ?? "",
+        }
       })
     }
 
