@@ -5,6 +5,7 @@ import { useConfig } from "@/data/config"
 import { formatValue } from "@/lib/format"
 import EmptyIconDark from "./assets/EmptyDark.svg"
 import EmptyIconLight from "./assets/EmptyLight.svg"
+import { getEmptyDepositCopy } from "./emptyDepositCopy"
 import {
   type TransferMode,
   useExternalAssetOptions,
@@ -21,7 +22,14 @@ interface Props {
 
 const SelectExternalAsset = ({ mode }: Props) => {
   const { external } = useTransferMode(mode)
-  const { data: filteredAssets, isLoading } = useExternalAssetOptions(mode)
+  const {
+    data: filteredAssets,
+    isLoading,
+    supportedExternalChains,
+    appchainSourceSymbols,
+    externalSourceSymbol,
+    localSymbol,
+  } = useExternalAssetOptions(mode)
   const { setValue, watch } = useTransferForm()
   const localAsset = useLocalTransferAsset(mode)
   const options = useLocalAssetOptions()
@@ -52,7 +60,21 @@ const SelectExternalAsset = ({ mode }: Props) => {
 
   if (!localAsset) return <div>No assets found</div>
 
-  if (!isLoading && !filteredAssets.length)
+  if (!isLoading && !filteredAssets.length) {
+    const externalChainNames = supportedExternalChains.map(
+      (chain) => chain.pretty_name || chain.chain_name,
+    )
+    const emptyDepositCopy = getEmptyDepositCopy({
+      localSymbol,
+      externalSourceSymbol,
+      externalChainNames,
+      appchainSourceSymbols,
+    })
+    const emptyTitle =
+      mode === "withdraw"
+        ? `No supported destinations to withdraw ${localAsset.symbol}.`
+        : emptyDepositCopy.title
+
     return (
       <div className={styles.container}>
         {renderBackButton()}
@@ -62,13 +84,13 @@ const SelectExternalAsset = ({ mode }: Props) => {
           alt="No assets"
           className={styles.emptyIcon}
         />
-        <p className={styles.empty}>
-          {mode === "withdraw"
-            ? `No supported destinations to withdraw ${localAsset.symbol}.`
-            : `No supported assets to deposit ${localAsset.symbol}.`}
-        </p>
+        <p className={styles.empty}>{emptyTitle}</p>
+        {mode === "deposit" && (
+          <p className={styles.emptyDescription}>{emptyDepositCopy.description}</p>
+        )}
       </div>
     )
+  }
 
   return (
     <div className={styles.container}>
