@@ -4,19 +4,77 @@ import { useQuery } from "@tanstack/react-query"
 import { STALE_TIMES } from "@/data/http"
 import { useLocationState } from "@/lib/router"
 import { useHexAddress, useInitiaAddress } from "@/public/data/hooks"
-import { useAllSkipAssets } from "../bridge/data/assets"
-import { useFindSkipChain, useGetIsInitiaChain, useSkipChains } from "../bridge/data/chains"
+import { type RouterAsset, useAllSkipAssets } from "../bridge/data/assets"
+import {
+  isInitiaAppchain,
+  type RouterChainJson,
+  useFindSkipChain,
+  useGetIsInitiaChain,
+  useSkipChains,
+} from "../bridge/data/chains"
 import { skipQueryKeys, useSkip } from "../bridge/data/skip"
 import type { BridgeTxResult } from "../bridge/data/tx"
 
 const IUSD_SYMBOL = "iUSD"
-const IUSD_EXTRA_EXTERNAL_OPTIONS: AssetOption[] = [
-  { chainId: "1", denom: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" },
-]
-const IUSD_EXTRA_INITIA_SOURCE_SYMBOLS = ["USDC"]
+
+interface ExternalSourceOverride {
+  sourceSymbol: string
+  extraExternalOptions: AssetOption[]
+  extraAppchainSourceSymbols: string[]
+  externalChainListSource: "extra-options" | "supported-assets"
+}
+
+const EXTERNAL_SOURCE_OVERRIDES: Record<string, ExternalSourceOverride> = {
+  [IUSD_SYMBOL]: {
+    sourceSymbol: "USDC",
+    extraExternalOptions: [{ chainId: "1", denom: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" }],
+    extraAppchainSourceSymbols: ["USDC"],
+    externalChainListSource: "extra-options",
+  },
+}
 
 function matchesAssetOption(option: AssetOption, chainId: string, denom: string): boolean {
   return option.chainId === chainId && option.denom === denom
+}
+
+function getExternalSourceOverride(localSymbol: string): ExternalSourceOverride | undefined {
+  return EXTERNAL_SOURCE_OVERRIDES[localSymbol]
+}
+
+function getChainDisplayName(chain: RouterChainJson): string {
+  return chain.pretty_name || chain.chain_name
+}
+
+function isSupportedExternalCosmosChain(chain: RouterChainJson): boolean {
+  return chain.chain_type !== "cosmos" || chain.bech32_prefix === "init"
+}
+
+type ChainBalances = NonNullable<BalancesResponseJson["chains"]>
+type DenomBalances = NonNullable<ChainBalances[string]["denoms"]>
+type Balance = DenomBalances[string]
+
+export interface ExternalAssetOptionItem {
+  asset: RouterAsset
+  chain: RouterChainJson
+  balance: Balance | undefined
+}
+
+export interface ExternalAssetOptionsResult {
+  data: ExternalAssetOptionItem[]
+  isLoading: boolean
+  supportedExternalChains: RouterChainJson[]
+  appchainSourceSymbols: string[]
+  externalSourceSymbol: string
+  localSymbol: string
+}
+
+const EMPTY_EXTERNAL_ASSET_OPTIONS_RESULT: ExternalAssetOptionsResult = {
+  data: [],
+  isLoading: false,
+  supportedExternalChains: [],
+  appchainSourceSymbols: [],
+  externalSourceSymbol: "",
+  localSymbol: "",
 }
 
 export interface AssetOption {
@@ -134,43 +192,44 @@ export function useExternalTransferAsset(mode: TransferMode) {
   return skipAssets.find(({ denom: d, chain_id }) => denom === d && chain_id === chainId) || null
 }
 
-export function useExternalAssetOptions(mode: TransferMode) {
+export function useExternalAssetOptions(mode: TransferMode): ExternalAssetOptionsResult {
   const skipAssets = useAllSkipAssets()
   const skipChains = useSkipChains()
-  const getIsInitiaChain = useGetIsInitiaChain()
   const findChain = useFindSkipChain()
+  const getIsInitiaChain = useGetIsInitiaChain()
   const { data: balances, isLoading } = useAllBalancesQuery()
   const { remoteOptions = [] } = useLocationState<{ remoteOptions?: AssetOption[] }>()
   const localAsset = useLocalTransferAsset(mode)
 
-  if (!localAsset) return { data: [], isLoading }
+  if (!localAsset) return { ...EMPTY_EXTERNAL_ASSET_OPTIONS_RESULT, isLoading }
 
+  const sourceOverride = getExternalSourceOverride(localAsset.symbol)
+  const externalSourceSymbol = sourceOverride?.sourceSymbol ?? localAsset.symbol
   const hasRemoteOptions = remoteOptions.length > 0
-  const isIusd = localAsset.symbol === IUSD_SYMBOL
+  const extraExternalOptions = sourceOverride?.extraExternalOptions ?? []
+  const extraAppchainSourceSymbols = sourceOverride?.extraAppchainSourceSymbols ?? []
+  const externalChainListSource = sourceOverride?.externalChainListSource ?? "supported-assets"
   const skipChainMap = new Map(skipChains.map((chain) => [chain.chain_id, chain]))
 
-  const data = skipAssets
+  const supportedAssets: ExternalAssetOptionItem[] = skipAssets
     .filter(({ symbol, denom, chain_id }) => {
-      const isIusdExtraExternalOption =
-        isIusd &&
-        IUSD_EXTRA_EXTERNAL_OPTIONS.some((option) => matchesAssetOption(option, chain_id, denom))
+      const isLocalSourceSymbol = symbol === localAsset.symbol
+      const isExtraExternalOption = extraExternalOptions.some((option) =>
+        matchesAssetOption(option, chain_id, denom),
+      )
       const chain = skipChainMap.get(chain_id)
-      const isIusdExtraInitiaSourceSymbol =
-        isIusd &&
-        !!chain &&
-        getIsInitiaChain(chain.chain_id) &&
-        IUSD_EXTRA_INITIA_SOURCE_SYMBOLS.includes(symbol)
+      const isExtraAppchainSourceSymbol =
+        !!chain && getIsInitiaChain(chain.chain_id) && extraAppchainSourceSymbols.includes(symbol)
+      const hasOverrideSourceSymbol = isExtraExternalOption || isExtraAppchainSourceSymbol
 
       if (!hasRemoteOptions) {
-        return (
-          symbol === localAsset.symbol || isIusdExtraExternalOption || isIusdExtraInitiaSourceSymbol
-        )
+        return isLocalSourceSymbol || hasOverrideSourceSymbol
       }
 
       const isRemoteOption = remoteOptions.some((option) =>
         matchesAssetOption(option, chain_id, denom),
       )
-      return isRemoteOption || isIusdExtraExternalOption || isIusdExtraInitiaSourceSymbol
+      return isRemoteOption || hasOverrideSourceSymbol
     })
     .map((asset) => {
       if (asset.hidden) return null
@@ -179,18 +238,52 @@ export function useExternalAssetOptions(mode: TransferMode) {
       const chain = findChain(asset.chain_id)
       if (!chain) return null
       // filter out external cosmos chains (different wallet connection is required)
-      if (chain.chain_type === "cosmos" && chain.bech32_prefix !== "init") return null
+      if (!isSupportedExternalCosmosChain(chain)) return null
 
       const balance = balances?.[chain.chain_id]?.[asset.denom]
-
-      // during deposit, show only assets with balance
-      if (mode === "deposit" && (!balance || !Number(balance.amount))) return null
 
       return { asset, chain, balance }
     })
     .filter((item): item is NonNullable<typeof item> => item !== null)
 
-  return { data, isLoading }
+  const data = supportedAssets.filter(
+    ({ balance }) => mode !== "deposit" || (!!balance && Number(balance.amount) > 0),
+  )
+
+  const supportedExternalChainMap = new Map<string, RouterChainJson>()
+  if (externalChainListSource === "extra-options") {
+    for (const { chainId } of extraExternalOptions) {
+      const chain = skipChainMap.get(chainId)
+      if (!chain) continue
+      if (!isSupportedExternalCosmosChain(chain)) continue
+      if (getIsInitiaChain(chain.chain_id)) continue
+      supportedExternalChainMap.set(chain.chain_id, chain)
+    }
+  } else {
+    for (const { chain } of supportedAssets) {
+      if (getIsInitiaChain(chain.chain_id)) continue
+      supportedExternalChainMap.set(chain.chain_id, chain)
+    }
+  }
+  const supportedExternalChains = Array.from(supportedExternalChainMap.values()).toSorted((a, b) =>
+    getChainDisplayName(a).localeCompare(getChainDisplayName(b)),
+  )
+  const appchainSourceSymbols = [
+    ...new Set(
+      supportedAssets
+        .filter(({ chain }) => isInitiaAppchain(chain, getIsInitiaChain))
+        .map(({ asset }) => asset.symbol),
+    ),
+  ]
+
+  return {
+    data,
+    isLoading,
+    supportedExternalChains,
+    appchainSourceSymbols,
+    externalSourceSymbol,
+    localSymbol: localAsset.symbol,
+  }
 }
 
 export function useTransferForm() {
