@@ -10,9 +10,13 @@ import { skipQueryKeys, useSkip } from "../bridge/data/skip"
 import type { BridgeTxResult } from "../bridge/data/tx"
 
 const IUSD_SYMBOL = "iUSD"
-const IUSD_EXTRA_SOURCE_OPTIONS: AssetOption[] = [
+const IUSD_EXTRA_EXTERNAL_OPTIONS: AssetOption[] = [
   { chainId: "1", denom: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" },
 ]
+
+function matchesAssetOption(option: AssetOption, chainId: string, denom: string): boolean {
+  return option.chainId === chainId && option.denom === denom
+}
 
 export interface AssetOption {
   denom: string
@@ -138,20 +142,23 @@ export function useExternalAssetOptions(mode: TransferMode) {
 
   if (!localAsset) return { data: [], isLoading }
 
+  const hasRemoteOptions = remoteOptions.length > 0
   const isIusd = localAsset.symbol === IUSD_SYMBOL
 
   const data = skipAssets
     .filter(({ symbol, denom, chain_id }) => {
-      const isIusdExtraSourceOption =
+      const isIusdExtraExternalOption =
         isIusd &&
-        IUSD_EXTRA_SOURCE_OPTIONS.some((option) => {
-          return option.chainId === chain_id && option.denom === denom
-        })
+        IUSD_EXTRA_EXTERNAL_OPTIONS.some((option) => matchesAssetOption(option, chain_id, denom))
 
-      return !remoteOptions.length
-        ? symbol === localAsset.symbol || isIusdExtraSourceOption
-        : remoteOptions.some((opt) => opt.denom === denom && opt.chainId === chain_id) ||
-            isIusdExtraSourceOption
+      if (!hasRemoteOptions) {
+        return symbol === localAsset.symbol || isIusdExtraExternalOption
+      }
+
+      const isRemoteOption = remoteOptions.some((option) =>
+        matchesAssetOption(option, chain_id, denom),
+      )
+      return isRemoteOption || isIusdExtraExternalOption
     })
     .map((asset) => {
       if (asset.hidden) return null
