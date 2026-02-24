@@ -20,7 +20,7 @@ const IUSD_SYMBOL = "iUSD"
 interface ExternalSourceOverride {
   sourceSymbol: string
   extraExternalOptions: AssetOption[]
-  extraAppchainSourceSymbols: string[]
+  extraInitiaSourceSymbols: string[]
   externalChainListSource: "extra-options" | "supported-assets"
 }
 
@@ -28,7 +28,7 @@ const EXTERNAL_SOURCE_OVERRIDES: Record<string, ExternalSourceOverride> = {
   [IUSD_SYMBOL]: {
     sourceSymbol: "USDC",
     extraExternalOptions: [{ chainId: "1", denom: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" }],
-    extraAppchainSourceSymbols: ["USDC"],
+    extraInitiaSourceSymbols: ["USDC"],
     externalChainListSource: "extra-options",
   },
 }
@@ -207,7 +207,7 @@ export function useExternalAssetOptions(mode: TransferMode): ExternalAssetOption
   const externalSourceSymbol = sourceOverride?.sourceSymbol ?? localAsset.symbol
   const hasRemoteOptions = remoteOptions.length > 0
   const extraExternalOptions = sourceOverride?.extraExternalOptions ?? []
-  const extraAppchainSourceSymbols = sourceOverride?.extraAppchainSourceSymbols ?? []
+  const extraInitiaSourceSymbols = sourceOverride?.extraInitiaSourceSymbols ?? []
   const externalChainListSource = sourceOverride?.externalChainListSource ?? "supported-assets"
   const skipChainMap = new Map(skipChains.map((chain) => [chain.chain_id, chain]))
 
@@ -218,9 +218,9 @@ export function useExternalAssetOptions(mode: TransferMode): ExternalAssetOption
         matchesAssetOption(option, chain_id, denom),
       )
       const chain = skipChainMap.get(chain_id)
-      const isExtraAppchainSourceSymbol =
-        !!chain && getIsInitiaChain(chain.chain_id) && extraAppchainSourceSymbols.includes(symbol)
-      const hasOverrideSourceSymbol = isExtraExternalOption || isExtraAppchainSourceSymbol
+      const isExtraInitiaSourceSymbol =
+        !!chain && getIsInitiaChain(chain.chain_id) && extraInitiaSourceSymbols.includes(symbol)
+      const hasOverrideSourceSymbol = isExtraExternalOption || isExtraInitiaSourceSymbol
 
       if (!hasRemoteOptions) {
         return isLocalSourceSymbol || hasOverrideSourceSymbol
