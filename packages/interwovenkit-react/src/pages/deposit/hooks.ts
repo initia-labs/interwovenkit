@@ -5,7 +5,7 @@ import { STALE_TIMES } from "@/data/http"
 import { useLocationState } from "@/lib/router"
 import { useHexAddress, useInitiaAddress } from "@/public/data/hooks"
 import { useAllSkipAssets } from "../bridge/data/assets"
-import { useFindSkipChain, useSkipChains } from "../bridge/data/chains"
+import { useFindSkipChain, useGetIsInitiaChain, useSkipChains } from "../bridge/data/chains"
 import { skipQueryKeys, useSkip } from "../bridge/data/skip"
 import type { BridgeTxResult } from "../bridge/data/tx"
 
@@ -13,6 +13,7 @@ const IUSD_SYMBOL = "iUSD"
 const IUSD_EXTRA_EXTERNAL_OPTIONS: AssetOption[] = [
   { chainId: "1", denom: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" },
 ]
+const IUSD_EXTRA_INITIA_SOURCE_SYMBOLS = ["USDC"]
 
 function matchesAssetOption(option: AssetOption, chainId: string, denom: string): boolean {
   return option.chainId === chainId && option.denom === denom
@@ -135,6 +136,8 @@ export function useExternalTransferAsset(mode: TransferMode) {
 
 export function useExternalAssetOptions(mode: TransferMode) {
   const skipAssets = useAllSkipAssets()
+  const skipChains = useSkipChains()
+  const getIsInitiaChain = useGetIsInitiaChain()
   const findChain = useFindSkipChain()
   const { data: balances, isLoading } = useAllBalancesQuery()
   const { remoteOptions = [] } = useLocationState<{ remoteOptions?: AssetOption[] }>()
@@ -144,21 +147,30 @@ export function useExternalAssetOptions(mode: TransferMode) {
 
   const hasRemoteOptions = remoteOptions.length > 0
   const isIusd = localAsset.symbol === IUSD_SYMBOL
+  const skipChainMap = new Map(skipChains.map((chain) => [chain.chain_id, chain]))
 
   const data = skipAssets
     .filter(({ symbol, denom, chain_id }) => {
       const isIusdExtraExternalOption =
         isIusd &&
         IUSD_EXTRA_EXTERNAL_OPTIONS.some((option) => matchesAssetOption(option, chain_id, denom))
+      const chain = skipChainMap.get(chain_id)
+      const isIusdExtraInitiaSourceSymbol =
+        isIusd &&
+        !!chain &&
+        getIsInitiaChain(chain.chain_id) &&
+        IUSD_EXTRA_INITIA_SOURCE_SYMBOLS.includes(symbol)
 
       if (!hasRemoteOptions) {
-        return symbol === localAsset.symbol || isIusdExtraExternalOption
+        return (
+          symbol === localAsset.symbol || isIusdExtraExternalOption || isIusdExtraInitiaSourceSymbol
+        )
       }
 
       const isRemoteOption = remoteOptions.some((option) =>
         matchesAssetOption(option, chain_id, denom),
       )
-      return isRemoteOption || isIusdExtraExternalOption
+      return isRemoteOption || isIusdExtraExternalOption || isIusdExtraInitiaSourceSymbol
     })
     .map((asset) => {
       if (asset.hidden) return null
