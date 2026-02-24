@@ -53,13 +53,13 @@ type ChainBalances = NonNullable<BalancesResponseJson["chains"]>
 type DenomBalances = NonNullable<ChainBalances[string]["denoms"]>
 type Balance = DenomBalances[string]
 
-export interface ExternalAssetOptionItem {
+interface ExternalAssetOptionItem {
   asset: RouterAsset
   chain: RouterChainJson
   balance: Balance | undefined
 }
 
-export interface ExternalAssetOptionsResult {
+interface ExternalAssetOptionsResult {
   data: ExternalAssetOptionItem[]
   isLoading: boolean
   supportedExternalChains: RouterChainJson[]
@@ -105,7 +105,7 @@ interface TransferAssetKeys {
   chainIdKey: TransferAssetChainIdKey
 }
 
-export interface TransferModeConfig {
+interface TransferModeConfig {
   mode: TransferMode
   label: "Deposit" | "Withdraw"
   local: TransferAssetKeys
