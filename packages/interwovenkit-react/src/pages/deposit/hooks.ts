@@ -45,7 +45,7 @@ function getChainDisplayName(chain: RouterChainJson): string {
   return chain.pretty_name || chain.chain_name
 }
 
-function isSupportedExternalCosmosChain(chain: RouterChainJson): boolean {
+function isSupportedExternalChain(chain: RouterChainJson): boolean {
   return chain.chain_type !== "cosmos" || chain.bech32_prefix === "init"
 }
 
@@ -238,7 +238,7 @@ export function useExternalAssetOptions(mode: TransferMode): ExternalAssetOption
       const chain = findChain(asset.chain_id)
       if (!chain) return null
       // filter out external cosmos chains (different wallet connection is required)
-      if (!isSupportedExternalCosmosChain(chain)) return null
+      if (!isSupportedExternalChain(chain)) return null
 
       const balance = balances?.[chain.chain_id]?.[asset.denom]
 
@@ -255,12 +255,12 @@ export function useExternalAssetOptions(mode: TransferMode): ExternalAssetOption
     for (const { chainId } of extraExternalOptions) {
       const chain = skipChainMap.get(chainId)
       if (!chain) continue
-      if (!isSupportedExternalCosmosChain(chain)) continue
+      if (!isSupportedExternalChain(chain)) continue
       if (getIsInitiaChain(chain.chain_id)) continue
       supportedExternalChainMap.set(chain.chain_id, chain)
     }
   } else {
-    for (const { chain } of supportedAssets) {
+    for (const { chain } of data) {
       if (getIsInitiaChain(chain.chain_id)) continue
       supportedExternalChainMap.set(chain.chain_id, chain)
     }
