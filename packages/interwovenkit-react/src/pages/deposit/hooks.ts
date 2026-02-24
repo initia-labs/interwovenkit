@@ -213,7 +213,6 @@ export function useExternalAssetOptions(mode: TransferMode): ExternalAssetOption
 
   const supportedAssets: ExternalAssetOptionItem[] = skipAssets
     .filter(({ symbol, denom, chain_id }) => {
-      const isLocalSourceSymbol = symbol === localAsset.symbol
       const isExtraExternalOption = extraExternalOptions.some((option) =>
         matchesAssetOption(option, chain_id, denom),
       )
@@ -221,6 +220,11 @@ export function useExternalAssetOptions(mode: TransferMode): ExternalAssetOption
       const isExtraInitiaSourceSymbol =
         !!chain && getIsInitiaChain(chain.chain_id) && extraInitiaSourceSymbols.includes(symbol)
       const hasOverrideSourceSymbol = isExtraExternalOption || isExtraInitiaSourceSymbol
+      if (externalChainListSource === "extra-options") {
+        return hasOverrideSourceSymbol
+      }
+
+      const isLocalSourceSymbol = symbol === localAsset.symbol
 
       if (!hasRemoteOptions) {
         return isLocalSourceSymbol || hasOverrideSourceSymbol
