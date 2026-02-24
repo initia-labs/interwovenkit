@@ -34,7 +34,13 @@ const EXTERNAL_SOURCE_OVERRIDES: Record<string, ExternalSourceOverride> = {
 }
 
 function matchesAssetOption(option: AssetOption, chainId: string, denom: string): boolean {
-  return option.chainId === chainId && option.denom === denom
+  if (option.chainId !== chainId) return false
+  // ERC-20 addresses are case-insensitive; normalize for comparison
+  const isEvm = option.chainId === "1" || option.chainId.startsWith("eip155:")
+  if (isEvm && option.denom.startsWith("0x") && denom.startsWith("0x")) {
+    return option.denom.toLowerCase() === denom.toLowerCase()
+  }
+  return option.denom === denom
 }
 
 function getExternalSourceOverride(localSymbol: string): ExternalSourceOverride | undefined {
@@ -269,7 +275,7 @@ export function useExternalAssetOptions(mode: TransferMode): ExternalAssetOption
       supportedExternalChainMap.set(chain.chain_id, chain)
     }
   }
-  const supportedExternalChains = Array.from(supportedExternalChainMap.values()).toSorted((a, b) =>
+  const supportedExternalChains = Array.from(supportedExternalChainMap.values()).sort((a, b) =>
     getChainDisplayName(a).localeCompare(getChainDisplayName(b)),
   )
   const appchainSourceSymbols = [
