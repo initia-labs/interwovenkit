@@ -259,7 +259,7 @@ const TypeBreakdown = ({
       ))}
       {hasClaimable && (
         <div className={styles.typeRow}>
-          <span className={styles.typeLabel}>Claimable</span>
+          <span className={styles.typeLabel}>Claimable rewards</span>
           <div className={styles.typeValues}>
             <span className={styles.typeAmount}>
               {formatNumber(totalClaimable, { dp: 6 })} {INIT_SYMBOL}

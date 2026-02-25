@@ -12,7 +12,6 @@ import {
   type PortfolioChainPositionGroup,
 } from "@/data/minity"
 import { formatValue } from "@/lib/format"
-import CivitiaSection from "./CivitiaSection"
 import PositionSectionList, { type DenomLogoMap } from "./PositionSection"
 import styles from "./AppchainPositionGroup.module.css"
 
@@ -97,7 +96,6 @@ const AppchainPositionGroup = ({ chainGroup }: Props) => {
 
   const isOpen = openGroups.includes(chainName)
   const chainNameLower = chainName?.toLowerCase()
-  const isCivitia = chainNameLower === "civitia"
   const hideValue = excludedChains.includes(chainNameLower)
 
   const toggleOpen = () => {
@@ -143,7 +141,6 @@ const AppchainPositionGroup = ({ chainGroup }: Props) => {
         <Collapsible.Content className={styles.collapsibleContent}>
           <div className={styles.content}>
             <AppchainPositionContent chainGroup={chainGroup} />
-            {isCivitia && <CivitiaSection />}
           </div>
         </Collapsible.Content>
       </Collapsible.Root>

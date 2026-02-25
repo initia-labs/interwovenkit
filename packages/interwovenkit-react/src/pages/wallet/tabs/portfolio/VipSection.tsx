@@ -93,7 +93,7 @@ const VipRow = ({ row }: VipRowProps) => {
           )}
           {claimableReward > 0 && (
             <div className={styles.breakdownRow}>
-              <span className={styles.breakdownLabel}>Claimable</span>
+              <span className={styles.breakdownLabel}>Claimable rewards</span>
               <div className={styles.breakdownValues}>
                 <span className={styles.breakdownAmount}>
                   {formatNumber(claimableReward, { dp: 2 })} INIT

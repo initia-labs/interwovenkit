@@ -23,8 +23,6 @@ export interface Config {
   minityUrl: string
   dexUrl: string
   vipUrl: string
-  civitiaUrl: string
-
   theme: "light" | "dark"
   container?: HTMLElement
   disableAnalytics?: boolean
