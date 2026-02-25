@@ -712,7 +712,9 @@ export function useTx() {
       fee,
       preferredFeeDenom,
       client,
-      allowWalletDerivation: false,
+      // Re-derive once per page session when auto-sign is enabled so direct
+      // signing continues to work after reload.
+      allowWalletDerivation: true,
     })
 
     return { client, signedTx }

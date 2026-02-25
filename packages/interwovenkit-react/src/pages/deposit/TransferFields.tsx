@@ -6,6 +6,7 @@ import { formatAmount, fromBaseUnit } from "@initia/utils"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import QuantityInput from "@/components/form/QuantityInput"
+import Status from "@/components/Status"
 import { formatValue } from "@/lib/format"
 import { useLocationState, useNavigate } from "@/lib/router"
 import { useHexAddress } from "@/public/data/hooks"
@@ -36,9 +37,9 @@ const TransferFields = ({ mode }: Props) => {
   const modeConfig = useTransferMode(mode)
   const navigate = useNavigate()
   const state = useLocationState<TransferLocationState>()
-  const options = useLocalAssetOptions()
+  const { data: options } = useLocalAssetOptions()
   const findChain = useFindSkipChain()
-  const { data: balances } = useAllBalancesQuery()
+  const { data: balances, error: balancesError, chainsError } = useAllBalancesQuery()
   const hexAddress = useHexAddress()
 
   const { watch, setValue, getValues } = useTransferForm()
@@ -217,6 +218,8 @@ const TransferFields = ({ mode }: Props) => {
           {amountSection}
         </>
       )}
+
+      {(chainsError || balancesError) && <Status error>Failed to load balances</Status>}
 
       {!state.route || !!disabledMessage ? (
         <Footer>
