@@ -1,11 +1,10 @@
 import type { OperationJson, RouteResponseJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
 import { HTTPError } from "ky"
+import type { QueryClient } from "@tanstack/react-query"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toBaseUnit } from "@initia/utils"
-import { useAnalyticsTrack } from "@/data/analytics"
 import { useInitiaRegistry, useLayer1 } from "@/data/chains"
-import { STALE_TIMES } from "@/data/http"
 import type { RouterAsset } from "./assets"
 import { useSkipAsset } from "./assets"
 import { useChainType, useSkipChain } from "./chains"
@@ -19,16 +18,53 @@ export interface RouterRouteResponseJson extends RouteResponseJson {
   extra_warnings?: string[]
 }
 
+export function fetchRoute(
+  skip: ReturnType<typeof useSkip>,
+  queryClient: QueryClient,
+  values: {
+    srcChainId: string
+    srcDenom: string
+    dstChainId: string
+    dstDenom: string
+    quantity: string
+  },
+  options?: { isOpWithdraw?: boolean; signal?: AbortSignal },
+) {
+  const { srcChainId, srcDenom, quantity, dstChainId, dstDenom } = values
+  const srcAsset = queryClient.getQueryData<RouterAsset>(
+    skipQueryKeys.asset(srcChainId, srcDenom).queryKey,
+  )
+  // Asset metadata must already be cached before route fetching.
+  // Silently falling back to decimals=0 would send an incorrect amount_in to the API.
+  if (!srcAsset || srcAsset.decimals == null) {
+    throw new Error("Failed to refresh route: source asset metadata is unavailable.")
+  }
+  const srcDecimals = srcAsset.decimals
+
+  return skip
+    .post("v2/fungible/route", {
+      signal: options?.signal,
+      json: {
+        amount_in: toBaseUnit(quantity, { decimals: srcDecimals }),
+        source_asset_chain_id: srcChainId,
+        source_asset_denom: srcDenom,
+        dest_asset_chain_id: dstChainId,
+        dest_asset_denom: dstDenom,
+        is_op_withdraw: options?.isOpWithdraw,
+      },
+    })
+    .json<RouterRouteResponseJson>()
+}
+
 export function useRouteQuery(
   debouncedQuantity: string,
-  opWithdrawal?: { isOpWithdraw?: boolean; disabled?: boolean },
+  opWithdrawal?: { isOpWithdraw?: boolean; disabled?: boolean; refreshMs?: number },
 ) {
   const { watch } = useBridgeForm()
   const values = watch()
   const skip = useSkip()
-  const track = useAnalyticsTrack()
 
-  const routeParams = {
+  const debouncedValues = {
     srcChainId: values.srcChainId,
     srcDenom: values.srcDenom,
     dstChainId: values.dstChainId,
@@ -36,45 +72,32 @@ export function useRouteQuery(
     quantity: debouncedQuantity,
   }
   const isDisabled =
-    !routeParams.srcChainId ||
-    !routeParams.srcDenom ||
-    !routeParams.dstChainId ||
-    !routeParams.dstDenom
-  const quantityBn = BigNumber(routeParams.quantity || 0)
+    !debouncedValues.srcChainId ||
+    !debouncedValues.srcDenom ||
+    !debouncedValues.dstChainId ||
+    !debouncedValues.dstDenom
+  const quantityBn = BigNumber(debouncedValues.quantity || 0)
   const isQuantityValid = quantityBn.isFinite() && quantityBn.gt(0)
+  const refreshMs = opWithdrawal?.refreshMs ?? 10_000
+  const enabled = isQuantityValid && !opWithdrawal?.disabled && !isDisabled
 
   const queryClient = useQueryClient()
   return useQuery({
-    queryKey: skipQueryKeys.route(routeParams, opWithdrawal?.isOpWithdraw).queryKey,
+    // eslint-disable-next-line @tanstack/query/exhaustive-deps -- skip and queryClient are stable refs
+    queryKey: skipQueryKeys.route(debouncedValues, opWithdrawal?.isOpWithdraw).queryKey,
     queryFn: async () => {
       // This query may produce specific errors that need separate handling.
       // Therefore, we do not use try-catch or normalizeError here.
-
-      const { srcChainId, srcDenom, quantity, dstChainId, dstDenom } = routeParams
-
-      const { decimals: srcDecimals } = queryClient.getQueryData<RouterAsset>(
-        skipQueryKeys.asset(srcChainId, srcDenom).queryKey,
-      ) ?? { decimals: 0 }
-
-      const params = {
-        amount_in: toBaseUnit(quantity, { decimals: srcDecimals }),
-        source_asset_chain_id: srcChainId,
-        source_asset_denom: srcDenom,
-        dest_asset_chain_id: dstChainId,
-        dest_asset_denom: dstDenom,
-        is_op_withdraw: opWithdrawal?.isOpWithdraw,
-      }
-
-      const response = await skip
-        .post("v2/fungible/route", { json: params })
-        .json<RouterRouteResponseJson>()
-
-      track("Bridge Simulation Success", routeParams)
-
-      return response
+      return fetchRoute(skip, queryClient, debouncedValues, {
+        isOpWithdraw: opWithdrawal?.isOpWithdraw,
+      })
     },
-    enabled: isQuantityValid && !opWithdrawal?.disabled && !isDisabled,
-    staleTime: STALE_TIMES.MINUTE,
+    enabled,
+    staleTime: refreshMs,
+    refetchInterval: enabled ? refreshMs : false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchOnMount: "always",
   })
 }
 
