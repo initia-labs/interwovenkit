@@ -35,9 +35,7 @@ const EXTERNAL_SOURCE_OVERRIDES: Record<string, ExternalSourceOverride> = {
 
 function matchesAssetOption(option: AssetOption, chainId: string, denom: string): boolean {
   if (option.chainId !== chainId) return false
-  // ERC-20 addresses are case-insensitive; normalize for comparison
-  const isEvm = option.chainId === "1" || option.chainId.startsWith("eip155:")
-  if (isEvm && option.denom.startsWith("0x") && denom.startsWith("0x")) {
+  if (option.denom.startsWith("0x") && denom.startsWith("0x")) {
     return option.denom.toLowerCase() === denom.toLowerCase()
   }
   return option.denom === denom
