@@ -130,6 +130,10 @@ export function useLocalAssetOptions() {
     staleTime: STALE_TIMES.MINUTE,
   })
 
+  // localOptions are denom/chainId pairs provided by the host dApp, so metadata
+  // should always be available once Skip or registry data loads. Even if the
+  // empty-string fallback is reached due to timing, raw denoms are machine
+  // identifiers (often 60+ hex characters) unsuitable for display.
   const data = useMemo(() => {
     if (skipAssetsRaw) {
       const allAssets = Object.values(skipAssetsRaw.chain_to_assets_map).flatMap(
@@ -147,7 +151,7 @@ export function useLocalAssetOptions() {
       })
     }
 
-    // Fallback: resolve from Initia registry cache, or use denom as symbol placeholder
+    // Fallback: resolve from Initia registry cache while Skip data loads
     return localOptions.map(({ denom, chainId }) => {
       const registryAsset = queryClient.getQueryData<NormalizedAsset>(
         assetQueryKeys.item(chainId, denom).queryKey,
