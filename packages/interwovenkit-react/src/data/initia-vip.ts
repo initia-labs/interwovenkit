@@ -190,6 +190,7 @@ export function useInitiaVipPositions(): VipSectionData {
         claimableRewardValue,
       }
     })
+    .filter((row) => row.lockedRewardValue + row.claimableRewardValue > 0)
   }, [vestingPositions, initPrice, findChainByBridgeId])
 
   // Total value = sum of locked and claimable values
