@@ -332,6 +332,10 @@ export function useExternalAssetOptions(mode: TransferMode): ExternalAssetOption
       supportedExternalChainMap.set(chain.chain_id, chain)
     }
   } else {
+    // Intentionally uses `data` (balance-filtered) instead of `supportedAssets`.
+    // For non-override tokens, external chain names only appear when the user
+    // actually holds a balance, so the empty-state description falls back to
+    // appchain-only or generic copy by design.
     for (const { chain } of data) {
       if (getIsInitiaChain(chain.chain_id)) continue
       supportedExternalChainMap.set(chain.chain_id, chain)
