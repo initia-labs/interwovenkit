@@ -2,16 +2,17 @@ import BigNumber from "bignumber.js"
 import { useEffect, useEffectEvent, useMemo } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
-import { fromBaseUnit, InitiaAddress } from "@initia/utils"
+import { fromBaseUnit } from "@initia/utils"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import QuantityInput from "@/components/form/QuantityInput"
 import FormattedAmount from "@/components/FormattedAmount"
+import Status from "@/components/Status"
 import { formatValue } from "@/lib/format"
 import { useLocationState, useNavigate } from "@/lib/router"
 import { useHexAddress } from "@/public/data/hooks"
 import { useFindSkipChain } from "../bridge/data/chains"
-import { type RouterRouteResponseJson, useRouteQuery } from "../bridge/data/simulate"
+import { useRouteQuery } from "../bridge/data/simulate"
 import FooterWithAddressList from "../bridge/FooterWithAddressList"
 import FooterWithMsgs from "../bridge/FooterWithMsgs"
 import FooterWithSignedOpHook from "../bridge/FooterWithSignedOpHook"
@@ -19,19 +20,16 @@ import FooterWithTxFee from "./FooterWithTxFee"
 import {
   type TransferMode,
   useAllBalancesQuery,
+  useExternalAssetOptions,
   useExternalTransferAsset,
   useLocalAssetOptions,
   useLocalTransferAsset,
   useTransferForm,
   useTransferMode,
 } from "./hooks"
+import { buildTransferLocationState, type TransferLocationState } from "./state"
 import TransferFooter from "./TransferFooter"
 import styles from "./Fields.module.css"
-
-interface State {
-  route?: RouterRouteResponseJson
-  recipientAddress?: string
-}
 
 interface Props {
   mode: TransferMode
@@ -40,20 +38,45 @@ interface Props {
 const TransferFields = ({ mode }: Props) => {
   const modeConfig = useTransferMode(mode)
   const navigate = useNavigate()
-  const state = useLocationState<State>()
-  const options = useLocalAssetOptions()
+  const state = useLocationState<TransferLocationState>()
+  const { data: options } = useLocalAssetOptions()
   const findChain = useFindSkipChain()
-  const { data: balances } = useAllBalancesQuery()
+  const { data: balances, error: balancesError, chainsError } = useAllBalancesQuery()
   const hexAddress = useHexAddress()
 
   const { watch, setValue, getValues } = useTransferForm()
   const values = watch()
   const { srcChainId, srcDenom, quantity: rawQuantity = "" } = values
+  const selectedExternalDenom = values[modeConfig.external.denomKey]
+  const selectedExternalChainId = values[modeConfig.external.chainIdKey]
 
   const localAsset = useLocalTransferAsset(mode)
   const externalAsset = useExternalTransferAsset(mode)
-  const externalChainId = values[modeConfig.external.chainIdKey]
-  const externalChain = externalChainId ? findChain(externalChainId) : null
+  const { data: externalAssetOptions, isLoading: isExternalAssetOptionsLoading } =
+    useExternalAssetOptions(mode)
+  const hasSingleExternalAssetOption =
+    !isExternalAssetOptionsLoading && externalAssetOptions.length === 1
+  const hasSingleWithdrawChainOption =
+    mode === "withdraw" &&
+    !isExternalAssetOptionsLoading &&
+    externalAssetOptions.length > 0 &&
+    new Set(externalAssetOptions.map(({ chain }) => chain.chain_id)).size === 1
+  const autoExternalAssetOption = (() => {
+    if (isExternalAssetOptionsLoading || !externalAssetOptions.length) return null
+    if (hasSingleExternalAssetOption) return externalAssetOptions[0]
+    if (!hasSingleWithdrawChainOption) return null
+
+    return externalAssetOptions.reduce((highest, option) => {
+      const highestUsd = Number(highest.balance?.value_usd ?? 0)
+      const optionUsd = Number(option.balance?.value_usd ?? 0)
+
+      return optionUsd > highestUsd ? option : highest
+    }, externalAssetOptions[0])
+  })()
+  const autoExternalAssetOptionKey = autoExternalAssetOption
+    ? `${autoExternalAssetOption.chain.chain_id}:${autoExternalAssetOption.asset.denom}`
+    : ""
+  const externalChain = selectedExternalChainId ? findChain(selectedExternalChainId) : null
 
   const balance = balances?.[srcChainId]?.[srcDenom]?.amount
   const price = balances?.[srcChainId]?.[srcDenom]?.price || 0
@@ -76,28 +99,52 @@ const TransferFields = ({ mode }: Props) => {
     if (mode === "withdraw" && !externalAsset) return "Select destination"
   }, [mode, rawQuantity, balance, amountAsset, externalAsset])
 
-  const { data: route, error: routeError } = useRouteQuery(debouncedQuantity, {
+  const {
+    data: route,
+    error: routeError,
+    dataUpdatedAt: routeUpdatedAt,
+  } = useRouteQuery(debouncedQuantity, {
     disabled: !!disabledMessage,
   })
 
   const routeForState = !routeError && !disabledMessage ? route : undefined
+  const quoteVerifiedAt = routeForState && routeUpdatedAt > 0 ? routeUpdatedAt : undefined
 
   const updateNavigationState = useEffectEvent(() => {
-    navigate(0, {
-      ...state,
-      route: routeForState,
-      values: {
-        sender: hexAddress,
-        recipient: state.recipientAddress ? InitiaAddress(state.recipientAddress).hex : hexAddress,
-        slippagePercent: "1",
-        ...getValues(),
-      },
-    })
+    navigate(
+      0,
+      buildTransferLocationState({
+        currentState: state,
+        route: routeForState,
+        quoteVerifiedAt,
+        hexAddress,
+        values: getValues(),
+      }),
+    )
   })
 
+  // quoteVerifiedAt is intentionally excluded from deps.
+  // It derives from dataUpdatedAt, which changes on every 10s refetch even when
+  // route data is identical. Including it would trigger unnecessary navigate(0, ...) calls.
+  // useEffectEvent ensures the latest quoteVerifiedAt is captured when the effect does run.
   useEffect(() => {
     updateNavigationState()
   }, [routeForState, hexAddress])
+
+  const applyAutoExternalOption = useEffectEvent(() => {
+    if (!autoExternalAssetOption) return
+    if (selectedExternalDenom && selectedExternalChainId) return
+
+    const { asset, chain } = autoExternalAssetOption
+
+    setValue(modeConfig.external.denomKey, asset.denom)
+    setValue(modeConfig.external.chainIdKey, chain.chain_id)
+    if (mode === "deposit") setValue("quantity", "")
+  })
+
+  useEffect(() => {
+    applyAutoExternalOption()
+  }, [autoExternalAssetOptionKey])
 
   if (!localAsset) return null
   if (mode === "deposit" && !externalAsset) return null
@@ -110,12 +157,18 @@ const TransferFields = ({ mode }: Props) => {
     setValue(modeConfig.external.denomKey, "")
     setValue(modeConfig.external.chainIdKey, "")
 
-    if (mode === "withdraw") {
+    if (mode === "withdraw" || hasSingleExternalAssetOption) {
       setValue(modeConfig.local.denomKey, "")
       setValue(modeConfig.local.chainIdKey, "")
     }
 
-    setValue("page", mode === "withdraw" ? "select-local" : "select-external")
+    // When hasSingleExternalAssetOption, navigating to select-external would
+    // immediately auto-fill and jump back to fields, creating an infinite loop.
+    // Go directly to select-local instead, which is safe because the Back button
+    // only renders when options.length > 1 (so select-local won't auto-skip).
+    const previousPage =
+      mode === "withdraw" || hasSingleExternalAssetOption ? "select-local" : "select-external"
+    setValue("page", previousPage)
   }
 
   const externalSection = (
@@ -123,9 +176,8 @@ const TransferFields = ({ mode }: Props) => {
       <p className={styles.label}>{mode === "withdraw" ? "Destination" : "From"}</p>
       <button
         className={styles.asset}
-        onClick={() => {
-          setValue("page", "select-external")
-        }}
+        disabled={hasSingleExternalAssetOption}
+        onClick={() => setValue("page", "select-external")}
       >
         <div className={styles.assetIcon}>
           {externalAsset ? (
@@ -152,7 +204,7 @@ const TransferFields = ({ mode }: Props) => {
             </>
           )}
         </p>
-        <IconChevronDown className={styles.chevron} size={16} />
+        {!hasSingleExternalAssetOption && <IconChevronDown className={styles.chevron} size={16} />}
       </button>
     </>
   )
@@ -213,6 +265,8 @@ const TransferFields = ({ mode }: Props) => {
           {amountSection}
         </>
       )}
+
+      {(chainsError || balancesError) && <Status error>Failed to load balances</Status>}
 
       {!state.route || !!disabledMessage ? (
         <Footer>

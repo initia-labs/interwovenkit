@@ -2,7 +2,7 @@ import type { FeeJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
 import { sentenceCase } from "change-case"
 import { isAddress } from "ethers"
-import { useCallback, useMemo } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useDebounceValue, useLocalStorage } from "usehooks-ts"
 import {
   IconChevronDown,
@@ -23,7 +23,8 @@ import FormattedFeeList from "@/components/FormattedFeeList"
 import ModalTrigger from "@/components/ModalTrigger"
 import PlainModalContent from "@/components/PlainModalContent"
 import WidgetTooltip from "@/components/WidgetTooltip"
-import { useFindChain } from "@/data/chains"
+import { useAnalyticsTrack } from "@/data/analytics"
+import { useFindChain, useLayer1 } from "@/data/chains"
 import { LocalStorageKey } from "@/data/constants"
 import { useIsMobile } from "@/hooks/useIsMobile"
 import { formatValue } from "@/lib/format"
@@ -43,9 +44,24 @@ import SelectRouteOption from "./SelectRouteOption"
 import SlippageControl from "./SlippageControl"
 import styles from "./BridgeFields.module.css"
 
+function getRouteRefreshMs({
+  isLayer1Swap,
+  isL2Swap,
+}: {
+  isLayer1Swap: boolean
+  isL2Swap: boolean
+}) {
+  if (isLayer1Swap) return 5000
+  if (isL2Swap) return 2000
+  return 10000
+}
+
 const BridgeFields = () => {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
+  const track = useAnalyticsTrack()
+  const [previewRefreshError, setPreviewRefreshError] = useState<string | undefined>(undefined)
+  const [previewRefreshing, setPreviewRefreshing] = useState(false)
 
   const [selectedType, setSelectedType] = useLocalStorage<RouteType>(
     LocalStorageKey.BRIDGE_ROUTE_TYPE,
@@ -58,6 +74,7 @@ const BridgeFields = () => {
   const { srcChainId, srcDenom, dstChainId, dstDenom, quantity, sender, slippagePercent } = values
 
   const findChain = useFindChain()
+  const layer1 = useLayer1()
   const srcChain = useSkipChain(srcChainId)
   const srcChainType = useChainType(srcChain)
   const dstChain = useSkipChain(dstChainId)
@@ -73,25 +90,31 @@ const BridgeFields = () => {
   // Avoid hitting the simulation API on every keystroke.  Wait a short period
   // after the user stops typing before updating the debounced value.
   const [debouncedQuantity] = useDebounceValue(quantity, 300)
+  const isSameChainRoute = srcChainId === dstChainId
+  const isLayer1Swap = isSameChainRoute && srcChainId === layer1.chainId
+  const isL2Swap = isSameChainRoute && srcChainType === "initia" && !isLayer1Swap
+  const routeRefreshMs = getRouteRefreshMs({ isLayer1Swap, isL2Swap })
 
   const isExternalRoute = srcChainType !== "initia" && dstChainType !== "initia"
   const isOpWithdrawable = useIsOpWithdrawable()
   const routeQueryDefault = useRouteQuery(debouncedQuantity, {
     disabled: isExternalRoute,
+    refreshMs: routeRefreshMs,
   })
   const routeQueryOpWithdrawal = useRouteQuery(debouncedQuantity, {
     isOpWithdraw: true,
     disabled: !isOpWithdrawable,
+    refreshMs: routeRefreshMs,
   })
   const preferOp = isOpWithdrawable && selectedType === "op"
   const preferred = preferOp ? routeQueryOpWithdrawal : routeQueryDefault
   const fallback = preferOp ? routeQueryDefault : routeQueryOpWithdrawal
   const fallbackEnabled = preferOp ? !isExternalRoute : isOpWithdrawable
   const routeQuery = preferred.error && fallbackEnabled ? fallback : preferred
-  const { data: route, isLoading, isFetching, error } = routeQuery
+  const { data: route, isLoading, error } = routeQuery
   const { data: routeErrorInfo } = useRouteErrorInfo(error)
 
-  const isSimulating = debouncedQuantity && (isLoading || isFetching)
+  const isSimulating = debouncedQuantity && isLoading && !previewRefreshing
 
   const flip = () => {
     setValue("srcChainId", dstChainId)
@@ -104,9 +127,37 @@ const BridgeFields = () => {
 
   // submit
   const { openModal, closeModal } = useModal()
-  const submit = handleSubmit((values: FormValues) => {
-    if (route?.warning) {
-      const { type = "", message } = route.warning ?? {}
+  const submit = handleSubmit(async (values: FormValues) => {
+    setPreviewRefreshError(undefined)
+    setPreviewRefreshing(true)
+    let latestRoute: typeof route
+    let quoteVerifiedAt: number
+    try {
+      const result = await routeQuery.refetch()
+      if (result.error || !result.data || !result.dataUpdatedAt) {
+        setPreviewRefreshError(
+          result.error instanceof Error
+            ? result.error.message
+            : "Failed to refresh route. Please try again.",
+        )
+        return
+      }
+      latestRoute = result.data
+      quoteVerifiedAt = result.dataUpdatedAt
+    } finally {
+      setPreviewRefreshing(false)
+    }
+
+    track("Bridge Simulation Success", {
+      quantity: values.quantity,
+      srcChainId: values.srcChainId,
+      srcDenom: values.srcDenom,
+      dstChainId: values.dstChainId,
+      dstDenom: values.dstDenom,
+    })
+
+    if (latestRoute.warning) {
+      const { type = "", message } = latestRoute.warning ?? {}
       openModal({
         content: (
           <PlainModalContent
@@ -117,7 +168,11 @@ const BridgeFields = () => {
             secondaryButton={{
               label: "Proceed anyway",
               onClick: () => {
-                navigate("/bridge/preview", { route, values })
+                navigate("/bridge/preview", {
+                  route: latestRoute,
+                  values,
+                  quoteVerifiedAt,
+                })
                 closeModal()
               },
             }}
@@ -129,7 +184,11 @@ const BridgeFields = () => {
       return
     }
 
-    navigate("/bridge/preview", { route, values })
+    navigate("/bridge/preview", {
+      route: latestRoute,
+      values,
+      quoteVerifiedAt,
+    })
   })
 
   // fees
@@ -339,6 +398,7 @@ const BridgeFields = () => {
         extra={
           <>
             <FormHelp.Stack>
+              {previewRefreshError && <FormHelp level="error">{previewRefreshError}</FormHelp>}
               {route?.extra_infos?.map((info) => (
                 <FormHelp level="info" key={info}>
                   {info}
@@ -371,7 +431,10 @@ const BridgeFields = () => {
           </>
         }
       >
-        <Button.White loading={isSimulating && "Simulating..."} disabled={!!disabledMessage}>
+        <Button.White
+          loading={previewRefreshing ? "Refreshing route..." : isSimulating && "Simulating..."}
+          disabled={!!disabledMessage || previewRefreshing}
+        >
           {disabledMessage ?? "Preview route"}
         </Button.White>
       </Footer>

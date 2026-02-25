@@ -136,7 +136,25 @@ export interface LiquidityPositionBreakdown {
 }
 
 /** Pool types */
-export type PoolType = "BALANCER" | "STABLE_SWAP" | "UOINIT"
+export type PoolType = "BALANCER" | "CLAMM" | "STABLE_SWAP" | "UOINIT"
+
+export interface ClammLiquidityPosition {
+  tokenAddress: string
+  positionId: string
+  inRange?: boolean
+  isFullRange?: boolean
+  minPrice?: number
+  maxPrice?: number
+  pricePairLabel: string
+  rewardValue: number
+  value: number
+}
+
+export interface ClammLiquidityRowData {
+  lpMetadata: string
+  totalRewardValue: number
+  positions: ClammLiquidityPosition[]
+}
 
 /** Claimable INIT rewards breakdown */
 export interface ClaimableInitBreakdown {
@@ -158,6 +176,8 @@ export interface LiquidityTableRow {
   coinLogos?: string[] // [logoUrl1, logoUrl2] for paired tokens
   breakdown: LiquidityPositionBreakdown
   claimableInit?: ClaimableInitBreakdown
+  isClamm?: boolean
+  clamm?: ClammLiquidityRowData
 }
 
 /** Liquidity section data */

@@ -12,8 +12,7 @@ import { usePortfolioSSE } from "@/data/minity"
 import { MemoryRouter } from "@/lib/router"
 import { useInitializeAutoSign } from "@/pages/autosign/data/validation"
 import { useClearWalletsOnAddressChange } from "@/pages/autosign/data/wallet"
-import { useAllSkipAssets } from "@/pages/bridge/data/assets"
-import { useSkipChains } from "@/pages/bridge/data/chains"
+import { usePrefetchBridgeData } from "@/pages/bridge/data/prefetch"
 import { MAINNET } from "../data/constants"
 import Analytics from "./Analytics"
 import Drawer from "./Drawer"
@@ -39,9 +38,12 @@ const Fonts = () => {
   )
 }
 
-// The widget fetches registry information and other essentials before rendering
-// its children.  This keeps the UI responsive when the drawer first opens.
+// Kicks off registry fetches and background initialization.
+// Wrapped in AsyncBoundary so suspense does not block sibling rendering.
 const Prefetch = () => {
+  // bridge — placed before useInitiaRegistry() (suspends) so prefetch fires on first render
+  usePrefetchBridgeData()
+
   // autosign
   useClearWalletsOnAddressChange()
   useInitializeAutoSign()
@@ -57,10 +59,6 @@ const Prefetch = () => {
 
   // asset logos (address-independent, used by portfolio)
   useAllChainsAssetsQueries()
-
-  // bridge
-  useSkipChains()
-  useAllSkipAssets()
 
   return null
 }

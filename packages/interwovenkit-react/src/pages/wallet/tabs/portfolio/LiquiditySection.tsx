@@ -1,11 +1,11 @@
 import clsx from "clsx"
 import { Collapsible } from "radix-ui"
-import { useMemo, useState } from "react"
+import { type ReactNode, useMemo, useState } from "react"
 import { IconChevronDown, IconExternalLink } from "@initia/icons-react"
 import { formatNumber } from "@initia/utils"
 import Image from "@/components/Image"
 import { INIT_SYMBOL, INITIA_LIQUIDITY_URL } from "@/data/constants"
-import type { LiquiditySectionData, LiquidityTableRow } from "@/data/minity"
+import type { ClammLiquidityPosition, LiquiditySectionData, LiquidityTableRow } from "@/data/minity"
 import { formatValue } from "@/lib/format"
 import type { DenomLogoMap } from "./PositionSection"
 import styles from "./LiquiditySection.module.css"
@@ -53,6 +53,14 @@ interface LiquidityRowProps {
   denomLogoMap: DenomLogoMap
 }
 
+interface LiquidityRowTriggerProps {
+  isOpen: boolean
+  symbol: string
+  coinLogos?: string[]
+  singleLogoUrl?: string
+  rightContent: ReactNode
+}
+
 const BREAKDOWN_LABELS: Record<keyof LiquidityTableRow["breakdown"], string> = {
   deposit: "Deposit",
   staking: "Staking",
@@ -60,18 +68,178 @@ const BREAKDOWN_LABELS: Record<keyof LiquidityTableRow["breakdown"], string> = {
   unstaking: "Unstaking",
 }
 
-const LiquidityRow = ({ row, denomLogoMap }: LiquidityRowProps) => {
+function getClammStatusClass(inRange: boolean | undefined): string {
+  if (inRange === undefined) return styles.unknown
+  if (inRange) return styles.inRange
+  return styles.outRange
+}
+
+function getClammStatusText(inRange: boolean | undefined): string {
+  if (inRange === undefined) return "Status unavailable"
+  if (inRange) return "In range"
+  return "Out of range"
+}
+
+function formatBoundValue(value: number | undefined, pairLabel: string): string {
+  if (value === undefined) return "-"
+  return `${formatNumber(value, { dp: 6 })} ${pairLabel}`
+}
+
+function renderLiquidityRowTrigger({
+  isOpen,
+  symbol,
+  coinLogos,
+  singleLogoUrl,
+  rightContent,
+}: LiquidityRowTriggerProps) {
+  const hasCoinLogos = coinLogos && coinLogos.length > 0 && coinLogos.some((coinLogo) => coinLogo)
+
+  return (
+    <button className={styles.tokenTrigger}>
+      <div className={styles.tokenInfo}>
+        <IconChevronDown
+          size={14}
+          className={clsx(styles.tokenChevron, { [styles.expanded]: isOpen })}
+        />
+        <div className={styles.tokenInfoLabel}>
+          {hasCoinLogos ? (
+            <div className={styles.pairedLogos}>
+              {coinLogos.map((coinLogo, idx) => (
+                <Image
+                  key={idx}
+                  src={coinLogo}
+                  width={20}
+                  height={20}
+                  className={styles.coinLogo}
+                  logo
+                />
+              ))}
+            </div>
+          ) : (
+            singleLogoUrl && (
+              <Image src={singleLogoUrl} width={20} height={20} className={styles.tokenLogo} />
+            )
+          )}
+          <span className={styles.tokenSymbol}>{symbol}</span>
+        </div>
+      </div>
+      {rightContent}
+    </button>
+  )
+}
+
+const ClammPositionRow = ({ position }: { position: ClammLiquidityPosition }) => {
+  const statusClass = getClammStatusClass(position.inRange)
+  const statusText = getClammStatusText(position.inRange)
+
+  return (
+    <div className={styles.clammPositionRow}>
+      <div className={styles.breakdownRow}>
+        <span className={styles.breakdownLabel}>Position ID</span>
+        <div className={styles.breakdownValues}>
+          <span className={styles.breakdownAmount}>{position.positionId}</span>
+        </div>
+      </div>
+
+      <div className={styles.breakdownRow}>
+        <span className={styles.breakdownLabel}>Deposit</span>
+        <div className={styles.breakdownValues}>
+          <span className={styles.breakdownValue}>{formatValue(position.value)}</span>
+        </div>
+      </div>
+
+      <div className={styles.breakdownRow}>
+        <span className={styles.breakdownLabel}>Status</span>
+        <div className={styles.clammStatusValue}>
+          <span className={clsx(styles.statusDot, statusClass)} />
+          <span>{statusText}</span>
+        </div>
+      </div>
+
+      {position.isFullRange ? (
+        <div className={styles.breakdownRow}>
+          <span className={styles.breakdownLabel}>Range Bounds</span>
+          <div className={styles.breakdownValues}>
+            <span className={styles.breakdownAmount}>Full range</span>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className={styles.breakdownRow}>
+            <span className={styles.breakdownLabel}>Min</span>
+            <div className={styles.breakdownValues}>
+              <span className={styles.breakdownAmount}>
+                {formatBoundValue(position.minPrice, position.pricePairLabel)}
+              </span>
+            </div>
+          </div>
+          <div className={styles.breakdownRow}>
+            <span className={styles.breakdownLabel}>Max</span>
+            <div className={styles.breakdownValues}>
+              <span className={styles.breakdownAmount}>
+                {formatBoundValue(position.maxPrice, position.pricePairLabel)}
+              </span>
+            </div>
+          </div>
+        </>
+      )}
+
+      <div className={styles.breakdownRow}>
+        <span className={styles.breakdownLabel}>Reward</span>
+        <div className={styles.breakdownValues}>
+          <span className={styles.breakdownValue}>{formatValue(position.rewardValue)}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const ClammLiquidityRow = ({ row, denomLogoMap }: LiquidityRowProps) => {
+  const [isOpen, setIsOpen] = useState(false)
+  const { denom, symbol, totalValue, coinLogos, logoUrl, clamm } = row
+  const logos = denomLogoMap.get(denom)
+
+  if (!clamm) return null
+
+  const singleLogoUrl = logoUrl || logos?.assetLogo
+
+  return (
+    <Collapsible.Root open={isOpen} onOpenChange={setIsOpen}>
+      <Collapsible.Trigger asChild>
+        {renderLiquidityRowTrigger({
+          isOpen,
+          symbol,
+          coinLogos,
+          singleLogoUrl,
+          rightContent: <span className={styles.triggerValue}>{formatValue(totalValue)}</span>,
+        })}
+      </Collapsible.Trigger>
+
+      <Collapsible.Content className={styles.collapsibleContent}>
+        <div className={styles.clammBreakdownContent}>
+          <div className={styles.breakdownRow}>
+            <span className={styles.breakdownLabel}>Reward</span>
+            <div className={styles.breakdownValues}>
+              <span className={styles.breakdownValue}>{formatValue(clamm.totalRewardValue)}</span>
+            </div>
+          </div>
+          {clamm.positions.map((position) => (
+            <ClammPositionRow key={position.tokenAddress} position={position} />
+          ))}
+        </div>
+      </Collapsible.Content>
+    </Collapsible.Root>
+  )
+}
+
+const StandardLiquidityRow = ({ row, denomLogoMap }: LiquidityRowProps) => {
   const { denom, symbol, totalValue, breakdown, logoUrl, coinLogos, claimableInit } = row
   const [isOpen, setIsOpen] = useState(false)
   const logos = denomLogoMap.get(denom)
 
-  // For LP tokens without coins (like omniINIT), use row.logoUrl or fallback to denomLogoMap
   const singleLogoUrl = logoUrl || logos?.assetLogo
-
-  // Calculate value per unit for breakdown value calculation
   const pricePerUnit = row.totalAmount > 0 ? row.totalValue / row.totalAmount : 0
 
-  // Get non-zero breakdown entries - memoized since breakdown object is stable
   const breakdownEntries = useMemo(
     () =>
       (Object.entries(breakdown) as [keyof typeof breakdown, number][]).filter(
@@ -80,45 +248,18 @@ const LiquidityRow = ({ row, denomLogoMap }: LiquidityRowProps) => {
     [breakdown],
   )
 
-  // Check if we have paired coin logos
-  const hasCoinLogos = coinLogos && coinLogos.length > 0 && coinLogos.some((logo) => logo)
-
-  // Check if there are claimable rewards
   const hasClaimableInit = claimableInit && Number(claimableInit.total) > 0
 
   return (
     <Collapsible.Root open={isOpen} onOpenChange={setIsOpen}>
       <Collapsible.Trigger asChild>
-        <button className={styles.tokenTrigger}>
-          <div className={styles.tokenInfo}>
-            <IconChevronDown
-              size={14}
-              className={clsx(styles.tokenChevron, { [styles.expanded]: isOpen })}
-            />
-            <div className={styles.tokenInfoLabel}>
-              {hasCoinLogos ? (
-                <div className={styles.pairedLogos}>
-                  {coinLogos.map((logo, idx) => (
-                    <Image
-                      key={idx}
-                      src={logo}
-                      width={20}
-                      height={20}
-                      className={styles.coinLogo}
-                      logo
-                    />
-                  ))}
-                </div>
-              ) : (
-                singleLogoUrl && (
-                  <Image src={singleLogoUrl} width={20} height={20} className={styles.tokenLogo} />
-                )
-              )}
-              <span className={styles.tokenSymbol}>{symbol}</span>
-            </div>
-          </div>
-          <span className={styles.triggerValue}>{formatValue(totalValue)}</span>
-        </button>
+        {renderLiquidityRowTrigger({
+          isOpen,
+          symbol,
+          coinLogos,
+          singleLogoUrl,
+          rightContent: <span className={styles.triggerValue}>{formatValue(totalValue)}</span>,
+        })}
       </Collapsible.Trigger>
 
       <Collapsible.Content className={styles.collapsibleContent}>
@@ -154,6 +295,14 @@ const LiquidityRow = ({ row, denomLogoMap }: LiquidityRowProps) => {
       </Collapsible.Content>
     </Collapsible.Root>
   )
+}
+
+const LiquidityRow = ({ row, denomLogoMap }: LiquidityRowProps) => {
+  if (row.clamm) {
+    return <ClammLiquidityRow row={row} denomLogoMap={denomLogoMap} />
+  }
+
+  return <StandardLiquidityRow row={row} denomLogoMap={denomLogoMap} />
 }
 
 export default LiquiditySection

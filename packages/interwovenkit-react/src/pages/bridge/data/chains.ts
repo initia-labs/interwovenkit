@@ -22,6 +22,13 @@ export function useGetIsInitiaChain() {
   return (chainId: string) => chains.some((chain: Chain) => chain.chain_id === chainId)
 }
 
+export function isInitiaAppchain(
+  chain: Pick<ChainJson, "chain_id" | "chain_name">,
+  getIsInitiaChain: (chainId: string) => boolean,
+): boolean {
+  return getIsInitiaChain(chain.chain_id) && chain.chain_name.toLowerCase() !== "initia"
+}
+
 export function useFindChainType() {
   const getIsInitiaChain = useGetIsInitiaChain()
   return (chain: ChainJson) => {

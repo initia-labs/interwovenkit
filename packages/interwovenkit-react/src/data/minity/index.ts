@@ -10,6 +10,8 @@ export type {
   ChainInfo,
   ChainPositionData,
   ClaimableInitBreakdown,
+  ClammLiquidityPosition,
+  ClammLiquidityRowData,
   DenomGroup,
   FungiblePosition,
   LendingPosition,
