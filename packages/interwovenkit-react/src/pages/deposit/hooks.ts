@@ -288,9 +288,6 @@ export function useExternalAssetOptions(mode: TransferMode): ExternalAssetOption
       const isExtraInitiaSourceSymbol =
         !!chain && getIsInitiaChain(chain.chain_id) && extraInitiaSourceSymbols.includes(symbol)
       const hasOverrideSourceSymbol = isExtraExternalOption || isExtraInitiaSourceSymbol
-      if (externalChainListSource === "extra-options") {
-        return hasOverrideSourceSymbol
-      }
 
       const isLocalSourceSymbol = symbol === localAsset.symbol
 
