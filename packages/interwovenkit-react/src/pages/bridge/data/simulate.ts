@@ -4,6 +4,7 @@ import { HTTPError } from "ky"
 import type { QueryClient } from "@tanstack/react-query"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toBaseUnit } from "@initia/utils"
+import { useAnalyticsTrack } from "@/data/analytics"
 import { useInitiaRegistry, useLayer1 } from "@/data/chains"
 import type { RouterAsset } from "./assets"
 import { useSkipAsset } from "./assets"
@@ -63,10 +64,20 @@ export function useRouteQuery(
   const { watch } = useBridgeForm()
   const values = watch()
   const skip = useSkip()
+  const track = useAnalyticsTrack()
 
-  const debouncedValues = { ...values, quantity: debouncedQuantity }
+  const debouncedValues = {
+    srcChainId: values.srcChainId,
+    srcDenom: values.srcDenom,
+    dstChainId: values.dstChainId,
+    dstDenom: values.dstDenom,
+    quantity: debouncedQuantity,
+  }
   const isDisabled =
-    !values.srcChainId || !values.srcDenom || !values.dstChainId || !values.dstDenom
+    !debouncedValues.srcChainId ||
+    !debouncedValues.srcDenom ||
+    !debouncedValues.dstChainId ||
+    !debouncedValues.dstDenom
   const quantityBn = BigNumber(debouncedValues.quantity || 0)
   const isQuantityValid = quantityBn.isFinite() && quantityBn.gt(0)
   const refreshMs = opWithdrawal?.refreshMs ?? 10_000
@@ -82,6 +93,8 @@ export function useRouteQuery(
       const response = await fetchRoute(skip, queryClient, debouncedValues, {
         isOpWithdraw: opWithdrawal?.isOpWithdraw,
       })
+
+      track("Bridge Simulation Success", debouncedValues)
 
       return response
     },

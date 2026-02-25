@@ -5,6 +5,11 @@ import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { useConfig } from "@/data/config"
 import type { FormValues } from "./form"
 
+type RouteParams = Pick<
+  FormValues,
+  "srcChainId" | "srcDenom" | "dstChainId" | "dstDenom" | "quantity"
+>
+
 export const skipQueryKeys = createQueryKeys("interwovenkit:skip", {
   chains: null,
   allAssets: () => ["allAssets"],
@@ -12,7 +17,7 @@ export const skipQueryKeys = createQueryKeys("interwovenkit:skip", {
   asset: (chainId: string, denom: string) => [chainId, denom],
   allBalances: (chainIds: string[], addresses: string[]) => [chainIds, addresses],
   balances: (chainId: string, address: string) => [chainId, address],
-  route: (values: FormValues, isOpWithdraw?: boolean) => [
+  route: (values: RouteParams, isOpWithdraw?: boolean) => [
     { ...values, quantity: BigNumber(values.quantity || 0).toString() },
     isOpWithdraw,
   ],
