@@ -185,7 +185,7 @@ const ClammPositionRow = ({ position }: { position: ClammLiquidityPosition }) =>
       )}
 
       <div className={styles.breakdownRow}>
-        <span className={styles.breakdownLabel}>Reward</span>
+        <span className={styles.breakdownLabel}>Claimable rewards</span>
         <div className={styles.breakdownValues}>
           <span className={styles.breakdownValue}>{formatValue(position.rewardValue)}</span>
         </div>
@@ -218,7 +218,7 @@ const ClammLiquidityRow = ({ row, denomLogoMap }: LiquidityRowProps) => {
       <Collapsible.Content className={styles.collapsibleContent}>
         <div className={styles.clammBreakdownContent}>
           <div className={styles.breakdownRow}>
-            <span className={styles.breakdownLabel}>Reward</span>
+            <span className={styles.breakdownLabel}>Claimable rewards</span>
             <div className={styles.breakdownValues}>
               <span className={styles.breakdownValue}>{formatValue(clamm.totalRewardValue)}</span>
             </div>
@@ -280,7 +280,7 @@ const StandardLiquidityRow = ({ row, denomLogoMap }: LiquidityRowProps) => {
           })}
           {hasClaimableInit && (
             <div className={styles.breakdownRow}>
-              <span className={styles.breakdownLabel}>Claimable</span>
+              <span className={styles.breakdownLabel}>Claimable rewards</span>
               <div className={styles.breakdownValues}>
                 <span className={styles.breakdownAmount}>
                   {formatNumber(Number(claimableInit.total), { dp: 6 })} {INIT_SYMBOL}

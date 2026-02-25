@@ -4,7 +4,6 @@ import AsyncBoundary from "@/components/AsyncBoundary"
 import Skeletons from "@/components/Skeletons"
 import Status from "@/components/Status"
 import { useLayer1 } from "@/data/chains"
-import { useCivitiaPlayer } from "@/data/civitia"
 import {
   type ChainInfo,
   getPositionValue,
@@ -29,9 +28,6 @@ const Positions = memo(({ searchQuery, selectedChain, chainInfoMap }: PositionsP
   // Layer 1 chain info
   const layer1 = useLayer1()
 
-  // Civitia player data
-  const { data: civitiaPlayer, isLoading: isCivitiaPlayerLoading } = useCivitiaPlayer()
-
   // Filter and transform positions into chain groups
   const filteredChainGroups = useMemo(() => {
     const result: PortfolioChainPositionGroup[] = []
@@ -43,7 +39,6 @@ const Positions = memo(({ searchQuery, selectedChain, chainInfoMap }: PositionsP
       // Get chain info from breakdown
       const chainInfo = chainInfoMap.get(chainData.chainName.toLowerCase())
       const chainNameLower = chainData.chainName.toLowerCase()
-      const isCivitiaChain = chainNameLower === "civitia"
 
       // Filter by selected chain (using chainId)
       if (selectedChain && chainInfo?.chainId !== selectedChain) {
@@ -55,16 +50,8 @@ const Positions = memo(({ searchQuery, selectedChain, chainInfoMap }: PositionsP
         protocol.positions.some((position) => position.type !== "fungible-position"),
       )
 
-      // For Civitia specifically, also check if user has gold or silver
-      // Skip Civitia check if still loading player data
-      const hasCivitiaGoldOrSilver =
-        isCivitiaChain &&
-        !isCivitiaPlayerLoading &&
-        civitiaPlayer &&
-        ((civitiaPlayer.gold_balance ?? 0) > 0 || (civitiaPlayer.silver_balance ?? 0) > 0)
-
       // Skip chain if it has no displayable content
-      if (!hasAnyPositions && !hasCivitiaGoldOrSilver) {
+      if (!hasAnyPositions) {
         continue
       }
 
@@ -119,15 +106,7 @@ const Positions = memo(({ searchQuery, selectedChain, chainInfoMap }: PositionsP
       ],
       result,
     )
-  }, [
-    positions,
-    chainInfoMap,
-    searchQuery,
-    selectedChain,
-    layer1.chainId,
-    civitiaPlayer,
-    isCivitiaPlayerLoading,
-  ])
+  }, [positions, chainInfoMap, searchQuery, selectedChain, layer1.chainId])
 
   const hasPositions = filteredChainGroups.length > 0
 
