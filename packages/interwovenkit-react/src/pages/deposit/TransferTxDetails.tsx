@@ -1,4 +1,3 @@
-import BigNumber from "bignumber.js"
 import clsx from "clsx"
 import { useToggle } from "usehooks-ts"
 import { IconChevronDown } from "@initia/icons-react"
@@ -8,7 +7,7 @@ import { useConnectedWalletIcon } from "@/hooks/useConnectedWalletIcon"
 import { useLocationState } from "@/lib/router"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useAllSkipAssets } from "../bridge/data/assets"
-import { formatDuration, formatFees } from "../bridge/data/format"
+import { calculateMinimumReceived, formatDuration, formatFees } from "../bridge/data/format"
 import type { RouterRouteResponseJson } from "../bridge/data/simulate"
 import { useBridgePreviewState } from "../bridge/data/tx"
 import styles from "./Fields.module.css"
@@ -35,10 +34,7 @@ const TransferTxDetails = ({ renderFee }: Props) => {
   if (!route || !dstAsset) return null
 
   const minimumReceived = route.does_swap
-    ? BigNumber(route.amount_out)
-        .times(BigNumber(1).minus(BigNumber(values.slippagePercent).div(100)))
-        .integerValue(BigNumber.ROUND_FLOOR)
-        .toString()
+    ? calculateMinimumReceived(route.amount_out, values.slippagePercent)
     : route.amount_out
 
   return (

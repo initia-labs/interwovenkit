@@ -32,7 +32,7 @@ import { useSkipBalance, useSkipBalancesQuery } from "./data/balance"
 import { useChainType, useSkipChain } from "./data/chains"
 import type { FormValues } from "./data/form"
 import { useBridgeForm } from "./data/form"
-import { formatDuration, formatFees } from "./data/format"
+import { calculateMinimumReceived, formatDuration, formatFees } from "./data/format"
 import { useIsOpWithdrawable, useRouteErrorInfo, useRouteQuery } from "./data/simulate"
 import BridgeAccount from "./BridgeAccount"
 import SelectedChainAsset from "./SelectedChainAsset"
@@ -225,11 +225,7 @@ const BridgeFields = () => {
   const metaRows = useMemo(() => {
     if (!route) return []
 
-    const minimumReceived = BigNumber(route.amount_out)
-      .times(BigNumber(100).minus(slippagePercent))
-      .div(100)
-      .integerValue(BigNumber.ROUND_FLOOR)
-      .toFixed(0)
+    const minimumReceived = calculateMinimumReceived(route.amount_out, slippagePercent)
 
     return [
       {

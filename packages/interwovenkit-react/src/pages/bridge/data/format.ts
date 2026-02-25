@@ -1,4 +1,5 @@
 import type { FeeJson } from "@skip-go/client"
+import BigNumber from "bignumber.js"
 import { formatAmount } from "@initia/utils"
 
 const TIME_UNIT_DEFINITIONS = [
@@ -24,6 +25,14 @@ export function formatDuration(totalSeconds: number) {
   )
 
   return formattedParts.join(" ")
+}
+
+export function calculateMinimumReceived(amountOut: string, slippagePercent: string): string {
+  return BigNumber(amountOut)
+    .times(BigNumber(100).minus(slippagePercent))
+    .div(100)
+    .integerValue(BigNumber.ROUND_FLOOR)
+    .toFixed(0)
 }
 
 export function formatFees(fees?: FeeJson[]) {
