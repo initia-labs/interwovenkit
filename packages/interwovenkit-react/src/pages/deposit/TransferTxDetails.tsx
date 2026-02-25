@@ -7,7 +7,7 @@ import { useConnectedWalletIcon } from "@/hooks/useConnectedWalletIcon"
 import { useLocationState } from "@/lib/router"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useAllSkipAssets } from "../bridge/data/assets"
-import { formatDuration, formatFees } from "../bridge/data/format"
+import { calculateMinimumReceived, formatDuration, formatFees } from "../bridge/data/format"
 import type { RouterRouteResponseJson } from "../bridge/data/simulate"
 import { useBridgePreviewState } from "../bridge/data/tx"
 import styles from "./Fields.module.css"
@@ -34,10 +34,8 @@ const TransferTxDetails = ({ renderFee }: Props) => {
   if (!route || !dstAsset) return null
 
   const minimumReceived = route.does_swap
-    ? (BigInt(route.amount_out || route.estimated_amount_out) *
-        BigInt(10000 - Number(values.slippagePercent) * 100)) /
-      BigInt(10000)
-    : BigInt(route.amount_out || route.estimated_amount_out)
+    ? calculateMinimumReceived(route.amount_out, values.slippagePercent)
+    : route.amount_out
 
   return (
     <AnimatedHeight>

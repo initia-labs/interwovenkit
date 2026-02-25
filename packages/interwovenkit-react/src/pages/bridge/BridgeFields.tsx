@@ -33,7 +33,7 @@ import { useSkipBalance, useSkipBalancesQuery } from "./data/balance"
 import { useChainType, useSkipChain } from "./data/chains"
 import type { FormValues } from "./data/form"
 import { useBridgeForm } from "./data/form"
-import { formatDuration, formatFees } from "./data/format"
+import { calculateMinimumReceived, formatDuration, formatFees } from "./data/format"
 import { useIsOpWithdrawable, useRouteErrorInfo, useRouteQuery } from "./data/simulate"
 import BridgeAccount from "./BridgeAccount"
 import SelectedChainAsset from "./SelectedChainAsset"
@@ -284,6 +284,8 @@ const BridgeFields = () => {
   const metaRows = useMemo(() => {
     if (!route) return []
 
+    const minimumReceived = calculateMinimumReceived(route.amount_out, slippagePercent)
+
     return [
       {
         condition: !!route.estimated_fees?.length,
@@ -322,8 +324,26 @@ const BridgeFields = () => {
           </span>
         ),
       },
+      {
+        condition: route.does_swap,
+        title: "Minimum received",
+        content: (
+          <span className={styles.description}>
+            <img src={dstAsset.logo_uri} alt={dstAsset.symbol} width={12} height={12} />
+            {formatAmount(minimumReceived, { decimals: dstAsset.decimals })} {dstAsset.symbol}
+          </span>
+        ),
+      },
     ].filter((row) => row.condition)
-  }, [additionalFees, deductedFees, renderFees, route, shouldShowRouteOptions, slippagePercent])
+  }, [
+    additionalFees,
+    deductedFees,
+    dstAsset,
+    renderFees,
+    route,
+    shouldShowRouteOptions,
+    slippagePercent,
+  ])
 
   return (
     <form className={styles.form} onSubmit={submit}>

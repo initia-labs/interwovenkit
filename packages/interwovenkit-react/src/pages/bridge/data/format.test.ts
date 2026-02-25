@@ -1,4 +1,26 @@
-import { formatDuration, formatFees } from "./format"
+import { calculateMinimumReceived, formatDuration, formatFees } from "./format"
+
+describe("calculateMinimumReceived", () => {
+  it("applies slippage to amount", () => {
+    expect(calculateMinimumReceived("1000000", "0.5")).toBe("995000")
+  })
+
+  it("handles zero slippage", () => {
+    expect(calculateMinimumReceived("1000000", "0")).toBe("1000000")
+  })
+
+  it("floors to integer", () => {
+    expect(calculateMinimumReceived("1000001", "0.5")).toBe("995000")
+  })
+
+  it("handles zero amount", () => {
+    expect(calculateMinimumReceived("0", "0.5")).toBe("0")
+  })
+
+  it("handles large amounts", () => {
+    expect(calculateMinimumReceived("999999999999999999", "1")).toBe("989999999999999999")
+  })
+})
 
 describe("formatDuration", () => {
   it("handles pure seconds", () => {
