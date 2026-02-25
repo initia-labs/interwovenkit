@@ -1,4 +1,4 @@
-import { formatAmount } from "@initia/utils"
+import FormattedAmount from "@/components/FormattedAmount"
 import Image from "@/components/Image"
 import PlainModalContent from "@/components/PlainModalContent"
 import { useFindAsset } from "@/data/assets"
@@ -29,7 +29,6 @@ const ClaimableList = ({ list, onNavigate, onDismiss }: Props) => {
           .map(({ txHash, chainId, amount, denom }) => {
             const chain = findChain(chainId)
             const { decimals, symbol } = findAsset(denom)
-            const formattedAmount = formatAmount(amount, { decimals })
             return (
               <div className={styles.row} key={txHash}>
                 <div className={styles.dt}>
@@ -38,7 +37,7 @@ const ClaimableList = ({ list, onNavigate, onDismiss }: Props) => {
                 </div>
 
                 <span className={styles.asset}>
-                  {formattedAmount} {symbol}
+                  <FormattedAmount amount={amount} decimals={decimals} /> {symbol}
                 </span>
               </div>
             )

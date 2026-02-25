@@ -10,7 +10,7 @@ import {
   IconSettingFilled,
   IconWarningFilled,
 } from "@initia/icons-react"
-import { formatAmount, fromBaseUnit } from "@initia/utils"
+import { fromBaseUnit } from "@initia/utils"
 import AnimatedHeight from "@/components/AnimatedHeight"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
@@ -18,6 +18,8 @@ import BalanceButton from "@/components/form/BalanceButton"
 import ChainAssetQuantityLayout from "@/components/form/ChainAssetQuantityLayout"
 import FormHelp from "@/components/form/FormHelp"
 import QuantityInput from "@/components/form/QuantityInput"
+import FormattedAmount from "@/components/FormattedAmount"
+import FormattedFeeList from "@/components/FormattedFeeList"
 import ModalTrigger from "@/components/ModalTrigger"
 import PlainModalContent from "@/components/PlainModalContent"
 import WidgetTooltip from "@/components/WidgetTooltip"
@@ -33,7 +35,7 @@ import { useSkipBalance, useSkipBalancesQuery } from "./data/balance"
 import { useChainType, useSkipChain } from "./data/chains"
 import type { FormValues } from "./data/form"
 import { useBridgeForm } from "./data/form"
-import { formatDuration, formatFees } from "./data/format"
+import { formatDuration } from "./data/format"
 import { useIsOpWithdrawable, useRouteErrorInfo, useRouteQuery } from "./data/simulate"
 import BridgeAccount from "./BridgeAccount"
 import SelectedChainAsset from "./SelectedChainAsset"
@@ -231,7 +233,7 @@ const BridgeFields = () => {
   }, [debouncedQuantity, feeErrorMessage, formState, route, values])
 
   // render
-  const received = route ? formatAmount(route.amount_out, { decimals: dstAsset.decimals }) : "0"
+  const isReceivedZero = !route || BigNumber(route.amount_out).isZero()
 
   const isMaxAmount =
     BigNumber(quantity).gt(0) &&
@@ -259,7 +261,7 @@ const BridgeFields = () => {
       if (!fees.length) return null
       return (
         <div className={styles.description}>
-          {formatFees(fees)}
+          <FormattedFeeList fees={fees} />
           {!isMobile && (
             <WidgetTooltip label={tooltip}>
               <span className={styles.icon}>
@@ -342,7 +344,7 @@ const BridgeFields = () => {
             }
             disabled={hasZeroBalance}
           >
-            {formatAmount(srcBalance?.amount ?? "0", { decimals: srcAsset.decimals })}
+            <FormattedAmount amount={srcBalance?.amount ?? "0"} decimals={srcAsset.decimals} />
           </BalanceButton>
         }
         value={!route ? "$-" : formatValue(route.usd_amount_in)}
@@ -358,7 +360,15 @@ const BridgeFields = () => {
       <ChainAssetQuantityLayout
         selectButton={<SelectedChainAsset type="dst" />}
         accountButton={<BridgeAccount type="dst" />}
-        quantityInput={<QuantityInput.ReadOnly>{received}</QuantityInput.ReadOnly>}
+        quantityInput={
+          <QuantityInput.ReadOnly isPlaceholder={isReceivedZero}>
+            {!route ? (
+              "0"
+            ) : (
+              <FormattedAmount amount={route.amount_out} decimals={dstAsset.decimals} />
+            )}
+          </QuantityInput.ReadOnly>
+        }
         value={!route ? "$-" : formatValue(route.usd_amount_out)}
         hideNumbers={shouldShowRouteOptions}
       />

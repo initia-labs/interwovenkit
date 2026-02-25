@@ -1,6 +1,6 @@
 import { Collapsible } from "@base-ui/react/collapsible"
 import { IconChevronDown } from "@initia/icons-react"
-import { formatAmount } from "@initia/utils"
+import FormattedAmount from "@/components/FormattedAmount"
 import styles from "./TxFeeInsufficient.module.css"
 
 interface Props {
@@ -38,7 +38,7 @@ const TxFeeInsufficient = ({ spend, fee, total, balance, symbol, decimals }: Pro
             <div key={label} className={styles.row}>
               <span>{label}</span>
               <span>
-                {formatAmount(value, { decimals, dp })} {symbol}
+                <FormattedAmount amount={value} decimals={decimals} dp={dp} /> {symbol}
               </span>
             </div>
           ))}

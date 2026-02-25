@@ -1,6 +1,3 @@
-import type { FeeJson } from "@skip-go/client"
-import { formatAmount } from "@initia/utils"
-
 const TIME_UNIT_DEFINITIONS = [
   ["d", 24 * 60 * 60], // day
   ["h", 60 * 60], // hour
@@ -24,13 +21,4 @@ export function formatDuration(totalSeconds: number) {
   )
 
   return formattedParts.join(" ")
-}
-
-export function formatFees(fees?: FeeJson[]) {
-  return fees
-    ?.map((fee) => {
-      const { amount, origin_asset } = fee
-      return `${formatAmount(amount, { decimals: origin_asset.decimals ?? 0 })} ${origin_asset.symbol}`
-    })
-    .join(", ")
 }

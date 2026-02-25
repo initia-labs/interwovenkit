@@ -2,10 +2,11 @@ import BigNumber from "bignumber.js"
 import { useEffect, useEffectEvent, useMemo } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
-import { formatAmount, fromBaseUnit } from "@initia/utils"
+import { fromBaseUnit } from "@initia/utils"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import QuantityInput from "@/components/form/QuantityInput"
+import FormattedAmount from "@/components/FormattedAmount"
 import Status from "@/components/Status"
 import { formatValue } from "@/lib/format"
 import { useLocationState, useNavigate } from "@/lib/router"
@@ -227,7 +228,7 @@ const TransferFields = ({ mode }: Props) => {
               setValue("quantity", maxAmount)
             }}
           >
-            <IconWallet size={16} /> {formatAmount(balance, { decimals: amountDecimals })}{" "}
+            <IconWallet size={16} /> <FormattedAmount amount={balance} decimals={amountDecimals} />{" "}
             <span>MAX</span>
           </button>
         </div>
