@@ -35,11 +35,11 @@ const TransferTxDetails = ({ renderFee }: Props) => {
   if (!route || !dstAsset) return null
 
   const minimumReceived = route.does_swap
-    ? BigNumber(route.amount_out || route.estimated_amount_out)
+    ? BigNumber(route.amount_out)
         .times(BigNumber(1).minus(BigNumber(values.slippagePercent).div(100)))
         .integerValue(BigNumber.ROUND_FLOOR)
         .toString()
-    : route.amount_out || route.estimated_amount_out
+    : route.amount_out
 
   return (
     <AnimatedHeight>
