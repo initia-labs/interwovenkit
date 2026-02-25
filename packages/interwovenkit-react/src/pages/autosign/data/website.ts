@@ -22,6 +22,10 @@ function getRegistrableDomain(hostname: string): string | null {
   return parsed.domain
 }
 
+function isApexOrWwwHost(hostname: string, registrableDomain: string): boolean {
+  return hostname === registrableDomain || hostname === `www.${registrableDomain}`
+}
+
 function isAllowedRegisteredHost(url: URL): boolean {
   if (url.protocol !== "https:") return false
 
@@ -50,6 +54,13 @@ export function isVerifiedWebsiteHost(registeredWebsite: string, currentHostname
     const currentRegistrableDomain = getRegistrableDomain(current)
     if (!currentRegistrableDomain) return false
     if (currentRegistrableDomain !== registeredRegistrableDomain) return false
+
+    if (isApexOrWwwHost(registeredHostname, registeredRegistrableDomain)) {
+      return (
+        current === registeredRegistrableDomain ||
+        current.endsWith(`.${registeredRegistrableDomain}`)
+      )
+    }
 
     return current === registeredHostname || current.endsWith(`.${registeredHostname}`)
   } catch {
