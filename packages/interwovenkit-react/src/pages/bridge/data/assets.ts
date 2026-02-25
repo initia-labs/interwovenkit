@@ -17,7 +17,7 @@ export type AllAssetsResponse = {
   chain_to_assets_map: Partial<Record<string, { assets: RouterAsset[] }>>
 }
 
-/** Fetch all assets without filtering by chains — decoupled to enable parallel prefetch */
+/** Fetch all assets without chains dependency so prefetch can run parallel to chains fetch */
 export function useAllSkipAssetsRaw() {
   const skip = useSkip()
   return useSuspenseQuery({
