@@ -143,17 +143,29 @@ export function useGetLayer1Denom(chain: NormalizedChain) {
  * Fetches denom from metadata addresses using the Move denom API.
  * Returns a Map of metadata -> denom.
  */
-export function useDenoms(metadatas: string[]) {
+export function useDenoms(
+  metadatas: string[],
+  options?: {
+    failSoft?: boolean
+  },
+) {
   const layer1 = useLayer1()
   const restClient = ky.create({ prefixUrl: layer1.restUrl })
+  const failSoft = options?.failSoft ?? false
 
   const result = useSuspenseQueries({
     queries: metadatas.map((metadata) => ({
-      queryFn: () =>
-        restClient
-          .get("initia/move/v1/denom", { searchParams: { metadata } })
-          .json<{ denom: string }>(),
-      queryKey: assetQueryKeys.denom(layer1.restUrl, metadata).queryKey,
+      queryFn: async () => {
+        try {
+          return await restClient
+            .get("initia/move/v1/denom", { searchParams: { metadata } })
+            .json<{ denom: string }>()
+        } catch (error) {
+          if (failSoft) return { denom: "" }
+          throw error
+        }
+      },
+      queryKey: [...assetQueryKeys.denom(layer1.restUrl, metadata).queryKey, failSoft],
       select: (data: { denom: string }): [string, string] => [metadata, data.denom],
       staleTime: STALE_TIMES.INFINITY,
     })),

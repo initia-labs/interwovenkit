@@ -36,6 +36,15 @@
   text-align: center;
 }
 
+.emptyDescription {
+  color: var(--gray-3);
+  font-size: 12px;
+  font-weight: 500;
+  margin: 8px auto 0;
+  max-width: 280px;
+  text-align: center;
+}
+
 .info {
   display: flex;
   justify-content: space-between;

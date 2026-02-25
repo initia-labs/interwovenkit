@@ -18,6 +18,10 @@ describe("isVerifiedWebsiteHost", () => {
     expect(isVerifiedWebsiteHost("https://app.initia.xyz", "other.initia.xyz")).toBe(false)
   })
 
+  it("returns true for sibling subdomain when registered host is www on apex domain", () => {
+    expect(isVerifiedWebsiteHost("https://www.civitia.org", "app.civitia.org")).toBe(true)
+  })
+
   it("returns false when registered host is public-suffix-like", () => {
     expect(isVerifiedWebsiteHost("https://co.uk", "evil.co.uk")).toBe(false)
     expect(isVerifiedWebsiteHost("https://com.au", "evil.com.au")).toBe(false)

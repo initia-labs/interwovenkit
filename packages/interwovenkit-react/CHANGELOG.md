@@ -1,5 +1,23 @@
 # Changelog
 
+### [2.4.3](https://github.com/initia-labs/interwovenkit/compare/v2.4.2...v2.4.3) (2026-02-23)
+
+### Features
+
+- **liquidity:** add CLAMM liquidity positions ([063f0ff](https://github.com/initia-labs/interwovenkit/commit/063f0ffc116e3e1b4edf907064e0eed7cd343d64))
+
+### [2.4.2](https://github.com/initia-labs/interwovenkit/compare/v2.4.1...v2.4.2) (2026-02-19)
+
+### Bug Fixes
+
+- **autosign:** restore autosign after reload for direct submit ([c192857](https://github.com/initia-labs/interwovenkit/commit/c192857984ac836a6404958125b76b0522b17a06))
+
+### [2.4.1](https://github.com/initia-labs/interwovenkit/compare/v2.4.0...v2.4.1) (2026-02-19)
+
+### Bug Fixes
+
+- **autosign:** accept apex/www registry host for subdomains ([fb0b590](https://github.com/initia-labs/interwovenkit/commit/fb0b5903a3298deb7c63a3641def462ff67d6e5a))
+
 ## [2.4.0](https://github.com/initia-labs/interwovenkit/compare/v2.3.0...v2.4.0) (2026-02-17)
 
 ### Features
