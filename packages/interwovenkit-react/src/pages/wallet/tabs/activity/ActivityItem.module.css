@@ -61,13 +61,11 @@
 .messages {
   flex: 1;
 
-  width: calc(60% - 8px);
+  min-width: 80px;
 }
 
 .changes {
   flex: none;
-
-  width: 40%;
 
   font-size: 12px;
   font-weight: 500;
