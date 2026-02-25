@@ -1,3 +1,4 @@
+import BigNumber from "bignumber.js"
 import clsx from "clsx"
 import { useToggle } from "usehooks-ts"
 import { IconChevronDown } from "@initia/icons-react"
@@ -34,10 +35,11 @@ const TransferTxDetails = ({ renderFee }: Props) => {
   if (!route || !dstAsset) return null
 
   const minimumReceived = route.does_swap
-    ? (BigInt(route.amount_out || route.estimated_amount_out) *
-        BigInt(10000 - Number(values.slippagePercent) * 100)) /
-      BigInt(10000)
-    : BigInt(route.amount_out || route.estimated_amount_out)
+    ? BigNumber(route.amount_out || route.estimated_amount_out)
+        .times(BigNumber(1).minus(BigNumber(values.slippagePercent).div(100)))
+        .integerValue(BigNumber.ROUND_FLOOR)
+        .toString()
+    : route.amount_out || route.estimated_amount_out
 
   return (
     <AnimatedHeight>

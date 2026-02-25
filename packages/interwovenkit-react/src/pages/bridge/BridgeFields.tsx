@@ -225,6 +225,12 @@ const BridgeFields = () => {
   const metaRows = useMemo(() => {
     if (!route) return []
 
+    const minimumReceived = BigNumber(route.amount_out)
+      .times(BigNumber(100).minus(slippagePercent))
+      .div(100)
+      .integerValue(BigNumber.ROUND_FLOOR)
+      .toFixed(0)
+
     return [
       {
         condition: !!route.estimated_fees?.length,
@@ -266,17 +272,12 @@ const BridgeFields = () => {
       {
         condition: route.does_swap,
         title: "Minimum received",
-        content: (() => {
-          const minimumReceived =
-            (BigInt(route.amount_out) * BigInt(10000 - Number(slippagePercent) * 100)) /
-            BigInt(10000)
-          return (
-            <span className={styles.description}>
-              <img src={dstAsset.logo_uri} alt={dstAsset.symbol} width={12} height={12} />
-              {formatAmount(minimumReceived, { decimals: dstAsset.decimals })} {dstAsset.symbol}
-            </span>
-          )
-        })(),
+        content: (
+          <span className={styles.description}>
+            <img src={dstAsset.logo_uri} alt={dstAsset.symbol} width={12} height={12} />
+            {formatAmount(minimumReceived, { decimals: dstAsset.decimals })} {dstAsset.symbol}
+          </span>
+        ),
       },
     ].filter((row) => row.condition)
   }, [
