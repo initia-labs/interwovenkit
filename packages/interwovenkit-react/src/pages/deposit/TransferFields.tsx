@@ -19,6 +19,7 @@ import FooterWithTxFee from "./FooterWithTxFee"
 import {
   type TransferMode,
   useAllBalancesQuery,
+  useExternalAssetOptions,
   useExternalTransferAsset,
   useLocalAssetOptions,
   useLocalTransferAsset,
@@ -45,11 +46,36 @@ const TransferFields = ({ mode }: Props) => {
   const { watch, setValue, getValues } = useTransferForm()
   const values = watch()
   const { srcChainId, srcDenom, quantity: rawQuantity = "" } = values
+  const selectedExternalDenom = values[modeConfig.external.denomKey]
+  const selectedExternalChainId = values[modeConfig.external.chainIdKey]
 
   const localAsset = useLocalTransferAsset(mode)
   const externalAsset = useExternalTransferAsset(mode)
-  const externalChainId = values[modeConfig.external.chainIdKey]
-  const externalChain = externalChainId ? findChain(externalChainId) : null
+  const { data: externalAssetOptions, isLoading: isExternalAssetOptionsLoading } =
+    useExternalAssetOptions(mode)
+  const hasSingleExternalAssetOption =
+    !isExternalAssetOptionsLoading && externalAssetOptions.length === 1
+  const hasSingleWithdrawChainOption =
+    mode === "withdraw" &&
+    !isExternalAssetOptionsLoading &&
+    externalAssetOptions.length > 0 &&
+    new Set(externalAssetOptions.map(({ chain }) => chain.chain_id)).size === 1
+  const autoExternalAssetOption = (() => {
+    if (isExternalAssetOptionsLoading || !externalAssetOptions.length) return null
+    if (hasSingleExternalAssetOption) return externalAssetOptions[0]
+    if (!hasSingleWithdrawChainOption) return null
+
+    return externalAssetOptions.reduce((highest, option) => {
+      const highestUsd = Number(highest.balance?.value_usd ?? 0)
+      const optionUsd = Number(option.balance?.value_usd ?? 0)
+
+      return optionUsd > highestUsd ? option : highest
+    }, externalAssetOptions[0])
+  })()
+  const autoExternalAssetOptionKey = autoExternalAssetOption
+    ? `${autoExternalAssetOption.chain.chain_id}:${autoExternalAssetOption.asset.denom}`
+    : ""
+  const externalChain = selectedExternalChainId ? findChain(selectedExternalChainId) : null
 
   const balance = balances?.[srcChainId]?.[srcDenom]?.amount
   const price = balances?.[srcChainId]?.[srcDenom]?.price || 0
@@ -104,6 +130,21 @@ const TransferFields = ({ mode }: Props) => {
     updateNavigationState()
   }, [routeForState, hexAddress])
 
+  const applyAutoExternalOption = useEffectEvent(() => {
+    if (!autoExternalAssetOption) return
+    if (selectedExternalDenom && selectedExternalChainId) return
+
+    const { asset, chain } = autoExternalAssetOption
+
+    setValue(modeConfig.external.denomKey, asset.denom)
+    setValue(modeConfig.external.chainIdKey, chain.chain_id)
+    if (mode === "deposit") setValue("quantity", "")
+  })
+
+  useEffect(() => {
+    applyAutoExternalOption()
+  }, [autoExternalAssetOptionKey])
+
   if (!localAsset) return null
   if (mode === "deposit" && !externalAsset) return null
 
@@ -115,12 +156,18 @@ const TransferFields = ({ mode }: Props) => {
     setValue(modeConfig.external.denomKey, "")
     setValue(modeConfig.external.chainIdKey, "")
 
-    if (mode === "withdraw") {
+    if (mode === "withdraw" || hasSingleExternalAssetOption) {
       setValue(modeConfig.local.denomKey, "")
       setValue(modeConfig.local.chainIdKey, "")
     }
 
-    setValue("page", mode === "withdraw" ? "select-local" : "select-external")
+    // When hasSingleExternalAssetOption, navigating to select-external would
+    // immediately auto-fill and jump back to fields, creating an infinite loop.
+    // Go directly to select-local instead, which is safe because the Back button
+    // only renders when options.length > 1 (so select-local won't auto-skip).
+    const previousPage =
+      mode === "withdraw" || hasSingleExternalAssetOption ? "select-local" : "select-external"
+    setValue("page", previousPage)
   }
 
   const externalSection = (
@@ -128,9 +175,8 @@ const TransferFields = ({ mode }: Props) => {
       <p className={styles.label}>{mode === "withdraw" ? "Destination" : "From"}</p>
       <button
         className={styles.asset}
-        onClick={() => {
-          setValue("page", "select-external")
-        }}
+        disabled={hasSingleExternalAssetOption}
+        onClick={() => setValue("page", "select-external")}
       >
         <div className={styles.assetIcon}>
           {externalAsset ? (
@@ -157,7 +203,7 @@ const TransferFields = ({ mode }: Props) => {
             </>
           )}
         </p>
-        <IconChevronDown className={styles.chevron} size={16} />
+        {!hasSingleExternalAssetOption && <IconChevronDown className={styles.chevron} size={16} />}
       </button>
     </>
   )

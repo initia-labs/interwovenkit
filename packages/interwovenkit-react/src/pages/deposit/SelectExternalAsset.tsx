@@ -1,4 +1,5 @@
 import clsx from "clsx"
+import { useEffect, useEffectEvent } from "react"
 import { IconBack, IconCheck } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
 import { useConfig } from "@/data/config"
@@ -37,6 +38,33 @@ const SelectExternalAsset = ({ mode }: Props) => {
   const values = watch()
   const selectedExternalDenom = values[external.denomKey]
   const selectedExternalChainId = values[external.chainIdKey]
+
+  const singleAssetOptionKey =
+    !isLoading && filteredAssets.length === 1
+      ? `${filteredAssets[0].chain.chain_id}:${filteredAssets[0].asset.denom}`
+      : ""
+
+  const applyAutoSelection = useEffectEvent(() => {
+    if (!singleAssetOptionKey) return
+
+    const [{ asset, chain }] = filteredAssets
+    const isSelected =
+      selectedExternalDenom === asset.denom && selectedExternalChainId === chain.chain_id
+
+    if (isSelected) {
+      setValue("page", "fields")
+      return
+    }
+
+    setValue(external.denomKey, asset.denom)
+    setValue(external.chainIdKey, chain.chain_id)
+    if (mode === "deposit") setValue("quantity", "")
+    setValue("page", "fields")
+  })
+
+  useEffect(() => {
+    applyAutoSelection()
+  }, [singleAssetOptionKey])
 
   function renderBackButton() {
     const isExternalSelected = selectedExternalDenom && selectedExternalChainId
