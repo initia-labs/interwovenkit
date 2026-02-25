@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent } from "react"
+import { useEffect, useEffectEvent, useTransition } from "react"
 import { type TransferMode, useLocalAssetOptions, useTransferForm, useTransferMode } from "./hooks"
 import styles from "./SelectLocalAsset.module.css"
 
@@ -9,7 +9,8 @@ interface Props {
 const SelectLocalAsset = ({ mode }: Props) => {
   const { local, external } = useTransferMode(mode)
   const { setValue } = useTransferForm()
-  const options = useLocalAssetOptions()
+  const { data: options, isLoading } = useLocalAssetOptions()
+  const [isPending, startTransition] = useTransition()
 
   const selectLocalAsset = (denom: string, chain_id: string) => {
     setValue(local.denomKey, denom)
@@ -19,8 +20,11 @@ const SelectLocalAsset = ({ mode }: Props) => {
     setValue(external.denomKey, "")
     setValue(external.chainIdKey, "")
 
-    // navigate to the next page
-    setValue("page", mode === "withdraw" ? "fields" : "select-external")
+    // Deferred navigation: keeps showing this page while the next page's
+    // suspense resolves, preventing the AsyncBoundary "Loading..." flash.
+    startTransition(() => {
+      setValue("page", mode === "withdraw" ? "fields" : "select-external")
+    })
   }
 
   const selectDefaultAsset = useEffectEvent(() => {
@@ -29,10 +33,10 @@ const SelectLocalAsset = ({ mode }: Props) => {
   })
 
   useEffect(() => {
-    if (options.length === 1) {
+    if (!isLoading && options.length === 1) {
       selectDefaultAsset()
     }
-  }, [options])
+  }, [options, isLoading])
 
   if (!options.length) {
     return <div>No assets found</div>
@@ -43,14 +47,19 @@ const SelectLocalAsset = ({ mode }: Props) => {
       <h3 className={styles.title}>
         {mode === "withdraw" ? "Select an asset to withdraw" : "Select an asset to receive"}
       </h3>
-      <div className={styles.list}>
+      <div className={styles.list} aria-busy={isPending}>
         {options.map(({ denom, chain_id, symbol, logo_uri }) => (
           <button
             className={styles.asset}
             key={`${denom}-${chain_id}`}
             onClick={() => selectLocalAsset(denom, chain_id)}
+            disabled={isPending}
           >
-            <img src={logo_uri} alt={symbol} />
+            {logo_uri ? (
+              <img src={logo_uri} alt={symbol} />
+            ) : (
+              <div className={styles.imgPlaceholder} aria-hidden="true" />
+            )}
             {symbol}
           </button>
         ))}

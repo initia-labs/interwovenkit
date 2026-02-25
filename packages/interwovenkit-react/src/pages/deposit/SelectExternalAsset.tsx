@@ -32,7 +32,7 @@ const SelectExternalAsset = ({ mode }: Props) => {
   } = useExternalAssetOptions(mode)
   const { setValue, watch } = useTransferForm()
   const localAsset = useLocalTransferAsset(mode)
-  const options = useLocalAssetOptions()
+  const { data: options } = useLocalAssetOptions()
   const { theme } = useConfig()
   const values = watch()
   const selectedExternalDenom = values[external.denomKey]
