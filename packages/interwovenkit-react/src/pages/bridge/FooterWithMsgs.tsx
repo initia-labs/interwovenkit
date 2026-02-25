@@ -37,6 +37,8 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
   const stableSignedOpHook = useMemo(() => signedOpHook, [signedOpHookKey])
 
   useEffect(() => {
+    let cancelled = false
+
     const fetchMessages = async () => {
       try {
         if (route.required_op_hook && !stableSignedOpHook) {
@@ -62,17 +64,22 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
         const { txs } = await skip
           .post("v2/fungible/msgs", { json: params })
           .json<MsgsResponseJson>()
+        if (cancelled) return
         if (!txs || txs.length === 0) throw new Error("No transaction data found")
         const [tx] = txs
         setValue(tx)
       } catch (error) {
+        if (cancelled) return
         setError(error as Error)
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
 
     fetchMessages()
+    return () => {
+      cancelled = true
+    }
   }, [
     stableAddressList,
     stableOperations,
