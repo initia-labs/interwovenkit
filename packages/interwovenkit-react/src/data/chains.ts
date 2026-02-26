@@ -122,7 +122,7 @@ function useCreatePricesQuery() {
       queryKey: chainQueryKeys.prices(chainId).queryKey,
       queryFn: () =>
         ky
-          .create({ prefixUrl: "https://api.initia.xyz" })
+          .create({ prefixUrl: "https://indexer.initia.xyz" })
           .get(`initia/${chainId}/assets`, { searchParams: { quote: "USD", with_prices: true } })
           .json<PriceItem[]>(),
       staleTime: STALE_TIMES.SECOND,
