@@ -37,6 +37,10 @@ export function useAddress() {
 
 export function useUsernameQuery() {
   const address = useAddress()
+  return useUsername(address)
+}
+
+export function useUsername(address: string) {
   const client = useUsernameClient()
   return useQuery({
     queryKey: accountQueryKeys.username(client.restUrl, address).queryKey,
