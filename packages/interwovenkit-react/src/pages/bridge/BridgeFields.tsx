@@ -36,6 +36,7 @@ import { useBridgeForm } from "./data/form"
 import { calculateMinimumReceived, formatDuration, formatFees } from "./data/format"
 import { useIsOpWithdrawable, useRouteErrorInfo, useRouteQuery } from "./data/simulate"
 import BridgeAccount from "./BridgeAccount"
+import QuoteRefreshIndicator from "./QuoteRefreshIndicator"
 import SelectedChainAsset from "./SelectedChainAsset"
 import type { RouteType } from "./SelectRouteOption"
 import SelectRouteOption from "./SelectRouteOption"
@@ -109,7 +110,7 @@ const BridgeFields = () => {
   const fallback = preferOp ? routeQueryDefault : routeQueryOpWithdrawal
   const fallbackEnabled = preferOp ? !isExternalRoute : isOpWithdrawable
   const routeQuery = preferred.error && fallbackEnabled ? fallback : preferred
-  const { data: route, isLoading, error } = routeQuery
+  const { data: route, isLoading, isFetching, dataUpdatedAt, error } = routeQuery
   const { data: routeErrorInfo } = useRouteErrorInfo(error)
 
   const isSimulating = debouncedQuantity && isLoading && !previewRefreshing
@@ -427,8 +428,20 @@ const BridgeFields = () => {
             </FormHelp.Stack>
 
             <AnimatedHeight>
-              {metaRows.length > 0 && (
+              {(route || metaRows.length > 0) && (
                 <div className={styles.meta}>
+                  {route && (
+                    <div className={styles.row}>
+                      <span className={styles.title}>Quote</span>
+                      <QuoteRefreshIndicator
+                        refreshMs={routeRefreshMs}
+                        dataUpdatedAt={debouncedQuantity ? dataUpdatedAt : 0}
+                        isFetching={isFetching}
+                        onRefresh={() => routeQuery.refetch()}
+                      />
+                    </div>
+                  )}
+
                   {metaRows.map((row, index) => (
                     <div className={styles.row} key={index}>
                       <span className={styles.title}>{row.title}</span>

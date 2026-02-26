@@ -1,0 +1,35 @@
+.refresh {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  color: var(--gray-2);
+  font-family: var(--monospace);
+
+  transition: color var(--transition) ease;
+
+  &:hover {
+    color: var(--gray-0);
+  }
+
+  &:disabled {
+    pointer-events: none;
+  }
+}
+
+.countdown {
+  font-variant-numeric: tabular-nums;
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
