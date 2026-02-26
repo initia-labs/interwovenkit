@@ -1,5 +1,24 @@
 # Changelog
 
+### [2.4.4](https://github.com/initia-labs/interwovenkit/compare/v2.4.3...v2.4.4) (2026-02-26)
+
+### Features
+
+- **bridge:** display minimum received for swap routes ([696b468](https://github.com/initia-labs/interwovenkit/commit/696b468a936d7a0d79b766805010d68e9e37e771))
+- **deposit:** add iUSD extra source list with USDC ([e915bd4](https://github.com/initia-labs/interwovenkit/commit/e915bd43baa302ab3b7ec15c7d4c6313e631d30e))
+- **deposit:** add source-aware empty-state messaging ([6490ebb](https://github.com/initia-labs/interwovenkit/commit/6490ebb0dcde1bbc9537f08011590263092712a2))
+
+### Bug Fixes
+
+- **query:** scope retry cache cleanup to interwovenkit queries ([d2404a5](https://github.com/initia-labs/interwovenkit/commit/d2404a583fbce86ab1a452b904ea5ce9f663d838))
+- **modal:** add AsyncBoundary and optimize deposit rendering ([2abbfc3](https://github.com/initia-labs/interwovenkit/commit/2abbfc332917d6b64265a823826e293c753f5079))
+- **portfolio:** hide VIP positions with no remaining value ([d24e8a8](https://github.com/initia-labs/interwovenkit/commit/d24e8a86412cb1924541296c8f27419a9b07978b))
+- **activity:** prevent unit symbol truncation in changes ([5210504](https://github.com/initia-labs/interwovenkit/commit/52105049a876303f38259277d4b18985000dadca))
+- **bridge:** prevent invalid balance queries on chain switch ([95a0220](https://github.com/initia-labs/interwovenkit/commit/95a0220001db8450152c34d4c851e36e2b639fcd))
+- **bridge:** refresh and requote stale routes ([8f933dd](https://github.com/initia-labs/interwovenkit/commit/8f933dd0f53aba352dd9a0d08e43d1bfcefd11c8))
+- **deposit:** auto-prefill single transfer destination ([7a8ec2d](https://github.com/initia-labs/interwovenkit/commit/7a8ec2da7d738f8494333bfb3587131b8674739e))
+- **deposit:** keep iUSD source symbol matching ([883a7a6](https://github.com/initia-labs/interwovenkit/commit/883a7a6ea0660b6ef4709e0f54507b8aa6477641))
+
 ### [2.4.3](https://github.com/initia-labs/interwovenkit/compare/v2.4.2...v2.4.3) (2026-02-23)
 
 ### Features
