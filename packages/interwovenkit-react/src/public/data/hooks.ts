@@ -35,17 +35,14 @@ export function useAddress() {
   return initiaAddress
 }
 
-export function useUsernameQuery() {
-  const address = useAddress()
-  return useUsername(address)
-}
-
-export function useUsername(address: string) {
+export function useUsernameQuery(address?: string) {
+  const connectedAddress = useAddress()
+  const targetAddress = address ?? connectedAddress
   const client = useUsernameClient()
   return useQuery({
-    queryKey: accountQueryKeys.username(client.restUrl, address).queryKey,
-    queryFn: () => client.getUsername(address),
-    enabled: !!address,
+    queryKey: accountQueryKeys.username(client.restUrl, targetAddress).queryKey,
+    queryFn: () => client.getUsername(targetAddress),
+    enabled: !!targetAddress,
     staleTime: STALE_TIMES.MINUTE,
   })
 }
