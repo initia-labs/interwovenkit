@@ -1,5 +1,15 @@
 # Changelog
 
+### [2.4.5](https://github.com/initia-labs/interwovenkit/compare/v2.4.4...v2.4.5) (2026-02-26)
+
+### Features
+
+- **prices:** use indexer API for asset price queries ([c8a0176](https://github.com/initia-labs/interwovenkit/commit/c8a017601ed40ac4b81bf008abbf0dbadca7d2ee))
+
+### Bug Fixes
+
+- **deposit:** respect explicit srcOptions over overrides ([8ddaca1](https://github.com/initia-labs/interwovenkit/commit/8ddaca1b7a39bfc48e0f86a487128a5b9b8d04c9))
+
 ### [2.4.4](https://github.com/initia-labs/interwovenkit/compare/v2.4.3...v2.4.4) (2026-02-26)
 
 ### Features
