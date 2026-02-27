@@ -94,7 +94,7 @@ const TransferTxDetails = ({ renderFee }: Props) => {
           </p>
         </div>
         <div className={clsx(styles.detail, styles.receiveSummary)}>
-          <p className={styles.detailLabel}>You receive</p>
+          <p className={styles.detailLabel}>Estimated received</p>
           <p className={styles.detailValue}>
             <img src={dstAsset.logo_uri} alt={dstAsset.symbol} className={styles.detailToken} />{" "}
             {formatAmount(route.amount_out, { decimals: dstAsset.decimals })} {dstAsset.symbol}
