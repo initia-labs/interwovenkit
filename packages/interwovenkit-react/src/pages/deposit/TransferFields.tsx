@@ -1,4 +1,5 @@
 import BigNumber from "bignumber.js"
+import { HTTPError } from "ky"
 import { useEffect, useEffectEvent, useMemo } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
@@ -106,8 +107,26 @@ const TransferFields = ({ mode }: Props) => {
     disabled: !!disabledMessage,
   })
 
-  const routeForState = !routeError && !disabledMessage ? route : undefined
+  // Keep the latest successful route while background refetches run.
+  // React Query may expose both `data` and `error` when a refetch fails.
+  const isNoRouteError = routeError instanceof HTTPError && routeError.response.status === 400
+  const routeForState = !disabledMessage && !isNoRouteError ? route : undefined
   const quoteVerifiedAt = routeForState && routeUpdatedAt > 0 ? routeUpdatedAt : undefined
+  const isRouteErrorWithoutData = !!routeError && !routeForState
+  const hasUsableRoute = !!state.route && !isNoRouteError
+  const isServerError = routeError instanceof HTTPError && routeError.response.status === 500
+  const isAwaitingUsableRoute = !hasUsableRoute && !disabledMessage && !isRouteErrorWithoutData
+  const routeStatusText = disabledMessage
+    ? disabledMessage
+    : isRouteErrorWithoutData
+      ? isNoRouteError
+        ? "No route found"
+        : isServerError
+          ? "Server error"
+          : "Failed to refresh route"
+      : isAwaitingUsableRoute
+        ? "Fetching route..."
+        : undefined
 
   const updateNavigationState = useEffectEvent(() => {
     navigate(
@@ -267,15 +286,15 @@ const TransferFields = ({ mode }: Props) => {
 
       {(chainsError || balancesError) && <Status error>Failed to load balances</Status>}
 
-      {!state.route || !!disabledMessage ? (
+      {!hasUsableRoute || !!disabledMessage ? (
         <Footer>
           <Button.White
             type="submit"
-            loading={!routeError && !disabledMessage && "Fetching route..."}
+            loading={isAwaitingUsableRoute && "Fetching route..."}
             disabled={true}
             fullWidth
           >
-            {routeError ? "No route found" : disabledMessage}
+            {routeStatusText}
           </Button.White>
         </Footer>
       ) : (
