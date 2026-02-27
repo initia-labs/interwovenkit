@@ -8,8 +8,10 @@ const AnimatedHeight = ({ children }: PropsWithChildren) => {
   const [contentHeight, setContentHeight] = useState<number | "auto">(0)
   const [hasInitialized, setHasInitialized] = useState(false)
 
+  const isCollapsed = contentHeight === 0
   const style = useSpring({
     height: contentHeight,
+    opacity: isCollapsed ? 0 : 1,
     config: { tension: 500, friction: 30, clamp: true },
     immediate: !hasInitialized,
   })
@@ -31,10 +33,6 @@ const AnimatedHeight = ({ children }: PropsWithChildren) => {
 
     return () => resizeObserver.disconnect()
   }, [children])
-
-  if (!children) {
-    return null
-  }
 
   return (
     <animated.div style={{ overflow: "hidden", ...style }}>

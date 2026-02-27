@@ -1,0 +1,94 @@
+.section {
+  display: grid;
+  gap: 6px;
+
+  border-bottom: 1px solid var(--border);
+
+  padding: 8px var(--padding) 10px;
+}
+
+.label {
+  color: var(--dimmed);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.scroll {
+  display: flex;
+  gap: 6px;
+
+  -ms-overflow-style: none;
+
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+
+  padding: 4px var(--padding) 8px;
+}
+
+.chip {
+  flex: none;
+
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  background-color: var(--gray-8);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 10px 6px 6px;
+
+  transition: background-color var(--transition) ease;
+
+  &:hover {
+    background-color: var(--gray-7);
+  }
+}
+
+.chipHighlighted {
+  background-color: var(--gray-7);
+}
+
+.moreChip {
+  flex: none;
+
+  display: flex;
+  align-items: center;
+
+  background-color: transparent;
+  border: 1px dashed var(--gray-6);
+  border-radius: 6px;
+  color: var(--dimmed);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 10px;
+
+  transition: background-color var(--transition) ease;
+
+  &:hover {
+    background-color: var(--gray-8);
+  }
+}
+
+.name {
+  white-space: nowrap;
+}

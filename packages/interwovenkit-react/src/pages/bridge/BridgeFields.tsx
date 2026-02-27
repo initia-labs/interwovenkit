@@ -2,7 +2,7 @@ import type { FeeJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
 import { sentenceCase } from "change-case"
 import { isAddress } from "ethers"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useDebounceValue, useLocalStorage } from "usehooks-ts"
 import {
   IconChevronDown,
@@ -28,13 +28,16 @@ import { useIsMobile } from "@/hooks/useIsMobile"
 import { formatValue } from "@/lib/format"
 import { useNavigate } from "@/lib/router"
 import { useModal } from "@/public/app/ModalContext"
-import { useSkipAsset } from "./data/assets"
+import { useSkipAssetMaybe } from "./data/assets"
 import { useSkipBalance, useSkipBalancesQuery } from "./data/balance"
 import { useChainType, useSkipChain } from "./data/chains"
 import type { FormValues } from "./data/form"
 import { useBridgeForm } from "./data/form"
 import { calculateMinimumReceived, formatDuration, formatFees } from "./data/format"
 import { useIsOpWithdrawable, useRouteErrorInfo, useRouteQuery } from "./data/simulate"
+import BridgeIntentInput from "./intent/BridgeIntentInput"
+import type { ResolvedIntent } from "./intent/useResolveIntent"
+import { useRecentPairs } from "./search/useRecentPairs"
 import BridgeAccount from "./BridgeAccount"
 import SelectedChainAsset from "./SelectedChainAsset"
 import type { RouteType } from "./SelectRouteOption"
@@ -54,10 +57,36 @@ function getRouteRefreshMs({
   return 10000
 }
 
+interface FeesDescriptionProps {
+  fees: FeeJson[]
+  tooltip: string
+  isMobile: boolean
+}
+
+function FeesDescription({ fees, tooltip, isMobile }: FeesDescriptionProps) {
+  if (!fees.length) return null
+
+  return (
+    <div className={styles.description}>
+      {formatFees(fees)}
+      {!isMobile && (
+        <WidgetTooltip label={tooltip}>
+          <span className={styles.icon}>
+            <IconInfoFilled size={12} />
+          </span>
+        </WidgetTooltip>
+      )}
+    </div>
+  )
+}
+
 const BridgeFields = () => {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const track = useAnalyticsTrack()
+  const intentCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const [showIntent, setShowIntent] = useState(false)
+  const [intentConfirmed, setIntentConfirmed] = useState(false)
   const [previewRefreshError, setPreviewRefreshError] = useState<string | undefined>(undefined)
   const [previewRefreshing, setPreviewRefreshing] = useState(false)
 
@@ -77,8 +106,8 @@ const BridgeFields = () => {
   const srcChainType = useChainType(srcChain)
   const dstChain = useSkipChain(dstChainId)
   const dstChainType = useChainType(dstChain)
-  const srcAsset = useSkipAsset(srcDenom, srcChainId)
-  const dstAsset = useSkipAsset(dstDenom, dstChainId)
+  const srcAsset = useSkipAssetMaybe(srcDenom, srcChainId)
+  const dstAsset = useSkipAssetMaybe(dstDenom, dstChainId)
   const { data: balances } = useSkipBalancesQuery(sender, srcChainId)
   const srcBalance = useSkipBalance(sender, srcChainId, srcDenom)
 
@@ -123,7 +152,34 @@ const BridgeFields = () => {
     setValue("quantity", "", { shouldTouch: false, shouldDirty: false })
   }
 
+  const closeIntent = useCallback(() => {
+    clearTimeout(intentCloseTimeoutRef.current)
+    setShowIntent(false)
+    setIntentConfirmed(false)
+  }, [])
+
+  const applyIntent = useCallback(
+    (resolved: ResolvedIntent) => {
+      if (resolved.src.chainId) setValue("srcChainId", resolved.src.chainId)
+      if (resolved.src.denom) setValue("srcDenom", resolved.src.denom)
+      if (resolved.dst.chainId) setValue("dstChainId", resolved.dst.chainId)
+      if (resolved.dst.denom) setValue("dstDenom", resolved.dst.denom)
+      if (resolved.amount) {
+        setValue("quantity", resolved.amount, { shouldValidate: true, shouldDirty: true })
+      }
+      setIntentConfirmed(true)
+      clearTimeout(intentCloseTimeoutRef.current)
+      intentCloseTimeoutRef.current = setTimeout(closeIntent, 400)
+    },
+    [closeIntent, setValue],
+  )
+
+  useEffect(() => {
+    return () => clearTimeout(intentCloseTimeoutRef.current)
+  }, [])
+
   // submit
+  const { addPair } = useRecentPairs()
   const { openModal, closeModal } = useModal()
   const submit = handleSubmit(async (values: FormValues) => {
     setPreviewRefreshError(undefined)
@@ -145,6 +201,13 @@ const BridgeFields = () => {
     } finally {
       setPreviewRefreshing(false)
     }
+
+    addPair({
+      srcChainId: values.srcChainId,
+      srcDenom: values.srcDenom,
+      dstChainId: values.dstChainId,
+      dstDenom: values.dstDenom,
+    })
 
     track("Bridge Simulation Success", {
       quantity: values.quantity,
@@ -231,7 +294,8 @@ const BridgeFields = () => {
   }, [debouncedQuantity, feeErrorMessage, formState, route, values])
 
   // render
-  const received = route ? formatAmount(route.amount_out, { decimals: dstAsset.decimals }) : "0"
+  const received =
+    route && dstAsset ? formatAmount(route.amount_out, { decimals: dstAsset.decimals }) : "0"
 
   const isMaxAmount =
     BigNumber(quantity).gt(0) &&
@@ -254,25 +318,6 @@ const BridgeFields = () => {
 
   const isFeeToken = getIsFeeToken()
 
-  const renderFees = useCallback(
-    (fees: FeeJson[], tooltip: string) => {
-      if (!fees.length) return null
-      return (
-        <div className={styles.description}>
-          {formatFees(fees)}
-          {!isMobile && (
-            <WidgetTooltip label={tooltip}>
-              <span className={styles.icon}>
-                <IconInfoFilled size={12} />
-              </span>
-            </WidgetTooltip>
-          )}
-        </div>
-      )
-    },
-    [isMobile],
-  )
-
   const shouldShowRouteOptions =
     BigNumber(quantity).gt(0) &&
     isOpWithdrawable &&
@@ -292,8 +337,16 @@ const BridgeFields = () => {
         title: "Fees",
         content: (
           <div>
-            {renderFees(deductedFees, "Fee deducted from the amount you receive")}
-            {renderFees(additionalFees, "Fee charged in addition to the amount you enter")}
+            <FeesDescription
+              fees={deductedFees}
+              tooltip="Fee deducted from the amount you receive"
+              isMobile={isMobile}
+            />
+            <FeesDescription
+              fees={additionalFees}
+              tooltip="Fee charged in addition to the amount you enter"
+              isMobile={isMobile}
+            />
           </div>
         ),
       },
@@ -325,12 +378,16 @@ const BridgeFields = () => {
         ),
       },
       {
-        condition: route.does_swap,
+        condition: route.does_swap && !!dstAsset,
         title: "Minimum received",
         content: (
           <span className={styles.description}>
-            <img src={dstAsset.logo_uri} alt={dstAsset.symbol} width={12} height={12} />
-            {formatAmount(minimumReceived, { decimals: dstAsset.decimals })} {dstAsset.symbol}
+            {dstAsset && (
+              <>
+                <img src={dstAsset.logo_uri} alt={dstAsset.symbol} width={12} height={12} />
+                {formatAmount(minimumReceived, { decimals: dstAsset.decimals })} {dstAsset.symbol}
+              </>
+            )}
           </span>
         ),
       },
@@ -339,7 +396,7 @@ const BridgeFields = () => {
     additionalFees,
     deductedFees,
     dstAsset,
-    renderFees,
+    isMobile,
     route,
     shouldShowRouteOptions,
     slippagePercent,
@@ -347,6 +404,14 @@ const BridgeFields = () => {
 
   return (
     <form className={styles.form} onSubmit={submit}>
+      <BridgeIntentInput
+        open={showIntent}
+        confirmed={intentConfirmed}
+        onOpen={() => setShowIntent(true)}
+        onApply={applyIntent}
+        onClose={closeIntent}
+      />
+
       <ChainAssetQuantityLayout
         selectButton={<SelectedChainAsset type="src" />}
         accountButton={srcChainType === "cosmos" && <BridgeAccount type="src" />}
@@ -362,7 +427,7 @@ const BridgeFields = () => {
             }
             disabled={hasZeroBalance}
           >
-            {formatAmount(srcBalance?.amount ?? "0", { decimals: srcAsset.decimals })}
+            {formatAmount(srcBalance?.amount ?? "0", { decimals: srcAsset?.decimals ?? 0 })}
           </BalanceButton>
         }
         value={!route ? "$-" : formatValue(route.usd_amount_in)}
@@ -429,8 +494,8 @@ const BridgeFields = () => {
             <AnimatedHeight>
               {metaRows.length > 0 && (
                 <div className={styles.meta}>
-                  {metaRows.map((row, index) => (
-                    <div className={styles.row} key={index}>
+                  {metaRows.map((row) => (
+                    <div className={styles.row} key={row.title}>
                       <span className={styles.title}>{row.title}</span>
                       {row.content}
                     </div>

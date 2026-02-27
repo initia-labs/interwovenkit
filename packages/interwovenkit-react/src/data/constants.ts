@@ -33,6 +33,7 @@ export const LocalStorageKey = {
   BRIDGE_SLIPPAGE_PERCENT: `${NAMESPACE}:bridge:slippage-percent`,
   BRIDGE_ROUTE_TYPE: `${NAMESPACE}:bridge:route-type`,
   BRIDGE_HISTORY: `${NAMESPACE}:bridge:history`,
+  BRIDGE_RECENT_PAIRS: `${NAMESPACE}:bridge:recent-pairs`,
 
   // op
   OP_REMINDER: `${NAMESPACE}:op:reminder`,
