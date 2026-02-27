@@ -1,4 +1,5 @@
 import BigNumber from "bignumber.js"
+import { HTTPError } from "ky"
 import { useEffect, useEffectEvent, useMemo } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
@@ -102,12 +103,26 @@ const TransferFields = ({ mode }: Props) => {
     data: route,
     error: routeError,
     dataUpdatedAt: routeUpdatedAt,
+    isLoading: isRouteLoading,
+    isFetching: isRouteFetching,
   } = useRouteQuery(debouncedQuantity, {
     disabled: !!disabledMessage,
   })
 
-  const routeForState = !routeError && !disabledMessage ? route : undefined
+  // Keep the latest successful route while background refetches run.
+  // React Query may expose both `data` and `error` when a refetch fails.
+  const routeForState = !disabledMessage ? route : undefined
   const quoteVerifiedAt = routeForState && routeUpdatedAt > 0 ? routeUpdatedAt : undefined
+  const isRouteErrorWithoutData = !!routeError && !route
+  const isNoRouteError =
+    routeError instanceof HTTPError && [400, 404, 422].includes(routeError.response.status)
+  const routeStatusText = disabledMessage
+    ? disabledMessage
+    : isRouteErrorWithoutData
+      ? isNoRouteError
+        ? "No route found"
+        : "Failed to refresh route"
+      : undefined
 
   const updateNavigationState = useEffectEvent(() => {
     navigate(
@@ -271,11 +286,16 @@ const TransferFields = ({ mode }: Props) => {
         <Footer>
           <Button.White
             type="submit"
-            loading={!routeError && !disabledMessage && "Fetching route..."}
+            loading={
+              !route &&
+              !disabledMessage &&
+              (isRouteLoading || isRouteFetching) &&
+              "Fetching route..."
+            }
             disabled={true}
             fullWidth
           >
-            {routeError ? "No route found" : disabledMessage}
+            {routeStatusText}
           </Button.White>
         </Footer>
       ) : (
