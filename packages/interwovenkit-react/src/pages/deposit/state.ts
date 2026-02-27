@@ -35,7 +35,7 @@ export function buildTransferLocationState<T extends object>({
     values: {
       sender: hexAddress,
       recipient: getTransferRecipient(currentState.recipientAddress, hexAddress),
-      slippagePercent: "1",
+      slippagePercent: "0.1",
       ...values,
     },
   }
