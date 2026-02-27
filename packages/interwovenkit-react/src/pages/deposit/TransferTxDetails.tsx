@@ -33,9 +33,7 @@ const TransferTxDetails = ({ renderFee }: Props) => {
 
   if (!route || !dstAsset) return null
 
-  const minimumReceived = route.does_swap
-    ? calculateMinimumReceived(route.amount_out, values.slippagePercent)
-    : route.amount_out
+  const minimumReceived = calculateMinimumReceived(route.amount_out, values.slippagePercent)
 
   return (
     <AnimatedHeight>
@@ -75,6 +73,19 @@ const TransferTxDetails = ({ renderFee }: Props) => {
                 </p>
               </div>
             )}
+            {route.does_swap && (
+              <div className={styles.detail}>
+                <p className={styles.detailLabel}>Minimum received</p>
+                <p className={styles.detailValue}>
+                  <img
+                    src={dstAsset.logo_uri}
+                    alt={dstAsset.symbol}
+                    className={styles.detailToken}
+                  />{" "}
+                  {formatAmount(minimumReceived, { decimals: dstAsset.decimals })} {dstAsset.symbol}
+                </p>
+              </div>
+            )}
           </>
         )}
         <div className={styles.detail}>
@@ -86,11 +97,11 @@ const TransferTxDetails = ({ renderFee }: Props) => {
             {formatDuration(route.estimated_route_duration_seconds)}
           </p>
         </div>
-        <div className={clsx(styles.detail, styles.minimumReceived)}>
-          <p className={styles.detailLabel}>Minimum received</p>
+        <div className={clsx(styles.detail, styles.receiveSummary)}>
+          <p className={styles.detailLabel}>Estimated received</p>
           <p className={styles.detailValue}>
             <img src={dstAsset.logo_uri} alt={dstAsset.symbol} className={styles.detailToken} />{" "}
-            {formatAmount(minimumReceived, { decimals: dstAsset.decimals })} {dstAsset.symbol}
+            {formatAmount(route.amount_out, { decimals: dstAsset.decimals })} {dstAsset.symbol}
           </p>
         </div>
       </div>
