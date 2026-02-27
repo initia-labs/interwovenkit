@@ -77,7 +77,11 @@ const TransferTxDetails = ({ renderFee }: Props) => {
               <div className={styles.detail}>
                 <p className={styles.detailLabel}>Minimum received</p>
                 <p className={styles.detailValue}>
-                  <img src={dstAsset.logo_uri} alt={dstAsset.symbol} className={styles.detailToken} />{" "}
+                  <img
+                    src={dstAsset.logo_uri}
+                    alt={dstAsset.symbol}
+                    className={styles.detailToken}
+                  />{" "}
                   {formatAmount(minimumReceived, { decimals: dstAsset.decimals })} {dstAsset.symbol}
                 </p>
               </div>
