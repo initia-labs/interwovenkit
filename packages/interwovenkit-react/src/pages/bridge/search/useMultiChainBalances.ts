@@ -51,9 +51,12 @@ export function useMultiChainBalances(chainIds: string[]): {
       }>()
 
       for (const { chainId, address } of sortedEntries) {
-        queryClient.setQueryData(skipQueryKeys.balances(chainId, address).queryKey, {
-          chains: { [chainId]: response.chains?.[chainId] },
-        })
+        const chainData = response.chains?.[chainId]
+        if (chainData) {
+          queryClient.setQueryData(skipQueryKeys.balances(chainId, address).queryKey, {
+            chains: { [chainId]: chainData },
+          })
+        }
       }
 
       return response
