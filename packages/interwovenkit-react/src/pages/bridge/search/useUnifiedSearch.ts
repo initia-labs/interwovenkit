@@ -134,17 +134,41 @@ export function filterAssets(assets: AssetWithChain[], query: string): AssetWith
   const tokens = allTokens.length > 1 ? allTokens.filter((t) => !STOP_WORDS.has(t)) : allTokens
 
   if (tokens.length > 1) {
-    return assets.filter((asset) => {
-      const symbolLower = asset.symbol.toLowerCase()
-      const nameLower = (asset.name ?? "").toLowerCase()
-      const chainNameLower = asset.chainName.toLowerCase()
-      return tokens.every(
-        (token) =>
-          symbolLower.includes(token) ||
-          nameLower.includes(token) ||
-          chainNameLower.includes(token),
-      )
-    })
+    return assets
+      .map((asset) => {
+        const symbolLower = asset.symbol.toLowerCase()
+        const nameLower = (asset.name ?? "").toLowerCase()
+        const chainNameLower = asset.chainName.toLowerCase()
+
+        const allMatch = tokens.every(
+          (token) =>
+            symbolLower.includes(token) ||
+            nameLower.includes(token) ||
+            chainNameLower.includes(token),
+        )
+        if (!allMatch) return undefined
+
+        let bestScore: MatchScore | undefined
+        for (const token of tokens) {
+          const score = pickBetterScore(
+            getTextMatchScore(asset.symbol, token, 0),
+            pickBetterScore(
+              getTextMatchScore(asset.name ?? "", token, 1),
+              getTextMatchScore(asset.chainName, token, 2),
+            ),
+          )
+          bestScore = pickBetterScore(bestScore, score)
+        }
+        if (!bestScore) return undefined
+        return { asset, score: bestScore }
+      })
+      .filter((entry): entry is { asset: AssetWithChain; score: MatchScore } => !!entry)
+      .sort((a, b) => {
+        const byScore = compareMatchScore(a.score, b.score)
+        if (byScore !== 0) return byScore
+        return a.asset.symbol.toLowerCase().localeCompare(b.asset.symbol.toLowerCase())
+      })
+      .map((entry) => entry.asset)
   }
 
   const queryLower = tokens[0] ?? ""
