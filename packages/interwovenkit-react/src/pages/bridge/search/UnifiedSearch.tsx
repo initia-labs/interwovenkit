@@ -127,6 +127,12 @@ const UnifiedSearch = ({ type, afterSelect }: Props) => {
 
   const hasResults = chains.length > 0 || assets.length > 0
   const assetHighlightOffset = chains.length
+  const trimmedSearch = search.trim()
+  const noResultsText = trimmedSearch
+    ? `No results for "${trimmedSearch}"`
+    : lockedChainId
+      ? `No assets on ${lockedChain?.name ?? "selected chain"}`
+      : "No results"
 
   return (
     <div className={styles.container}>
@@ -156,7 +162,7 @@ const UnifiedSearch = ({ type, afterSelect }: Props) => {
 
         {!showDefault && (
           <>
-            {!hasResults && <Status>No results for &ldquo;{search.trim()}&rdquo;</Status>}
+            {!hasResults && <Status>{noResultsText}</Status>}
 
             {chains.length > 0 && (
               <ResultSection label="Chains">
