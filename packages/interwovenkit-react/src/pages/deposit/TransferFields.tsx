@@ -112,9 +112,10 @@ const TransferFields = ({ mode }: Props) => {
   const isNoRouteError = routeError instanceof HTTPError && routeError.response.status === 400
   const routeForState = !disabledMessage && !isNoRouteError ? route : undefined
   const quoteVerifiedAt = routeForState && routeUpdatedAt > 0 ? routeUpdatedAt : undefined
-  const isRouteErrorWithoutData = !!routeError && !route
+  const isRouteErrorWithoutData = !!routeError && !routeForState
+  const hasUsableRoute = !!state.route && !isNoRouteError
   const isServerError = routeError instanceof HTTPError && routeError.response.status === 500
-  const isAwaitingUsableRoute = !state.route && !disabledMessage && !isRouteErrorWithoutData
+  const isAwaitingUsableRoute = !hasUsableRoute && !disabledMessage && !isRouteErrorWithoutData
   const routeStatusText = disabledMessage
     ? disabledMessage
     : isRouteErrorWithoutData
@@ -285,7 +286,7 @@ const TransferFields = ({ mode }: Props) => {
 
       {(chainsError || balancesError) && <Status error>Failed to load balances</Status>}
 
-      {!state.route || !!disabledMessage ? (
+      {!hasUsableRoute || !!disabledMessage ? (
         <Footer>
           <Button.White
             type="submit"
