@@ -88,3 +88,8 @@ export function useSkipAsset(denom: string, chainId: string) {
   const findSkipAsset = useFindSkipAsset(chainId)
   return findSkipAsset(denom)
 }
+
+export function useSkipAssetMaybe(denom: string, chainId: string): RouterAsset | undefined {
+  const assets = useSkipAssets(chainId)
+  return assets.find((asset) => asset.denom === denom)
+}

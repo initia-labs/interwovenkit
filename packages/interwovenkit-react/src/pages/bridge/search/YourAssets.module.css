@@ -1,0 +1,45 @@
+.loaded {
+  animation: fadeIn 200ms ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loaded {
+    animation: none;
+  }
+}
+
+.skeletonRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  border-bottom: 1px solid var(--border);
+
+  padding: 10px var(--padding);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+}
+
+.skeletonIcon {
+  flex: none;
+
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.skeletonText {
+  display: grid;
+  gap: 4px;
+
+  & > div {
+    border-radius: 4px;
+  }
+}

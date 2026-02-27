@@ -1,9 +1,9 @@
 import AssetOnChainButton from "@/components/form/AssetOnChainButton"
 import ModalTrigger from "@/components/ModalTrigger"
-import { useSkipAsset } from "./data/assets"
+import { useSkipAssetMaybe } from "./data/assets"
 import { useSkipChain } from "./data/chains"
 import { useBridgeForm } from "./data/form"
-import SelectChainAsset from "./SelectChainAsset"
+import UnifiedSearch from "./search/UnifiedSearch"
 
 const SelectedChainAsset = ({ type }: { type: "src" | "dst" }) => {
   const chainIdKey = type === "src" ? "srcChainId" : "dstChainId"
@@ -16,19 +16,19 @@ const SelectedChainAsset = ({ type }: { type: "src" | "dst" }) => {
   const denom = watch(denomKey)
 
   const chain = useSkipChain(chainId)
-  const asset = useSkipAsset(denom, chainId)
+  const asset = useSkipAssetMaybe(denom, chainId)
 
   return (
     <ModalTrigger
       title={title}
-      content={(close) => <SelectChainAsset type={type} afterSelect={close} />}
+      content={(close) => <UnifiedSearch type={type} afterSelect={close} />}
     >
       <AssetOnChainButton
         asset={{
-          denom: asset.denom,
-          decimals: asset.decimals ?? 0,
-          symbol: asset.symbol,
-          logoUrl: asset.logo_uri ?? "",
+          denom: asset?.denom ?? denom,
+          decimals: asset?.decimals ?? 0,
+          symbol: asset?.symbol ?? "",
+          logoUrl: asset?.logo_uri ?? "",
         }}
         chain={{
           chainId: chain.chain_id,

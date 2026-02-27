@@ -1,0 +1,36 @@
+.pill {
+  flex: none;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  background: var(--gray-7);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+
+.name {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.remove {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  border-radius: 4px;
+
+  color: var(--gray-4);
+  margin: -4px -4px -4px 0;
+  min-height: 24px;
+
+  min-width: 24px;
+  transition: color var(--transition) ease;
+
+  &:hover {
+    color: var(--gray-1);
+  }
+}

@@ -1,0 +1,46 @@
+.section {
+  display: grid;
+}
+
+.label {
+  color: var(--dimmed);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 8px var(--padding);
+  text-transform: uppercase;
+}
+
+.item {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+
+  width: 100%;
+
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  padding: 10px var(--padding);
+  text-align: left;
+
+  transition: background-color var(--transition) ease;
+
+  &:hover:not(.highlighted) {
+    background-color: var(--gray-8);
+  }
+
+  &:last-of-type {
+    border-bottom: 0;
+  }
+}
+
+.highlighted {
+  background-color: var(--gray-7);
+}
+
+.chainName {
+  font-weight: 600;
+}

@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toBaseUnit } from "@initia/utils"
 import { useInitiaRegistry, useLayer1 } from "@/data/chains"
 import type { RouterAsset } from "./assets"
-import { useSkipAsset } from "./assets"
+import { useSkipAssetMaybe } from "./assets"
 import { useChainType, useSkipChain } from "./chains"
 import { useBridgeForm } from "./form"
 import { skipQueryKeys, useSkip } from "./skip"
@@ -122,12 +122,14 @@ export function useIsOpWithdrawable() {
   const { srcChainId, srcDenom, dstChainId, dstDenom } = watch()
   const srcChain = useSkipChain(srcChainId)
   const srcChainType = useChainType(srcChain)
-  const srcAsset = useSkipAsset(srcDenom, srcChainId)
-  const dstAsset = useSkipAsset(dstDenom, dstChainId)
+  const srcAsset = useSkipAssetMaybe(srcDenom, srcChainId)
+  const dstAsset = useSkipAssetMaybe(dstDenom, dstChainId)
 
   const layer1 = useLayer1()
   const chains = useInitiaRegistry()
   return (
+    !!srcAsset &&
+    !!dstAsset &&
     srcChainType === "initia" &&
     dstChainId === layer1.chainId &&
     srcAsset.symbol === dstAsset.symbol &&
