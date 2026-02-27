@@ -118,6 +118,10 @@ const UnifiedSearch = ({ type, afterSelect }: Props) => {
   )
 
   useEffect(() => {
+    resetHighlight()
+  }, [lockedChainId, resetHighlight])
+
+  useEffect(() => {
     listRef.current?.scrollTo(0, 0)
   }, [showDefault, search, lockedChainId, listRef])
 
