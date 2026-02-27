@@ -41,6 +41,7 @@ function SlotChip({
   }
 
   const showAsset = !hideAsset && slot.assetSymbol
+  const showMissingAsset = !showAsset && !!slot.chainName
 
   return (
     <span className={styles.chip}>
@@ -59,6 +60,9 @@ function SlotChip({
             <Image src={slot.chainLogoUrl} alt={slot.chainName} width={14} height={14} logo />
           )}
           <span>{slot.chainName}</span>
+          {showMissingAsset && (
+            <span className={clsx(styles.separator, styles.chipMissing)}>Asset?</span>
+          )}
         </>
       ) : (
         showAsset && <span className={clsx(styles.separator, styles.chipMissing)}>Chain?</span>
@@ -78,6 +82,10 @@ const ReturnIcon = () => (
     />
   </svg>
 )
+
+function isEnterKey(event: Pick<React.KeyboardEvent, "key" | "code">): boolean {
+  return event.key === "Enter" || event.code === "Enter" || event.code === "NumpadEnter"
+}
 
 const BridgeIntentInput = ({ open, confirmed, onOpen, onApply, onClose }: Props) => {
   const [value, setValue] = useState("")
@@ -113,6 +121,7 @@ const BridgeIntentInput = ({ open, confirmed, onOpen, onApply, onClose }: Props)
       const id = setTimeout(() => inputRef.current?.focus(), 120)
       return () => clearTimeout(id)
     }
+    inputRef.current?.blur()
     setValue("")
   }, [open])
 
@@ -134,13 +143,15 @@ const BridgeIntentInput = ({ open, confirmed, onOpen, onApply, onClose }: Props)
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (!open) return
+
       if (e.key === "Tab" && suggestion) {
         e.preventDefault()
         e.stopPropagation()
         acceptSuggestion()
         return
       }
-      if (e.key === "Enter") {
+      if (isEnterKey(e)) {
         e.preventDefault()
         e.stopPropagation()
         if (resolved.isComplete) onApply(resolved)
@@ -151,11 +162,18 @@ const BridgeIntentInput = ({ open, confirmed, onOpen, onApply, onClose }: Props)
         onClose()
       }
     },
-    [resolved, suggestion, acceptSuggestion, onApply, onClose],
+    [open, resolved, suggestion, acceptSuggestion, onApply, onClose],
   )
 
+  const preventImplicitSubmit = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    const target = e.target
+    if (!(target instanceof HTMLElement)) return
+    if (target.dataset.intentInput !== "true") return
+    if (isEnterKey(e)) e.preventDefault()
+  }, [])
+
   return (
-    <div className={styles.wrapper}>
+    <div className={styles.wrapper} onKeyDownCapture={preventImplicitSubmit}>
       <div
         className={clsx(styles.bar, !open && styles.barClosed, confirmed && styles.barConfirmed)}
         onClick={!open ? onOpen : undefined}
@@ -196,6 +214,7 @@ const BridgeIntentInput = ({ open, confirmed, onOpen, onApply, onClose }: Props)
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onKeyDown={handleKeyDown}
+              data-intent-input="true"
               autoComplete="off"
               spellCheck={false}
               tabIndex={open ? 0 : -1}
@@ -277,6 +296,9 @@ const BridgeIntentInput = ({ open, confirmed, onOpen, onApply, onClose }: Props)
                 Exceeds balance ({formatAmount(srcBalance!.amount, { decimals: decimals! })}{" "}
                 available)
               </span>
+            )}
+            {resolved.errorMessage && (
+              <span className={styles.insufficientHint}>{resolved.errorMessage}</span>
             )}
           </div>
         )}

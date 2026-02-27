@@ -58,6 +58,17 @@ describe("filterChains", () => {
   it("returns empty for no matches", () => {
     expect(filterChains(chains, "xyz")).toHaveLength(0)
   })
+
+  it("prioritizes shorter prefix matches first", () => {
+    const result = filterChains(
+      [
+        makeChain({ pretty_name: "Initia Testnet", chain_name: "initia-testnet" }),
+        makeChain({ pretty_name: "Initia", chain_name: "initia" }),
+      ],
+      "ini",
+    )
+    expect(result.map((chain) => chain.pretty_name)).toEqual(["Initia", "Initia Testnet"])
+  })
 })
 
 describe("filterAssets", () => {
@@ -94,6 +105,17 @@ describe("filterAssets", () => {
 
   it("returns empty for no matches", () => {
     expect(filterAssets(assets, "xyz")).toHaveLength(0)
+  })
+
+  it("prioritizes shorter symbol prefix matches first", () => {
+    const result = filterAssets(
+      [
+        makeAsset({ symbol: "INIT sLP", name: "Initia sLP" }),
+        makeAsset({ symbol: "INIT", name: "Initia" }),
+      ],
+      "ini",
+    )
+    expect(result[0].symbol).toBe("INIT")
   })
 
   it("matches multi-word query across asset and chain", () => {

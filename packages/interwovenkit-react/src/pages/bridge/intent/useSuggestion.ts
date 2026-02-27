@@ -3,32 +3,17 @@ import { useSkipChains } from "../data/chains"
 import { useFlatAssets } from "../search/useFlatAssets"
 import { filterAssets, filterChains } from "../search/useUnifiedSearch"
 
-type SegmentType = "asset" | "chain" | "dstAmbiguous"
-
-function getActiveSegment(input: string): { type: SegmentType; text: string } {
+function getActiveSegmentText(input: string): string {
   const lower = input.toLowerCase()
   const keywords = [...lower.matchAll(/\b(from|to|on)\b/gi)]
   const lastKeyword = keywords[keywords.length - 1]
 
   if (!lastKeyword) {
     const afterAmount = input.replace(/^[\d,]+(?:\.\d+)?\s*/, "")
-    return { type: "asset", text: afterAmount.trim() }
+    return afterAmount.trim()
   }
 
-  const keyword = lastKeyword[1].toLowerCase()
-  const textAfter = input.slice(lastKeyword.index! + lastKeyword[0].length).trim()
-
-  if (!textAfter) return { type: "asset", text: "" }
-
-  switch (keyword) {
-    case "from":
-    case "on":
-      return { type: "chain", text: textAfter }
-    case "to":
-      return { type: "dstAmbiguous", text: textAfter }
-    default:
-      return { type: "asset", text: textAfter }
-  }
+  return input.slice(lastKeyword.index! + lastKeyword[0].length).trim()
 }
 
 function completeCaseSensitive(fullInput: string, partial: string, completion: string): string {
@@ -41,6 +26,24 @@ function completeCaseSensitive(fullInput: string, partial: string, completion: s
   return fullInput + completion.slice(partial.length)
 }
 
+function getBestCompletion(fullInput: string, partial: string, completions: string[]): string {
+  const uniqueCompletions = [...new Set(completions.filter(Boolean))]
+
+  const candidates = uniqueCompletions
+    .map((completion) => ({
+      completion,
+      suggestion: completeCaseSensitive(fullInput, partial, completion),
+      delta: completion.length - partial.length,
+    }))
+    .filter((entry) => !!entry.suggestion)
+    .sort((a, b) => {
+      if (a.delta !== b.delta) return a.delta - b.delta
+      return a.completion.toLowerCase().localeCompare(b.completion.toLowerCase())
+    })
+
+  return candidates[0]?.suggestion ?? ""
+}
+
 export function useSuggestion(input: string): string {
   const flatAssets = useFlatAssets()
   const chains = useSkipChains()
@@ -50,35 +53,18 @@ export function useSuggestion(input: string): string {
     if (!trimmed) return ""
 
     const visibleChains = chains.filter((c) => !c.hidden)
-    const activeSegment = getActiveSegment(trimmed)
-    if (!activeSegment.text) return ""
+    const activeSegmentText = getActiveSegmentText(trimmed)
+    if (!activeSegmentText) return ""
 
-    if (activeSegment.type === "asset") {
-      const matched = filterAssets(flatAssets, activeSegment.text)
-      if (matched.length === 0) return ""
-      return completeCaseSensitive(trimmed, activeSegment.text, matched[0].symbol)
-    }
+    const chainCompletions = filterChains(visibleChains, activeSegmentText).map(
+      (chain) => chain.pretty_name || chain.chain_name,
+    )
+    const assetCompletions = filterAssets(flatAssets, activeSegmentText).flatMap((asset) => [
+      asset.symbol,
+      `${asset.chainName} ${asset.symbol}`,
+      `${asset.symbol} ${asset.chainName}`,
+    ])
 
-    if (activeSegment.type === "chain") {
-      const matched = filterChains(visibleChains, activeSegment.text)
-      if (matched.length === 0) return ""
-      const name = matched[0].pretty_name || matched[0].chain_name
-      return completeCaseSensitive(trimmed, activeSegment.text, name)
-    }
-
-    // Ambiguous dst — try chain first, then asset
-    if (activeSegment.type === "dstAmbiguous") {
-      const chainMatched = filterChains(visibleChains, activeSegment.text)
-      if (chainMatched.length > 0) {
-        const name = chainMatched[0].pretty_name || chainMatched[0].chain_name
-        return completeCaseSensitive(trimmed, activeSegment.text, name)
-      }
-      const assetMatched = filterAssets(flatAssets, activeSegment.text)
-      if (assetMatched.length > 0) {
-        return completeCaseSensitive(trimmed, activeSegment.text, assetMatched[0].symbol)
-      }
-    }
-
-    return ""
+    return getBestCompletion(trimmed, activeSegmentText, [...chainCompletions, ...assetCompletions])
   }, [input, flatAssets, chains])
 }
