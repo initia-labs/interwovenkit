@@ -112,15 +112,17 @@ const TransferFields = ({ mode }: Props) => {
   const routeForState = !disabledMessage ? route : undefined
   const quoteVerifiedAt = routeForState && routeUpdatedAt > 0 ? routeUpdatedAt : undefined
   const isRouteErrorWithoutData = !!routeError && !route
-  const isNoRouteError =
-    routeError instanceof HTTPError && [400, 404, 422].includes(routeError.response.status)
+  const isNoRouteError = routeError instanceof HTTPError && routeError.response.status === 400
+  const isServerError = routeError instanceof HTTPError && routeError.response.status === 500
   const isAwaitingUsableRoute = !state.route && !disabledMessage && !isRouteErrorWithoutData
   const routeStatusText = disabledMessage
     ? disabledMessage
     : isRouteErrorWithoutData
       ? isNoRouteError
         ? "No route found"
-        : "Failed to refresh route"
+        : isServerError
+          ? "Server error"
+          : "Failed to refresh route"
       : isAwaitingUsableRoute
         ? "Fetching route..."
         : undefined
