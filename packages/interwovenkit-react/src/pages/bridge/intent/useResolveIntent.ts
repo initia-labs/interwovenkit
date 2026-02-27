@@ -132,6 +132,7 @@ export function useResolveIntent(parsed: ParsedBridgeIntent): ResolvedIntent {
       if (match) {
         dst.assetSymbol = match.symbol
         dst.denom = match.denom
+        dst.decimals = match.decimals
         dst.logoUrl = match.logoUrl
       }
     }
