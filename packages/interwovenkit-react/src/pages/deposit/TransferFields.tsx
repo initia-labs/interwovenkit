@@ -109,10 +109,10 @@ const TransferFields = ({ mode }: Props) => {
 
   // Keep the latest successful route while background refetches run.
   // React Query may expose both `data` and `error` when a refetch fails.
-  const routeForState = !disabledMessage ? route : undefined
+  const isNoRouteError = routeError instanceof HTTPError && routeError.response.status === 400
+  const routeForState = !disabledMessage && !isNoRouteError ? route : undefined
   const quoteVerifiedAt = routeForState && routeUpdatedAt > 0 ? routeUpdatedAt : undefined
   const isRouteErrorWithoutData = !!routeError && !route
-  const isNoRouteError = routeError instanceof HTTPError && routeError.response.status === 400
   const isServerError = routeError instanceof HTTPError && routeError.response.status === 500
   const isAwaitingUsableRoute = !state.route && !disabledMessage && !isRouteErrorWithoutData
   const routeStatusText = disabledMessage
