@@ -103,8 +103,6 @@ const TransferFields = ({ mode }: Props) => {
     data: route,
     error: routeError,
     dataUpdatedAt: routeUpdatedAt,
-    isLoading: isRouteLoading,
-    isFetching: isRouteFetching,
   } = useRouteQuery(debouncedQuantity, {
     disabled: !!disabledMessage,
   })
@@ -116,13 +114,16 @@ const TransferFields = ({ mode }: Props) => {
   const isRouteErrorWithoutData = !!routeError && !route
   const isNoRouteError =
     routeError instanceof HTTPError && [400, 404, 422].includes(routeError.response.status)
+  const isAwaitingUsableRoute = !state.route && !disabledMessage && !isRouteErrorWithoutData
   const routeStatusText = disabledMessage
     ? disabledMessage
     : isRouteErrorWithoutData
       ? isNoRouteError
         ? "No route found"
         : "Failed to refresh route"
-      : undefined
+      : isAwaitingUsableRoute
+        ? "Fetching route..."
+        : undefined
 
   const updateNavigationState = useEffectEvent(() => {
     navigate(
@@ -286,12 +287,7 @@ const TransferFields = ({ mode }: Props) => {
         <Footer>
           <Button.White
             type="submit"
-            loading={
-              !route &&
-              !disabledMessage &&
-              (isRouteLoading || isRouteFetching) &&
-              "Fetching route..."
-            }
+            loading={isAwaitingUsableRoute && "Fetching route..."}
             disabled={true}
             fullWidth
           >
