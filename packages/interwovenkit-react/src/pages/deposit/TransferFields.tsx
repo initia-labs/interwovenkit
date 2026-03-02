@@ -116,17 +116,15 @@ const TransferFields = ({ mode }: Props) => {
   const hasUsableRoute = !!state.route && !isNoRouteError
   const isServerError = routeError instanceof HTTPError && routeError.response.status === 500
   const isAwaitingUsableRoute = !hasUsableRoute && !disabledMessage && !isRouteErrorWithoutData
-  const routeStatusText = disabledMessage
-    ? disabledMessage
-    : isRouteErrorWithoutData
-      ? isNoRouteError
-        ? "No route found"
-        : isServerError
-          ? "Server error"
-          : "Failed to refresh route"
-      : isAwaitingUsableRoute
-        ? "Fetching route..."
-        : undefined
+  const routeStatusText = (() => {
+    if (disabledMessage) return disabledMessage
+    if (!isRouteErrorWithoutData) {
+      return isAwaitingUsableRoute ? "Fetching route..." : undefined
+    }
+    if (isNoRouteError) return "No route found"
+    if (isServerError) return "Server error"
+    return "Failed to refresh route"
+  })()
 
   const updateNavigationState = useEffectEvent(() => {
     navigate(
