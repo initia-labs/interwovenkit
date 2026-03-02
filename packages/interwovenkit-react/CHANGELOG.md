@@ -1,5 +1,11 @@
 # Changelog
 
+### [2.4.6](https://github.com/initia-labs/interwovenkit/compare/v2.4.5...v2.4.6) (2026-03-02)
+
+### Features
+
+- **hooks:** accept optional address in useUsernameQuery ([abd0f54](https://github.com/initia-labs/interwovenkit/commit/abd0f54e0038de1a7851812b94d48ffc2ed8e198))
+
 ### [2.4.5](https://github.com/initia-labs/interwovenkit/compare/v2.4.4...v2.4.5) (2026-02-26)
 
 ### Features
