@@ -121,9 +121,13 @@ const TransferFields = ({ mode }: Props) => {
     if (isServerError) return "server-error" as const
     return "refresh-failed" as const
   })()
+  const isRouteSynced = routeStatus === "ready" && state.route === routeForState
+  const isRouteTransitioning =
+    routeStatus === "loading" || (routeStatus === "ready" && !isRouteSynced)
   const routeStatusText = (() => {
     if (routeStatus === "disabled") return disabledMessage
     if (routeStatus === "loading") return "Fetching route..."
+    if (routeStatus === "ready" && !isRouteSynced) return "Fetching route..."
     if (routeStatus === "no-route") return "No route found"
     if (routeStatus === "server-error") return "Server error"
     if (routeStatus === "refresh-failed") return "Failed to refresh route"
@@ -288,11 +292,11 @@ const TransferFields = ({ mode }: Props) => {
 
       {(chainsError || balancesError) && <Status error>Failed to load balances</Status>}
 
-      {routeStatus !== "ready" ? (
+      {!isRouteSynced ? (
         <Footer>
           <Button.White
             type="submit"
-            loading={routeStatus === "loading" && "Fetching route..."}
+            loading={isRouteTransitioning && "Fetching route..."}
             disabled={true}
             fullWidth
           >
