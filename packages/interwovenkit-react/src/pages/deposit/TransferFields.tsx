@@ -112,18 +112,22 @@ const TransferFields = ({ mode }: Props) => {
   const isNoRouteError = routeError instanceof HTTPError && routeError.response.status === 400
   const routeForState = !disabledMessage && !isNoRouteError ? route : undefined
   const quoteVerifiedAt = routeForState && routeUpdatedAt > 0 ? routeUpdatedAt : undefined
-  const isRouteErrorWithoutData = !!routeError && !routeForState
-  const hasUsableRoute = !!state.route && !isNoRouteError
   const isServerError = routeError instanceof HTTPError && routeError.response.status === 500
-  const isAwaitingUsableRoute = !hasUsableRoute && !disabledMessage && !isRouteErrorWithoutData
+  const routeStatus = (() => {
+    if (disabledMessage) return "disabled" as const
+    if (routeForState) return "ready" as const
+    if (!routeError) return "loading" as const
+    if (isNoRouteError) return "no-route" as const
+    if (isServerError) return "server-error" as const
+    return "refresh-failed" as const
+  })()
   const routeStatusText = (() => {
-    if (disabledMessage) return disabledMessage
-    if (!isRouteErrorWithoutData) {
-      return isAwaitingUsableRoute ? "Fetching route..." : undefined
-    }
-    if (isNoRouteError) return "No route found"
-    if (isServerError) return "Server error"
-    return "Failed to refresh route"
+    if (routeStatus === "disabled") return disabledMessage
+    if (routeStatus === "loading") return "Fetching route..."
+    if (routeStatus === "no-route") return "No route found"
+    if (routeStatus === "server-error") return "Server error"
+    if (routeStatus === "refresh-failed") return "Failed to refresh route"
+    return undefined
   })()
 
   const updateNavigationState = useEffectEvent(() => {
@@ -284,11 +288,11 @@ const TransferFields = ({ mode }: Props) => {
 
       {(chainsError || balancesError) && <Status error>Failed to load balances</Status>}
 
-      {!hasUsableRoute || !!disabledMessage ? (
+      {routeStatus !== "ready" ? (
         <Footer>
           <Button.White
             type="submit"
-            loading={isAwaitingUsableRoute && "Fetching route..."}
+            loading={routeStatus === "loading" && "Fetching route..."}
             disabled={true}
             fullWidth
           >
