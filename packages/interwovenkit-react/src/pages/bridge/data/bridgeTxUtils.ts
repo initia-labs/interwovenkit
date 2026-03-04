@@ -75,14 +75,21 @@ export function buildInitiaAddressList({
 
 export function decodeCosmosAminoMessages(
   msgs: Array<{ msg_type_url?: string; msg?: string }> | undefined,
+  options?: {
+    fromAmino?: (value: { type: string; value: unknown }) => EncodeObject
+    converters?: Record<string, { aminoType: string }>
+  },
 ): EncodeObject[] {
   if (!msgs?.length) throw new Error("Invalid transaction data")
 
+  const fromAmino = options?.fromAmino ?? aminoTypes.fromAmino.bind(aminoTypes)
+  const converters = options?.converters ?? aminoConverters
+
   return msgs.map(({ msg_type_url, msg }) => {
     if (!(msg_type_url && msg)) throw new Error("Invalid transaction data")
-    const converter = aminoConverters[msg_type_url]
+    const converter = converters[msg_type_url]
     if (!converter) throw new Error(`Unsupported message type: ${msg_type_url}`)
-    return aminoTypes.fromAmino({
+    return fromAmino({
       type: converter.aminoType,
       value: JSON.parse(msg),
     })

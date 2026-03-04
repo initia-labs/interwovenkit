@@ -24,7 +24,7 @@ import WidgetTooltip from "@/components/WidgetTooltip"
 import { useAnalyticsTrack } from "@/data/analytics"
 import { useLayer1 } from "@/data/chains"
 import { LocalStorageKey } from "@/data/constants"
-import { useCreateSigningStargateClient } from "@/data/signer"
+import { useAminoConverters, useAminoTypes, useCreateSigningStargateClient } from "@/data/signer"
 import { useIsMobile } from "@/hooks/useIsMobile"
 import { formatValue } from "@/lib/format"
 import { useNavigate } from "@/lib/router"
@@ -81,6 +81,8 @@ const BridgeFields = () => {
 
   const layer1 = useLayer1()
   const skip = useSkip()
+  const aminoConverters = useAminoConverters()
+  const aminoTypes = useAminoTypes()
   const createSigningStargateClient = useCreateSigningStargateClient()
   const srcChain = useSkipChain(srcChainId)
   const srcChainType = useChainType(srcChain)
@@ -276,7 +278,10 @@ const BridgeFields = () => {
           slippagePercent: String(slippagePercent),
         })
 
-        const messages = decodeCosmosAminoMessages(cosmosTx.msgs)
+        const messages = decodeCosmosAminoMessages(cosmosTx.msgs, {
+          converters: aminoConverters,
+          fromAmino: aminoTypes.fromAmino.bind(aminoTypes),
+        })
 
         const client = await createSigningStargateClient(srcChainId)
         const gas = await client.simulate(sender, messages, "")
