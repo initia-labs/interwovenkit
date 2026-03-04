@@ -2,7 +2,7 @@ import type { StdFee } from "@cosmjs/stargate"
 import { calculateFee, GasPrice } from "@cosmjs/stargate"
 import type { TxJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
-import { type ReactNode, useEffect, useMemo, useState } from "react"
+import { type ReactNode, useEffect, useEffectEvent, useMemo, useState } from "react"
 import { formatAmount } from "@initia/utils"
 import Dropdown, { type DropdownOption } from "@/components/Dropdown"
 import { useBalances } from "@/data/account"
@@ -172,16 +172,19 @@ const TransferFooterWithFee = ({
     )
   }
 
+  const selectedFeeAmount = selectedFee?.amount[0].amount
   const feeKey = useMemo(
-    () => (feeOptions.length > 0 ? `${feeDenom}:${selectedFee?.amount[0].amount}` : null),
-    [feeOptions.length, feeDenom, selectedFee],
+    () => (feeOptions.length > 0 ? `${feeDenom}:${selectedFeeAmount}` : null),
+    [feeOptions.length, feeDenom, selectedFeeAmount],
   )
 
+  const getRenderer = useEffectEvent((): FeeRenderer => {
+    return feeKey ? () => renderFee() : undefined
+  })
+
   useEffect(() => {
-    const renderer = feeKey ? () => renderFee() : undefined
-    onFeeRendererChange?.(renderer)
+    onFeeRendererChange?.(getRenderer())
     return () => onFeeRendererChange?.(undefined)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feeKey, onFeeRendererChange])
 
   return (

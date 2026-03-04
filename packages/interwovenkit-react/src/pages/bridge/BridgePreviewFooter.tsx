@@ -114,8 +114,7 @@ const BridgePreviewFooter = ({
     isRouteTransitioning,
   })
   const loadingText = getLoadingText({ isRefreshing, isPending, backgroundLoadingText })
-  const isBusy =
-    isPending || isRefreshing || !!isRouteTransitioning || !!isFetchingMessages || !!isEstimatingGas
+  const isBusy = isPending || isRefreshing || !!backgroundLoadingText
 
   return (
     <Footer

@@ -75,13 +75,7 @@ function shouldRenderPreviewFooter({
   hasRouteState: boolean
   routeStatus: RouteStatus
 }): boolean {
-  if (!hasRouteState) return false
-  return (
-    routeStatus !== "disabled" &&
-    routeStatus !== "no-route" &&
-    routeStatus !== "server-error" &&
-    routeStatus !== "refresh-failed"
-  )
+  return hasRouteState && (routeStatus === "ready" || routeStatus === "loading")
 }
 
 function getRouteStatusText({
