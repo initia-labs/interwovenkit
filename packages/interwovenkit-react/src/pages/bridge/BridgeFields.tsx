@@ -63,6 +63,26 @@ function getRouteRefreshMs({
   return 10000
 }
 
+function getFallbackFeeTokenDenoms({
+  srcChainType,
+  chainFeeAssets,
+  srcDenom,
+}: {
+  srcChainType: string
+  chainFeeAssets: Array<{ denom: string }>
+  srcDenom: string
+}) {
+  switch (srcChainType) {
+    case "initia":
+    case "cosmos":
+      return chainFeeAssets.map(({ denom }) => denom)
+    case "evm":
+      return !isAddress(srcDenom) ? [srcDenom] : []
+    default:
+      return []
+  }
+}
+
 const BridgeFields = () => {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
@@ -301,39 +321,47 @@ const BridgeFields = () => {
   })
   const requiredFeeByDenom = simulatedFeeEstimate?.requiredFeeByDenom ?? {}
   const feeDenoms = Object.keys(requiredFeeByDenom)
+  const getRemainingBalanceAfterSwap = useCallback(
+    (denom: string) => {
+      const balance = BigNumber(balances?.[denom]?.amount ?? "0")
+      const spendAmount = denom === srcDenom ? BigNumber(route?.amount_in ?? "0") : BigNumber(0)
+      return balance.minus(spendAmount)
+    },
+    [balances, route?.amount_in, srcDenom],
+  )
   const hasAvailableSimulatedFeeBalance = feeDenoms.some((denom) => {
-    const requiredFee = BigNumber(requiredFeeByDenom[denom] ?? "0")
-    const balance = BigNumber(balances?.[denom]?.amount ?? "0")
-    const spendAmount = denom === srcDenom ? BigNumber(route?.amount_in ?? "0") : BigNumber(0)
-    return balance.minus(spendAmount).gte(requiredFee)
+    const requiredFee = BigNumber(requiredFeeByDenom[denom] ?? 0)
+    const remainingBalance = getRemainingBalanceAfterSwap(denom)
+    return remainingBalance.gte(requiredFee)
   })
   const hasInsufficientFeeBySimulation = feeDenoms.length > 0 && !hasAvailableSimulatedFeeBalance
+  const hasSimulatedFeeCheck = feeDenoms.length > 0
   const isEstimatingFeeForSwap =
     shouldEstimateGasFee && !!route && (isSimulatedFeeLoading || isSimulatedFeeFetching)
-  const fallbackFeeTokenDenoms = useMemo(() => {
-    switch (srcChainType) {
-      case "initia":
-      case "cosmos":
-        return chainFeeAssets.map(({ denom }) => denom)
-      case "evm":
-        return !isAddress(srcDenom) ? [srcDenom] : []
-      default:
-        return []
-    }
-  }, [chainFeeAssets, srcChainType, srcDenom])
-  const hasAnyFallbackFeeBalanceAfterSwap = fallbackFeeTokenDenoms.some((denom) => {
-    const balance = BigNumber(balances?.[denom]?.amount ?? "0")
-    const spendAmount = denom === srcDenom ? BigNumber(route?.amount_in ?? "0") : BigNumber(0)
-    return balance.minus(spendAmount).gt(0)
-  })
+  const fallbackFeeTokenDenoms = useMemo(
+    () => getFallbackFeeTokenDenoms({ srcChainType, chainFeeAssets, srcDenom }),
+    [chainFeeAssets, srcChainType, srcDenom],
+  )
+  const hasFallbackFeeBalanceAfterSwap = fallbackFeeTokenDenoms.some((denom) =>
+    getRemainingBalanceAfterSwap(denom).gt(0),
+  )
+  const shouldCheckFallbackFeeBalance =
+    !!route && !isEstimatingFeeForSwap && !hasSimulatedFeeCheck && fallbackFeeTokenDenoms.length > 0
   const hasInsufficientFeeByFallback =
-    !!route &&
-    !isEstimatingFeeForSwap &&
-    feeDenoms.length === 0 &&
-    fallbackFeeTokenDenoms.length > 0 &&
-    !hasAnyFallbackFeeBalanceAfterSwap
+    shouldCheckFallbackFeeBalance && !hasFallbackFeeBalanceAfterSwap
   const hasInsufficientFeeBalanceForSwap =
     hasInsufficientFeeBySimulation || hasInsufficientFeeByFallback
+  const isInsufficientFeeUnknown =
+    !!route &&
+    !isEstimatingFeeForSwap &&
+    !hasSimulatedFeeCheck &&
+    fallbackFeeTokenDenoms.length === 0
+  const feeDisabledMessage = (() => {
+    if (hasInsufficientFeeBalanceForSwap) return "Insufficient balance for fees"
+    if (isInsufficientFeeUnknown) return "Unable to verify transaction fee"
+    return undefined
+  })()
+  const shouldDisableForFee = !!feeDisabledMessage
 
   // disabled
   // Note: formState.isValid is not used here because:
@@ -348,13 +376,13 @@ const BridgeFields = () => {
     if (formState.errors.quantity) return formState.errors.quantity.message
     if (!route) return "Route not found"
     if (isEstimatingFeeForSwap) return "Estimating transaction fee..."
-    if (hasInsufficientFeeBalanceForSwap) return "Insufficient balance for fees"
+    if (feeDisabledMessage) return feeDisabledMessage
     if (feeErrorMessage) return feeErrorMessage
   }, [
     debouncedQuantity,
+    feeDisabledMessage,
     feeErrorMessage,
     formState,
-    hasInsufficientFeeBalanceForSwap,
     isEstimatingFeeForSwap,
     route,
     values,
@@ -527,9 +555,7 @@ const BridgeFields = () => {
                 </FormHelp>
               ))}
               {routeErrorInfo && <FormHelp level="info">{routeErrorInfo}</FormHelp>}
-              {hasInsufficientFeeBalanceForSwap && (
-                <FormHelp level="error">Insufficient balance for fees</FormHelp>
-              )}
+              {shouldDisableForFee && <FormHelp level="error">{feeDisabledMessage}</FormHelp>}
               {route?.warning && <FormHelp level="warning">{route.warning.message}</FormHelp>}
               {route?.extra_warnings?.map((warning) => (
                 <FormHelp level="warning" key={warning}>
