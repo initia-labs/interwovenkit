@@ -43,9 +43,9 @@ function getBackgroundLoadingText({
   isEstimatingGas?: boolean
   isRouteTransitioning?: boolean
 }): string | false {
+  if (isRouteTransitioning) return "Refreshing route..."
   if (isFetchingMessages) return "Fetching messages..."
   if (isEstimatingGas) return "Estimating gas..."
-  if (isRouteTransitioning) return "Refreshing route..."
   return false
 }
 
