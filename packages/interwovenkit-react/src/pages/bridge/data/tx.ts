@@ -24,6 +24,7 @@ import { checkMigrationInfo } from "../op/data"
 import { useClaimableReminders } from "../op/reminder"
 import { waitForAccountCreation } from "./account"
 import { useFindSkipAsset } from "./assets"
+import { decodeCosmosAminoMessages } from "./bridgeTxUtils"
 import { useChainType, useFindSkipChain, useSkipChain } from "./chains"
 import { useCosmosWallets } from "./cosmos"
 import { switchEthereumChain } from "./evm"
@@ -104,15 +105,7 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
       try {
         if ("cosmos_tx" in tx) {
           if (!tx.cosmos_tx.msgs) throw new Error("Invalid transaction data")
-          const messages = tx.cosmos_tx.msgs.map(({ msg_type_url, msg }) => {
-            if (!(msg_type_url && msg)) throw new Error("Invalid transaction data")
-            // Note: `typeUrl` comes in proto format, but `msg` is in amino format.
-            // Weird, but that's how the Skip API responds.
-            return aminoTypes.fromAmino({
-              type: aminoConverters[msg_type_url].aminoType,
-              value: JSON.parse(msg),
-            })
-          })
+          const messages = decodeCosmosAminoMessages(tx.cosmos_tx.msgs)
 
           if (srcChainType === "initia") {
             const { srcDenom, quantity } = values
