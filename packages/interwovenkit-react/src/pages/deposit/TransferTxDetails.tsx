@@ -61,12 +61,12 @@ const TransferTxDetails = ({ renderFee }: Props) => {
                     <div className={styles.detailValue}>{formatFees(route.estimated_fees)}</div>
                   </div>
                 )}
-                <div className={styles.detail}>
-                  <p className={styles.detailLabel}>Tx fee</p>
-                  <div className={styles.detailValue}>
-                    {renderFee ? renderFee() : <span className={styles.detailLoading}>—</span>}
+                {renderFee && (
+                  <div className={styles.detail}>
+                    <p className={styles.detailLabel}>Tx fee</p>
+                    <div className={styles.detailValue}>{renderFee()}</div>
                   </div>
-                </div>
+                )}
                 {address && (
                   <div className={styles.detail}>
                     <p className={styles.detailLabel}>Receiving address</p>

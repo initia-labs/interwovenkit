@@ -82,9 +82,14 @@ const BridgePreviewFooter = ({
     values,
     quoteVerifiedAt,
   )
+  const backgroundLoadingText = getBackgroundLoadingText({
+    isFetchingMessages,
+    isEstimatingGas,
+    isRouteTransitioning,
+  })
 
   const onConfirm = async () => {
-    if (isPending || isRefreshing) return
+    if (isPending || isRefreshing || backgroundLoadingText) return
 
     if (requiresReconfirm) {
       // quoteVerifiedAt is always defined here (set when navigating with requiresReconfirm: true).
@@ -108,11 +113,6 @@ const BridgePreviewFooter = ({
   }
 
   const statusMessage = getStatusMessage({ error, refreshError, requiresReconfirm })
-  const backgroundLoadingText = getBackgroundLoadingText({
-    isFetchingMessages,
-    isEstimatingGas,
-    isRouteTransitioning,
-  })
   const loadingText = getLoadingText({ isRefreshing, isPending, backgroundLoadingText })
   const isBusy = isPending || isRefreshing || !!backgroundLoadingText
 
