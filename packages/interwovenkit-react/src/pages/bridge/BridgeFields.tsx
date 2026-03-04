@@ -32,11 +32,10 @@ import { useModal } from "@/public/app/ModalContext"
 import { useSkipAsset } from "./data/assets"
 import { useSkipBalance, useSkipBalancesQuery } from "./data/balance"
 import {
-  buildBridgeMsgsParams,
+  buildInitiaAddressList,
   computeRequiredFeeByDenom,
   decodeCosmosAminoMessages,
-  fetchBridgeTxs,
-  getCosmosTxFromTxs,
+  fetchFirstCosmosTx,
 } from "./data/bridgeTxUtils"
 import { useChainType, useSkipChain } from "./data/chains"
 import type { FormValues } from "./data/form"
@@ -257,14 +256,13 @@ const BridgeFields = () => {
       try {
         if (!route || !sender) return null
 
-        const addressList = route.required_chain_addresses.map((_, index) => {
-          if (index === route.required_chain_addresses.length - 1) {
-            return InitiaAddress(values.recipient).bech32
-          }
-          return InitiaAddress(sender).bech32
+        const addressList = buildInitiaAddressList({
+          requiredChainAddresses: route.required_chain_addresses,
+          sender: InitiaAddress(sender).bech32,
+          recipient: InitiaAddress(values.recipient).bech32,
         })
 
-        const params = buildBridgeMsgsParams({
+        const cosmosTx = await fetchFirstCosmosTx(skip, {
           addressList,
           route: {
             amount_in: route.amount_in,
@@ -277,9 +275,6 @@ const BridgeFields = () => {
           },
           slippagePercent: String(slippagePercent),
         })
-        const txs = await fetchBridgeTxs(skip, params)
-        const cosmosTx = getCosmosTxFromTxs(txs)
-        if (!cosmosTx) return null
 
         const messages = decodeCosmosAminoMessages(cosmosTx.msgs)
 
@@ -322,7 +317,6 @@ const BridgeFields = () => {
     !hasAnyFallbackFeeBalanceAfterSwap
   const hasInsufficientFeeBalanceForSwap =
     hasInsufficientFeeBySimulation || hasInsufficientFeeByFallback
-  const shouldWarnInsufficientFeeBalanceAfterSwap = hasInsufficientFeeBalanceForSwap
 
   // disabled
   // Note: formState.isValid is not used here because:
@@ -516,7 +510,7 @@ const BridgeFields = () => {
                 </FormHelp>
               ))}
               {routeErrorInfo && <FormHelp level="info">{routeErrorInfo}</FormHelp>}
-              {shouldWarnInsufficientFeeBalanceAfterSwap && (
+              {hasInsufficientFeeBalanceForSwap && (
                 <FormHelp level="error">Insufficient balance for fees</FormHelp>
               )}
               {route?.warning && <FormHelp level="warning">{route.warning.message}</FormHelp>}

@@ -2,7 +2,7 @@ import type { TxJson } from "@skip-go/client"
 import { useEffect, useMemo, useState } from "react"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
-import { buildBridgeMsgsParams, fetchBridgeTxs } from "./data/bridgeTxUtils"
+import { fetchBridgeTxs } from "./data/bridgeTxUtils"
 import { useSkip } from "./data/skip"
 import type { SignedOpHook } from "./data/tx"
 import { useBridgePreviewState } from "./data/tx"
@@ -49,7 +49,7 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
         setLoading(true)
         setError(null)
 
-        const params = buildBridgeMsgsParams({
+        const txs = await fetchBridgeTxs(skip, {
           addressList: stableAddressList,
           route: {
             amount_in: route.amount_in,
@@ -63,7 +63,6 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
           slippagePercent: String(values.slippagePercent),
           signedOpHook: stableSignedOpHook,
         })
-        const txs = await fetchBridgeTxs(skip, params)
         if (cancelled) return
         const [tx] = txs
         setValue(tx)

@@ -29,7 +29,7 @@ interface FeeAssetWithGasPrice {
   } | null
 }
 
-export function buildBridgeMsgsParams({
+function buildBridgeMsgsPayload({
   addressList,
   route,
   slippagePercent,
@@ -49,13 +49,28 @@ export function buildBridgeMsgsParams({
   }
 }
 
-export async function fetchBridgeTxs(
-  skip: KyInstance,
-  params: ReturnType<typeof buildBridgeMsgsParams>,
-) {
-  const { txs } = await skip.post("v2/fungible/msgs", { json: params }).json<MsgsResponseJson>()
+export async function fetchBridgeTxs(skip: KyInstance, params: BridgeMsgsParams) {
+  const payload = buildBridgeMsgsPayload(params)
+  const { txs } = await skip.post("v2/fungible/msgs", { json: payload }).json<MsgsResponseJson>()
   if (!txs || txs.length === 0) throw new Error("No transaction data found")
   return txs
+}
+
+export function buildInitiaAddressList({
+  requiredChainAddresses,
+  sender,
+  recipient,
+}: {
+  requiredChainAddresses: string[]
+  sender: string
+  recipient: string
+}) {
+  return requiredChainAddresses.map((_, index) => {
+    if (index === requiredChainAddresses.length - 1) {
+      return recipient
+    }
+    return sender
+  })
 }
 
 export function decodeCosmosAminoMessages(
@@ -74,10 +89,17 @@ export function decodeCosmosAminoMessages(
   })
 }
 
-export function getCosmosTxFromTxs(txs: TxJson[]) {
+function getCosmosTxFromTxs(txs: TxJson[]) {
   const tx = txs[0]
   if (!tx || !("cosmos_tx" in tx) || !tx.cosmos_tx.msgs?.length) return null
   return tx.cosmos_tx
+}
+
+export async function fetchFirstCosmosTx(skip: KyInstance, params: BridgeMsgsParams) {
+  const txs = await fetchBridgeTxs(skip, params)
+  const cosmosTx = getCosmosTxFromTxs(txs)
+  if (!cosmosTx) throw new Error("No cosmos transaction data found")
+  return cosmosTx
 }
 
 export function computeRequiredFeeByDenom({
