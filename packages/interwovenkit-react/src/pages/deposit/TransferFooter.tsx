@@ -2,7 +2,7 @@ import type { StdFee } from "@cosmjs/stargate"
 import { calculateFee, GasPrice } from "@cosmjs/stargate"
 import type { TxJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
-import { type ReactNode, useEffect, useMemo, useState } from "react"
+import { type ReactNode, useCallback, useEffect, useState } from "react"
 import { formatAmount } from "@initia/utils"
 import Dropdown, { type DropdownOption } from "@/components/Dropdown"
 import { useBalances } from "@/data/account"
@@ -120,20 +120,23 @@ const TransferFooterWithFee = ({
   const balanceError = feeDetails && !feeDetails.isSufficient ? "Insufficient balance" : undefined
 
   // Helper functions for fee display
-  const getDp = (amount: string, decimals: number) => {
+  const getDp = useCallback((amount: string, decimals: number) => {
     if (formatAmount(amount, { decimals }) === "0.000000") return 8
     return undefined
-  }
+  }, [])
 
-  const getFeeLabel = (fee: StdFee) => {
-    const [{ amount, denom }] = fee.amount
-    if (BigNumber(amount).isZero()) return "0"
-    const { symbol, decimals } = findAsset(denom)
-    const dp = getDp(amount, decimals)
-    return `${formatAmount(amount, { decimals, dp })} ${symbol}`
-  }
+  const getFeeLabel = useCallback(
+    (fee: StdFee) => {
+      const [{ amount, denom }] = fee.amount
+      if (BigNumber(amount).isZero()) return "0"
+      const { symbol, decimals } = findAsset(denom)
+      const dp = getDp(amount, decimals)
+      return `${formatAmount(amount, { decimals, dp })} ${symbol}`
+    },
+    [findAsset, getDp],
+  )
 
-  const renderFee = () => {
+  const renderFee = useCallback(() => {
     if (feeOptions.length === 0) return null
 
     // Single fee option - just display it
@@ -170,19 +173,13 @@ const TransferFooterWithFee = ({
         />
       </div>
     )
-  }
-
-  const feeKey = useMemo(
-    () => (feeOptions.length > 0 ? `${feeDenom}:${selectedFee?.amount[0].amount}` : null),
-    [feeOptions.length, feeDenom, selectedFee],
-  )
+  }, [feeOptions, selectedFee, feeDenom, findAsset, getDp, getFeeLabel, setFeeDenom])
 
   useEffect(() => {
-    const renderer = feeKey ? () => renderFee() : undefined
+    const renderer = feeOptions.length > 0 ? renderFee : undefined
     onFeeRendererChange?.(renderer)
     return () => onFeeRendererChange?.(undefined)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [feeKey, onFeeRendererChange])
+  }, [renderFee, feeOptions.length, onFeeRendererChange])
 
   return (
     <FooterWithErc20Approval tx={tx}>
