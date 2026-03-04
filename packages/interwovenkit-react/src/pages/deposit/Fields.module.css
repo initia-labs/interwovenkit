@@ -195,10 +195,10 @@
   border-radius: 50%;
 }
 
-.minimumReceived {
+.receiveSummary {
   color: var(--gray-1);
 }
 
-.minimumReceived .detailValue {
+.receiveSummary .detailValue {
   color: var(--gray-0);
 }
