@@ -239,20 +239,28 @@ const BridgeFields = () => {
       fromBaseUnit(srcBalance?.amount, { decimals: srcBalance?.decimals ?? 0 }),
     )
 
-  const getIsFeeToken = () => {
+  const getFeeTokenDenomsForSourceChain = () => {
     switch (srcChainType) {
       case "initia":
-        return findChain(srcChainId).fees.fee_tokens.some(({ denom }) => denom === srcDenom)
+        return findChain(srcChainId).fees.fee_tokens.map(({ denom }) => denom)
       case "cosmos":
-        return srcChain.fee_assets.some(({ denom }) => denom === srcDenom)
+        return srcChain.fee_assets.map(({ denom }) => denom)
       case "evm":
-        return !isAddress(srcDenom)
+        return !isAddress(srcDenom) ? [srcDenom] : []
       default:
-        return false
+        return []
     }
   }
 
-  const isFeeToken = getIsFeeToken()
+  const feeTokenDenoms = getFeeTokenDenomsForSourceChain()
+  const isSourceFeeToken = feeTokenDenoms.includes(srcDenom)
+  const hasAlternativeFeeTokenBalance = feeTokenDenoms.some((denom) => {
+    if (denom === srcDenom) return false
+    const balance = balances?.[denom]?.amount ?? "0"
+    return BigNumber(balance).gt(0)
+  })
+  const shouldWarnInsufficientFeeBalanceAfterSwap =
+    isMaxAmount && isSourceFeeToken && !hasAlternativeFeeTokenBalance
 
   const renderFees = useCallback(
     (fees: FeeJson[], tooltip: string) => {
@@ -415,7 +423,7 @@ const BridgeFields = () => {
                 </FormHelp>
               ))}
               {routeErrorInfo && <FormHelp level="info">{routeErrorInfo}</FormHelp>}
-              {isMaxAmount && isFeeToken && (
+              {shouldWarnInsufficientFeeBalanceAfterSwap && (
                 <FormHelp level="warning">Make sure to leave enough for transaction fee</FormHelp>
               )}
               {route?.warning && <FormHelp level="warning">{route.warning.message}</FormHelp>}
