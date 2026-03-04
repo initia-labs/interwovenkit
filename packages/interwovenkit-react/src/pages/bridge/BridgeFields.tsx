@@ -227,6 +227,7 @@ const BridgeFields = () => {
 
   // render
   const received = route ? formatAmount(route.amount_out, { decimals: dstAsset.decimals }) : "0"
+  const chainFeeAssets = srcChain.fee_assets ?? []
 
   const shouldEstimateGasFee =
     !!route &&
@@ -287,7 +288,7 @@ const BridgeFields = () => {
         return {
           requiredFeeByDenom: computeRequiredFeeByDenom({
             gas,
-            feeAssets: srcChain.fee_assets,
+            feeAssets: chainFeeAssets,
           }),
         }
       } catch {
@@ -299,15 +300,28 @@ const BridgeFields = () => {
   })
   const requiredFeeByDenom = simulatedFeeEstimate?.requiredFeeByDenom ?? {}
   const feeDenoms = Object.keys(requiredFeeByDenom)
-  const hasAvailableFeeBalance = feeDenoms.some((denom) => {
+  const hasAvailableSimulatedFeeBalance = feeDenoms.some((denom) => {
     const requiredFee = BigNumber(requiredFeeByDenom[denom] ?? "0")
     const balance = BigNumber(balances?.[denom]?.amount ?? "0")
     const spendAmount = denom === srcDenom ? BigNumber(route?.amount_in ?? "0") : BigNumber(0)
     return balance.minus(spendAmount).gte(requiredFee)
   })
-  const hasInsufficientFeeBalanceForSwap = feeDenoms.length > 0 && !hasAvailableFeeBalance
+  const hasInsufficientFeeBySimulation = feeDenoms.length > 0 && !hasAvailableSimulatedFeeBalance
   const isEstimatingFeeForSwap =
     shouldEstimateGasFee && !!route && (isSimulatedFeeLoading || isSimulatedFeeFetching)
+  const fallbackFeeTokenDenoms = chainFeeAssets.map(({ denom }) => denom)
+  const hasAnyFallbackFeeBalanceAfterSwap = fallbackFeeTokenDenoms.some((denom) => {
+    const balance = BigNumber(balances?.[denom]?.amount ?? "0")
+    const spendAmount = denom === srcDenom ? BigNumber(route?.amount_in ?? "0") : BigNumber(0)
+    return balance.minus(spendAmount).gt(0)
+  })
+  const hasInsufficientFeeByFallback =
+    !!route &&
+    !isEstimatingFeeForSwap &&
+    feeDenoms.length === 0 &&
+    !hasAnyFallbackFeeBalanceAfterSwap
+  const hasInsufficientFeeBalanceForSwap =
+    hasInsufficientFeeBySimulation || hasInsufficientFeeByFallback
   const shouldWarnInsufficientFeeBalanceAfterSwap = hasInsufficientFeeBalanceForSwap
 
   // disabled

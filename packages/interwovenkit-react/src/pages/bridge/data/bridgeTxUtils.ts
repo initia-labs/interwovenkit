@@ -26,7 +26,7 @@ interface FeeAssetWithGasPrice {
   denom: string
   gas_price?: {
     average?: string
-  }
+  } | null
 }
 
 export function buildBridgeMsgsParams({
@@ -59,9 +59,12 @@ export async function fetchBridgeTxs(
 }
 
 export function decodeCosmosAminoMessages(
-  msgs: { msg_type_url: string; msg: string }[],
+  msgs: Array<{ msg_type_url?: string; msg?: string }> | undefined,
 ): EncodeObject[] {
+  if (!msgs?.length) throw new Error("Invalid transaction data")
+
   return msgs.map(({ msg_type_url, msg }) => {
+    if (!(msg_type_url && msg)) throw new Error("Invalid transaction data")
     const converter = aminoConverters[msg_type_url]
     if (!converter) throw new Error(`Unsupported message type: ${msg_type_url}`)
     return aminoTypes.fromAmino({
