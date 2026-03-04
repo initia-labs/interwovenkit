@@ -17,9 +17,9 @@ const BridgePreview = () => {
             <FooterWithSignedOpHook>
               {(signedOpHook) => (
                 <FooterWithMsgs addressList={addressList} signedOpHook={signedOpHook}>
-                  {(tx) => (
+                  {(tx, { isFetchingMessages }) => (
                     <FooterWithErc20Approval tx={tx}>
-                      <BridgePreviewFooter tx={tx} />
+                      <BridgePreviewFooter tx={tx} isFetchingMessages={isFetchingMessages} />
                     </FooterWithErc20Approval>
                   )}
                 </FooterWithMsgs>
