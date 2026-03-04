@@ -1,4 +1,5 @@
 import BigNumber from "bignumber.js"
+import { HTTPError } from "ky"
 import { useEffect, useEffectEvent, useMemo } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
@@ -106,8 +107,32 @@ const TransferFields = ({ mode }: Props) => {
     disabled: !!disabledMessage,
   })
 
-  const routeForState = !routeError && !disabledMessage ? route : undefined
+  // Keep the latest successful route while background refetches run.
+  // React Query may expose both `data` and `error` when a refetch fails.
+  const isNoRouteError = routeError instanceof HTTPError && routeError.response.status === 400
+  const routeForState = !disabledMessage && !isNoRouteError ? route : undefined
   const quoteVerifiedAt = routeForState && routeUpdatedAt > 0 ? routeUpdatedAt : undefined
+  const isServerError = routeError instanceof HTTPError && routeError.response.status === 500
+  const routeStatus = (() => {
+    if (disabledMessage) return "disabled" as const
+    if (routeForState) return "ready" as const
+    if (!routeError) return "loading" as const
+    if (isNoRouteError) return "no-route" as const
+    if (isServerError) return "server-error" as const
+    return "refresh-failed" as const
+  })()
+  const isRouteSynced = routeStatus === "ready" && state.route === routeForState
+  const isRouteTransitioning =
+    routeStatus === "loading" || (routeStatus === "ready" && !isRouteSynced)
+  const routeStatusText = (() => {
+    if (routeStatus === "disabled") return disabledMessage
+    if (routeStatus === "loading") return "Fetching route..."
+    if (routeStatus === "ready" && !isRouteSynced) return "Fetching route..."
+    if (routeStatus === "no-route") return "No route found"
+    if (routeStatus === "server-error") return "Server error"
+    if (routeStatus === "refresh-failed") return "Failed to refresh route"
+    return undefined
+  })()
 
   const updateNavigationState = useEffectEvent(() => {
     navigate(
@@ -267,15 +292,15 @@ const TransferFields = ({ mode }: Props) => {
 
       {(chainsError || balancesError) && <Status error>Failed to load balances</Status>}
 
-      {!state.route || !!disabledMessage ? (
+      {!isRouteSynced ? (
         <Footer>
           <Button.White
             type="submit"
-            loading={!routeError && !disabledMessage && "Fetching route..."}
+            loading={isRouteTransitioning && "Fetching route..."}
             disabled={true}
             fullWidth
           >
-            {routeError ? "No route found" : disabledMessage}
+            {routeStatusText}
           </Button.White>
         </Footer>
       ) : (

@@ -85,11 +85,12 @@ export function useRouteQuery(
   return useQuery({
     // eslint-disable-next-line @tanstack/query/exhaustive-deps -- skip and queryClient are stable refs
     queryKey: skipQueryKeys.route(debouncedValues, opWithdrawal?.isOpWithdraw).queryKey,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       // This query may produce specific errors that need separate handling.
       // Therefore, we do not use try-catch or normalizeError here.
       return fetchRoute(skip, queryClient, debouncedValues, {
         isOpWithdraw: opWithdrawal?.isOpWithdraw,
+        signal,
       })
     },
     enabled,
