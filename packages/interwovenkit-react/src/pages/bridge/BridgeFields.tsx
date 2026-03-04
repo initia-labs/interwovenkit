@@ -248,6 +248,11 @@ const BridgeFields = () => {
 
   const feeTokenDenoms = getFeeTokenDenomsForSourceChain()
   const isSourceFeeToken = feeTokenDenoms.includes(srcDenom)
+  const hasAlternativeFeeTokenBalance = feeTokenDenoms.some((denom) => {
+    if (denom === srcDenom) return false
+    const balance = balances?.[denom]?.amount ?? "0"
+    return BigNumber(balance).gt(0)
+  })
   const sourceFeeAmountRequired = additionalFees.reduce((total, fee) => {
     if (fee.origin_asset.denom !== srcDenom) return total
     return total.plus(fee.amount ?? "0")
@@ -260,6 +265,7 @@ const BridgeFields = () => {
     !hasEstimatedSourceFee && sourceBalanceAfterSwap.lte(1)
   const shouldWarnInsufficientFeeBalanceAfterSwap =
     isSourceFeeToken &&
+    !hasAlternativeFeeTokenBalance &&
     (shouldWarnInsufficientFeeByEstimate || shouldWarnInsufficientFeeByDustFallback)
 
   const renderFees = useCallback(
