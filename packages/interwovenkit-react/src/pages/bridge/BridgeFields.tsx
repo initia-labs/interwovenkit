@@ -1,16 +1,18 @@
-import type { FeeJson } from "@skip-go/client"
+import type { FeeJson, MsgsResponseJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
 import { sentenceCase } from "change-case"
 import { isAddress } from "ethers"
 import { useCallback, useMemo, useState } from "react"
 import { useDebounceValue, useLocalStorage } from "usehooks-ts"
+import { useQuery } from "@tanstack/react-query"
+import { aminoConverters, aminoTypes } from "@initia/amino-converter"
 import {
   IconChevronDown,
   IconInfoFilled,
   IconSettingFilled,
   IconWarningFilled,
 } from "@initia/icons-react"
-import { formatAmount, fromBaseUnit } from "@initia/utils"
+import { formatAmount, fromBaseUnit, InitiaAddress } from "@initia/utils"
 import AnimatedHeight from "@/components/AnimatedHeight"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
@@ -24,10 +26,12 @@ import WidgetTooltip from "@/components/WidgetTooltip"
 import { useAnalyticsTrack } from "@/data/analytics"
 import { useFindChain, useLayer1 } from "@/data/chains"
 import { LocalStorageKey } from "@/data/constants"
+import { useCreateSigningStargateClient } from "@/data/signer"
 import { useIsMobile } from "@/hooks/useIsMobile"
 import { formatValue } from "@/lib/format"
 import { useNavigate } from "@/lib/router"
 import { useModal } from "@/public/app/ModalContext"
+import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useSkipAsset } from "./data/assets"
 import { useSkipBalance, useSkipBalancesQuery } from "./data/balance"
 import { useChainType, useSkipChain } from "./data/chains"
@@ -35,6 +39,7 @@ import type { FormValues } from "./data/form"
 import { useBridgeForm } from "./data/form"
 import { calculateMinimumReceived, formatDuration, formatFees } from "./data/format"
 import { useIsOpWithdrawable, useRouteErrorInfo, useRouteQuery } from "./data/simulate"
+import { useSkip } from "./data/skip"
 import BridgeAccount from "./BridgeAccount"
 import SelectedChainAsset from "./SelectedChainAsset"
 import type { RouteType } from "./SelectRouteOption"
@@ -73,6 +78,8 @@ const BridgeFields = () => {
 
   const findChain = useFindChain()
   const layer1 = useLayer1()
+  const skip = useSkip()
+  const createSigningStargateClient = useCreateSigningStargateClient()
   const srcChain = useSkipChain(srcChainId)
   const srcChainType = useChainType(srcChain)
   const dstChain = useSkipChain(dstChainId)
@@ -248,19 +255,87 @@ const BridgeFields = () => {
 
   const feeTokenDenoms = getFeeTokenDenomsForSourceChain()
   const isSourceFeeToken = feeTokenDenoms.includes(srcDenom)
-  const sourceFeeAmountRequired = additionalFees.reduce((total, fee) => {
-    if (fee.origin_asset.denom !== srcDenom) return total
-    return total.plus(fee.amount ?? "0")
-  }, BigNumber(0))
-  const sourceBalanceAfterSwap = BigNumber(srcBalance?.amount ?? "0").minus(route?.amount_in ?? "0")
-  const hasEstimatedSourceFee = sourceFeeAmountRequired.gt(0)
-  const shouldWarnInsufficientFeeByEstimate =
-    hasEstimatedSourceFee && sourceBalanceAfterSwap.lt(sourceFeeAmountRequired)
-  const shouldWarnInsufficientFeeByDustFallback =
-    !hasEstimatedSourceFee && sourceBalanceAfterSwap.lte(1)
-  const shouldWarnInsufficientFeeBalanceAfterSwap =
+  const shouldEstimateGasFeeWarning =
+    !!route &&
+    !route.required_op_hook &&
+    srcChainType === "initia" &&
+    dstChainType === "initia" &&
     isSourceFeeToken &&
-    (shouldWarnInsufficientFeeByEstimate || shouldWarnInsufficientFeeByDustFallback)
+    !!sender &&
+    !!values.recipient
+  const { data: simulatedSourceFeeAmount } = useQuery({
+    queryKey: [
+      "interwovenkit:bridge:simulated-source-fee",
+      srcChainId,
+      srcDenom,
+      sender,
+      values.recipient,
+      slippagePercent,
+      route?.amount_in,
+      route?.amount_out,
+      route?.operations,
+      route?.required_chain_addresses,
+    ],
+    queryFn: async () => {
+      try {
+        if (!route || !sender) return null
+        const gasPrice = srcChain.fee_assets.find((asset) => asset.denom === srcDenom)?.gas_price
+          ?.average
+        if (!gasPrice) return null
+
+        const addressList = route.required_chain_addresses.map((_, index) => {
+          if (index === route.required_chain_addresses.length - 1) {
+            return InitiaAddress(values.recipient).bech32
+          }
+          return InitiaAddress(sender).bech32
+        })
+
+        const { txs } = await skip
+          .post("v2/fungible/msgs", {
+            json: {
+              address_list: addressList,
+              amount_in: route.amount_in,
+              amount_out: route.amount_out,
+              source_asset_chain_id: route.source_asset_chain_id,
+              source_asset_denom: route.source_asset_denom,
+              dest_asset_chain_id: route.dest_asset_chain_id,
+              dest_asset_denom: route.dest_asset_denom,
+              slippage_tolerance_percent: slippagePercent,
+              operations: route.operations,
+            },
+          })
+          .json<MsgsResponseJson>()
+        const tx = txs?.[0]
+        if (!tx || !("cosmos_tx" in tx) || !tx.cosmos_tx.msgs?.length) return null
+
+        const messages = tx.cosmos_tx.msgs.map(({ msg_type_url, msg }) => {
+          const converter = aminoConverters[msg_type_url]
+          if (!converter) throw new Error(`Unsupported message type: ${msg_type_url}`)
+          return aminoTypes.fromAmino({
+            type: converter.aminoType,
+            value: JSON.parse(msg),
+          })
+        })
+
+        const client = await createSigningStargateClient(srcChainId)
+        const gas = await client.simulate(sender, messages, "")
+        return BigNumber(gas)
+          .times(DEFAULT_GAS_ADJUSTMENT)
+          .times(gasPrice)
+          .integerValue(BigNumber.ROUND_CEIL)
+          .toFixed(0)
+      } catch {
+        return null
+      }
+    },
+    enabled: shouldEstimateGasFeeWarning,
+    staleTime: 10_000,
+  })
+  const sourceBalanceAfterSwap = BigNumber(srcBalance?.amount ?? "0").minus(route?.amount_in ?? "0")
+  const hasSimulatedSourceFee =
+    !!simulatedSourceFeeAmount && BigNumber(simulatedSourceFeeAmount).gt(0)
+  const shouldWarnInsufficientFeeBalanceAfterSwap =
+    isSourceFeeToken && hasSimulatedSourceFee && sourceBalanceAfterSwap.lt(simulatedSourceFeeAmount)
 
   const renderFees = useCallback(
     (fees: FeeJson[], tooltip: string) => {
