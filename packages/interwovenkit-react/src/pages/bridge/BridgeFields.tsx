@@ -233,12 +233,6 @@ const BridgeFields = () => {
   // render
   const received = route ? formatAmount(route.amount_out, { decimals: dstAsset.decimals }) : "0"
 
-  const isMaxAmount =
-    BigNumber(quantity).gt(0) &&
-    BigNumber(quantity).isEqualTo(
-      fromBaseUnit(srcBalance?.amount, { decimals: srcBalance?.decimals ?? 0 }),
-    )
-
   const getFeeTokenDenomsForSourceChain = () => {
     switch (srcChainType) {
       case "initia":
@@ -267,7 +261,8 @@ const BridgeFields = () => {
   const hasEstimatedSourceFee = sourceFeeAmountRequired.gt(0)
   const shouldWarnInsufficientFeeByEstimate =
     hasEstimatedSourceFee && sourceBalanceAfterSwap.lt(sourceFeeAmountRequired)
-  const shouldWarnInsufficientFeeByMaxFallback = !hasEstimatedSourceFee && isMaxAmount
+  const shouldWarnInsufficientFeeByMaxFallback =
+    !hasEstimatedSourceFee && sourceBalanceAfterSwap.lte(1)
   const shouldWarnInsufficientFeeBalanceAfterSwap =
     isSourceFeeToken &&
     !hasAlternativeFeeTokenBalance &&
