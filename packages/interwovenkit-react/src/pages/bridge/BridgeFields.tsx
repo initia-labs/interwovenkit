@@ -1,6 +1,7 @@
 import type { FeeJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
 import { sentenceCase } from "change-case"
+import { isAddress } from "ethers"
 import { useCallback, useMemo, useState } from "react"
 import { useDebounceValue, useLocalStorage } from "usehooks-ts"
 import { useQuery } from "@tanstack/react-query"
@@ -228,7 +229,7 @@ const BridgeFields = () => {
 
   // render
   const received = route ? formatAmount(route.amount_out, { decimals: dstAsset.decimals }) : "0"
-  const chainFeeAssets = srcChain.fee_assets ?? []
+  const chainFeeAssets = useMemo(() => srcChain.fee_assets ?? [], [srcChain.fee_assets])
 
   const shouldEstimateGasFee =
     !!route &&
@@ -309,7 +310,17 @@ const BridgeFields = () => {
   const hasInsufficientFeeBySimulation = feeDenoms.length > 0 && !hasAvailableSimulatedFeeBalance
   const isEstimatingFeeForSwap =
     shouldEstimateGasFee && !!route && (isSimulatedFeeLoading || isSimulatedFeeFetching)
-  const fallbackFeeTokenDenoms = chainFeeAssets.map(({ denom }) => denom)
+  const fallbackFeeTokenDenoms = useMemo(() => {
+    switch (srcChainType) {
+      case "initia":
+      case "cosmos":
+        return chainFeeAssets.map(({ denom }) => denom)
+      case "evm":
+        return !isAddress(srcDenom) ? [srcDenom] : []
+      default:
+        return []
+    }
+  }, [chainFeeAssets, srcChainType, srcDenom])
   const hasAnyFallbackFeeBalanceAfterSwap = fallbackFeeTokenDenoms.some((denom) => {
     const balance = BigNumber(balances?.[denom]?.amount ?? "0")
     const spendAmount = denom === srcDenom ? BigNumber(route?.amount_in ?? "0") : BigNumber(0)
@@ -319,6 +330,7 @@ const BridgeFields = () => {
     !!route &&
     !isEstimatingFeeForSwap &&
     feeDenoms.length === 0 &&
+    fallbackFeeTokenDenoms.length > 0 &&
     !hasAnyFallbackFeeBalanceAfterSwap
   const hasInsufficientFeeBalanceForSwap =
     hasInsufficientFeeBySimulation || hasInsufficientFeeByFallback
