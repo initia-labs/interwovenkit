@@ -35,6 +35,62 @@ interface Props {
   mode: TransferMode
 }
 
+type RouteStatus = "disabled" | "loading" | "ready" | "no-route" | "server-error" | "refresh-failed"
+
+function getRouteStatus({
+  disabledMessage,
+  routeForState,
+  routeError,
+  isNoRouteError,
+  isServerError,
+}: {
+  disabledMessage?: string
+  routeForState?: unknown
+  routeError: Error | null
+  isNoRouteError: boolean
+  isServerError: boolean
+}): RouteStatus {
+  if (disabledMessage) return "disabled"
+  if (routeForState) return "ready"
+  if (!routeError) return "loading"
+  if (isNoRouteError) return "no-route"
+  if (isServerError) return "server-error"
+  return "refresh-failed"
+}
+
+function shouldRenderPreviewFooter({
+  hasRouteState,
+  routeStatus,
+}: {
+  hasRouteState: boolean
+  routeStatus: RouteStatus
+}): boolean {
+  if (!hasRouteState) return false
+  return (
+    routeStatus !== "disabled" &&
+    routeStatus !== "no-route" &&
+    routeStatus !== "server-error" &&
+    routeStatus !== "refresh-failed"
+  )
+}
+
+function getRouteStatusText({
+  routeStatus,
+  disabledMessage,
+  isRouteSynced,
+}: {
+  routeStatus: RouteStatus
+  disabledMessage?: string
+  isRouteSynced: boolean
+}): string | undefined {
+  if (routeStatus === "disabled") return disabledMessage
+  if (routeStatus === "loading") return "Fetching route..."
+  if (routeStatus === "ready" && !isRouteSynced) return "Fetching route..."
+  if (routeStatus === "no-route") return "No route found"
+  if (routeStatus === "server-error") return "Server error"
+  if (routeStatus === "refresh-failed") return "Failed to refresh route"
+}
+
 const TransferFields = ({ mode }: Props) => {
   const modeConfig = useTransferMode(mode)
   const navigate = useNavigate()
@@ -79,6 +135,7 @@ const TransferFields = ({ mode }: Props) => {
   const externalChain = selectedExternalChainId ? findChain(selectedExternalChainId) : null
 
   const balance = balances?.[srcChainId]?.[srcDenom]?.amount
+  const hasChainBalanceSnapshot = !!balances && srcChainId in balances
   const price = balances?.[srcChainId]?.[srcDenom]?.price || 0
 
   const quantityValue = BigNumber(price || 0).times(rawQuantity || 0)
@@ -93,11 +150,13 @@ const TransferFields = ({ mode }: Props) => {
     const quantityBn = BigNumber(rawQuantity || 0)
     if (!quantityBn.isFinite() || quantityBn.lte(0)) return "Enter amount"
 
-    const balanceAmount = fromBaseUnit(balance ?? "0", { decimals: amountAsset?.decimals || 6 })
-    if (quantityBn.gt(balanceAmount)) return "Insufficient balance"
+    if (hasChainBalanceSnapshot) {
+      const balanceAmount = fromBaseUnit(balance ?? "0", { decimals: amountAsset?.decimals || 6 })
+      if (quantityBn.gt(balanceAmount)) return "Insufficient balance"
+    }
 
     if (mode === "withdraw" && !externalAsset) return "Select destination"
-  }, [mode, rawQuantity, balance, amountAsset, externalAsset])
+  }, [mode, rawQuantity, balance, amountAsset, externalAsset, hasChainBalanceSnapshot])
 
   const {
     data: route,
@@ -113,26 +172,21 @@ const TransferFields = ({ mode }: Props) => {
   const routeForState = !disabledMessage && !isNoRouteError ? route : undefined
   const quoteVerifiedAt = routeForState && routeUpdatedAt > 0 ? routeUpdatedAt : undefined
   const isServerError = routeError instanceof HTTPError && routeError.response.status === 500
-  const routeStatus = (() => {
-    if (disabledMessage) return "disabled" as const
-    if (routeForState) return "ready" as const
-    if (!routeError) return "loading" as const
-    if (isNoRouteError) return "no-route" as const
-    if (isServerError) return "server-error" as const
-    return "refresh-failed" as const
-  })()
+  const routeStatus = getRouteStatus({
+    disabledMessage,
+    routeForState,
+    routeError,
+    isNoRouteError,
+    isServerError,
+  })
   const isRouteSynced = routeStatus === "ready" && state.route === routeForState
   const isRouteTransitioning =
     routeStatus === "loading" || (routeStatus === "ready" && !isRouteSynced)
-  const routeStatusText = (() => {
-    if (routeStatus === "disabled") return disabledMessage
-    if (routeStatus === "loading") return "Fetching route..."
-    if (routeStatus === "ready" && !isRouteSynced) return "Fetching route..."
-    if (routeStatus === "no-route") return "No route found"
-    if (routeStatus === "server-error") return "Server error"
-    if (routeStatus === "refresh-failed") return "Failed to refresh route"
-    return undefined
-  })()
+  const canRenderPreviewFooter = shouldRenderPreviewFooter({
+    hasRouteState: !!state.route,
+    routeStatus,
+  })
+  const routeStatusText = getRouteStatusText({ routeStatus, disabledMessage, isRouteSynced })
 
   const updateNavigationState = useEffectEvent(() => {
     navigate(
@@ -292,7 +346,7 @@ const TransferFields = ({ mode }: Props) => {
 
       {(chainsError || balancesError) && <Status error>Failed to load balances</Status>}
 
-      {!isRouteSynced ? (
+      {!canRenderPreviewFooter ? (
         <Footer>
           <Button.White
             type="submit"
@@ -309,9 +363,18 @@ const TransferFields = ({ mode }: Props) => {
             <FooterWithSignedOpHook>
               {(signedOpHook) => (
                 <FooterWithMsgs addressList={addressList} signedOpHook={signedOpHook}>
-                  {(tx) => (
+                  {(tx, { isFetchingMessages }) => (
                     <FooterWithTxFee tx={tx}>
-                      {(gas) => <TransferFooter tx={tx} gas={gas} mode={mode} />}
+                      {(gas, { isEstimatingGas }) => (
+                        <TransferFooter
+                          tx={tx}
+                          gas={gas}
+                          mode={mode}
+                          isRouteTransitioning={isRouteTransitioning}
+                          isFetchingMessages={isFetchingMessages}
+                          isEstimatingGas={isEstimatingGas}
+                        />
+                      )}
                     </FooterWithTxFee>
                   )}
                 </FooterWithMsgs>

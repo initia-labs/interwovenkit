@@ -1,5 +1,5 @@
 import type { MsgsResponseJson, TxJson } from "@skip-go/client"
-import { useEffect, useMemo, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useState } from "react"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import { useSkip } from "./data/skip"
@@ -7,12 +7,10 @@ import type { SignedOpHook } from "./data/tx"
 import { useBridgePreviewState } from "./data/tx"
 import FooterWithError from "./FooterWithError"
 
-import type { ReactNode } from "react"
-
 interface Props {
   addressList: string[]
   signedOpHook?: SignedOpHook
-  children: (data: TxJson) => ReactNode
+  children: (data: TxJson, status: { isFetchingMessages: boolean }) => ReactNode
 }
 
 const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
@@ -99,7 +97,7 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
     return <FooterWithError error={error} />
   }
 
-  if (loading || !value) {
+  if (!value) {
     return (
       <Footer>
         <Button.White loading={"Fetching messages..."} />
@@ -107,7 +105,7 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
     )
   }
 
-  return children(value)
+  return children(value, { isFetchingMessages: loading })
 }
 
 export default FooterWithMsgs

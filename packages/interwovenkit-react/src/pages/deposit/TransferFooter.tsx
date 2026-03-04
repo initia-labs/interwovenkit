@@ -22,19 +22,33 @@ interface Props {
   tx: TxJson
   gas: number | null
   mode: TransferMode
+  isRouteTransitioning?: boolean
+  isFetchingMessages?: boolean
+  isEstimatingGas?: boolean
 }
 
 interface FooterBaseProps {
   tx: TxJson
   confirmMessage: "Deposit" | "Withdraw"
   onCompleted: (result: BridgeTxResult) => void
+  isRouteTransitioning?: boolean
+  isFetchingMessages?: boolean
+  isEstimatingGas?: boolean
 }
 
 interface FooterWithFeeProps extends FooterBaseProps {
   gas: number
 }
 
-const TransferFooterWithFee = ({ tx, gas, confirmMessage, onCompleted }: FooterWithFeeProps) => {
+const TransferFooterWithFee = ({
+  tx,
+  gas,
+  confirmMessage,
+  onCompleted,
+  isRouteTransitioning,
+  isFetchingMessages,
+  isEstimatingGas,
+}: FooterWithFeeProps) => {
   const { values } = useBridgePreviewState()
   const { srcChainId, srcDenom, quantity } = values
   const skipAssets = useAllSkipAssets()
@@ -101,6 +115,7 @@ const TransferFooterWithFee = ({ tx, gas, confirmMessage, onCompleted }: FooterW
   }
 
   const [feeDenom, setFeeDenom] = useState(getInitialFeeDenom)
+  const loadingStateProps = { isRouteTransitioning, isFetchingMessages, isEstimatingGas }
 
   const selectedFee = feeOptions.find((fee) => fee.amount[0].denom === feeDenom) ?? undefined
 
@@ -171,13 +186,23 @@ const TransferFooterWithFee = ({ tx, gas, confirmMessage, onCompleted }: FooterW
           onCompleted={onCompleted}
           confirmMessage={confirmMessage}
           error={balanceError}
+          {...loadingStateProps}
         />
       </FooterWithErc20Approval>
     </>
   )
 }
 
-const TransferFooterWithoutFee = ({ tx, confirmMessage, onCompleted }: FooterBaseProps) => {
+const TransferFooterWithoutFee = ({
+  tx,
+  confirmMessage,
+  onCompleted,
+  isRouteTransitioning,
+  isFetchingMessages,
+  isEstimatingGas,
+}: FooterBaseProps) => {
+  const loadingStateProps = { isRouteTransitioning, isFetchingMessages, isEstimatingGas }
+
   return (
     <>
       <TransferTxDetails />
@@ -187,14 +212,23 @@ const TransferFooterWithoutFee = ({ tx, confirmMessage, onCompleted }: FooterBas
           fee={undefined}
           onCompleted={onCompleted}
           confirmMessage={confirmMessage}
+          {...loadingStateProps}
         />
       </FooterWithErc20Approval>
     </>
   )
 }
 
-const TransferFooter = ({ tx, gas, mode }: Props) => {
+const TransferFooter = ({
+  tx,
+  gas,
+  mode,
+  isRouteTransitioning,
+  isFetchingMessages,
+  isEstimatingGas,
+}: Props) => {
   const { setValue } = useTransferForm()
+  const loadingStateProps = { isRouteTransitioning, isFetchingMessages, isEstimatingGas }
 
   const onCompleted = (result: BridgeTxResult) => {
     setValue("page", "completed")
@@ -206,7 +240,12 @@ const TransferFooter = ({ tx, gas, mode }: Props) => {
   // TransferFooterWithFee assumes `gas` exists and `tx` is a cosmos tx.
   if (!gas || !("cosmos_tx" in tx)) {
     return (
-      <TransferFooterWithoutFee tx={tx} onCompleted={onCompleted} confirmMessage={confirmMessage} />
+      <TransferFooterWithoutFee
+        tx={tx}
+        onCompleted={onCompleted}
+        confirmMessage={confirmMessage}
+        {...loadingStateProps}
+      />
     )
   }
 
@@ -216,6 +255,7 @@ const TransferFooter = ({ tx, gas, mode }: Props) => {
       gas={gas}
       onCompleted={onCompleted}
       confirmMessage={confirmMessage}
+      {...loadingStateProps}
     />
   )
 }

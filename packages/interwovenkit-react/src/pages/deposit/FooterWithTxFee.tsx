@@ -2,8 +2,6 @@ import type { TxJson } from "@skip-go/client"
 import { useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { aminoConverters } from "@initia/amino-converter"
-import Button from "@/components/Button"
-import Footer from "@/components/Footer"
 import { useAminoTypes, useCreateSigningStargateClient } from "@/data/signer"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useBridgePreviewState } from "../bridge/data/tx"
@@ -16,7 +14,7 @@ const queryKeys = createQueryKeys("interwovenkit:tx-gas-estimate", {
 
 interface Props {
   tx: TxJson
-  children: (gas: number | null) => ReactNode
+  children: (gas: number | null, status: { isEstimatingGas: boolean }) => ReactNode
 }
 
 const FooterWithTxFee = ({ tx, children }: Props) => {
@@ -26,7 +24,11 @@ const FooterWithTxFee = ({ tx, children }: Props) => {
   const aminoTypes = useAminoTypes()
   const createSigningStargateClient = useCreateSigningStargateClient()
 
-  const { data: gasEstimate, isLoading } = useQuery({
+  const {
+    data: gasEstimate,
+    isLoading,
+    isFetching,
+  } = useQuery({
     queryKey: queryKeys.estimate({ tx, address, chainId: srcChainId }).queryKey,
     queryFn: async () => {
       // Only simulate for cosmos transactions
@@ -59,17 +61,10 @@ const FooterWithTxFee = ({ tx, children }: Props) => {
     enabled: !!tx && "cosmos_tx" in tx && !!address && !!srcChainId,
   })
 
-  if (isLoading) {
-    return (
-      <Footer>
-        <Button.White loading="Estimating gas..." />
-      </Footer>
-    )
-  }
-
   // Pass the gas estimate to children (null if not a cosmos tx or if estimation failed)
   const gas = gasEstimate?.estimatedGas ?? null
-  return <>{children(gas)}</>
+  const isEstimatingGas = "cosmos_tx" in tx && (isLoading || isFetching)
+  return <>{children(gas, { isEstimatingGas })}</>
 }
 
 export default FooterWithTxFee
