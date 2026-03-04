@@ -259,8 +259,19 @@ const BridgeFields = () => {
     const balance = balances?.[denom]?.amount ?? "0"
     return BigNumber(balance).gt(0)
   })
+  const sourceFeeAmountRequired = additionalFees.reduce((total, fee) => {
+    if (fee.origin_asset.denom !== srcDenom) return total
+    return total.plus(fee.amount ?? "0")
+  }, BigNumber(0))
+  const sourceBalanceAfterSwap = BigNumber(srcBalance?.amount ?? "0").minus(route?.amount_in ?? "0")
+  const hasEstimatedSourceFee = sourceFeeAmountRequired.gt(0)
+  const shouldWarnInsufficientFeeByEstimate =
+    hasEstimatedSourceFee && sourceBalanceAfterSwap.lt(sourceFeeAmountRequired)
+  const shouldWarnInsufficientFeeByMaxFallback = !hasEstimatedSourceFee && isMaxAmount
   const shouldWarnInsufficientFeeBalanceAfterSwap =
-    isMaxAmount && isSourceFeeToken && !hasAlternativeFeeTokenBalance
+    isSourceFeeToken &&
+    !hasAlternativeFeeTokenBalance &&
+    (shouldWarnInsufficientFeeByEstimate || shouldWarnInsufficientFeeByMaxFallback)
 
   const renderFees = useCallback(
     (fees: FeeJson[], tooltip: string) => {
