@@ -39,10 +39,11 @@ const SelectExternalAsset = ({ mode }: Props) => {
   const selectedExternalDenom = values[external.denomKey]
   const selectedExternalChainId = values[external.chainIdKey]
 
-  const singleAssetOptionKey =
-    !isLoading && filteredAssets.length === 1
-      ? `${filteredAssets[0].chain.chain_id}:${filteredAssets[0].asset.denom}`
-      : ""
+  const hasSingleOption = !isLoading && filteredAssets.length === 1
+
+  const singleAssetOptionKey = hasSingleOption
+    ? `${filteredAssets[0].chain.chain_id}:${filteredAssets[0].asset.denom}`
+    : ""
 
   const applyAutoSelection = useEffectEvent(() => {
     if (!singleAssetOptionKey) return
@@ -65,6 +66,8 @@ const SelectExternalAsset = ({ mode }: Props) => {
   useEffect(() => {
     applyAutoSelection()
   }, [singleAssetOptionKey])
+
+  if (hasSingleOption) return null
 
   function renderBackButton() {
     const isExternalSelected = selectedExternalDenom && selectedExternalChainId

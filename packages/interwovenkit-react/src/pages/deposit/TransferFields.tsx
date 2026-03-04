@@ -1,9 +1,18 @@
 import BigNumber from "bignumber.js"
 import { HTTPError } from "ky"
-import { useEffect, useEffectEvent, useMemo } from "react"
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
 import { formatAmount, fromBaseUnit } from "@initia/utils"
+import AsyncBoundary from "@/components/AsyncBoundary"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import QuantityInput from "@/components/form/QuantityInput"
@@ -29,6 +38,7 @@ import {
 } from "./hooks"
 import { buildTransferLocationState, type TransferLocationState } from "./state"
 import TransferFooter from "./TransferFooter"
+import TransferTxDetails from "./TransferTxDetails"
 import styles from "./Fields.module.css"
 
 interface Props {
@@ -99,6 +109,10 @@ const TransferFields = ({ mode }: Props) => {
   const findChain = useFindSkipChain()
   const { data: balances, error: balancesError, chainsError } = useAllBalancesQuery()
   const hexAddress = useHexAddress()
+  const [feeRenderer, setFeeRenderer] = useState<(() => ReactNode) | undefined>()
+  const handleFeeRendererChange = useCallback((renderer: (() => ReactNode) | undefined) => {
+    setFeeRenderer(() => renderer)
+  }, [])
 
   const { watch, setValue, getValues } = useTransferForm()
   const values = watch()
@@ -201,11 +215,8 @@ const TransferFields = ({ mode }: Props) => {
     )
   })
 
-  // quoteVerifiedAt is intentionally excluded from deps.
-  // It derives from dataUpdatedAt, which changes on every 10s refetch even when
-  // route data is identical. Including it would trigger unnecessary navigate(0, ...) calls.
-  // useEffectEvent ensures the latest quoteVerifiedAt is captured when the effect does run.
-  useEffect(() => {
+  // Sync before paint to prevent flash of the simple footer.
+  useLayoutEffect(() => {
     updateNavigationState()
   }, [routeForState, hexAddress])
 
@@ -346,6 +357,8 @@ const TransferFields = ({ mode }: Props) => {
 
       {(chainsError || balancesError) && <Status error>Failed to load balances</Status>}
 
+      {canRenderPreviewFooter && <TransferTxDetails renderFee={feeRenderer} />}
+
       {!canRenderPreviewFooter ? (
         <Footer>
           <Button.White
@@ -366,14 +379,23 @@ const TransferFields = ({ mode }: Props) => {
                   {(tx, { isFetchingMessages }) => (
                     <FooterWithTxFee tx={tx}>
                       {(gas, { isEstimatingGas }) => (
-                        <TransferFooter
-                          tx={tx}
-                          gas={gas}
-                          mode={mode}
-                          isRouteTransitioning={isRouteTransitioning}
-                          isFetchingMessages={isFetchingMessages}
-                          isEstimatingGas={isEstimatingGas}
-                        />
+                        <AsyncBoundary
+                          suspenseFallback={
+                            <Footer>
+                              <Button.White loading="Estimating gas..." disabled fullWidth />
+                            </Footer>
+                          }
+                        >
+                          <TransferFooter
+                            tx={tx}
+                            gas={gas}
+                            mode={mode}
+                            isRouteTransitioning={isRouteTransitioning}
+                            isFetchingMessages={isFetchingMessages}
+                            isEstimatingGas={isEstimatingGas}
+                            onFeeRendererChange={handleFeeRendererChange}
+                          />
+                        </AsyncBoundary>
                       )}
                     </FooterWithTxFee>
                   )}

@@ -2,7 +2,7 @@ import type { StdFee } from "@cosmjs/stargate"
 import { calculateFee, GasPrice } from "@cosmjs/stargate"
 import type { TxJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
-import { useState } from "react"
+import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { formatAmount } from "@initia/utils"
 import Dropdown, { type DropdownOption } from "@/components/Dropdown"
 import { useBalances } from "@/data/account"
@@ -15,8 +15,9 @@ import { useAllSkipAssets } from "../bridge/data/assets"
 import { type BridgeTxResult, useBridgePreviewState } from "../bridge/data/tx"
 import FooterWithErc20Approval from "../bridge/FooterWithErc20Approval"
 import { type TransferMode, useTransferForm } from "./hooks"
-import TransferTxDetails from "./TransferTxDetails"
 import styles from "./TransferFooter.module.css"
+
+type FeeRenderer = (() => ReactNode) | undefined
 
 interface Props {
   tx: TxJson
@@ -25,19 +26,13 @@ interface Props {
   isRouteTransitioning?: boolean
   isFetchingMessages?: boolean
   isEstimatingGas?: boolean
+  onFeeRendererChange?: (renderer: FeeRenderer) => void
 }
 
-interface FooterBaseProps {
-  tx: TxJson
+interface FooterWithFeeProps extends Omit<Props, "gas" | "mode"> {
+  gas: number
   confirmMessage: "Deposit" | "Withdraw"
   onCompleted: (result: BridgeTxResult) => void
-  isRouteTransitioning?: boolean
-  isFetchingMessages?: boolean
-  isEstimatingGas?: boolean
-}
-
-interface FooterWithFeeProps extends FooterBaseProps {
-  gas: number
 }
 
 const TransferFooterWithFee = ({
@@ -48,6 +43,7 @@ const TransferFooterWithFee = ({
   isRouteTransitioning,
   isFetchingMessages,
   isEstimatingGas,
+  onFeeRendererChange,
 }: FooterWithFeeProps) => {
   const { values } = useBridgePreviewState()
   const { srcChainId, srcDenom, quantity } = values
@@ -176,46 +172,29 @@ const TransferFooterWithFee = ({
     )
   }
 
-  return (
-    <>
-      <TransferTxDetails renderFee={feeOptions.length > 0 ? renderFee : undefined} />
-      <FooterWithErc20Approval tx={tx}>
-        <BridgePreviewFooter
-          tx={tx}
-          fee={selectedFee}
-          onCompleted={onCompleted}
-          confirmMessage={confirmMessage}
-          error={balanceError}
-          {...loadingStateProps}
-        />
-      </FooterWithErc20Approval>
-    </>
+  const feeKey = useMemo(
+    () => (feeOptions.length > 0 ? `${feeDenom}:${selectedFee?.amount[0].amount}` : null),
+    [feeOptions.length, feeDenom, selectedFee],
   )
-}
 
-const TransferFooterWithoutFee = ({
-  tx,
-  confirmMessage,
-  onCompleted,
-  isRouteTransitioning,
-  isFetchingMessages,
-  isEstimatingGas,
-}: FooterBaseProps) => {
-  const loadingStateProps = { isRouteTransitioning, isFetchingMessages, isEstimatingGas }
+  useEffect(() => {
+    const renderer = feeKey ? () => renderFee() : undefined
+    onFeeRendererChange?.(renderer)
+    return () => onFeeRendererChange?.(undefined)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feeKey, onFeeRendererChange])
 
   return (
-    <>
-      <TransferTxDetails />
-      <FooterWithErc20Approval tx={tx}>
-        <BridgePreviewFooter
-          tx={tx}
-          fee={undefined}
-          onCompleted={onCompleted}
-          confirmMessage={confirmMessage}
-          {...loadingStateProps}
-        />
-      </FooterWithErc20Approval>
-    </>
+    <FooterWithErc20Approval tx={tx}>
+      <BridgePreviewFooter
+        tx={tx}
+        fee={selectedFee}
+        onCompleted={onCompleted}
+        confirmMessage={confirmMessage}
+        error={balanceError}
+        {...loadingStateProps}
+      />
+    </FooterWithErc20Approval>
   )
 }
 
@@ -226,6 +205,7 @@ const TransferFooter = ({
   isRouteTransitioning,
   isFetchingMessages,
   isEstimatingGas,
+  onFeeRendererChange,
 }: Props) => {
   const { setValue } = useTransferForm()
   const loadingStateProps = { isRouteTransitioning, isFetchingMessages, isEstimatingGas }
@@ -237,15 +217,17 @@ const TransferFooter = ({
 
   const confirmMessage = mode === "withdraw" ? "Withdraw" : "Deposit"
 
-  // TransferFooterWithFee assumes `gas` exists and `tx` is a cosmos tx.
   if (!gas || !("cosmos_tx" in tx)) {
     return (
-      <TransferFooterWithoutFee
-        tx={tx}
-        onCompleted={onCompleted}
-        confirmMessage={confirmMessage}
-        {...loadingStateProps}
-      />
+      <FooterWithErc20Approval tx={tx}>
+        <BridgePreviewFooter
+          tx={tx}
+          fee={undefined}
+          onCompleted={onCompleted}
+          confirmMessage={confirmMessage}
+          {...loadingStateProps}
+        />
+      </FooterWithErc20Approval>
     )
   }
 
@@ -255,6 +237,7 @@ const TransferFooter = ({
       gas={gas}
       onCompleted={onCompleted}
       confirmMessage={confirmMessage}
+      onFeeRendererChange={onFeeRendererChange}
       {...loadingStateProps}
     />
   )
