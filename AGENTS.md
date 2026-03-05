@@ -58,7 +58,6 @@ Package-level (from `packages/interwovenkit-react/`):
 
 ```bash
 pnpm build:fast    # Fast build (skips rollup type bundling)
-pnpm release       # standard-version bump + changelog
 ```
 
 ## Code Conventions
@@ -147,4 +146,4 @@ Run: `pnpm test`
 - **Build output**: ES module (`.js`) + CommonJS (`.cjs`), CSS extracted as both `.css` file and string `.js` export, `*.d.ts` declarations bundled
 - **Path alias**: `@/*` maps to `src/*`
 - **Pre-commit**: lint-staged runs ESLint + Prettier on staged files via simple-git-hooks
-- **Release**: standard-version for versioning and CHANGELOG generation
+- **Release**: release-please automates versioning, CHANGELOG, and GitHub Releases via Release PR on `main`
