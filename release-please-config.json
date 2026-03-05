@@ -1,0 +1,7 @@
+{
+  "packages": {
+    "packages/interwovenkit-react": {
+      "release-type": "node"
+    }
+  }
+}
