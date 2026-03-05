@@ -5,6 +5,7 @@ import Image from "@/components/Image"
 import Loader from "@/components/Loader"
 import Scrollable from "@/components/Scrollable"
 import { normalizeWalletName } from "./normalizeWalletName"
+import { prioritizeSignInWallets } from "./prioritizeSignInWallets"
 import styles from "./Connect.module.css"
 
 const MoreDotsIcon = () => (
@@ -90,6 +91,8 @@ const POPULAR_WALLETS = [
   },
 ]
 
+const SIGN_IN_WALLET_LIMIT = 5
+
 interface Props {
   walletConnectors: Connector[]
   privyConnector: Connector | undefined
@@ -112,13 +115,17 @@ const SignIn = ({
   onPrefetchWallets,
 }: Props) => {
   const readyConnectors = walletConnectors.filter((c) => !("ready" in c) || Boolean(c.ready))
-  const suggestedWallets = readyConnectors.slice(0, 5)
+  const suggestedWallets = prioritizeSignInWallets(
+    readyConnectors,
+    POPULAR_WALLETS,
+    SIGN_IN_WALLET_LIMIT,
+  )
   const readyConnectorIds = new Set(readyConnectors.map((c) => c.id))
   const readyConnectorNamesNormalized = new Set(
     readyConnectors.map((c) => normalizeWalletName(c.name)),
   )
 
-  const slotsToFill = Math.max(0, 5 - suggestedWallets.length)
+  const slotsToFill = Math.max(0, SIGN_IN_WALLET_LIMIT - suggestedWallets.length)
   const popularToShow = POPULAR_WALLETS.filter(
     (w) =>
       !readyConnectorIds.has(w.id) &&
