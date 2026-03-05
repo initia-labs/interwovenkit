@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.4.7](https://github.com/initia-labs/interwovenkit/compare/v2.4.6...v2.4.7) (2026-03-05)
+
+
+### Bug Fixes
+
+* **bridge:** suppress fee warning when alt gas token has balance ([d1909c1](https://github.com/initia-labs/interwovenkit/commit/d1909c109d52dc0e2a02607c87028e42c8ab34f0))
+* **deposit:** harden route error state handling   ([229ef5b](https://github.com/initia-labs/interwovenkit/commit/229ef5b97151bbebc6e2a247dc266a1bc402d3c1))
+* simplify TransferTxDetails ([886c29f](https://github.com/initia-labs/interwovenkit/commit/886c29f67e39e048ed27f15571174b2505fb870c))
+
 ### [2.4.6](https://github.com/initia-labs/interwovenkit/compare/v2.4.5...v2.4.6) (2026-03-02)
 
 ### Features
