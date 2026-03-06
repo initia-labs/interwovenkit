@@ -3,7 +3,7 @@ import { IconCheck, IconClockFilled } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
 import Skeleton from "@/components/Skeleton"
 import { formatValue } from "@/lib/format"
-import { useSkipAsset } from "./data/assets"
+import { useSkipAssetMaybe } from "./data/assets"
 import { useBridgeForm } from "./data/form"
 import { formatDuration } from "./data/format"
 import type { useRouteQuery } from "./data/simulate"
@@ -29,7 +29,7 @@ const SelectRouteOption = ({ label, query, value, onSelect, ...props }: Props) =
   const { data: route, isLoading } = query
   const { watch } = useBridgeForm()
   const { dstChainId, dstDenom } = watch()
-  const dstAsset = useSkipAsset(dstDenom, dstChainId)
+  const dstAsset = useSkipAssetMaybe(dstDenom, dstChainId)
 
   const checked = !isLoading && props.checked
   const disabled = !isLoading && !route
@@ -71,7 +71,7 @@ const SelectRouteOption = ({ label, query, value, onSelect, ...props }: Props) =
             {isLoading ? (
               <Skeleton width={260} height={40} />
             ) : !route ? null : (
-              formatAmount(route.amount_out, { decimals: dstAsset.decimals })
+              formatAmount(route.amount_out, { decimals: dstAsset?.decimals ?? 0 })
             )}
           </div>
 

@@ -1,0 +1,306 @@
+.wrapper {
+  margin-top: 8px;
+}
+
+.bar {
+  display: grid;
+  align-items: center;
+
+  background-color: var(--gray-8);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+
+  transition: border-color 200ms ease;
+}
+
+.barClosed {
+  cursor: pointer;
+}
+
+.barConfirmed {
+  border-color: var(--success);
+  transition: border-color 150ms ease-out;
+}
+
+.barClosed:hover {
+  border-color: var(--gray-6);
+}
+
+.bar:focus-within {
+  border-color: var(--gray-5);
+}
+
+.trigger {
+  grid-area: 1 / 1;
+
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  color: var(--dimmed);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+
+  opacity: 1;
+  padding: 5px 10px;
+  text-align: left;
+  transition:
+    opacity 150ms ease-out 80ms,
+    color 150ms ease;
+}
+
+.triggerIcon {
+  flex: none;
+}
+
+.barClosed:hover .trigger {
+  color: var(--gray-2);
+}
+
+.triggerHidden {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 100ms ease-out;
+}
+
+.inputContent {
+  grid-area: 1 / 1;
+
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  opacity: 0;
+  padding-right: 4px;
+  pointer-events: none;
+  transition: opacity 100ms ease-out;
+}
+
+.inputContentVisible {
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 150ms ease-out 80ms;
+}
+
+.inputWrapper {
+  position: relative;
+
+  flex: 1;
+
+  min-width: 0;
+}
+
+.input,
+.ghost {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  padding: 4px 0 4px 10px;
+}
+
+.input {
+  position: relative;
+  z-index: 1;
+
+  flex: 1;
+
+  width: 100%;
+
+  background: transparent;
+  border: none;
+  caret-color: var(--gray-0);
+  color: var(--gray-0);
+  min-width: 0;
+
+  &:focus {
+    outline: none;
+  }
+}
+
+@keyframes placeholder-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.placeholder {
+  position: absolute;
+  inset: 0;
+
+  display: flex;
+  align-items: center;
+
+  animation: placeholder-in 250ms cubic-bezier(0.32, 0.72, 0, 1);
+
+  color: var(--dimmed);
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  padding: 4px 0 4px 10px;
+  pointer-events: none;
+}
+
+.ghost {
+  position: absolute;
+  inset: 0;
+
+  width: 100%;
+
+  background: transparent;
+  border: none;
+  color: var(--gray-5);
+  pointer-events: none;
+}
+
+.tabHint {
+  flex: none;
+
+  border: 1px solid var(--gray-6);
+  border-radius: 4px;
+  color: var(--gray-4);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  padding: 2px 5px;
+}
+
+.submitButton {
+  flex: none;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  width: 22px;
+  height: 22px;
+
+  background-color: var(--gray-0);
+  border-radius: 6px;
+  color: var(--gray-9);
+
+  transition: opacity var(--transition) ease;
+
+  &:hover {
+    opacity: 0.8;
+  }
+}
+
+.confirmIcon {
+  flex: none;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  width: 22px;
+  height: 22px;
+
+  animation: confirm-pop 250ms cubic-bezier(0.32, 0.72, 0, 1);
+
+  background-color: var(--success);
+  border-radius: 6px;
+  color: var(--gray-9);
+}
+
+@keyframes confirm-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.closeButton {
+  flex: none;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  width: 22px;
+  height: 22px;
+
+  color: var(--dimmed);
+
+  transition: color var(--transition) ease;
+
+  &:hover {
+    color: var(--gray-1);
+  }
+}
+
+.feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 12px 8px;
+}
+
+.feedbackRoute {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.amount {
+  color: var(--gray-1);
+  font-family: var(--monospace);
+  font-size: 11px;
+  font-weight: 600;
+  transition: color var(--transition) ease;
+}
+
+.amountInsufficient {
+  color: var(--error);
+}
+
+.arrow {
+  flex: none;
+
+  color: var(--dimmed);
+}
+
+.chip {
+  flex: none;
+
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  border-radius: 4px;
+  color: var(--gray-2);
+  font-size: 11px;
+  padding: 3px 0;
+
+  white-space: nowrap;
+}
+
+.chipMissing {
+  color: var(--gray-5);
+  font-style: italic;
+}
+
+.insufficientHint {
+  color: var(--error);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.separator {
+  color: var(--gray-5);
+}

@@ -1,0 +1,44 @@
+.row {
+  gap: 8px;
+}
+
+.info {
+  flex: 1;
+
+  display: grid;
+
+  min-width: 0;
+}
+
+.symbol {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chain {
+  color: var(--dimmed);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.balance {
+  display: grid;
+
+  font-family: var(--monospace);
+  opacity: 0;
+  text-align: right;
+  transition: opacity 0.2s ease;
+}
+
+.balance:not(:empty) {
+  opacity: 1;
+}
+
+.value {
+  color: var(--dimmed);
+  font-size: 12px;
+}

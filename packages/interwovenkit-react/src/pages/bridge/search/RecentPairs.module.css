@@ -1,0 +1,41 @@
+.container {
+  display: grid;
+}
+
+.label {
+  color: var(--dimmed);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 8px var(--padding);
+  text-transform: uppercase;
+}
+
+.item {
+  gap: 8px;
+
+  width: 100%;
+
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px var(--padding);
+
+  transition: background-color var(--transition) ease;
+
+  &:hover {
+    background-color: var(--gray-8);
+  }
+
+  &:last-of-type {
+    border-bottom: 0;
+  }
+}
+
+.symbol {
+  font-weight: 600;
+}
+
+.arrow {
+  color: var(--dimmed);
+}

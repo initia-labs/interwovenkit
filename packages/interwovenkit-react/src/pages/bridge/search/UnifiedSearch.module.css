@@ -1,0 +1,9 @@
+.container {
+  display: grid;
+
+  overflow: hidden;
+}
+
+.list {
+  overflow-y: auto;
+}

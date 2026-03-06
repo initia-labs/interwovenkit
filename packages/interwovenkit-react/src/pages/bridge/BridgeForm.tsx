@@ -32,15 +32,19 @@ const BridgeForm = () => {
   const { watch, setValue } = form
   const { srcChainId, dstChainId, srcDenom, dstDenom, quantity, slippagePercent, recipient } =
     // React Hook Form's watch() is safe, React Compiler warning can be ignored
-    // eslint-disable-next-line react-hooks/incompatible-library
     watch()
 
-  watch((_, { name }) => {
-    if (name === "srcChainId" || name === "srcDenom") {
-      // Use setValue instead of resetField to prevent localStorage values from appearing unexpectedly
-      setValue("quantity", "", { shouldTouch: false, shouldDirty: false })
-    }
-  })
+  useEffect(() => {
+    // React Hook Form's watch subscription is safe, React Compiler warning can be ignored
+    // eslint-disable-next-line react-hooks/incompatible-library
+    const subscription = watch((_, { name }) => {
+      if (name === "srcChainId" || name === "srcDenom") {
+        // Use setValue instead of resetField to prevent localStorage values from appearing unexpectedly
+        setValue("quantity", "", { shouldTouch: false, shouldDirty: false })
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [watch, setValue])
 
   // address
   const getDefaultAddress = useGetDefaultAddress()
@@ -134,13 +138,11 @@ const BridgeForm = () => {
         </>
       }
     >
-      {isSrcDenomValid && isDstDenomValid && (
-        <FormProvider {...form}>
-          <AsyncBoundary>
-            <BridgeFields />
-          </AsyncBoundary>
-        </FormProvider>
-      )}
+      <FormProvider {...form}>
+        <AsyncBoundary>
+          <BridgeFields />
+        </AsyncBoundary>
+      </FormProvider>
     </Page>
   )
 }
