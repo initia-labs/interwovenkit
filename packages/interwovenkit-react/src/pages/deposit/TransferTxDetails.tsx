@@ -1,3 +1,4 @@
+import { useId } from "react"
 import clsx from "clsx"
 import { useToggle } from "usehooks-ts"
 import { IconChevronDown } from "@initia/icons-react"
@@ -28,6 +29,7 @@ const TransferTxDetails = ({ renderFee }: Props) => {
   const walletIcon = useConnectedWalletIcon()
 
   const [isDetailsOpen, toggleOpen] = useToggle(false)
+  const detailsId = useId()
 
   const isLongDuration = route && route.estimated_route_duration_seconds > 60
 
@@ -38,7 +40,13 @@ const TransferTxDetails = ({ renderFee }: Props) => {
   return (
     <div className={styles.detailsContainer}>
       <div>
-        <button className={styles.detailsButton} onClick={toggleOpen}>
+        <button
+          type="button"
+          className={styles.detailsButton}
+          onClick={toggleOpen}
+          aria-expanded={isDetailsOpen}
+          aria-controls={detailsId}
+        >
           Transaction details{" "}
           <IconChevronDown
             size={12}
@@ -46,7 +54,7 @@ const TransferTxDetails = ({ renderFee }: Props) => {
           />
         </button>
         <AnimatedHeight>
-          <div>
+          <div id={detailsId}>
             {isDetailsOpen && (
               <div className={styles.expandableDetails}>
                 {route.does_swap && (

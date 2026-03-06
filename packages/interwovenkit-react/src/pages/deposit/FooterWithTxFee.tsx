@@ -1,8 +1,8 @@
 import type { TxJson } from "@skip-go/client"
 import { useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
-import { aminoConverters } from "@initia/amino-converter"
-import { useAminoTypes, useCreateSigningStargateClient } from "@/data/signer"
+import { decodeCosmosAminoMessages } from "@/data/decodeAminoMessages"
+import { useAminoConverters, useAminoTypes, useCreateSigningStargateClient } from "@/data/signer"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useBridgePreviewState } from "../bridge/data/tx"
 
@@ -21,6 +21,7 @@ const FooterWithTxFee = ({ tx, children }: Props) => {
   const { values } = useBridgePreviewState()
   const { srcChainId } = values
   const address = useInitiaAddress()
+  const aminoConverters = useAminoConverters()
   const aminoTypes = useAminoTypes()
   const createSigningStargateClient = useCreateSigningStargateClient()
 
@@ -36,14 +37,9 @@ const FooterWithTxFee = ({ tx, children }: Props) => {
       if (!tx.cosmos_tx.msgs) return null
 
       try {
-        // Parse the messages from the transaction
-        const messages = tx.cosmos_tx.msgs.map(({ msg_type_url, msg }) => {
-          if (!(msg_type_url && msg)) throw new Error("Invalid transaction data")
-          // Note: `typeUrl` comes in proto format, but `msg` is in amino format.
-          return aminoTypes.fromAmino({
-            type: aminoConverters[msg_type_url].aminoType,
-            value: JSON.parse(msg),
-          })
+        const messages = decodeCosmosAminoMessages(tx.cosmos_tx.msgs, {
+          converters: aminoConverters,
+          fromAmino: aminoTypes.fromAmino.bind(aminoTypes),
         })
 
         // Use the same approach as estimateGas in tx.ts

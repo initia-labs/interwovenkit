@@ -2,7 +2,7 @@ import type { StdFee } from "@cosmjs/stargate"
 import { calculateFee, GasPrice } from "@cosmjs/stargate"
 import type { TxJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
-import { type ReactNode, useEffect, useEffectEvent, useMemo, useState } from "react"
+import { type ReactNode, useCallback, useEffect, useEffectEvent, useMemo, useState } from "react"
 import { formatAmount } from "@initia/utils"
 import Dropdown, { type DropdownOption } from "@/components/Dropdown"
 import { useBalances } from "@/data/account"
@@ -66,7 +66,7 @@ const TransferFooterWithFee = ({
 
   const feeCoins = feeOptions.map((fee) => fee.amount[0])
 
-  const getFeeDetails = (feeDenom: string) => {
+  const getFeeDetails = useCallback((feeDenom: string) => {
     const balance = balances.find((balance) => balance.denom === feeDenom)?.amount ?? "0"
     const feeAmount = feeCoins.find((coin) => coin.denom === feeDenom)?.amount ?? "0"
 
@@ -92,9 +92,9 @@ const TransferFooterWithFee = ({
       balance,
       isSufficient,
     }
-  }
+  }, [balances, feeCoins, findAsset, quantity, srcAsset, srcDenom])
 
-  const getInitialFeeDenom = () => {
+  const getInitialFeeDenom = useCallback(() => {
     if (!feeCoins.length) return null
 
     if (lastUsedFeeDenom && getFeeDetails(lastUsedFeeDenom).isSufficient) {
@@ -108,10 +108,21 @@ const TransferFooterWithFee = ({
     }
 
     return feeCoins[0]?.denom
-  }
+  }, [feeCoins, getFeeDetails, lastUsedFeeDenom])
 
   const [feeDenom, setFeeDenom] = useState(getInitialFeeDenom)
   const loadingStateProps = { isRouteTransitioning, isFetchingMessages, isEstimatingGas }
+
+  useEffect(() => {
+    setFeeDenom((currentFeeDenom) => {
+      const hasCurrentFeeDenom = feeCoins.some(({ denom }) => denom === currentFeeDenom)
+      if (currentFeeDenom && hasCurrentFeeDenom && getFeeDetails(currentFeeDenom).isSufficient) {
+        return currentFeeDenom
+      }
+
+      return getInitialFeeDenom()
+    })
+  }, [feeCoins, getFeeDetails, getInitialFeeDenom])
 
   const selectedFee = feeOptions.find((fee) => fee.amount[0].denom === feeDenom) ?? undefined
 

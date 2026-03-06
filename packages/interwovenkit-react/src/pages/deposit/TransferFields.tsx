@@ -5,7 +5,6 @@ import {
   useCallback,
   useEffect,
   useEffectEvent,
-  useLayoutEffect,
   useMemo,
   useState,
 } from "react"
@@ -17,6 +16,7 @@ import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import QuantityInput from "@/components/form/QuantityInput"
 import Status from "@/components/Status"
+import useIsomorphicLayoutEffect from "@/hooks/useIsomorphicLayoutEffect"
 import { formatValue } from "@/lib/format"
 import { useLocationState, useNavigate } from "@/lib/router"
 import { useHexAddress } from "@/public/data/hooks"
@@ -158,13 +158,24 @@ const TransferFields = ({ mode }: Props) => {
     const quantityBn = BigNumber(rawQuantity || 0)
     if (!quantityBn.isFinite() || quantityBn.lte(0)) return "Enter amount"
 
-    if (hasChainBalanceSnapshot) {
-      const balanceAmount = fromBaseUnit(balance ?? "0", { decimals: amountAsset?.decimals || 6 })
-      if (quantityBn.gt(balanceAmount)) return "Insufficient balance"
+    if (mode === "withdraw" && !externalAsset) return "Select destination"
+
+    if (!hasChainBalanceSnapshot) {
+      return balancesError || chainsError ? "Failed to load balances" : "Loading balances..."
     }
 
-    if (mode === "withdraw" && !externalAsset) return "Select destination"
-  }, [mode, rawQuantity, balance, amountAsset, externalAsset, hasChainBalanceSnapshot])
+    const balanceAmount = fromBaseUnit(balance ?? "0", { decimals: amountAsset?.decimals || 6 })
+    if (quantityBn.gt(balanceAmount)) return "Insufficient balance"
+  }, [
+    amountAsset,
+    balance,
+    balancesError,
+    chainsError,
+    externalAsset,
+    hasChainBalanceSnapshot,
+    mode,
+    rawQuantity,
+  ])
 
   const {
     data: route,
@@ -210,7 +221,7 @@ const TransferFields = ({ mode }: Props) => {
   })
 
   // Sync before paint to prevent flash of the simple footer.
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     updateNavigationState()
   }, [routeForState, hexAddress])
 
