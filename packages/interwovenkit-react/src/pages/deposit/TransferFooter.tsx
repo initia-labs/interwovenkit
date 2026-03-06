@@ -220,8 +220,15 @@ const TransferFooter = ({
   }
 
   const confirmMessage = mode === "withdraw" ? "Withdraw" : "Deposit"
+  const isNonCosmosPath = !gas || !("cosmos_tx" in tx)
 
-  if (!gas || !("cosmos_tx" in tx)) {
+  useEffect(() => {
+    if (isNonCosmosPath) {
+      onFeeRendererChange?.(undefined)
+    }
+  }, [isNonCosmosPath, onFeeRendererChange])
+
+  if (isNonCosmosPath) {
     return (
       <FooterWithErc20Approval tx={tx}>
         <BridgePreviewFooter
