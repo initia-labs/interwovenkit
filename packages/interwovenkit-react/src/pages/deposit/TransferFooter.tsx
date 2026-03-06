@@ -2,7 +2,7 @@ import type { StdFee } from "@cosmjs/stargate"
 import { calculateFee, GasPrice } from "@cosmjs/stargate"
 import type { TxJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
-import { type ReactNode, useCallback, useEffect, useEffectEvent, useMemo, useState } from "react"
+import { type ReactNode, useEffect, useEffectEvent, useState } from "react"
 import { formatAmount } from "@initia/utils"
 import Dropdown, { type DropdownOption } from "@/components/Dropdown"
 import { useBalances } from "@/data/account"
@@ -65,8 +65,7 @@ const TransferFooterWithFee = ({
   )
 
   const feeCoins = feeOptions.map((fee) => fee.amount[0])
-
-  const getFeeDetails = useCallback((feeDenom: string) => {
+  const getFeeDetails = (feeDenom: string) => {
     const balance = balances.find((balance) => balance.denom === feeDenom)?.amount ?? "0"
     const feeAmount = feeCoins.find((coin) => coin.denom === feeDenom)?.amount ?? "0"
 
@@ -80,7 +79,6 @@ const TransferFooterWithFee = ({
 
     const totalRequired = BigNumber(feeAmount).plus(spendAmount)
     const isSufficient = BigNumber(balance).gte(totalRequired)
-
     const { symbol, decimals } = findAsset(feeDenom)
 
     return {
@@ -92,42 +90,35 @@ const TransferFooterWithFee = ({
       balance,
       isSufficient,
     }
-  }, [balances, feeCoins, findAsset, quantity, srcAsset, srcDenom])
+  }
 
-  const getInitialFeeDenom = useCallback(() => {
-    if (!feeCoins.length) return null
+  const [preferredFeeDenom, setPreferredFeeDenom] = useState<string | null>(null)
+  const loadingStateProps = { isRouteTransitioning, isFetchingMessages, isEstimatingGas }
 
-    if (lastUsedFeeDenom && getFeeDetails(lastUsedFeeDenom).isSufficient) {
+  const feeDenom = (() => {
+    if (
+      preferredFeeDenom &&
+      feeCoins.some(({ denom }) => denom === preferredFeeDenom) &&
+      getFeeDetails(preferredFeeDenom)?.isSufficient
+    ) {
+      return preferredFeeDenom
+    }
+
+    if (
+      lastUsedFeeDenom &&
+      feeCoins.some(({ denom }) => denom === lastUsedFeeDenom) &&
+      getFeeDetails(lastUsedFeeDenom)?.isSufficient
+    ) {
       return lastUsedFeeDenom
     }
 
-    for (const { denom: feeDenom } of feeCoins) {
-      if (getFeeDetails(feeDenom).isSufficient) {
-        return feeDenom
-      }
-    }
-
-    return feeCoins[0]?.denom
-  }, [feeCoins, getFeeDetails, lastUsedFeeDenom])
-
-  const [feeDenom, setFeeDenom] = useState(getInitialFeeDenom)
-  const loadingStateProps = { isRouteTransitioning, isFetchingMessages, isEstimatingGas }
-
-  useEffect(() => {
-    setFeeDenom((currentFeeDenom) => {
-      const hasCurrentFeeDenom = feeCoins.some(({ denom }) => denom === currentFeeDenom)
-      if (currentFeeDenom && hasCurrentFeeDenom && getFeeDetails(currentFeeDenom).isSufficient) {
-        return currentFeeDenom
-      }
-
-      return getInitialFeeDenom()
-    })
-  }, [feeCoins, getFeeDetails, getInitialFeeDenom])
+    return feeCoins.find(({ denom }) => getFeeDetails(denom)?.isSufficient)?.denom ?? feeCoins[0]?.denom
+  })()
 
   const selectedFee = feeOptions.find((fee) => fee.amount[0].denom === feeDenom) ?? undefined
 
   // Check if balance is sufficient for both fee and transfer amount
-  const feeDetails = feeDenom ? getFeeDetails(feeDenom) : null
+  const feeDetails = feeDenom ? getFeeDetails(feeDenom) ?? null : null
   const balanceError = feeDetails && !feeDetails.isSufficient ? "Insufficient balance" : undefined
 
   // Helper functions for fee display
@@ -176,7 +167,7 @@ const TransferFooterWithFee = ({
         <Dropdown
           options={dropdownOptions}
           value={feeDenom}
-          onChange={setFeeDenom}
+          onChange={setPreferredFeeDenom}
           classNames={styles}
         />
       </div>
@@ -184,10 +175,7 @@ const TransferFooterWithFee = ({
   }
 
   const selectedFeeAmount = selectedFee?.amount[0].amount
-  const feeKey = useMemo(
-    () => (feeOptions.length > 0 ? `${feeDenom}:${selectedFeeAmount}` : null),
-    [feeOptions.length, feeDenom, selectedFeeAmount],
-  )
+  const feeKey = feeOptions.length > 0 ? `${feeDenom}:${selectedFeeAmount}` : null
 
   const getRenderer = useEffectEvent((): FeeRenderer => {
     return feeKey ? () => renderFee() : undefined

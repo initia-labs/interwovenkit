@@ -1,5 +1,5 @@
-import { useId } from "react"
 import clsx from "clsx"
+import { useId } from "react"
 import { useToggle } from "usehooks-ts"
 import { IconChevronDown } from "@initia/icons-react"
 import { formatAmount, truncate } from "@initia/utils"

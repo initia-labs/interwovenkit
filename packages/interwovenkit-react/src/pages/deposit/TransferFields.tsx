@@ -6,6 +6,7 @@ import {
   useEffect,
   useEffectEvent,
   useMemo,
+  useRef,
   useState,
 } from "react"
 import { useDebounceValue } from "usehooks-ts"
@@ -206,8 +207,16 @@ const TransferFields = ({ mode }: Props) => {
     routeStatus,
   })
   const routeStatusText = getRouteStatusText({ routeStatus, disabledMessage, isRouteSynced })
+  const latestRouteSyncRef = useRef({ quoteVerifiedAt, state })
 
-  const updateNavigationState = useEffectEvent(() => {
+  useEffect(() => {
+    latestRouteSyncRef.current = { quoteVerifiedAt, state }
+  }, [quoteVerifiedAt, state])
+
+  // Sync before paint to prevent flash of the simple footer.
+  useIsomorphicLayoutEffect(() => {
+    const { quoteVerifiedAt, state } = latestRouteSyncRef.current
+
     navigate(
       0,
       buildTransferLocationState({
@@ -218,12 +227,7 @@ const TransferFields = ({ mode }: Props) => {
         values: getValues(),
       }),
     )
-  })
-
-  // Sync before paint to prevent flash of the simple footer.
-  useIsomorphicLayoutEffect(() => {
-    updateNavigationState()
-  }, [routeForState, hexAddress])
+  }, [getValues, hexAddress, navigate, routeForState])
 
   const applyAutoExternalOption = useEffectEvent(() => {
     if (!autoExternalAssetOption) return
