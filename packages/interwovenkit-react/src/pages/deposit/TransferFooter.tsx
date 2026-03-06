@@ -112,13 +112,15 @@ const TransferFooterWithFee = ({
       return lastUsedFeeDenom
     }
 
-    return feeCoins.find(({ denom }) => getFeeDetails(denom)?.isSufficient)?.denom ?? feeCoins[0]?.denom
+    return (
+      feeCoins.find(({ denom }) => getFeeDetails(denom)?.isSufficient)?.denom ?? feeCoins[0]?.denom
+    )
   })()
 
   const selectedFee = feeOptions.find((fee) => fee.amount[0].denom === feeDenom) ?? undefined
 
   // Check if balance is sufficient for both fee and transfer amount
-  const feeDetails = feeDenom ? getFeeDetails(feeDenom) ?? null : null
+  const feeDetails = feeDenom ? (getFeeDetails(feeDenom) ?? null) : null
   const balanceError = feeDetails && !feeDetails.isSufficient ? "Insufficient balance" : undefined
 
   // Helper functions for fee display
