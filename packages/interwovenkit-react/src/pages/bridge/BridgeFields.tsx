@@ -83,6 +83,8 @@ function getFallbackFeeTokenDenoms({
   }
 }
 
+const MIN_FALLBACK_FEE_REMAINDER = BigNumber(1)
+
 const BridgeFields = () => {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
@@ -343,7 +345,7 @@ const BridgeFields = () => {
     [chainFeeAssets, srcChainType, srcDenom],
   )
   const hasFallbackFeeBalanceAfterSwap = fallbackFeeTokenDenoms.some((denom) =>
-    getRemainingBalanceAfterSwap(denom).gt(0),
+    getRemainingBalanceAfterSwap(denom).gt(MIN_FALLBACK_FEE_REMAINDER),
   )
   const shouldCheckFallbackFeeBalance =
     !!route && !isEstimatingFeeForSwap && !hasSimulatedFeeCheck && fallbackFeeTokenDenoms.length > 0
