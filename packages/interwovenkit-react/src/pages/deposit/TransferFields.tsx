@@ -216,7 +216,6 @@ const TransferFields = ({ mode }: Props) => {
         values: getValues(),
       }),
     )
-     
   }, [hexAddress, routeForState])
 
   const applyAutoExternalOption = useEffectEvent(() => {
