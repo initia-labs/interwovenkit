@@ -1,14 +1,6 @@
 import BigNumber from "bignumber.js"
 import { HTTPError } from "ky"
-import {
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useEffectEvent,
-  useMemo,
-  useRef,
-  useState,
-} from "react"
+import { type ReactNode, useCallback, useEffect, useEffectEvent, useMemo, useState } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
 import { formatAmount, fromBaseUnit } from "@initia/utils"
@@ -207,16 +199,9 @@ const TransferFields = ({ mode }: Props) => {
     routeStatus,
   })
   const routeStatusText = getRouteStatusText({ routeStatus, disabledMessage, isRouteSynced })
-  const latestRouteSyncRef = useRef({ quoteVerifiedAt, state })
-
-  useEffect(() => {
-    latestRouteSyncRef.current = { quoteVerifiedAt, state }
-  }, [quoteVerifiedAt, state])
 
   // Sync before paint to prevent flash of the simple footer.
   useIsomorphicLayoutEffect(() => {
-    const { quoteVerifiedAt, state } = latestRouteSyncRef.current
-
     navigate(
       0,
       buildTransferLocationState({
@@ -227,7 +212,7 @@ const TransferFields = ({ mode }: Props) => {
         values: getValues(),
       }),
     )
-  }, [getValues, hexAddress, navigate, routeForState])
+  }, [getValues, hexAddress, navigate, routeForState, quoteVerifiedAt, state])
 
   const applyAutoExternalOption = useEffectEvent(() => {
     if (!autoExternalAssetOption) return
