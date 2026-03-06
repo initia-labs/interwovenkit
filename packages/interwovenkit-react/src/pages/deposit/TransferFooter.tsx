@@ -60,11 +60,15 @@ const TransferFooterWithFee = ({
   const findAsset = useFindAsset(chain)
 
   // Only calculate fees for cosmos transactions with valid gas
-  const feeOptions: StdFee[] = gasPrices.map(({ amount, denom }) =>
-    calculateFee(Math.ceil(gas * DEFAULT_GAS_ADJUSTMENT), GasPrice.fromString(amount + denom)),
+  const feeOptions: StdFee[] = useMemo(
+    () =>
+      gasPrices.map(({ amount, denom }) =>
+        calculateFee(Math.ceil(gas * DEFAULT_GAS_ADJUSTMENT), GasPrice.fromString(amount + denom)),
+      ),
+    [gasPrices, gas],
   )
 
-  const feeCoins = feeOptions.map((fee) => fee.amount[0])
+  const feeCoins = useMemo(() => feeOptions.map((fee) => fee.amount[0]), [feeOptions])
 
   const getFeeDetails = useCallback((feeDenom: string) => {
     const balance = balances.find((balance) => balance.denom === feeDenom)?.amount ?? "0"
