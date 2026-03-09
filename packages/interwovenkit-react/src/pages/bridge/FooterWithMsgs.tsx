@@ -68,7 +68,6 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
         setValue(tx)
       } catch (error) {
         if (cancelled) return
-        setValue(undefined)
         setError(error as Error)
       } finally {
         if (!cancelled) setLoading(false)
