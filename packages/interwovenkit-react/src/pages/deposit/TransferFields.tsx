@@ -102,7 +102,6 @@ function shouldSyncTransferNavigationState({
   nextState: TransferLocationState
 }): boolean {
   if (currentState.route !== nextState.route) return true
-  if (currentState.quoteVerifiedAt !== nextState.quoteVerifiedAt) return true
 
   const currentAddresses = getTransferStateAddresses(currentState)
   const nextAddresses = getTransferStateAddresses(nextState)
@@ -125,7 +124,7 @@ const TransferFields = ({ mode }: Props) => {
   const { watch, setValue, getValues } = useTransferForm()
   const values = watch()
   const { srcChainId, srcDenom, quantity: rawQuantity = "" } = values
-  const { quoteVerifiedAt: currentQuoteVerifiedAt, recipientAddress, route: currentRoute } = state
+  const { recipientAddress, route: currentRoute } = state
   const selectedExternalDenom = values[modeConfig.external.denomKey]
   const selectedExternalChainId = values[modeConfig.external.chainIdKey]
 
@@ -230,6 +229,8 @@ const TransferFields = ({ mode }: Props) => {
   // Sync before paint to prevent flash of the simple footer.
   // Depend on the specific primitives that can change the derived location state
   // without depending on the full `state` object, which would loop after navigate().
+  // quoteVerifiedAt is intentionally excluded because it tracks React Query's
+  // dataUpdatedAt and would trigger a no-op navigate on every background refetch.
   useIsomorphicLayoutEffect(() => {
     const nextState = buildTransferLocationState({
       currentState: state,
@@ -242,16 +243,7 @@ const TransferFields = ({ mode }: Props) => {
     if (!shouldSyncTransferNavigationState({ currentState: state, nextState })) return
 
     navigate(0, nextState)
-  }, [
-    currentQuoteVerifiedAt,
-    currentRoute,
-    getValues,
-    hexAddress,
-    navigate,
-    quoteVerifiedAt,
-    recipientAddress,
-    routeForState,
-  ])
+  }, [currentRoute, getValues, hexAddress, navigate, recipientAddress, routeForState])
 
   const applyAutoExternalOption = useEffectEvent(() => {
     if (!autoExternalAssetOption) return

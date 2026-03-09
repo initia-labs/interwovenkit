@@ -29,7 +29,7 @@ interface Props {
 }
 
 interface FooterWithFeeProps extends Omit<Props, "gas" | "mode"> {
-  gas: number
+  gas: number | null
   confirmMessage: "Deposit" | "Withdraw"
   onCompleted: (result: BridgeTxResult) => void
 }
@@ -58,10 +58,15 @@ const TransferFooterWithFee = ({
   const lastUsedFeeDenom = useLastFeeDenom(chain)
   const findAsset = useFindAsset(chain)
 
-  // Only calculate fees for cosmos transactions with valid gas
-  const feeOptions: StdFee[] = gasPrices.map(({ amount, denom }) =>
-    calculateFee(Math.ceil(gas * DEFAULT_GAS_ADJUSTMENT), GasPrice.fromString(amount + denom)),
-  )
+  const feeOptions: StdFee[] =
+    gas == null
+      ? []
+      : gasPrices.map(({ amount, denom }) =>
+          calculateFee(
+            Math.ceil(gas * DEFAULT_GAS_ADJUSTMENT),
+            GasPrice.fromString(amount + denom),
+          ),
+        )
 
   const feeOptionsByDenom = new Map(
     feeOptions.map((fee) => {
@@ -224,7 +229,7 @@ const TransferFooter = ({
 
   const confirmMessage = mode === "withdraw" ? "Withdraw" : "Deposit"
 
-  if (!gas || !("cosmos_tx" in tx)) {
+  if (!("cosmos_tx" in tx)) {
     return (
       <>
         <TransferTxDetails />
