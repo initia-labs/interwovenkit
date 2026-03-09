@@ -1,4 +1,5 @@
 import { toBase64 } from "@cosmjs/encoding"
+import type { EncodeObject } from "@cosmjs/proto-signing"
 import { calculateFee, GasPrice, SigningStargateClient, type StdFee } from "@cosmjs/stargate"
 import type { StatusResponseJson, TrackResponseJson, TxJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
@@ -58,6 +59,28 @@ interface OpHookResponse {
   }[]
 }
 
+export function decodeCosmosAminoMessages(
+  msgs: Array<{ msg_type_url?: string; msg?: string }> | undefined,
+  options: {
+    fromAmino: (value: { type: string; value: unknown }) => EncodeObject
+    converters: Record<string, { aminoType: string }>
+  },
+): EncodeObject[] {
+  if (!msgs?.length) throw new Error("Invalid transaction data")
+
+  return msgs.map(({ msg_type_url, msg }) => {
+    if (!(msg_type_url && msg)) throw new Error("Invalid transaction data")
+
+    const converter = options.converters[msg_type_url]
+    if (!converter) throw new Error(`Unsupported message type: ${msg_type_url}`)
+
+    return options.fromAmino({
+      type: converter.aminoType,
+      value: JSON.parse(msg),
+    })
+  })
+}
+
 export function useBridgePreviewState() {
   return useLocationState<BridgePreviewState>()
 }
@@ -109,14 +132,9 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
     mutationFn: async () => {
       try {
         if ("cosmos_tx" in tx) {
-          if (!tx.cosmos_tx.msgs) throw new Error("Invalid transaction data")
-          const messages = tx.cosmos_tx.msgs.map(({ msg_type_url, msg }) => {
-            if (!(msg_type_url && msg)) throw new Error("Invalid transaction data")
-
-            return aminoTypes.fromAmino({
-              type: aminoConverters[msg_type_url].aminoType,
-              value: JSON.parse(msg),
-            })
+          const messages = decodeCosmosAminoMessages(tx.cosmos_tx.msgs, {
+            converters: aminoConverters,
+            fromAmino: aminoTypes.fromAmino.bind(aminoTypes),
           })
 
           if (srcChainType === "initia") {
@@ -344,11 +362,9 @@ export function useSignOpHook() {
 
         await waitForAccountCreation(initiaAddress, findSkipChain(route.dest_asset_chain_id).rest)
 
-        const messages = hook.map(({ msg_type_url, msg }) => {
-          return aminoTypes.fromAmino({
-            type: aminoConverters[msg_type_url].aminoType,
-            value: JSON.parse(msg),
-          })
+        const messages = decodeCosmosAminoMessages(hook, {
+          converters: aminoConverters,
+          fromAmino: aminoTypes.fromAmino.bind(aminoTypes),
         })
 
         // Sequence handling for minievm chains:
