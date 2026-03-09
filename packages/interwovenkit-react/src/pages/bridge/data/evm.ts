@@ -1,4 +1,5 @@
-import type { BrowserProvider } from "ethers"
+import type { BrowserProvider, JsonRpcSigner, TransactionRequest } from "ethers"
+import { ethers } from "ethers"
 import { path } from "ramda"
 import type { RouterChainJson } from "./chains"
 
@@ -35,4 +36,32 @@ export async function switchEthereumChain(provider: BrowserProvider, chain: Rout
       { chainId: `0x${Number(chain_id).toString(16)}` },
     ])
   }
+}
+
+const erc20Interface = new ethers.Interface([
+  "function approve(address spender, uint256 amount) external returns (bool)",
+])
+
+export function createErc20ApproveTx({
+  tokenContract,
+  spender,
+  amount,
+}: {
+  tokenContract: string
+  spender: string
+  amount: string
+}): TransactionRequest {
+  return {
+    to: tokenContract,
+    data: erc20Interface.encodeFunctionData("approve", [spender, amount]),
+  }
+}
+
+export async function sendUncheckedEvmTransaction(
+  signer: Pick<JsonRpcSigner, "sendUncheckedTransaction">,
+  provider: Pick<BrowserProvider, "waitForTransaction">,
+  tx: TransactionRequest,
+) {
+  const txHash = await signer.sendUncheckedTransaction(tx)
+  return { txHash, wait: provider.waitForTransaction(txHash) }
 }

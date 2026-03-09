@@ -26,7 +26,7 @@ import { waitForAccountCreation } from "./account"
 import { useFindSkipAsset } from "./assets"
 import { useChainType, useFindSkipChain, useSkipChain } from "./chains"
 import { useCosmosWallets } from "./cosmos"
-import { switchEthereumChain } from "./evm"
+import { sendUncheckedEvmTransaction, switchEthereumChain } from "./evm"
 import type { FormValues } from "./form"
 import type { HistoryDetails } from "./history"
 import { useBridgeHistoryList } from "./history"
@@ -171,10 +171,12 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
           const provider = await getProvider()
           const signer = await provider.getSigner()
           await switchEthereumChain(provider, srcChain)
-          const response = await signer.sendTransaction({ chainId, to, value, data: `0x${data}` })
-          // `wait()` is a getter on the response object. Destructuring breaks
-          // its internal binding, so keep the original object intact.
-          return { txHash: response.hash, wait: response.wait() }
+          return sendUncheckedEvmTransaction(signer, provider, {
+            chainId,
+            to,
+            value,
+            data: `0x${data}`,
+          })
         }
 
         throw new Error("Unlisted chain type")
