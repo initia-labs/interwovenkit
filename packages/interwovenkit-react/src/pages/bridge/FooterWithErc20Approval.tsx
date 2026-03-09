@@ -7,7 +7,7 @@ import FormHelp from "@/components/form/FormHelp"
 import { normalizeError } from "@/data/http"
 import { useGetProvider } from "@/data/signer"
 import { useFindSkipChain } from "./data/chains"
-import { switchEthereumChain } from "./data/evm"
+import { createErc20ApproveTx, sendUncheckedEvmTransaction, switchEthereumChain } from "./data/evm"
 
 import type { PropsWithChildren } from "react"
 
@@ -56,12 +56,16 @@ const FooterWithErc20Approval = ({ tx, children }: PropsWithChildren<{ tx: TxJso
 
         for (const approval of approvalsNeeded) {
           const { token_contract, spender, amount } = approval
-          const erc20Abi = [
-            "function approve(address spender, uint256 amount) external returns (bool)",
-          ]
-          const tokenContract = new ethers.Contract(token_contract, erc20Abi, signer)
-          const response = await tokenContract.approve(spender, amount)
-          await response.wait()
+          const { wait } = await sendUncheckedEvmTransaction(
+            signer,
+            provider,
+            createErc20ApproveTx({
+              tokenContract: token_contract,
+              spender,
+              amount,
+            }),
+          )
+          await wait
         }
 
         return true
