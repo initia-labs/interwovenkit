@@ -35,6 +35,7 @@ import { switchEthereumChain } from "./evm"
 import type { FormValues } from "./form"
 import type { HistoryDetails } from "./history"
 import { useBridgeHistoryList } from "./history"
+import { decodeCosmosAminoMessages } from "./messages"
 import type { RouterRouteResponseJson } from "./simulate"
 import { skipQueryKeys, useSkip } from "./skip"
 
@@ -109,14 +110,9 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
     mutationFn: async () => {
       try {
         if ("cosmos_tx" in tx) {
-          if (!tx.cosmos_tx.msgs) throw new Error("Invalid transaction data")
-          const messages = tx.cosmos_tx.msgs.map(({ msg_type_url, msg }) => {
-            if (!(msg_type_url && msg)) throw new Error("Invalid transaction data")
-
-            return aminoTypes.fromAmino({
-              type: aminoConverters[msg_type_url].aminoType,
-              value: JSON.parse(msg),
-            })
+          const messages = decodeCosmosAminoMessages(tx.cosmos_tx.msgs, {
+            converters: aminoConverters,
+            fromAmino: aminoTypes.fromAmino.bind(aminoTypes),
           })
 
           if (srcChainType === "initia") {
@@ -344,11 +340,9 @@ export function useSignOpHook() {
 
         await waitForAccountCreation(initiaAddress, findSkipChain(route.dest_asset_chain_id).rest)
 
-        const messages = hook.map(({ msg_type_url, msg }) => {
-          return aminoTypes.fromAmino({
-            type: aminoConverters[msg_type_url].aminoType,
-            value: JSON.parse(msg),
-          })
+        const messages = decodeCosmosAminoMessages(hook, {
+          converters: aminoConverters,
+          fromAmino: aminoTypes.fromAmino.bind(aminoTypes),
         })
 
         // Sequence handling for minievm chains:

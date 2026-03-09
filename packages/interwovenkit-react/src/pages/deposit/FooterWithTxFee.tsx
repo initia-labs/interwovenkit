@@ -1,4 +1,3 @@
-import type { EncodeObject } from "@cosmjs/proto-signing"
 import type { TxJson } from "@skip-go/client"
 import { useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
@@ -6,6 +5,7 @@ import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import { useAminoConverters, useAminoTypes, useCreateSigningStargateClient } from "@/data/signer"
 import { useInitiaAddress } from "@/public/data/hooks"
+import { decodeCosmosAminoMessages } from "../bridge/data/messages"
 import { useBridgePreviewState } from "../bridge/data/tx"
 
 import type { ReactNode } from "react"
@@ -17,28 +17,6 @@ const queryKeys = createQueryKeys("interwovenkit:tx-gas-estimate", {
 interface Props {
   tx: TxJson
   children: (gas: number | null, status: { isEstimatingGas: boolean }) => ReactNode
-}
-
-function decodeCosmosAminoMessages(
-  msgs: Array<{ msg_type_url?: string; msg?: string }> | undefined,
-  options: {
-    fromAmino: (value: { type: string; value: unknown }) => EncodeObject
-    converters: Record<string, { aminoType: string }>
-  },
-): EncodeObject[] {
-  if (!msgs?.length) throw new Error("Invalid transaction data")
-
-  return msgs.map(({ msg_type_url, msg }) => {
-    if (!(msg_type_url && msg)) throw new Error("Invalid transaction data")
-
-    const converter = options.converters[msg_type_url]
-    if (!converter) throw new Error(`Unsupported message type: ${msg_type_url}`)
-
-    return options.fromAmino({
-      type: converter.aminoType,
-      value: JSON.parse(msg),
-    })
-  })
 }
 
 const FooterWithTxFee = ({ tx, children }: Props) => {
