@@ -93,7 +93,7 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
     skip,
   ])
 
-  if (error) {
+  if (error && !value) {
     return <FooterWithError error={error} />
   }
 

@@ -201,10 +201,6 @@ const TransferFields = ({ mode }: Props) => {
   const routeStatusText = getRouteStatusText({ routeStatus, disabledMessage, isRouteSynced })
 
   // Sync before paint to prevent flash of the simple footer.
-  // quoteVerifiedAt is intentionally excluded from deps.
-  // It derives from dataUpdatedAt, which changes on every 10s refetch even when
-  // route data is identical. Including it would trigger unnecessary navigate(0, ...) calls.
-  // The layout effect still sees the latest render values when routeForState changes.
   useIsomorphicLayoutEffect(() => {
     navigate(
       0,
@@ -216,7 +212,7 @@ const TransferFields = ({ mode }: Props) => {
         values: getValues(),
       }),
     )
-  }, [hexAddress, routeForState])
+  }, [getValues, hexAddress, navigate, quoteVerifiedAt, routeForState, state])
 
   const applyAutoExternalOption = useEffectEvent(() => {
     if (!autoExternalAssetOption) return
