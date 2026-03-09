@@ -118,7 +118,7 @@ const TransferFields = ({ mode }: Props) => {
     !isExternalAssetOptionsLoading &&
     externalAssetOptions.length > 0 &&
     new Set(externalAssetOptions.map(({ chain }) => chain.chain_id)).size === 1
-  const autoExternalAssetOption = (() => {
+  const autoExternalAssetOption = useMemo(() => {
     if (isExternalAssetOptionsLoading || !externalAssetOptions.length) return null
     if (hasSingleExternalAssetOption) return externalAssetOptions[0]
     if (!hasSingleWithdrawChainOption) return null
@@ -129,7 +129,12 @@ const TransferFields = ({ mode }: Props) => {
 
       return optionUsd > highestUsd ? option : highest
     }, externalAssetOptions[0])
-  })()
+  }, [
+    externalAssetOptions,
+    hasSingleExternalAssetOption,
+    hasSingleWithdrawChainOption,
+    isExternalAssetOptionsLoading,
+  ])
   const autoExternalAssetOptionKey = autoExternalAssetOption
     ? `${autoExternalAssetOption.chain.chain_id}:${autoExternalAssetOption.asset.denom}`
     : ""

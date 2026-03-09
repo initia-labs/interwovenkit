@@ -64,63 +64,72 @@ const TransferFooterWithFee = ({
     calculateFee(Math.ceil(gas * DEFAULT_GAS_ADJUSTMENT), GasPrice.fromString(amount + denom)),
   )
 
-  const feeCoins = feeOptions.map((fee) => fee.amount[0])
-  const getFeeDetails = (feeDenom: string) => {
-    const balance = balances.find((balance) => balance.denom === feeDenom)?.amount ?? "0"
-    const feeAmount = feeCoins.find((coin) => coin.denom === feeDenom)?.amount ?? "0"
+  const feeOptionsByDenom = new Map(
+    feeOptions.map((fee) => {
+      const [{ denom }] = fee.amount
+      return [denom, fee]
+    }),
+  )
+  const balancesByDenom = new Map(balances.map(({ denom, amount }) => [denom, amount]))
+  const sourceSpendAmount = srcAsset
+    ? BigNumber(quantity || "0")
+        .times(BigNumber(10).pow(srcAsset.decimals))
+        .toFixed(0)
+    : "0"
+  const feeDetailsByDenom = new Map(
+    feeOptions.map((fee) => {
+      const [{ amount, denom }] = fee.amount
+      const balance = balancesByDenom.get(denom) ?? "0"
+      const spendAmount = srcAsset && srcDenom === denom ? sourceSpendAmount : "0"
+      const totalRequired = BigNumber(amount).plus(spendAmount)
+      const { symbol, decimals } = findAsset(denom)
 
-    // Calculate spend amount from the source asset
-    const spendAmount =
-      srcAsset && srcDenom === feeDenom
-        ? BigNumber(quantity || "0")
-            .times(BigNumber(10).pow(srcAsset.decimals))
-            .toFixed(0)
-        : "0"
-
-    const totalRequired = BigNumber(feeAmount).plus(spendAmount)
-    const isSufficient = BigNumber(balance).gte(totalRequired)
-    const { symbol, decimals } = findAsset(feeDenom)
-
-    return {
-      symbol,
-      decimals,
-      spend: BigNumber(spendAmount).gt(0) ? spendAmount : null,
-      fee: feeAmount,
-      total: totalRequired.toFixed(),
-      balance,
-      isSufficient,
-    }
-  }
-
+      return [
+        denom,
+        {
+          symbol,
+          decimals,
+          spend: BigNumber(spendAmount).gt(0) ? spendAmount : null,
+          fee: amount,
+          total: totalRequired.toFixed(),
+          balance,
+          isSufficient: BigNumber(balance).gte(totalRequired),
+        },
+      ]
+    }),
+  )
   const [preferredFeeDenom, setPreferredFeeDenom] = useState<string | null>(null)
   const loadingStateProps = { isRouteTransitioning, isFetchingMessages, isEstimatingGas }
 
   const feeDenom = (() => {
     if (
       preferredFeeDenom &&
-      feeCoins.some(({ denom }) => denom === preferredFeeDenom) &&
-      getFeeDetails(preferredFeeDenom)?.isSufficient
+      feeDetailsByDenom.get(preferredFeeDenom)?.isSufficient
     ) {
       return preferredFeeDenom
     }
 
     if (
       lastUsedFeeDenom &&
-      feeCoins.some(({ denom }) => denom === lastUsedFeeDenom) &&
-      getFeeDetails(lastUsedFeeDenom)?.isSufficient
+      feeDetailsByDenom.get(lastUsedFeeDenom)?.isSufficient
     ) {
       return lastUsedFeeDenom
     }
 
-    return (
-      feeCoins.find(({ denom }) => getFeeDetails(denom)?.isSufficient)?.denom ?? feeCoins[0]?.denom
-    )
+    for (const fee of feeOptions) {
+      const [{ denom }] = fee.amount
+      if (feeDetailsByDenom.get(denom)?.isSufficient) {
+        return denom
+      }
+    }
+
+    return feeOptions[0]?.amount[0].denom
   })()
 
-  const selectedFee = feeOptions.find((fee) => fee.amount[0].denom === feeDenom) ?? undefined
+  const selectedFee = feeDenom ? feeOptionsByDenom.get(feeDenom) : undefined
 
   // Check if balance is sufficient for both fee and transfer amount
-  const feeDetails = feeDenom ? (getFeeDetails(feeDenom) ?? null) : null
+  const feeDetails = feeDenom ? feeDetailsByDenom.get(feeDenom) : null
   const balanceError = feeDetails && !feeDetails.isSufficient ? "Insufficient balance" : undefined
 
   // Helper functions for fee display
