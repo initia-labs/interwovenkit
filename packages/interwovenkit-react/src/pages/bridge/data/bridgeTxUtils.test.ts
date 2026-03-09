@@ -2,7 +2,7 @@ import type { KyInstance } from "ky"
 import { fetchFirstCosmosTx } from "./bridgeTxUtils"
 
 describe("fetchFirstCosmosTx", () => {
-  const params = {
+  const params: Parameters<typeof fetchFirstCosmosTx>[1] = {
     addressList: ["init1sender", "init1recipient"],
     route: {
       amount_in: "100",
@@ -14,7 +14,7 @@ describe("fetchFirstCosmosTx", () => {
       operations: [],
     },
     slippagePercent: "1",
-  } as const
+  }
 
   it("returns the first cosmos transaction even when it is not the first tx entry", async () => {
     const json = vi.fn().mockResolvedValue({
