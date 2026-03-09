@@ -105,7 +105,7 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
     )
   }
 
-  return children(value, { isFetchingMessages: loading || !!error })
+  return children(value, { isFetchingMessages: loading })
 }
 
 export default FooterWithMsgs
