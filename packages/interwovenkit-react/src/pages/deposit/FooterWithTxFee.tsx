@@ -4,9 +4,7 @@ import { useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
-import { useConfig } from "@/data/config"
-import { patchedAminoConverters } from "@/data/patches/amino"
-import { useAminoTypes, useCreateSigningStargateClient } from "@/data/signer"
+import { useAminoConverters, useAminoTypes, useCreateSigningStargateClient } from "@/data/signer"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useBridgePreviewState } from "../bridge/data/tx"
 
@@ -47,8 +45,7 @@ const FooterWithTxFee = ({ tx, children }: Props) => {
   const { values } = useBridgePreviewState()
   const { srcChainId } = values
   const address = useInitiaAddress()
-  const config = useConfig()
-  const aminoConverters = { ...patchedAminoConverters, ...config.aminoConverters }
+  const aminoConverters = useAminoConverters()
   const aminoTypes = useAminoTypes()
   const createSigningStargateClient = useCreateSigningStargateClient()
 

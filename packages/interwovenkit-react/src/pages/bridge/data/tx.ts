@@ -6,7 +6,6 @@ import { AuthInfo, Tx, TxBody } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import { has, head } from "ramda"
 import { createElement, Fragment } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { aminoConverters } from "@initia/amino-converter"
 import { InitiaAddress, toBaseUnit } from "@initia/utils"
 import { useAnalyticsTrack } from "@/data/analytics"
 import { useFindChain, useLayer1 } from "@/data/chains"
@@ -14,7 +13,13 @@ import { useConfig } from "@/data/config"
 import { LocalStorageKey } from "@/data/constants"
 import { formatMoveError } from "@/data/errors"
 import { normalizeError, STALE_TIMES } from "@/data/http"
-import { useAminoTypes, useGetProvider, useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
+import {
+  useAminoConverters,
+  useAminoTypes,
+  useGetProvider,
+  useRegistry,
+  useSignWithEthSecp256k1,
+} from "@/data/signer"
 import { waitForTxConfirmationWithClient } from "@/data/tx"
 import { Link, useLocationState, useNavigate } from "@/lib/router"
 import { useNotification } from "@/public/app/NotificationContext"
@@ -87,6 +92,7 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
   const { requestTxSync, submitTxSync, waitForTxConfirmation } = useInterwovenKit()
   const { find } = useCosmosWallets()
   const registry = useRegistry()
+  const aminoConverters = useAminoConverters()
   const aminoTypes = useAminoTypes()
   const srcChain = useSkipChain(srcChainId)
   const srcChainType = useChainType(srcChain)
@@ -318,6 +324,7 @@ export function useSignOpHook() {
   const { route, values } = useBridgePreviewState()
   const findSkipChain = useFindSkipChain()
   const aminoTypes = useAminoTypes()
+  const aminoConverters = useAminoConverters()
 
   return useMutation({
     mutationFn: async () => {
