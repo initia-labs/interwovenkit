@@ -87,6 +87,8 @@ function getFallbackFeeTokenDenoms({
   }
 }
 
+// The fallback path only catches fully dusted balances when precise fee simulation
+// is unavailable. Real fee sufficiency is checked with estimateRequiredFeeByDenom().
 const MIN_FALLBACK_FEE_REMAINDER = BigNumber(1)
 
 function shouldEstimateRouteFee({
