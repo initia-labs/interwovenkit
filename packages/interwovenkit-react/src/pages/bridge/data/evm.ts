@@ -63,5 +63,17 @@ export async function sendUncheckedEvmTransaction(
   tx: TransactionRequest,
 ) {
   const txHash = await signer.sendUncheckedTransaction(tx)
-  return { txHash, wait: provider.waitForTransaction(txHash) }
+  const wait = provider.waitForTransaction(txHash).then((receipt) => {
+    if (receipt && receipt.status === 0) {
+      const error = new Error("transaction execution reverted") as Error & {
+        code: string
+        receipt: typeof receipt
+      }
+      error.code = "CALL_EXCEPTION"
+      error.receipt = receipt
+      throw error
+    }
+    return receipt
+  })
+  return { txHash, wait }
 }

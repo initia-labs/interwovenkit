@@ -39,4 +39,24 @@ describe("sendUncheckedEvmTransaction", () => {
     await expect(result.wait).resolves.toBe(receipt)
     expect(result.txHash).toBe("0xabc")
   })
+
+  it("throws CALL_EXCEPTION when transaction reverts", async () => {
+    const receipt = { status: 0 }
+    const signer = {
+      sendUncheckedTransaction: vi.fn().mockResolvedValue("0xabc"),
+    }
+    const provider = {
+      waitForTransaction: vi.fn().mockResolvedValue(receipt),
+    }
+    const tx = { to: "0x0000000000000000000000000000000000000001", data: "0x1234" }
+
+    const result = await sendUncheckedEvmTransaction(signer as never, provider as never, tx)
+
+    expect(result.txHash).toBe("0xabc")
+    await expect(result.wait).rejects.toMatchObject({
+      message: "transaction execution reverted",
+      code: "CALL_EXCEPTION",
+      receipt,
+    })
+  })
 })
