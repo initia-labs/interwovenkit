@@ -93,7 +93,7 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
     skip,
   ])
 
-  if (error && !value) {
+  if (error) {
     return <FooterWithError error={error} />
   }
 
@@ -105,7 +105,7 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
     )
   }
 
-  return children(value, { isFetchingMessages: loading || !!error })
+  return children(value, { isFetchingMessages: loading })
 }
 
 export default FooterWithMsgs
