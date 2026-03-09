@@ -2,7 +2,7 @@ import type { StdFee } from "@cosmjs/stargate"
 import { calculateFee, GasPrice } from "@cosmjs/stargate"
 import type { TxJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
-import { type ReactNode, useEffect, useEffectEvent, useState } from "react"
+import { useState } from "react"
 import { formatAmount } from "@initia/utils"
 import Dropdown, { type DropdownOption } from "@/components/Dropdown"
 import { useBalances } from "@/data/account"
@@ -15,18 +15,17 @@ import { useAllSkipAssets } from "../bridge/data/assets"
 import { type BridgeTxResult, useBridgePreviewState } from "../bridge/data/tx"
 import FooterWithErc20Approval from "../bridge/FooterWithErc20Approval"
 import { type TransferMode, useTransferForm } from "./hooks"
+import TransferTxDetails from "./TransferTxDetails"
 import styles from "./TransferFooter.module.css"
-
-type FeeRenderer = (() => ReactNode) | undefined
 
 interface Props {
   tx: TxJson
   gas: number | null
   mode: TransferMode
+  messageRefreshError?: string
   isRouteTransitioning?: boolean
   isFetchingMessages?: boolean
   isEstimatingGas?: boolean
-  onFeeRendererChange?: (renderer: FeeRenderer) => void
 }
 
 interface FooterWithFeeProps extends Omit<Props, "gas" | "mode"> {
@@ -40,10 +39,10 @@ const TransferFooterWithFee = ({
   gas,
   confirmMessage,
   onCompleted,
+  messageRefreshError,
   isRouteTransitioning,
   isFetchingMessages,
   isEstimatingGas,
-  onFeeRendererChange,
 }: FooterWithFeeProps) => {
   const { values } = useBridgePreviewState()
   const { srcChainId, srcDenom, quantity } = values
@@ -99,7 +98,12 @@ const TransferFooterWithFee = ({
     }),
   )
   const [preferredFeeDenom, setPreferredFeeDenom] = useState<string | null>(null)
-  const loadingStateProps = { isRouteTransitioning, isFetchingMessages, isEstimatingGas }
+  const loadingStateProps = {
+    isRouteTransitioning,
+    isFetchingMessages,
+    isEstimatingGas,
+    messageRefreshError,
+  }
 
   const feeDenom = (() => {
     if (preferredFeeDenom && feeDetailsByDenom.get(preferredFeeDenom)?.isSufficient) {
@@ -179,29 +183,20 @@ const TransferFooterWithFee = ({
     )
   }
 
-  const selectedFeeAmount = selectedFee?.amount[0].amount
-  const feeKey = feeOptions.length > 0 ? `${feeDenom}:${selectedFeeAmount}` : null
-
-  const getRenderer = useEffectEvent((): FeeRenderer => {
-    return feeKey ? () => renderFee() : undefined
-  })
-
-  useEffect(() => {
-    onFeeRendererChange?.(getRenderer())
-    return () => onFeeRendererChange?.(undefined)
-  }, [feeKey, onFeeRendererChange])
-
   return (
-    <FooterWithErc20Approval tx={tx}>
-      <BridgePreviewFooter
-        tx={tx}
-        fee={selectedFee}
-        onCompleted={onCompleted}
-        confirmMessage={confirmMessage}
-        error={balanceError}
-        {...loadingStateProps}
-      />
-    </FooterWithErc20Approval>
+    <>
+      <TransferTxDetails renderFee={feeOptions.length > 0 ? renderFee : undefined} />
+      <FooterWithErc20Approval tx={tx}>
+        <BridgePreviewFooter
+          tx={tx}
+          fee={selectedFee}
+          onCompleted={onCompleted}
+          confirmMessage={confirmMessage}
+          error={balanceError}
+          {...loadingStateProps}
+        />
+      </FooterWithErc20Approval>
+    </>
   )
 }
 
@@ -209,13 +204,18 @@ const TransferFooter = ({
   tx,
   gas,
   mode,
+  messageRefreshError,
   isRouteTransitioning,
   isFetchingMessages,
   isEstimatingGas,
-  onFeeRendererChange,
 }: Props) => {
   const { setValue } = useTransferForm()
-  const loadingStateProps = { isRouteTransitioning, isFetchingMessages, isEstimatingGas }
+  const loadingStateProps = {
+    isRouteTransitioning,
+    isFetchingMessages,
+    isEstimatingGas,
+    messageRefreshError,
+  }
 
   const onCompleted = (result: BridgeTxResult) => {
     setValue("page", "completed")
@@ -226,15 +226,18 @@ const TransferFooter = ({
 
   if (!gas || !("cosmos_tx" in tx)) {
     return (
-      <FooterWithErc20Approval tx={tx}>
-        <BridgePreviewFooter
-          tx={tx}
-          fee={undefined}
-          onCompleted={onCompleted}
-          confirmMessage={confirmMessage}
-          {...loadingStateProps}
-        />
-      </FooterWithErc20Approval>
+      <>
+        <TransferTxDetails />
+        <FooterWithErc20Approval tx={tx}>
+          <BridgePreviewFooter
+            tx={tx}
+            fee={undefined}
+            onCompleted={onCompleted}
+            confirmMessage={confirmMessage}
+            {...loadingStateProps}
+          />
+        </FooterWithErc20Approval>
+      </>
     )
   }
 
@@ -244,7 +247,6 @@ const TransferFooter = ({
       gas={gas}
       onCompleted={onCompleted}
       confirmMessage={confirmMessage}
-      onFeeRendererChange={onFeeRendererChange}
       {...loadingStateProps}
     />
   )

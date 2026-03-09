@@ -1,6 +1,6 @@
 import BigNumber from "bignumber.js"
 import { HTTPError } from "ky"
-import { type ReactNode, useCallback, useEffect, useEffectEvent, useMemo, useState } from "react"
+import { useEffect, useEffectEvent, useLayoutEffect, useMemo } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
 import { formatAmount, fromBaseUnit } from "@initia/utils"
@@ -9,7 +9,6 @@ import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import QuantityInput from "@/components/form/QuantityInput"
 import Status from "@/components/Status"
-import useIsomorphicLayoutEffect from "@/hooks/useIsomorphicLayoutEffect"
 import { formatValue } from "@/lib/format"
 import { useLocationState, useNavigate } from "@/lib/router"
 import { useHexAddress } from "@/public/data/hooks"
@@ -30,9 +29,7 @@ import {
   useTransferMode,
 } from "./hooks"
 import { buildTransferLocationState, type TransferLocationState } from "./state"
-import { shouldSyncTransferNavigationState } from "./TransferFields.utils"
 import TransferFooter from "./TransferFooter"
-import TransferTxDetails from "./TransferTxDetails"
 import styles from "./Fields.module.css"
 
 interface Props {
@@ -89,6 +86,33 @@ function getRouteStatusText({
   if (routeStatus === "refresh-failed") return "Failed to refresh route"
 }
 
+const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect
+
+function getTransferStateAddresses(state: TransferLocationState) {
+  const values = state.values as { recipient?: string; sender?: string } | undefined
+
+  return { recipient: values?.recipient, sender: values?.sender }
+}
+
+function shouldSyncTransferNavigationState({
+  currentState,
+  nextState,
+}: {
+  currentState: TransferLocationState
+  nextState: TransferLocationState
+}): boolean {
+  if (currentState.route !== nextState.route) return true
+  if (currentState.quoteVerifiedAt !== nextState.quoteVerifiedAt) return true
+
+  const currentAddresses = getTransferStateAddresses(currentState)
+  const nextAddresses = getTransferStateAddresses(nextState)
+
+  return (
+    currentAddresses.sender !== nextAddresses.sender ||
+    currentAddresses.recipient !== nextAddresses.recipient
+  )
+}
+
 const TransferFields = ({ mode }: Props) => {
   const modeConfig = useTransferMode(mode)
   const navigate = useNavigate()
@@ -97,10 +121,6 @@ const TransferFields = ({ mode }: Props) => {
   const findChain = useFindSkipChain()
   const { data: balances, error: balancesError, chainsError } = useAllBalancesQuery()
   const hexAddress = useHexAddress()
-  const [feeRenderer, setFeeRenderer] = useState<(() => ReactNode) | undefined>()
-  const handleFeeRendererChange = useCallback((renderer: (() => ReactNode) | undefined) => {
-    setFeeRenderer(() => renderer)
-  }, [])
 
   const { watch, setValue, getValues } = useTransferForm()
   const values = watch()
@@ -369,9 +389,6 @@ const TransferFields = ({ mode }: Props) => {
       )}
 
       {(chainsError || balancesError) && <Status error>Failed to load balances</Status>}
-
-      {canRenderPreviewFooter && <TransferTxDetails renderFee={feeRenderer} />}
-
       {!canRenderPreviewFooter ? (
         <Footer>
           <Button.White
@@ -389,7 +406,7 @@ const TransferFields = ({ mode }: Props) => {
             <FooterWithSignedOpHook>
               {(signedOpHook) => (
                 <FooterWithMsgs addressList={addressList} signedOpHook={signedOpHook}>
-                  {(tx, { isFetchingMessages }) => (
+                  {(tx, { isFetchingMessages, messageRefreshError }) => (
                     <FooterWithTxFee tx={tx}>
                       {(gas, { isEstimatingGas }) => (
                         <AsyncBoundary
@@ -406,7 +423,7 @@ const TransferFields = ({ mode }: Props) => {
                             isRouteTransitioning={isRouteTransitioning}
                             isFetchingMessages={isFetchingMessages}
                             isEstimatingGas={isEstimatingGas}
-                            onFeeRendererChange={handleFeeRendererChange}
+                            messageRefreshError={messageRefreshError}
                           />
                         </AsyncBoundary>
                       )}

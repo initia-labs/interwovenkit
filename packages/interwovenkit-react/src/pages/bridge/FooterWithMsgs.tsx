@@ -6,12 +6,33 @@ import { useSkip } from "./data/skip"
 import type { SignedOpHook } from "./data/tx"
 import { useBridgePreviewState } from "./data/tx"
 import FooterWithError from "./FooterWithError"
-import { getFooterWithMsgsStatus } from "./FooterWithMsgs.utils"
 
 interface Props {
   addressList: string[]
   signedOpHook?: SignedOpHook
-  children: (data: TxJson, status: { isFetchingMessages: boolean }) => ReactNode
+  children: (
+    data: TxJson,
+    status: { isFetchingMessages: boolean; messageRefreshError?: string },
+  ) => ReactNode
+}
+
+function getFooterWithMsgsStatus<T>({
+  error,
+  loading,
+  value,
+}: {
+  error: Error | null
+  loading: boolean
+  value: T | undefined
+}) {
+  const hasValue = value !== undefined
+
+  return {
+    isFetchingMessages: loading,
+    messageRefreshError: !loading && hasValue && error ? error.message : undefined,
+    shouldRenderError: !!error && !hasValue,
+    shouldRenderLoading: !hasValue,
+  }
 }
 
 const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
@@ -108,7 +129,10 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
     )
   }
 
-  return children(value as TxJson, { isFetchingMessages: status.isFetchingMessages })
+  return children(value as TxJson, {
+    isFetchingMessages: status.isFetchingMessages,
+    messageRefreshError: status.messageRefreshError,
+  })
 }
 
 export default FooterWithMsgs

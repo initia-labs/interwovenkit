@@ -15,6 +15,7 @@ interface Props {
   onCompleted?: (result: BridgeTxResult) => void
   confirmMessage?: string
   error?: string
+  messageRefreshError?: string
   isRouteTransitioning?: boolean
   isFetchingMessages?: boolean
   isEstimatingGas?: boolean
@@ -22,14 +23,17 @@ interface Props {
 
 function getStatusMessage({
   error,
+  messageRefreshError,
   refreshError,
   requiresReconfirm,
 }: {
   error?: string
+  messageRefreshError?: string
   refreshError?: string
   requiresReconfirm?: boolean
 }): string | undefined {
   if (error) return error
+  if (messageRefreshError) return messageRefreshError
   if (refreshError) return refreshError
   if (requiresReconfirm) return "Route updated. Please review and confirm again."
 }
@@ -69,6 +73,7 @@ const BridgePreviewFooter = ({
   onCompleted,
   confirmMessage,
   error,
+  messageRefreshError,
   isRouteTransitioning,
   isFetchingMessages,
   isEstimatingGas,
@@ -89,7 +94,7 @@ const BridgePreviewFooter = ({
   })
 
   const onConfirm = async () => {
-    if (isPending || isRefreshing || backgroundLoadingText) return
+    if (isPending || isRefreshing || backgroundLoadingText || messageRefreshError) return
 
     if (requiresReconfirm) {
       // quoteVerifiedAt is always defined here (set when navigating with requiresReconfirm: true).
@@ -112,15 +117,22 @@ const BridgePreviewFooter = ({
     mutate()
   }
 
-  const statusMessage = getStatusMessage({ error, refreshError, requiresReconfirm })
+  const statusMessage = getStatusMessage({
+    error,
+    messageRefreshError,
+    refreshError,
+    requiresReconfirm,
+  })
   const loadingText = getLoadingText({ isRefreshing, isPending, backgroundLoadingText })
-  const isBusy = isPending || isRefreshing || !!backgroundLoadingText
+  const isBusy = isPending || isRefreshing || !!backgroundLoadingText || !!messageRefreshError
 
   return (
     <Footer
       extra={
         statusMessage && (
-          <FormHelp level={error || refreshError ? "error" : "info"}>{statusMessage}</FormHelp>
+          <FormHelp level={error || messageRefreshError || refreshError ? "error" : "info"}>
+            {statusMessage}
+          </FormHelp>
         )
       }
     >
