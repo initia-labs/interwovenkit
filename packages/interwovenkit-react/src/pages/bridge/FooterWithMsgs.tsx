@@ -39,12 +39,13 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
 
     const fetchMessages = async () => {
       try {
+        setLoading(true)
+        setError(null)
+        setValue(undefined)
+
         if (route.required_op_hook && !stableSignedOpHook) {
           throw new Error("Op hook is required")
         }
-
-        setLoading(true)
-        setError(null)
 
         const params = {
           address_list: stableAddressList,
@@ -68,6 +69,7 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
         setValue(tx)
       } catch (error) {
         if (cancelled) return
+        setValue(undefined)
         setError(error as Error)
       } finally {
         if (!cancelled) setLoading(false)
