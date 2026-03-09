@@ -2,6 +2,8 @@ import type { EncodeObject } from "@cosmjs/proto-signing"
 import type { TxJson } from "@skip-go/client"
 import { useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
+import Button from "@/components/Button"
+import Footer from "@/components/Footer"
 import { useConfig } from "@/data/config"
 import { patchedAminoConverters } from "@/data/patches/amino"
 import { useAminoTypes, useCreateSigningStargateClient } from "@/data/signer"
@@ -82,9 +84,18 @@ const FooterWithTxFee = ({ tx, children }: Props) => {
     enabled: !!tx && "cosmos_tx" in tx && !!address && !!srcChainId,
   })
 
-  // Pass the gas estimate to children (null if not a cosmos tx or if estimation failed)
+  // Show loading state until gas estimation completes to prevent layout shift
   const gas = gasEstimate?.estimatedGas ?? null
   const isEstimatingGas = "cosmos_tx" in tx && (isLoading || isFetching)
+
+  if (isLoading) {
+    return (
+      <Footer>
+        <Button.White loading="Estimating gas..." disabled fullWidth />
+      </Footer>
+    )
+  }
+
   return <>{children(gas, { isEstimatingGas })}</>
 }
 

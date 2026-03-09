@@ -230,6 +230,8 @@ const TransferFields = ({ mode }: Props) => {
   // Sync before paint to prevent flash of the simple footer.
   // Depend on the specific primitives that can change the derived location state
   // without depending on the full `state` object, which would loop after navigate().
+  // `quoteVerifiedAt` is intentionally excluded from deps. It derives from `routeUpdatedAt`,
+  // which changes on every background refetch even when route data is identical.
   useIsomorphicLayoutEffect(() => {
     const nextState = buildTransferLocationState({
       currentState: state,
@@ -248,7 +250,6 @@ const TransferFields = ({ mode }: Props) => {
     getValues,
     hexAddress,
     navigate,
-    quoteVerifiedAt,
     recipientAddress,
     routeForState,
   ])
