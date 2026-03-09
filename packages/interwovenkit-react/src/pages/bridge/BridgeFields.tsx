@@ -143,6 +143,7 @@ const BridgeFields = () => {
   const dstAsset = useSkipAsset(dstDenom, dstChainId)
   const { data: balances } = useSkipBalancesQuery(sender, srcChainId)
   const srcBalance = useSkipBalance(sender, srcChainId, srcDenom)
+  const hasLoadedBalances = balances !== undefined
 
   const hasZeroBalance = !srcBalance?.amount || BigNumber(srcBalance.amount).isZero()
 
@@ -205,6 +206,7 @@ const BridgeFields = () => {
       const quoteVerifiedAt = result.dataUpdatedAt
 
       if (
+        hasLoadedBalances &&
         shouldEstimateRouteFee({
           route: latestRoute,
           srcChainType,
@@ -294,13 +296,15 @@ const BridgeFields = () => {
   }, [route])
 
   const feeErrorMessage = useMemo(() => {
+    if (!hasLoadedBalances) return
+
     for (const fee of additionalFees) {
       const balance = balances?.[fee.origin_asset.denom]?.amount ?? "0"
       const amount = route?.source_asset_denom === fee.origin_asset.denom ? route.amount_in : "0"
       const insufficient = BigNumber(balance).lt(BigNumber(amount).plus(fee.amount ?? "0"))
       if (insufficient) return `Insufficient ${fee.origin_asset.symbol} for fees`
     }
-  }, [balances, route, additionalFees])
+  }, [additionalFees, balances, hasLoadedBalances, route])
 
   // render
   const received = route ? formatAmount(route.amount_out, { decimals: dstAsset.decimals }) : "0"
@@ -371,7 +375,10 @@ const BridgeFields = () => {
     getRemainingBalanceAfterSwap(denom).gt(MIN_FALLBACK_FEE_REMAINDER),
   )
   const hasInsufficientFeeBalanceForSwap =
-    !!route && fallbackFeeTokenDenoms.length > 0 && !hasFallbackFeeBalanceAfterSwap
+    hasLoadedBalances &&
+    !!route &&
+    fallbackFeeTokenDenoms.length > 0 &&
+    !hasFallbackFeeBalanceAfterSwap
   const feeDisabledMessage = hasInsufficientFeeBalanceForSwap
     ? "Insufficient balance for fees"
     : undefined
