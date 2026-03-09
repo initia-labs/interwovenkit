@@ -6,6 +6,7 @@ import { useSkip } from "./data/skip"
 import type { SignedOpHook } from "./data/tx"
 import { useBridgePreviewState } from "./data/tx"
 import FooterWithError from "./FooterWithError"
+import { getFooterWithMsgsStatus } from "./FooterWithMsgs.utils"
 
 interface Props {
   addressList: string[]
@@ -93,11 +94,13 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
     skip,
   ])
 
-  if (error && !value) {
-    return <FooterWithError error={error} />
+  const status = getFooterWithMsgsStatus({ error, loading, value })
+
+  if (status.shouldRenderError) {
+    return <FooterWithError error={error as Error} />
   }
 
-  if (!value) {
+  if (status.shouldRenderLoading) {
     return (
       <Footer>
         <Button.White loading={"Fetching messages..."} />
@@ -105,7 +108,7 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
     )
   }
 
-  return children(value, { isFetchingMessages: loading })
+  return children(value as TxJson, { isFetchingMessages: status.isFetchingMessages })
 }
 
 export default FooterWithMsgs

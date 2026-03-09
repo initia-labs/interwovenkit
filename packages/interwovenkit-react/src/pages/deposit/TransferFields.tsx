@@ -30,6 +30,7 @@ import {
   useTransferMode,
 } from "./hooks"
 import { buildTransferLocationState, type TransferLocationState } from "./state"
+import { shouldSyncTransferNavigationState } from "./TransferFields.utils"
 import TransferFooter from "./TransferFooter"
 import TransferTxDetails from "./TransferTxDetails"
 import styles from "./Fields.module.css"
@@ -104,6 +105,7 @@ const TransferFields = ({ mode }: Props) => {
   const { watch, setValue, getValues } = useTransferForm()
   const values = watch()
   const { srcChainId, srcDenom, quantity: rawQuantity = "" } = values
+  const { quoteVerifiedAt: currentQuoteVerifiedAt, recipientAddress, route: currentRoute } = state
   const selectedExternalDenom = values[modeConfig.external.denomKey]
   const selectedExternalChainId = values[modeConfig.external.chainIdKey]
 
@@ -206,22 +208,30 @@ const TransferFields = ({ mode }: Props) => {
   const routeStatusText = getRouteStatusText({ routeStatus, disabledMessage, isRouteSynced })
 
   // Sync before paint to prevent flash of the simple footer.
-  // quoteVerifiedAt is intentionally excluded from deps.
-  // It derives from dataUpdatedAt, which changes on every 10s refetch even when
-  // route data is identical. Including it would trigger unnecessary navigate(0, ...) calls.
-  // The layout effect still sees the latest render values when routeForState changes.
+  // Depend on the specific primitives that can change the derived location state
+  // without depending on the full `state` object, which would loop after navigate().
   useIsomorphicLayoutEffect(() => {
-    navigate(
-      0,
-      buildTransferLocationState({
-        currentState: state,
-        route: routeForState,
-        quoteVerifiedAt,
-        hexAddress,
-        values: getValues(),
-      }),
-    )
-  }, [hexAddress, routeForState])
+    const nextState = buildTransferLocationState({
+      currentState: state,
+      route: routeForState,
+      quoteVerifiedAt,
+      hexAddress,
+      values: getValues(),
+    })
+
+    if (!shouldSyncTransferNavigationState({ currentState: state, nextState })) return
+
+    navigate(0, nextState)
+  }, [
+    currentQuoteVerifiedAt,
+    currentRoute,
+    getValues,
+    hexAddress,
+    navigate,
+    quoteVerifiedAt,
+    recipientAddress,
+    routeForState,
+  ])
 
   const applyAutoExternalOption = useEffectEvent(() => {
     if (!autoExternalAssetOption) return

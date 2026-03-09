@@ -6,15 +6,21 @@ import { AuthInfo, Tx, TxBody } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import { has, head } from "ramda"
 import { createElement, Fragment } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { aminoConverters, aminoTypes } from "@initia/amino-converter"
 import { InitiaAddress, toBaseUnit } from "@initia/utils"
 import { useAnalyticsTrack } from "@/data/analytics"
 import { useFindChain, useLayer1 } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import { LocalStorageKey } from "@/data/constants"
+import { decodeCosmosAminoMessages } from "@/data/decodeAminoMessages"
 import { formatMoveError } from "@/data/errors"
 import { normalizeError, STALE_TIMES } from "@/data/http"
-import { useAminoTypes, useGetProvider, useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
+import {
+  useAminoConverters,
+  useAminoTypes,
+  useGetProvider,
+  useRegistry,
+  useSignWithEthSecp256k1,
+} from "@/data/signer"
 import { waitForTxConfirmationWithClient } from "@/data/tx"
 import { Link, useLocationState, useNavigate } from "@/lib/router"
 import { useNotification } from "@/public/app/NotificationContext"
@@ -87,6 +93,7 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
   const { requestTxSync, submitTxSync, waitForTxConfirmation } = useInterwovenKit()
   const { find } = useCosmosWallets()
   const registry = useRegistry()
+  const aminoConverters = useAminoConverters()
   const aminoTypes = useAminoTypes()
   const srcChain = useSkipChain(srcChainId)
   const srcChainType = useChainType(srcChain)
@@ -103,15 +110,9 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
     mutationFn: async () => {
       try {
         if ("cosmos_tx" in tx) {
-          if (!tx.cosmos_tx.msgs) throw new Error("Invalid transaction data")
-          const messages = tx.cosmos_tx.msgs.map(({ msg_type_url, msg }) => {
-            if (!(msg_type_url && msg)) throw new Error("Invalid transaction data")
-            // Note: `typeUrl` comes in proto format, but `msg` is in amino format.
-            // Weird, but that's how the Skip API responds.
-            return aminoTypes.fromAmino({
-              type: aminoConverters[msg_type_url].aminoType,
-              value: JSON.parse(msg),
-            })
+          const messages = decodeCosmosAminoMessages(tx.cosmos_tx.msgs, {
+            converters: aminoConverters,
+            fromAmino: aminoTypes.fromAmino.bind(aminoTypes),
           })
 
           if (srcChainType === "initia") {
@@ -318,6 +319,8 @@ export function useSignOpHook() {
   const signWithEthSecp256k1 = useSignWithEthSecp256k1()
   const { route, values } = useBridgePreviewState()
   const findSkipChain = useFindSkipChain()
+  const aminoConverters = useAminoConverters()
+  const aminoTypes = useAminoTypes()
 
   return useMutation({
     mutationFn: async () => {
@@ -337,13 +340,9 @@ export function useSignOpHook() {
 
         await waitForAccountCreation(initiaAddress, findSkipChain(route.dest_asset_chain_id).rest)
 
-        const messages = hook.map(({ msg_type_url, msg }) => {
-          // Note: `typeUrl` comes in proto format, but `msg` is in amino format.
-          // Weird, but that's how the Skip API responds.
-          return aminoTypes.fromAmino({
-            type: aminoConverters[msg_type_url].aminoType,
-            value: JSON.parse(msg),
-          })
+        const messages = decodeCosmosAminoMessages(hook, {
+          converters: aminoConverters,
+          fromAmino: aminoTypes.fromAmino.bind(aminoTypes),
         })
 
         // Sequence handling for minievm chains:
