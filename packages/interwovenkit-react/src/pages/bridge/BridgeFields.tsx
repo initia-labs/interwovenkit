@@ -371,7 +371,7 @@ const BridgeFields = () => {
     getRemainingBalanceAfterSwap(denom).gt(MIN_FALLBACK_FEE_REMAINDER),
   )
   const hasInsufficientFeeBalanceForSwap =
-    !!route && fallbackFeeTokenDenoms.length > 0 && !hasFallbackFeeBalanceAfterSwap
+    !!route && fallbackFeeTokenDenoms.length > 0 && !!balances && !hasFallbackFeeBalanceAfterSwap
   const feeDisabledMessage = hasInsufficientFeeBalanceForSwap
     ? "Insufficient balance for fees"
     : undefined
