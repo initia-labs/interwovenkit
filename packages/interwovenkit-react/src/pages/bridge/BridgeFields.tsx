@@ -2,7 +2,7 @@ import type { FeeJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
 import { sentenceCase } from "change-case"
 import { isAddress } from "ethers"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useDebounceValue, useLocalStorage } from "usehooks-ts"
 import {
   IconChevronDown,
@@ -383,6 +383,17 @@ const BridgeFields = () => {
     ? "Insufficient balance for fees"
     : undefined
   const shouldDisableForFee = hasInsufficientFeeBalanceForSwap
+  const shouldShowPreviewRefreshError =
+    !!previewRefreshError && previewRefreshError !== feeDisabledMessage
+
+  useEffect(() => {
+    if (
+      previewRefreshError === "Insufficient balance for fees" &&
+      !hasInsufficientFeeBalanceForSwap
+    ) {
+      setPreviewRefreshError(undefined)
+    }
+  }, [hasInsufficientFeeBalanceForSwap, previewRefreshError])
 
   // disabled
   // Note: formState.isValid is not used here because:
@@ -559,7 +570,9 @@ const BridgeFields = () => {
         extra={
           <>
             <FormHelp.Stack>
-              {previewRefreshError && <FormHelp level="error">{previewRefreshError}</FormHelp>}
+              {shouldShowPreviewRefreshError && (
+                <FormHelp level="error">{previewRefreshError}</FormHelp>
+              )}
               {route?.extra_infos?.map((info) => (
                 <FormHelp level="info" key={info}>
                   {info}
