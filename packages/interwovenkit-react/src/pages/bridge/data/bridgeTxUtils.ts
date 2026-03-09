@@ -97,8 +97,8 @@ export function decodeCosmosAminoMessages(
 }
 
 function getCosmosTxFromTxs(txs: TxJson[]) {
-  const tx = txs[0]
-  if (!tx || !("cosmos_tx" in tx) || !tx.cosmos_tx.msgs?.length) return null
+  const tx = txs.find((item) => "cosmos_tx" in item && !!item.cosmos_tx.msgs?.length)
+  if (!tx || !("cosmos_tx" in tx)) return null
   return tx.cosmos_tx
 }
 

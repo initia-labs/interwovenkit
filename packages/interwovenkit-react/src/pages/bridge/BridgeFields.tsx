@@ -4,7 +4,6 @@ import { sentenceCase } from "change-case"
 import { isAddress } from "ethers"
 import { useCallback, useMemo, useState } from "react"
 import { useDebounceValue, useLocalStorage } from "usehooks-ts"
-import { useQuery } from "@tanstack/react-query"
 import {
   IconChevronDown,
   IconInfoFilled,
@@ -42,7 +41,12 @@ import { useChainType, useSkipChain } from "./data/chains"
 import type { FormValues } from "./data/form"
 import { useBridgeForm } from "./data/form"
 import { calculateMinimumReceived, formatDuration, formatFees } from "./data/format"
-import { useIsOpWithdrawable, useRouteErrorInfo, useRouteQuery } from "./data/simulate"
+import {
+  type RouterRouteResponseJson,
+  useIsOpWithdrawable,
+  useRouteErrorInfo,
+  useRouteQuery,
+} from "./data/simulate"
 import { useSkip } from "./data/skip"
 import BridgeAccount from "./BridgeAccount"
 import SelectedChainAsset from "./SelectedChainAsset"
@@ -84,6 +88,28 @@ function getFallbackFeeTokenDenoms({
 }
 
 const MIN_FALLBACK_FEE_REMAINDER = BigNumber(1)
+
+function shouldEstimateRouteFee({
+  route,
+  srcChainType,
+  dstChainType,
+  sender,
+  recipient,
+}: {
+  route: RouterRouteResponseJson
+  srcChainType: string
+  dstChainType: string
+  sender: string
+  recipient: string
+}) {
+  return (
+    !route.required_op_hook &&
+    srcChainType === "initia" &&
+    dstChainType === "initia" &&
+    !!sender &&
+    !!recipient
+  )
+}
 
 const BridgeFields = () => {
   const navigate = useNavigate()
@@ -162,8 +188,6 @@ const BridgeFields = () => {
   const submit = handleSubmit(async (values: FormValues) => {
     setPreviewRefreshError(undefined)
     setPreviewRefreshing(true)
-    let latestRoute: typeof route
-    let quoteVerifiedAt: number
     try {
       const result = await routeQuery.refetch()
       if (result.error || !result.data || !result.dataUpdatedAt) {
@@ -174,53 +198,80 @@ const BridgeFields = () => {
         )
         return
       }
-      latestRoute = result.data
-      quoteVerifiedAt = result.dataUpdatedAt
+
+      const latestRoute = result.data
+      const quoteVerifiedAt = result.dataUpdatedAt
+
+      if (
+        shouldEstimateRouteFee({
+          route: latestRoute,
+          srcChainType,
+          dstChainType,
+          sender: values.sender,
+          recipient: values.recipient,
+        })
+      ) {
+        const requiredFeeByDenom = await estimateRequiredFeeByDenom(latestRoute, values)
+        const feeDenoms = Object.keys(requiredFeeByDenom ?? {})
+        const hasAvailableFeeBalance = feeDenoms.some((denom) => {
+          const requiredFee = BigNumber(requiredFeeByDenom?.[denom] ?? 0)
+          const remainingBalance = getRemainingBalanceAfterSwap(denom, {
+            amountIn: latestRoute.amount_in,
+            sourceDenom: values.srcDenom,
+          })
+          return remainingBalance.gte(requiredFee)
+        })
+
+        if (feeDenoms.length > 0 && !hasAvailableFeeBalance) {
+          setPreviewRefreshError("Insufficient balance for fees")
+          return
+        }
+      }
+
+      track("Bridge Simulation Success", {
+        quantity: values.quantity,
+        srcChainId: values.srcChainId,
+        srcDenom: values.srcDenom,
+        dstChainId: values.dstChainId,
+        dstDenom: values.dstDenom,
+      })
+
+      if (latestRoute.warning) {
+        const { type = "", message } = latestRoute.warning ?? {}
+        openModal({
+          content: (
+            <PlainModalContent
+              type="warning"
+              icon={<IconWarningFilled size={40} />}
+              title={sentenceCase(type)}
+              primaryButton={{ label: "Cancel", onClick: closeModal }}
+              secondaryButton={{
+                label: "Proceed anyway",
+                onClick: () => {
+                  navigate("/bridge/preview", {
+                    route: latestRoute,
+                    values,
+                    quoteVerifiedAt,
+                  })
+                  closeModal()
+                },
+              }}
+            >
+              <p className={styles.warning}>{message}</p>
+            </PlainModalContent>
+          ),
+        })
+        return
+      }
+
+      navigate("/bridge/preview", {
+        route: latestRoute,
+        values,
+        quoteVerifiedAt,
+      })
     } finally {
       setPreviewRefreshing(false)
     }
-
-    track("Bridge Simulation Success", {
-      quantity: values.quantity,
-      srcChainId: values.srcChainId,
-      srcDenom: values.srcDenom,
-      dstChainId: values.dstChainId,
-      dstDenom: values.dstDenom,
-    })
-
-    if (latestRoute.warning) {
-      const { type = "", message } = latestRoute.warning ?? {}
-      openModal({
-        content: (
-          <PlainModalContent
-            type="warning"
-            icon={<IconWarningFilled size={40} />}
-            title={sentenceCase(type)}
-            primaryButton={{ label: "Cancel", onClick: closeModal }}
-            secondaryButton={{
-              label: "Proceed anyway",
-              onClick: () => {
-                navigate("/bridge/preview", {
-                  route: latestRoute,
-                  values,
-                  quoteVerifiedAt,
-                })
-                closeModal()
-              },
-            }}
-          >
-            <p className={styles.warning}>{message}</p>
-          </PlainModalContent>
-        ),
-      })
-      return
-    }
-
-    navigate("/bridge/preview", {
-      route: latestRoute,
-      values,
-      quoteVerifiedAt,
-    })
   })
 
   // fees
@@ -252,38 +303,12 @@ const BridgeFields = () => {
   // render
   const received = route ? formatAmount(route.amount_out, { decimals: dstAsset.decimals }) : "0"
   const chainFeeAssets = useMemo(() => srcChain.fee_assets ?? [], [srcChain.fee_assets])
-
-  const shouldEstimateGasFee =
-    !!route &&
-    !route.required_op_hook &&
-    srcChainType === "initia" &&
-    dstChainType === "initia" &&
-    !!sender &&
-    !!values.recipient
-  const {
-    data: simulatedFeeEstimate,
-    isLoading: isSimulatedFeeLoading,
-    isFetching: isSimulatedFeeFetching,
-  } = useQuery({
-    queryKey: [
-      "interwovenkit:bridge:simulated-source-fee",
-      srcChainId,
-      srcDenom,
-      sender,
-      values.recipient,
-      slippagePercent,
-      route?.amount_in,
-      route?.amount_out,
-      route?.operations,
-      route?.required_chain_addresses,
-    ],
-    queryFn: async () => {
+  const estimateRequiredFeeByDenom = useCallback(
+    async (route: RouterRouteResponseJson, values: FormValues) => {
       try {
-        if (!route || !sender) return null
-
         const addressList = buildInitiaAddressList({
           requiredChainAddresses: route.required_chain_addresses,
-          sender: InitiaAddress(sender).bech32,
+          sender: InitiaAddress(values.sender).bech32,
           recipient: InitiaAddress(values.recipient).bech32,
         })
 
@@ -298,7 +323,7 @@ const BridgeFields = () => {
             dest_asset_denom: route.dest_asset_denom,
             operations: route.operations,
           },
-          slippagePercent: String(slippagePercent),
+          slippagePercent: String(values.slippagePercent),
         })
 
         const messages = decodeCosmosAminoMessages(cosmosTx.msgs, {
@@ -306,40 +331,36 @@ const BridgeFields = () => {
           fromAmino: aminoTypes.fromAmino.bind(aminoTypes),
         })
 
-        const client = await createSigningStargateClient(srcChainId)
-        const gas = await client.simulate(sender, messages, "")
-        return {
-          requiredFeeByDenom: computeRequiredFeeByDenom({
-            gas,
-            feeAssets: chainFeeAssets,
-          }),
-        }
+        const client = await createSigningStargateClient(values.srcChainId)
+        const gas = await client.simulate(values.sender, messages, "")
+
+        return computeRequiredFeeByDenom({
+          gas,
+          feeAssets: chainFeeAssets,
+        })
       } catch {
         return null
       }
     },
-    enabled: shouldEstimateGasFee,
-    staleTime: 10_000,
-  })
-  const requiredFeeByDenom = simulatedFeeEstimate?.requiredFeeByDenom ?? {}
-  const feeDenoms = Object.keys(requiredFeeByDenom)
+    [aminoConverters, aminoTypes, chainFeeAssets, createSigningStargateClient, skip],
+  )
   const getRemainingBalanceAfterSwap = useCallback(
-    (denom: string) => {
+    (
+      denom: string,
+      options?: {
+        amountIn?: string
+        sourceDenom?: string
+      },
+    ) => {
       const balance = BigNumber(balances?.[denom]?.amount ?? "0")
-      const spendAmount = denom === srcDenom ? BigNumber(route?.amount_in ?? "0") : BigNumber(0)
+      const spendAmount =
+        denom === (options?.sourceDenom ?? srcDenom)
+          ? BigNumber(options?.amountIn ?? route?.amount_in ?? "0")
+          : BigNumber(0)
       return balance.minus(spendAmount)
     },
     [balances, route?.amount_in, srcDenom],
   )
-  const hasAvailableSimulatedFeeBalance = feeDenoms.some((denom) => {
-    const requiredFee = BigNumber(requiredFeeByDenom[denom] ?? 0)
-    const remainingBalance = getRemainingBalanceAfterSwap(denom)
-    return remainingBalance.gte(requiredFee)
-  })
-  const hasInsufficientFeeBySimulation = feeDenoms.length > 0 && !hasAvailableSimulatedFeeBalance
-  const hasSimulatedFeeCheck = feeDenoms.length > 0
-  const isEstimatingFeeForSwap =
-    shouldEstimateGasFee && !!route && (isSimulatedFeeLoading || isSimulatedFeeFetching)
   const fallbackFeeTokenDenoms = useMemo(
     () => getFallbackFeeTokenDenoms({ srcChainType, chainFeeAssets, srcDenom }),
     [chainFeeAssets, srcChainType, srcDenom],
@@ -347,23 +368,12 @@ const BridgeFields = () => {
   const hasFallbackFeeBalanceAfterSwap = fallbackFeeTokenDenoms.some((denom) =>
     getRemainingBalanceAfterSwap(denom).gt(MIN_FALLBACK_FEE_REMAINDER),
   )
-  const shouldCheckFallbackFeeBalance =
-    !!route && !isEstimatingFeeForSwap && !hasSimulatedFeeCheck && fallbackFeeTokenDenoms.length > 0
-  const hasInsufficientFeeByFallback =
-    shouldCheckFallbackFeeBalance && !hasFallbackFeeBalanceAfterSwap
   const hasInsufficientFeeBalanceForSwap =
-    hasInsufficientFeeBySimulation || hasInsufficientFeeByFallback
-  const isInsufficientFeeUnknown =
-    !!route &&
-    !isEstimatingFeeForSwap &&
-    !hasSimulatedFeeCheck &&
-    fallbackFeeTokenDenoms.length === 0
-  const feeDisabledMessage = (() => {
-    if (hasInsufficientFeeBalanceForSwap) return "Insufficient balance for fees"
-    if (isInsufficientFeeUnknown) return "Unable to verify transaction fee"
-    return undefined
-  })()
-  const shouldDisableForFee = !!feeDisabledMessage
+    !!route && fallbackFeeTokenDenoms.length > 0 && !hasFallbackFeeBalanceAfterSwap
+  const feeDisabledMessage = hasInsufficientFeeBalanceForSwap
+    ? "Insufficient balance for fees"
+    : undefined
+  const shouldDisableForFee = hasInsufficientFeeBalanceForSwap
 
   // disabled
   // Note: formState.isValid is not used here because:
@@ -377,24 +387,14 @@ const BridgeFields = () => {
     if (!values.recipient) return "Enter recipient address"
     if (formState.errors.quantity) return formState.errors.quantity.message
     if (!route) return "Route not found"
-    if (isEstimatingFeeForSwap) return "Estimating transaction fee..."
     if (feeDisabledMessage) return feeDisabledMessage
     if (feeErrorMessage) return feeErrorMessage
-  }, [
-    debouncedQuantity,
-    feeDisabledMessage,
-    feeErrorMessage,
-    formState,
-    isEstimatingFeeForSwap,
-    route,
-    values,
-  ])
+  }, [debouncedQuantity, feeDisabledMessage, feeErrorMessage, formState, route, values])
   const previewButtonLoading = useMemo(() => {
     if (previewRefreshing) return "Refreshing route..."
     if (isSimulating) return "Simulating..."
-    if (isEstimatingFeeForSwap) return "Estimating transaction fee..."
     return false
-  }, [isEstimatingFeeForSwap, isSimulating, previewRefreshing])
+  }, [isSimulating, previewRefreshing])
 
   const renderFees = useCallback(
     (fees: FeeJson[], tooltip: string) => {
