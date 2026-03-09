@@ -41,7 +41,6 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
       try {
         setLoading(true)
         setError(null)
-        setValue(undefined)
 
         if (route.required_op_hook && !stableSignedOpHook) {
           throw new Error("Op hook is required")
