@@ -6,7 +6,6 @@ import { AuthInfo, Tx, TxBody } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import { has, head } from "ramda"
 import { createElement, Fragment } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { aminoConverters } from "@initia/amino-converter"
 import { InitiaAddress, toBaseUnit } from "@initia/utils"
 import { useAnalyticsTrack } from "@/data/analytics"
 import { useFindChain, useLayer1 } from "@/data/chains"
@@ -14,6 +13,7 @@ import { useConfig } from "@/data/config"
 import { LocalStorageKey } from "@/data/constants"
 import { formatMoveError } from "@/data/errors"
 import { normalizeError, STALE_TIMES } from "@/data/http"
+import { patchedAminoConverters } from "@/data/patches/amino"
 import { useAminoTypes, useGetProvider, useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
 import { waitForTxConfirmationWithClient } from "@/data/tx"
 import { Link, useLocationState, useNavigate } from "@/lib/router"
@@ -93,7 +93,9 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
   const findAsset = useFindSkipAsset(srcChainId)
   const queryClient = useQueryClient()
 
-  const { registryUrl } = useConfig()
+  const config = useConfig()
+  const aminoConverters = { ...patchedAminoConverters, ...config.aminoConverters }
+  const { registryUrl } = config
   const findChain = useFindChain()
   const layer1 = useLayer1()
 
@@ -318,6 +320,8 @@ export function useSignOpHook() {
   const { route, values } = useBridgePreviewState()
   const findSkipChain = useFindSkipChain()
   const aminoTypes = useAminoTypes()
+  const config = useConfig()
+  const aminoConverters = { ...patchedAminoConverters, ...config.aminoConverters }
 
   return useMutation({
     mutationFn: async () => {
