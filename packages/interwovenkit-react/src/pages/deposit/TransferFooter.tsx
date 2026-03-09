@@ -102,17 +102,11 @@ const TransferFooterWithFee = ({
   const loadingStateProps = { isRouteTransitioning, isFetchingMessages, isEstimatingGas }
 
   const feeDenom = (() => {
-    if (
-      preferredFeeDenom &&
-      feeDetailsByDenom.get(preferredFeeDenom)?.isSufficient
-    ) {
+    if (preferredFeeDenom && feeDetailsByDenom.get(preferredFeeDenom)?.isSufficient) {
       return preferredFeeDenom
     }
 
-    if (
-      lastUsedFeeDenom &&
-      feeDetailsByDenom.get(lastUsedFeeDenom)?.isSufficient
-    ) {
+    if (lastUsedFeeDenom && feeDetailsByDenom.get(lastUsedFeeDenom)?.isSufficient) {
       return lastUsedFeeDenom
     }
 
