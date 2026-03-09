@@ -2,7 +2,7 @@ import type { FeeJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
 import { sentenceCase } from "change-case"
 import { isAddress } from "ethers"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useDebounceValue, useLocalStorage } from "usehooks-ts"
 import {
   IconChevronDown,
@@ -129,6 +129,10 @@ const BridgeFields = () => {
   const { watch, setValue, handleSubmit, formState } = useBridgeForm()
   const values = watch()
   const { srcChainId, srcDenom, dstChainId, dstDenom, quantity, sender, slippagePercent } = values
+
+  useEffect(() => {
+    setPreviewRefreshError(undefined)
+  }, [quantity, srcChainId, srcDenom, dstChainId, dstDenom])
 
   const layer1 = useLayer1()
   const skip = useSkip()
