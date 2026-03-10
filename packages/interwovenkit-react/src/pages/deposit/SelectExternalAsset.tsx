@@ -45,6 +45,13 @@ const SelectExternalAsset = ({ mode }: Props) => {
     ? `${filteredAssets[0].chain.chain_id}:${filteredAssets[0].asset.denom}`
     : ""
 
+  function selectExternalAsset(denom: string, chainId: string) {
+    setValue(external.denomKey, denom)
+    setValue(external.chainIdKey, chainId)
+    if (mode === "deposit") setValue("quantity", "")
+    setValue("page", "fields")
+  }
+
   const applyAutoSelection = useEffectEvent(() => {
     if (!singleAssetOptionKey) return
 
@@ -57,17 +64,12 @@ const SelectExternalAsset = ({ mode }: Props) => {
       return
     }
 
-    setValue(external.denomKey, asset.denom)
-    setValue(external.chainIdKey, chain.chain_id)
-    if (mode === "deposit") setValue("quantity", "")
-    setValue("page", "fields")
+    selectExternalAsset(asset.denom, chain.chain_id)
   })
 
   useEffect(() => {
     applyAutoSelection()
   }, [singleAssetOptionKey])
-
-  if (hasSingleOption) return null
 
   function renderBackButton() {
     const isExternalSelected = selectedExternalDenom && selectedExternalChainId
@@ -154,12 +156,7 @@ const SelectExternalAsset = ({ mode }: Props) => {
                 <button
                   key={`${asset.chain_id}-${asset.denom}`}
                   className={clsx(styles.asset, isActive && styles.activeAsset)}
-                  onClick={() => {
-                    setValue(external.denomKey, asset.denom)
-                    setValue(external.chainIdKey, chain.chain_id)
-                    if (mode === "deposit") setValue("quantity", "")
-                    setValue("page", "fields")
-                  }}
+                  onClick={() => selectExternalAsset(asset.denom, chain.chain_id)}
                 >
                   <div className={styles.iconContainer}>
                     <img src={asset.logo_uri} alt={asset.symbol} className={styles.assetIcon} />

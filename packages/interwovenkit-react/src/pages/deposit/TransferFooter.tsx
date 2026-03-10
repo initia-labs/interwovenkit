@@ -28,6 +28,23 @@ interface Props {
   isEstimatingGas?: boolean
 }
 
+interface ApprovalState {
+  isFetchingMessages?: boolean
+  messageRefreshError?: string
+}
+
+function shouldEnableApproval(options: ApprovalState): boolean {
+  return !options.isFetchingMessages && !options.messageRefreshError
+}
+
+function renderWithApprovalGate(tx: TxJson, footer: React.ReactNode, state: ApprovalState) {
+  if (!shouldEnableApproval(state)) {
+    return footer
+  }
+
+  return <FooterWithErc20Approval tx={tx}>{footer}</FooterWithErc20Approval>
+}
+
 interface FooterWithFeeProps extends Omit<Props, "gas" | "mode"> {
   gas: number | null
   confirmMessage: "Deposit" | "Withdraw"
@@ -134,6 +151,16 @@ const TransferFooterWithFee = ({
   // Check if balance is sufficient for both fee and transfer amount
   const feeDetails = feeDenom ? feeDetailsByDenom.get(feeDenom) : null
   const balanceError = feeDetails && !feeDetails.isSufficient ? "Insufficient balance" : undefined
+  const footer = (
+    <BridgePreviewFooter
+      tx={tx}
+      fee={selectedFee}
+      onCompleted={onCompleted}
+      confirmMessage={confirmMessage}
+      error={balanceError}
+      {...loadingStateProps}
+    />
+  )
 
   // Helper functions for fee display
   const getDp = (amount: string, decimals: number) => {
@@ -191,16 +218,7 @@ const TransferFooterWithFee = ({
   return (
     <>
       <TransferTxDetails renderFee={feeOptions.length > 0 ? renderFee : undefined} />
-      <FooterWithErc20Approval tx={tx}>
-        <BridgePreviewFooter
-          tx={tx}
-          fee={selectedFee}
-          onCompleted={onCompleted}
-          confirmMessage={confirmMessage}
-          error={balanceError}
-          {...loadingStateProps}
-        />
-      </FooterWithErc20Approval>
+      {renderWithApprovalGate(tx, footer, loadingStateProps)}
     </>
   )
 }
@@ -228,20 +246,21 @@ const TransferFooter = ({
   }
 
   const confirmMessage = mode === "withdraw" ? "Withdraw" : "Deposit"
+  const footer = (
+    <BridgePreviewFooter
+      tx={tx}
+      fee={undefined}
+      onCompleted={onCompleted}
+      confirmMessage={confirmMessage}
+      {...loadingStateProps}
+    />
+  )
 
   if (!("cosmos_tx" in tx)) {
     return (
       <>
         <TransferTxDetails />
-        <FooterWithErc20Approval tx={tx}>
-          <BridgePreviewFooter
-            tx={tx}
-            fee={undefined}
-            onCompleted={onCompleted}
-            confirmMessage={confirmMessage}
-            {...loadingStateProps}
-          />
-        </FooterWithErc20Approval>
+        {renderWithApprovalGate(tx, footer, loadingStateProps)}
       </>
     )
   }

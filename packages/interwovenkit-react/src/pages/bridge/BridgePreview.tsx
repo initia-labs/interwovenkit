@@ -17,15 +17,21 @@ const BridgePreview = () => {
             <FooterWithSignedOpHook>
               {(signedOpHook) => (
                 <FooterWithMsgs addressList={addressList} signedOpHook={signedOpHook}>
-                  {(tx, { isFetchingMessages, messageRefreshError }) => (
-                    <FooterWithErc20Approval tx={tx}>
+                  {(tx, { isFetchingMessages, messageRefreshError }) => {
+                    const footer = (
                       <BridgePreviewFooter
                         tx={tx}
                         isFetchingMessages={isFetchingMessages}
                         messageRefreshError={messageRefreshError}
                       />
-                    </FooterWithErc20Approval>
-                  )}
+                    )
+
+                    if (isFetchingMessages || messageRefreshError) {
+                      return footer
+                    }
+
+                    return <FooterWithErc20Approval tx={tx}>{footer}</FooterWithErc20Approval>
+                  }}
                 </FooterWithMsgs>
               )}
             </FooterWithSignedOpHook>
