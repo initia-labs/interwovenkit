@@ -22,19 +22,45 @@ interface Props {
   tx: TxJson
   gas: number | null
   mode: TransferMode
+  messageRefreshError?: string
+  isRouteTransitioning?: boolean
+  isFetchingMessages?: boolean
+  isEstimatingGas?: boolean
 }
 
-interface FooterBaseProps {
-  tx: TxJson
+interface ApprovalState {
+  isFetchingMessages?: boolean
+  messageRefreshError?: string
+}
+
+function shouldEnableApproval(options: ApprovalState): boolean {
+  return !options.isFetchingMessages && !options.messageRefreshError
+}
+
+function renderWithApprovalGate(tx: TxJson, footer: React.ReactNode, state: ApprovalState) {
+  if (!shouldEnableApproval(state)) {
+    return footer
+  }
+
+  return <FooterWithErc20Approval tx={tx}>{footer}</FooterWithErc20Approval>
+}
+
+interface FooterWithFeeProps extends Omit<Props, "gas" | "mode"> {
+  gas: number | null
   confirmMessage: "Deposit" | "Withdraw"
   onCompleted: (result: BridgeTxResult) => void
 }
 
-interface FooterWithFeeProps extends FooterBaseProps {
-  gas: number
-}
-
-const TransferFooterWithFee = ({ tx, gas, confirmMessage, onCompleted }: FooterWithFeeProps) => {
+const TransferFooterWithFee = ({
+  tx,
+  gas,
+  confirmMessage,
+  onCompleted,
+  messageRefreshError,
+  isRouteTransitioning,
+  isFetchingMessages,
+  isEstimatingGas,
+}: FooterWithFeeProps) => {
   const { values } = useBridgePreviewState()
   const { srcChainId, srcDenom, quantity } = values
   const skipAssets = useAllSkipAssets()
@@ -49,64 +75,92 @@ const TransferFooterWithFee = ({ tx, gas, confirmMessage, onCompleted }: FooterW
   const lastUsedFeeDenom = useLastFeeDenom(chain)
   const findAsset = useFindAsset(chain)
 
-  // Only calculate fees for cosmos transactions with valid gas
-  const feeOptions: StdFee[] = gasPrices.map(({ amount, denom }) =>
-    calculateFee(Math.ceil(gas * DEFAULT_GAS_ADJUSTMENT), GasPrice.fromString(amount + denom)),
+  const feeOptions: StdFee[] =
+    gas == null
+      ? []
+      : gasPrices.map(({ amount, denom }) =>
+          calculateFee(
+            Math.ceil(gas * DEFAULT_GAS_ADJUSTMENT),
+            GasPrice.fromString(amount + denom),
+          ),
+        )
+
+  const feeOptionsByDenom = new Map(
+    feeOptions.map((fee) => {
+      const [{ denom }] = fee.amount
+      return [denom, fee]
+    }),
   )
+  const balancesByDenom = new Map(balances.map(({ denom, amount }) => [denom, amount]))
+  const sourceSpendAmount = srcAsset
+    ? BigNumber(quantity || "0")
+        .times(BigNumber(10).pow(srcAsset.decimals))
+        .toFixed(0)
+    : "0"
+  const feeDetailsByDenom = new Map(
+    feeOptions.map((fee) => {
+      const [{ amount, denom }] = fee.amount
+      const balance = balancesByDenom.get(denom) ?? "0"
+      const spendAmount = srcAsset && srcDenom === denom ? sourceSpendAmount : "0"
+      const totalRequired = BigNumber(amount).plus(spendAmount)
+      const { symbol, decimals } = findAsset(denom)
 
-  const feeCoins = feeOptions.map((fee) => fee.amount[0])
-
-  const getFeeDetails = (feeDenom: string) => {
-    const balance = balances.find((balance) => balance.denom === feeDenom)?.amount ?? "0"
-    const feeAmount = feeCoins.find((coin) => coin.denom === feeDenom)?.amount ?? "0"
-
-    // Calculate spend amount from the source asset
-    const spendAmount =
-      srcAsset && srcDenom === feeDenom
-        ? BigNumber(quantity || "0")
-            .times(BigNumber(10).pow(srcAsset.decimals))
-            .toFixed(0)
-        : "0"
-
-    const totalRequired = BigNumber(feeAmount).plus(spendAmount)
-    const isSufficient = BigNumber(balance).gte(totalRequired)
-
-    const { symbol, decimals } = findAsset(feeDenom)
-
-    return {
-      symbol,
-      decimals,
-      spend: BigNumber(spendAmount).gt(0) ? spendAmount : null,
-      fee: feeAmount,
-      total: totalRequired.toFixed(),
-      balance,
-      isSufficient,
-    }
+      return [
+        denom,
+        {
+          symbol,
+          decimals,
+          spend: BigNumber(spendAmount).gt(0) ? spendAmount : null,
+          fee: amount,
+          total: totalRequired.toFixed(),
+          balance,
+          isSufficient: BigNumber(balance).gte(totalRequired),
+        },
+      ]
+    }),
+  )
+  const [preferredFeeDenom, setPreferredFeeDenom] = useState<string | null>(null)
+  const loadingStateProps = {
+    isRouteTransitioning,
+    isFetchingMessages,
+    isEstimatingGas,
+    messageRefreshError,
   }
 
-  const getInitialFeeDenom = () => {
-    if (!feeCoins.length) return null
+  const feeDenom = (() => {
+    if (preferredFeeDenom && feeDetailsByDenom.get(preferredFeeDenom)?.isSufficient) {
+      return preferredFeeDenom
+    }
 
-    if (lastUsedFeeDenom && getFeeDetails(lastUsedFeeDenom).isSufficient) {
+    if (lastUsedFeeDenom && feeDetailsByDenom.get(lastUsedFeeDenom)?.isSufficient) {
       return lastUsedFeeDenom
     }
 
-    for (const { denom: feeDenom } of feeCoins) {
-      if (getFeeDetails(feeDenom).isSufficient) {
-        return feeDenom
+    for (const fee of feeOptions) {
+      const [{ denom }] = fee.amount
+      if (feeDetailsByDenom.get(denom)?.isSufficient) {
+        return denom
       }
     }
 
-    return feeCoins[0]?.denom
-  }
+    return feeOptions[0]?.amount[0].denom
+  })()
 
-  const [feeDenom, setFeeDenom] = useState(getInitialFeeDenom)
-
-  const selectedFee = feeOptions.find((fee) => fee.amount[0].denom === feeDenom) ?? undefined
+  const selectedFee = feeDenom ? feeOptionsByDenom.get(feeDenom) : undefined
 
   // Check if balance is sufficient for both fee and transfer amount
-  const feeDetails = feeDenom ? getFeeDetails(feeDenom) : null
+  const feeDetails = feeDenom ? feeDetailsByDenom.get(feeDenom) : null
   const balanceError = feeDetails && !feeDetails.isSufficient ? "Insufficient balance" : undefined
+  const footer = (
+    <BridgePreviewFooter
+      tx={tx}
+      fee={selectedFee}
+      onCompleted={onCompleted}
+      confirmMessage={confirmMessage}
+      error={balanceError}
+      {...loadingStateProps}
+    />
+  )
 
   // Helper functions for fee display
   const getDp = (amount: string, decimals: number) => {
@@ -154,7 +208,7 @@ const TransferFooterWithFee = ({ tx, gas, confirmMessage, onCompleted }: FooterW
         <Dropdown
           options={dropdownOptions}
           value={feeDenom}
-          onChange={setFeeDenom}
+          onChange={setPreferredFeeDenom}
           classNames={styles}
         />
       </div>
@@ -164,37 +218,27 @@ const TransferFooterWithFee = ({ tx, gas, confirmMessage, onCompleted }: FooterW
   return (
     <>
       <TransferTxDetails renderFee={feeOptions.length > 0 ? renderFee : undefined} />
-      <FooterWithErc20Approval tx={tx}>
-        <BridgePreviewFooter
-          tx={tx}
-          fee={selectedFee}
-          onCompleted={onCompleted}
-          confirmMessage={confirmMessage}
-          error={balanceError}
-        />
-      </FooterWithErc20Approval>
+      {renderWithApprovalGate(tx, footer, loadingStateProps)}
     </>
   )
 }
 
-const TransferFooterWithoutFee = ({ tx, confirmMessage, onCompleted }: FooterBaseProps) => {
-  return (
-    <>
-      <TransferTxDetails />
-      <FooterWithErc20Approval tx={tx}>
-        <BridgePreviewFooter
-          tx={tx}
-          fee={undefined}
-          onCompleted={onCompleted}
-          confirmMessage={confirmMessage}
-        />
-      </FooterWithErc20Approval>
-    </>
-  )
-}
-
-const TransferFooter = ({ tx, gas, mode }: Props) => {
+const TransferFooter = ({
+  tx,
+  gas,
+  mode,
+  messageRefreshError,
+  isRouteTransitioning,
+  isFetchingMessages,
+  isEstimatingGas,
+}: Props) => {
   const { setValue } = useTransferForm()
+  const loadingStateProps = {
+    isRouteTransitioning,
+    isFetchingMessages,
+    isEstimatingGas,
+    messageRefreshError,
+  }
 
   const onCompleted = (result: BridgeTxResult) => {
     setValue("page", "completed")
@@ -202,11 +246,22 @@ const TransferFooter = ({ tx, gas, mode }: Props) => {
   }
 
   const confirmMessage = mode === "withdraw" ? "Withdraw" : "Deposit"
+  const footer = (
+    <BridgePreviewFooter
+      tx={tx}
+      fee={undefined}
+      onCompleted={onCompleted}
+      confirmMessage={confirmMessage}
+      {...loadingStateProps}
+    />
+  )
 
-  // TransferFooterWithFee assumes `gas` exists and `tx` is a cosmos tx.
-  if (!gas || !("cosmos_tx" in tx)) {
+  if (!("cosmos_tx" in tx)) {
     return (
-      <TransferFooterWithoutFee tx={tx} onCompleted={onCompleted} confirmMessage={confirmMessage} />
+      <>
+        <TransferTxDetails />
+        {renderWithApprovalGate(tx, footer, loadingStateProps)}
+      </>
     )
   }
 
@@ -216,6 +271,7 @@ const TransferFooter = ({ tx, gas, mode }: Props) => {
       gas={gas}
       onCompleted={onCompleted}
       confirmMessage={confirmMessage}
+      {...loadingStateProps}
     />
   )
 }

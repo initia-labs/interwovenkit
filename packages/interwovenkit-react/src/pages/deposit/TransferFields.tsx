@@ -1,9 +1,10 @@
 import BigNumber from "bignumber.js"
 import { HTTPError } from "ky"
-import { useEffect, useEffectEvent, useMemo } from "react"
+import { useEffect, useEffectEvent, useLayoutEffect, useMemo } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
 import { formatAmount, fromBaseUnit } from "@initia/utils"
+import AsyncBoundary from "@/components/AsyncBoundary"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import QuantityInput from "@/components/form/QuantityInput"
@@ -29,11 +30,64 @@ import {
 } from "./hooks"
 import { buildTransferLocationState, type TransferLocationState } from "./state"
 import TransferFooter from "./TransferFooter"
+import { shouldSyncTransferNavigationState } from "./transferNavigationState"
 import styles from "./Fields.module.css"
 
 interface Props {
   mode: TransferMode
 }
+
+type RouteStatus = "disabled" | "loading" | "ready" | "no-route" | "server-error" | "refresh-failed"
+
+function getRouteStatus({
+  disabledMessage,
+  routeForState,
+  routeError,
+  isNoRouteError,
+  isServerError,
+}: {
+  disabledMessage?: string
+  routeForState?: unknown
+  routeError: Error | null
+  isNoRouteError: boolean
+  isServerError: boolean
+}): RouteStatus {
+  if (disabledMessage) return "disabled"
+  if (routeForState) return "ready"
+  if (!routeError) return "loading"
+  if (isNoRouteError) return "no-route"
+  if (isServerError) return "server-error"
+  return "refresh-failed"
+}
+
+function shouldRenderPreviewFooter({
+  hasRouteState,
+  routeStatus,
+}: {
+  hasRouteState: boolean
+  routeStatus: RouteStatus
+}): boolean {
+  return hasRouteState && (routeStatus === "ready" || routeStatus === "loading")
+}
+
+function getRouteStatusText({
+  routeStatus,
+  disabledMessage,
+  isRouteSynced,
+}: {
+  routeStatus: RouteStatus
+  disabledMessage?: string
+  isRouteSynced: boolean
+}): string | undefined {
+  if (routeStatus === "disabled") return disabledMessage
+  if (routeStatus === "loading") return "Fetching route..."
+  if (routeStatus === "ready" && !isRouteSynced) return "Fetching route..."
+  if (routeStatus === "no-route") return "No route found"
+  if (routeStatus === "server-error") return "Server error"
+  if (routeStatus === "refresh-failed") return "Failed to refresh route"
+}
+
+const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect
 
 const TransferFields = ({ mode }: Props) => {
   const modeConfig = useTransferMode(mode)
@@ -47,6 +101,7 @@ const TransferFields = ({ mode }: Props) => {
   const { watch, setValue, getValues } = useTransferForm()
   const values = watch()
   const { srcChainId, srcDenom, quantity: rawQuantity = "" } = values
+  const { recipientAddress, route: currentRoute } = state
   const selectedExternalDenom = values[modeConfig.external.denomKey]
   const selectedExternalChainId = values[modeConfig.external.chainIdKey]
 
@@ -61,7 +116,7 @@ const TransferFields = ({ mode }: Props) => {
     !isExternalAssetOptionsLoading &&
     externalAssetOptions.length > 0 &&
     new Set(externalAssetOptions.map(({ chain }) => chain.chain_id)).size === 1
-  const autoExternalAssetOption = (() => {
+  const autoExternalAssetOption = useMemo(() => {
     if (isExternalAssetOptionsLoading || !externalAssetOptions.length) return null
     if (hasSingleExternalAssetOption) return externalAssetOptions[0]
     if (!hasSingleWithdrawChainOption) return null
@@ -72,13 +127,19 @@ const TransferFields = ({ mode }: Props) => {
 
       return optionUsd > highestUsd ? option : highest
     }, externalAssetOptions[0])
-  })()
+  }, [
+    externalAssetOptions,
+    hasSingleExternalAssetOption,
+    hasSingleWithdrawChainOption,
+    isExternalAssetOptionsLoading,
+  ])
   const autoExternalAssetOptionKey = autoExternalAssetOption
     ? `${autoExternalAssetOption.chain.chain_id}:${autoExternalAssetOption.asset.denom}`
     : ""
   const externalChain = selectedExternalChainId ? findChain(selectedExternalChainId) : null
 
   const balance = balances?.[srcChainId]?.[srcDenom]?.amount
+  const hasChainBalanceSnapshot = !!balances && srcChainId in balances
   const price = balances?.[srcChainId]?.[srcDenom]?.price || 0
 
   const quantityValue = BigNumber(price || 0).times(rawQuantity || 0)
@@ -93,11 +154,24 @@ const TransferFields = ({ mode }: Props) => {
     const quantityBn = BigNumber(rawQuantity || 0)
     if (!quantityBn.isFinite() || quantityBn.lte(0)) return "Enter amount"
 
+    if (mode === "withdraw" && !externalAsset) return "Select destination"
+
+    if (!hasChainBalanceSnapshot) {
+      return balancesError || chainsError ? "Failed to load balances" : "Loading balances..."
+    }
+
     const balanceAmount = fromBaseUnit(balance ?? "0", { decimals: amountAsset?.decimals || 6 })
     if (quantityBn.gt(balanceAmount)) return "Insufficient balance"
-
-    if (mode === "withdraw" && !externalAsset) return "Select destination"
-  }, [mode, rawQuantity, balance, amountAsset, externalAsset])
+  }, [
+    amountAsset,
+    balance,
+    balancesError,
+    chainsError,
+    externalAsset,
+    hasChainBalanceSnapshot,
+    mode,
+    rawQuantity,
+  ])
 
   const {
     data: route,
@@ -113,47 +187,46 @@ const TransferFields = ({ mode }: Props) => {
   const routeForState = !disabledMessage && !isNoRouteError ? route : undefined
   const quoteVerifiedAt = routeForState && routeUpdatedAt > 0 ? routeUpdatedAt : undefined
   const isServerError = routeError instanceof HTTPError && routeError.response.status === 500
-  const routeStatus = (() => {
-    if (disabledMessage) return "disabled" as const
-    if (routeForState) return "ready" as const
-    if (!routeError) return "loading" as const
-    if (isNoRouteError) return "no-route" as const
-    if (isServerError) return "server-error" as const
-    return "refresh-failed" as const
-  })()
+  const routeStatus = getRouteStatus({
+    disabledMessage,
+    routeForState,
+    routeError,
+    isNoRouteError,
+    isServerError,
+  })
   const isRouteSynced = routeStatus === "ready" && state.route === routeForState
   const isRouteTransitioning =
     routeStatus === "loading" || (routeStatus === "ready" && !isRouteSynced)
-  const routeStatusText = (() => {
-    if (routeStatus === "disabled") return disabledMessage
-    if (routeStatus === "loading") return "Fetching route..."
-    if (routeStatus === "ready" && !isRouteSynced) return "Fetching route..."
-    if (routeStatus === "no-route") return "No route found"
-    if (routeStatus === "server-error") return "Server error"
-    if (routeStatus === "refresh-failed") return "Failed to refresh route"
-    return undefined
-  })()
-
-  const updateNavigationState = useEffectEvent(() => {
-    navigate(
-      0,
-      buildTransferLocationState({
-        currentState: state,
-        route: routeForState,
-        quoteVerifiedAt,
-        hexAddress,
-        values: getValues(),
-      }),
-    )
+  const canRenderPreviewFooter = shouldRenderPreviewFooter({
+    hasRouteState: !!state.route,
+    routeStatus,
   })
+  const routeStatusText = getRouteStatusText({ routeStatus, disabledMessage, isRouteSynced })
 
-  // quoteVerifiedAt is intentionally excluded from deps.
-  // It derives from dataUpdatedAt, which changes on every 10s refetch even when
-  // route data is identical. Including it would trigger unnecessary navigate(0, ...) calls.
-  // useEffectEvent ensures the latest quoteVerifiedAt is captured when the effect does run.
-  useEffect(() => {
-    updateNavigationState()
-  }, [routeForState, hexAddress])
+  // Sync before paint to prevent flash of the simple footer.
+  // Depend on the specific primitives that can change the derived location state
+  // without depending on the full `state` object, which would loop after navigate().
+  useIsomorphicLayoutEffect(() => {
+    const nextState = buildTransferLocationState({
+      currentState: state,
+      route: routeForState,
+      quoteVerifiedAt,
+      hexAddress,
+      values: getValues(),
+    })
+
+    if (!shouldSyncTransferNavigationState({ currentState: state, nextState })) return
+
+    navigate(0, nextState)
+  }, [
+    currentRoute,
+    getValues,
+    hexAddress,
+    navigate,
+    quoteVerifiedAt,
+    recipientAddress,
+    routeForState,
+  ])
 
   const applyAutoExternalOption = useEffectEvent(() => {
     if (!autoExternalAssetOption) return
@@ -291,8 +364,7 @@ const TransferFields = ({ mode }: Props) => {
       )}
 
       {(chainsError || balancesError) && <Status error>Failed to load balances</Status>}
-
-      {!isRouteSynced ? (
+      {!canRenderPreviewFooter ? (
         <Footer>
           <Button.White
             type="submit"
@@ -309,9 +381,27 @@ const TransferFields = ({ mode }: Props) => {
             <FooterWithSignedOpHook>
               {(signedOpHook) => (
                 <FooterWithMsgs addressList={addressList} signedOpHook={signedOpHook}>
-                  {(tx) => (
+                  {(tx, { isFetchingMessages, messageRefreshError }) => (
                     <FooterWithTxFee tx={tx}>
-                      {(gas) => <TransferFooter tx={tx} gas={gas} mode={mode} />}
+                      {(gas, { isEstimatingGas }) => (
+                        <AsyncBoundary
+                          suspenseFallback={
+                            <Footer>
+                              <Button.White loading="Estimating gas..." disabled fullWidth />
+                            </Footer>
+                          }
+                        >
+                          <TransferFooter
+                            tx={tx}
+                            gas={gas}
+                            mode={mode}
+                            isRouteTransitioning={isRouteTransitioning}
+                            isFetchingMessages={isFetchingMessages}
+                            isEstimatingGas={isEstimatingGas}
+                            messageRefreshError={messageRefreshError}
+                          />
+                        </AsyncBoundary>
+                      )}
                     </FooterWithTxFee>
                   )}
                 </FooterWithMsgs>

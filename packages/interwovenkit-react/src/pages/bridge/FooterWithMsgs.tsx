@@ -1,5 +1,5 @@
 import type { MsgsResponseJson, TxJson } from "@skip-go/client"
-import { useEffect, useMemo, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useState } from "react"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import { useSkip } from "./data/skip"
@@ -7,12 +7,32 @@ import type { SignedOpHook } from "./data/tx"
 import { useBridgePreviewState } from "./data/tx"
 import FooterWithError from "./FooterWithError"
 
-import type { ReactNode } from "react"
-
 interface Props {
   addressList: string[]
   signedOpHook?: SignedOpHook
-  children: (data: TxJson) => ReactNode
+  children: (
+    data: TxJson,
+    status: { isFetchingMessages: boolean; messageRefreshError?: string },
+  ) => ReactNode
+}
+
+function getFooterWithMsgsStatus<T>({
+  error,
+  loading,
+  value,
+}: {
+  error: Error | null
+  loading: boolean
+  value: T | undefined
+}) {
+  const hasValue = value !== undefined
+
+  return {
+    isFetchingMessages: loading,
+    messageRefreshError: !loading && hasValue && error ? error.message : undefined,
+    shouldRenderError: !!error && !hasValue,
+    shouldRenderLoading: !hasValue,
+  }
 }
 
 const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
@@ -41,12 +61,12 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
 
     const fetchMessages = async () => {
       try {
+        setLoading(true)
+        setError(null)
+
         if (route.required_op_hook && !stableSignedOpHook) {
           throw new Error("Op hook is required")
         }
-
-        setLoading(true)
-        setError(null)
 
         const params = {
           address_list: stableAddressList,
@@ -95,11 +115,13 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
     skip,
   ])
 
-  if (error) {
-    return <FooterWithError error={error} />
+  const status = getFooterWithMsgsStatus({ error, loading, value })
+
+  if (status.shouldRenderError) {
+    return <FooterWithError error={error as Error} />
   }
 
-  if (loading || !value) {
+  if (status.shouldRenderLoading) {
     return (
       <Footer>
         <Button.White loading={"Fetching messages..."} />
@@ -107,7 +129,10 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
     )
   }
 
-  return children(value)
+  return children(value as TxJson, {
+    isFetchingMessages: status.isFetchingMessages,
+    messageRefreshError: status.messageRefreshError,
+  })
 }
 
 export default FooterWithMsgs

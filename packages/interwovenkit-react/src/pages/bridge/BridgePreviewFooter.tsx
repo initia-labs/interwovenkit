@@ -15,9 +15,69 @@ interface Props {
   onCompleted?: (result: BridgeTxResult) => void
   confirmMessage?: string
   error?: string
+  messageRefreshError?: string
+  isRouteTransitioning?: boolean
+  isFetchingMessages?: boolean
+  isEstimatingGas?: boolean
 }
 
-const BridgePreviewFooter = ({ tx, fee, onCompleted, confirmMessage, error }: Props) => {
+function getStatusMessage({
+  error,
+  messageRefreshError,
+  refreshError,
+  requiresReconfirm,
+}: {
+  error?: string
+  messageRefreshError?: string
+  refreshError?: string
+  requiresReconfirm?: boolean
+}): string | undefined {
+  if (error) return error
+  if (messageRefreshError) return messageRefreshError
+  if (refreshError) return refreshError
+  if (requiresReconfirm) return "Route updated. Please review and confirm again."
+}
+
+function getBackgroundLoadingText({
+  isFetchingMessages,
+  isEstimatingGas,
+  isRouteTransitioning,
+}: {
+  isFetchingMessages?: boolean
+  isEstimatingGas?: boolean
+  isRouteTransitioning?: boolean
+}): string | false {
+  if (isRouteTransitioning) return "Refreshing route..."
+  if (isFetchingMessages) return "Fetching messages..."
+  if (isEstimatingGas) return "Estimating gas..."
+  return false
+}
+
+function getLoadingText({
+  isRefreshing,
+  isPending,
+  backgroundLoadingText,
+}: {
+  isRefreshing: boolean
+  isPending: boolean
+  backgroundLoadingText: string | false
+}): string | false {
+  if (isRefreshing) return "Refreshing route..."
+  if (isPending) return "Signing transaction..."
+  return backgroundLoadingText
+}
+
+const BridgePreviewFooter = ({
+  tx,
+  fee,
+  onCompleted,
+  confirmMessage,
+  error,
+  messageRefreshError,
+  isRouteTransitioning,
+  isFetchingMessages,
+  isEstimatingGas,
+}: Props) => {
   const navigate = useNavigate()
   const state = useLocationState<Record<string, unknown>>()
   const { route, values, quoteVerifiedAt, requiresReconfirm } = useBridgePreviewState()
@@ -27,9 +87,14 @@ const BridgePreviewFooter = ({ tx, fee, onCompleted, confirmMessage, error }: Pr
     values,
     quoteVerifiedAt,
   )
+  const backgroundLoadingText = getBackgroundLoadingText({
+    isFetchingMessages,
+    isEstimatingGas,
+    isRouteTransitioning,
+  })
 
   const onConfirm = async () => {
-    if (isPending || isRefreshing) return
+    if (isPending || isRefreshing || backgroundLoadingText || messageRefreshError) return
 
     if (requiresReconfirm) {
       // quoteVerifiedAt is always defined here (set when navigating with requiresReconfirm: true).
@@ -52,24 +117,26 @@ const BridgePreviewFooter = ({ tx, fee, onCompleted, confirmMessage, error }: Pr
     mutate()
   }
 
-  const statusMessage =
-    error ??
-    refreshError ??
-    (requiresReconfirm ? "Route updated. Please review and confirm again." : undefined)
+  const statusMessage = getStatusMessage({
+    error,
+    messageRefreshError,
+    refreshError,
+    requiresReconfirm,
+  })
+  const loadingText = getLoadingText({ isRefreshing, isPending, backgroundLoadingText })
+  const isBusy = isPending || isRefreshing || !!backgroundLoadingText || !!messageRefreshError
 
   return (
     <Footer
       extra={
         statusMessage && (
-          <FormHelp level={error || refreshError ? "error" : "info"}>{statusMessage}</FormHelp>
+          <FormHelp level={error || messageRefreshError || refreshError ? "error" : "info"}>
+            {statusMessage}
+          </FormHelp>
         )
       }
     >
-      <Button.White
-        onClick={onConfirm}
-        loading={isRefreshing ? "Refreshing route..." : isPending && "Signing transaction..."}
-        disabled={!!error}
-      >
+      <Button.White onClick={onConfirm} loading={loadingText} disabled={!!error || isBusy}>
         {getBridgeConfirmLabel(confirmMessage, Boolean(requiresReconfirm))}
       </Button.White>
     </Footer>

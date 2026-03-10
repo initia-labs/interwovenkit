@@ -41,9 +41,13 @@ export const useRegistry = () => {
   return new Registry([...protoRegistry, ...(config.protoTypes ?? [])])
 }
 
-export const useAminoTypes = () => {
+export const useAminoConverters = () => {
   const config = useConfig()
-  return new AminoTypes({ ...patchedAminoConverters, ...config.aminoConverters })
+  return { ...patchedAminoConverters, ...config.aminoConverters }
+}
+
+export const useAminoTypes = () => {
+  return new AminoTypes(useAminoConverters())
 }
 
 export class OfflineSigner implements OfflineAminoSigner {
