@@ -1,5 +1,6 @@
 import type { EncodeObject } from "@cosmjs/proto-signing"
-import type { MsgsResponseJson, OperationJson, TxJson } from "@skip-go/client"
+import type { BalanceResponseDenomEntryJson } from "@skip-go/client"
+import type { MsgsResponseJson, OperationJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
 import type { KyInstance } from "ky"
 import { aminoConverters, aminoTypes } from "@initia/amino-converter"
@@ -56,23 +57,6 @@ export async function fetchBridgeTxs(skip: KyInstance, params: BridgeMsgsParams)
   return txs
 }
 
-export function buildInitiaAddressList({
-  requiredChainAddresses,
-  sender,
-  recipient,
-}: {
-  requiredChainAddresses: string[]
-  sender: string
-  recipient: string
-}) {
-  return requiredChainAddresses.map((_, index) => {
-    if (index === requiredChainAddresses.length - 1) {
-      return recipient
-    }
-    return sender
-  })
-}
-
 export function decodeCosmosAminoMessages(
   msgs: Array<{ msg_type_url?: string; msg?: string }> | undefined,
   options?: {
@@ -94,19 +78,6 @@ export function decodeCosmosAminoMessages(
       value: JSON.parse(msg),
     })
   })
-}
-
-function getCosmosTxFromTxs(txs: TxJson[]) {
-  const tx = txs.find((item) => "cosmos_tx" in item && !!item.cosmos_tx.msgs?.length)
-  if (!tx || !("cosmos_tx" in tx)) return null
-  return tx.cosmos_tx
-}
-
-export async function fetchFirstCosmosTx(skip: KyInstance, params: BridgeMsgsParams) {
-  const txs = await fetchBridgeTxs(skip, params)
-  const cosmosTx = getCosmosTxFromTxs(txs)
-  if (!cosmosTx) throw new Error("No cosmos transaction data found")
-  return cosmosTx
 }
 
 export function computeRequiredFeeByDenom({
@@ -131,4 +102,26 @@ export function computeRequiredFeeByDenom({
     },
     {} as Record<string, string>,
   )
+}
+
+export function hasSufficientFeeBalance({
+  balances,
+  requiredFeeByDenom,
+  sourceDenom,
+  amountIn,
+}: {
+  balances: Record<string, BalanceResponseDenomEntryJson>
+  requiredFeeByDenom: Record<string, string>
+  sourceDenom: string
+  amountIn: string
+}) {
+  const feeDenoms = Object.keys(requiredFeeByDenom)
+  if (feeDenoms.length === 0) return true
+
+  return feeDenoms.some((denom) => {
+    const balance = BigNumber(balances[denom]?.amount ?? "0")
+    const spendAmount = denom === sourceDenom ? BigNumber(amountIn) : BigNumber(0)
+    const requiredFee = BigNumber(requiredFeeByDenom[denom] ?? "0")
+    return balance.minus(spendAmount).gte(requiredFee)
+  })
 }

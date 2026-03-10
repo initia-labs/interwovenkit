@@ -51,6 +51,8 @@ export interface SignedOpHook {
   hook: string
 }
 
+export { decodeCosmosAminoMessages } from "./bridgeTxUtils"
+
 interface OpHookResponse {
   chain_id: string
   hook: {

@@ -10,7 +10,7 @@ import {
   IconSettingFilled,
   IconWarningFilled,
 } from "@initia/icons-react"
-import { formatAmount, fromBaseUnit, InitiaAddress } from "@initia/utils"
+import { formatAmount, fromBaseUnit } from "@initia/utils"
 import AnimatedHeight from "@/components/AnimatedHeight"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
@@ -24,30 +24,17 @@ import WidgetTooltip from "@/components/WidgetTooltip"
 import { useAnalyticsTrack } from "@/data/analytics"
 import { useLayer1 } from "@/data/chains"
 import { LocalStorageKey } from "@/data/constants"
-import { useAminoConverters, useAminoTypes, useCreateSigningStargateClient } from "@/data/signer"
 import { useIsMobile } from "@/hooks/useIsMobile"
 import { formatValue } from "@/lib/format"
 import { useNavigate } from "@/lib/router"
 import { useModal } from "@/public/app/ModalContext"
 import { useSkipAsset } from "./data/assets"
 import { useSkipBalance, useSkipBalancesQuery } from "./data/balance"
-import {
-  buildInitiaAddressList,
-  computeRequiredFeeByDenom,
-  decodeCosmosAminoMessages,
-  fetchFirstCosmosTx,
-} from "./data/bridgeTxUtils"
 import { useChainType, useSkipChain } from "./data/chains"
 import type { FormValues } from "./data/form"
 import { useBridgeForm } from "./data/form"
 import { calculateMinimumReceived, formatDuration, formatFees } from "./data/format"
-import {
-  type RouterRouteResponseJson,
-  useIsOpWithdrawable,
-  useRouteErrorInfo,
-  useRouteQuery,
-} from "./data/simulate"
-import { useSkip } from "./data/skip"
+import { useIsOpWithdrawable, useRouteErrorInfo, useRouteQuery } from "./data/simulate"
 import BridgeAccount from "./BridgeAccount"
 import SelectedChainAsset from "./SelectedChainAsset"
 import type { RouteType } from "./SelectRouteOption"
@@ -87,31 +74,8 @@ function getFallbackFeeTokenDenoms({
   }
 }
 
-// The fallback path only catches fully dusted balances when precise fee simulation
-// is unavailable. Real fee sufficiency is checked with estimateRequiredFeeByDenom().
+// Keep the fields page warning-only. Exact fee sufficiency is checked on preview.
 const MIN_FALLBACK_FEE_REMAINDER = BigNumber(1)
-
-function shouldEstimateRouteFee({
-  route,
-  srcChainType,
-  dstChainType,
-  sender,
-  recipient,
-}: {
-  route: RouterRouteResponseJson
-  srcChainType: string
-  dstChainType: string
-  sender: string
-  recipient: string
-}) {
-  return (
-    !route.required_op_hook &&
-    srcChainType === "initia" &&
-    dstChainType === "initia" &&
-    !!sender &&
-    !!recipient
-  )
-}
 
 const BridgeFields = () => {
   const navigate = useNavigate()
@@ -131,10 +95,6 @@ const BridgeFields = () => {
   const { srcChainId, srcDenom, dstChainId, dstDenom, quantity, sender, slippagePercent } = values
 
   const layer1 = useLayer1()
-  const skip = useSkip()
-  const aminoConverters = useAminoConverters()
-  const aminoTypes = useAminoTypes()
-  const createSigningStargateClient = useCreateSigningStargateClient()
   const srcChain = useSkipChain(srcChainId)
   const srcChainType = useChainType(srcChain)
   const dstChain = useSkipChain(dstChainId)
@@ -204,33 +164,6 @@ const BridgeFields = () => {
 
       const latestRoute = result.data
       const quoteVerifiedAt = result.dataUpdatedAt
-
-      if (
-        hasLoadedBalances &&
-        shouldEstimateRouteFee({
-          route: latestRoute,
-          srcChainType,
-          dstChainType,
-          sender: values.sender,
-          recipient: values.recipient,
-        })
-      ) {
-        const requiredFeeByDenom = await estimateRequiredFeeByDenom(latestRoute, values)
-        const feeDenoms = Object.keys(requiredFeeByDenom ?? {})
-        const hasAvailableFeeBalance = feeDenoms.some((denom) => {
-          const requiredFee = BigNumber(requiredFeeByDenom?.[denom] ?? 0)
-          const remainingBalance = getRemainingBalanceAfterSwap(denom, {
-            amountIn: latestRoute.amount_in,
-            sourceDenom: values.srcDenom,
-          })
-          return remainingBalance.gte(requiredFee)
-        })
-
-        if (feeDenoms.length > 0 && !hasAvailableFeeBalance) {
-          setPreviewRefreshError("Insufficient balance for fees")
-          return
-        }
-      }
 
       track("Bridge Simulation Success", {
         quantity: values.quantity,
@@ -309,47 +242,6 @@ const BridgeFields = () => {
   // render
   const received = route ? formatAmount(route.amount_out, { decimals: dstAsset.decimals }) : "0"
   const chainFeeAssets = useMemo(() => srcChain.fee_assets ?? [], [srcChain.fee_assets])
-  const estimateRequiredFeeByDenom = useCallback(
-    async (route: RouterRouteResponseJson, values: FormValues) => {
-      try {
-        const addressList = buildInitiaAddressList({
-          requiredChainAddresses: route.required_chain_addresses,
-          sender: InitiaAddress(values.sender).bech32,
-          recipient: InitiaAddress(values.recipient).bech32,
-        })
-
-        const cosmosTx = await fetchFirstCosmosTx(skip, {
-          addressList,
-          route: {
-            amount_in: route.amount_in,
-            amount_out: route.amount_out,
-            source_asset_chain_id: route.source_asset_chain_id,
-            source_asset_denom: route.source_asset_denom,
-            dest_asset_chain_id: route.dest_asset_chain_id,
-            dest_asset_denom: route.dest_asset_denom,
-            operations: route.operations,
-          },
-          slippagePercent: String(values.slippagePercent),
-        })
-
-        const messages = decodeCosmosAminoMessages(cosmosTx.msgs, {
-          converters: aminoConverters,
-          fromAmino: aminoTypes.fromAmino.bind(aminoTypes),
-        })
-
-        const client = await createSigningStargateClient(values.srcChainId)
-        const gas = await client.simulate(values.sender, messages, "")
-
-        return computeRequiredFeeByDenom({
-          gas,
-          feeAssets: chainFeeAssets,
-        })
-      } catch {
-        return null
-      }
-    },
-    [aminoConverters, aminoTypes, chainFeeAssets, createSigningStargateClient, skip],
-  )
   const getRemainingBalanceAfterSwap = useCallback(
     (
       denom: string,
@@ -379,12 +271,10 @@ const BridgeFields = () => {
     !!route &&
     fallbackFeeTokenDenoms.length > 0 &&
     !hasFallbackFeeBalanceAfterSwap
-  const feeDisabledMessage = hasInsufficientFeeBalanceForSwap
+  const feeWarningMessage = hasInsufficientFeeBalanceForSwap
     ? "Insufficient balance for fees"
     : undefined
-  const shouldDisableForFee = hasInsufficientFeeBalanceForSwap
-  const shouldShowPreviewRefreshError =
-    !!previewRefreshError && previewRefreshError !== feeDisabledMessage
+  const shouldShowPreviewRefreshError = !!previewRefreshError
 
   // disabled
   // Note: formState.isValid is not used here because:
@@ -398,9 +288,8 @@ const BridgeFields = () => {
     if (!values.recipient) return "Enter recipient address"
     if (formState.errors.quantity) return formState.errors.quantity.message
     if (!route) return "Route not found"
-    if (feeDisabledMessage) return feeDisabledMessage
     if (feeErrorMessage) return feeErrorMessage
-  }, [debouncedQuantity, feeDisabledMessage, feeErrorMessage, formState, route, values])
+  }, [debouncedQuantity, feeErrorMessage, formState, route, values])
   const previewButtonLoading = useMemo(() => {
     if (previewRefreshing) return "Refreshing route..."
     if (isSimulating) return "Simulating..."
@@ -570,7 +459,7 @@ const BridgeFields = () => {
                 </FormHelp>
               ))}
               {routeErrorInfo && <FormHelp level="info">{routeErrorInfo}</FormHelp>}
-              {shouldDisableForFee && <FormHelp level="error">{feeDisabledMessage}</FormHelp>}
+              {feeWarningMessage && <FormHelp level="warning">{feeWarningMessage}</FormHelp>}
               {route?.warning && <FormHelp level="warning">{route.warning.message}</FormHelp>}
               {route?.extra_warnings?.map((warning) => (
                 <FormHelp level="warning" key={warning}>
