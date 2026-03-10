@@ -102,6 +102,7 @@ function shouldSyncTransferNavigationState({
   nextState: TransferLocationState
 }): boolean {
   if (currentState.route !== nextState.route) return true
+  if (currentState.quoteVerifiedAt !== nextState.quoteVerifiedAt) return true
 
   const currentAddresses = getTransferStateAddresses(currentState)
   const nextAddresses = getTransferStateAddresses(nextState)
