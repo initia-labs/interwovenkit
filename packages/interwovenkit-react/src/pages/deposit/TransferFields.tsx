@@ -30,6 +30,7 @@ import {
 } from "./hooks"
 import { buildTransferLocationState, type TransferLocationState } from "./state"
 import TransferFooter from "./TransferFooter"
+import { shouldSyncTransferNavigationState } from "./transferNavigationState"
 import styles from "./Fields.module.css"
 
 interface Props {
@@ -87,30 +88,6 @@ function getRouteStatusText({
 }
 
 const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect
-
-function getTransferStateAddresses(state: TransferLocationState) {
-  const values = state.values as { recipient?: string; sender?: string } | undefined
-
-  return { recipient: values?.recipient, sender: values?.sender }
-}
-
-function shouldSyncTransferNavigationState({
-  currentState,
-  nextState,
-}: {
-  currentState: TransferLocationState
-  nextState: TransferLocationState
-}): boolean {
-  if (currentState.route !== nextState.route) return true
-
-  const currentAddresses = getTransferStateAddresses(currentState)
-  const nextAddresses = getTransferStateAddresses(nextState)
-
-  return (
-    currentAddresses.sender !== nextAddresses.sender ||
-    currentAddresses.recipient !== nextAddresses.recipient
-  )
-}
 
 const TransferFields = ({ mode }: Props) => {
   const modeConfig = useTransferMode(mode)
@@ -229,8 +206,6 @@ const TransferFields = ({ mode }: Props) => {
   // Sync before paint to prevent flash of the simple footer.
   // Depend on the specific primitives that can change the derived location state
   // without depending on the full `state` object, which would loop after navigate().
-  // quoteVerifiedAt is intentionally excluded because it tracks React Query's
-  // dataUpdatedAt and would trigger a no-op navigate on every background refetch.
   useIsomorphicLayoutEffect(() => {
     const nextState = buildTransferLocationState({
       currentState: state,
@@ -243,7 +218,15 @@ const TransferFields = ({ mode }: Props) => {
     if (!shouldSyncTransferNavigationState({ currentState: state, nextState })) return
 
     navigate(0, nextState)
-  }, [currentRoute, getValues, hexAddress, navigate, recipientAddress, routeForState])
+  }, [
+    currentRoute,
+    getValues,
+    hexAddress,
+    navigate,
+    quoteVerifiedAt,
+    recipientAddress,
+    routeForState,
+  ])
 
   const applyAutoExternalOption = useEffectEvent(() => {
     if (!autoExternalAssetOption) return
