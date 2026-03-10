@@ -22,7 +22,7 @@ import ModalTrigger from "@/components/ModalTrigger"
 import PlainModalContent from "@/components/PlainModalContent"
 import WidgetTooltip from "@/components/WidgetTooltip"
 import { useAnalyticsTrack } from "@/data/analytics"
-import { useFindChain, useLayer1 } from "@/data/chains"
+import { useLayer1 } from "@/data/chains"
 import { LocalStorageKey } from "@/data/constants"
 import { useIsMobile } from "@/hooks/useIsMobile"
 import { formatValue } from "@/lib/format"
@@ -54,6 +54,29 @@ function getRouteRefreshMs({
   return 10000
 }
 
+function getFallbackFeeTokenDenoms({
+  srcChainType,
+  chainFeeAssets,
+  srcDenom,
+}: {
+  srcChainType: string
+  chainFeeAssets: Array<{ denom: string }>
+  srcDenom: string
+}) {
+  switch (srcChainType) {
+    case "initia":
+    case "cosmos":
+      return chainFeeAssets.map(({ denom }) => denom)
+    case "evm":
+      return !isAddress(srcDenom) ? [srcDenom] : []
+    default:
+      return []
+  }
+}
+
+// Keep the fields page warning-only. Exact fee sufficiency is checked on preview.
+const MIN_FALLBACK_FEE_REMAINDER = BigNumber(1)
+
 const BridgeFields = () => {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
@@ -71,7 +94,6 @@ const BridgeFields = () => {
   const values = watch()
   const { srcChainId, srcDenom, dstChainId, dstDenom, quantity, sender, slippagePercent } = values
 
-  const findChain = useFindChain()
   const layer1 = useLayer1()
   const srcChain = useSkipChain(srcChainId)
   const srcChainType = useChainType(srcChain)
@@ -81,6 +103,7 @@ const BridgeFields = () => {
   const dstAsset = useSkipAsset(dstDenom, dstChainId)
   const { data: balances } = useSkipBalancesQuery(sender, srcChainId)
   const srcBalance = useSkipBalance(sender, srcChainId, srcDenom)
+  const hasLoadedBalances = balances !== undefined
 
   const hasZeroBalance = !srcBalance?.amount || BigNumber(srcBalance.amount).isZero()
 
@@ -128,8 +151,6 @@ const BridgeFields = () => {
   const submit = handleSubmit(async (values: FormValues) => {
     setPreviewRefreshError(undefined)
     setPreviewRefreshing(true)
-    let latestRoute: typeof route
-    let quoteVerifiedAt: number
     try {
       const result = await routeQuery.refetch()
       if (result.error || !result.data || !result.dataUpdatedAt) {
@@ -140,53 +161,54 @@ const BridgeFields = () => {
         )
         return
       }
-      latestRoute = result.data
-      quoteVerifiedAt = result.dataUpdatedAt
+
+      const latestRoute = result.data
+      const quoteVerifiedAt = result.dataUpdatedAt
+
+      track("Bridge Simulation Success", {
+        quantity: values.quantity,
+        srcChainId: values.srcChainId,
+        srcDenom: values.srcDenom,
+        dstChainId: values.dstChainId,
+        dstDenom: values.dstDenom,
+      })
+
+      if (latestRoute.warning) {
+        const { type = "", message } = latestRoute.warning ?? {}
+        openModal({
+          content: (
+            <PlainModalContent
+              type="warning"
+              icon={<IconWarningFilled size={40} />}
+              title={sentenceCase(type)}
+              primaryButton={{ label: "Cancel", onClick: closeModal }}
+              secondaryButton={{
+                label: "Proceed anyway",
+                onClick: () => {
+                  navigate("/bridge/preview", {
+                    route: latestRoute,
+                    values,
+                    quoteVerifiedAt,
+                  })
+                  closeModal()
+                },
+              }}
+            >
+              <p className={styles.warning}>{message}</p>
+            </PlainModalContent>
+          ),
+        })
+        return
+      }
+
+      navigate("/bridge/preview", {
+        route: latestRoute,
+        values,
+        quoteVerifiedAt,
+      })
     } finally {
       setPreviewRefreshing(false)
     }
-
-    track("Bridge Simulation Success", {
-      quantity: values.quantity,
-      srcChainId: values.srcChainId,
-      srcDenom: values.srcDenom,
-      dstChainId: values.dstChainId,
-      dstDenom: values.dstDenom,
-    })
-
-    if (latestRoute.warning) {
-      const { type = "", message } = latestRoute.warning ?? {}
-      openModal({
-        content: (
-          <PlainModalContent
-            type="warning"
-            icon={<IconWarningFilled size={40} />}
-            title={sentenceCase(type)}
-            primaryButton={{ label: "Cancel", onClick: closeModal }}
-            secondaryButton={{
-              label: "Proceed anyway",
-              onClick: () => {
-                navigate("/bridge/preview", {
-                  route: latestRoute,
-                  values,
-                  quoteVerifiedAt,
-                })
-                closeModal()
-              },
-            }}
-          >
-            <p className={styles.warning}>{message}</p>
-          </PlainModalContent>
-        ),
-      })
-      return
-    }
-
-    navigate("/bridge/preview", {
-      route: latestRoute,
-      values,
-      quoteVerifiedAt,
-    })
   })
 
   // fees
@@ -207,13 +229,52 @@ const BridgeFields = () => {
   }, [route])
 
   const feeErrorMessage = useMemo(() => {
+    if (!hasLoadedBalances) return
+
     for (const fee of additionalFees) {
       const balance = balances?.[fee.origin_asset.denom]?.amount ?? "0"
       const amount = route?.source_asset_denom === fee.origin_asset.denom ? route.amount_in : "0"
       const insufficient = BigNumber(balance).lt(BigNumber(amount).plus(fee.amount ?? "0"))
       if (insufficient) return `Insufficient ${fee.origin_asset.symbol} for fees`
     }
-  }, [balances, route, additionalFees])
+  }, [additionalFees, balances, hasLoadedBalances, route])
+
+  // render
+  const received = route ? formatAmount(route.amount_out, { decimals: dstAsset.decimals }) : "0"
+  const chainFeeAssets = useMemo(() => srcChain.fee_assets ?? [], [srcChain.fee_assets])
+  const getRemainingBalanceAfterSwap = useCallback(
+    (
+      denom: string,
+      options?: {
+        amountIn?: string
+        sourceDenom?: string
+      },
+    ) => {
+      const balance = BigNumber(balances?.[denom]?.amount ?? "0")
+      const spendAmount =
+        denom === (options?.sourceDenom ?? srcDenom)
+          ? BigNumber(options?.amountIn ?? route?.amount_in ?? "0")
+          : BigNumber(0)
+      return balance.minus(spendAmount)
+    },
+    [balances, route?.amount_in, srcDenom],
+  )
+  const fallbackFeeTokenDenoms = useMemo(
+    () => getFallbackFeeTokenDenoms({ srcChainType, chainFeeAssets, srcDenom }),
+    [chainFeeAssets, srcChainType, srcDenom],
+  )
+  const hasFallbackFeeBalanceAfterSwap = fallbackFeeTokenDenoms.some((denom) =>
+    getRemainingBalanceAfterSwap(denom).gt(MIN_FALLBACK_FEE_REMAINDER),
+  )
+  const hasInsufficientFeeBalanceForSwap =
+    hasLoadedBalances &&
+    !!route &&
+    fallbackFeeTokenDenoms.length > 0 &&
+    !hasFallbackFeeBalanceAfterSwap
+  const feeWarningMessage = hasInsufficientFeeBalanceForSwap
+    ? "Insufficient balance for fees"
+    : undefined
+  const shouldShowPreviewRefreshError = !!previewRefreshError
 
   // disabled
   // Note: formState.isValid is not used here because:
@@ -229,38 +290,11 @@ const BridgeFields = () => {
     if (!route) return "Route not found"
     if (feeErrorMessage) return feeErrorMessage
   }, [debouncedQuantity, feeErrorMessage, formState, route, values])
-
-  // render
-  const received = route ? formatAmount(route.amount_out, { decimals: dstAsset.decimals }) : "0"
-
-  const isMaxAmount =
-    BigNumber(quantity).gt(0) &&
-    BigNumber(quantity).isEqualTo(
-      fromBaseUnit(srcBalance?.amount, { decimals: srcBalance?.decimals ?? 0 }),
-    )
-
-  const getFeeTokenDenomsForSourceChain = () => {
-    switch (srcChainType) {
-      case "initia":
-        return findChain(srcChainId).fees.fee_tokens.map(({ denom }) => denom)
-      case "cosmos":
-        return srcChain.fee_assets.map(({ denom }) => denom)
-      case "evm":
-        return !isAddress(srcDenom) ? [srcDenom] : []
-      default:
-        return []
-    }
-  }
-
-  const feeTokenDenoms = getFeeTokenDenomsForSourceChain()
-  const isSourceFeeToken = feeTokenDenoms.includes(srcDenom)
-  const hasAlternativeFeeTokenBalance = feeTokenDenoms.some((denom) => {
-    if (denom === srcDenom) return false
-    const balance = balances?.[denom]?.amount ?? "0"
-    return BigNumber(balance).gt(0)
-  })
-  const shouldWarnInsufficientFeeBalanceAfterSwap =
-    isMaxAmount && isSourceFeeToken && !hasAlternativeFeeTokenBalance
+  const previewButtonLoading = useMemo(() => {
+    if (previewRefreshing) return "Refreshing route..."
+    if (isSimulating) return "Simulating..."
+    return false
+  }, [isSimulating, previewRefreshing])
 
   const renderFees = useCallback(
     (fees: FeeJson[], tooltip: string) => {
@@ -416,16 +450,16 @@ const BridgeFields = () => {
         extra={
           <>
             <FormHelp.Stack>
-              {previewRefreshError && <FormHelp level="error">{previewRefreshError}</FormHelp>}
+              {shouldShowPreviewRefreshError && (
+                <FormHelp level="error">{previewRefreshError}</FormHelp>
+              )}
               {route?.extra_infos?.map((info) => (
                 <FormHelp level="info" key={info}>
                   {info}
                 </FormHelp>
               ))}
               {routeErrorInfo && <FormHelp level="info">{routeErrorInfo}</FormHelp>}
-              {shouldWarnInsufficientFeeBalanceAfterSwap && (
-                <FormHelp level="warning">Make sure to leave enough for transaction fee</FormHelp>
-              )}
+              {feeWarningMessage && <FormHelp level="warning">{feeWarningMessage}</FormHelp>}
               {route?.warning && <FormHelp level="warning">{route.warning.message}</FormHelp>}
               {route?.extra_warnings?.map((warning) => (
                 <FormHelp level="warning" key={warning}>
@@ -450,7 +484,7 @@ const BridgeFields = () => {
         }
       >
         <Button.White
-          loading={previewRefreshing ? "Refreshing route..." : isSimulating && "Simulating..."}
+          loading={previewButtonLoading}
           disabled={!!disabledMessage || previewRefreshing}
         >
           {disabledMessage ?? "Preview route"}
