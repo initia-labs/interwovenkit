@@ -1,8 +1,11 @@
 import type { MsgsResponseJson, TxJson } from "@skip-go/client"
-import { type ReactNode, useEffect, useState } from "react"
+import { type ReactNode, useEffect, useRef, useState } from "react"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
-import { getBridgeMsgsRequestKey } from "./data/messageRequestKey"
+import {
+  getBridgeMsgsRequestKey,
+  shouldRetryBridgeMsgsAfterQuoteRefresh,
+} from "./data/messageRequestKey"
 import { useSkip } from "./data/skip"
 import type { SignedOpHook } from "./data/tx"
 import { useBridgePreviewState } from "./data/tx"
@@ -43,13 +46,31 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
   const [value, setValue] = useState<TxJson | undefined>(undefined)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
+  const [recoveryAttemptVersion, setRecoveryAttemptVersion] = useState(0)
+  const previousQuoteVerifiedAtRef = useRef<number | undefined>(quoteVerifiedAt)
 
   const requestKey = getBridgeMsgsRequestKey({
     addressList,
     operations: route.operations,
     signedOpHook,
-    quoteVerifiedAt,
   })
+
+  useEffect(() => {
+    const previousQuoteVerifiedAt = previousQuoteVerifiedAtRef.current
+
+    if (
+      shouldRetryBridgeMsgsAfterQuoteRefresh({
+        previousQuoteVerifiedAt,
+        quoteVerifiedAt,
+        hasValue: value !== undefined,
+        hasMessageRefreshError: error !== null,
+      })
+    ) {
+      setRecoveryAttemptVersion((version) => version + 1)
+    }
+
+    previousQuoteVerifiedAtRef.current = quoteVerifiedAt
+  }, [quoteVerifiedAt, value, error])
 
   useEffect(() => {
     let cancelled = false
@@ -95,9 +116,10 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- requestKey tracks reference-type inputs by content
   }, [
     requestKey,
+    recoveryAttemptVersion,
     route.amount_in,
     route.amount_out,
     route.source_asset_chain_id,

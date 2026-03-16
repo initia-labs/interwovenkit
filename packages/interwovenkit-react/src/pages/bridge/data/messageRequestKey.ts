@@ -4,17 +4,34 @@ export function getBridgeMsgsRequestKey({
   addressList,
   operations,
   signedOpHook,
-  quoteVerifiedAt,
 }: {
   addressList: string[]
   operations: unknown
   signedOpHook?: SignedOpHook
-  quoteVerifiedAt?: number
 }): string {
   return JSON.stringify({
     addressList,
     operations,
     signedOpHook: signedOpHook ?? null,
-    quoteVerifiedAt,
   })
+}
+
+export function shouldRetryBridgeMsgsAfterQuoteRefresh({
+  previousQuoteVerifiedAt,
+  quoteVerifiedAt,
+  hasValue,
+  hasMessageRefreshError,
+}: {
+  previousQuoteVerifiedAt?: number
+  quoteVerifiedAt?: number
+  hasValue: boolean
+  hasMessageRefreshError: boolean
+}): boolean {
+  return (
+    hasValue &&
+    hasMessageRefreshError &&
+    previousQuoteVerifiedAt !== undefined &&
+    quoteVerifiedAt !== undefined &&
+    quoteVerifiedAt !== previousQuoteVerifiedAt
+  )
 }
