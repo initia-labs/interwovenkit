@@ -238,6 +238,7 @@ const BridgeFields = () => {
       if (insufficient) return `Insufficient ${fee.origin_asset.symbol} for fees`
     }
   }, [additionalFees, balances, hasLoadedBalances, route])
+  const isAdditionalFeeBalancePending = !!route && additionalFees.length > 0 && !hasLoadedBalances
 
   // render
   const received = route ? formatAmount(route.amount_out, { decimals: dstAsset.decimals }) : "0"
@@ -288,8 +289,9 @@ const BridgeFields = () => {
     if (!values.recipient) return "Enter recipient address"
     if (formState.errors.quantity) return formState.errors.quantity.message
     if (!route) return "Route not found"
+    if (isAdditionalFeeBalancePending) return "Loading balances..."
     if (feeErrorMessage) return feeErrorMessage
-  }, [debouncedQuantity, feeErrorMessage, formState, route, values])
+  }, [debouncedQuantity, feeErrorMessage, formState, isAdditionalFeeBalancePending, route, values])
   const previewButtonLoading = useMemo(() => {
     if (previewRefreshing) return "Refreshing route..."
     if (isSimulating) return "Simulating..."

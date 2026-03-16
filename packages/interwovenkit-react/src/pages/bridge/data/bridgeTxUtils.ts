@@ -3,7 +3,6 @@ import type { BalanceResponseDenomEntryJson } from "@skip-go/client"
 import type { MsgsResponseJson, OperationJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
 import type { KyInstance } from "ky"
-import { aminoConverters, aminoTypes } from "@initia/amino-converter"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 
 interface BridgeRouteForMsgs {
@@ -23,11 +22,9 @@ interface BridgeMsgsParams {
   signedOpHook?: { signer: string; hook: string }
 }
 
-interface FeeAssetWithGasPrice {
+interface GasPriceEntry {
+  amount: string
   denom: string
-  gas_price?: {
-    average?: string
-  } | null
 }
 
 function buildBridgeMsgsPayload({
@@ -59,21 +56,18 @@ export async function fetchBridgeTxs(skip: KyInstance, params: BridgeMsgsParams)
 
 export function decodeCosmosAminoMessages(
   msgs: Array<{ msg_type_url?: string; msg?: string }> | undefined,
-  options?: {
-    fromAmino?: (value: { type: string; value: unknown }) => EncodeObject
-    converters?: Record<string, { aminoType: string }>
+  options: {
+    fromAmino: (value: { type: string; value: unknown }) => EncodeObject
+    converters: Record<string, { aminoType: string }>
   },
 ): EncodeObject[] {
   if (!msgs?.length) throw new Error("Invalid transaction data")
 
-  const fromAmino = options?.fromAmino ?? aminoTypes.fromAmino.bind(aminoTypes)
-  const converters = options?.converters ?? aminoConverters
-
   return msgs.map(({ msg_type_url, msg }) => {
     if (!(msg_type_url && msg)) throw new Error("Invalid transaction data")
-    const converter = converters[msg_type_url]
+    const converter = options.converters[msg_type_url]
     if (!converter) throw new Error(`Unsupported message type: ${msg_type_url}`)
-    return fromAmino({
+    return options.fromAmino({
       type: converter.aminoType,
       value: JSON.parse(msg),
     })
@@ -82,20 +76,18 @@ export function decodeCosmosAminoMessages(
 
 export function computeRequiredFeeByDenom({
   gas,
-  feeAssets,
+  gasPrices,
   gasAdjustment = DEFAULT_GAS_ADJUSTMENT,
 }: {
   gas: number
-  feeAssets: FeeAssetWithGasPrice[]
+  gasPrices: GasPriceEntry[]
   gasAdjustment?: number
 }) {
-  return feeAssets.reduce(
-    (result, asset) => {
-      const gasPrice = asset.gas_price?.average
-      if (!gasPrice) return result
-      result[asset.denom] = BigNumber(gas)
+  return gasPrices.reduce(
+    (result, { amount, denom }) => {
+      result[denom] = BigNumber(gas)
         .times(gasAdjustment)
-        .times(gasPrice)
+        .times(amount)
         .integerValue(BigNumber.ROUND_CEIL)
         .toFixed(0)
       return result

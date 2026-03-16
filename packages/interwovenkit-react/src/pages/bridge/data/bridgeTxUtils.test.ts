@@ -1,4 +1,8 @@
-import { computeRequiredFeeByDenom, hasSufficientFeeBalance } from "./bridgeTxUtils"
+import {
+  computeRequiredFeeByDenom,
+  decodeCosmosAminoMessages,
+  hasSufficientFeeBalance,
+} from "./bridgeTxUtils"
 
 describe("computeRequiredFeeByDenom", () => {
   it("rounds each fee asset up after applying gas adjustment", () => {
@@ -6,14 +10,29 @@ describe("computeRequiredFeeByDenom", () => {
       computeRequiredFeeByDenom({
         gas: 100_001,
         gasAdjustment: 1.1,
-        feeAssets: [
-          { denom: "uinit", gas_price: { average: "0.15" } },
-          { denom: "uusdc", gas_price: { average: "0.01" } },
+        gasPrices: [
+          { denom: "uinit", amount: "0.15" },
+          { denom: "uusdc", amount: "0.01" },
         ],
       }),
     ).toEqual({
       uinit: "16501",
       uusdc: "1101",
+    })
+  })
+
+  it("supports alternative fee tokens priced outside router fee asset metadata", () => {
+    expect(
+      computeRequiredFeeByDenom({
+        gas: 200_000,
+        gasPrices: [
+          { denom: "uinit", amount: "0.015" },
+          { denom: "ibc/usdc", amount: "0.00139524973005379" },
+        ],
+      }),
+    ).toEqual({
+      uinit: "4200",
+      "ibc/usdc": "391",
     })
   })
 })
@@ -51,5 +70,18 @@ describe("hasSufficientFeeBalance", () => {
         amountIn: "2000",
       }),
     ).toBe(false)
+  })
+})
+
+describe("decodeCosmosAminoMessages", () => {
+  const fromAmino = vi.fn((value) => ({ typeUrl: value.type, value: value.value }))
+
+  it("throws on unsupported message types", () => {
+    expect(() =>
+      decodeCosmosAminoMessages([{ msg_type_url: "/unsupported.Msg", msg: "{}" }], {
+        fromAmino,
+        converters: {},
+      }),
+    ).toThrow("Unsupported message type: /unsupported.Msg")
   })
 })

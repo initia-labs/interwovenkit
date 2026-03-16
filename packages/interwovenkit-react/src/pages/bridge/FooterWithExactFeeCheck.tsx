@@ -2,6 +2,8 @@ import type { TxJson } from "@skip-go/client"
 import { useQuery } from "@tanstack/react-query"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
+import { useChain } from "@/data/chains"
+import { fetchGasPrices } from "@/data/fee"
 import { normalizeError } from "@/data/http"
 import { useAminoConverters, useAminoTypes, useCreateSigningStargateClient } from "@/data/signer"
 import { useSkipBalancesQuery } from "./data/balance"
@@ -20,6 +22,7 @@ interface Props {
 function FooterWithExactFeeCheck({ tx, children }: Props) {
   const { route, values } = useBridgePreviewState()
   const { sender, recipient, srcChainId, srcDenom, dstChainId } = values
+  const chain = useChain(srcChainId)
   const srcChain = useSkipChain(srcChainId)
   const dstChain = useSkipChain(dstChainId)
   const srcChainType = useChainType(srcChain)
@@ -67,9 +70,10 @@ function FooterWithExactFeeCheck({ tx, children }: Props) {
         })
         const client = await createSigningStargateClient(srcChainId)
         const gas = await client.simulate(sender, messages, "")
+        const gasPrices = await fetchGasPrices(chain)
         const requiredFeeByDenom = computeRequiredFeeByDenom({
           gas,
-          feeAssets: srcChain.fee_assets ?? [],
+          gasPrices,
         })
 
         return hasSufficientFeeBalance({
