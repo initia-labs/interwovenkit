@@ -95,18 +95,16 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
     return () => {
       cancelled = true
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     requestKey,
-    addressList,
     route.amount_in,
     route.amount_out,
     route.source_asset_chain_id,
     route.source_asset_denom,
     route.dest_asset_chain_id,
     route.dest_asset_denom,
-    route.operations,
     route.required_op_hook,
-    signedOpHook,
     values.slippagePercent,
     skip,
   ])
