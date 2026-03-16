@@ -1,4 +1,5 @@
 import type { TxJson } from "@skip-go/client"
+import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
@@ -19,6 +20,21 @@ interface Props {
   children: ReactNode
 }
 
+function getFeeBalanceKey({
+  balances,
+  feeDenoms,
+}: {
+  balances?: Record<string, { amount?: string }>
+  feeDenoms: string[]
+}): string {
+  if (!balances) return ""
+
+  return feeDenoms
+    .toSorted()
+    .map((denom) => `${denom}:${balances[denom]?.amount ?? "0"}`)
+    .join("|")
+}
+
 function FooterWithExactFeeCheck({ tx, children }: Props) {
   const { route, values } = useBridgePreviewState()
   const { sender, recipient, srcChainId, srcDenom, dstChainId } = values
@@ -35,6 +51,11 @@ function FooterWithExactFeeCheck({ tx, children }: Props) {
   const aminoConverters = useAminoConverters()
   const aminoTypes = useAminoTypes()
   const createSigningStargateClient = useCreateSigningStargateClient()
+  const feeDenoms = useMemo(
+    () => Array.from(new Set([srcDenom, ...chain.fees.fee_tokens.map(({ denom }) => denom)])),
+    [chain.fees.fee_tokens, srcDenom],
+  )
+  const balanceKey = useMemo(() => getFeeBalanceKey({ balances, feeDenoms }), [balances, feeDenoms])
 
   const requiresExactFeeCheck =
     "cosmos_tx" in tx &&
@@ -57,6 +78,7 @@ function FooterWithExactFeeCheck({ tx, children }: Props) {
       srcChainId,
       srcDenom,
       route.amount_in,
+      balanceKey,
     ],
     queryFn: async () => {
       try {
