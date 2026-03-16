@@ -95,7 +95,12 @@ const TransferFields = ({ mode }: Props) => {
   const state = useLocationState<TransferLocationState>()
   const { data: options } = useLocalAssetOptions()
   const findChain = useFindSkipChain()
-  const { data: balances, error: balancesError, chainsError } = useAllBalancesQuery()
+  const {
+    data: balances,
+    error: balancesError,
+    chainsError,
+    isLoading: isBalancesLoading,
+  } = useAllBalancesQuery()
   const hexAddress = useHexAddress()
 
   const { watch, setValue, getValues } = useTransferForm()
@@ -139,7 +144,6 @@ const TransferFields = ({ mode }: Props) => {
   const externalChain = selectedExternalChainId ? findChain(selectedExternalChainId) : null
 
   const balance = balances?.[srcChainId]?.[srcDenom]?.amount
-  const hasChainBalanceSnapshot = !!balances && srcChainId in balances
   const price = balances?.[srcChainId]?.[srcDenom]?.price || 0
 
   const quantityValue = BigNumber(price || 0).times(rawQuantity || 0)
@@ -156,19 +160,18 @@ const TransferFields = ({ mode }: Props) => {
 
     if (mode === "withdraw" && !externalAsset) return "Select destination"
 
-    if (!hasChainBalanceSnapshot) {
-      return balancesError || chainsError ? "Failed to load balances" : "Loading balances..."
-    }
+    if (isBalancesLoading) return "Loading balances..."
+    if (balancesError || chainsError) return "Failed to load balances"
 
     const balanceAmount = fromBaseUnit(balance ?? "0", { decimals: amountAsset?.decimals || 6 })
     if (quantityBn.gt(balanceAmount)) return "Insufficient balance"
   }, [
     amountAsset,
     balance,
+    isBalancesLoading,
     balancesError,
     chainsError,
     externalAsset,
-    hasChainBalanceSnapshot,
     mode,
     rawQuantity,
   ])
