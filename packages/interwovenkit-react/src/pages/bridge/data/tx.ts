@@ -16,6 +16,7 @@ import { formatMoveError } from "@/data/errors"
 import { normalizeError, STALE_TIMES } from "@/data/http"
 import { useAminoTypes, useGetProvider, useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
 import { waitForTxConfirmationWithClient } from "@/data/tx"
+import { withTimeout } from "@/lib/promise"
 import { Link, useLocationState, useNavigate } from "@/lib/router"
 import { useNotification } from "@/public/app/NotificationContext"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
@@ -172,9 +173,16 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
           const signer = await provider.getSigner()
           await switchEthereumChain(provider, srcChain)
           const response = await signer.sendTransaction({ chainId, to, value, data: `0x${data}` })
-          // `wait()` is a getter on the response object. Destructuring breaks
-          // its internal binding, so keep the original object intact.
-          return { txHash: response.hash, wait: response.wait() }
+          // ethers' response.wait() defaults to no timeout — if the
+          // transaction is dropped without replacement, the promise
+          // never resolves and the UI stays on "pending".
+          // 30s matches the Cosmos waitForTxConfirmationWithClient timeout.
+          const wait = withTimeout(
+            response.wait(),
+            30_000,
+            "Transaction was not confirmed in time. It may still be processing.",
+          )
+          return { txHash: response.hash, wait }
         }
 
         throw new Error("Unlisted chain type")

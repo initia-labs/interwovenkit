@@ -6,6 +6,7 @@ import Footer from "@/components/Footer"
 import FormHelp from "@/components/form/FormHelp"
 import { normalizeError } from "@/data/http"
 import { useGetProvider } from "@/data/signer"
+import { withTimeout } from "@/lib/promise"
 import { useFindSkipChain } from "./data/chains"
 import { switchEthereumChain } from "./data/evm"
 
@@ -61,7 +62,13 @@ const FooterWithErc20Approval = ({ tx, children }: PropsWithChildren<{ tx: TxJso
           ]
           const tokenContract = new ethers.Contract(token_contract, erc20Abi, signer)
           const response = await tokenContract.approve(spender, amount)
-          await response.wait()
+          // Same timeout as bridge tx — ethers' wait() defaults to no
+          // timeout, so the promise never resolves if the tx is dropped.
+          await withTimeout(
+            response.wait(),
+            30_000,
+            "Approval was not confirmed in time. It may still be processing.",
+          )
         }
 
         return true
