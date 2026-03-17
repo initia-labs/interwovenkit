@@ -2,6 +2,7 @@ import { createConfig, http, WagmiProvider } from "wagmi"
 import { mainnet } from "wagmi/chains"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import {
+  createTestWalletConnector,
   initiaPrivyWalletConnector,
   injectStyles,
   InterwovenKitProvider,
@@ -9,14 +10,14 @@ import {
 } from "@initia/interwovenkit-react"
 import css from "@initia/interwovenkit-react/styles.css?inline"
 import { chainId, isTestnet, routerApiUrl, useTheme } from "./data"
-import { testWalletConnector } from "./test-wallet"
 
 import type { PropsWithChildren } from "react"
 
 injectStyles(css)
+const mnemonic = import.meta.env.INITIA_TEST_MNEMONIC as string | undefined
 const connectors = [
   initiaPrivyWalletConnector,
-  ...(testWalletConnector ? [testWalletConnector] : []),
+  ...(mnemonic ? [createTestWalletConnector({ mnemonic })] : []),
 ]
 const wagmiConfig = createConfig({
   connectors,
