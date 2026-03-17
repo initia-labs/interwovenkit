@@ -30,6 +30,7 @@ const ChainOptions = ({ label, chains, value, onSelect, getShowIndicator }: Prop
             <WidgetTooltip label={name} disableHoverableContent>
               <button
                 type="button"
+                aria-label={name}
                 className={clsx(styles.button, { [styles.active]: chainId === value })}
                 onClick={() => onSelect(chainId)}
               >
