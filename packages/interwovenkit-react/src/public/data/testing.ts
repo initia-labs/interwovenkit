@@ -150,7 +150,9 @@ export function createTestWalletConnector(options: CreateTestWalletConfig) {
 
   // Not catching listener errors — test utility should surface bugs immediately.
   function emit(event: string, ...args: unknown[]) {
-    listeners[event]?.forEach((fn) => fn(...args))
+    listeners[event]?.forEach((fn) => {
+      fn(...args)
+    })
   }
 
   // Merge user overrides on top of built-in CORS-safe defaults
