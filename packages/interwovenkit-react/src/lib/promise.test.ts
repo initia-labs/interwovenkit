@@ -14,10 +14,13 @@ describe("withTimeout", () => {
 
   it("rejects with timeout message when the promise does not settle in time", async () => {
     vi.useFakeTimers()
-    const never = new Promise<string>(() => {})
-    const race = withTimeout(never, 500, "timed out")
-    vi.advanceTimersByTime(500)
-    await expect(race).rejects.toThrow("timed out")
-    vi.useRealTimers()
+    try {
+      const never = new Promise<string>(() => {})
+      const race = withTimeout(never, 500, "timed out")
+      vi.advanceTimersByTime(500)
+      await expect(race).rejects.toThrow("timed out")
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
