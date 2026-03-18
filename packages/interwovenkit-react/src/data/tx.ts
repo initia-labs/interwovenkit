@@ -14,6 +14,7 @@ import { ServiceClientImpl, SimulateRequest } from "cosmjs-types/cosmos/tx/v1bet
 import { AuthInfo, Fee, Tx, TxBody, TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import type { Any } from "cosmjs-types/google/protobuf/any"
 import { atom, useAtomValue, useSetAtom } from "jotai"
+import { TimeoutError } from "@/lib/promise"
 import { useNavigate } from "@/lib/router"
 import type { DerivedWalletPublic } from "@/pages/autosign/data/store"
 import { useValidateAutoSign } from "@/pages/autosign/data/validation"
@@ -771,6 +772,10 @@ export function useTx() {
       const client = await createSigningStargateClient(chainId)
       return await waitForTxConfirmationWithClient({ ...params, client })
     } catch (error) {
+      // Preserve TimeoutError so callers can distinguish "not yet confirmed"
+      // from execution failures. formatMoveError wraps into a plain Error,
+      // which would break instanceof checks upstream.
+      if (error instanceof TimeoutError) throw error
       throw await formatMoveError(error as Error, findChain(chainId), registryUrl)
     }
   }
@@ -808,7 +813,9 @@ export async function waitForTxConfirmationWithClient({
     }
 
     if (Date.now() - start >= timeoutMs) {
-      throw new Error(
+      // TimeoutError (not plain Error) so callers can distinguish "not yet
+      // confirmed" from "confirmed but reverted" (tx.code !== 0 above).
+      throw new TimeoutError(
         `Transaction was submitted, but not found on the chain within ${timeoutMs / 1000} seconds.`,
       )
     }

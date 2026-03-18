@@ -16,6 +16,7 @@ import { formatMoveError } from "@/data/errors"
 import { normalizeError, STALE_TIMES } from "@/data/http"
 import { useAminoTypes, useGetProvider, useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
 import { waitForTxConfirmationWithClient } from "@/data/tx"
+import { TimeoutError, withTimeout } from "@/lib/promise"
 import { Link, useLocationState, useNavigate } from "@/lib/router"
 import { useNotification } from "@/public/app/NotificationContext"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
@@ -172,13 +173,21 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
           const signer = await provider.getSigner()
           await switchEthereumChain(provider, srcChain)
           const response = await signer.sendTransaction({ chainId, to, value, data: `0x${data}` })
-          // `wait()` is a getter on the response object. Destructuring breaks
-          // its internal binding, so keep the original object intact.
-          return { txHash: response.hash, wait: response.wait() }
+          // ethers' wait() has no built-in timeout (timeout parameter
+          // defaults to 0/disabled). If the tx is dropped without an
+          // on-chain replacement, the promise hangs indefinitely.
+          // 30s matches the Cosmos waitForTxConfirmationWithClient timeout.
+          const wait = withTimeout(
+            response.wait(),
+            30_000,
+            "Transaction was not confirmed in time. It may still be processing.",
+          )
+          return { txHash: response.hash, wait }
         }
 
         throw new Error("Unlisted chain type")
       } catch (error) {
+        if (error instanceof TimeoutError) throw error
         throw await normalizeError(error)
       }
     },
@@ -263,9 +272,24 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
           }
         }
       } catch (error) {
-        // Handle transaction failure
         const errorMessage = error instanceof Error ? error.message : String(error)
-        if (onCompleted) {
+
+        // Timeout means the tx was broadcast but not confirmed in time.
+        // Save to history so the user can track it from the activity page.
+        // Non-timeout errors (e.g. revert) are genuine failures — no history
+        // to avoid polluting the list with reverted transactions.
+        if (error instanceof TimeoutError) {
+          const context: TxSuccessContext = { txHash, srcChainId, route, values, recipient }
+          const historyResult = createHistoryItem(context, false)
+          addHistoryItem(historyResult.tx, historyResult.details)
+
+          // onCompleted was already called with success: true in onSuccess
+          // (the tx was broadcast successfully). Don't overwrite with
+          // success: false — timeout only means confirmation is slow.
+          if (!onCompleted) {
+            updateNotification(createTimeoutNotification(hideNotification))
+          }
+        } else if (onCompleted) {
           onCompleted({ success: false, error: errorMessage, route, values })
         } else {
           updateNotification({
@@ -275,11 +299,11 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
           })
         }
 
-        const analyticsParams = {
+        track("Bridge Confirmation Failed", {
           ...createAnalyticsParams(values, txHash),
           error: errorMessage,
-        }
-        track("Bridge Confirmation Failed", analyticsParams)
+          type: error instanceof TimeoutError ? "timeout" : "error",
+        })
       } finally {
         // Always invalidate balance queries
         queryClient.invalidateQueries({
@@ -396,6 +420,25 @@ function createSuccessNotification(hideNotification: () => void) {
         "the activity page",
       ),
       " for transaction status",
+    ),
+    autoHide: true,
+  }
+}
+
+function createTimeoutNotification(hideNotification: () => void) {
+  return {
+    type: "info" as const,
+    title: "Transaction pending",
+    description: createElement(
+      Fragment,
+      null,
+      "Confirmation is taking longer than expected. Check ",
+      createElement(
+        Link,
+        { to: "/bridge/history", onClick: hideNotification },
+        "the activity page",
+      ),
+      " for updates",
     ),
     autoHide: true,
   }

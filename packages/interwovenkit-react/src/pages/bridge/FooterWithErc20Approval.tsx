@@ -1,11 +1,12 @@
 import type { TxJson } from "@skip-go/client"
 import { ethers } from "ethers"
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import FormHelp from "@/components/form/FormHelp"
 import { normalizeError } from "@/data/http"
 import { useGetProvider } from "@/data/signer"
+import { TimeoutError, withTimeout } from "@/lib/promise"
 import { useFindSkipChain } from "./data/chains"
 import { switchEthereumChain } from "./data/evm"
 
@@ -14,6 +15,7 @@ import type { PropsWithChildren } from "react"
 const FooterWithErc20Approval = ({ tx, children }: PropsWithChildren<{ tx: TxJson }>) => {
   const getProvider = useGetProvider()
   const findSkipChain = useFindSkipChain()
+  const queryClient = useQueryClient()
 
   const { data: approvalsNeeded, isLoading } = useQuery({
     queryKey: ["interwovenkit:erc20-approvals-needed", tx],
@@ -61,11 +63,26 @@ const FooterWithErc20Approval = ({ tx, children }: PropsWithChildren<{ tx: TxJso
           ]
           const tokenContract = new ethers.Contract(token_contract, erc20Abi, signer)
           const response = await tokenContract.approve(spender, amount)
-          await response.wait()
+          // Same timeout as bridge tx — ethers' wait() has no built-in
+          // timeout. If the tx is dropped without replacement, it hangs.
+          await withTimeout(
+            response.wait(),
+            30_000,
+            "Approval was not confirmed in time. It may still be processing.",
+          )
         }
 
         return true
       } catch (error) {
+        if (error instanceof TimeoutError) {
+          // The approval tx may have confirmed on-chain after the timeout.
+          // Refetch allowances so the button state reflects actual on-chain data
+          // and the user doesn't pay gas for a redundant second approval.
+          queryClient.invalidateQueries({
+            queryKey: ["interwovenkit:erc20-approvals-needed", tx],
+          })
+          throw error
+        }
         throw await normalizeError(error)
       }
     },
