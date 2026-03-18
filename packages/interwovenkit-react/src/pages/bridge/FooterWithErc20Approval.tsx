@@ -6,7 +6,7 @@ import Footer from "@/components/Footer"
 import FormHelp from "@/components/form/FormHelp"
 import { normalizeError } from "@/data/http"
 import { useGetProvider } from "@/data/signer"
-import { withTimeout } from "@/lib/promise"
+import { TimeoutError, withTimeout } from "@/lib/promise"
 import { useFindSkipChain } from "./data/chains"
 import { switchEthereumChain } from "./data/evm"
 
@@ -73,6 +73,9 @@ const FooterWithErc20Approval = ({ tx, children }: PropsWithChildren<{ tx: TxJso
 
         return true
       } catch (error) {
+        // Preserve TimeoutError so upstream can distinguish timeout from failure.
+        // normalizeError wraps into a plain Error, breaking instanceof checks.
+        if (error instanceof TimeoutError) throw error
         throw await normalizeError(error)
       }
     },
