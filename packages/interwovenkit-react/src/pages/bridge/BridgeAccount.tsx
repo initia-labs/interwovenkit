@@ -6,6 +6,7 @@ import Image from "@/components/Image"
 import List from "@/components/List"
 import ModalTrigger from "@/components/ModalTrigger"
 import Scrollable from "@/components/Scrollable"
+import { useNotification } from "@/public/app/NotificationContext"
 import { useGetDefaultAddress, useValidateAddress } from "./data/address"
 import { useChainType, useSkipChain } from "./data/chains"
 import { useCosmosWallets } from "./data/cosmos"
@@ -25,6 +26,7 @@ const BridgeAccount = ({ type }: Props) => {
   const address = watch(addressKey)
   const dstChainType = useChainType(useSkipChain(dstChainId))
 
+  const { showNotification } = useNotification()
   const { list, find } = useCosmosWallets()
   const connected = find(cosmosWalletName)
   const getDefaultRecipientAddress = useGetDefaultAddress()
@@ -41,15 +43,37 @@ const BridgeAccount = ({ type }: Props) => {
           <List
             onSelect={async (item) => {
               const provider = item.getProvider()
-              if (!provider) return window.open(item.fallbackUrl, "_blank")
-              const offlineSigner = provider.getOfflineSigner(srcChainId)
-              const [{ address }] = await offlineSigner.getAccounts()
-              setValue("sender", address)
-              setValue("cosmosWalletName", item.name)
-              close()
+              if (!provider) {
+                if (item.fallbackUrl) {
+                  window.open(item.fallbackUrl, "_blank")
+                } else {
+                  showNotification({
+                    type: "error",
+                    title: `${item.name} not available`,
+                    description: "Please install the wallet extension and try again.",
+                  })
+                }
+                return
+              }
+
+              try {
+                const offlineSigner = provider.getOfflineSigner(srcChainId)
+                const accounts = await offlineSigner.getAccounts()
+                if (accounts.length === 0) throw new Error("No accounts found")
+                setValue("sender", accounts[0].address)
+                setValue("cosmosWalletName", item.name)
+                close()
+              } catch (error) {
+                const message = error instanceof Error ? error.message : "Unknown error"
+                showNotification({
+                  type: "error",
+                  title: `Failed to connect ${item.name}`,
+                  description: message,
+                })
+              }
             }}
             list={list}
-            getImage={(item) => item.image}
+            getImage={(item) => item.image ?? ""}
             getName={(item) => item.name}
             getKey={(item) => item.name}
           />
