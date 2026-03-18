@@ -64,11 +64,15 @@ const WidgetHeader = () => {
     <header className={styles.header}>
       <CopyButton value={address}>
         {({ copy, copied }) => (
-          <button className={clsx(styles.account, { [styles.copied]: copied })} onClick={copy}>
+          <button
+            className={clsx(styles.account, { [styles.copied]: copied })}
+            onClick={copy}
+            aria-label={copied ? "Copied" : "Copy address"}
+          >
             <Image src={icon} width={18} height={18} />
             <div className={styles.address}>{truncate(address)}</div>
             <div className={styles.name}>{truncate(name)}</div>
-            <IconCopy className={styles.icon} size={12} />
+            <IconCopy className={styles.icon} size={12} aria-hidden="true" />
             {copied ? "Copied!" : ""}
           </button>
         )}
@@ -79,7 +83,7 @@ const WidgetHeader = () => {
         className={clsx(styles.button, styles.settings)}
         aria-label="Open settings"
       >
-        <IconSettingFilled size={16} />
+        <IconSettingFilled size={16} aria-hidden="true" />
       </Link>
 
       <animated.button
@@ -88,8 +92,9 @@ const WidgetHeader = () => {
         onClick={handleDisconnectClick}
         onMouseLeave={handleMouseLeave}
         onMouseEnter={handleMouseEnter}
+        aria-label="Disconnect wallet"
       >
-        <IconSignOut size={16} />
+        <IconSignOut size={16} aria-hidden="true" />
         <span className={styles.label}>Disconnect</span>
       </animated.button>
     </header>

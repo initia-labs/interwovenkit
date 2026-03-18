@@ -28,7 +28,7 @@ const AssetOnChainButton = ({ asset, chain, readOnly }: Props) => {
   return (
     <div className={styles.root}>
       {content}
-      <IconChevronDown size={16} className={styles.chevron} />
+      <IconChevronDown size={16} className={styles.chevron} aria-hidden="true" />
     </div>
   )
 }

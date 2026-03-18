@@ -42,16 +42,20 @@ const Toast = ({ notification, onClose, ...props }: Props) => {
     const icon = getIcon(type)
     return (
       <animated.div style={style} className={styles.container}>
-        <div className={clsx(styles.toast, type && styles[type])} {...props}>
-          {icon && <div className={styles.icon}>{icon}</div>}
+        <div className={clsx(styles.toast, type && styles[type])} role="alert" {...props}>
+          {icon && (
+            <div className={styles.icon} aria-hidden="true">
+              {icon}
+            </div>
+          )}
 
           <div className={styles.content}>
             <p className={styles.title}>{title}</p>
             {description && <div className={styles.description}>{description}</div>}
           </div>
 
-          <button className={styles.close} onClick={onClose}>
-            <IconClose size={14} />
+          <button className={styles.close} onClick={onClose} aria-label="Dismiss notification">
+            <IconClose size={14} aria-hidden="true" />
           </button>
         </div>
       </animated.div>

@@ -119,7 +119,7 @@ const Portfolio = () => {
         </AsyncBoundary>
       </HomeContainer.Controls>
 
-      <div className={styles.content}>
+      <section className={styles.content} aria-label="Assets and positions">
         <AsyncBoundary suspenseFallback={<Skeletons height={48} length={5} />}>
           <Assets
             searchQuery={searchQuery}
@@ -137,7 +137,7 @@ const Portfolio = () => {
             chainInfoMap={chainInfoMap}
           />
         </AsyncBoundary>
-      </div>
+      </section>
     </HomeContainer.Root>
   )
 }

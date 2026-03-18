@@ -261,7 +261,7 @@ const TransferFields = ({ mode }: Props) => {
   )
 
   return (
-    <div className={styles.container}>
+    <section className={styles.container} aria-label="Transfer form">
       {options.length > 1 && (
         <button
           type="button"
@@ -320,7 +320,7 @@ const TransferFields = ({ mode }: Props) => {
           )}
         </FooterWithAddressList>
       )}
-    </div>
+    </section>
   )
 }
 

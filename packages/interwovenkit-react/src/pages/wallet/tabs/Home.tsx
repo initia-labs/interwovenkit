@@ -75,7 +75,7 @@ const Home = () => {
           </AsyncBoundary>
         </div>
 
-        <div className={styles.nav}>
+        <nav className={styles.nav} aria-label="Quick actions">
           <Link to="/send" className={styles.item}>
             <IconSend size={20} />
             <span>Send</span>
@@ -90,7 +90,7 @@ const Home = () => {
             <IconQrCode size={20} />
             <span>Receive</span>
           </Link>
-        </div>
+        </nav>
 
         <Tabs.Root value={path} onValueChange={navigate}>
           <Tabs.List className={styles.tabs}>

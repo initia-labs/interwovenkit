@@ -42,8 +42,8 @@ const ChainAssetQuantityLayout = (props: Props) => {
 
           {errorMessage && (
             <footer className={styles.error}>
-              <IconWarningFilled size={12} />
-              <p>{errorMessage}</p>
+              <IconWarningFilled size={12} aria-hidden="true" />
+              <p role="alert">{errorMessage}</p>
             </footer>
           )}
         </div>

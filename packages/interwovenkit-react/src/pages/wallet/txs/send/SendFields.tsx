@@ -113,7 +113,7 @@ export const SendFields = () => {
 
   return (
     <Page title="Send">
-      <form onSubmit={handleSubmit((values) => mutate(values))}>
+      <form onSubmit={handleSubmit((values) => mutate(values))} aria-label="Send token form">
         <div className={styles.fields}>
           <ChainAssetQuantityLayout
             selectButton={

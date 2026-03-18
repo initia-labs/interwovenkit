@@ -271,7 +271,7 @@ const BridgeFields = () => {
           {!isMobile && (
             <WidgetTooltip label={tooltip}>
               <span className={styles.icon}>
-                <IconInfoFilled size={12} />
+                <IconInfoFilled size={12} aria-hidden="true" />
               </span>
             </WidgetTooltip>
           )}
@@ -327,7 +327,7 @@ const BridgeFields = () => {
               content={(close) => <SlippageControl afterConfirm={close} />}
               className={styles.edit}
             >
-              <IconSettingFilled size={12} />
+              <IconSettingFilled size={12} aria-hidden="true" />
             </ModalTrigger>
           </span>
         ),
@@ -354,7 +354,7 @@ const BridgeFields = () => {
   ])
 
   return (
-    <form className={styles.form} onSubmit={submit}>
+    <form className={styles.form} onSubmit={submit} aria-label="Bridge and swap form">
       <ChainAssetQuantityLayout
         selectButton={<SelectedChainAsset type="src" />}
         accountButton={srcChainType === "cosmos" && <BridgeAccount type="src" />}
@@ -378,8 +378,13 @@ const BridgeFields = () => {
 
       <div className={styles.arrow}>
         <div className={styles.divider} />
-        <button type="button" className={styles.flip} onClick={() => flip()}>
-          <IconChevronDown size={16} />
+        <button
+          type="button"
+          className={styles.flip}
+          onClick={() => flip()}
+          aria-label="Swap source and destination"
+        >
+          <IconChevronDown size={16} aria-hidden="true" />
         </button>
       </div>
 
@@ -436,14 +441,14 @@ const BridgeFields = () => {
 
             <AnimatedHeight>
               {metaRows.length > 0 && (
-                <div className={styles.meta}>
+                <section className={styles.meta} aria-label="Route details">
                   {metaRows.map((row, index) => (
                     <div className={styles.row} key={index}>
                       <span className={styles.title}>{row.title}</span>
                       {row.content}
                     </div>
                   ))}
-                </div>
+                </section>
               )}
             </AnimatedHeight>
           </>

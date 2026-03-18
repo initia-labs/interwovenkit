@@ -29,8 +29,14 @@ const InputHelp = ({ level, className, mt = 8, children }: PropsWithChildren<Pro
   }
 
   return (
-    <div className={clsx(styles.help, level && styles[level], className)} style={{ marginTop: mt }}>
-      <div className={styles.icon}>{getIcon()}</div>
+    <div
+      className={clsx(styles.help, level && styles[level], className)}
+      style={{ marginTop: mt }}
+      role={level === "error" ? "alert" : "status"}
+    >
+      <div className={styles.icon} aria-hidden="true">
+        {getIcon()}
+      </div>
       {children}
     </div>
   )

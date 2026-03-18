@@ -15,7 +15,7 @@ const LoadMoreButton = ({ onClick, disabled }: { onClick: () => void; disabled?:
   return (
     <button className={styles.button} onClick={onClick} disabled={disabled} ref={ref}>
       <span>Load more</span>
-      <IconChevronDown size={12} />
+      <IconChevronDown size={12} aria-hidden="true" />
     </button>
   )
 }

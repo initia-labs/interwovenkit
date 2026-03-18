@@ -22,7 +22,7 @@ const LiquiditySection = ({ data, denomLogoMap }: LiquiditySectionProps) => {
 
   return (
     <div className={styles.container}>
-      <div className={styles.section}>
+      <section className={styles.section} aria-label="Liquidity positions">
         <div className={styles.sectionHeader}>
           <div className={styles.sectionTitle}>
             <span className={styles.sectionLabel}>Liquidity</span>
@@ -33,7 +33,7 @@ const LiquiditySection = ({ data, denomLogoMap }: LiquiditySectionProps) => {
               className={styles.externalLink}
               onClick={(e) => e.stopPropagation()}
             >
-              <IconExternalLink size={12} />
+              <IconExternalLink size={12} aria-hidden="true" />
             </a>
           </div>
           <span className={styles.sectionValue}>{formatValue(totalValue)}</span>
@@ -43,7 +43,7 @@ const LiquiditySection = ({ data, denomLogoMap }: LiquiditySectionProps) => {
             <LiquidityRow key={row.denom} row={row} denomLogoMap={denomLogoMap} />
           ))}
         </div>
-      </div>
+      </section>
     </div>
   )
 }
@@ -100,6 +100,7 @@ function renderLiquidityRowTrigger({
         <IconChevronDown
           size={14}
           className={clsx(styles.tokenChevron, { [styles.expanded]: isOpen })}
+          aria-hidden="true"
         />
         <div className={styles.tokenInfoLabel}>
           {hasCoinLogos ? (

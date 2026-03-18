@@ -95,7 +95,13 @@ const Drawer = ({ children }: PropsWithChildren) => {
           // This onClick is required for the close functionality to work in production builds.
           // Without it, closing only works in local dev. Don't remove until thoroughly tested.
           <Dialog.Backdrop className={styles.overlay} onClick={handleCloseDrawer}>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="14" height="14">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 16 16"
+              width="14"
+              height="14"
+              aria-hidden="true"
+            >
               <path d="M7.168 14.04 l 6.028 -6.028 l -6.028 -6.028 L8.57 .582 L16 8.012 l -7.43 7.43 l -1.402 -1.402 Z" />
               <path d="M0.028 14.04 l 6.028 -6.028 L0.028 1.984 L1.43 .582 l 7.43 7.43 l -7.43 7.43 L0.028 14.04 Z" />
             </svg>
