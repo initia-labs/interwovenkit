@@ -773,8 +773,8 @@ export function useTx() {
       return await waitForTxConfirmationWithClient({ ...params, client })
     } catch (error) {
       // Preserve TimeoutError so callers can distinguish "not yet confirmed"
-      // from execution failures. formatMoveError/normalizeError wraps into
-      // a plain Error, which would break instanceof checks upstream.
+      // from execution failures. formatMoveError wraps into a plain Error,
+      // which would break instanceof checks upstream.
       if (error instanceof TimeoutError) throw error
       throw await formatMoveError(error as Error, findChain(chainId), registryUrl)
     }

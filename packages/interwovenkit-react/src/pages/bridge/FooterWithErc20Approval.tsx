@@ -1,6 +1,6 @@
 import type { TxJson } from "@skip-go/client"
 import { ethers } from "ethers"
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import FormHelp from "@/components/form/FormHelp"
@@ -15,6 +15,7 @@ import type { PropsWithChildren } from "react"
 const FooterWithErc20Approval = ({ tx, children }: PropsWithChildren<{ tx: TxJson }>) => {
   const getProvider = useGetProvider()
   const findSkipChain = useFindSkipChain()
+  const queryClient = useQueryClient()
 
   const { data: approvalsNeeded, isLoading } = useQuery({
     queryKey: ["interwovenkit:erc20-approvals-needed", tx],
@@ -62,8 +63,8 @@ const FooterWithErc20Approval = ({ tx, children }: PropsWithChildren<{ tx: TxJso
           ]
           const tokenContract = new ethers.Contract(token_contract, erc20Abi, signer)
           const response = await tokenContract.approve(spender, amount)
-          // Same timeout as bridge tx — ethers' wait() defaults to no
-          // timeout, so the promise never resolves if the tx is dropped.
+          // Same timeout as bridge tx — ethers' wait() has no built-in
+          // timeout. If the tx is dropped without replacement, it hangs.
           await withTimeout(
             response.wait(),
             30_000,
@@ -73,9 +74,15 @@ const FooterWithErc20Approval = ({ tx, children }: PropsWithChildren<{ tx: TxJso
 
         return true
       } catch (error) {
-        // Preserve TimeoutError so upstream can distinguish timeout from failure.
-        // normalizeError wraps into a plain Error, breaking instanceof checks.
-        if (error instanceof TimeoutError) throw error
+        if (error instanceof TimeoutError) {
+          // The approval tx may have confirmed on-chain after the timeout.
+          // Refetch allowances so the button state reflects actual on-chain data
+          // and the user doesn't pay gas for a redundant second approval.
+          queryClient.invalidateQueries({
+            queryKey: ["interwovenkit:erc20-approvals-needed", tx],
+          })
+          throw error
+        }
         throw await normalizeError(error)
       }
     },

@@ -173,9 +173,9 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
           const signer = await provider.getSigner()
           await switchEthereumChain(provider, srcChain)
           const response = await signer.sendTransaction({ chainId, to, value, data: `0x${data}` })
-          // ethers' response.wait() defaults to no timeout — if the
-          // transaction is dropped without replacement, the promise
-          // never resolves and the UI stays on "pending".
+          // ethers' wait() has no built-in timeout (timeout parameter
+          // defaults to 0/disabled). If the tx is dropped without an
+          // on-chain replacement, the promise hangs indefinitely.
           // 30s matches the Cosmos waitForTxConfirmationWithClient timeout.
           const wait = withTimeout(
             response.wait(),
@@ -187,6 +187,7 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
 
         throw new Error("Unlisted chain type")
       } catch (error) {
+        if (error instanceof TimeoutError) throw error
         throw await normalizeError(error)
       }
     },
@@ -282,9 +283,10 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
           const historyResult = createHistoryItem(context, false)
           addHistoryItem(historyResult.tx, historyResult.details)
 
-          if (onCompleted) {
-            onCompleted({ success: false, error: errorMessage, route, values })
-          } else {
+          // onCompleted was already called with success: true in onSuccess
+          // (the tx was broadcast successfully). Don't overwrite with
+          // success: false — timeout only means confirmation is slow.
+          if (!onCompleted) {
             updateNotification(createTimeoutNotification(hideNotification))
           }
         } else if (onCompleted) {
