@@ -1,3 +1,5 @@
+import type { OfflineAminoSigner } from "@cosmjs/amino"
+import { Secp256k1HdWallet } from "@cosmjs/amino"
 import {
   type Chain,
   createWalletClient,
@@ -8,6 +10,7 @@ import {
 import { mnemonicToAccount, privateKeyToAccount } from "viem/accounts"
 import { mainnet } from "viem/chains"
 import { injected } from "wagmi/connectors"
+import type { CosmosWallet, CosmosWalletProvider } from "@/data/config"
 
 // Browser-safe default RPCs. viem's built-in defaults (e.g. eth.merkle.io)
 // reject cross-origin requests, breaking browser-based test wallets.
@@ -333,4 +336,145 @@ export function createTestWalletConnector(options: CreateTestWalletConfig) {
       provider: provider as unknown as EIP1193Provider,
     }),
   })
+}
+
+// Well-known Cosmos chain ID → bech32 prefix mappings.
+// Chains whose prefix matches the chain ID stem (e.g. "noble-1" → "noble")
+// are also listed for explicitness and to avoid heuristic surprises.
+const COSMOS_PREFIX_MAP: Record<string, string> = {
+  "noble-1": "noble",
+  celestia: "celestia",
+  "neutron-1": "neutron",
+  "osmosis-1": "osmo",
+}
+
+export interface CreateTestCosmosWalletConfig {
+  /**
+   * BIP-39 mnemonic phrase used to derive Cosmos accounts.
+   */
+  mnemonic: string
+  /**
+   * Display name shown in the wallet selection list.
+   * @default "Test Cosmos Wallet"
+   */
+  name?: string
+  /**
+   * Wallet icon URL. Omit to show the default placeholder.
+   */
+  image?: string
+  /**
+   * Override the bech32 prefix for specific chain IDs.
+   * By default, the prefix is derived from the chain ID
+   * (e.g. `noble-1` → `noble`). Use this for chains where
+   * the prefix differs from the chain ID stem.
+   *
+   * @example
+   * ```ts
+   * chains: {
+   *   "cosmoshub-4": { prefix: "cosmos" },
+   *   "osmosis-1": { prefix: "osmo" },
+   * }
+   * ```
+   */
+  chains?: Record<string, { prefix: string }>
+  /**
+   * Log signer creation to the console for debugging.
+   * @default false
+   */
+  debug?: boolean
+}
+
+/**
+ * Creates a Cosmos wallet for the Bridge wallet selection list,
+ * backed by a mnemonic-derived `Secp256k1HdWallet` (standard Cosmos
+ * secp256k1 signing). Designed for automated testing and local
+ * development against chains like Noble and Neutron.
+ *
+ * Pass the returned wallet via the `cosmosWallets` config prop
+ * on `InterwovenKitProvider`. It will appear in the Bridge's
+ * "Connect wallet" list alongside Keplr and Leap.
+ *
+ * @example
+ * ```ts
+ * import {
+ *   InterwovenKitProvider,
+ *   createTestCosmosWallet,
+ * } from "@initia/interwovenkit-react"
+ *
+ * const testCosmosWallet = createTestCosmosWallet({
+ *   mnemonic: process.env.TEST_COSMOS_MNEMONIC!,
+ * })
+ *
+ * function App() {
+ *   return (
+ *     <InterwovenKitProvider cosmosWallets={[testCosmosWallet]}>
+ *       {children}
+ *     </InterwovenKitProvider>
+ *   )
+ * }
+ * ```
+ */
+export function createTestCosmosWallet(config: CreateTestCosmosWalletConfig): CosmosWallet {
+  const { mnemonic, name = "Test Cosmos Wallet", image, chains, debug = false } = config
+
+  if (!mnemonic) {
+    throw new Error("mnemonic is required")
+  }
+
+  // Cache wallet instances per bech32 prefix. Stores the Promise itself
+  // so concurrent calls for the same prefix share a single derivation.
+  const walletCache = new Map<string, Promise<Secp256k1HdWallet>>()
+
+  function resolvePrefix(chainId: string): string {
+    if (chains?.[chainId]) return chains[chainId].prefix
+    if (COSMOS_PREFIX_MAP[chainId]) return COSMOS_PREFIX_MAP[chainId]
+    // Default: strip trailing version suffix (e.g. "noble-1" → "noble")
+    return chainId.replace(/-\d+$/, "")
+  }
+
+  function getOrCreateWallet(chainId: string): Promise<Secp256k1HdWallet> {
+    const prefix = resolvePrefix(chainId)
+    const cached = walletCache.get(prefix)
+    if (cached) return cached
+
+    if (debug) {
+      // eslint-disable-next-line no-console
+      console.log(`[${name}] Creating wallet for chain ${chainId} (prefix: ${prefix})`)
+    }
+
+    const promise = Secp256k1HdWallet.fromMnemonic(mnemonic, { prefix })
+    promise.catch(() => walletCache.delete(prefix))
+    walletCache.set(prefix, promise)
+    return promise
+  }
+
+  // Returns an OfflineAminoSigner synchronously. The async wallet
+  // derivation is deferred to when getAccounts/signAmino are called.
+  function createLazySigner(chainId: string): OfflineAminoSigner {
+    return {
+      async getAccounts() {
+        const wallet = await getOrCreateWallet(chainId)
+        return wallet.getAccounts()
+      },
+      async signAmino(signerAddress, signDoc) {
+        const wallet = await getOrCreateWallet(chainId)
+        return wallet.signAmino(signerAddress, signDoc)
+      },
+    }
+  }
+
+  const provider: CosmosWalletProvider = {
+    getOfflineSigner(chainId: string) {
+      return createLazySigner(chainId)
+    },
+    getOfflineSignerOnlyAmino(chainId: string) {
+      return createLazySigner(chainId)
+    },
+  }
+
+  return {
+    name,
+    image,
+    getProvider: () => provider,
+  }
 }

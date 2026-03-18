@@ -2,6 +2,7 @@ import { createConfig, http, WagmiProvider } from "wagmi"
 import { mainnet } from "wagmi/chains"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import {
+  createTestCosmosWallet,
   createTestWalletConnector,
   initiaPrivyWalletConnector,
   injectStyles,
@@ -15,6 +16,7 @@ import type { PropsWithChildren } from "react"
 
 injectStyles(css)
 const mnemonic = import.meta.env.INITIA_TEST_MNEMONIC as string | undefined
+const cosmosWallets = mnemonic ? [createTestCosmosWallet({ mnemonic })] : []
 const connectors = [
   initiaPrivyWalletConnector,
   ...(mnemonic ? [createTestWalletConnector({ mnemonic })] : []),
@@ -36,6 +38,7 @@ const InterwovenKitWrapper = ({ children }: PropsWithChildren) => {
       theme={theme}
       container={import.meta.env.DEV ? document.body : undefined}
       enableAutoSign={{ [chainId]: ["/cosmos.bank.v1beta1.MsgSend", "/initia.move.v1.MsgExecute"] }}
+      cosmosWallets={cosmosWallets}
     >
       {children}
     </InterwovenKitProvider>
