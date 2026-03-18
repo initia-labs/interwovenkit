@@ -258,7 +258,12 @@ export function createTestWalletConnector(options: CreateTestWalletConfig) {
           const numericId = Number(info.chainId)
           // Does not auto-switch to the new chain (unlike MetaMask).
           // Callers should follow up with wallet_switchEthereumChain.
-          if (!chains[numericId]) {
+          if (chains[numericId]) {
+            if (debug) {
+              // eslint-disable-next-line no-console
+              console.log(`[${id}] Chain ${numericId} already registered, skipping`)
+            }
+          } else {
             chains[numericId] = {
               id: numericId,
               name: info.chainName ?? `Chain ${numericId}`,
@@ -443,7 +448,11 @@ export function createTestCosmosWallet(config: CreateTestCosmosWalletConfig): Co
     }
 
     const promise = Secp256k1HdWallet.fromMnemonic(mnemonic, { prefix })
-    promise.catch(() => walletCache.delete(prefix))
+    promise.catch((error) => {
+      walletCache.delete(prefix)
+      // eslint-disable-next-line no-console
+      console.error(`[${name}] Failed to create wallet for prefix "${prefix}":`, error)
+    })
     walletCache.set(prefix, promise)
     return promise
   }

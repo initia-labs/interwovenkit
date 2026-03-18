@@ -41,12 +41,22 @@ const BridgeAccount = ({ type }: Props) => {
           <List
             onSelect={async (item) => {
               const provider = item.getProvider()
-              if (!provider) return window.open(item.fallbackUrl, "_blank")
-              const offlineSigner = provider.getOfflineSigner(srcChainId)
-              const [{ address }] = await offlineSigner.getAccounts()
-              setValue("sender", address)
-              setValue("cosmosWalletName", item.name)
-              close()
+              if (!provider) {
+                if (item.fallbackUrl) window.open(item.fallbackUrl, "_blank")
+                return
+              }
+
+              try {
+                const offlineSigner = provider.getOfflineSigner(srcChainId)
+                const accounts = await offlineSigner.getAccounts()
+                if (accounts.length === 0) throw new Error("No accounts found")
+                setValue("sender", accounts[0].address)
+                setValue("cosmosWalletName", item.name)
+                close()
+              } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error(`[Bridge] Failed to connect ${item.name}:`, error)
+              }
             }}
             list={list}
             getImage={(item) => item.image ?? ""}

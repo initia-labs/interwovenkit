@@ -1,4 +1,5 @@
 import type { Keplr } from "@keplr-wallet/types"
+import { useMemo } from "react"
 import type { CosmosWallet, CosmosWalletProvider } from "@/data/config"
 import { useConfig } from "@/data/config"
 
@@ -12,30 +13,33 @@ declare global {
 export function useCosmosWallets() {
   const { cosmosWallets: configWallets = [] } = useConfig()
 
-  const builtInList: CosmosWallet[] = [
-    {
-      name: "Keplr",
-      image: "https://assets.initia.xyz/images/wallets/Keplr.webp",
-      getProvider: () => window.keplr as CosmosWalletProvider | undefined,
-      fallbackUrl: "https://keplr.app/get",
-    },
-    {
-      name: "Leap",
-      image: "https://assets.initia.xyz/images/wallets/Leap.webp",
-      getProvider: () => window.leap as CosmosWalletProvider | undefined,
-      fallbackUrl: "https://leapwallet.io/download",
-    },
-  ]
-
   // Config wallets first — intentionally added, should be prominent.
   // Dedup: config wallet with matching name replaces its built-in counterpart.
-  const builtInFiltered = builtInList.filter(
-    (builtIn) => !configWallets.some((cw) => cw.name === builtIn.name),
-  )
-  const list = [...configWallets, ...builtInFiltered]
+  const list = useMemo(() => {
+    const builtInList: CosmosWallet[] = [
+      {
+        name: "Keplr",
+        image: "https://assets.initia.xyz/images/wallets/Keplr.webp",
+        getProvider: () => window.keplr as CosmosWalletProvider | undefined,
+        fallbackUrl: "https://keplr.app/get",
+      },
+      {
+        name: "Leap",
+        image: "https://assets.initia.xyz/images/wallets/Leap.webp",
+        getProvider: () => window.leap as CosmosWalletProvider | undefined,
+        fallbackUrl: "https://leapwallet.io/download",
+      },
+    ]
+    const builtInFiltered = builtInList.filter(
+      (builtIn) => !configWallets.some((cw) => cw.name === builtIn.name),
+    )
+    return [...configWallets, ...builtInFiltered]
+  }, [configWallets])
 
-  const find = (cosmosWalletName?: string) =>
-    list.find((wallet) => wallet.name === cosmosWalletName)
+  const find = useMemo(
+    () => (cosmosWalletName?: string) => list.find((wallet) => wallet.name === cosmosWalletName),
+    [list],
+  )
 
   return { list, find }
 }
