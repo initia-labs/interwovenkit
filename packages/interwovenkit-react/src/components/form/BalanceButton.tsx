@@ -11,7 +11,7 @@ interface Props {
 const BalanceButton = ({ onClick, children, disabled }: PropsWithChildren<Props>) => {
   return (
     <div className={styles.wrapper}>
-      <IconWallet size={16} />
+      <IconWallet size={16} aria-hidden="true" />
       <span className={styles.balance}>{children}</span>
       <button
         type="button"
@@ -19,6 +19,7 @@ const BalanceButton = ({ onClick, children, disabled }: PropsWithChildren<Props>
         className={styles.button}
         onClick={() => onClick()}
         disabled={disabled}
+        aria-label="Use maximum balance"
       >
         MAX
       </button>

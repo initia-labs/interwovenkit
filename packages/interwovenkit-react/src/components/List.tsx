@@ -24,6 +24,7 @@ function List<Item>({ onSelect, list, ...props }: Props<Item>) {
             onClick={() => onSelect(item)}
             disabled={getIsLoading?.(item) || getDisabled?.(item)}
             key={getKey(item)}
+            aria-busy={!!getIsLoading?.(item)}
           >
             <Image src={getImage(item)} width={28} height={28} />
             <span className={styles.name}>{getName(item)}</span>

@@ -59,7 +59,7 @@ const BridgeAccount = ({ type }: Props) => {
         {!address ? (
           <>
             <span>Connect wallet</span>
-            <IconChevronRight size={14} />
+            <IconChevronRight size={14} aria-hidden="true" />
           </>
         ) : (
           <>
@@ -124,7 +124,7 @@ const BridgeAccount = ({ type }: Props) => {
             ) : (
               <span>Recipient</span>
             )}
-            <IconEdit size={14} />
+            <IconEdit size={14} aria-hidden="true" />
           </>,
         )
       }

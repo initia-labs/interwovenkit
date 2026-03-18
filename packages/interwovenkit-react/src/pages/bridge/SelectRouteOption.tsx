@@ -22,7 +22,11 @@ interface Props {
 }
 
 const SelectRouteOptionStack = ({ children }: PropsWithChildren) => {
-  return <div className={styles.stack}>{children}</div>
+  return (
+    <div className={styles.stack} role="radiogroup" aria-label="Route options">
+      {children}
+    </div>
+  )
 }
 
 const SelectRouteOption = ({ label, query, value, onSelect, ...props }: Props) => {
@@ -46,11 +50,14 @@ const SelectRouteOption = ({ label, query, value, onSelect, ...props }: Props) =
         if (isLoading || disabled) return
         onSelect(value)
       }}
+      role="radio"
+      aria-checked={checked}
+      aria-disabled={disabled}
     >
       <div className={styles.header}>
         <div className={styles.title}>
           <span>{label}</span>
-          {checked && <IconCheck size={14} />}
+          {checked && <IconCheck size={14} aria-hidden="true" />}
         </div>
 
         {isLoading ? (
@@ -59,7 +66,7 @@ const SelectRouteOption = ({ label, query, value, onSelect, ...props }: Props) =
           <div className={styles.duration}>Not available</div>
         ) : (
           <div className={clsx(styles.duration, { [styles.warning]: value === "op" })}>
-            <IconClockFilled size={12} />
+            <IconClockFilled size={12} aria-hidden="true" />
             <span>{formatDuration(route.estimated_route_duration_seconds)}</span>
           </div>
         )}

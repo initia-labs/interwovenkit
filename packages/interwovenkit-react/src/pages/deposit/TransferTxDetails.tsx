@@ -38,11 +38,12 @@ const TransferTxDetails = ({ renderFee }: Props) => {
   return (
     <AnimatedHeight>
       <div className={styles.detailsContainer}>
-        <button className={styles.detailsButton} onClick={toggleOpen}>
+        <button className={styles.detailsButton} onClick={toggleOpen} aria-expanded={isDetailsOpen}>
           Transaction details{" "}
           <IconChevronDown
             size={12}
             style={{ transform: isDetailsOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+            aria-hidden="true"
           />
         </button>
         {isDetailsOpen && (

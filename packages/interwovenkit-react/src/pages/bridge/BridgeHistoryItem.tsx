@@ -114,7 +114,7 @@ const BridgeHistoryItem = ({ tx }: { tx: TxIdentifier }) => {
         </div>
         <div className={styles.explorer}>
           <span>{linkLabel}</span>
-          <IconExternalLink size={12} />
+          <IconExternalLink size={12} aria-hidden="true" />
         </div>
       </header>
 
@@ -128,7 +128,7 @@ const BridgeHistoryItem = ({ tx }: { tx: TxIdentifier }) => {
         )}
 
         <div className={styles.arrow}>
-          <IconArrowDown size={12} />
+          <IconArrowDown size={12} aria-hidden="true" />
         </div>
 
         {renderRow(
@@ -161,7 +161,12 @@ const BridgeHistoryItem = ({ tx }: { tx: TxIdentifier }) => {
   const skipExplorerUrl = new URL(`?${searchParams.toString()}`, "https://explorer.skip.build")
 
   return (
-    <a href={skipExplorerUrl.toString()} className={styles.link} target="_blank">
+    <a
+      href={skipExplorerUrl.toString()}
+      className={styles.link}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
       {content}
     </a>
   )

@@ -13,9 +13,15 @@ export interface Props {
 
 const CheckboxButton = ({ checked, onClick, label, className }: PropsWithChildren<Props>) => {
   return (
-    <button type="button" className={clsx(styles.button, className)} onClick={onClick}>
+    <button
+      type="button"
+      className={clsx(styles.button, className)}
+      onClick={onClick}
+      role="checkbox"
+      aria-checked={checked}
+    >
       <div className={clsx(styles.checkbox, { [styles.checked]: checked })}>
-        {checked && <IconCheck size={12} />}
+        {checked && <IconCheck size={12} aria-hidden="true" />}
       </div>
       <span className={styles.label}>{label}</span>
     </button>

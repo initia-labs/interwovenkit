@@ -42,8 +42,8 @@ const Modal = ({ title, children, trigger, className, open, onOpenChange }: Prop
           {title && (
             <header className={styles.header}>
               <Dialog.Title className={styles.title}>{title}</Dialog.Title>
-              <Dialog.Close className={styles.close}>
-                <IconClose size={20} />
+              <Dialog.Close className={styles.close} aria-label="Close">
+                <IconClose size={20} aria-hidden="true" />
               </Dialog.Close>
             </header>
           )}

@@ -18,7 +18,9 @@ const SettingItem = ({ title, subtitle, rightSection, onClick }: Props) => {
         {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
       </div>
 
-      <div className={styles.icon}>{rightSection ?? <IconChevronRight size={16} />}</div>
+      <div className={styles.icon}>
+        {rightSection ?? <IconChevronRight size={16} aria-hidden="true" />}
+      </div>
     </button>
   )
 }

@@ -14,7 +14,9 @@ const Indicator = (props: PropsWithChildren<Props>) => {
   return (
     <div className={clsx(styles.container, className)}>
       {children}
-      {!disabled && <div className={styles.badge} style={{ right: offset, top: offset }} />}
+      {!disabled && (
+        <div className={styles.badge} style={{ right: offset, top: offset }} aria-hidden="true" />
+      )}
     </div>
   )
 }

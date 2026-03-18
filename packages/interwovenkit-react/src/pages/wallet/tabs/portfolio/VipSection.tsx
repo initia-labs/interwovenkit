@@ -20,7 +20,7 @@ const VipSection = ({ data }: VipSectionProps) => {
 
   return (
     <div className={styles.container}>
-      <div className={styles.section}>
+      <section className={styles.section} aria-label="VIP rewards">
         <div className={styles.sectionHeader}>
           <div className={styles.sectionTitle}>
             <span className={styles.sectionLabel}>VIP</span>
@@ -31,7 +31,7 @@ const VipSection = ({ data }: VipSectionProps) => {
               className={styles.externalLink}
               onClick={(e) => e.stopPropagation()}
             >
-              <IconExternalLink size={12} />
+              <IconExternalLink size={12} aria-hidden="true" />
             </a>
           </div>
           <span className={styles.sectionValue}>{formatValue(totalValue)}</span>
@@ -41,7 +41,7 @@ const VipSection = ({ data }: VipSectionProps) => {
             <VipRow key={`${row.bridgeId}-${row.version}`} row={row} />
           ))}
         </div>
-      </div>
+      </section>
     </div>
   )
 }
@@ -66,6 +66,7 @@ const VipRow = ({ row }: VipRowProps) => {
             <IconChevronDown
               size={14}
               className={clsx(styles.tokenChevron, { [styles.expanded]: isOpen })}
+              aria-hidden="true"
             />
             <div className={styles.tokenInfoLabel}>
               {logoUrl && (
