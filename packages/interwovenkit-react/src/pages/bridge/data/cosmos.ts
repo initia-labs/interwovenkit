@@ -36,10 +36,8 @@ export function useCosmosWallets() {
     return [...configWallets, ...builtInFiltered]
   }, [configWallets])
 
-  const find = useMemo(
-    () => (cosmosWalletName?: string) => list.find((wallet) => wallet.name === cosmosWalletName),
-    [list],
-  )
+  const find = (cosmosWalletName?: string) =>
+    list.find((wallet) => wallet.name === cosmosWalletName)
 
   return { list, find }
 }

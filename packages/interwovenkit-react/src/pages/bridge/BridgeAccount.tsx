@@ -44,7 +44,15 @@ const BridgeAccount = ({ type }: Props) => {
             onSelect={async (item) => {
               const provider = item.getProvider()
               if (!provider) {
-                if (item.fallbackUrl) window.open(item.fallbackUrl, "_blank")
+                if (item.fallbackUrl) {
+                  window.open(item.fallbackUrl, "_blank")
+                } else {
+                  showNotification({
+                    type: "error",
+                    title: `${item.name} not available`,
+                    description: "Please install the wallet extension and try again.",
+                  })
+                }
                 return
               }
 
