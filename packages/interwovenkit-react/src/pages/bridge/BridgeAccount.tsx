@@ -73,7 +73,7 @@ const BridgeAccount = ({ type }: Props) => {
               }
             }}
             list={list}
-            getImage={(item) => item.image ?? ""}
+            getImage={(item) => item.image}
             getName={(item) => item.name}
             getKey={(item) => item.name}
           />

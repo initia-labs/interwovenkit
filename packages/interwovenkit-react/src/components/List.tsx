@@ -6,7 +6,7 @@ import styles from "./List.module.css"
 interface Props<Item> {
   onSelect: (item: Item) => void
   list: Item[]
-  getImage: (item: Item) => string
+  getImage: (item: Item) => string | undefined
   getName: (item: Item) => string
   getKey: (item: Item) => string
   getIsLoading?: (item: Item) => boolean
