@@ -16,7 +16,7 @@ import { formatMoveError } from "@/data/errors"
 import { normalizeError, STALE_TIMES } from "@/data/http"
 import { useAminoTypes, useGetProvider, useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
 import { waitForTxConfirmationWithClient } from "@/data/tx"
-import { withTimeout } from "@/lib/promise"
+import { TimeoutError, withTimeout } from "@/lib/promise"
 import { Link, useLocationState, useNavigate } from "@/lib/router"
 import { useNotification } from "@/public/app/NotificationContext"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
@@ -271,9 +271,23 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
           }
         }
       } catch (error) {
-        // Handle transaction failure
         const errorMessage = error instanceof Error ? error.message : String(error)
-        if (onCompleted) {
+
+        // Timeout means the tx was broadcast but not confirmed in time.
+        // Save to history so the user can track it from the activity page.
+        // Non-timeout errors (e.g. revert) are genuine failures — no history
+        // to avoid polluting the list with reverted transactions.
+        if (error instanceof TimeoutError) {
+          const context: TxSuccessContext = { txHash, srcChainId, route, values, recipient }
+          const historyResult = createHistoryItem(context, false)
+          addHistoryItem(historyResult.tx, historyResult.details)
+
+          if (onCompleted) {
+            onCompleted({ success: false, error: errorMessage, route, values })
+          } else {
+            updateNotification(createTimeoutNotification(hideNotification))
+          }
+        } else if (onCompleted) {
           onCompleted({ success: false, error: errorMessage, route, values })
         } else {
           updateNotification({
@@ -283,11 +297,11 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
           })
         }
 
-        const analyticsParams = {
+        track("Bridge Confirmation Failed", {
           ...createAnalyticsParams(values, txHash),
           error: errorMessage,
-        }
-        track("Bridge Confirmation Failed", analyticsParams)
+          type: error instanceof TimeoutError ? "timeout" : "error",
+        })
       } finally {
         // Always invalidate balance queries
         queryClient.invalidateQueries({
@@ -404,6 +418,25 @@ function createSuccessNotification(hideNotification: () => void) {
         "the activity page",
       ),
       " for transaction status",
+    ),
+    autoHide: true,
+  }
+}
+
+function createTimeoutNotification(hideNotification: () => void) {
+  return {
+    type: "info" as const,
+    title: "Transaction pending",
+    description: createElement(
+      Fragment,
+      null,
+      "Confirmation is taking longer than expected. Check ",
+      createElement(
+        Link,
+        { to: "/bridge/history", onClick: hideNotification },
+        "the activity page",
+      ),
+      " for updates",
     ),
     autoHide: true,
   }
