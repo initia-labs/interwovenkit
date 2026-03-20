@@ -105,10 +105,10 @@ const SendNftFields = () => {
 
       <div className={styles.fields}>
         <div>
-          <div className="label">Destination appchain</div>
+          <div className="label">Destination app</div>
 
           <ModalTrigger
-            title="Destination appchain"
+            title="Destination app"
             content={(close) => (
               <List
                 onSelect={({ chainId }) => {

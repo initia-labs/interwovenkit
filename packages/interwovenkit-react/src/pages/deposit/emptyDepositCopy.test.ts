@@ -11,7 +11,7 @@ describe("getEmptyDepositCopy", () => {
 
     expect(copy.title).toBe("No ETH available to deposit.")
     expect(copy.description).toBe(
-      "You can deposit ETH from Arbitrum, Base, or Ethereum, or from any appchain.",
+      "You can deposit ETH from Arbitrum, Base, or Ethereum, or from any app.",
     )
   })
 
@@ -25,7 +25,7 @@ describe("getEmptyDepositCopy", () => {
 
     expect(copy.title).toBe("No iUSD available to deposit.")
     expect(copy.description).toBe(
-      "You can deposit iUSD using USDC from Arbitrum, Base, or Ethereum, or using USDC or iUSD from any appchain.",
+      "You can deposit iUSD using USDC from Arbitrum, Base, or Ethereum, or using USDC or iUSD from any app.",
     )
   })
 
@@ -38,7 +38,7 @@ describe("getEmptyDepositCopy", () => {
     })
 
     expect(copy.title).toBe("No INIT available to deposit.")
-    expect(copy.description).toBe("You can deposit INIT from any appchain.")
+    expect(copy.description).toBe("You can deposit INIT from any app.")
   })
 
   it("includes multiple appchain source symbols when available", () => {
@@ -49,7 +49,7 @@ describe("getEmptyDepositCopy", () => {
       appchainSourceSymbols: ["iUSD", "USDC"],
     })
 
-    expect(copy.description).toBe("You can deposit iUSD using USDC or iUSD from any appchain.")
+    expect(copy.description).toBe("You can deposit iUSD using USDC or iUSD from any app.")
   })
 
   it("formats two external chains with 'or'", () => {
