@@ -28,7 +28,7 @@ const SelectExternalAsset = ({ mode }: Props) => {
     isLoading,
     supportedExternalChains,
     appchainSourceSymbols,
-    externalSourceSymbol,
+    externalSourceSymbols,
     localSymbol,
   } = useExternalAssetOptions(mode)
   const { setValue, watch } = useTransferForm()
@@ -94,7 +94,7 @@ const SelectExternalAsset = ({ mode }: Props) => {
       .filter((name): name is string => !!name)
     const emptyDepositCopy = getEmptyDepositCopy({
       localSymbol,
-      externalSourceSymbol,
+      externalSourceSymbols,
       externalChainNames,
       appchainSourceSymbols,
     })
