@@ -147,6 +147,7 @@ const SelectExternalAsset = ({ mode }: Props) => {
             .map(({ asset, chain, balance }) => {
               const isActive =
                 selectedExternalDenom === asset.denom && selectedExternalChainId === chain.chain_id
+              const valueLabel = balance?.price == null ? "$-" : formatValue(balance.value_usd ?? 0)
               return (
                 <button
                   key={`${asset.chain_id}-${asset.denom}`}
@@ -180,7 +181,7 @@ const SelectExternalAsset = ({ mode }: Props) => {
                       <p className={styles.balance}>
                         {formatAmount(balance.amount, { decimals: balance.decimals || 6 })}
                       </p>
-                      <p className={styles.value}>{formatValue(balance.value_usd || 0)}</p>
+                      <p className={styles.value}>{valueLabel}</p>
                     </>
                   )}
                 </button>
