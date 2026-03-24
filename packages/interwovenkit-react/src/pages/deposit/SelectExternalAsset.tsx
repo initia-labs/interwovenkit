@@ -3,7 +3,7 @@ import { useEffect, useEffectEvent } from "react"
 import { IconBack, IconCheck } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
 import { useConfig } from "@/data/config"
-import { formatValue } from "@/lib/format"
+import { formatValueWithPrice } from "@/lib/format"
 import EmptyIconDark from "./assets/EmptyDark.svg"
 import EmptyIconLight from "./assets/EmptyLight.svg"
 import { getEmptyDepositCopy } from "./emptyDepositCopy"
@@ -147,7 +147,7 @@ const SelectExternalAsset = ({ mode }: Props) => {
             .map(({ asset, chain, balance }) => {
               const isActive =
                 selectedExternalDenom === asset.denom && selectedExternalChainId === chain.chain_id
-              const valueLabel = balance?.price == null ? "$-" : formatValue(balance.value_usd ?? 0)
+              const valueLabel = formatValueWithPrice(balance?.value_usd, balance?.price)
               return (
                 <button
                   key={`${asset.chain_id}-${asset.denom}`}
