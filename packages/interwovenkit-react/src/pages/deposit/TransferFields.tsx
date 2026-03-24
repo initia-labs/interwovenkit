@@ -8,7 +8,7 @@ import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import QuantityInput from "@/components/form/QuantityInput"
 import Status from "@/components/Status"
-import { formatValue } from "@/lib/format"
+import { formatValueWithPrice } from "@/lib/format"
 import { useLocationState, useNavigate } from "@/lib/router"
 import { useHexAddress } from "@/public/data/hooks"
 import { useFindSkipChain } from "../bridge/data/chains"
@@ -79,9 +79,9 @@ const TransferFields = ({ mode }: Props) => {
   const externalChain = selectedExternalChainId ? findChain(selectedExternalChainId) : null
 
   const balance = balances?.[srcChainId]?.[srcDenom]?.amount
-  const price = balances?.[srcChainId]?.[srcDenom]?.price || 0
+  const price = balances?.[srcChainId]?.[srcDenom]?.price
 
-  const quantityValue = BigNumber(price || 0).times(rawQuantity || 0)
+  const quantityValue = BigNumber(price ?? 0).times(rawQuantity || 0)
 
   const [debouncedQuantity] = useDebounceValue(rawQuantity, 300)
 
@@ -240,7 +240,7 @@ const TransferFields = ({ mode }: Props) => {
       {Number(balance) > 0 && (
         <div className={styles.balanceContainer}>
           <p className={styles.value}>
-            {quantityValue.gt(0) ? formatValue(quantityValue.toString()) : "$-"}
+            {rawQuantity ? formatValueWithPrice(quantityValue.toString(), price) : "$-"}
           </p>
 
           <button
