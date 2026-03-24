@@ -5,7 +5,7 @@ export interface EmptyDepositCopy {
 
 interface EmptyDepositCopyParams {
   localSymbol: string
-  externalSourceSymbol: string
+  externalSourceSymbols: string[]
   externalChainNames: string[]
   appchainSourceSymbols: string[]
 }
@@ -20,11 +20,11 @@ function formatList(items: string[]): string {
 function getOrderedAppchainSourceSymbols(
   symbols: string[],
   localSymbol: string,
-  externalSourceSymbol: string,
+  externalSourceSymbols: string[],
 ): string[] {
   const uniqueSymbols = [...new Set(symbols)]
   const ordered: string[] = []
-  const prioritySymbols = [externalSourceSymbol, localSymbol]
+  const prioritySymbols = [...externalSourceSymbols, localSymbol]
 
   for (const symbol of prioritySymbols) {
     if (uniqueSymbols.includes(symbol) && !ordered.includes(symbol)) {
@@ -42,14 +42,14 @@ function getOrderedAppchainSourceSymbols(
 function getAppchainClause(
   appchainSourceSymbols: string[],
   localSymbol: string,
-  externalSourceSymbol: string,
+  externalSourceSymbols: string[],
 ): string {
   if (!appchainSourceSymbols.length) return ""
 
   const orderedAppchainSourceSymbols = getOrderedAppchainSourceSymbols(
     appchainSourceSymbols,
     localSymbol,
-    externalSourceSymbol,
+    externalSourceSymbols,
   )
   const hasSingleLocalAppchainSource =
     orderedAppchainSourceSymbols.length === 1 && orderedAppchainSourceSymbols[0] === localSymbol
@@ -62,20 +62,27 @@ function getAppchainClause(
 
 export function getEmptyDepositCopy({
   localSymbol,
-  externalSourceSymbol,
+  externalSourceSymbols,
   externalChainNames,
   appchainSourceSymbols,
 }: EmptyDepositCopyParams): EmptyDepositCopy {
   const title = `No ${localSymbol} available to deposit.`
   const hasExternalSupport = externalChainNames.length > 0
   const chains = formatList(externalChainNames)
-  const appchainClause = getAppchainClause(appchainSourceSymbols, localSymbol, externalSourceSymbol)
+  const orderedExternalSourceSymbols = [...new Set(externalSourceSymbols)]
+  const externalSources = formatList(orderedExternalSourceSymbols)
+  const appchainClause = getAppchainClause(
+    appchainSourceSymbols,
+    localSymbol,
+    orderedExternalSourceSymbols,
+  )
   const hasAppchainSupport = !!appchainClause
-  const usesDifferentExternalSource = externalSourceSymbol !== localSymbol
+  const usesDifferentExternalSource =
+    orderedExternalSourceSymbols.length !== 1 || orderedExternalSourceSymbols[0] !== localSymbol
 
   if (hasExternalSupport && hasAppchainSupport) {
     const externalClause = usesDifferentExternalSource
-      ? `using ${externalSourceSymbol} from ${chains}`
+      ? `using ${externalSources} from ${chains}`
       : `from ${chains}`
 
     return {
@@ -88,7 +95,7 @@ export function getEmptyDepositCopy({
     if (usesDifferentExternalSource) {
       return {
         title,
-        description: `You can deposit ${localSymbol} using ${externalSourceSymbol} from ${chains}.`,
+        description: `You can deposit ${localSymbol} using ${externalSources} from ${chains}.`,
       }
     }
     return { title, description: `You can deposit ${localSymbol} from ${chains}.` }
