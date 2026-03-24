@@ -240,7 +240,7 @@ const TransferFields = ({ mode }: Props) => {
       {Number(balance) > 0 && (
         <div className={styles.balanceContainer}>
           <p className={styles.value}>
-            {quantityValue.gt(0) ? formatValueWithPrice(quantityValue.toString(), price) : "$-"}
+            {rawQuantity ? formatValueWithPrice(quantityValue.toString(), price) : "$-"}
           </p>
 
           <button
