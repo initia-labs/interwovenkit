@@ -1,5 +1,5 @@
 import clsx from "clsx"
-import { type PropsWithChildren, useContext } from "react"
+import { type PropsWithChildren, useCallback, useContext } from "react"
 import type { FallbackProps } from "react-error-boundary"
 import { useAtomValue } from "jotai"
 import { Dialog } from "@base-ui/react/dialog"
@@ -26,6 +26,14 @@ import styles from "./Drawer.module.css"
 const Drawer = ({ children }: PropsWithChildren) => {
   const { isDrawerOpen, closeDrawer } = useDrawer()
   const { setContainer } = useContext(PortalContext)
+  // Skip null so that unmounting one surface (Modal or Drawer) does not
+  // clear the shared container while the other surface is still mounted.
+  const containerRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      if (el) setContainer(el)
+    },
+    [setContainer],
+  )
   const isSmall = useIsMobile()
   const portalContainer = usePortalContainer()
 
@@ -109,7 +117,7 @@ const Drawer = ({ children }: PropsWithChildren) => {
         )}
 
         <Dialog.Popup className={styles.content}>
-          <div className={clsx(styles.inner, "body")} ref={setContainer}>
+          <div className={clsx(styles.inner, "body")} ref={containerRef}>
             {isSmall && <ScrollLock />}
             <TxWatcher />
             <WidgetHeader />
