@@ -20,7 +20,11 @@ const Images = ({
   className,
 }: Props) => {
   return (
-    <div className={clsx(styles.images, className)} style={{ position: "relative" }}>
+    <div
+      className={clsx(styles.images, className)}
+      style={{ position: "relative" }}
+      aria-hidden="true"
+    >
       <Image
         src={assetLogoUrl}
         width={assetLogoSize}

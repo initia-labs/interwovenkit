@@ -40,9 +40,10 @@ const ExplorerLink = ({ chainId, txHash, accountAddress, pathSuffix, ...props }:
       className={clsx(styles.link, className)}
       onClick={onClick}
       target="_blank"
+      rel="noopener noreferrer"
     >
       {text}
-      {showIcon && <IconExternalLink size={12} />}
+      {showIcon && <IconExternalLink size={12} aria-hidden="true" />}
     </a>
   )
 }

@@ -51,6 +51,7 @@ const TransferTxDetails = ({ renderFee }: Props) => {
           <IconChevronDown
             size={12}
             style={{ transform: isDetailsOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+            aria-hidden="true"
           />
         </button>
         <AnimatedHeight>

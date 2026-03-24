@@ -54,10 +54,10 @@ function getAppchainClause(
   const hasSingleLocalAppchainSource =
     orderedAppchainSourceSymbols.length === 1 && orderedAppchainSourceSymbols[0] === localSymbol
 
-  if (hasSingleLocalAppchainSource) return "from any appchain"
+  if (hasSingleLocalAppchainSource) return "from any app"
 
   const appchainSources = formatList(orderedAppchainSourceSymbols)
-  return `using ${appchainSources} from any appchain`
+  return `using ${appchainSources} from any app`
 }
 
 export function getEmptyDepositCopy({

@@ -41,7 +41,7 @@ const PlainModalContent = (props: PropsWithChildren<Props>) => {
 
         <button className={styles.secondary} onClick={secondaryButton.onClick}>
           <span>{secondaryButton.label}</span>
-          <IconChevronRight size={14} />
+          <IconChevronRight size={14} aria-hidden="true" />
         </button>
       </footer>
     </Scrollable>

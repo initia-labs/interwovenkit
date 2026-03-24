@@ -107,7 +107,7 @@ const TxRequest = () => {
       <Scrollable>
         <h1 className={styles.title}>Confirm tx</h1>
 
-        <div className={styles.meta}>
+        <section className={styles.meta} aria-label="Transaction metadata">
           <TxMetaItem title="Chain" content={chainId} />
           <TxMetaItem
             title="Tx fee"
@@ -119,7 +119,7 @@ const TxRequest = () => {
               <TxFeeInsufficient {...feeDetails} />
             </FormHelp>
           )}
-        </div>
+        </section>
 
         <TxSimulate messages={messages} memo={memo} chainId={chainId} />
 
