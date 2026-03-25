@@ -29,8 +29,8 @@ const QuantityInput = ({ balance, decimals, className }: Props) => {
         return "Enter amount"
       }
 
-      // Skip validation while balance is still loading to avoid
-      // flashing "Insufficient balance" before data arrives.
+      // Skip validation when balance is unavailable (e.g. still loading)
+      // to avoid flashing "Insufficient balance" prematurely.
       if (balance !== undefined && BigNumber(toBaseUnit(quantity, { decimals })).gt(balance)) {
         return "Insufficient balance"
       }
