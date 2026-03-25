@@ -31,6 +31,7 @@ import { useModal } from "@/public/app/ModalContext"
 import { useSkipAsset } from "./data/assets"
 import { useSkipBalance, useSkipBalancesQuery } from "./data/balance"
 import { useChainType, useSkipChain } from "./data/chains"
+import { shouldWarnInsufficientFeeBalance } from "./data/fee-warning"
 import type { FormValues } from "./data/form"
 import { useBridgeForm } from "./data/form"
 import { calculateMinimumReceived, formatDuration, formatFees } from "./data/format"
@@ -233,13 +234,7 @@ const BridgeFields = () => {
   // render
   const received = route ? formatAmount(route.amount_out, { decimals: dstAsset.decimals }) : "0"
 
-  const isMaxAmount =
-    BigNumber(quantity).gt(0) &&
-    BigNumber(quantity).isEqualTo(
-      fromBaseUnit(srcBalance?.amount, { decimals: srcBalance?.decimals ?? 0 }),
-    )
-
-  const getFeeTokenDenomsForSourceChain = () => {
+  function getFeeTokenDenomsForSourceChain(): string[] {
     switch (srcChainType) {
       case "initia":
         return findChain(srcChainId).fees.fee_tokens.map(({ denom }) => denom)
@@ -253,14 +248,14 @@ const BridgeFields = () => {
   }
 
   const feeTokenDenoms = getFeeTokenDenomsForSourceChain()
-  const isSourceFeeToken = feeTokenDenoms.includes(srcDenom)
-  const hasAlternativeFeeTokenBalance = feeTokenDenoms.some((denom) => {
-    if (denom === srcDenom) return false
-    const balance = balances?.[denom]?.amount ?? "0"
-    return BigNumber(balance).gt(0)
+  const shouldWarnInsufficientFeeBalanceAfterSwap = shouldWarnInsufficientFeeBalance({
+    sourceDenom: srcDenom,
+    sourceBalance: srcBalance?.amount,
+    amountIn: route?.amount_in,
+    feeTokenDenoms,
+    balancesByDenom: balances,
+    additionalFees,
   })
-  const shouldWarnInsufficientFeeBalanceAfterSwap =
-    isMaxAmount && isSourceFeeToken && !hasAlternativeFeeTokenBalance
 
   const renderFees = useCallback(
     (fees: FeeJson[], tooltip: string) => {
