@@ -93,8 +93,12 @@ const TransferFields = ({ mode }: Props) => {
     const quantityBn = BigNumber(rawQuantity || 0)
     if (!quantityBn.isFinite() || quantityBn.lte(0)) return "Enter amount"
 
-    const balanceAmount = fromBaseUnit(balance ?? "0", { decimals: amountAsset?.decimals || 6 })
-    if (quantityBn.gt(balanceAmount)) return "Insufficient balance"
+    // Skip validation while balance is still loading to avoid
+    // flashing "Insufficient balance" before data arrives.
+    if (balance !== undefined) {
+      const balanceAmount = fromBaseUnit(balance, { decimals: amountAsset?.decimals || 6 })
+      if (quantityBn.gt(balanceAmount)) return "Insufficient balance"
+    }
 
     if (mode === "withdraw" && !externalAsset) return "Select destination"
   }, [mode, rawQuantity, balance, amountAsset, externalAsset])
