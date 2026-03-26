@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.1](https://github.com/initia-labs/interwovenkit/compare/v2.5.0...v2.5.1) (2026-03-26)
+
+
+### Bug Fixes
+
+* **autosign:** use initiaAddress for MiniEVM account check ([d140f9e](https://github.com/initia-labs/interwovenkit/commit/d140f9eee59e57d55de5ecaa8eefe0e57c2f453f))
+
 ## [2.5.0](https://github.com/initia-labs/interwovenkit/compare/v2.4.6...v2.5.0) (2026-03-25)
 
 ### Features
