@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.5.0](https://github.com/initia-labs/interwovenkit/compare/v2.4.6...v2.5.0) (2026-03-25)
+
+
+### Features
+
+* add aria attributes across the widget ([a792157](https://github.com/initia-labs/interwovenkit/commit/a792157137dc934156a3d72c53fa228d1d1b459b))
+* **deposit:** add AUSD as ethereum source for iusd transfers ([970e0a9](https://github.com/initia-labs/interwovenkit/commit/970e0a9361bfcba0287c0f0bdb716f7795600257))
+* **testing:** add EVM and Cosmos test wallet factories ([9cabe74](https://github.com/initia-labs/interwovenkit/commit/9cabe74e5f487405813e3b02a17bbfde4216a6a9))
+
+
+### Bug Fixes
+
+* **bridge:** add aria-label to chain option buttons ([92ca247](https://github.com/initia-labs/interwovenkit/commit/92ca24726730f6e7404881de736fc97596a57c1c))
+* **bridge:** handle EVM tx pending timeout with TimeoutError ([6afbbc9](https://github.com/initia-labs/interwovenkit/commit/6afbbc99306c68c8eb6349ad136ff72667445b1f))
+* **bridge:** suppress fee warning when alt gas token has balance ([d1909c1](https://github.com/initia-labs/interwovenkit/commit/d1909c109d52dc0e2a02607c87028e42c8ab34f0))
+* **components:** allow getImage to return undefined in List ([73ea872](https://github.com/initia-labs/interwovenkit/commit/73ea87222ebe863e18f1da9b1fbc028c98c12d98))
+* **copy:** rename user-facing "appchain" to "app" ([63b7054](https://github.com/initia-labs/interwovenkit/commit/63b7054221412310aab58d6132264eaadc528494))
+* **deposit:** harden route error state handling   ([229ef5b](https://github.com/initia-labs/interwovenkit/commit/229ef5b97151bbebc6e2a247dc266a1bc402d3c1))
+* **deposit:** show $- for assets with missing price data ([3988ac1](https://github.com/initia-labs/interwovenkit/commit/3988ac1d06bc744fcb3e1272314358853aa83a8b))
+* **deposit:** skip balance validation while loading ([#203](https://github.com/initia-labs/interwovenkit/issues/203)) ([3a8521b](https://github.com/initia-labs/interwovenkit/commit/3a8521bddf8e1473aef97c2df9927a6f8cd1b731))
+* **portal:** prevent container reset on modal-drawer transition ([#202](https://github.com/initia-labs/interwovenkit/issues/202)) ([5691b03](https://github.com/initia-labs/interwovenkit/commit/5691b03e458ded3cfcde6e8fcfdeebd2b0d70423))
+* simplify TransferTxDetails ([886c29f](https://github.com/initia-labs/interwovenkit/commit/886c29f67e39e048ed27f15571174b2505fb870c))
+
 ### [2.4.6](https://github.com/initia-labs/interwovenkit/compare/v2.4.5...v2.4.6) (2026-03-02)
 
 ### Features
