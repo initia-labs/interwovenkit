@@ -79,10 +79,15 @@ const BridgeFields = () => {
   const dstChainType = useChainType(dstChain)
   const srcAsset = useSkipAsset(srcDenom, srcChainId)
   const dstAsset = useSkipAsset(dstDenom, dstChainId)
-  const { data: balances } = useSkipBalancesQuery(sender, srcChainId)
+  const { data: balances, isError: isBalanceError } = useSkipBalancesQuery(sender, srcChainId)
   const srcBalance = useSkipBalance(sender, srcChainId, srcDenom)
+  // When the balances query has resolved but the selected denom is absent
+  // from the response, the token's balance is genuinely zero.
+  // Pass "0" so QuantityInput shows "Insufficient balance" instead of
+  // skipping validation (which it does when balance is undefined / loading).
+  const srcBalanceAmount = srcBalance?.amount ?? (balances ? "0" : undefined)
 
-  const hasZeroBalance = !srcBalance?.amount || BigNumber(srcBalance.amount).isZero()
+  const hasZeroBalance = !srcBalanceAmount || BigNumber(srcBalanceAmount).isZero()
 
   // simulation
   // Avoid hitting the simulation API on every keystroke.  Wait a short period
@@ -226,9 +231,26 @@ const BridgeFields = () => {
     if (!debouncedQuantity) return "Enter amount"
     if (!values.recipient) return "Enter recipient address"
     if (formState.errors.quantity) return formState.errors.quantity.message
+    // Catch insufficient balance even when QuantityInput hasn't re-validated
+    // (e.g. quantity pre-filled from localStorage before balance loads).
+    if (
+      srcBalanceAmount !== undefined &&
+      BigNumber(debouncedQuantity).gt(
+        fromBaseUnit(srcBalanceAmount, { decimals: srcAsset?.decimals ?? 0 }),
+      )
+    )
+      return "Insufficient balance"
     if (!route) return "Route not found"
     if (feeErrorMessage) return feeErrorMessage
-  }, [debouncedQuantity, feeErrorMessage, formState, route, values])
+  }, [
+    debouncedQuantity,
+    feeErrorMessage,
+    formState,
+    route,
+    srcAsset?.decimals,
+    srcBalanceAmount,
+    values,
+  ])
 
   // render
   const received = route ? formatAmount(route.amount_out, { decimals: dstAsset.decimals }) : "0"
@@ -358,7 +380,7 @@ const BridgeFields = () => {
       <ChainAssetQuantityLayout
         selectButton={<SelectedChainAsset type="src" />}
         accountButton={srcChainType === "cosmos" && <BridgeAccount type="src" />}
-        quantityInput={<QuantityInput balance={srcBalance?.amount} decimals={srcAsset?.decimals} />}
+        quantityInput={<QuantityInput balance={srcBalanceAmount} decimals={srcAsset?.decimals} />}
         balanceButton={
           <BalanceButton
             onClick={() =>
@@ -370,7 +392,7 @@ const BridgeFields = () => {
             }
             disabled={hasZeroBalance}
           >
-            {formatAmount(srcBalance?.amount ?? "0", { decimals: srcAsset.decimals })}
+            {formatAmount(srcBalanceAmount ?? "0", { decimals: srcAsset.decimals })}
           </BalanceButton>
         }
         value={!route ? "$-" : formatValue(route.usd_amount_in)}
@@ -421,6 +443,7 @@ const BridgeFields = () => {
         extra={
           <>
             <FormHelp.Stack>
+              {isBalanceError && <FormHelp level="error">Failed to load balance</FormHelp>}
               {previewRefreshError && <FormHelp level="error">{previewRefreshError}</FormHelp>}
               {route?.extra_infos?.map((info) => (
                 <FormHelp level="info" key={info}>
