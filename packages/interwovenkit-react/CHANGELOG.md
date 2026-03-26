@@ -2,34 +2,32 @@
 
 ## [2.5.0](https://github.com/initia-labs/interwovenkit/compare/v2.4.6...v2.5.0) (2026-03-25)
 
-
 ### Features
 
-* add aria attributes across the widget ([a792157](https://github.com/initia-labs/interwovenkit/commit/a792157137dc934156a3d72c53fa228d1d1b459b))
-* **deposit:** add AUSD as ethereum source for iusd transfers ([970e0a9](https://github.com/initia-labs/interwovenkit/commit/970e0a9361bfcba0287c0f0bdb716f7795600257))
-* **testing:** add EVM and Cosmos test wallet factories ([9cabe74](https://github.com/initia-labs/interwovenkit/commit/9cabe74e5f487405813e3b02a17bbfde4216a6a9))
-
+- add aria attributes across the widget ([a792157](https://github.com/initia-labs/interwovenkit/commit/a792157137dc934156a3d72c53fa228d1d1b459b))
+- **deposit:** add AUSD as ethereum source for iusd transfers ([970e0a9](https://github.com/initia-labs/interwovenkit/commit/970e0a9361bfcba0287c0f0bdb716f7795600257))
+- **testing:** add EVM and Cosmos test wallet factories ([9cabe74](https://github.com/initia-labs/interwovenkit/commit/9cabe74e5f487405813e3b02a17bbfde4216a6a9))
 
 ### Bug Fixes
 
-* **bridge:** add aria-label to chain option buttons ([92ca247](https://github.com/initia-labs/interwovenkit/commit/92ca24726730f6e7404881de736fc97596a57c1c))
-* **bridge:** handle EVM tx pending timeout with TimeoutError ([6afbbc9](https://github.com/initia-labs/interwovenkit/commit/6afbbc99306c68c8eb6349ad136ff72667445b1f))
-* **bridge:** suppress fee warning when alt gas token has balance ([d1909c1](https://github.com/initia-labs/interwovenkit/commit/d1909c109d52dc0e2a02607c87028e42c8ab34f0))
-* **components:** allow getImage to return undefined in List ([73ea872](https://github.com/initia-labs/interwovenkit/commit/73ea87222ebe863e18f1da9b1fbc028c98c12d98))
-* **copy:** rename user-facing "appchain" to "app" ([63b7054](https://github.com/initia-labs/interwovenkit/commit/63b7054221412310aab58d6132264eaadc528494))
-* **deposit:** harden route error state handling   ([229ef5b](https://github.com/initia-labs/interwovenkit/commit/229ef5b97151bbebc6e2a247dc266a1bc402d3c1))
-* **deposit:** show $- for assets with missing price data ([3988ac1](https://github.com/initia-labs/interwovenkit/commit/3988ac1d06bc744fcb3e1272314358853aa83a8b))
-* **deposit:** skip balance validation while loading ([#203](https://github.com/initia-labs/interwovenkit/issues/203)) ([3a8521b](https://github.com/initia-labs/interwovenkit/commit/3a8521bddf8e1473aef97c2df9927a6f8cd1b731))
-* **portal:** prevent container reset on modal-drawer transition ([#202](https://github.com/initia-labs/interwovenkit/issues/202)) ([5691b03](https://github.com/initia-labs/interwovenkit/commit/5691b03e458ded3cfcde6e8fcfdeebd2b0d70423))
-* simplify TransferTxDetails ([886c29f](https://github.com/initia-labs/interwovenkit/commit/886c29f67e39e048ed27f15571174b2505fb870c))
+- **bridge:** add aria-label to chain option buttons ([92ca247](https://github.com/initia-labs/interwovenkit/commit/92ca24726730f6e7404881de736fc97596a57c1c))
+- **bridge:** handle EVM tx pending timeout with TimeoutError ([6afbbc9](https://github.com/initia-labs/interwovenkit/commit/6afbbc99306c68c8eb6349ad136ff72667445b1f))
+- **bridge:** suppress fee warning when alt gas token has balance ([d1909c1](https://github.com/initia-labs/interwovenkit/commit/d1909c109d52dc0e2a02607c87028e42c8ab34f0))
+- **components:** allow getImage to return undefined in List ([73ea872](https://github.com/initia-labs/interwovenkit/commit/73ea87222ebe863e18f1da9b1fbc028c98c12d98))
+- **copy:** rename user-facing "appchain" to "app" ([63b7054](https://github.com/initia-labs/interwovenkit/commit/63b7054221412310aab58d6132264eaadc528494))
+- **deposit:** harden route error state handling ([229ef5b](https://github.com/initia-labs/interwovenkit/commit/229ef5b97151bbebc6e2a247dc266a1bc402d3c1))
+- **deposit:** show $- for assets with missing price data ([3988ac1](https://github.com/initia-labs/interwovenkit/commit/3988ac1d06bc744fcb3e1272314358853aa83a8b))
+- **deposit:** skip balance validation while loading ([#203](https://github.com/initia-labs/interwovenkit/issues/203)) ([3a8521b](https://github.com/initia-labs/interwovenkit/commit/3a8521bddf8e1473aef97c2df9927a6f8cd1b731))
+- **portal:** prevent container reset on modal-drawer transition ([#202](https://github.com/initia-labs/interwovenkit/issues/202)) ([5691b03](https://github.com/initia-labs/interwovenkit/commit/5691b03e458ded3cfcde6e8fcfdeebd2b0d70423))
+- simplify TransferTxDetails ([886c29f](https://github.com/initia-labs/interwovenkit/commit/886c29f67e39e048ed27f15571174b2505fb870c))
 
-### [2.4.6](https://github.com/initia-labs/interwovenkit/compare/v2.4.5...v2.4.6) (2026-03-02)
+## [2.4.6](https://github.com/initia-labs/interwovenkit/compare/v2.4.5...v2.4.6) (2026-03-02)
 
 ### Features
 
 - **hooks:** accept optional address in useUsernameQuery ([abd0f54](https://github.com/initia-labs/interwovenkit/commit/abd0f54e0038de1a7851812b94d48ffc2ed8e198))
 
-### [2.4.5](https://github.com/initia-labs/interwovenkit/compare/v2.4.4...v2.4.5) (2026-02-26)
+## [2.4.5](https://github.com/initia-labs/interwovenkit/compare/v2.4.4...v2.4.5) (2026-02-26)
 
 ### Features
 
@@ -39,7 +37,7 @@
 
 - **deposit:** respect explicit srcOptions over overrides ([8ddaca1](https://github.com/initia-labs/interwovenkit/commit/8ddaca1b7a39bfc48e0f86a487128a5b9b8d04c9))
 
-### [2.4.4](https://github.com/initia-labs/interwovenkit/compare/v2.4.3...v2.4.4) (2026-02-26)
+## [2.4.4](https://github.com/initia-labs/interwovenkit/compare/v2.4.3...v2.4.4) (2026-02-26)
 
 ### Features
 
@@ -58,19 +56,19 @@
 - **deposit:** auto-prefill single transfer destination ([7a8ec2d](https://github.com/initia-labs/interwovenkit/commit/7a8ec2da7d738f8494333bfb3587131b8674739e))
 - **deposit:** keep iUSD source symbol matching ([883a7a6](https://github.com/initia-labs/interwovenkit/commit/883a7a6ea0660b6ef4709e0f54507b8aa6477641))
 
-### [2.4.3](https://github.com/initia-labs/interwovenkit/compare/v2.4.2...v2.4.3) (2026-02-23)
+## [2.4.3](https://github.com/initia-labs/interwovenkit/compare/v2.4.2...v2.4.3) (2026-02-23)
 
 ### Features
 
 - **liquidity:** add CLAMM liquidity positions ([063f0ff](https://github.com/initia-labs/interwovenkit/commit/063f0ffc116e3e1b4edf907064e0eed7cd343d64))
 
-### [2.4.2](https://github.com/initia-labs/interwovenkit/compare/v2.4.1...v2.4.2) (2026-02-19)
+## [2.4.2](https://github.com/initia-labs/interwovenkit/compare/v2.4.1...v2.4.2) (2026-02-19)
 
 ### Bug Fixes
 
 - **autosign:** restore autosign after reload for direct submit ([c192857](https://github.com/initia-labs/interwovenkit/commit/c192857984ac836a6404958125b76b0522b17a06))
 
-### [2.4.1](https://github.com/initia-labs/interwovenkit/compare/v2.4.0...v2.4.1) (2026-02-19)
+## [2.4.1](https://github.com/initia-labs/interwovenkit/compare/v2.4.0...v2.4.1) (2026-02-19)
 
 ### Bug Fixes
 
@@ -89,7 +87,7 @@
 
 - **wallet:** send version header in Router API requests ([51a8396](https://github.com/initia-labs/interwovenkit/commit/51a8396472151a26b3f2d1f8fefa8f93e6b8d46e))
 
-### [2.2.5](https://github.com/initia-labs/interwovenkit/compare/v2.2.4...v2.2.5) (2026-02-14)
+## [2.2.5](https://github.com/initia-labs/interwovenkit/compare/v2.2.4...v2.2.5) (2026-02-14)
 
 ### Features
 
@@ -103,7 +101,7 @@
 - **bridge:** fall back to valid asset on unsupported denom ([0f48821](https://github.com/initia-labs/interwovenkit/commit/0f488216925db2dd4f37295b99adf2309e2614a1))
 - **bridge:** fall back to alternative route on error ([36cda10](https://github.com/initia-labs/interwovenkit/commit/36cda101afcde6797ba97cd69c863c743b283486))
 
-### [2.2.4](https://github.com/initia-labs/interwovenkit/compare/v2.2.3...v2.2.4) (2026-02-04)
+## [2.2.4](https://github.com/initia-labs/interwovenkit/compare/v2.2.3...v2.2.4) (2026-02-04)
 
 ### Features
 
@@ -117,20 +115,20 @@
 - **bridge:** add route data conditions to Fast/Lossless toggle ([251110e](https://github.com/initia-labs/interwovenkit/commit/251110e1022d6e59fdb67710f6a5a8c7056b1c16))
 - **deps:** patch brace-expansion transitive vulnerability ([08c9555](https://github.com/initia-labs/interwovenkit/commit/08c95555ddb5ca62b1f6eae3118e5ac46812ec10))
 
-### [2.2.3](https://github.com/initia-labs/interwovenkit/compare/v2.2.2...v2.2.3) (2026-02-01)
+## [2.2.3](https://github.com/initia-labs/interwovenkit/compare/v2.2.2...v2.2.3) (2026-02-01)
 
 ### Bug Fixes
 
 - **assets:** resolve query key collision between useDenoms and WithDenom ([0579b82](https://github.com/initia-labs/interwovenkit/commit/0579b8277f9788c06282e01d08fc507bb2018ff5))
 
-### [2.2.2](https://github.com/initia-labs/interwovenkit/compare/v2.2.1...v2.2.2) (2026-01-28)
+## [2.2.2](https://github.com/initia-labs/interwovenkit/compare/v2.2.1...v2.2.2) (2026-01-28)
 
 ### Bug Fixes
 
 - **home:** increase navigation icon size from 16 to 20px ([e69ba44](https://github.com/initia-labs/interwovenkit/commit/e69ba44bfab32b7238a2a49bb891e8ded79f4d6e))
 - **minity:** simplify SSE reconnection and add refresh trigger ([56ae7e1](https://github.com/initia-labs/interwovenkit/commit/56ae7e19f42f8cfdebfbaa5bfaacb403129499d1))
 
-### [2.2.1](https://github.com/initia-labs/interwovenkit/compare/v2.2.0...v2.2.1) (2026-01-24)
+## [2.2.1](https://github.com/initia-labs/interwovenkit/compare/v2.2.0...v2.2.1) (2026-01-24)
 
 ### Performance Optimization
 
@@ -148,7 +146,7 @@
 
 - **bridge:** show dash for unavailable route price ([1319c11](https://github.com/initia-labs/interwovenkit/commit/1319c112fa61a0ec70b97ae35ec1d67c9605043a))
 
-### [2.1.1](https://github.com/initia-labs/interwovenkit/compare/v2.1.0...v2.1.1) (2025-12-17)
+## [2.1.1](https://github.com/initia-labs/interwovenkit/compare/v2.1.0...v2.1.1) (2025-12-17)
 
 ### Features
 
