@@ -42,9 +42,9 @@ export function useValidateAddress() {
     const chainType = findChainType(chain)
     switch (chainType) {
       case "initia":
-        // Strict bech32 check: the router API expects bech32 for initia chains,
-        // so reject hex addresses even though InitiaAddress.validate() accepts both.
-        return isBech32WithPrefix(address, chain.bech32_prefix ?? "init")
+        // Accept both hex and bech32 for initia ecosystem chains.
+        // Downstream code converts to bech32 before sending to the router API.
+        return InitiaAddress.validate(address)
       case "evm":
         return isAddress(address)
       case "cosmos":
