@@ -47,4 +47,4 @@ jobs:
         run: pnpm build
 
       - name: Publish to npm
-        run: pnpm --filter interwovenkit-react publish --no-git-checks
+        run: pnpm --filter interwovenkit-react publish --no-git-checks --provenance
