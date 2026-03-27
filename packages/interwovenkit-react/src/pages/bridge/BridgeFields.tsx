@@ -231,6 +231,7 @@ const BridgeFields = () => {
     if (!debouncedQuantity) return "Enter amount"
     if (!values.recipient) return "Enter recipient address"
     if (formState.errors.quantity) return formState.errors.quantity.message
+    if (isBalanceError) return "Failed to load balance"
     // Catch insufficient balance even when QuantityInput hasn't re-validated
     // (e.g. quantity pre-filled from localStorage before balance loads).
     if (
@@ -246,6 +247,7 @@ const BridgeFields = () => {
     debouncedQuantity,
     feeErrorMessage,
     formState,
+    isBalanceError,
     route,
     srcAsset?.decimals,
     srcBalanceAmount,
