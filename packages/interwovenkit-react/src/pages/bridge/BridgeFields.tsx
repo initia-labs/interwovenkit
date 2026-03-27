@@ -25,6 +25,7 @@ import { useAnalyticsTrack } from "@/data/analytics"
 import { useFindChain, useLayer1 } from "@/data/chains"
 import { LocalStorageKey } from "@/data/constants"
 import { useIsMobile } from "@/hooks/useIsMobile"
+import { isInsufficientBalance } from "@/lib/amountValidation"
 import { formatValue } from "@/lib/format"
 import { useNavigate } from "@/lib/router"
 import { useModal } from "@/public/app/ModalContext"
@@ -93,6 +94,11 @@ const BridgeFields = () => {
   // Avoid hitting the simulation API on every keystroke.  Wait a short period
   // after the user stops typing before updating the debounced value.
   const [debouncedQuantity] = useDebounceValue(quantity, 300)
+  const isInsufficientSourceBalance = isInsufficientBalance({
+    quantity: debouncedQuantity,
+    balance: srcBalanceAmount,
+    decimals: srcAsset?.decimals,
+  })
   const isSameChainRoute = srcChainId === dstChainId
   const isLayer1Swap = isSameChainRoute && srcChainId === layer1.chainId
   const isL2Swap = isSameChainRoute && srcChainType === "initia" && !isLayer1Swap
@@ -234,23 +240,16 @@ const BridgeFields = () => {
     if (isBalanceError) return "Failed to load balance"
     // Catch insufficient balance even when QuantityInput hasn't re-validated
     // (e.g. quantity pre-filled from localStorage before balance loads).
-    if (
-      srcBalanceAmount !== undefined &&
-      BigNumber(debouncedQuantity).gt(
-        fromBaseUnit(srcBalanceAmount, { decimals: srcAsset?.decimals ?? 0 }),
-      )
-    )
-      return "Insufficient balance"
+    if (isInsufficientSourceBalance) return "Insufficient balance"
     if (!route) return "Route not found"
     if (feeErrorMessage) return feeErrorMessage
   }, [
     debouncedQuantity,
     feeErrorMessage,
     formState,
+    isInsufficientSourceBalance,
     isBalanceError,
     route,
-    srcAsset?.decimals,
-    srcBalanceAmount,
     values,
   ])
 

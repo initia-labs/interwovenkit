@@ -1,7 +1,7 @@
 import BigNumber from "bignumber.js"
 import clsx from "clsx"
 import { useFormContext } from "react-hook-form"
-import { toBaseUnit } from "@initia/utils"
+import { isInsufficientBalance } from "@/lib/amountValidation"
 import NumericInput from "./NumericInput"
 import styles from "./QuantityInput.module.css"
 
@@ -29,9 +29,7 @@ const QuantityInput = ({ balance, decimals, className }: Props) => {
         return "Enter amount"
       }
 
-      // Skip validation when balance is unavailable (e.g. still loading)
-      // to avoid flashing "Insufficient balance" prematurely.
-      if (balance !== undefined && BigNumber(toBaseUnit(quantity, { decimals })).gt(balance)) {
+      if (isInsufficientBalance({ quantity, balance, decimals })) {
         return "Insufficient balance"
       }
 
