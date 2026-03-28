@@ -19,7 +19,7 @@ export function useSkipBalancesQuery(address: string, chainId: string) {
     select: ({ chains }) => {
       if (!isValidAddress) return {}
       if (!chains) return {}
-      return chains[chainId].denoms ?? {}
+      return chains[chainId]?.denoms ?? {}
     },
     enabled: isValidAddress,
     staleTime: STALE_TIMES.SECOND,
