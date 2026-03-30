@@ -34,7 +34,8 @@ function getOrderedAppchainSourceSymbols(
 
   const remaining = uniqueSymbols
     .filter((symbol) => !ordered.includes(symbol))
-    .toSorted((a, b) => a.localeCompare(b))
+    .slice()
+    .sort((a, b) => a.localeCompare(b))
 
   return [...ordered, ...remaining]
 }

@@ -21,7 +21,8 @@ export async function fetchGasPrices(chain: NormalizedChain) {
       .get("initia/tx/v1/gas_prices")
       .json<{ gas_prices: Coin[] }>()
     return gas_prices
-      .toSorted(descend(({ denom }) => denom === "uinit"))
+      .slice()
+      .sort(descend(({ denom }) => denom === "uinit"))
       .map(({ denom, amount }) => {
         const multiplier = denom === "uinit" ? 1 : DEFAULT_GAS_PRICE_MULTIPLIER
         const price = BigNumber(amount).times(multiplier).toFixed(18)

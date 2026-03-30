@@ -44,7 +44,8 @@ export function useInitiaRegistry() {
         : rawChains
       return chains
         .map(normalizeChain)
-        .toSorted(descend((chain) => chain.chainId === defaultChainId))
+        .slice()
+        .sort(descend((chain) => chain.chainId === defaultChainId))
     },
     staleTime: STALE_TIMES.MINUTE,
   })
