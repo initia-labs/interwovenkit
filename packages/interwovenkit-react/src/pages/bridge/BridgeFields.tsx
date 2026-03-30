@@ -396,7 +396,11 @@ const BridgeFields = () => {
             {formatAmount(srcBalanceAmount ?? "0", { decimals: srcAsset.decimals })}
           </BalanceButton>
         }
-        value={!route ? "$-" : formatValue(route.usd_amount_in)}
+        // USD value display for route amounts:
+        // The Skip Router API returns falsy usd_amount_in/usd_amount_out for tokens with no price.
+        // DO: check truthiness before calling formatValue(), falling back to "$-".
+        // DON'T: pass the value directly to formatValue() — it returns "" for undefined, rendering blank.
+        value={route?.usd_amount_in ? formatValue(route.usd_amount_in) : "$-"}
       />
 
       <div className={styles.arrow}>
@@ -415,7 +419,11 @@ const BridgeFields = () => {
         selectButton={<SelectedChainAsset type="dst" />}
         accountButton={<BridgeAccount type="dst" />}
         quantityInput={<QuantityInput.ReadOnly>{received}</QuantityInput.ReadOnly>}
-        value={!route ? "$-" : formatValue(route.usd_amount_out)}
+        // USD value display for route amounts:
+        // The Skip Router API returns falsy usd_amount_in/usd_amount_out for tokens with no price.
+        // DO: check truthiness before calling formatValue(), falling back to "$-".
+        // DON'T: pass the value directly to formatValue() — it returns "" for undefined, rendering blank.
+        value={route?.usd_amount_out ? formatValue(route.usd_amount_out) : "$-"}
         hideNumbers={shouldShowRouteOptions}
       />
 
