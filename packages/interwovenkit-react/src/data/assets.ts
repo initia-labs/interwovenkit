@@ -1,15 +1,10 @@
 import ky from "ky"
 import { head } from "ramda"
-import {
-  queryOptions,
-  useQueries,
-  useQueryClient,
-  useSuspenseQueries,
-  useSuspenseQuery,
-} from "@tanstack/react-query"
+import { useMemo } from "react"
+import { queryOptions, useQueries, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import type { Asset, AssetList } from "@initia/initia-registry-types"
-import { getIbcDenom } from "@initia/utils"
+import { getIbcDenom, InitiaAddress } from "@initia/utils"
 import type { BaseAsset } from "@/components/form/types"
 import type { NormalizedChain } from "./chains"
 import { useInitiaRegistry, useLayer1 } from "./chains"
@@ -140,36 +135,20 @@ export function useGetLayer1Denom(chain: NormalizedChain) {
 }
 
 /**
- * Fetches denom from metadata addresses using the Move denom API.
+ * Converts a Move metadata address to its denom locally.
+ * For hex metadata, the denom is `move/` + zero-padded 64-char hex.
+ */
+export function metadataToDenom(metadata: string): string {
+  return `move/${InitiaAddress(metadata, 32).rawHex}`
+}
+
+/**
+ * Resolves metadata addresses to denoms locally without API calls.
  * Returns a Map of metadata -> denom.
  */
-export function useDenoms(
-  metadatas: string[],
-  options?: {
-    failSoft?: boolean
-  },
-) {
-  const layer1 = useLayer1()
-  const restClient = ky.create({ prefixUrl: layer1.restUrl })
-  const failSoft = options?.failSoft ?? false
-
-  const result = useSuspenseQueries({
-    queries: metadatas.map((metadata) => ({
-      queryFn: async () => {
-        try {
-          return await restClient
-            .get("initia/move/v1/denom", { searchParams: { metadata } })
-            .json<{ denom: string }>()
-        } catch (error) {
-          if (failSoft) return { denom: "" }
-          throw error
-        }
-      },
-      queryKey: [...assetQueryKeys.denom(layer1.restUrl, metadata).queryKey, failSoft],
-      select: (data: { denom: string }): [string, string] => [metadata, data.denom],
-      staleTime: STALE_TIMES.INFINITY,
-    })),
-  })
-
-  return new Map(result.map(({ data }) => data!))
+export function useDenoms(metadatas: string[]) {
+  return useMemo(
+    () => new Map(metadatas.map((metadata) => [metadata, metadataToDenom(metadata)])),
+    [metadatas],
+  )
 }

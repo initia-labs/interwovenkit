@@ -45,7 +45,7 @@ const ChangesWithMetadata = ({
 
   return changes.map(({ amount, metadata }, index) => {
     return (
-      <WithDenom metadata={metadata} chain={chain} key={index}>
+      <WithDenom metadata={metadata} key={index}>
         {(denom) => <Change amount={amount} asset={findAsset(denom)} />}
       </WithDenom>
     )

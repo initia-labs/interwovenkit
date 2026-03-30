@@ -372,7 +372,7 @@ export function useInitiaLiquidityPositions(): LiquiditySectionData {
 
     return Array.from(metadatas)
   }, [clammPositions])
-  const clammRewardMetadataToDenom = useDenoms(clammRewardMetadataList, { failSoft: true })
+  const clammRewardMetadataToDenom = useDenoms(clammRewardMetadataList)
 
   const allMetadataKeys = useMemo(
     () => collectMetadataKeys(lps, delegations, lockStaking, undelegations),
