@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { metadataToDenom } from "./assets"
+import { createMetadataDenomsMap, metadataToDenom } from "./assets"
 
 describe("metadataToDenom", () => {
   it("converts a full-length metadata address", () => {
@@ -18,5 +18,15 @@ describe("metadataToDenom", () => {
     expect(metadataToDenom("0x87e5481f8b5fe116ebc1c2b3ee523d86e3640e5f")).toBe(
       "move/00000000000000000000000087e5481f8b5fe116ebc1c2b3ee523d86e3640e5f",
     )
+  })
+})
+
+describe("createMetadataDenomsMap", () => {
+  it("skips malformed metadata values instead of throwing", () => {
+    const result = createMetadataDenomsMap(["0x1", "invalid"])
+
+    expect(Array.from(result.entries())).toEqual([
+      ["0x1", "move/0000000000000000000000000000000000000000000000000000000000000001"],
+    ])
   })
 })

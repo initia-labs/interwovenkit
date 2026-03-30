@@ -142,13 +142,22 @@ export function metadataToDenom(metadata: string): string {
   return `move/${InitiaAddress(metadata, 32).rawHex}`
 }
 
+export function createMetadataDenomsMap(metadatas: string[]) {
+  return metadatas.reduce((map, metadata) => {
+    try {
+      map.set(metadata, metadataToDenom(metadata))
+    } catch {
+      // Skip malformed metadata so one bad value does not crash the whole hook.
+    }
+
+    return map
+  }, new Map<string, string>())
+}
+
 /**
  * Resolves metadata addresses to denoms locally without API calls.
  * Returns a Map of metadata -> denom.
  */
 export function useDenoms(metadatas: string[]) {
-  return useMemo(
-    () => new Map(metadatas.map((metadata) => [metadata, metadataToDenom(metadata)])),
-    [metadatas],
-  )
+  return useMemo(() => createMetadataDenomsMap(metadatas), [metadatas])
 }
