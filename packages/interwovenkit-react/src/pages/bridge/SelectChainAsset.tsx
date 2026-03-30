@@ -51,7 +51,7 @@ const SelectChainAsset = ({ type, afterSelect }: Props) => {
     <>
       <ChainOptions.Stack>
         <ChainOptions
-          label="Interwoven Economy"
+          label="Apps"
           chains={internalChains.map(({ chain_id, chain_name, pretty_name, logo_uri }) => {
             return { chainId: chain_id, name: pretty_name || chain_name, logoUrl: logo_uri ?? "" }
           })}
