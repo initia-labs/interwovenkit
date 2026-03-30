@@ -8,7 +8,15 @@ interface Props {
 }
 
 const WithDenom = ({ metadata, children }: Props) => {
-  return children(metadataToDenom(metadata))
+  let denom: string
+
+  try {
+    denom = metadataToDenom(metadata)
+  } catch {
+    return null
+  }
+
+  return children(denom)
 }
 
 export default WithDenom
