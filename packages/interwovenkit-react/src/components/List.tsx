@@ -6,7 +6,7 @@ import styles from "./List.module.css"
 interface Props<Item> {
   onSelect: (item: Item) => void
   list: Item[]
-  getImage: (item: Item) => string
+  getImage: (item: Item) => string | undefined
   getName: (item: Item) => string
   getKey: (item: Item) => string
   getIsLoading?: (item: Item) => boolean
@@ -24,6 +24,7 @@ function List<Item>({ onSelect, list, ...props }: Props<Item>) {
             onClick={() => onSelect(item)}
             disabled={getIsLoading?.(item) || getDisabled?.(item)}
             key={getKey(item)}
+            aria-busy={!!getIsLoading?.(item)}
           >
             <Image src={getImage(item)} width={28} height={28} />
             <span className={styles.name}>{getName(item)}</span>

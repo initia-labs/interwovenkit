@@ -17,6 +17,7 @@ const WhiteButton = (props: Props) => {
       {...attrs}
       className={clsx(styles.button, { [styles.sm]: sm, [styles.full]: fullWidth }, className)}
       disabled={!!loading || disabled}
+      aria-busy={!!loading}
     >
       {loading ? (
         <>

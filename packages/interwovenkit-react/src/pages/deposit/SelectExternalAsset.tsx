@@ -3,7 +3,7 @@ import { useEffect, useEffectEvent } from "react"
 import { IconBack, IconCheck } from "@initia/icons-react"
 import { formatAmount } from "@initia/utils"
 import { useConfig } from "@/data/config"
-import { formatValue } from "@/lib/format"
+import { formatValueWithPrice } from "@/lib/format"
 import EmptyIconDark from "./assets/EmptyDark.svg"
 import EmptyIconLight from "./assets/EmptyLight.svg"
 import { getEmptyDepositCopy } from "./emptyDepositCopy"
@@ -28,7 +28,7 @@ const SelectExternalAsset = ({ mode }: Props) => {
     isLoading,
     supportedExternalChains,
     appchainSourceSymbols,
-    externalSourceSymbol,
+    externalSourceSymbols,
     localSymbol,
   } = useExternalAssetOptions(mode)
   const { setValue, watch } = useTransferForm()
@@ -94,7 +94,7 @@ const SelectExternalAsset = ({ mode }: Props) => {
       .filter((name): name is string => !!name)
     const emptyDepositCopy = getEmptyDepositCopy({
       localSymbol,
-      externalSourceSymbol,
+      externalSourceSymbols,
       externalChainNames,
       appchainSourceSymbols,
     })
@@ -147,6 +147,7 @@ const SelectExternalAsset = ({ mode }: Props) => {
             .map(({ asset, chain, balance }) => {
               const isActive =
                 selectedExternalDenom === asset.denom && selectedExternalChainId === chain.chain_id
+              const valueLabel = formatValueWithPrice(balance?.value_usd, balance?.price)
               return (
                 <button
                   key={`${asset.chain_id}-${asset.denom}`}
@@ -180,7 +181,7 @@ const SelectExternalAsset = ({ mode }: Props) => {
                       <p className={styles.balance}>
                         {formatAmount(balance.amount, { decimals: balance.decimals || 6 })}
                       </p>
-                      <p className={styles.value}>{formatValue(balance.value_usd || 0)}</p>
+                      <p className={styles.value}>{valueLabel}</p>
                     </>
                   )}
                 </button>

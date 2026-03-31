@@ -29,7 +29,12 @@ const GrantItem = ({ chainId, grantee, expiration }: GrantItemProps) => {
           {!expiration ? "Until revoked" : <ExpirationCountdown expiration={expiration} />}
         </div>
       </div>
-      <button className={styles.revokeButton} onClick={() => mutate(chainId)} disabled={isPending}>
+      <button
+        className={styles.revokeButton}
+        onClick={() => mutate(chainId)}
+        disabled={isPending}
+        aria-busy={isPending}
+      >
         {isPending ? "Revoking..." : "Revoke"}
       </button>
     </div>
