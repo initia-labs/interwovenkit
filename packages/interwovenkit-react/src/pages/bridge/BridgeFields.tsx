@@ -25,6 +25,7 @@ import { useAnalyticsTrack } from "@/data/analytics"
 import { useFindChain, useLayer1 } from "@/data/chains"
 import { LocalStorageKey } from "@/data/constants"
 import { useIsMobile } from "@/hooks/useIsMobile"
+import { isInsufficientBalance } from "@/lib/amountValidation"
 import { formatValue } from "@/lib/format"
 import { useNavigate } from "@/lib/router"
 import { useModal } from "@/public/app/ModalContext"
@@ -79,15 +80,25 @@ const BridgeFields = () => {
   const dstChainType = useChainType(dstChain)
   const srcAsset = useSkipAsset(srcDenom, srcChainId)
   const dstAsset = useSkipAsset(dstDenom, dstChainId)
-  const { data: balances } = useSkipBalancesQuery(sender, srcChainId)
+  const { data: balances, isError: isBalanceError } = useSkipBalancesQuery(sender, srcChainId)
   const srcBalance = useSkipBalance(sender, srcChainId, srcDenom)
+  // When the balances query has resolved but the selected denom is absent
+  // from the response, the token's balance is genuinely zero.
+  // Pass "0" so QuantityInput shows "Insufficient balance" instead of
+  // skipping validation (which it does when balance is undefined / loading).
+  const srcBalanceAmount = srcBalance?.amount ?? (balances ? "0" : undefined)
 
-  const hasZeroBalance = !srcBalance?.amount || BigNumber(srcBalance.amount).isZero()
+  const hasZeroBalance = !srcBalanceAmount || BigNumber(srcBalanceAmount).isZero()
 
   // simulation
   // Avoid hitting the simulation API on every keystroke.  Wait a short period
   // after the user stops typing before updating the debounced value.
   const [debouncedQuantity] = useDebounceValue(quantity, 300)
+  const isInsufficientSourceBalance = isInsufficientBalance({
+    quantity: debouncedQuantity,
+    balance: srcBalanceAmount,
+    decimals: srcAsset?.decimals,
+  })
   const isSameChainRoute = srcChainId === dstChainId
   const isLayer1Swap = isSameChainRoute && srcChainId === layer1.chainId
   const isL2Swap = isSameChainRoute && srcChainType === "initia" && !isLayer1Swap
@@ -226,9 +237,21 @@ const BridgeFields = () => {
     if (!debouncedQuantity) return "Enter amount"
     if (!values.recipient) return "Enter recipient address"
     if (formState.errors.quantity) return formState.errors.quantity.message
+    if (isBalanceError) return "Failed to load balance"
+    // Catch insufficient balance even when QuantityInput hasn't re-validated
+    // (e.g. quantity pre-filled from localStorage before balance loads).
+    if (isInsufficientSourceBalance) return "Insufficient balance"
     if (!route) return "Route not found"
     if (feeErrorMessage) return feeErrorMessage
-  }, [debouncedQuantity, feeErrorMessage, formState, route, values])
+  }, [
+    debouncedQuantity,
+    feeErrorMessage,
+    formState,
+    isInsufficientSourceBalance,
+    isBalanceError,
+    route,
+    values,
+  ])
 
   // render
   const received = route ? formatAmount(route.amount_out, { decimals: dstAsset.decimals }) : "0"
@@ -358,7 +381,7 @@ const BridgeFields = () => {
       <ChainAssetQuantityLayout
         selectButton={<SelectedChainAsset type="src" />}
         accountButton={srcChainType === "cosmos" && <BridgeAccount type="src" />}
-        quantityInput={<QuantityInput balance={srcBalance?.amount} decimals={srcAsset?.decimals} />}
+        quantityInput={<QuantityInput balance={srcBalanceAmount} decimals={srcAsset?.decimals} />}
         balanceButton={
           <BalanceButton
             onClick={() =>
@@ -370,10 +393,14 @@ const BridgeFields = () => {
             }
             disabled={hasZeroBalance}
           >
-            {formatAmount(srcBalance?.amount ?? "0", { decimals: srcAsset.decimals })}
+            {formatAmount(srcBalanceAmount ?? "0", { decimals: srcAsset.decimals })}
           </BalanceButton>
         }
-        value={!route ? "$-" : formatValue(route.usd_amount_in)}
+        // USD value display for route amounts:
+        // The Skip Router API returns falsy usd_amount_in/usd_amount_out for tokens with no price.
+        // DO: check truthiness before calling formatValue(), falling back to "$-".
+        // DON'T: pass the value directly to formatValue() — it returns "" for undefined, rendering blank.
+        value={route?.usd_amount_in ? formatValue(route.usd_amount_in) : "$-"}
       />
 
       <div className={styles.arrow}>
@@ -392,7 +419,11 @@ const BridgeFields = () => {
         selectButton={<SelectedChainAsset type="dst" />}
         accountButton={<BridgeAccount type="dst" />}
         quantityInput={<QuantityInput.ReadOnly>{received}</QuantityInput.ReadOnly>}
-        value={!route ? "$-" : formatValue(route.usd_amount_out)}
+        // USD value display for route amounts:
+        // The Skip Router API returns falsy usd_amount_in/usd_amount_out for tokens with no price.
+        // DO: check truthiness before calling formatValue(), falling back to "$-".
+        // DON'T: pass the value directly to formatValue() — it returns "" for undefined, rendering blank.
+        value={route?.usd_amount_out ? formatValue(route.usd_amount_out) : "$-"}
         hideNumbers={shouldShowRouteOptions}
       />
 
@@ -421,6 +452,7 @@ const BridgeFields = () => {
         extra={
           <>
             <FormHelp.Stack>
+              {isBalanceError && <FormHelp level="error">Failed to load balance</FormHelp>}
               {previewRefreshError && <FormHelp level="error">{previewRefreshError}</FormHelp>}
               {route?.extra_infos?.map((info) => (
                 <FormHelp level="info" key={info}>

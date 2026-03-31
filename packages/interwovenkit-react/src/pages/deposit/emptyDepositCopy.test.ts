@@ -4,7 +4,7 @@ describe("getEmptyDepositCopy", () => {
   it("returns the generic copy for external + appchain support", () => {
     const copy = getEmptyDepositCopy({
       localSymbol: "ETH",
-      externalSourceSymbol: "ETH",
+      externalSourceSymbols: ["ETH"],
       externalChainNames: ["Arbitrum", "Base", "Ethereum"],
       appchainSourceSymbols: ["ETH"],
     })
@@ -15,24 +15,24 @@ describe("getEmptyDepositCopy", () => {
     )
   })
 
-  it("returns the special iUSD copy for USDC external support", () => {
+  it("returns the special iUSD copy for USDC and AUSD external support", () => {
     const copy = getEmptyDepositCopy({
       localSymbol: "iUSD",
-      externalSourceSymbol: "USDC",
-      externalChainNames: ["Arbitrum", "Base", "Ethereum"],
+      externalSourceSymbols: ["USDC", "AUSD"],
+      externalChainNames: ["Ethereum"],
       appchainSourceSymbols: ["USDC", "iUSD"],
     })
 
     expect(copy.title).toBe("No iUSD available to deposit.")
     expect(copy.description).toBe(
-      "You can deposit iUSD using USDC from Arbitrum, Base, or Ethereum, or using USDC or iUSD from any app.",
+      "You can deposit iUSD using USDC or AUSD from Ethereum, or using USDC or iUSD from any app.",
     )
   })
 
   it("returns appchain-only copy when no external chains are supported", () => {
     const copy = getEmptyDepositCopy({
       localSymbol: "INIT",
-      externalSourceSymbol: "INIT",
+      externalSourceSymbols: ["INIT"],
       externalChainNames: [],
       appchainSourceSymbols: ["INIT"],
     })
@@ -44,7 +44,7 @@ describe("getEmptyDepositCopy", () => {
   it("includes multiple appchain source symbols when available", () => {
     const copy = getEmptyDepositCopy({
       localSymbol: "iUSD",
-      externalSourceSymbol: "USDC",
+      externalSourceSymbols: ["USDC"],
       externalChainNames: [],
       appchainSourceSymbols: ["iUSD", "USDC"],
     })
@@ -55,7 +55,7 @@ describe("getEmptyDepositCopy", () => {
   it("formats two external chains with 'or'", () => {
     const copy = getEmptyDepositCopy({
       localSymbol: "ETH",
-      externalSourceSymbol: "ETH",
+      externalSourceSymbols: ["ETH"],
       externalChainNames: ["Arbitrum", "Ethereum"],
       appchainSourceSymbols: [],
     })
@@ -66,7 +66,7 @@ describe("getEmptyDepositCopy", () => {
   it("returns fallback copy when no sources are available", () => {
     const copy = getEmptyDepositCopy({
       localSymbol: "ETH",
-      externalSourceSymbol: "ETH",
+      externalSourceSymbols: ["ETH"],
       externalChainNames: [],
       appchainSourceSymbols: [],
     })
