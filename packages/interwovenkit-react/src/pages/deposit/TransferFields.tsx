@@ -179,13 +179,31 @@ const TransferFields = ({ mode }: Props) => {
     mode,
     rawQuantity,
   ])
+  const isRouteQueryDisabled = useMemo(() => {
+    if (mode === "deposit" && !externalAsset) return true
+
+    const quantityBn = BigNumber(rawQuantity || 0)
+    if (!quantityBn.isFinite() || quantityBn.lte(0)) return true
+
+    if (mode === "withdraw" && !externalAsset) return true
+    if (balancesError || chainsError) return true
+
+    // Allow route fetching to start while balances load. Once a balance exists,
+    // still block invalid over-balance requests from hitting the route API.
+    if (balance !== undefined) {
+      const balanceAmount = fromBaseUnit(balance, { decimals: amountAsset?.decimals || 6 })
+      if (quantityBn.gt(balanceAmount)) return true
+    }
+
+    return false
+  }, [amountAsset, balance, balancesError, chainsError, externalAsset, mode, rawQuantity])
 
   const {
     data: route,
     error: routeError,
     dataUpdatedAt: routeUpdatedAt,
   } = useRouteQuery(debouncedQuantity, {
-    disabled: !!disabledMessage,
+    disabled: isRouteQueryDisabled,
   })
 
   // Keep the latest successful route while background refetches run.
