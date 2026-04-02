@@ -15,6 +15,8 @@ interface Props {
   onCompleted?: (result: BridgeTxResult) => void
   confirmMessage?: string
   error?: string
+  isCheckingApprovals?: boolean
+  isCheckingFeeBalance?: boolean
   messageRefreshError?: string
   isRouteTransitioning?: boolean
   isFetchingMessages?: boolean
@@ -39,16 +41,22 @@ function getStatusMessage({
 }
 
 function getBackgroundLoadingText({
+  isCheckingApprovals,
+  isCheckingFeeBalance,
   isFetchingMessages,
   isEstimatingGas,
   isRouteTransitioning,
 }: {
+  isCheckingApprovals?: boolean
+  isCheckingFeeBalance?: boolean
   isFetchingMessages?: boolean
   isEstimatingGas?: boolean
   isRouteTransitioning?: boolean
 }): string | false {
   if (isRouteTransitioning) return "Refreshing route..."
   if (isFetchingMessages) return "Fetching messages..."
+  if (isCheckingFeeBalance) return "Checking fee balance..."
+  if (isCheckingApprovals) return "Checking approvals..."
   if (isEstimatingGas) return "Estimating gas..."
   return false
 }
@@ -73,6 +81,8 @@ const BridgePreviewFooter = ({
   onCompleted,
   confirmMessage,
   error,
+  isCheckingApprovals,
+  isCheckingFeeBalance,
   messageRefreshError,
   isRouteTransitioning,
   isFetchingMessages,
@@ -88,6 +98,8 @@ const BridgePreviewFooter = ({
     quoteVerifiedAt,
   )
   const backgroundLoadingText = getBackgroundLoadingText({
+    isCheckingApprovals,
+    isCheckingFeeBalance,
     isFetchingMessages,
     isEstimatingGas,
     isRouteTransitioning,
