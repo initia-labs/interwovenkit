@@ -18,7 +18,7 @@ export type AllAssetsResponse = {
 }
 
 export function sortSkipAssets(assets: RouterAsset[]) {
-  return assets.toSorted(descend((asset) => asset.symbol === "INIT"))
+  return assets.slice().sort(descend((asset) => asset.symbol === "INIT"))
 }
 
 /** Fetch all assets without chains dependency so prefetch can run parallel to chains fetch */
