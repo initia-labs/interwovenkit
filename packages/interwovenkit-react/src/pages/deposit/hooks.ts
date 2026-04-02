@@ -95,6 +95,16 @@ export interface AssetOption {
   chainId: string
 }
 
+export function mapBalancesByChain({
+  chainIds,
+  chains,
+}: {
+  chainIds: string[]
+  chains?: BalancesResponseJson["chains"]
+}): Record<string, DenomBalances> {
+  return Object.fromEntries(chainIds.map((chainId) => [chainId, chains?.[chainId]?.denoms ?? {}]))
+}
+
 export type TransferPage = "select-local" | "select-external" | "fields" | "completed"
 
 export interface TransferFormValues {
@@ -182,10 +192,7 @@ export function useAllBalancesQuery() {
       return skip.post("v2/info/balances", { json: { chains } }).json<BalancesResponseJson>()
     },
     select: ({ chains }) => {
-      if (!chains) return {}
-      return Object.fromEntries(
-        Object.entries(chains).map(([chainId, { denoms }]) => [chainId, denoms || {}]),
-      )
+      return mapBalancesByChain({ chainIds, chains })
     },
     enabled: !!initAddress && chainIds.length > 0,
     staleTime: STALE_TIMES.SECOND,

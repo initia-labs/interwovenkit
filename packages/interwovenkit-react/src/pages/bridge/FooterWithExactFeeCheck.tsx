@@ -1,8 +1,6 @@
 import type { TxJson } from "@skip-go/client"
 import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
-import Button from "@/components/Button"
-import Footer from "@/components/Footer"
 import { useChain } from "@/data/chains"
 import { fetchGasPrices } from "@/data/fee"
 import { normalizeError } from "@/data/http"
@@ -11,13 +9,12 @@ import { useSkipBalancesQuery } from "./data/balance"
 import { computeRequiredFeeByDenom, hasSufficientFeeBalance } from "./data/bridgeTxUtils"
 import { useChainType, useSkipChain } from "./data/chains"
 import { decodeCosmosAminoMessages, useBridgePreviewState } from "./data/tx"
-import BridgePreviewFooter from "./BridgePreviewFooter"
 
 import type { ReactNode } from "react"
 
 interface Props {
   tx: TxJson
-  children: ReactNode
+  children: (status: { exactFeeCheckError?: string; isCheckingFeeBalance: boolean }) => ReactNode
 }
 
 function getFeeBalanceKey({
@@ -113,30 +110,32 @@ function FooterWithExactFeeCheck({ tx, children }: Props) {
   })
 
   if (!requiresExactFeeCheck) {
-    return children
+    return children({ isCheckingFeeBalance: false })
   }
 
   if (balancesError) {
-    return <BridgePreviewFooter tx={tx} error="Failed to load balances" />
+    return children({
+      exactFeeCheckError: "Failed to load balances",
+      isCheckingFeeBalance: false,
+    })
   }
 
   if (isLoadingBalances || balances === undefined || isLoading) {
-    return (
-      <Footer>
-        <Button.White loading="Checking fee balance..." />
-      </Footer>
-    )
+    return children({ isCheckingFeeBalance: true })
   }
 
   if (error) {
-    return <BridgePreviewFooter tx={tx} error={error.message} />
+    return children({ exactFeeCheckError: error.message, isCheckingFeeBalance: false })
   }
 
   if (!hasFeeBalance) {
-    return <BridgePreviewFooter tx={tx} error="Insufficient balance for fees" />
+    return children({
+      exactFeeCheckError: "Insufficient balance for fees",
+      isCheckingFeeBalance: false,
+    })
   }
 
-  return children
+  return children({ isCheckingFeeBalance: false })
 }
 
 export default FooterWithExactFeeCheck
