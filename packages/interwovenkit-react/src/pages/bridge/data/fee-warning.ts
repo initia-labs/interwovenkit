@@ -38,6 +38,8 @@ export function shouldWarnInsufficientFeeBalance({
     const balance = BigNumber(balancesByDenom[denom]?.amount ?? "0")
     const required = feeRequirementsByDenom.get(denom)
 
+    // When Skip does not quote an exact alternative-token fee, fall back to a
+    // coarse positive-balance check here. Exact sufficiency is validated later.
     return required ? balance.gte(required) : balance.gt(0)
   })
   if (hasAlternativeFeeTokenBalance) return false

@@ -92,6 +92,58 @@ describe("shouldWarnInsufficientFeeBalance", () => {
     ).toBe(true)
   })
 
+  it("does not warn when the source asset is not a fee token", () => {
+    expect(
+      shouldWarnInsufficientFeeBalance({
+        sourceDenom: "uatom",
+        sourceBalance: "1000",
+        amountIn: "500",
+        feeTokenDenoms: ["uinit"],
+        balancesByDenom: {
+          uatom: { amount: "1000" },
+        },
+        additionalFees: [],
+      }),
+    ).toBe(false)
+  })
+
+  it("does not warn when there is no quoted source fee", () => {
+    expect(
+      shouldWarnInsufficientFeeBalance({
+        sourceDenom: "uinit",
+        sourceBalance: "1000",
+        amountIn: "500",
+        feeTokenDenoms: ["uinit"],
+        balancesByDenom: {
+          uinit: { amount: "1000" },
+        },
+        additionalFees: [],
+      }),
+    ).toBe(false)
+  })
+
+  it("does not warn when the balance exactly covers amount plus fee", () => {
+    const additionalFees = [
+      {
+        amount: "500",
+        origin_asset: { denom: "uinit", symbol: "INIT", decimals: 6 },
+      } as FeeJson,
+    ]
+
+    expect(
+      shouldWarnInsufficientFeeBalance({
+        sourceDenom: "uinit",
+        sourceBalance: "1000",
+        amountIn: "500",
+        feeTokenDenoms: ["uinit"],
+        balancesByDenom: {
+          uinit: { amount: "1000" },
+        },
+        additionalFees,
+      }),
+    ).toBe(false)
+  })
+
   it("handles high-precision balances without relying on exact max equality", () => {
     const additionalFees = [
       {
