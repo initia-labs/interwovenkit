@@ -138,6 +138,20 @@ CSS Modules with CSS custom properties. Shadow DOM compatible (`:host` selectors
 
 Run: `pnpm test`
 
+## Playwright MCP Testing
+
+When instructed to run Playwright MCP tests, use the example app in `examples/vite/`. It already wires up `createTestWalletConnector` (EVM) and `createTestCosmosWallet` (Cosmos) from `INITIA_TEST_MNEMONIC` env var. Both perform in-memory signing, so no browser extension wallet is needed.
+
+### Procedure
+
+1. Assume `INITIA_TEST_MNEMONIC` is already set in the user's `.env`.
+2. Start the dev server with `pnpm dev`.
+3. Use Playwright MCP tools for wallet connection, page navigation, form input, and transaction signing.
+
+### Notes
+
+- The widget renders inside Shadow DOM. Ensure Playwright selectors can traverse Shadow DOM boundaries.
+
 ## Important Notes
 
 - **Shadow DOM**: Widget renders into Shadow DOM; styles use `:host` selector; `injectStyles()` required
