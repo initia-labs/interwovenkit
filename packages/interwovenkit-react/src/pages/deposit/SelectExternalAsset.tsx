@@ -3,7 +3,7 @@ import { useEffect, useEffectEvent } from "react"
 import { IconBack, IconCheck } from "@initia/icons-react"
 import FormattedAmount from "@/components/FormattedAmount"
 import { useConfig } from "@/data/config"
-import { formatValue } from "@/lib/format"
+import { formatValueWithPrice } from "@/lib/format"
 import EmptyIconDark from "./assets/EmptyDark.svg"
 import EmptyIconLight from "./assets/EmptyLight.svg"
 import { getEmptyDepositCopy } from "./emptyDepositCopy"
@@ -28,7 +28,7 @@ const SelectExternalAsset = ({ mode }: Props) => {
     isLoading,
     supportedExternalChains,
     appchainSourceSymbols,
-    externalSourceSymbol,
+    externalSourceSymbols,
     localSymbol,
   } = useExternalAssetOptions(mode)
   const { setValue, watch } = useTransferForm()
@@ -39,10 +39,18 @@ const SelectExternalAsset = ({ mode }: Props) => {
   const selectedExternalDenom = values[external.denomKey]
   const selectedExternalChainId = values[external.chainIdKey]
 
-  const singleAssetOptionKey =
-    !isLoading && filteredAssets.length === 1
-      ? `${filteredAssets[0].chain.chain_id}:${filteredAssets[0].asset.denom}`
-      : ""
+  const hasSingleOption = !isLoading && filteredAssets.length === 1
+
+  const singleAssetOptionKey = hasSingleOption
+    ? `${filteredAssets[0].chain.chain_id}:${filteredAssets[0].asset.denom}`
+    : ""
+
+  function selectExternalAsset(denom: string, chainId: string) {
+    setValue(external.denomKey, denom)
+    setValue(external.chainIdKey, chainId)
+    if (mode === "deposit") setValue("quantity", "")
+    setValue("page", "fields")
+  }
 
   const applyAutoSelection = useEffectEvent(() => {
     if (!singleAssetOptionKey) return
@@ -56,10 +64,7 @@ const SelectExternalAsset = ({ mode }: Props) => {
       return
     }
 
-    setValue(external.denomKey, asset.denom)
-    setValue(external.chainIdKey, chain.chain_id)
-    if (mode === "deposit") setValue("quantity", "")
-    setValue("page", "fields")
+    selectExternalAsset(asset.denom, chain.chain_id)
   })
 
   useEffect(() => {
@@ -94,7 +99,7 @@ const SelectExternalAsset = ({ mode }: Props) => {
       .filter((name): name is string => !!name)
     const emptyDepositCopy = getEmptyDepositCopy({
       localSymbol,
-      externalSourceSymbol,
+      externalSourceSymbols,
       externalChainNames,
       appchainSourceSymbols,
     })
@@ -147,16 +152,12 @@ const SelectExternalAsset = ({ mode }: Props) => {
             .map(({ asset, chain, balance }) => {
               const isActive =
                 selectedExternalDenom === asset.denom && selectedExternalChainId === chain.chain_id
+              const valueLabel = formatValueWithPrice(balance?.value_usd, balance?.price)
               return (
                 <button
                   key={`${asset.chain_id}-${asset.denom}`}
                   className={clsx(styles.asset, isActive && styles.activeAsset)}
-                  onClick={() => {
-                    setValue(external.denomKey, asset.denom)
-                    setValue(external.chainIdKey, chain.chain_id)
-                    if (mode === "deposit") setValue("quantity", "")
-                    setValue("page", "fields")
-                  }}
+                  onClick={() => selectExternalAsset(asset.denom, chain.chain_id)}
                 >
                   <div className={styles.iconContainer}>
                     <img src={asset.logo_uri} alt={asset.symbol} className={styles.assetIcon} />
@@ -180,7 +181,7 @@ const SelectExternalAsset = ({ mode }: Props) => {
                       <p className={styles.balance}>
                         <FormattedAmount amount={balance.amount} decimals={balance.decimals || 6} />
                       </p>
-                      <p className={styles.value}>{formatValue(balance.value_usd || 0)}</p>
+                      <p className={styles.value}>{valueLabel}</p>
                     </>
                   )}
                 </button>

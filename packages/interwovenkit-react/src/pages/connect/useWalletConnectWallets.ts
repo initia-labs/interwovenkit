@@ -12,7 +12,7 @@ export interface WalletInfo {
 const WALLETCONNECT_PROJECT_ID = "5722e7dffb709492cf5312446ceeff73"
 const WALLETCONNECT_API = `https://explorer-api.walletconnect.com/v3/wallets?projectId=${WALLETCONNECT_PROJECT_ID}`
 
-export const walletConnectWalletsQueryKey = ["walletconnect-wallets"] as const
+export const walletConnectWalletsQueryKey = ["interwovenkit:walletconnect-wallets"] as const
 
 const isWalletInfoLike = (w: unknown): w is WalletInfo =>
   w !== null &&

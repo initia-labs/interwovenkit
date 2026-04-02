@@ -181,14 +181,14 @@ const ChainSelect = ({ value, onChange, chainIds, renderExtra, fullWidth }: Prop
               }}
               onClear={() => setSearchQuery("")}
               onKeyDown={handleSearchKeyDown}
-              placeholder="Search appchains"
+              placeholder="Search apps"
               rootClassName={styles.search}
               ref={useAutoFocus()}
             />
 
             <div className={styles.viewport} role="listbox">
               {options.length === 0 ? (
-                <Status>No appchains found</Status>
+                <Status>No apps found</Status>
               ) : (
                 options.map(({ chainId, name, logoUrl }, index) => (
                   <div

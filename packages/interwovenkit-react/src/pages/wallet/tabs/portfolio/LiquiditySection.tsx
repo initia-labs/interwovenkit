@@ -22,7 +22,7 @@ const LiquiditySection = ({ data, denomLogoMap }: LiquiditySectionProps) => {
 
   return (
     <div className={styles.container}>
-      <div className={styles.section}>
+      <section className={styles.section} aria-label="Liquidity positions">
         <div className={styles.sectionHeader}>
           <div className={styles.sectionTitle}>
             <span className={styles.sectionLabel}>Liquidity</span>
@@ -33,7 +33,7 @@ const LiquiditySection = ({ data, denomLogoMap }: LiquiditySectionProps) => {
               className={styles.externalLink}
               onClick={(e) => e.stopPropagation()}
             >
-              <IconExternalLink size={12} />
+              <IconExternalLink size={12} aria-hidden="true" />
             </a>
           </div>
           <span className={styles.sectionValue}>{formatValue(totalValue)}</span>
@@ -43,7 +43,7 @@ const LiquiditySection = ({ data, denomLogoMap }: LiquiditySectionProps) => {
             <LiquidityRow key={row.denom} row={row} denomLogoMap={denomLogoMap} />
           ))}
         </div>
-      </div>
+      </section>
     </div>
   )
 }
@@ -100,6 +100,7 @@ function renderLiquidityRowTrigger({
         <IconChevronDown
           size={14}
           className={clsx(styles.tokenChevron, { [styles.expanded]: isOpen })}
+          aria-hidden="true"
         />
         <div className={styles.tokenInfoLabel}>
           {hasCoinLogos ? (
@@ -185,7 +186,7 @@ const ClammPositionRow = ({ position }: { position: ClammLiquidityPosition }) =>
       )}
 
       <div className={styles.breakdownRow}>
-        <span className={styles.breakdownLabel}>Reward</span>
+        <span className={styles.breakdownLabel}>Claimable rewards</span>
         <div className={styles.breakdownValues}>
           <span className={styles.breakdownValue}>{formatValue(position.rewardValue)}</span>
         </div>
@@ -218,7 +219,7 @@ const ClammLiquidityRow = ({ row, denomLogoMap }: LiquidityRowProps) => {
       <Collapsible.Content className={styles.collapsibleContent}>
         <div className={styles.clammBreakdownContent}>
           <div className={styles.breakdownRow}>
-            <span className={styles.breakdownLabel}>Reward</span>
+            <span className={styles.breakdownLabel}>Claimable rewards</span>
             <div className={styles.breakdownValues}>
               <span className={styles.breakdownValue}>{formatValue(clamm.totalRewardValue)}</span>
             </div>
@@ -280,7 +281,7 @@ const StandardLiquidityRow = ({ row, denomLogoMap }: LiquidityRowProps) => {
           })}
           {hasClaimableInit && (
             <div className={styles.breakdownRow}>
-              <span className={styles.breakdownLabel}>Claimable</span>
+              <span className={styles.breakdownLabel}>Claimable rewards</span>
               <div className={styles.breakdownValues}>
                 <span className={styles.breakdownAmount}>
                   {formatNumber(Number(claimableInit.total), { dp: 6 })} {INIT_SYMBOL}

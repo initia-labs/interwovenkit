@@ -21,7 +21,7 @@ import { useAsset } from "@/data/assets"
 import { useChain, usePricesQuery } from "@/data/chains"
 import { useGasPrices, useLastFeeDenom } from "@/data/fee"
 import { STALE_TIMES } from "@/data/http"
-import { formatValue } from "@/lib/format"
+import { formatValueWithPrice } from "@/lib/format"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { calcMaxAmount } from "./max"
@@ -114,7 +114,7 @@ export const SendFields = () => {
 
   return (
     <Page title="Send">
-      <form onSubmit={handleSubmit((values) => mutate(values))}>
+      <form onSubmit={handleSubmit((values) => mutate(values))} aria-label="Send token form">
         <div className={styles.fields}>
           <ChainAssetQuantityLayout
             selectButton={
@@ -138,7 +138,9 @@ export const SendFields = () => {
                 <FormattedAmount amount={balance ?? "0"} decimals={decimals} />
               </BalanceButton>
             }
-            value={!quantity ? "$0" : !price ? "$-" : formatValue(BigNumber(quantity).times(price))}
+            value={
+              !quantity ? "$0" : formatValueWithPrice(BigNumber(quantity).times(price ?? 0), price)
+            }
           />
 
           <div className={styles.divider} />

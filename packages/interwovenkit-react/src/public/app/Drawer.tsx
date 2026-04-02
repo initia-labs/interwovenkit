@@ -1,5 +1,5 @@
 import clsx from "clsx"
-import { type PropsWithChildren, useContext } from "react"
+import { type PropsWithChildren, useCallback, useContext } from "react"
 import type { FallbackProps } from "react-error-boundary"
 import { useAtomValue } from "jotai"
 import { Dialog } from "@base-ui/react/dialog"
@@ -10,6 +10,7 @@ import Footer from "@/components/Footer"
 import Scrollable from "@/components/Scrollable"
 import Status from "@/components/Status"
 import { LocalStorageKey } from "@/data/constants"
+import { clearInterwovenKitQueries } from "@/data/query-client"
 import { TX_APPROVAL_MUTATION_KEY, txRequestHandlerAtom } from "@/data/tx"
 import { useDrawer } from "@/data/ui"
 import { useIsMobile } from "@/hooks/useIsMobile"
@@ -25,6 +26,14 @@ import styles from "./Drawer.module.css"
 const Drawer = ({ children }: PropsWithChildren) => {
   const { isDrawerOpen, closeDrawer } = useDrawer()
   const { setContainer } = useContext(PortalContext)
+  // Skip null so that unmounting one surface (Modal or Drawer) does not
+  // clear the shared container while the other surface is still mounted.
+  const containerRef = useCallback(
+    (el: HTMLDivElement | null) => {
+      if (el) setContainer(el)
+    },
+    [setContainer],
+  )
   const isSmall = useIsMobile()
   const portalContainer = usePortalContainer()
 
@@ -61,7 +70,7 @@ const Drawer = ({ children }: PropsWithChildren) => {
         }
 
         navigate("/")
-        queryClient.clear()
+        clearInterwovenKitQueries(queryClient)
         resetErrorBoundary()
       }
 
@@ -94,7 +103,13 @@ const Drawer = ({ children }: PropsWithChildren) => {
           // This onClick is required for the close functionality to work in production builds.
           // Without it, closing only works in local dev. Don't remove until thoroughly tested.
           <Dialog.Backdrop className={styles.overlay} onClick={handleCloseDrawer}>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="14" height="14">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 16 16"
+              width="14"
+              height="14"
+              aria-hidden="true"
+            >
               <path d="M7.168 14.04 l 6.028 -6.028 l -6.028 -6.028 L8.57 .582 L16 8.012 l -7.43 7.43 l -1.402 -1.402 Z" />
               <path d="M0.028 14.04 l 6.028 -6.028 L0.028 1.984 L1.43 .582 l 7.43 7.43 l -7.43 7.43 L0.028 14.04 Z" />
             </svg>
@@ -102,7 +117,7 @@ const Drawer = ({ children }: PropsWithChildren) => {
         )}
 
         <Dialog.Popup className={styles.content}>
-          <div className={clsx(styles.inner, "body")} ref={setContainer}>
+          <div className={clsx(styles.inner, "body")} ref={containerRef}>
             {isSmall && <ScrollLock />}
             <TxWatcher />
             <WidgetHeader />

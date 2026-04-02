@@ -6,7 +6,6 @@ import { AuthInfo, Tx, TxBody } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import { has, head } from "ramda"
 import { createElement, Fragment } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { aminoConverters, aminoTypes } from "@initia/amino-converter"
 import { InitiaAddress, toBaseUnit } from "@initia/utils"
 import { useAnalyticsTrack } from "@/data/analytics"
 import { useFindChain, useLayer1 } from "@/data/chains"
@@ -14,8 +13,15 @@ import { useConfig } from "@/data/config"
 import { LocalStorageKey } from "@/data/constants"
 import { formatMoveError } from "@/data/errors"
 import { normalizeError, STALE_TIMES } from "@/data/http"
-import { useAminoTypes, useGetProvider, useRegistry, useSignWithEthSecp256k1 } from "@/data/signer"
+import {
+  useAminoConverters,
+  useAminoTypes,
+  useGetProvider,
+  useRegistry,
+  useSignWithEthSecp256k1,
+} from "@/data/signer"
 import { waitForTxConfirmationWithClient } from "@/data/tx"
+import { TimeoutError, withTimeout } from "@/lib/promise"
 import { Link, useLocationState, useNavigate } from "@/lib/router"
 import { useNotification } from "@/public/app/NotificationContext"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
@@ -24,6 +30,7 @@ import { checkMigrationInfo } from "../op/data"
 import { useClaimableReminders } from "../op/reminder"
 import { waitForAccountCreation } from "./account"
 import { useFindSkipAsset } from "./assets"
+import { decodeCosmosAminoMessages } from "./bridgeTxUtils"
 import { useChainType, useFindSkipChain, useSkipChain } from "./chains"
 import { useCosmosWallets } from "./cosmos"
 import { switchEthereumChain } from "./evm"
@@ -44,6 +51,8 @@ export interface SignedOpHook {
   signer: string
   hook: string
 }
+
+export { decodeCosmosAminoMessages } from "./bridgeTxUtils"
 
 interface OpHookResponse {
   chain_id: string
@@ -87,6 +96,7 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
   const { requestTxSync, submitTxSync, waitForTxConfirmation } = useInterwovenKit()
   const { find } = useCosmosWallets()
   const registry = useRegistry()
+  const aminoConverters = useAminoConverters()
   const aminoTypes = useAminoTypes()
   const srcChain = useSkipChain(srcChainId)
   const srcChainType = useChainType(srcChain)
@@ -104,14 +114,9 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
       try {
         if ("cosmos_tx" in tx) {
           if (!tx.cosmos_tx.msgs) throw new Error("Invalid transaction data")
-          const messages = tx.cosmos_tx.msgs.map(({ msg_type_url, msg }) => {
-            if (!(msg_type_url && msg)) throw new Error("Invalid transaction data")
-            // Note: `typeUrl` comes in proto format, but `msg` is in amino format.
-            // Weird, but that's how the Skip API responds.
-            return aminoTypes.fromAmino({
-              type: aminoConverters[msg_type_url].aminoType,
-              value: JSON.parse(msg),
-            })
+          const messages = decodeCosmosAminoMessages(tx.cosmos_tx.msgs, {
+            converters: aminoConverters,
+            fromAmino: aminoTypes.fromAmino.bind(aminoTypes),
           })
 
           if (srcChainType === "initia") {
@@ -172,13 +177,21 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
           const signer = await provider.getSigner()
           await switchEthereumChain(provider, srcChain)
           const response = await signer.sendTransaction({ chainId, to, value, data: `0x${data}` })
-          // `wait()` is a getter on the response object. Destructuring breaks
-          // its internal binding, so keep the original object intact.
-          return { txHash: response.hash, wait: response.wait() }
+          // ethers' wait() has no built-in timeout (timeout parameter
+          // defaults to 0/disabled). If the tx is dropped without an
+          // on-chain replacement, the promise hangs indefinitely.
+          // 30s matches the Cosmos waitForTxConfirmationWithClient timeout.
+          const wait = withTimeout(
+            response.wait(),
+            30_000,
+            "Transaction was not confirmed in time. It may still be processing.",
+          )
+          return { txHash: response.hash, wait }
         }
 
         throw new Error("Unlisted chain type")
       } catch (error) {
+        if (error instanceof TimeoutError) throw error
         throw await normalizeError(error)
       }
     },
@@ -263,9 +276,24 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
           }
         }
       } catch (error) {
-        // Handle transaction failure
         const errorMessage = error instanceof Error ? error.message : String(error)
-        if (onCompleted) {
+
+        // Timeout means the tx was broadcast but not confirmed in time.
+        // Save to history so the user can track it from the activity page.
+        // Non-timeout errors (e.g. revert) are genuine failures — no history
+        // to avoid polluting the list with reverted transactions.
+        if (error instanceof TimeoutError) {
+          const context: TxSuccessContext = { txHash, srcChainId, route, values, recipient }
+          const historyResult = createHistoryItem(context, false)
+          addHistoryItem(historyResult.tx, historyResult.details)
+
+          // onCompleted was already called with success: true in onSuccess
+          // (the tx was broadcast successfully). Don't overwrite with
+          // success: false — timeout only means confirmation is slow.
+          if (!onCompleted) {
+            updateNotification(createTimeoutNotification(hideNotification))
+          }
+        } else if (onCompleted) {
           onCompleted({ success: false, error: errorMessage, route, values })
         } else {
           updateNotification({
@@ -275,11 +303,11 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
           })
         }
 
-        const analyticsParams = {
+        track("Bridge Confirmation Failed", {
           ...createAnalyticsParams(values, txHash),
           error: errorMessage,
-        }
-        track("Bridge Confirmation Failed", analyticsParams)
+          type: error instanceof TimeoutError ? "timeout" : "error",
+        })
       } finally {
         // Always invalidate balance queries
         queryClient.invalidateQueries({
@@ -318,6 +346,8 @@ export function useSignOpHook() {
   const signWithEthSecp256k1 = useSignWithEthSecp256k1()
   const { route, values } = useBridgePreviewState()
   const findSkipChain = useFindSkipChain()
+  const aminoConverters = useAminoConverters()
+  const aminoTypes = useAminoTypes()
 
   return useMutation({
     mutationFn: async () => {
@@ -337,13 +367,9 @@ export function useSignOpHook() {
 
         await waitForAccountCreation(initiaAddress, findSkipChain(route.dest_asset_chain_id).rest)
 
-        const messages = hook.map(({ msg_type_url, msg }) => {
-          // Note: `typeUrl` comes in proto format, but `msg` is in amino format.
-          // Weird, but that's how the Skip API responds.
-          return aminoTypes.fromAmino({
-            type: aminoConverters[msg_type_url].aminoType,
-            value: JSON.parse(msg),
-          })
+        const messages = decodeCosmosAminoMessages(hook, {
+          converters: aminoConverters,
+          fromAmino: aminoTypes.fromAmino.bind(aminoTypes),
         })
 
         // Sequence handling for minievm chains:
@@ -396,6 +422,25 @@ function createSuccessNotification(hideNotification: () => void) {
         "the activity page",
       ),
       " for transaction status",
+    ),
+    autoHide: true,
+  }
+}
+
+function createTimeoutNotification(hideNotification: () => void) {
+  return {
+    type: "info" as const,
+    title: "Transaction pending",
+    description: createElement(
+      Fragment,
+      null,
+      "Confirmation is taking longer than expected. Check ",
+      createElement(
+        Link,
+        { to: "/bridge/history", onClick: hideNotification },
+        "the activity page",
+      ),
+      " for updates",
     ),
     autoHide: true,
   }

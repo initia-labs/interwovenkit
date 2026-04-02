@@ -90,7 +90,7 @@ const PositionSection = ({
   const isStakingSection = sectionKey === "staking"
 
   return (
-    <div className={styles.section}>
+    <section className={styles.section} aria-label={label}>
       <div className={styles.sectionHeader}>
         <div className={styles.sectionTitle}>
           <span className={styles.sectionLabel}>{label}</span>
@@ -102,7 +102,7 @@ const PositionSection = ({
               className={styles.externalLink}
               onClick={(e) => e.stopPropagation()}
             >
-              <IconExternalLink size={12} />
+              <IconExternalLink size={12} aria-hidden="true" />
             </a>
           )}
         </div>
@@ -120,7 +120,7 @@ const PositionSection = ({
           />
         ))}
       </div>
-    </div>
+    </section>
   )
 }
 
@@ -178,6 +178,7 @@ const TokenRow = ({
             <IconChevronDown
               size={14}
               className={clsx(styles.tokenChevron, { [styles.expanded]: isOpen })}
+              aria-hidden="true"
             />
             <div className={styles.tokenInfoLabel}>
               {logos?.assetLogo && (
@@ -259,7 +260,7 @@ const TypeBreakdown = ({
       ))}
       {hasClaimable && (
         <div className={styles.typeRow}>
-          <span className={styles.typeLabel}>Claimable</span>
+          <span className={styles.typeLabel}>Claimable rewards</span>
           <div className={styles.typeValues}>
             <span className={styles.typeAmount}>
               {formatNumber(totalClaimable, { dp: 6 })} {INIT_SYMBOL}

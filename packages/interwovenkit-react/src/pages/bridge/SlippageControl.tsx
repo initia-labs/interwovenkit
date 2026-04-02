@@ -73,13 +73,15 @@ const SlippageControl = ({ afterConfirm }: { afterConfirm: () => void }) => {
         transaction and the time it's executed.
       </p>
 
-      <div className={styles.presets}>
+      <div className={styles.presets} role="radiogroup" aria-label="Slippage presets">
         {PRESETS.map((preset, index) => (
           <button
             type="button"
             className={clsx(styles.preset, { [styles.active]: activePreset === index })}
             onClick={() => handlePresetClick(preset, index)}
             key={preset}
+            role="radio"
+            aria-checked={activePreset === index}
           >
             {preset}%
           </button>
@@ -89,6 +91,8 @@ const SlippageControl = ({ afterConfirm }: { afterConfirm: () => void }) => {
             type="button"
             className={clsx(styles.preset, styles.custom)}
             onClick={() => setActivePreset(null)}
+            role="radio"
+            aria-checked={activePreset === null}
           >
             Custom
           </button>

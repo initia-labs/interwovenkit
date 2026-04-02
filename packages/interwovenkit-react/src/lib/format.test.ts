@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { formatDisplayAmountParts, formatValue, toSubscript } from "./format"
+import { formatDisplayAmountParts, formatValue, formatValueWithPrice, toSubscript } from "./format"
 
 describe("formatDisplayAmount", () => {
   function formatDisplayAmount(
@@ -97,5 +97,22 @@ describe("formatValue", () => {
   it("should handle BigNumber-compatible inputs", () => {
     expect(formatValue("123456789.123456789")).toBe("$123,456,789.12")
     expect(formatValue("0.000000001")).toBe("< $0.01")
+  })
+})
+
+describe("formatValueWithPrice", () => {
+  it("should return $- when price is missing", () => {
+    expect(formatValueWithPrice(123, undefined)).toBe("$-")
+    expect(formatValueWithPrice(123, null)).toBe("$-")
+  })
+
+  it("should format the value when price is known", () => {
+    expect(formatValueWithPrice(123, 1)).toBe("$123.00")
+    expect(formatValueWithPrice(0, 0)).toBe("$0")
+  })
+
+  it("should treat nullish values as zero when price is known", () => {
+    expect(formatValueWithPrice(undefined, 1)).toBe("$0")
+    expect(formatValueWithPrice(null, 1)).toBe("$0")
   })
 })

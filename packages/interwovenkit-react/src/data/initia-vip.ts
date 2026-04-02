@@ -156,40 +156,42 @@ export function useInitiaVipPositions(): VipSectionData {
   const rows = useMemo(() => {
     if (!vestingPositions) return []
     const normalized = normalizeVestingEntries(vestingPositions)
-    return normalized.map((entry) => {
-      const chain = findChainByBridgeId(entry.rollup.bridgeId)
-      // Convert from base units (uinit) to display units using fromBaseUnit
-      const lockedFormatted = Number(
-        fromBaseUnit(String(entry.lockedReward), { decimals: INIT_DECIMALS }),
-      )
-      const claimableFormatted = Number(
-        fromBaseUnit(String(entry.claimableReward), { decimals: INIT_DECIMALS }),
-      )
+    return normalized
+      .map((entry) => {
+        const chain = findChainByBridgeId(entry.rollup.bridgeId)
+        // Convert from base units (uinit) to display units using fromBaseUnit
+        const lockedFormatted = Number(
+          fromBaseUnit(String(entry.lockedReward), { decimals: INIT_DECIMALS }),
+        )
+        const claimableFormatted = Number(
+          fromBaseUnit(String(entry.claimableReward), { decimals: INIT_DECIMALS }),
+        )
 
-      // Use BigNumber for precision-safe value calculations (same pattern as TxSimulate.tsx)
-      const lockedRewardValue = BigNumber(
-        fromBaseUnit(String(entry.lockedReward), { decimals: INIT_DECIMALS }),
-      )
-        .times(initPrice)
-        .toNumber()
+        // Use BigNumber for precision-safe value calculations (same pattern as TxSimulate.tsx)
+        const lockedRewardValue = BigNumber(
+          fromBaseUnit(String(entry.lockedReward), { decimals: INIT_DECIMALS }),
+        )
+          .times(initPrice)
+          .toNumber()
 
-      const claimableRewardValue = BigNumber(
-        fromBaseUnit(String(entry.claimableReward), { decimals: INIT_DECIMALS }),
-      )
-        .times(initPrice)
-        .toNumber()
+        const claimableRewardValue = BigNumber(
+          fromBaseUnit(String(entry.claimableReward), { decimals: INIT_DECIMALS }),
+        )
+          .times(initPrice)
+          .toNumber()
 
-      return {
-        bridgeId: entry.rollup.bridgeId,
-        version: entry.rollup.version,
-        name: chain?.name ?? "",
-        logoUrl: chain?.logoUrl,
-        lockedReward: lockedFormatted,
-        lockedRewardValue,
-        claimableReward: claimableFormatted,
-        claimableRewardValue,
-      }
-    })
+        return {
+          bridgeId: entry.rollup.bridgeId,
+          version: entry.rollup.version,
+          name: chain?.name ?? "",
+          logoUrl: chain?.logoUrl,
+          lockedReward: lockedFormatted,
+          lockedRewardValue,
+          claimableReward: claimableFormatted,
+          claimableRewardValue,
+        }
+      })
+      .filter((row) => row.lockedReward + row.claimableReward > 0)
   }, [vestingPositions, initPrice, findChainByBridgeId])
 
   // Total value = sum of locked and claimable values

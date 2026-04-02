@@ -58,7 +58,6 @@ Package-level (from `packages/interwovenkit-react/`):
 
 ```bash
 pnpm build:fast    # Fast build (skips rollup type bundling)
-pnpm release       # standard-version bump + changelog
 ```
 
 ## Code Conventions
@@ -139,6 +138,20 @@ CSS Modules with CSS custom properties. Shadow DOM compatible (`:host` selectors
 
 Run: `pnpm test`
 
+## Playwright MCP Testing
+
+When instructed to run Playwright MCP tests, use the example app in `examples/vite/`. It already wires up `createTestWalletConnector` (EVM) and `createTestCosmosWallet` (Cosmos) from `INITIA_TEST_MNEMONIC` env var. Both perform in-memory signing, so no browser extension wallet is needed.
+
+### Procedure
+
+1. Assume `INITIA_TEST_MNEMONIC` is already set in the user's `.env`.
+2. Start the dev server with `pnpm dev`.
+3. Use Playwright MCP tools for wallet connection, page navigation, form input, and transaction signing.
+
+### Notes
+
+- The widget renders inside Shadow DOM. Ensure Playwright selectors can traverse Shadow DOM boundaries.
+
 ## Important Notes
 
 - **Shadow DOM**: Widget renders into Shadow DOM; styles use `:host` selector; `injectStyles()` required
@@ -147,4 +160,4 @@ Run: `pnpm test`
 - **Build output**: ES module (`.js`) + CommonJS (`.cjs`), CSS extracted as both `.css` file and string `.js` export, `*.d.ts` declarations bundled
 - **Path alias**: `@/*` maps to `src/*`
 - **Pre-commit**: lint-staged runs ESLint + Prettier on staged files via simple-git-hooks
-- **Release**: standard-version for versioning and CHANGELOG generation
+- **Release**: release-please automates versioning, CHANGELOG, and GitHub Releases via Release PR on `main`

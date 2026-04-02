@@ -21,8 +21,9 @@ const Page = ({ title, backButton, extra, children }: PropsWithChildren<Props>) 
           to={backButton ?? (history.length > 1 ? -1 : "/")}
           className={styles.back}
           shouldReset={!!backButton}
+          aria-label="Go back"
         >
-          <IconBack size={16} />
+          <IconBack size={16} aria-hidden="true" />
         </Link>
 
         <h1 className={styles.title}>{title}</h1>

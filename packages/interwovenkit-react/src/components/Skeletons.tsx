@@ -15,7 +15,7 @@ const Skeletons = ({ height, length = 1, width = "100%" }: SkeletonsProps) => {
   }
 
   return (
-    <div className={styles.container}>
+    <div className={styles.container} aria-hidden="true">
       {items.map((i) => (
         <Skeleton key={i} height={height} width={width} />
       ))}

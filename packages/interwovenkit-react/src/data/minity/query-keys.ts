@@ -33,7 +33,6 @@ export const minityQueryKeys = createQueryKeys("interwovenkit:minity", {
     includeYield,
     minityUrl,
   ],
-  civitiaPositions: (address: string, minityUrl?: string) => [address, "civitia", minityUrl],
   yominetPositions: (address: string, minityUrl?: string) => [address, "yominet", minityUrl],
   chainPositions: (address: string, chainName: string, minityUrl?: string) => [
     address,
@@ -121,16 +120,6 @@ export const minityQueryOptions = {
             searchParams: { includeYield: String(includeYield) },
           })
           .json()
-      },
-      staleTime: STALE_TIMES.MINUTE,
-    }),
-
-  civitiaPositions: (address: string, minityUrl?: string) =>
-    queryOptions({
-      enabled: !!address,
-      queryKey: minityQueryKeys.civitiaPositions(address, minityUrl).queryKey,
-      queryFn: async (): Promise<ProtocolPosition[]> => {
-        return createMinityClient(minityUrl).get(`v1/chain/civitia/${address}/positions`).json()
       },
       staleTime: STALE_TIMES.MINUTE,
     }),

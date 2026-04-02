@@ -13,7 +13,6 @@ export const MAINNET: Config = {
   minityUrl: "https://portfolio-api.minity.xyz",
   dexUrl: "https://dex-api.initia.xyz",
   vipUrl: "https://vip-api.initia.xyz",
-  civitiaUrl: "https://api.civitia.org",
   theme: "dark",
 }
 
@@ -27,7 +26,6 @@ export const TESTNET: Config = {
   minityUrl: "https://portfolio-api.minity.xyz",
   dexUrl: "https://dex-api.initiation-2.initia.xyz",
   vipUrl: "https://vip-api.testnet.initia.xyz",
-  civitiaUrl: "https://api.civitia.org",
   theme: "dark",
   disableAnalytics: true,
 }

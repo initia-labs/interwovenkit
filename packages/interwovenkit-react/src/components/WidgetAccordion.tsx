@@ -28,7 +28,7 @@ function WidgetAccordion<T>(props: Props<T>) {
           <Accordion.Header>
             <Accordion.Trigger className={styles.trigger}>
               {renderHeader(item)}
-              <IconChevronDown className={styles.chevron} size={16} />
+              <IconChevronDown className={styles.chevron} size={16} aria-hidden="true" />
             </Accordion.Trigger>
           </Accordion.Header>
 

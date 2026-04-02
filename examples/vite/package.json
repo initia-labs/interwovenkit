@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@cosmjs/stargate": "^0.36.2",
-    "@initia/icons-react": "^2.0.0",
+    "@initia/icons-react": "^2.1.0",
     "@initia/interwovenkit-react": "workspace:^",
     "@initia/utils": "2.0.0",
     "@tanstack/react-query": "^5.90.7",

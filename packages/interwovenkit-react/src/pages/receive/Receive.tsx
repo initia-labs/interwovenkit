@@ -52,8 +52,12 @@ const Receive = () => {
 
         <CopyButton value={initiaAddress}>
           {({ copy, copied }) => (
-            <button className={clsx(styles.copy, { [styles.copied]: copied })} onClick={copy}>
-              <IconCopy size={12} />
+            <button
+              className={clsx(styles.copy, { [styles.copied]: copied })}
+              onClick={copy}
+              aria-label={copied ? "Copied" : "Copy address"}
+            >
+              <IconCopy size={12} aria-hidden="true" />
               <div className={styles.labelWrapper}>
                 <span className={styles.labelCopy}>Copy address</span>
                 <span className={styles.labelCopied}>Copied!</span>
@@ -64,11 +68,15 @@ const Receive = () => {
 
         <CopyButton value={hexAddress}>
           {({ copy, copied }) => (
-            <button className={clsx(styles.derived, { [styles.copied]: copied })} onClick={copy}>
+            <button
+              className={clsx(styles.derived, { [styles.copied]: copied })}
+              onClick={copy}
+              aria-label={copied ? "Copied" : "Copy derived address"}
+            >
               <span className={styles.derivedLabel}>Derived from</span>
               <span className={styles.derivedAddress}>
                 <span className={styles.hexAddress}>{truncate(hexAddress)}</span>
-                <IconCopy size={12} className={styles.derivedCopy} />
+                <IconCopy size={12} className={styles.derivedCopy} aria-hidden="true" />
                 {copied && <span className={styles.copiedText}>Copied!</span>}
               </span>
             </button>

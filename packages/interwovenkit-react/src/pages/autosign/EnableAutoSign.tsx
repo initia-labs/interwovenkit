@@ -50,7 +50,7 @@ const EnableAutoSignComponent = () => {
 
   const findChain = useFindChain()
   const chains = useInitiaRegistry()
-  const { address, username } = useInterwovenKit()
+  const { address, initiaAddress, username } = useInterwovenKit()
   const { mutate, isPending } = useEnableAutoSign()
   const { closeDrawer } = useDrawer()
 
@@ -61,7 +61,7 @@ const EnableAutoSignComponent = () => {
     data: isAccountCreated,
     isLoading: isCheckingAccount,
     isError: isAccountQueryError,
-  } = useQuery(accountQueries.info(restUrl, address))
+  } = useQuery(accountQueries.info(restUrl, initiaAddress))
 
   // Get website information
   const websiteInfo = {

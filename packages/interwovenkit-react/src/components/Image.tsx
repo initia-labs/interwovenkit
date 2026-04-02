@@ -18,6 +18,7 @@ const Image = ({ src, alt, placeholder, classNames, style, logo, ...attrs }: Pro
     <div
       className={clsx(styles.placeholder, classNames?.placeholder)}
       style={{ width, height, ...style }}
+      aria-hidden="true"
     />
   )
 
