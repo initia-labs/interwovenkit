@@ -1,5 +1,6 @@
 import { useDisconnect as useDisconnectWagmi } from "wagmi"
 import { atom, useAtom, useSetAtom } from "jotai"
+import { type QueryClient, useQueryClient } from "@tanstack/react-query"
 import { useAnalyticsTrack } from "@/data/analytics"
 import { useNavigate, useReset } from "@/lib/router"
 import { useDeriveWallet } from "@/pages/autosign/data/wallet"
@@ -62,11 +63,38 @@ export function useModal() {
   return { isModalOpen: isOpen, openModal: open, closeModal: close }
 }
 
+export function clearDisconnectState({
+  queryClient,
+  clearSSECache,
+  address,
+}: {
+  queryClient: Pick<QueryClient, "clear">
+  clearSSECache: () => void
+  address?: string
+}) {
+  clearClientCaches()
+  clearErrorCache()
+  queryClient.clear()
+  clearSSECache()
+
+  localStorage.removeItem(LocalStorageKey.BRIDGE_SRC_CHAIN_ID)
+  localStorage.removeItem(LocalStorageKey.BRIDGE_SRC_DENOM)
+  localStorage.removeItem(LocalStorageKey.BRIDGE_DST_CHAIN_ID)
+  localStorage.removeItem(LocalStorageKey.BRIDGE_DST_DENOM)
+  localStorage.removeItem(LocalStorageKey.BRIDGE_QUANTITY)
+  localStorage.removeItem(LocalStorageKey.BRIDGE_SLIPPAGE_PERCENT)
+
+  if (address) {
+    localStorage.removeItem(`${LocalStorageKey.PUBLIC_KEY}:${address}`)
+  }
+}
+
 export function useDisconnect() {
   const navigate = useNavigate()
   const { closeDrawer } = useDrawer()
   const { closeModal } = useModal()
   const { disconnect } = useDisconnectWagmi()
+  const queryClient = useQueryClient()
   const { clearAllWallets } = useDeriveWallet()
   const address = useInitiaAddress()
   const clearSSECache = useClearSSECache()
@@ -77,25 +105,10 @@ export function useDisconnect() {
     closeModal()
 
     // Clear all in-memory caches before wallet disconnect
-    clearClientCaches()
-    clearErrorCache()
-    clearSSECache()
+    clearDisconnectState({ queryClient, clearSSECache, address })
 
     disconnect()
 
     clearAllWallets()
-
-    // Clear localStorage values on disconnect
-    localStorage.removeItem(LocalStorageKey.BRIDGE_SRC_CHAIN_ID)
-    localStorage.removeItem(LocalStorageKey.BRIDGE_SRC_DENOM)
-    localStorage.removeItem(LocalStorageKey.BRIDGE_DST_CHAIN_ID)
-    localStorage.removeItem(LocalStorageKey.BRIDGE_DST_DENOM)
-    localStorage.removeItem(LocalStorageKey.BRIDGE_QUANTITY)
-    localStorage.removeItem(LocalStorageKey.BRIDGE_SLIPPAGE_PERCENT)
-
-    // Clear cached public key for current address
-    if (address) {
-      localStorage.removeItem(`${LocalStorageKey.PUBLIC_KEY}:${address}`)
-    }
   }
 }
