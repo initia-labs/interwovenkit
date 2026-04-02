@@ -1,6 +1,10 @@
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { LocalStorageKey } from "./constants"
 import { clearDisconnectState } from "./ui"
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe("clearDisconnectState", () => {
   it("clears the react query cache alongside the other disconnect state", () => {
