@@ -12,8 +12,8 @@ interface Params {
 
 export function shouldWarnInsufficientFeeBalance({
   sourceDenom,
-  sourceBalance = "0",
-  amountIn = "0",
+  sourceBalance,
+  amountIn,
   feeTokenDenoms,
   balancesByDenom,
   additionalFees = [],
@@ -21,17 +21,28 @@ export function shouldWarnInsufficientFeeBalance({
   const isSourceFeeToken = feeTokenDenoms.includes(sourceDenom)
   if (!isSourceFeeToken) return false
 
+  if (sourceBalance === undefined || amountIn === undefined || balancesByDenom === undefined) {
+    return false
+  }
+
+  const feeRequirementsByDenom = additionalFees.reduce((map, fee) => {
+    const denom = fee.origin_asset.denom
+    const amount = map.get(denom) ?? BigNumber(0)
+    map.set(denom, amount.plus(fee.amount ?? "0"))
+    return map
+  }, new Map<string, BigNumber>())
+
   const hasAlternativeFeeTokenBalance = feeTokenDenoms.some((denom) => {
     if (denom === sourceDenom) return false
-    const balance = balancesByDenom?.[denom]?.amount ?? "0"
-    return BigNumber(balance).gt(0)
+
+    const balance = BigNumber(balancesByDenom[denom]?.amount ?? "0")
+    const required = feeRequirementsByDenom.get(denom)
+
+    return required ? balance.gte(required) : balance.gt(0)
   })
   if (hasAlternativeFeeTokenBalance) return false
 
-  const sourceFeeAmount = additionalFees.reduce((sum, fee) => {
-    if (fee.origin_asset.denom !== sourceDenom) return sum
-    return sum.plus(fee.amount ?? "0")
-  }, BigNumber(0))
+  const sourceFeeAmount = feeRequirementsByDenom.get(sourceDenom) ?? BigNumber(0)
   if (sourceFeeAmount.isZero()) return false
 
   return BigNumber(sourceBalance).lt(BigNumber(amountIn).plus(sourceFeeAmount))
