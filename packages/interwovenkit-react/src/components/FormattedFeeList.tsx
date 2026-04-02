@@ -9,7 +9,7 @@ const FormattedFeeList = ({ fees }: Props) => {
   return fees.map((fee, index) => (
     <span key={`${fee.origin_asset.denom}-${index}`}>
       {index > 0 && ", "}
-      <FormattedAmount amount={fee.amount} decimals={fee.origin_asset.decimals ?? 0} />{" "}
+      <FormattedAmount amount={fee.amount ?? "0"} decimals={fee.origin_asset.decimals ?? 0} />{" "}
       {fee.origin_asset.symbol}
     </span>
   ))

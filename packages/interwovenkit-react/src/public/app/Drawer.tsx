@@ -121,9 +121,7 @@ const Drawer = ({ children }: PropsWithChildren) => {
             {isSmall && <ScrollLock />}
             <TxWatcher />
             <WidgetHeader />
-            <div className={styles.routes}>
-              <AsyncBoundary errorBoundaryProps={errorBoundaryProps}>{children}</AsyncBoundary>
-            </div>
+            <AsyncBoundary errorBoundaryProps={errorBoundaryProps}>{children}</AsyncBoundary>
           </div>
         </Dialog.Popup>
       </Dialog.Portal>

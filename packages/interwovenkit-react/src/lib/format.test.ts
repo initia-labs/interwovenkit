@@ -19,6 +19,7 @@ describe("formatDisplayAmount", () => {
   it("shows subscript notation for tiny non-zero amounts hidden by 6dp", () => {
     expect(formatDisplayAmount("1", { decimals: 8 })).toBe("0.0₆1")
     expect(formatDisplayAmount("3159", { decimals: 10 })).toBe("0.0₅3159")
+    expect(formatDisplayAmount("-3159", { decimals: 10 })).toBe("-0.0₅3159")
   })
 
   it("uses subscript when precision is hidden beyond the 6th decimal", () => {

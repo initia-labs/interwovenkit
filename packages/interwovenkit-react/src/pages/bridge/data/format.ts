@@ -1,6 +1,5 @@
-import type { FeeJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
-import { formatAmount } from "@initia/utils"
+
 const TIME_UNIT_DEFINITIONS = [
   ["d", 24 * 60 * 60], // day
   ["h", 60 * 60], // hour
@@ -32,13 +31,4 @@ export function calculateMinimumReceived(amountOut: string, slippagePercent: str
     .div(100)
     .integerValue(BigNumber.ROUND_FLOOR)
     .toFixed(0)
-}
-
-export function formatFees(fees?: FeeJson[]) {
-  return fees
-    ?.map((fee) => {
-      const { amount, origin_asset } = fee
-      return `${formatAmount(amount, { decimals: origin_asset.decimals ?? 0 })} ${origin_asset.symbol}`
-    })
-    .join(", ")
 }

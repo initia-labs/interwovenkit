@@ -3,7 +3,6 @@ import { calculateFee, GasPrice } from "@cosmjs/stargate"
 import type { TxJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
 import { useState } from "react"
-import { formatAmount as formatAmountBase } from "@initia/utils"
 import Dropdown, { type DropdownOption } from "@/components/Dropdown"
 import FormattedAmount from "@/components/FormattedAmount"
 import { useBalances } from "@/data/account"
@@ -181,20 +180,12 @@ const TransferFooterWithFee = ({
     />
   )
 
-  // Helper functions for fee display
-  const getDp = (amount: string, decimals: number) => {
-    if (formatAmountBase(amount, { decimals }) === "0.000000") return 8
-    return undefined
-  }
-
   const getFeeLabel = (fee: StdFee): ReactNode => {
     const [{ amount, denom }] = fee.amount
-    if (BigNumber(amount).isZero()) return "0"
     const { symbol, decimals } = findAsset(denom)
-    const dp = getDp(amount, decimals)
     return (
       <>
-        <FormattedAmount amount={amount} decimals={decimals} dp={dp} /> {symbol}
+        <FormattedAmount amount={amount} decimals={decimals} /> {symbol}
       </>
     )
   }
@@ -223,11 +214,10 @@ const TransferFooterWithFee = ({
 
     const [{ amount, denom }] = selectedFee.amount
     const { decimals } = findAsset(denom)
-    const dp = getDp(amount, decimals)
 
     return (
       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-        <FormattedAmount amount={amount} decimals={decimals} dp={dp} className="monospace" />
+        <FormattedAmount amount={amount} decimals={decimals} className="monospace" />
         <Dropdown
           options={dropdownOptions}
           value={feeDenom}
