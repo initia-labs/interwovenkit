@@ -39,9 +39,47 @@ describe("sendUncheckedEvmTransaction", () => {
     expect(signer.sendUncheckedTransaction).toHaveBeenCalledWith(tx)
     expect(provider.getBlockNumber).toHaveBeenCalledTimes(1)
     expect(provider.getTransaction).toHaveBeenCalledWith("0xabc")
-    expect(provider.waitForTransaction).toHaveBeenCalledWith("0xabc", 1, 300000)
     await expect(result.wait).resolves.toBe(receipt)
+    expect(provider.waitForTransaction).toHaveBeenCalledWith("0xabc", 1, 300000)
     expect(result.txHash).toBe("0xabc")
+  })
+
+  it("falls back to waiting by hash when getTransaction rejects", async () => {
+    const receipt = { status: 1 }
+    const signer = {
+      sendUncheckedTransaction: vi.fn().mockResolvedValue("0xabc"),
+    }
+    const provider = {
+      getBlockNumber: vi.fn().mockResolvedValue(123),
+      getTransaction: vi.fn().mockRejectedValue(new Error("invalid value for value.nonce")),
+      waitForTransaction: vi.fn().mockResolvedValue(receipt),
+    }
+    const tx = { to: "0x0000000000000000000000000000000000000001", data: "0x1234" }
+
+    const result = await sendUncheckedEvmTransaction(signer as never, provider as never, tx)
+
+    expect(signer.sendUncheckedTransaction).toHaveBeenCalledWith(tx)
+    expect(provider.getTransaction).toHaveBeenCalledWith("0xabc")
+    await expect(result.wait).resolves.toBe(receipt)
+    expect(provider.waitForTransaction).toHaveBeenCalledWith("0xabc", 1, 300000)
+    expect(result.txHash).toBe("0xabc")
+  })
+
+  it("rethrows unrelated getTransaction errors", async () => {
+    const signer = {
+      sendUncheckedTransaction: vi.fn().mockResolvedValue("0xabc"),
+    }
+    const provider = {
+      getBlockNumber: vi.fn().mockResolvedValue(123),
+      getTransaction: vi.fn().mockRejectedValue(new Error("rpc unavailable")),
+      waitForTransaction: vi.fn(),
+    }
+    const tx = { to: "0x0000000000000000000000000000000000000001", data: "0x1234" }
+
+    const result = await sendUncheckedEvmTransaction(signer as never, provider as never, tx)
+
+    await expect(result.wait).rejects.toThrow("rpc unavailable")
+    expect(provider.waitForTransaction).not.toHaveBeenCalled()
   })
 
   it("uses a replaceable transaction wait when the transaction response is available", async () => {
