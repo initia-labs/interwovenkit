@@ -1,7 +1,8 @@
-import type { MsgsResponseJson, TxJson } from "@skip-go/client"
+import type { TxJson } from "@skip-go/client"
 import { useEffect, useMemo, useState } from "react"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
+import { fetchBridgeTxs } from "./data/bridgeTxUtils"
 import { useSkip } from "./data/skip"
 import type { SignedOpHook } from "./data/tx"
 import { useBridgePreviewState } from "./data/tx"
@@ -48,24 +49,21 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
         setLoading(true)
         setError(null)
 
-        const params = {
-          address_list: stableAddressList,
-          amount_in: route.amount_in,
-          amount_out: route.amount_out,
-          source_asset_chain_id: route.source_asset_chain_id,
-          source_asset_denom: route.source_asset_denom,
-          dest_asset_chain_id: route.dest_asset_chain_id,
-          dest_asset_denom: route.dest_asset_denom,
-          slippage_tolerance_percent: values.slippagePercent,
-          operations: stableOperations,
-          signed_op_hook: stableSignedOpHook,
-        }
-
-        const { txs } = await skip
-          .post("v2/fungible/msgs", { json: params })
-          .json<MsgsResponseJson>()
+        const txs = await fetchBridgeTxs(skip, {
+          addressList: stableAddressList,
+          route: {
+            amount_in: route.amount_in,
+            amount_out: route.amount_out,
+            source_asset_chain_id: route.source_asset_chain_id,
+            source_asset_denom: route.source_asset_denom,
+            dest_asset_chain_id: route.dest_asset_chain_id,
+            dest_asset_denom: route.dest_asset_denom,
+            operations: stableOperations,
+          },
+          slippagePercent: String(values.slippagePercent),
+          signedOpHook: stableSignedOpHook,
+        })
         if (cancelled) return
-        if (!txs || txs.length === 0) throw new Error("No transaction data found")
         const [tx] = txs
         setValue(tx)
       } catch (error) {
