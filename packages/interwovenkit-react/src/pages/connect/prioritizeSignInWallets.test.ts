@@ -15,6 +15,17 @@ const POPULAR_WALLETS: WalletLike[] = [
 ]
 
 describe("prioritizeSignInWallets", () => {
+  it("returns an empty list when the limit is zero or negative", () => {
+    const readyWallets: WalletLike[] = [{ id: "wallet.alpha", name: "Alpha" }]
+
+    expect(prioritizeSignInWallets(readyWallets, POPULAR_WALLETS, 0)).toEqual([])
+    expect(prioritizeSignInWallets(readyWallets, POPULAR_WALLETS, -1)).toEqual([])
+  })
+
+  it("returns an empty list when no wallets are ready", () => {
+    expect(prioritizeSignInWallets([], POPULAR_WALLETS, 5)).toEqual([])
+  })
+
   it("keeps original order when wallet count is within limit", () => {
     const readyWallets: WalletLike[] = [
       { id: "wallet.alpha", name: "Alpha" },
@@ -69,6 +80,27 @@ describe("prioritizeSignInWallets", () => {
     ])
   })
 
+  it("ignores a recent wallet id that is not present", () => {
+    const readyWallets: WalletLike[] = [
+      { id: "wallet.alpha", name: "Alpha" },
+      { id: "wallet.beta", name: "Beta" },
+      { id: "io.metamask", name: "MetaMask" },
+      { id: "wallet.gamma", name: "Gamma" },
+      { id: "wallet.delta", name: "Delta" },
+      { id: "wallet.epsilon", name: "Epsilon" },
+    ]
+
+    const result = prioritizeSignInWallets(readyWallets, POPULAR_WALLETS, 5, "wallet.missing")
+
+    expect(result.map((wallet) => wallet.id)).toEqual([
+      "io.metamask",
+      "wallet.alpha",
+      "wallet.beta",
+      "wallet.gamma",
+      "wallet.delta",
+    ])
+  })
+
   it("keeps the recent wallet visible even when five popular wallets are installed", () => {
     const readyWallets: WalletLike[] = [
       { id: "wallet.recent", name: "Recent Wallet" },
@@ -87,6 +119,27 @@ describe("prioritizeSignInWallets", () => {
       "app.phantom",
       "app.keplr",
       "io.leapwallet",
+    ])
+  })
+
+  it("keeps a recent popular wallet in the first slot", () => {
+    const readyWallets: WalletLike[] = [
+      { id: "wallet.alpha", name: "Alpha" },
+      { id: "io.metamask", name: "MetaMask" },
+      { id: "app.keplr", name: "Keplr" },
+      { id: "wallet.beta", name: "Beta" },
+      { id: "wallet.gamma", name: "Gamma" },
+      { id: "wallet.delta", name: "Delta" },
+    ]
+
+    const result = prioritizeSignInWallets(readyWallets, POPULAR_WALLETS, 5, "io.metamask")
+
+    expect(result.map((wallet) => wallet.id)).toEqual([
+      "io.metamask",
+      "app.keplr",
+      "wallet.alpha",
+      "wallet.beta",
+      "wallet.gamma",
     ])
   })
 })

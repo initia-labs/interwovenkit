@@ -21,6 +21,8 @@ export const prioritizeSignInWallets = <T extends WalletLike>(
     ? readyWallets.filter((wallet) => wallet.id !== recentWallet.id)
     : readyWallets
 
+  // Match by exact id when possible. Normalized-name matching is only a
+  // fallback for variants like "Leap Wallet", and can still collide.
   const popularIds = new Set(popularWallets.map((wallet) => wallet.id))
   const popularNamesNormalized = new Set(
     popularWallets.map((wallet) => normalizeWalletName(wallet.name)),
