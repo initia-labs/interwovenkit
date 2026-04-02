@@ -45,6 +45,35 @@ function renderWithApprovalGate(tx: TxJson, footer: React.ReactNode, state: Appr
   return <FooterWithErc20Approval tx={tx}>{footer}</FooterWithErc20Approval>
 }
 
+function selectFeeDenom({
+  feeDetailsByDenom,
+  feeOptions,
+  lastUsedFeeDenom,
+  preferredFeeDenom,
+}: {
+  feeDetailsByDenom: Map<string, { isSufficient: boolean }>
+  feeOptions: StdFee[]
+  lastUsedFeeDenom?: string | null
+  preferredFeeDenom: string | null
+}) {
+  if (preferredFeeDenom && feeDetailsByDenom.get(preferredFeeDenom)?.isSufficient) {
+    return preferredFeeDenom
+  }
+
+  if (lastUsedFeeDenom && feeDetailsByDenom.get(lastUsedFeeDenom)?.isSufficient) {
+    return lastUsedFeeDenom
+  }
+
+  for (const fee of feeOptions) {
+    const [{ denom }] = fee.amount
+    if (feeDetailsByDenom.get(denom)?.isSufficient) {
+      return denom
+    }
+  }
+
+  return feeOptions[0]?.amount[0].denom
+}
+
 interface FooterWithFeeProps extends Omit<Props, "gas" | "mode"> {
   gas: number | null
   confirmMessage: "Deposit" | "Withdraw"
@@ -126,25 +155,12 @@ const TransferFooterWithFee = ({
     isEstimatingGas,
     messageRefreshError,
   }
-
-  const feeDenom = (() => {
-    if (preferredFeeDenom && feeDetailsByDenom.get(preferredFeeDenom)?.isSufficient) {
-      return preferredFeeDenom
-    }
-
-    if (lastUsedFeeDenom && feeDetailsByDenom.get(lastUsedFeeDenom)?.isSufficient) {
-      return lastUsedFeeDenom
-    }
-
-    for (const fee of feeOptions) {
-      const [{ denom }] = fee.amount
-      if (feeDetailsByDenom.get(denom)?.isSufficient) {
-        return denom
-      }
-    }
-
-    return feeOptions[0]?.amount[0].denom
-  })()
+  const feeDenom = selectFeeDenom({
+    feeDetailsByDenom,
+    feeOptions,
+    lastUsedFeeDenom,
+    preferredFeeDenom,
+  })
 
   const selectedFee = feeDenom ? feeOptionsByDenom.get(feeDenom) : undefined
 

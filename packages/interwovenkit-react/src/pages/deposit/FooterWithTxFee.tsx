@@ -58,7 +58,7 @@ const FooterWithTxFee = ({ tx, children }: Props) => {
     enabled: !!tx && "cosmos_tx" in tx && !!address && !!srcChainId,
   })
 
-  // Pass the gas estimate to children (null if not a cosmos tx or if estimation failed)
+  // Block render only for initial cosmos gas estimation; background refetches pass through.
   if ("cosmos_tx" in tx && !gasEstimate && isLoading) {
     return (
       <Footer>
@@ -67,6 +67,7 @@ const FooterWithTxFee = ({ tx, children }: Props) => {
     )
   }
 
+  // Pass the gas estimate to children (null if not a cosmos tx or if estimation failed).
   const gas = gasEstimate?.estimatedGas ?? null
   const isEstimatingGas = "cosmos_tx" in tx && (isLoading || isFetching)
   return <>{children(gas, { isEstimatingGas })}</>

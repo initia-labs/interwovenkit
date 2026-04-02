@@ -2,6 +2,7 @@ import type { TxJson } from "@skip-go/client"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
+import { normalizeError } from "@/data/http"
 import { fetchBridgeTxs } from "./data/bridgeTxUtils"
 import {
   getBridgeMsgsRequestKey,
@@ -104,7 +105,7 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
         setValue(tx)
       } catch (error) {
         if (cancelled) return
-        setError(error as Error)
+        setError(await normalizeError(error))
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -131,8 +132,8 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
 
   const status = getFooterWithMsgsStatus({ error, loading, value })
 
-  if (status.shouldRenderError) {
-    return <FooterWithError error={error as Error} />
+  if (status.shouldRenderError && error) {
+    return <FooterWithError error={error} />
   }
 
   if (status.shouldRenderLoading) {
