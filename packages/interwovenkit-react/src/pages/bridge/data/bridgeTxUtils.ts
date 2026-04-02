@@ -54,6 +54,13 @@ export async function fetchBridgeTxs(skip: KyInstance, params: BridgeMsgsParams)
   return txs
 }
 
+/**
+ * Decode Cosmos messages returned by the Skip API.
+ *
+ * The Skip API returns `msg_type_url` in proto format (e.g. "/cosmos.bank.v1beta1.MsgSend")
+ * but `msg` in amino JSON format. This function bridges the two by looking up the amino type
+ * for each proto type URL, then using `fromAmino` to produce EncodeObjects.
+ */
 export function decodeCosmosAminoMessages(
   msgs: Array<{ msg_type_url?: string; msg?: string }> | undefined,
   options: {
