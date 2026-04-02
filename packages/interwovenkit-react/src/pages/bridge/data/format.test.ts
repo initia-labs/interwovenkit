@@ -47,12 +47,12 @@ describe("formatDuration", () => {
     expect(formatDuration(90061)).toBe("1d 1h 1m 1s") // 86400 + 3600 + 60 + 1
   })
 
-  it("formats combined weeks, days, hours, minutes, seconds", () => {
+  it("formats combined days, hours, minutes, seconds", () => {
     const combinedSeconds =
-      1 * 24 * 3600 + // 2 days
-      2 * 3600 + // 3 hours
-      3 * 60 + // 4 minutes
-      4 // 5 seconds
+      1 * 24 * 3600 + // 1 day
+      2 * 3600 + // 2 hours
+      3 * 60 + // 3 minutes
+      4 // 4 seconds
 
     expect(formatDuration(combinedSeconds)).toBe("1d 2h 3m 4s")
   })

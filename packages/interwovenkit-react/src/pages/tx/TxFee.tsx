@@ -1,6 +1,4 @@
 import type { StdFee } from "@cosmjs/amino"
-import BigNumber from "bignumber.js"
-import { formatAmount as formatAmountBase } from "@initia/utils"
 import Dropdown, { type DropdownOption } from "@/components/Dropdown"
 import FormattedAmount from "@/components/FormattedAmount"
 import { useFindAsset } from "@/data/assets"
@@ -21,18 +19,11 @@ const TxFee = ({ options, value, onChange }: Props) => {
   const chain = useChain(txRequest.chainId)
   const findAsset = useFindAsset(chain)
 
-  const getDp = (amount: string, decimals: number) => {
-    if (formatAmountBase(amount, { decimals }) === "0.000000") return 8
-    return undefined
-  }
-
   const getLabel = ({ amount: [{ amount, denom }] }: StdFee): ReactNode => {
-    if (BigNumber(amount).isZero()) return "0"
     const { symbol, decimals } = findAsset(denom)
-    const dp = getDp(amount, decimals)
     return (
       <>
-        <FormattedAmount amount={amount} decimals={decimals} dp={dp} /> {symbol}
+        <FormattedAmount amount={amount} decimals={decimals} /> {symbol}
       </>
     )
   }
@@ -57,11 +48,10 @@ const TxFee = ({ options, value, onChange }: Props) => {
 
   const [{ amount, denom }] = selected.amount
   const { decimals } = findAsset(denom)
-  const dp = getDp(amount, decimals)
 
   return (
     <div className={styles.root}>
-      <FormattedAmount amount={amount} decimals={decimals} dp={dp} className="monospace" />
+      <FormattedAmount amount={amount} decimals={decimals} className="monospace" />
       <Dropdown options={dropdownOptions} value={value} onChange={onChange} classNames={styles} />
     </div>
   )
