@@ -18,11 +18,15 @@ describe("formatDisplayAmount", () => {
 
   it("shows subscript notation for tiny non-zero amounts hidden by 6dp", () => {
     expect(formatDisplayAmount("1", { decimals: 8 })).toBe("0.0₆1")
-    expect(formatDisplayAmount("3159", { decimals: 10 })).toBe("0.0₅3")
+    expect(formatDisplayAmount("3159", { decimals: 10 })).toBe("0.0₅3159")
   })
 
   it("uses subscript when precision is hidden beyond the 6th decimal", () => {
-    expect(formatDisplayAmount("12345", { decimals: 10 })).toBe("0.0₄1")
+    expect(formatDisplayAmount("12345", { decimals: 10 })).toBe("0.0₄12345")
+  })
+
+  it("trims trailing zeros from the subscript tail", () => {
+    expect(formatDisplayAmount("12340", { decimals: 10 })).toBe("0.0₄1234")
   })
 
   it("supports configurable decimal precision", () => {

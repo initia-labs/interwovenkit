@@ -45,8 +45,10 @@ export function formatDisplayAmountParts(
   const leadingZeros = fraction.match(/^0*/)?.[0].length ?? 0
   if (leadingZeros < Math.max(effectiveDp - 1, 1)) return { kind: "plain", value: formatted }
 
-  const significantBudget = Math.max(effectiveDp - leadingZeros, 1)
-  const significant = fraction.slice(leadingZeros, leadingZeros + significantBudget)
+  const significantBudget = Math.max(effectiveDp - 1, 1)
+  const significant = fraction
+    .slice(leadingZeros, leadingZeros + significantBudget)
+    .replace(/0+$/, "")
   if (!significant) return { kind: "plain", value: formatted }
 
   const hiddenZeroCount = leadingZeros - 1
