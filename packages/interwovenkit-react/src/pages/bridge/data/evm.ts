@@ -4,7 +4,7 @@ import { path } from "ramda"
 import { TimeoutError } from "@/lib/promise"
 import type { RouterChainJson } from "./chains"
 
-const EVM_TX_CONFIRMATION_TIMEOUT_MS = 300000
+const EVM_TX_CONFIRMATION_TIMEOUT_MS = 30000
 
 function createTimeoutError(txHash: string) {
   const error = new TimeoutError("Transaction confirmation timed out") as TimeoutError & {

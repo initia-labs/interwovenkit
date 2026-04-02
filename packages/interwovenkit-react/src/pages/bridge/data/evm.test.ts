@@ -40,7 +40,7 @@ describe("sendUncheckedEvmTransaction", () => {
     expect(provider.getBlockNumber).toHaveBeenCalledTimes(1)
     expect(provider.getTransaction).toHaveBeenCalledWith("0xabc")
     await expect(result.wait).resolves.toBe(receipt)
-    expect(provider.waitForTransaction).toHaveBeenCalledWith("0xabc", 1, 300000)
+    expect(provider.waitForTransaction).toHaveBeenCalledWith("0xabc", 1, 30000)
     expect(result.txHash).toBe("0xabc")
   })
 
@@ -61,7 +61,7 @@ describe("sendUncheckedEvmTransaction", () => {
     expect(signer.sendUncheckedTransaction).toHaveBeenCalledWith(tx)
     expect(provider.getTransaction).toHaveBeenCalledWith("0xabc")
     await expect(result.wait).resolves.toBe(receipt)
-    expect(provider.waitForTransaction).toHaveBeenCalledWith("0xabc", 1, 300000)
+    expect(provider.waitForTransaction).toHaveBeenCalledWith("0xabc", 1, 30000)
     expect(result.txHash).toBe("0xabc")
   })
 
@@ -100,7 +100,7 @@ describe("sendUncheckedEvmTransaction", () => {
 
     await expect(result.wait).resolves.toBe(receipt)
     expect(replaceableTransaction).toHaveBeenCalledWith(123)
-    expect(wait).toHaveBeenCalledWith(1, 300000)
+    expect(wait).toHaveBeenCalledWith(1, 30000)
     expect(provider.waitForTransaction).not.toHaveBeenCalled()
   })
 
