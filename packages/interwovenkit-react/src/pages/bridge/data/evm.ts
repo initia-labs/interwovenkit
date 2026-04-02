@@ -34,6 +34,42 @@ function isRecoverableGetTransactionError(error: unknown) {
   return error instanceof Error && /invalid value for value\.nonce/i.test(error.message)
 }
 
+type EvmReceiptProvider = Pick<
+  BrowserProvider,
+  "getBlockNumber" | "getTransaction" | "waitForTransaction"
+>
+
+async function waitForEvmReceipt({
+  provider,
+  txHash,
+  startBlock,
+}: {
+  provider: EvmReceiptProvider
+  txHash: string
+  startBlock: number
+}) {
+  const transaction = await provider.getTransaction(txHash).catch((error) => {
+    if (isRecoverableGetTransactionError(error)) {
+      return null
+    }
+
+    throw error
+  })
+  const receipt = transaction
+    ? await transaction.replaceableTransaction(startBlock).wait(1, EVM_TX_CONFIRMATION_TIMEOUT_MS)
+    : await provider.waitForTransaction(txHash, 1, EVM_TX_CONFIRMATION_TIMEOUT_MS)
+
+  if (!receipt) {
+    throw createTimeoutError(txHash)
+  }
+
+  if (receipt.status === 0) {
+    throw createCallException(receipt)
+  }
+
+  return receipt
+}
+
 export async function switchEthereumChain(provider: BrowserProvider, chain: RouterChainJson) {
   const { chain_type, chain_id, chain_name, evm_fee_asset, rpc } = chain
 
@@ -90,34 +126,13 @@ export function createErc20ApproveTx({
 
 export async function sendUncheckedEvmTransaction(
   signer: Pick<JsonRpcSigner, "sendUncheckedTransaction">,
-  provider: Pick<BrowserProvider, "getBlockNumber" | "getTransaction" | "waitForTransaction">,
+  provider: EvmReceiptProvider,
   tx: TransactionRequest,
 ) {
   const startBlock = await provider.getBlockNumber()
   const txHash = await signer.sendUncheckedTransaction(tx)
 
-  const wait = (async () => {
-    const transaction = await provider.getTransaction(txHash).catch((error) => {
-      if (isRecoverableGetTransactionError(error)) {
-        return null
-      }
-
-      throw error
-    })
-    const receipt = transaction
-      ? await transaction.replaceableTransaction(startBlock).wait(1, EVM_TX_CONFIRMATION_TIMEOUT_MS)
-      : await provider.waitForTransaction(txHash, 1, EVM_TX_CONFIRMATION_TIMEOUT_MS)
-
-    if (!receipt) {
-      throw createTimeoutError(txHash)
-    }
-
-    if (receipt.status === 0) {
-      throw createCallException(receipt)
-    }
-
-    return receipt
-  })()
+  const wait = waitForEvmReceipt({ provider, txHash, startBlock })
 
   return { txHash, wait }
 }
