@@ -68,4 +68,25 @@ describe("prioritizeSignInWallets", () => {
       "wallet.delta",
     ])
   })
+
+  it("keeps the recent wallet visible even when five popular wallets are installed", () => {
+    const readyWallets: WalletLike[] = [
+      { id: "wallet.recent", name: "Recent Wallet" },
+      { id: "io.rabby", name: "Rabby" },
+      { id: "app.phantom", name: "Phantom" },
+      { id: "app.keplr", name: "Keplr" },
+      { id: "io.leapwallet", name: "Leap" },
+      { id: "io.metamask", name: "MetaMask" },
+    ]
+
+    const result = prioritizeSignInWallets(readyWallets, POPULAR_WALLETS, 5, "wallet.recent")
+
+    expect(result.map((wallet) => wallet.id)).toEqual([
+      "wallet.recent",
+      "io.rabby",
+      "app.phantom",
+      "app.keplr",
+      "io.leapwallet",
+    ])
+  })
 })

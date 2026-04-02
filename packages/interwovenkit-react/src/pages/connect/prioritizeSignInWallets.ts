@@ -9,9 +9,17 @@ export const prioritizeSignInWallets = <T extends WalletLike>(
   readyWallets: readonly T[],
   popularWallets: readonly WalletLike[],
   limit: number,
+  recentWalletId?: string | null,
 ): T[] => {
   if (limit <= 0) return []
   if (readyWallets.length <= limit) return [...readyWallets]
+
+  const recentWallet = recentWalletId
+    ? readyWallets.find((wallet) => wallet.id === recentWalletId)
+    : undefined
+  const walletsToPrioritize = recentWallet
+    ? readyWallets.filter((wallet) => wallet.id !== recentWallet.id)
+    : readyWallets
 
   const popularIds = new Set(popularWallets.map((wallet) => wallet.id))
   const popularNamesNormalized = new Set(
@@ -21,7 +29,7 @@ export const prioritizeSignInWallets = <T extends WalletLike>(
   const prioritized: T[] = []
   const remaining: T[] = []
 
-  for (const wallet of readyWallets) {
+  for (const wallet of walletsToPrioritize) {
     const isPopular =
       popularIds.has(wallet.id) || popularNamesNormalized.has(normalizeWalletName(wallet.name))
 
@@ -32,5 +40,7 @@ export const prioritizeSignInWallets = <T extends WalletLike>(
     }
   }
 
-  return prioritized.concat(remaining).slice(0, limit)
+  return recentWallet
+    ? [recentWallet, ...prioritized, ...remaining].slice(0, limit)
+    : prioritized.concat(remaining).slice(0, limit)
 }

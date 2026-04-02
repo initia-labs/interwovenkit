@@ -119,6 +119,7 @@ const SignIn = ({
     readyConnectors,
     POPULAR_WALLETS,
     SIGN_IN_WALLET_LIMIT,
+    recentConnectorId,
   )
   const readyConnectorIds = new Set(readyConnectors.map((c) => c.id))
   const readyConnectorNamesNormalized = new Set(
