@@ -1,7 +1,33 @@
-import type { BrowserProvider, JsonRpcSigner, TransactionRequest } from "ethers"
+import type { BrowserProvider, JsonRpcSigner, TransactionReceipt, TransactionRequest } from "ethers"
 import { ethers } from "ethers"
 import { path } from "ramda"
 import type { RouterChainJson } from "./chains"
+
+const EVM_TX_CONFIRMATION_TIMEOUT_MS = 300000
+
+function createTimeoutError(txHash: string) {
+  const error = new Error("Transaction confirmation timed out") as Error & {
+    code: string
+    transactionHash: string
+  }
+
+  error.code = "TIMEOUT"
+  error.transactionHash = txHash
+
+  return error
+}
+
+function createCallException(receipt: TransactionReceipt) {
+  const error = new Error("transaction execution reverted") as Error & {
+    code: string
+    receipt: TransactionReceipt
+  }
+
+  error.code = "CALL_EXCEPTION"
+  error.receipt = receipt
+
+  return error
+}
 
 export async function switchEthereumChain(provider: BrowserProvider, chain: RouterChainJson) {
   const { chain_type, chain_id, chain_name, evm_fee_asset, rpc } = chain
@@ -59,21 +85,28 @@ export function createErc20ApproveTx({
 
 export async function sendUncheckedEvmTransaction(
   signer: Pick<JsonRpcSigner, "sendUncheckedTransaction">,
-  provider: Pick<BrowserProvider, "waitForTransaction">,
+  provider: Pick<BrowserProvider, "getBlockNumber" | "getTransaction" | "waitForTransaction">,
   tx: TransactionRequest,
 ) {
+  const startBlock = await provider.getBlockNumber()
   const txHash = await signer.sendUncheckedTransaction(tx)
-  const wait = provider.waitForTransaction(txHash).then((receipt) => {
-    if (receipt && receipt.status === 0) {
-      const error = new Error("transaction execution reverted") as Error & {
-        code: string
-        receipt: typeof receipt
-      }
-      error.code = "CALL_EXCEPTION"
-      error.receipt = receipt
-      throw error
+
+  const wait = (async () => {
+    const transaction = await provider.getTransaction(txHash)
+    const receipt = transaction
+      ? await transaction.replaceableTransaction(startBlock).wait(1, EVM_TX_CONFIRMATION_TIMEOUT_MS)
+      : await provider.waitForTransaction(txHash, 1, EVM_TX_CONFIRMATION_TIMEOUT_MS)
+
+    if (!receipt) {
+      throw createTimeoutError(txHash)
     }
+
+    if (receipt.status === 0) {
+      throw createCallException(receipt)
+    }
+
     return receipt
-  })
+  })()
+
   return { txHash, wait }
 }

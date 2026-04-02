@@ -22,12 +22,14 @@ describe("createErc20ApproveTx", () => {
 })
 
 describe("sendUncheckedEvmTransaction", () => {
-  it("returns the tx hash and waits for confirmation by hash", async () => {
+  it("falls back to waiting by hash with a confirmation timeout", async () => {
     const receipt = { status: 1 }
     const signer = {
       sendUncheckedTransaction: vi.fn().mockResolvedValue("0xabc"),
     }
     const provider = {
+      getBlockNumber: vi.fn().mockResolvedValue(123),
+      getTransaction: vi.fn().mockResolvedValue(null),
       waitForTransaction: vi.fn().mockResolvedValue(receipt),
     }
     const tx = { to: "0x0000000000000000000000000000000000000001", data: "0x1234" }
@@ -35,9 +37,33 @@ describe("sendUncheckedEvmTransaction", () => {
     const result = await sendUncheckedEvmTransaction(signer as never, provider as never, tx)
 
     expect(signer.sendUncheckedTransaction).toHaveBeenCalledWith(tx)
-    expect(provider.waitForTransaction).toHaveBeenCalledWith("0xabc")
+    expect(provider.getBlockNumber).toHaveBeenCalledTimes(1)
+    expect(provider.getTransaction).toHaveBeenCalledWith("0xabc")
+    expect(provider.waitForTransaction).toHaveBeenCalledWith("0xabc", 1, 300000)
     await expect(result.wait).resolves.toBe(receipt)
     expect(result.txHash).toBe("0xabc")
+  })
+
+  it("uses a replaceable transaction wait when the transaction response is available", async () => {
+    const receipt = { status: 1 }
+    const wait = vi.fn().mockResolvedValue(receipt)
+    const replaceableTransaction = vi.fn().mockReturnValue({ wait })
+    const signer = {
+      sendUncheckedTransaction: vi.fn().mockResolvedValue("0xabc"),
+    }
+    const provider = {
+      getBlockNumber: vi.fn().mockResolvedValue(123),
+      getTransaction: vi.fn().mockResolvedValue({ replaceableTransaction }),
+      waitForTransaction: vi.fn(),
+    }
+    const tx = { to: "0x0000000000000000000000000000000000000001", data: "0x1234" }
+
+    const result = await sendUncheckedEvmTransaction(signer as never, provider as never, tx)
+
+    await expect(result.wait).resolves.toBe(receipt)
+    expect(replaceableTransaction).toHaveBeenCalledWith(123)
+    expect(wait).toHaveBeenCalledWith(1, 300000)
+    expect(provider.waitForTransaction).not.toHaveBeenCalled()
   })
 
   it("throws CALL_EXCEPTION when transaction reverts", async () => {
@@ -46,6 +72,8 @@ describe("sendUncheckedEvmTransaction", () => {
       sendUncheckedTransaction: vi.fn().mockResolvedValue("0xabc"),
     }
     const provider = {
+      getBlockNumber: vi.fn().mockResolvedValue(123),
+      getTransaction: vi.fn().mockResolvedValue(null),
       waitForTransaction: vi.fn().mockResolvedValue(receipt),
     }
     const tx = { to: "0x0000000000000000000000000000000000000001", data: "0x1234" }
@@ -57,6 +85,26 @@ describe("sendUncheckedEvmTransaction", () => {
       message: "transaction execution reverted",
       code: "CALL_EXCEPTION",
       receipt,
+    })
+  })
+
+  it("throws a timeout error when confirmation does not arrive in time", async () => {
+    const signer = {
+      sendUncheckedTransaction: vi.fn().mockResolvedValue("0xabc"),
+    }
+    const provider = {
+      getBlockNumber: vi.fn().mockResolvedValue(123),
+      getTransaction: vi.fn().mockResolvedValue(null),
+      waitForTransaction: vi.fn().mockResolvedValue(null),
+    }
+    const tx = { to: "0x0000000000000000000000000000000000000001", data: "0x1234" }
+
+    const result = await sendUncheckedEvmTransaction(signer as never, provider as never, tx)
+
+    await expect(result.wait).rejects.toMatchObject({
+      message: "Transaction confirmation timed out",
+      code: "TIMEOUT",
+      transactionHash: "0xabc",
     })
   })
 })
