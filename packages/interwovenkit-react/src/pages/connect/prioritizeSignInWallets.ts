@@ -14,12 +14,14 @@ export const prioritizeSignInWallets = <T extends WalletLike>(
   if (limit <= 0) return []
   if (readyWallets.length <= limit) return [...readyWallets]
 
-  const recentWallet = recentWalletId
-    ? readyWallets.find((wallet) => wallet.id === recentWalletId)
-    : undefined
-  const walletsToPrioritize = recentWallet
-    ? readyWallets.filter((wallet) => wallet.id !== recentWallet.id)
-    : readyWallets
+  const recentWalletIndex = recentWalletId
+    ? readyWallets.findIndex((wallet) => wallet.id === recentWalletId)
+    : -1
+  const recentWallet = recentWalletIndex >= 0 ? readyWallets[recentWalletIndex] : undefined
+  const walletsToPrioritize =
+    recentWalletIndex >= 0
+      ? readyWallets.filter((_, index) => index !== recentWalletIndex)
+      : readyWallets
 
   // Match by exact id when possible. Normalized-name matching is only a
   // fallback for variants like "Leap Wallet", and can still collide.

@@ -142,4 +142,25 @@ describe("prioritizeSignInWallets", () => {
       "wallet.gamma",
     ])
   })
+
+  it("removes only one recent wallet when duplicate ids exist", () => {
+    const readyWallets: WalletLike[] = [
+      { id: "wallet.duplicate", name: "Duplicate One" },
+      { id: "wallet.alpha", name: "Alpha" },
+      { id: "wallet.duplicate", name: "Duplicate Two" },
+      { id: "io.metamask", name: "MetaMask" },
+      { id: "wallet.beta", name: "Beta" },
+      { id: "wallet.gamma", name: "Gamma" },
+    ]
+
+    const result = prioritizeSignInWallets(readyWallets, POPULAR_WALLETS, 5, "wallet.duplicate")
+
+    expect(result.map((wallet) => wallet.name)).toEqual([
+      "Duplicate One",
+      "MetaMask",
+      "Alpha",
+      "Duplicate Two",
+      "Beta",
+    ])
+  })
 })
