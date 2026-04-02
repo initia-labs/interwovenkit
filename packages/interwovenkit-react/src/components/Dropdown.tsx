@@ -43,7 +43,7 @@ function Dropdown<T extends string | number = string>({
       <Select.Trigger className={clsx(styles.trigger, classNames?.trigger)}>
         <Select.Value>{selectedOption.triggerLabel || selectedOption.label}</Select.Value>
         <Select.Icon className={styles.icon}>
-          <IconChevronDown size={12} />
+          <IconChevronDown size={12} aria-hidden="true" />
         </Select.Icon>
       </Select.Trigger>
 
@@ -69,6 +69,7 @@ function Dropdown<T extends string | number = string>({
                   className={clsx(styles.itemIndicator, {
                     [styles.active]: option.value === value,
                   })}
+                  aria-hidden="true"
                 />
               </Select.Item>
             ))}

@@ -1,12 +1,13 @@
 import type { BrowserProvider, JsonRpcSigner, TransactionReceipt, TransactionRequest } from "ethers"
 import { ethers } from "ethers"
 import { path } from "ramda"
+import { TimeoutError } from "@/lib/promise"
 import type { RouterChainJson } from "./chains"
 
 const EVM_TX_CONFIRMATION_TIMEOUT_MS = 300000
 
 function createTimeoutError(txHash: string) {
-  const error = new Error("Transaction confirmation timed out") as Error & {
+  const error = new TimeoutError("Transaction confirmation timed out") as TimeoutError & {
     code: string
     transactionHash: string
   }

@@ -14,7 +14,7 @@ const Loader = ({ size = 24, color = "currentColor", border = 2 }: Props) => {
     borderWidth: `${border}px`,
   }
 
-  return <div className={styles.loader} style={style} />
+  return <div className={styles.loader} style={style} role="status" aria-label="Loading" />
 }
 
 export default Loader

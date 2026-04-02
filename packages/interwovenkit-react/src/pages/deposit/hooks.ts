@@ -19,9 +19,12 @@ import { skipQueryKeys, useSkip } from "../bridge/data/skip"
 import type { BridgeTxResult } from "../bridge/data/tx"
 
 const IUSD_SYMBOL = "iUSD"
+const ETHEREUM_CHAIN_ID = "1"
+const ETHEREUM_USDC_DENOM = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+const ETHEREUM_AUSD_DENOM = "0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a"
 
 interface ExternalSourceOverride {
-  sourceSymbol: string
+  externalSourceSymbols: string[]
   extraExternalOptions: AssetOption[]
   extraInitiaSourceSymbols: string[]
   externalChainListSource: "extra-options" | "supported-assets"
@@ -29,8 +32,11 @@ interface ExternalSourceOverride {
 
 const EXTERNAL_SOURCE_OVERRIDES: Record<string, ExternalSourceOverride> = {
   [IUSD_SYMBOL]: {
-    sourceSymbol: "USDC",
-    extraExternalOptions: [{ chainId: "1", denom: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" }],
+    externalSourceSymbols: ["USDC", "AUSD"],
+    extraExternalOptions: [
+      { chainId: ETHEREUM_CHAIN_ID, denom: ETHEREUM_USDC_DENOM },
+      { chainId: ETHEREUM_CHAIN_ID, denom: ETHEREUM_AUSD_DENOM },
+    ],
     extraInitiaSourceSymbols: ["USDC"],
     externalChainListSource: "extra-options",
   },
@@ -71,7 +77,7 @@ interface ExternalAssetOptionsResult {
   isLoading: boolean
   supportedExternalChains: RouterChainJson[]
   appchainSourceSymbols: string[]
-  externalSourceSymbol: string
+  externalSourceSymbols: string[]
   localSymbol: string
 }
 
@@ -80,13 +86,23 @@ const EMPTY_EXTERNAL_ASSET_OPTIONS_RESULT: ExternalAssetOptionsResult = {
   isLoading: false,
   supportedExternalChains: [],
   appchainSourceSymbols: [],
-  externalSourceSymbol: "",
+  externalSourceSymbols: [],
   localSymbol: "",
 }
 
 export interface AssetOption {
   denom: string
   chainId: string
+}
+
+export function mapBalancesByChain({
+  chainIds,
+  chains,
+}: {
+  chainIds: string[]
+  chains?: BalancesResponseJson["chains"]
+}): Record<string, DenomBalances> {
+  return Object.fromEntries(chainIds.map((chainId) => [chainId, chains?.[chainId]?.denoms ?? {}]))
 }
 
 export type TransferPage = "select-local" | "select-external" | "fields" | "completed"
@@ -176,10 +192,7 @@ export function useAllBalancesQuery() {
       return skip.post("v2/info/balances", { json: { chains } }).json<BalancesResponseJson>()
     },
     select: ({ chains }) => {
-      if (!chains) return {}
-      return Object.fromEntries(
-        Object.entries(chains).map(([chainId, { denoms }]) => [chainId, denoms || {}]),
-      )
+      return mapBalancesByChain({ chainIds, chains })
     },
     enabled: !!initAddress && chainIds.length > 0,
     staleTime: STALE_TIMES.SECOND,
@@ -272,7 +285,7 @@ export function useExternalAssetOptions(mode: TransferMode): ExternalAssetOption
   if (!localAsset) return { ...EMPTY_EXTERNAL_ASSET_OPTIONS_RESULT, isLoading }
 
   const sourceOverride = getExternalSourceOverride(localAsset.symbol)
-  const externalSourceSymbol = sourceOverride?.sourceSymbol ?? localAsset.symbol
+  const externalSourceSymbols = sourceOverride?.externalSourceSymbols ?? [localAsset.symbol]
   const hasRemoteOptions = remoteOptions.length > 0
   const extraExternalOptions = sourceOverride?.extraExternalOptions ?? []
   const extraInitiaSourceSymbols = sourceOverride?.extraInitiaSourceSymbols ?? []
@@ -350,7 +363,7 @@ export function useExternalAssetOptions(mode: TransferMode): ExternalAssetOption
     isLoading,
     supportedExternalChains,
     appchainSourceSymbols,
-    externalSourceSymbol,
+    externalSourceSymbols,
     localSymbol: localAsset.symbol,
   }
 }

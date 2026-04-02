@@ -177,6 +177,18 @@
   color: var(--gray-1);
 }
 
+.detailLoading {
+  color: var(--gray-5);
+}
+
+.expandableDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  padding-top: 8px;
+}
+
 .detailValue {
   display: flex;
   align-items: center;

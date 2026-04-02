@@ -1,19 +1,73 @@
 import type { TxJson } from "@skip-go/client"
 import { ethers } from "ethers"
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useEffect, useRef } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import FormHelp from "@/components/form/FormHelp"
 import { normalizeError } from "@/data/http"
 import { useGetProvider } from "@/data/signer"
+import { TimeoutError } from "@/lib/promise"
 import { useFindSkipChain } from "./data/chains"
 import { createErc20ApproveTx, sendUncheckedEvmTransaction, switchEthereumChain } from "./data/evm"
+import {
+  getErc20ApprovalStateKey,
+  shouldResetErc20ApprovalMutationState,
+} from "./footerWithErc20ApprovalState"
 
-import type { PropsWithChildren } from "react"
+import type { ReactNode } from "react"
 
-const FooterWithErc20Approval = ({ tx, children }: PropsWithChildren<{ tx: TxJson }>) => {
+interface Props {
+  tx: TxJson
+  children: ReactNode | ((status: Erc20ApprovalStatus) => ReactNode)
+}
+
+interface Erc20ApprovalStatus {
+  approvalError?: string
+  approveTokens?: () => void
+  isApproving: boolean
+  isCheckingApprovals: boolean
+  requiresApproval: boolean
+}
+
+function renderFooterWithErc20ApprovalChildren(
+  children: ReactNode | ((status: Erc20ApprovalStatus) => ReactNode),
+  status: Erc20ApprovalStatus,
+) {
+  if (typeof children === "function") {
+    return children(status)
+  }
+
+  if (status.isCheckingApprovals) {
+    return (
+      <Footer>
+        <Button.White loading="Checking approvals..." />
+      </Footer>
+    )
+  }
+
+  if (status.requiresApproval && status.approveTokens) {
+    return (
+      <Footer extra={<FormHelp level="error">{status.approvalError}</FormHelp>}>
+        <Button.White
+          onClick={status.approveTokens}
+          loading={status.isApproving && "Approving tokens..."}
+        >
+          Approve tokens
+        </Button.White>
+      </Footer>
+    )
+  }
+
+  return children
+}
+
+const FooterWithErc20Approval = ({ tx, children }: Props) => {
   const getProvider = useGetProvider()
   const findSkipChain = useFindSkipChain()
+  const queryClient = useQueryClient()
+  const approvalStateKey = getErc20ApprovalStateKey(tx)
+  const previousApprovalStateKeyRef = useRef(approvalStateKey)
 
   const { data: approvalsNeeded, isLoading } = useQuery({
     queryKey: ["interwovenkit:erc20-approvals-needed", tx],
@@ -43,7 +97,7 @@ const FooterWithErc20Approval = ({ tx, children }: PropsWithChildren<{ tx: TxJso
     enabled: !!tx && "evm_tx" in tx && !!tx.evm_tx.required_erc20_approvals,
   })
 
-  const { mutate, data, isPending, error } = useMutation({
+  const { mutate, data, isPending, error, reset } = useMutation({
     mutationFn: async () => {
       try {
         if (!("evm_tx" in tx)) throw new Error("Transaction is not EVM")
@@ -70,30 +124,45 @@ const FooterWithErc20Approval = ({ tx, children }: PropsWithChildren<{ tx: TxJso
 
         return true
       } catch (error) {
+        if (error instanceof TimeoutError) {
+          // The approval tx may have confirmed on-chain after the timeout.
+          // Refetch allowances so the button state reflects actual on-chain data
+          // and the user doesn't pay gas for a redundant second approval.
+          queryClient.invalidateQueries({
+            queryKey: ["interwovenkit:erc20-approvals-needed", tx],
+          })
+          throw error
+        }
         throw await normalizeError(error)
       }
     },
   })
 
-  if (isLoading) {
-    return (
-      <Footer>
-        <Button.White loading="Checking approvals..." />
-      </Footer>
-    )
-  }
+  useEffect(() => {
+    const currentKey = previousApprovalStateKeyRef.current
 
-  if (approvalsNeeded && approvalsNeeded.length > 0 && !data) {
-    return (
-      <Footer extra={<FormHelp level="error">{error?.message}</FormHelp>}>
-        <Button.White onClick={() => mutate()} loading={isPending && "Approving tokens..."}>
-          Approve tokens
-        </Button.White>
-      </Footer>
-    )
-  }
+    if (
+      !shouldResetErc20ApprovalMutationState({
+        currentKey,
+        isPending,
+        nextKey: approvalStateKey,
+      })
+    ) {
+      return
+    }
 
-  return children
+    previousApprovalStateKeyRef.current = approvalStateKey
+    reset()
+  }, [approvalStateKey, isPending, reset])
+
+  return renderFooterWithErc20ApprovalChildren(children, {
+    approvalError: error?.message,
+    approveTokens:
+      approvalsNeeded && approvalsNeeded.length > 0 && !data ? () => mutate() : undefined,
+    isApproving: isPending,
+    isCheckingApprovals: isLoading,
+    requiresApproval: !!approvalsNeeded && approvalsNeeded.length > 0 && !data,
+  })
 }
 
 export default FooterWithErc20Approval

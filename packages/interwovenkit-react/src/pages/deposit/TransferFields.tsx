@@ -1,14 +1,15 @@
 import BigNumber from "bignumber.js"
 import { HTTPError } from "ky"
-import { useEffect, useEffectEvent, useMemo } from "react"
+import { useEffect, useEffectEvent, useLayoutEffect, useMemo } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { IconBack, IconChevronDown, IconWallet } from "@initia/icons-react"
 import { formatAmount, fromBaseUnit } from "@initia/utils"
+import AsyncBoundary from "@/components/AsyncBoundary"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import QuantityInput from "@/components/form/QuantityInput"
 import Status from "@/components/Status"
-import { formatValue } from "@/lib/format"
+import { formatValueWithPrice } from "@/lib/format"
 import { useLocationState, useNavigate } from "@/lib/router"
 import { useHexAddress } from "@/public/data/hooks"
 import { useFindSkipChain } from "../bridge/data/chains"
@@ -28,12 +29,66 @@ import {
   useTransferMode,
 } from "./hooks"
 import { buildTransferLocationState, type TransferLocationState } from "./state"
+import { getTransferBalanceBlocker } from "./transferBalanceGate"
 import TransferFooter from "./TransferFooter"
+import { shouldSyncTransferNavigationState } from "./transferNavigationState"
 import styles from "./Fields.module.css"
 
 interface Props {
   mode: TransferMode
 }
+
+type RouteStatus = "disabled" | "loading" | "ready" | "no-route" | "server-error" | "refresh-failed"
+
+function getRouteStatus({
+  disabledMessage,
+  routeForState,
+  routeError,
+  isNoRouteError,
+  isServerError,
+}: {
+  disabledMessage?: string
+  routeForState?: unknown
+  routeError: Error | null
+  isNoRouteError: boolean
+  isServerError: boolean
+}): RouteStatus {
+  if (disabledMessage) return "disabled"
+  if (routeForState) return "ready"
+  if (!routeError) return "loading"
+  if (isNoRouteError) return "no-route"
+  if (isServerError) return "server-error"
+  return "refresh-failed"
+}
+
+function shouldRenderPreviewFooter({
+  hasRouteState,
+  routeStatus,
+}: {
+  hasRouteState: boolean
+  routeStatus: RouteStatus
+}): boolean {
+  return hasRouteState && (routeStatus === "ready" || routeStatus === "loading")
+}
+
+function getRouteStatusText({
+  routeStatus,
+  disabledMessage,
+  isRouteSynced,
+}: {
+  routeStatus: RouteStatus
+  disabledMessage?: string
+  isRouteSynced: boolean
+}): string | undefined {
+  if (routeStatus === "disabled") return disabledMessage
+  if (routeStatus === "loading") return "Fetching route..."
+  if (routeStatus === "ready" && !isRouteSynced) return "Fetching route..."
+  if (routeStatus === "no-route") return "No route found"
+  if (routeStatus === "server-error") return "Server error"
+  if (routeStatus === "refresh-failed") return "Failed to refresh route"
+}
+
+const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect
 
 const TransferFields = ({ mode }: Props) => {
   const modeConfig = useTransferMode(mode)
@@ -41,12 +96,18 @@ const TransferFields = ({ mode }: Props) => {
   const state = useLocationState<TransferLocationState>()
   const { data: options } = useLocalAssetOptions()
   const findChain = useFindSkipChain()
-  const { data: balances, error: balancesError, chainsError } = useAllBalancesQuery()
+  const {
+    data: balances,
+    error: balancesError,
+    chainsError,
+    isLoading: isBalancesLoading,
+  } = useAllBalancesQuery()
   const hexAddress = useHexAddress()
 
   const { watch, setValue, getValues } = useTransferForm()
   const values = watch()
   const { srcChainId, srcDenom, quantity: rawQuantity = "" } = values
+  const { recipientAddress, route: currentRoute } = state
   const selectedExternalDenom = values[modeConfig.external.denomKey]
   const selectedExternalChainId = values[modeConfig.external.chainIdKey]
 
@@ -61,7 +122,7 @@ const TransferFields = ({ mode }: Props) => {
     !isExternalAssetOptionsLoading &&
     externalAssetOptions.length > 0 &&
     new Set(externalAssetOptions.map(({ chain }) => chain.chain_id)).size === 1
-  const autoExternalAssetOption = (() => {
+  const autoExternalAssetOption = useMemo(() => {
     if (isExternalAssetOptionsLoading || !externalAssetOptions.length) return null
     if (hasSingleExternalAssetOption) return externalAssetOptions[0]
     if (!hasSingleWithdrawChainOption) return null
@@ -72,20 +133,30 @@ const TransferFields = ({ mode }: Props) => {
 
       return optionUsd > highestUsd ? option : highest
     }, externalAssetOptions[0])
-  })()
+  }, [
+    externalAssetOptions,
+    hasSingleExternalAssetOption,
+    hasSingleWithdrawChainOption,
+    isExternalAssetOptionsLoading,
+  ])
   const autoExternalAssetOptionKey = autoExternalAssetOption
     ? `${autoExternalAssetOption.chain.chain_id}:${autoExternalAssetOption.asset.denom}`
     : ""
   const externalChain = selectedExternalChainId ? findChain(selectedExternalChainId) : null
 
   const balance = balances?.[srcChainId]?.[srcDenom]?.amount
-  const price = balances?.[srcChainId]?.[srcDenom]?.price || 0
+  const price = balances?.[srcChainId]?.[srcDenom]?.price
 
-  const quantityValue = BigNumber(price || 0).times(rawQuantity || 0)
+  const quantityValue = BigNumber(price ?? 0).times(rawQuantity || 0)
 
   const [debouncedQuantity] = useDebounceValue(rawQuantity, 300)
 
   const amountAsset = mode === "withdraw" ? localAsset : externalAsset
+  const balanceBlocker = getTransferBalanceBlocker({
+    hasBalancesSnapshot: balances !== undefined,
+    hasBalanceQueryError: !!(balancesError || chainsError),
+    isBalancesLoading,
+  })
 
   const disabledMessage = useMemo(() => {
     if (mode === "deposit" && !externalAsset) return "Select asset"
@@ -93,18 +164,43 @@ const TransferFields = ({ mode }: Props) => {
     const quantityBn = BigNumber(rawQuantity || 0)
     if (!quantityBn.isFinite() || quantityBn.lte(0)) return "Enter amount"
 
-    const balanceAmount = fromBaseUnit(balance ?? "0", { decimals: amountAsset?.decimals || 6 })
-    if (quantityBn.gt(balanceAmount)) return "Insufficient balance"
-
     if (mode === "withdraw" && !externalAsset) return "Select destination"
-  }, [mode, rawQuantity, balance, amountAsset, externalAsset])
+
+    if (balanceBlocker === "loading") return "Loading balances..."
+    if (balanceBlocker === "error") return "Failed to load balances"
+
+    // Skip validation when balance is unavailable (e.g. still loading)
+    // to avoid disabling the button with "Insufficient balance" prematurely.
+    if (balance !== undefined) {
+      const balanceAmount = fromBaseUnit(balance, { decimals: amountAsset?.decimals || 6 })
+      if (quantityBn.gt(balanceAmount)) return "Insufficient balance"
+    }
+  }, [amountAsset, balance, balanceBlocker, externalAsset, mode, rawQuantity])
+  const isRouteQueryDisabled = useMemo(() => {
+    if (mode === "deposit" && !externalAsset) return true
+
+    const quantityBn = BigNumber(rawQuantity || 0)
+    if (!quantityBn.isFinite() || quantityBn.lte(0)) return true
+
+    if (mode === "withdraw" && !externalAsset) return true
+    if (balanceBlocker === "error") return true
+
+    // Allow route fetching to start while balances load. Once a balance exists,
+    // still block invalid over-balance requests from hitting the route API.
+    if (balance !== undefined) {
+      const balanceAmount = fromBaseUnit(balance, { decimals: amountAsset?.decimals || 6 })
+      if (quantityBn.gt(balanceAmount)) return true
+    }
+
+    return false
+  }, [amountAsset, balance, balanceBlocker, externalAsset, mode, rawQuantity])
 
   const {
     data: route,
     error: routeError,
     dataUpdatedAt: routeUpdatedAt,
   } = useRouteQuery(debouncedQuantity, {
-    disabled: !!disabledMessage,
+    disabled: isRouteQueryDisabled,
   })
 
   // Keep the latest successful route while background refetches run.
@@ -113,47 +209,46 @@ const TransferFields = ({ mode }: Props) => {
   const routeForState = !disabledMessage && !isNoRouteError ? route : undefined
   const quoteVerifiedAt = routeForState && routeUpdatedAt > 0 ? routeUpdatedAt : undefined
   const isServerError = routeError instanceof HTTPError && routeError.response.status === 500
-  const routeStatus = (() => {
-    if (disabledMessage) return "disabled" as const
-    if (routeForState) return "ready" as const
-    if (!routeError) return "loading" as const
-    if (isNoRouteError) return "no-route" as const
-    if (isServerError) return "server-error" as const
-    return "refresh-failed" as const
-  })()
+  const routeStatus = getRouteStatus({
+    disabledMessage,
+    routeForState,
+    routeError,
+    isNoRouteError,
+    isServerError,
+  })
   const isRouteSynced = routeStatus === "ready" && state.route === routeForState
   const isRouteTransitioning =
     routeStatus === "loading" || (routeStatus === "ready" && !isRouteSynced)
-  const routeStatusText = (() => {
-    if (routeStatus === "disabled") return disabledMessage
-    if (routeStatus === "loading") return "Fetching route..."
-    if (routeStatus === "ready" && !isRouteSynced) return "Fetching route..."
-    if (routeStatus === "no-route") return "No route found"
-    if (routeStatus === "server-error") return "Server error"
-    if (routeStatus === "refresh-failed") return "Failed to refresh route"
-    return undefined
-  })()
-
-  const updateNavigationState = useEffectEvent(() => {
-    navigate(
-      0,
-      buildTransferLocationState({
-        currentState: state,
-        route: routeForState,
-        quoteVerifiedAt,
-        hexAddress,
-        values: getValues(),
-      }),
-    )
+  const canRenderPreviewFooter = shouldRenderPreviewFooter({
+    hasRouteState: !!state.route,
+    routeStatus,
   })
+  const routeStatusText = getRouteStatusText({ routeStatus, disabledMessage, isRouteSynced })
 
-  // quoteVerifiedAt is intentionally excluded from deps.
-  // It derives from dataUpdatedAt, which changes on every 10s refetch even when
-  // route data is identical. Including it would trigger unnecessary navigate(0, ...) calls.
-  // useEffectEvent ensures the latest quoteVerifiedAt is captured when the effect does run.
-  useEffect(() => {
-    updateNavigationState()
-  }, [routeForState, hexAddress])
+  // Sync before paint to prevent flash of the simple footer.
+  // Depend on the specific primitives that can change the derived location state
+  // without depending on the full `state` object, which would loop after navigate().
+  useIsomorphicLayoutEffect(() => {
+    const nextState = buildTransferLocationState({
+      currentState: state,
+      route: routeForState,
+      quoteVerifiedAt,
+      hexAddress,
+      values: getValues(),
+    })
+
+    if (!shouldSyncTransferNavigationState({ currentState: state, nextState })) return
+
+    navigate(0, nextState)
+  }, [
+    currentRoute,
+    getValues,
+    hexAddress,
+    navigate,
+    quoteVerifiedAt,
+    recipientAddress,
+    routeForState,
+  ])
 
   const applyAutoExternalOption = useEffectEvent(() => {
     if (!autoExternalAssetOption) return
@@ -240,7 +335,7 @@ const TransferFields = ({ mode }: Props) => {
       {Number(balance) > 0 && (
         <div className={styles.balanceContainer}>
           <p className={styles.value}>
-            {quantityValue.gt(0) ? formatValue(quantityValue.toString()) : "$-"}
+            {rawQuantity ? formatValueWithPrice(quantityValue.toString(), price) : "$-"}
           </p>
 
           <button
@@ -261,7 +356,7 @@ const TransferFields = ({ mode }: Props) => {
   )
 
   return (
-    <div className={styles.container}>
+    <section className={styles.container} aria-label="Transfer form">
       {options.length > 1 && (
         <button
           type="button"
@@ -291,8 +386,7 @@ const TransferFields = ({ mode }: Props) => {
       )}
 
       {(chainsError || balancesError) && <Status error>Failed to load balances</Status>}
-
-      {!isRouteSynced ? (
+      {!canRenderPreviewFooter ? (
         <Footer>
           <Button.White
             type="submit"
@@ -309,9 +403,27 @@ const TransferFields = ({ mode }: Props) => {
             <FooterWithSignedOpHook>
               {(signedOpHook) => (
                 <FooterWithMsgs addressList={addressList} signedOpHook={signedOpHook}>
-                  {(tx) => (
+                  {(tx, { isFetchingMessages, messageRefreshError }) => (
                     <FooterWithTxFee tx={tx}>
-                      {(gas) => <TransferFooter tx={tx} gas={gas} mode={mode} />}
+                      {(gas, { isEstimatingGas }) => (
+                        <AsyncBoundary
+                          suspenseFallback={
+                            <Footer>
+                              <Button.White loading="Estimating gas..." disabled fullWidth />
+                            </Footer>
+                          }
+                        >
+                          <TransferFooter
+                            tx={tx}
+                            gas={gas}
+                            mode={mode}
+                            isRouteTransitioning={isRouteTransitioning}
+                            isFetchingMessages={isFetchingMessages}
+                            isEstimatingGas={isEstimatingGas}
+                            messageRefreshError={messageRefreshError}
+                          />
+                        </AsyncBoundary>
+                      )}
                     </FooterWithTxFee>
                   )}
                 </FooterWithMsgs>
@@ -320,7 +432,7 @@ const TransferFields = ({ mode }: Props) => {
           )}
         </FooterWithAddressList>
       )}
-    </div>
+    </section>
   )
 }
 
