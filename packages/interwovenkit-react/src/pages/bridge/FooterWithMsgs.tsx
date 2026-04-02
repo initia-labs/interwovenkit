@@ -1,7 +1,8 @@
-import type { MsgsResponseJson, TxJson } from "@skip-go/client"
+import type { TxJson } from "@skip-go/client"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
+import { fetchBridgeTxs } from "./data/bridgeTxUtils"
 import {
   getBridgeMsgsRequestKey,
   shouldRetryBridgeMsgsAfterQuoteRefresh,
@@ -84,24 +85,21 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
           throw new Error("Op hook is required")
         }
 
-        const params = {
-          address_list: addressList,
-          amount_in: route.amount_in,
-          amount_out: route.amount_out,
-          source_asset_chain_id: route.source_asset_chain_id,
-          source_asset_denom: route.source_asset_denom,
-          dest_asset_chain_id: route.dest_asset_chain_id,
-          dest_asset_denom: route.dest_asset_denom,
-          slippage_tolerance_percent: values.slippagePercent,
-          operations: route.operations,
-          signed_op_hook: signedOpHook,
-        }
-
-        const { txs } = await skip
-          .post("v2/fungible/msgs", { json: params })
-          .json<MsgsResponseJson>()
+        const txs = await fetchBridgeTxs(skip, {
+          addressList,
+          route: {
+            amount_in: route.amount_in,
+            amount_out: route.amount_out,
+            source_asset_chain_id: route.source_asset_chain_id,
+            source_asset_denom: route.source_asset_denom,
+            dest_asset_chain_id: route.dest_asset_chain_id,
+            dest_asset_denom: route.dest_asset_denom,
+            operations: route.operations,
+          },
+          slippagePercent: String(values.slippagePercent),
+          signedOpHook,
+        })
         if (cancelled) return
-        if (!txs || txs.length === 0) throw new Error("No transaction data found")
         const [tx] = txs
         setValue(tx)
       } catch (error) {

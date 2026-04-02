@@ -47,7 +47,8 @@ export const useAminoConverters = () => {
 }
 
 export const useAminoTypes = () => {
-  return new AminoTypes(useAminoConverters())
+  const aminoConverters = useAminoConverters()
+  return new AminoTypes(aminoConverters)
 }
 
 export class OfflineSigner implements OfflineAminoSigner {

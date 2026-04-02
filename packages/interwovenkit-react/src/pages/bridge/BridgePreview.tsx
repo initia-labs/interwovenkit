@@ -3,6 +3,7 @@ import BridgePreviewFooter from "./BridgePreviewFooter"
 import BridgePreviewRoute from "./BridgePreviewRoute"
 import FooterWithAddressList from "./FooterWithAddressList"
 import FooterWithErc20Approval from "./FooterWithErc20Approval"
+import FooterWithExactFeeCheck from "./FooterWithExactFeeCheck"
 import FooterWithMsgs from "./FooterWithMsgs"
 import FooterWithSignedOpHook from "./FooterWithSignedOpHook"
 
@@ -30,7 +31,11 @@ const BridgePreview = () => {
                       return footer
                     }
 
-                    return <FooterWithErc20Approval tx={tx}>{footer}</FooterWithErc20Approval>
+                    return (
+                      <FooterWithExactFeeCheck tx={tx}>
+                        <FooterWithErc20Approval tx={tx}>{footer}</FooterWithErc20Approval>
+                      </FooterWithExactFeeCheck>
+                    )
                   }}
                 </FooterWithMsgs>
               )}
