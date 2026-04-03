@@ -277,7 +277,7 @@ export function groupPositionsByDenom(positions: Position[]): DenomGroup[] {
     }
   })
 
-  return denomGroups.toSorted(compareDenomGroups)
+  return denomGroups.sort(compareDenomGroups)
 }
 
 // ============================================
@@ -408,7 +408,7 @@ export function groupBalancesBySymbol(
   const groups: PortfolioAssetGroup[] = []
 
   for (const [symbol, assets] of groupMap) {
-    const sortedAssets = assets.toSorted((a, b) => (b.value ?? 0) - (a.value ?? 0))
+    const sortedAssets = assets.slice().sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
     const totalValue = sortedAssets.reduce((sum, a) => sum + (a.value ?? 0), 0)
     const totalAmount = sortedAssets.reduce((sum, a) => sum + Number(a.quantity), 0)
 
@@ -421,7 +421,7 @@ export function groupBalancesBySymbol(
     })
   }
 
-  return groups.toSorted(compareAssetGroups)
+  return groups.sort(compareAssetGroups)
 }
 
 /** Apply logos to asset groups from denom and symbol logo maps */

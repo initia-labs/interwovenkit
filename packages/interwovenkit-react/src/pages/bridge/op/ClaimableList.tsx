@@ -25,7 +25,8 @@ const ClaimableList = ({ list, onNavigate, onDismiss }: Props) => {
     >
       <div className={styles.list}>
         {list
-          .toSorted((a, b) => a.chainId.localeCompare(b.chainId))
+          .slice()
+          .sort((a, b) => a.chainId.localeCompare(b.chainId))
           .map(({ txHash, chainId, amount, denom }) => {
             const chain = findChain(chainId)
             const { decimals, symbol } = findAsset(denom)
