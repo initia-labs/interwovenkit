@@ -6,7 +6,7 @@ interface Params {
   sourceBalance?: string
   amountIn?: string
   feeTokenDenoms: string[]
-  balancesByDenom?: Record<string, { amount?: string } | undefined>
+  balancesByDenom?: Record<string, { amount: string } | undefined>
   additionalFees?: FeeJson[]
 }
 
