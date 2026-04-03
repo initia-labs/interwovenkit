@@ -421,7 +421,7 @@ export function groupBalancesBySymbol(
     })
   }
 
-  return groups.slice().sort(compareAssetGroups)
+  return groups.sort(compareAssetGroups)
 }
 
 /** Apply logos to asset groups from denom and symbol logo maps */
