@@ -16,7 +16,6 @@ function toDeterministicString(value: unknown): string {
   if (value === null || typeof value !== "object") return JSON.stringify(value)
   if (Array.isArray(value)) return `[${value.map(toDeterministicString).join(",")}]`
   return `{${Object.entries(value)
-    .slice()
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([k, v]) => `${JSON.stringify(k)}:${toDeterministicString(v)}`)
     .join(",")}}`

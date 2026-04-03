@@ -277,7 +277,7 @@ export function groupPositionsByDenom(positions: Position[]): DenomGroup[] {
     }
   })
 
-  return denomGroups.slice().sort(compareDenomGroups)
+  return denomGroups.sort(compareDenomGroups)
 }
 
 // ============================================

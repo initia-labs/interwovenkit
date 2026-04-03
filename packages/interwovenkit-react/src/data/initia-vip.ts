@@ -99,7 +99,6 @@ function normalizeVestingEntries(entries: AllVestingPositionsResponse): Normaliz
       }
     })
     .filter((entry) => entry.initialReward > 0)
-    .slice()
     .sort((a, b) => b.initialReward - a.initialReward)
 }
 

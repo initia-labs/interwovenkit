@@ -42,10 +42,7 @@ export function useInitiaRegistry() {
       const chains = customChain
         ? [customChain, ...rawChains.filter((chain) => chain.chain_id !== customChain.chain_id)]
         : rawChains
-      return chains
-        .map(normalizeChain)
-        .slice()
-        .sort(descend((chain) => chain.chainId === defaultChainId))
+      return chains.map(normalizeChain).sort(descend((chain) => chain.chainId === defaultChainId))
     },
     staleTime: STALE_TIMES.MINUTE,
   })
