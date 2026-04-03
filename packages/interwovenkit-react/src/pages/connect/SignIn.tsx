@@ -5,6 +5,7 @@ import Image from "@/components/Image"
 import Loader from "@/components/Loader"
 import Scrollable from "@/components/Scrollable"
 import { normalizeWalletName } from "./normalizeWalletName"
+import { prioritizeSignInWallets } from "./prioritizeSignInWallets"
 import styles from "./Connect.module.css"
 
 const MoreDotsIcon = () => (
@@ -90,6 +91,8 @@ const POPULAR_WALLETS = [
   },
 ]
 
+const SIGN_IN_WALLET_LIMIT = 5
+
 interface Props {
   walletConnectors: Connector[]
   privyConnector: Connector | undefined
@@ -112,13 +115,18 @@ const SignIn = ({
   onPrefetchWallets,
 }: Props) => {
   const readyConnectors = walletConnectors.filter((c) => !("ready" in c) || Boolean(c.ready))
-  const suggestedWallets = readyConnectors.slice(0, 5)
+  const suggestedWallets = prioritizeSignInWallets(
+    readyConnectors,
+    POPULAR_WALLETS,
+    SIGN_IN_WALLET_LIMIT,
+    recentConnectorId,
+  )
   const readyConnectorIds = new Set(readyConnectors.map((c) => c.id))
   const readyConnectorNamesNormalized = new Set(
     readyConnectors.map((c) => normalizeWalletName(c.name)),
   )
 
-  const slotsToFill = Math.max(0, 5 - suggestedWallets.length)
+  const slotsToFill = Math.max(0, SIGN_IN_WALLET_LIMIT - suggestedWallets.length)
   const popularToShow = POPULAR_WALLETS.filter(
     (w) =>
       !readyConnectorIds.has(w.id) &&
@@ -165,7 +173,7 @@ const SignIn = ({
       <Scrollable className={styles.scrollable}>
         <div className={styles.list}>
           {suggestedWallets.map((connector) => {
-            const { name, icon, id } = connector
+            const { icon, id, name, uid } = connector
             const isPendingConnection = pendingConnectorId === id
             const isRecent = recentConnectorId === id
 
@@ -176,7 +184,7 @@ const SignIn = ({
                 onClick={() => onConnect(connector)}
                 disabled={isPending}
                 aria-busy={isPendingConnection}
-                key={id}
+                key={uid}
               >
                 <div className={styles.listIconWrapper}>
                   <Image src={icon} width={26} height={26} alt="" className={styles.icon} />
