@@ -58,7 +58,19 @@ export function formatDisplayAmountParts(
   return { kind: "subscript", prefix, hiddenZeroCount, significant }
 }
 
-export function formatDisplayAmountPlainText(parts: FormatDisplayAmountParts) {
+export function formatDisplayAmountPlainText(parts: FormatDisplayAmountParts): string
+export function formatDisplayAmountPlainText(
+  amount: Parameters<typeof formatAmountBase>[0],
+  options: FormatAmountOptions,
+): string
+export function formatDisplayAmountPlainText(
+  value: FormatDisplayAmountParts | Parameters<typeof formatAmountBase>[0],
+  options?: FormatAmountOptions,
+) {
+  const parts: FormatDisplayAmountParts =
+    options === undefined
+      ? (value as FormatDisplayAmountParts)
+      : formatDisplayAmountParts(value as Parameters<typeof formatAmountBase>[0], options)
   if (parts.kind === "plain") return parts.value
   return `${parts.prefix}${"0".repeat(parts.hiddenZeroCount)}${parts.significant}`
 }
