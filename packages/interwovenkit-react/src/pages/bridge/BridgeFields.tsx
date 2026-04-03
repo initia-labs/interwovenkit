@@ -32,6 +32,7 @@ import { useModal } from "@/public/app/ModalContext"
 import { useSkipAsset } from "./data/assets"
 import { useSkipBalance, useSkipBalancesQuery } from "./data/balance"
 import { useChainType, useSkipChain } from "./data/chains"
+import { shouldWarnInsufficientFeeBalance } from "./data/fee-warning"
 import type { FormValues } from "./data/form"
 import { useBridgeForm } from "./data/form"
 import { calculateMinimumReceived, formatDuration, formatFees } from "./data/format"
@@ -275,6 +276,14 @@ const BridgeFields = () => {
     () => getFallbackFeeTokenDenoms({ srcChainType, chainFeeAssets, srcDenom }),
     [chainFeeAssets, srcChainType, srcDenom],
   )
+  const shouldWarnInsufficientFeeBalanceAfterSwap = shouldWarnInsufficientFeeBalance({
+    sourceDenom: srcDenom,
+    sourceBalance: srcBalanceAmount,
+    amountIn: route?.amount_in,
+    feeTokenDenoms: fallbackFeeTokenDenoms,
+    balancesByDenom: balances,
+    additionalFees,
+  })
   const hasFallbackFeeBalanceAfterSwap = fallbackFeeTokenDenoms.some((denom) =>
     getRemainingBalanceAfterSwap(denom).gt(MIN_FALLBACK_FEE_REMAINDER),
   )
@@ -283,9 +292,10 @@ const BridgeFields = () => {
     !!route &&
     fallbackFeeTokenDenoms.length > 0 &&
     !hasFallbackFeeBalanceAfterSwap
-  const feeWarningMessage = hasInsufficientFeeBalanceForSwap
-    ? "Insufficient balance for fees"
-    : undefined
+  const feeWarningMessage =
+    hasInsufficientFeeBalanceForSwap || shouldWarnInsufficientFeeBalanceAfterSwap
+      ? "Insufficient balance for fees"
+      : undefined
   const shouldShowPreviewRefreshError = !!previewRefreshError
 
   // disabled
