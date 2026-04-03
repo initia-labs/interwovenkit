@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { formatDisplayAmountParts, formatValue, formatValueWithPrice, toSubscript } from "./format"
+import {
+  formatDisplayAmountParts,
+  formatDisplayAmountPlainText,
+  formatValue,
+  formatValueWithPrice,
+  toSubscript,
+} from "./format"
 
 describe("formatDisplayAmount", () => {
   function formatDisplayAmount(
@@ -36,6 +42,23 @@ describe("formatDisplayAmount", () => {
 
   it("does not use subscript when amount is exactly zero", () => {
     expect(formatDisplayAmount("0", { decimals: 18 })).toBe("0")
+  })
+})
+
+describe("formatDisplayAmountPlainText", () => {
+  it("returns plain values unchanged", () => {
+    expect(formatDisplayAmountPlainText({ kind: "plain", value: "1.23" })).toBe("1.23")
+  })
+
+  it("expands subscript parts into zero-padded plain text", () => {
+    expect(
+      formatDisplayAmountPlainText({
+        kind: "subscript",
+        prefix: "0.0",
+        hiddenZeroCount: 4,
+        significant: "1234",
+      }),
+    ).toBe("0.000001234")
   })
 })
 

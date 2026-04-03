@@ -58,6 +58,11 @@ export function formatDisplayAmountParts(
   return { kind: "subscript", prefix, hiddenZeroCount, significant }
 }
 
+export function formatDisplayAmountPlainText(parts: FormatDisplayAmountParts) {
+  if (parts.kind === "plain") return parts.value
+  return `${parts.prefix}${"0".repeat(parts.hiddenZeroCount)}${parts.significant}`
+}
+
 type FormatValueInput = Parameters<typeof formatNumber>[0]
 
 export function formatValue(value?: FormatValueInput) {

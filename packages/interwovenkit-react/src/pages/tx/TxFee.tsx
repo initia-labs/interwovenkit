@@ -4,7 +4,7 @@ import FormattedAmount from "@/components/FormattedAmount"
 import { useFindAsset } from "@/data/assets"
 import { useChain } from "@/data/chains"
 import { useTxRequestHandler } from "@/data/tx"
-import { formatDisplayAmountParts } from "@/lib/format"
+import { formatDisplayAmountParts, formatDisplayAmountPlainText } from "@/lib/format"
 import styles from "./TxFee.module.css"
 
 interface Props {
@@ -30,13 +30,7 @@ const TxFee = ({ options, value, onChange }: Props) => {
   const getDropdownLabel = ({ amount: [{ amount, denom }] }: StdFee) => {
     const { symbol, decimals } = findAsset(denom)
     const parts = formatDisplayAmountParts(amount, { decimals })
-
-    const formattedAmount =
-      parts.kind === "plain"
-        ? parts.value
-        : `${parts.prefix}${"0".repeat(parts.hiddenZeroCount)}${parts.significant}`
-
-    return `${formattedAmount} ${symbol}`
+    return `${formatDisplayAmountPlainText(parts)} ${symbol}`
   }
 
   const dropdownOptions: DropdownOption<string>[] = options.map((option) => {

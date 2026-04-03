@@ -1,4 +1,4 @@
-import { formatDisplayAmountParts, toSubscript } from "@/lib/format"
+import { formatDisplayAmountParts, formatDisplayAmountPlainText, toSubscript } from "@/lib/format"
 
 import type { ComponentPropsWithoutRef, CSSProperties } from "react"
 
@@ -31,7 +31,7 @@ const FormattedAmount = ({ amount, decimals, dp, "aria-label": ariaLabel, ...pro
     )
   }
 
-  const accessibleValue = `${parts.prefix}${"0".repeat(parts.hiddenZeroCount)}${parts.significant}`
+  const accessibleValue = formatDisplayAmountPlainText(parts)
 
   return (
     <span {...props}>
