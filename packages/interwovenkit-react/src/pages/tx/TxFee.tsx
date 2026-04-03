@@ -4,9 +4,8 @@ import FormattedAmount from "@/components/FormattedAmount"
 import { useFindAsset } from "@/data/assets"
 import { useChain } from "@/data/chains"
 import { useTxRequestHandler } from "@/data/tx"
+import { formatDisplayAmountParts } from "@/lib/format"
 import styles from "./TxFee.module.css"
-
-import type { ReactNode } from "react"
 
 interface Props {
   options: StdFee[]
@@ -19,7 +18,7 @@ const TxFee = ({ options, value, onChange }: Props) => {
   const chain = useChain(txRequest.chainId)
   const findAsset = useFindAsset(chain)
 
-  const getLabel = ({ amount: [{ amount, denom }] }: StdFee): ReactNode => {
+  const getAmountLabel = ({ amount: [{ amount, denom }] }: StdFee) => {
     const { symbol, decimals } = findAsset(denom)
     return (
       <>
@@ -28,19 +27,31 @@ const TxFee = ({ options, value, onChange }: Props) => {
     )
   }
 
+  const getDropdownLabel = ({ amount: [{ amount, denom }] }: StdFee) => {
+    const { symbol, decimals } = findAsset(denom)
+    const parts = formatDisplayAmountParts(amount, { decimals })
+
+    const formattedAmount =
+      parts.kind === "plain"
+        ? parts.value
+        : `${parts.prefix}${"0".repeat(parts.hiddenZeroCount)}${parts.significant}`
+
+    return `${formattedAmount} ${symbol}`
+  }
+
   const dropdownOptions: DropdownOption<string>[] = options.map((option) => {
     const [{ denom }] = option.amount
     const { symbol } = findAsset(denom)
 
     return {
       value: denom,
-      label: getLabel(option),
+      label: getDropdownLabel(option),
       triggerLabel: symbol,
     }
   })
 
   if (options.length === 1) {
-    return <span className="monospace">{getLabel(options[0])}</span>
+    return <span className="monospace">{getAmountLabel(options[0])}</span>
   }
 
   const selected = options.find((o) => o.amount[0].denom === value)
