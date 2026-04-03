@@ -45,8 +45,9 @@ const TxFee = ({ options, value, onChange }: Props) => {
 
     return {
       value: denom,
-      label: getDropdownLabel(option),
+      label: getAmountLabel(option),
       triggerLabel: symbol,
+      searchLabel: getDropdownLabel(option),
     }
   })
 

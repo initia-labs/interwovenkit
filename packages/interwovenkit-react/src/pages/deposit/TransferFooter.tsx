@@ -9,6 +9,7 @@ import { useBalances } from "@/data/account"
 import { useFindAsset } from "@/data/assets"
 import { useChain } from "@/data/chains"
 import { useGasPrices, useLastFeeDenom } from "@/data/fee"
+import { formatDisplayAmountParts } from "@/lib/format"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import BridgePreviewFooter from "../bridge/BridgePreviewFooter"
 import { useAllSkipAssets } from "../bridge/data/assets"
@@ -190,6 +191,17 @@ const TransferFooterWithFee = ({
     )
   }
 
+  const getFeeSearchLabel = (fee: StdFee) => {
+    const [{ amount, denom }] = fee.amount
+    const { symbol, decimals } = findAsset(denom)
+    const parts = formatDisplayAmountParts(amount, { decimals })
+    const amountText =
+      parts.kind === "plain"
+        ? parts.value
+        : `${parts.prefix}${"0".repeat(parts.hiddenZeroCount)}${parts.significant}`
+    return `${amountText} ${symbol}`
+  }
+
   const renderFee = () => {
     if (feeOptions.length === 0) return null
 
@@ -209,6 +221,7 @@ const TransferFooterWithFee = ({
         value: denom,
         label: getFeeLabel(option),
         triggerLabel: symbol,
+        searchLabel: getFeeSearchLabel(option),
       }
     })
 

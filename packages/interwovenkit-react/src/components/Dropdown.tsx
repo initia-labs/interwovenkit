@@ -10,6 +10,7 @@ export interface DropdownOption<T = string> {
   value: T
   label: ReactNode
   triggerLabel?: ReactNode
+  searchLabel?: string
 }
 
 interface DropdownProps<T = string> {
@@ -57,24 +58,33 @@ function Dropdown<T extends string | number = string>({
           align={"end"}
         >
           <Select.Popup className={styles.popup}>
-            {options.map((option) => (
-              <Select.Item
-                className={clsx(styles.item, classNames?.item)}
-                value={String(option.value)}
-                key={String(option.value)}
-              >
-                <Select.ItemText className={clsx(styles.itemText, classNames?.itemText)}>
-                  {option.label}
-                </Select.ItemText>
-                <IconCheck
-                  size={12}
-                  className={clsx(styles.itemIndicator, {
-                    [styles.active]: option.value === value,
-                  })}
-                  aria-hidden="true"
-                />
-              </Select.Item>
-            ))}
+            {options.map((option) => {
+              const itemLabel =
+                option.searchLabel ??
+                (typeof option.label === "string" || typeof option.label === "number"
+                  ? String(option.label)
+                  : undefined)
+
+              return (
+                <Select.Item
+                  className={clsx(styles.item, classNames?.item)}
+                  value={String(option.value)}
+                  key={String(option.value)}
+                  label={itemLabel}
+                >
+                  <Select.ItemText className={clsx(styles.itemText, classNames?.itemText)}>
+                    {option.label}
+                  </Select.ItemText>
+                  <IconCheck
+                    size={12}
+                    className={clsx(styles.itemIndicator, {
+                      [styles.active]: option.value === value,
+                    })}
+                    aria-hidden="true"
+                  />
+                </Select.Item>
+              )
+            })}
           </Select.Popup>
         </Select.Positioner>
       </Select.Portal>
