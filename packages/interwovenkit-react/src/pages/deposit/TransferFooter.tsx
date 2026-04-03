@@ -15,6 +15,7 @@ import { useAllSkipAssets } from "../bridge/data/assets"
 import { type BridgeTxResult, useBridgePreviewState } from "../bridge/data/tx"
 import FooterWithErc20Approval from "../bridge/FooterWithErc20Approval"
 import { type TransferMode, useTransferForm } from "./hooks"
+import { getTransferFeeWarning } from "./transferFeeWarning"
 import TransferTxDetails from "./TransferTxDetails"
 import styles from "./TransferFooter.module.css"
 
@@ -164,8 +165,11 @@ const TransferFooterWithFee = ({
 
   const selectedFee = feeDenom ? feeOptionsByDenom.get(feeDenom) : undefined
 
-  // Check if balance is sufficient for both fee and transfer amount
   const feeDetails = feeDenom ? feeDetailsByDenom.get(feeDenom) : null
+  const feeWarning = getTransferFeeWarning({
+    sourceDenom: srcDenom,
+    feeDetailsByDenom,
+  })
   const balanceError = feeDetails && !feeDetails.isSufficient ? "Insufficient balance" : undefined
   const footer = (
     <BridgePreviewFooter
@@ -173,7 +177,8 @@ const TransferFooterWithFee = ({
       fee={selectedFee}
       onCompleted={onCompleted}
       confirmMessage={confirmMessage}
-      error={balanceError}
+      error={feeWarning ? undefined : balanceError}
+      warning={feeWarning}
       {...loadingStateProps}
     />
   )
