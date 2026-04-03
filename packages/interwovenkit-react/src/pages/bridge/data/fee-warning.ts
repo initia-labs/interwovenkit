@@ -26,9 +26,11 @@ export function shouldWarnInsufficientFeeBalance({
   }
 
   const feeRequirementsByDenom = additionalFees.reduce((map, fee) => {
+    if (fee.amount === undefined) return map
+
     const denom = fee.origin_asset.denom
     const amount = map.get(denom) ?? BigNumber(0)
-    map.set(denom, amount.plus(fee.amount ?? "0"))
+    map.set(denom, amount.plus(fee.amount))
     return map
   }, new Map<string, BigNumber>())
 
