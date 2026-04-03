@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { prioritizeSignInWallets } from "./prioritizeSignInWallets"
-
-interface WalletLike {
-  id: string
-  name: string
-}
+import { prioritizeSignInWallets, type WalletLike } from "./prioritizeSignInWallets"
 
 const POPULAR_WALLETS: WalletLike[] = [
   { id: "io.rabby", name: "Rabby" },

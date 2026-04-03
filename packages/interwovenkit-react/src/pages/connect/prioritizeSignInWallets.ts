@@ -1,6 +1,6 @@
 import { normalizeWalletName } from "./normalizeWalletName"
 
-interface WalletLike {
+export interface WalletLike {
   id: string
   name: string
 }

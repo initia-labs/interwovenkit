@@ -173,7 +173,7 @@ const SignIn = ({
       <Scrollable className={styles.scrollable}>
         <div className={styles.list}>
           {suggestedWallets.map((connector) => {
-            const { name, icon, id } = connector
+            const { icon, id, name, uid } = connector
             const isPendingConnection = pendingConnectorId === id
             const isRecent = recentConnectorId === id
 
@@ -184,7 +184,7 @@ const SignIn = ({
                 onClick={() => onConnect(connector)}
                 disabled={isPending}
                 aria-busy={isPendingConnection}
-                key={id}
+                key={uid}
               >
                 <div className={styles.listIconWrapper}>
                   <Image src={icon} width={26} height={26} alt="" className={styles.icon} />
