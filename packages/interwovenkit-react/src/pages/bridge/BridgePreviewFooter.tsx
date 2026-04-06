@@ -15,6 +15,7 @@ interface Props {
   onCompleted?: (result: BridgeTxResult) => void
   confirmMessage?: string
   error?: string
+  warning?: string
   isCheckingApprovals?: boolean
   isCheckingFeeBalance?: boolean
   messageRefreshError?: string
@@ -25,19 +26,24 @@ interface Props {
 
 function getStatusMessage({
   error,
+  warning,
   messageRefreshError,
   refreshError,
   requiresReconfirm,
 }: {
   error?: string
+  warning?: string
   messageRefreshError?: string
   refreshError?: string
   requiresReconfirm?: boolean
-}): string | undefined {
-  if (error) return error
-  if (messageRefreshError) return messageRefreshError
-  if (refreshError) return refreshError
-  if (requiresReconfirm) return "Route updated. Please review and confirm again."
+}): { level: "error" | "warning" | "info"; text: string } | undefined {
+  if (error) return { level: "error", text: error }
+  if (messageRefreshError) return { level: "error", text: messageRefreshError }
+  if (refreshError) return { level: "error", text: refreshError }
+  if (warning) return { level: "warning", text: warning }
+  if (requiresReconfirm) {
+    return { level: "info", text: "Route updated. Please review and confirm again." }
+  }
 }
 
 function getBackgroundLoadingText({
@@ -81,6 +87,7 @@ const BridgePreviewFooter = ({
   onCompleted,
   confirmMessage,
   error,
+  warning,
   isCheckingApprovals,
   isCheckingFeeBalance,
   messageRefreshError,
@@ -131,6 +138,7 @@ const BridgePreviewFooter = ({
 
   const statusMessage = getStatusMessage({
     error,
+    warning,
     messageRefreshError,
     refreshError,
     requiresReconfirm,
@@ -140,15 +148,13 @@ const BridgePreviewFooter = ({
 
   return (
     <Footer
-      extra={
-        statusMessage && (
-          <FormHelp level={error || messageRefreshError || refreshError ? "error" : "info"}>
-            {statusMessage}
-          </FormHelp>
-        )
-      }
+      extra={statusMessage && <FormHelp level={statusMessage.level}>{statusMessage.text}</FormHelp>}
     >
-      <Button.White onClick={onConfirm} loading={loadingText} disabled={!!error || isBusy}>
+      <Button.White
+        onClick={onConfirm}
+        loading={loadingText}
+        disabled={!!error || !!warning || isBusy}
+      >
         {getBridgeConfirmLabel(confirmMessage, Boolean(requiresReconfirm))}
       </Button.White>
     </Footer>
