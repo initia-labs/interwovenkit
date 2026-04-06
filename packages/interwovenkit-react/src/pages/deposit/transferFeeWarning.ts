@@ -1,4 +1,8 @@
+import BigNumber from "bignumber.js"
+
 interface FeeDetails {
+  balance: string
+  fee: string
   isSufficient: boolean
 }
 
@@ -14,10 +18,12 @@ export function getTransferFeeWarning({
   const sourceFee = feeDetailsByDenom.get(sourceDenom)
   if (!sourceFee || sourceFee.isSufficient) return
 
-  const hasAlternativeFeeBalance = Array.from(feeDetailsByDenom.entries()).some(
-    ([denom, feeDetails]) => denom !== sourceDenom && feeDetails.isSufficient,
-  )
-  if (hasAlternativeFeeBalance) return
+  for (const [denom, feeDetails] of feeDetailsByDenom) {
+    if (denom !== sourceDenom && feeDetails.isSufficient) return
+  }
+
+  const canCoverFeeWithoutSpendingSource = BigNumber(sourceFee.balance).gte(sourceFee.fee)
+  if (!canCoverFeeWithoutSpendingSource) return
 
   return "Make sure to leave enough for transaction fee"
 }
