@@ -177,8 +177,8 @@ const TransferFooterWithFee = ({
       fee={selectedFee}
       onCompleted={onCompleted}
       confirmMessage={confirmMessage}
-      error={feeWarning ? undefined : balanceError}
-      warning={feeWarning}
+      error={feeWarning && feeDenom === srcDenom ? undefined : balanceError}
+      warning={feeDenom === srcDenom ? feeWarning : undefined}
       {...loadingStateProps}
     />
   )
