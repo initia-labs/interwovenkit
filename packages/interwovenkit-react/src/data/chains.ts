@@ -78,25 +78,16 @@ export function resolveEnabledChainState({
   return { chain: undefined, error: new Error(`Chain not found: ${chainId}`), isLoading: false }
 }
 
-export function useInitiaRegistry() {
-  const { defaultChainId, registryUrl, customChain } = useConfig()
-  const { data } = useSuspenseQuery({
-    queryKey: chainQueryKeys.list(registryUrl).queryKey,
-    queryFn: () => ky.create({ prefixUrl: registryUrl }).get("chains.json").json<Chain[]>(),
-    select: (rawChains) => {
-      const chains = customChain
-        ? [customChain, ...rawChains.filter((chain) => chain.chain_id !== customChain.chain_id)]
-        : rawChains
-      return chains.map(normalizeChain).sort(descend((chain) => chain.chainId === defaultChainId))
-    },
-    staleTime: STALE_TIMES.MINUTE,
-  })
-  return data
-}
-
-function useInitiaRegistryEnabled(enabled: boolean) {
-  const { defaultChainId, registryUrl, customChain } = useConfig()
-  return useQuery({
+export function createInitiaRegistryQueryOptions({
+  customChain,
+  defaultChainId,
+  registryUrl,
+}: {
+  customChain?: Chain
+  defaultChainId: string
+  registryUrl: string
+}) {
+  return queryOptions({
     queryKey: chainQueryKeys.list(registryUrl).queryKey,
     queryFn: () => ky.create({ prefixUrl: registryUrl }).get("chains.json").json<Chain[]>(),
     select: (rawChains: Chain[]) => {
@@ -106,6 +97,21 @@ function useInitiaRegistryEnabled(enabled: boolean) {
       return chains.map(normalizeChain).sort(descend((chain) => chain.chainId === defaultChainId))
     },
     staleTime: STALE_TIMES.MINUTE,
+  })
+}
+
+export function useInitiaRegistry() {
+  const { defaultChainId, registryUrl, customChain } = useConfig()
+  const { data } = useSuspenseQuery(
+    createInitiaRegistryQueryOptions({ customChain, defaultChainId, registryUrl }),
+  )
+  return data
+}
+
+function useInitiaRegistryEnabled(enabled: boolean) {
+  const { defaultChainId, registryUrl, customChain } = useConfig()
+  return useQuery({
+    ...createInitiaRegistryQueryOptions({ customChain, defaultChainId, registryUrl }),
     enabled,
   })
 }
