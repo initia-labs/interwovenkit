@@ -3,7 +3,7 @@ import { atom, useAtom, useSetAtom } from "jotai"
 import { useAnalyticsTrack } from "@/data/analytics"
 import { useNavigate, useReset } from "@/lib/router"
 import { useDeriveWallet } from "@/pages/autosign/data/wallet"
-import { LocalStorageKey } from "./constants"
+import { clearPersistedBridgeFormValues } from "./bridge-form-storage"
 
 const isDrawerOpenAtom = atom<boolean>(false)
 const isModalOpenAtom = atom<boolean>(false)
@@ -73,13 +73,6 @@ export function useDisconnect() {
 
     clearAllWallets()
 
-    // Clear bridge form values on disconnect
-    localStorage.removeItem(LocalStorageKey.BRIDGE_SRC_CHAIN_ID)
-    localStorage.removeItem(LocalStorageKey.BRIDGE_SRC_DENOM)
-    localStorage.removeItem(LocalStorageKey.BRIDGE_DST_CHAIN_ID)
-    localStorage.removeItem(LocalStorageKey.BRIDGE_DST_DENOM)
-    localStorage.removeItem(LocalStorageKey.BRIDGE_QUANTITY)
-    localStorage.removeItem(LocalStorageKey.BRIDGE_SLIPPAGE_PERCENT)
-    localStorage.removeItem(LocalStorageKey.BRIDGE_RECIPIENT)
+    clearPersistedBridgeFormValues()
   }
 }
