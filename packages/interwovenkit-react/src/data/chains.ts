@@ -49,6 +49,10 @@ export function isDeletedChain(chain: ResolvedChain): chain is DeletedChainFallb
   return "isDeleted" in chain
 }
 
+function toLoadChainsError(error: unknown) {
+  return error instanceof Error ? error : new Error(`Failed to load chains: ${String(error)}`)
+}
+
 export function resolveEnabledChainState({
   chainId,
   chains,
@@ -74,7 +78,7 @@ export function resolveEnabledChainState({
   if (error && !chains) {
     return {
       chain: undefined,
-      error: error instanceof Error ? error : new Error("Failed to load chains"),
+      error: toLoadChainsError(error),
       isLoading: false,
     }
   }
@@ -86,7 +90,7 @@ export function resolveEnabledChainState({
   if (error) {
     return {
       chain: undefined,
-      error: error instanceof Error ? error : new Error("Failed to load chains"),
+      error: toLoadChainsError(error),
       isLoading: false,
     }
   }
@@ -156,18 +160,17 @@ export function useFindChainDisplay() {
 
     // Fallback to profiles.json for deleted chains
     const profile = profiles.find((profile) => profile.chain_id === chainId)
-    if (!profile) throw new Error(`Chain not found: ${chainId}`)
 
     // Return a display-only fallback and force call sites to narrow before
     // accessing endpoint/metadata fields from NormalizedChain.
     return {
       isDeleted: true,
-      chain_id: profile.chain_id ?? chainId,
+      chain_id: profile?.chain_id ?? chainId,
       chainId,
-      chain_name: profile.name ?? chainId,
-      pretty_name: profile.pretty_name ?? profile.name ?? chainId,
-      name: profile.pretty_name ?? profile.name ?? chainId,
-      logoUrl: profile.logo ?? "",
+      chain_name: profile?.name ?? chainId,
+      pretty_name: profile?.pretty_name ?? profile?.name ?? chainId,
+      name: profile?.pretty_name ?? profile?.name ?? chainId,
+      logoUrl: profile?.logo ?? "",
       network_type: layer1.network_type,
     }
   }

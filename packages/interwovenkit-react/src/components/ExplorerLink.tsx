@@ -23,11 +23,19 @@ const ExplorerLink = ({ chainId, txHash, accountAddress, pathSuffix, ...props }:
   const defaultText = txHash ? truncate(txHash) : accountAddress ? truncate(accountAddress) : ""
   const text = children ?? defaultText
 
-  // Filter out anchor-only attributes for span fallback
-  const { target, rel, download, ping, referrerPolicy, hrefLang, media, type, ...safeAttrs } = attrs
+  const spanAttrs = { ...attrs }
+  delete spanAttrs.href
+  delete spanAttrs.target
+  delete spanAttrs.rel
+  delete spanAttrs.download
+  delete spanAttrs.ping
+  delete spanAttrs.referrerPolicy
+  delete spanAttrs.hrefLang
+  delete spanAttrs.media
+  delete spanAttrs.type
 
   const renderFallback = () => (
-    <span {...safeAttrs} className={clsx(styles.link, className)}>
+    <span {...spanAttrs} className={clsx(styles.link, className)}>
       {text}
     </span>
   )
