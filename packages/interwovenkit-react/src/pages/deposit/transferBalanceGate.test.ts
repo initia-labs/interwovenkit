@@ -27,6 +27,15 @@ describe("getTransferBalanceBlocker", () => {
 })
 
 describe("getResolvedTransferBalance", () => {
+  it("returns the provided balance once balances have loaded", () => {
+    expect(
+      getResolvedTransferBalance({
+        hasBalancesSnapshot: true,
+        balance: "123",
+      }),
+    ).toBe("123")
+  })
+
   it("treats a missing balance as zero after balances have loaded", () => {
     expect(
       getResolvedTransferBalance({
@@ -47,7 +56,25 @@ describe("getResolvedTransferBalance", () => {
 })
 
 describe("hasSufficientTransferBalance", () => {
+  it("returns true when the balance covers the required amount", () => {
+    expect(
+      hasSufficientTransferBalance({
+        balance: "2",
+        requiredAmount: "1",
+      }),
+    ).toBe(true)
+  })
+
   it("treats a missing balance as zero when checking a positive spend amount", () => {
+    expect(
+      hasSufficientTransferBalance({
+        balance: undefined,
+        requiredAmount: "1",
+      }),
+    ).toBe(false)
+  })
+
+  it("returns false when a zero balance cannot cover a positive spend amount", () => {
     expect(
       hasSufficientTransferBalance({
         balance: "0",
@@ -63,5 +90,20 @@ describe("hasSufficientTransferBalance", () => {
         requiredAmount: "0",
       }),
     ).toBe(true)
+  })
+
+  it("returns false for invalid numeric inputs", () => {
+    expect(
+      hasSufficientTransferBalance({
+        balance: "",
+        requiredAmount: "1",
+      }),
+    ).toBe(false)
+    expect(
+      hasSufficientTransferBalance({
+        balance: "1",
+        requiredAmount: "-1",
+      }),
+    ).toBe(false)
   })
 })

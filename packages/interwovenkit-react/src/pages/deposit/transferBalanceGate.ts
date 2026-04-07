@@ -36,9 +36,25 @@ interface HasSufficientTransferBalanceArgs {
   requiredAmount: string
 }
 
+function getNonNegativeAmount(value: string): BigNumber | null {
+  if (!value) return null
+
+  const amount = BigNumber(value)
+  if (!amount.isFinite() || amount.isNaN() || amount.lt(0)) return null
+
+  return amount
+}
+
 export function hasSufficientTransferBalance({
   balance,
   requiredAmount,
 }: HasSufficientTransferBalanceArgs): boolean {
-  return requiredAmount === "0" || BigNumber(balance ?? "0").gte(requiredAmount)
+  if (requiredAmount === "0") return true
+
+  const available = getNonNegativeAmount(balance ?? "0")
+  const required = getNonNegativeAmount(requiredAmount)
+
+  if (!available || !required) return false
+
+  return available.gte(required)
 }
