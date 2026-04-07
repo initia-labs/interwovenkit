@@ -15,6 +15,7 @@ import { useAllSkipAssets } from "../bridge/data/assets"
 import { type BridgeTxResult, useBridgePreviewState } from "../bridge/data/tx"
 import FooterWithErc20Approval from "../bridge/FooterWithErc20Approval"
 import { type TransferMode, useTransferForm } from "./hooks"
+import { hasSufficientTransferBalance } from "./transferBalanceGate"
 import { getTransferFeeWarning } from "./transferFeeWarning"
 import TransferTxDetails from "./TransferTxDetails"
 import styles from "./TransferFooter.module.css"
@@ -74,7 +75,6 @@ function selectFeeDenom({
 
   return feeOptions[0]?.amount[0].denom
 }
-
 interface FooterWithFeeProps extends Omit<Props, "gas" | "mode"> {
   gas: number | null
   confirmMessage: "Deposit" | "Withdraw"
@@ -170,7 +170,14 @@ const TransferFooterWithFee = ({
     sourceDenom: srcDenom,
     feeDetailsByDenom,
   })
-  const balanceError = feeDetails && !feeDetails.isSufficient ? "Insufficient balance" : undefined
+  const hasSourceBalance = hasSufficientTransferBalance({
+    balance: balancesByDenom.get(srcDenom) ?? "0",
+    requiredAmount: sourceSpendAmount,
+  })
+  const balanceError =
+    !hasSourceBalance || (feeDetails && !feeDetails.isSufficient)
+      ? "Insufficient balance"
+      : undefined
   const footer = (
     <BridgePreviewFooter
       tx={tx}
