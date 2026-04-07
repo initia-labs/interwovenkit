@@ -65,7 +65,7 @@ describe("getExactFeeCheckSetup", () => {
     expect(findChain).not.toHaveBeenCalled()
   })
 
-  it("builds fee context for initia cosmos routes", () => {
+  it("builds fee context for initia-to-initia routes", () => {
     const findChain = vi.fn(
       () =>
         ({
