@@ -1,24 +1,22 @@
 import type { TxJson } from "@skip-go/client"
 
-type ChainType = "cosmos" | "evm" | "svm" | "initia"
-
 interface ExactFeeCheckRoute {
   required_op_hook?: boolean
 }
 
 export function shouldCheckExactFee({
-  dstChainType,
+  isDstInitia,
   recipient,
   route,
   sender,
-  srcChainType,
+  isSrcInitia,
   tx,
 }: {
-  dstChainType: ChainType
+  isDstInitia: boolean
   recipient?: string
   route?: ExactFeeCheckRoute
   sender?: string
-  srcChainType: ChainType
+  isSrcInitia: boolean
   tx: TxJson
 }): boolean {
   return (
@@ -26,8 +24,8 @@ export function shouldCheckExactFee({
     "cosmos_tx" in tx &&
     !!tx.cosmos_tx.msgs?.length &&
     !route.required_op_hook &&
-    srcChainType === "initia" &&
-    dstChainType === "initia" &&
+    isSrcInitia &&
+    isDstInitia &&
     !!sender &&
     !!recipient
   )

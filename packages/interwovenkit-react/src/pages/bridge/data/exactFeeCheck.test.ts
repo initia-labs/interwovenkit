@@ -5,13 +5,13 @@ describe("shouldCheckExactFee", () => {
   it("returns false for cosmos-to-initia routes", () => {
     expect(
       shouldCheckExactFee({
-        dstChainType: "initia",
+        isDstInitia: true,
         recipient: "init1recipient",
         route: {
           required_op_hook: false,
         },
         sender: "noble1sender",
-        srcChainType: "cosmos",
+        isSrcInitia: false,
         tx: {
           cosmos_tx: {
             msgs: [{ msg_type_url: "/cosmos.bank.v1beta1.MsgSend", msg: "{}" }],
@@ -24,13 +24,13 @@ describe("shouldCheckExactFee", () => {
   it("returns false for initia-to-cosmos routes", () => {
     expect(
       shouldCheckExactFee({
-        dstChainType: "cosmos",
+        isDstInitia: false,
         recipient: "celestia1recipient",
         route: {
           required_op_hook: false,
         },
         sender: "init1sender",
-        srcChainType: "initia",
+        isSrcInitia: true,
         tx: {
           cosmos_tx: {
             msgs: [{ msg_type_url: "/cosmos.bank.v1beta1.MsgSend", msg: "{}" }],
@@ -43,13 +43,13 @@ describe("shouldCheckExactFee", () => {
   it("returns true for initia-to-initia routes", () => {
     expect(
       shouldCheckExactFee({
-        dstChainType: "initia",
+        isDstInitia: true,
         recipient: "init1recipient",
         route: {
           required_op_hook: false,
         },
         sender: "init1sender",
-        srcChainType: "initia",
+        isSrcInitia: true,
         tx: {
           cosmos_tx: {
             msgs: [{ msg_type_url: "/cosmos.bank.v1beta1.MsgSend", msg: "{}" }],
