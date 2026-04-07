@@ -139,6 +139,17 @@
   font-weight: 600;
 }
 
+.balanceLabel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  color: var(--gray-3);
+  font-family: var(--monospace);
+  font-size: 12px;
+  font-weight: 500;
+}
+
 .detail {
   display: flex;
   justify-content: space-between;

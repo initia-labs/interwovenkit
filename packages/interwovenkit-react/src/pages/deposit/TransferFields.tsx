@@ -334,24 +334,30 @@ const TransferFields = ({ mode }: Props) => {
     <>
       <p className={styles.label}>Amount</p>
       <QuantityInput balance={balance} decimals={amountDecimals} className={styles.input} />
-      {Number(balance) > 0 && (
+      {balance !== undefined && (
         <div className={styles.balanceContainer}>
           <p className={styles.value}>
             {rawQuantity ? formatValueWithPrice(quantityValue.toString(), price) : "$-"}
           </p>
 
-          <button
-            className={styles.maxButton}
-            onClick={() => {
-              const maxAmount = fromBaseUnit(balance ?? "0", { decimals: amountDecimals })
-              if (BigNumber(rawQuantity || 0).eq(maxAmount)) return
+          {BigNumber(balance).gt(0) ? (
+            <button
+              className={styles.maxButton}
+              onClick={() => {
+                const maxAmount = fromBaseUnit(balance, { decimals: amountDecimals })
+                if (BigNumber(rawQuantity || 0).eq(maxAmount)) return
 
-              setValue("quantity", maxAmount)
-            }}
-          >
-            <IconWallet size={16} /> {formatAmount(balance, { decimals: amountDecimals })}{" "}
-            <span>MAX</span>
-          </button>
+                setValue("quantity", maxAmount)
+              }}
+            >
+              <IconWallet size={16} /> {formatAmount(balance, { decimals: amountDecimals })}{" "}
+              <span>MAX</span>
+            </button>
+          ) : (
+            <p className={styles.balanceLabel}>
+              <IconWallet size={16} /> {formatAmount(balance, { decimals: amountDecimals })}
+            </p>
+          )}
         </div>
       )}
     </>
