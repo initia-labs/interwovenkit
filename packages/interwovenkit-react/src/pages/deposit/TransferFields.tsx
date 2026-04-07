@@ -29,7 +29,7 @@ import {
   useTransferMode,
 } from "./hooks"
 import { buildTransferLocationState, type TransferLocationState } from "./state"
-import { getTransferBalanceBlocker } from "./transferBalanceGate"
+import { getResolvedTransferBalance, getTransferBalanceBlocker } from "./transferBalanceGate"
 import TransferFooter from "./TransferFooter"
 import { shouldSyncTransferNavigationState } from "./transferNavigationState"
 import styles from "./Fields.module.css"
@@ -144,7 +144,7 @@ const TransferFields = ({ mode }: Props) => {
     : ""
   const externalChain = selectedExternalChainId ? findChain(selectedExternalChainId) : null
 
-  const balance = balances?.[srcChainId]?.[srcDenom]?.amount
+  const sourceBalance = balances?.[srcChainId]?.[srcDenom]?.amount
   const price = balances?.[srcChainId]?.[srcDenom]?.price
 
   const quantityValue = BigNumber(price ?? 0).times(rawQuantity || 0)
@@ -156,6 +156,12 @@ const TransferFields = ({ mode }: Props) => {
     hasBalancesSnapshot: balances !== undefined,
     hasBalanceQueryError: !!(balancesError || chainsError),
     isBalancesLoading,
+  })
+  // Once balances have loaded, a missing denom means zero balance.
+  // Keep `undefined` only while the first snapshot is still loading.
+  const balance = getResolvedTransferBalance({
+    hasBalancesSnapshot: balances !== undefined,
+    balance: sourceBalance,
   })
 
   const disabledMessage = useMemo(() => {
@@ -169,8 +175,6 @@ const TransferFields = ({ mode }: Props) => {
     if (balanceBlocker === "loading") return "Loading balances..."
     if (balanceBlocker === "error") return "Failed to load balances"
 
-    // Skip validation when balance is unavailable (e.g. still loading)
-    // to avoid disabling the button with "Insufficient balance" prematurely.
     if (balance !== undefined) {
       const balanceAmount = fromBaseUnit(balance, { decimals: amountAsset?.decimals || 6 })
       if (quantityBn.gt(balanceAmount)) return "Insufficient balance"
@@ -185,8 +189,6 @@ const TransferFields = ({ mode }: Props) => {
     if (mode === "withdraw" && !externalAsset) return true
     if (balanceBlocker === "error") return true
 
-    // Allow route fetching to start while balances load. Once a balance exists,
-    // still block invalid over-balance requests from hitting the route API.
     if (balance !== undefined) {
       const balanceAmount = fromBaseUnit(balance, { decimals: amountAsset?.decimals || 6 })
       if (quantityBn.gt(balanceAmount)) return true
@@ -332,7 +334,7 @@ const TransferFields = ({ mode }: Props) => {
     <>
       <p className={styles.label}>Amount</p>
       <QuantityInput balance={balance} decimals={amountDecimals} className={styles.input} />
-      {Number(balance) > 0 && (
+      {balance !== undefined && (
         <div className={styles.balanceContainer}>
           <p className={styles.value}>
             {rawQuantity ? formatValueWithPrice(quantityValue.toString(), price) : "$-"}
@@ -341,7 +343,7 @@ const TransferFields = ({ mode }: Props) => {
           <button
             className={styles.maxButton}
             onClick={() => {
-              const maxAmount = fromBaseUnit(balance ?? "0", { decimals: amountDecimals })
+              const maxAmount = fromBaseUnit(balance, { decimals: amountDecimals })
               if (BigNumber(rawQuantity || 0).eq(maxAmount)) return
 
               setValue("quantity", maxAmount)
