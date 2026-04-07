@@ -58,7 +58,7 @@ export function resolveEnabledChainState({
   if (error && !chains) {
     return {
       chain: undefined,
-      error: error instanceof Error ? error : new Error("Failed to load chains"),
+      error: error instanceof Error ? error : new Error(`Failed to load chains: ${String(error)}`),
       isLoading: false,
     }
   }
@@ -70,7 +70,7 @@ export function resolveEnabledChainState({
   if (error) {
     return {
       chain: undefined,
-      error: error instanceof Error ? error : new Error("Failed to load chains"),
+      error: error instanceof Error ? error : new Error(`Failed to load chains: ${String(error)}`),
       isLoading: false,
     }
   }

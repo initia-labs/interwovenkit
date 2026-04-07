@@ -12,11 +12,11 @@ export function shouldCheckExactFee({
   srcChainType,
   tx,
 }: {
-  dstChainType: string
+  dstChainType: ChainType
   recipient?: string
   route?: ExactFeeCheckRoute
   sender?: string
-  srcChainType: string
+  srcChainType: ChainType
   tx: TxJson
 }): boolean {
   return (
