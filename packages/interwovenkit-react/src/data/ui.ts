@@ -80,5 +80,6 @@ export function useDisconnect() {
     localStorage.removeItem(LocalStorageKey.BRIDGE_DST_DENOM)
     localStorage.removeItem(LocalStorageKey.BRIDGE_QUANTITY)
     localStorage.removeItem(LocalStorageKey.BRIDGE_SLIPPAGE_PERCENT)
+    localStorage.removeItem(LocalStorageKey.BRIDGE_RECIPIENT)
   }
 }
