@@ -3,7 +3,12 @@ import AsyncBoundary from "@/components/AsyncBoundary"
 import ChainOptions from "@/components/form/ChainOptions"
 import FormHelp from "@/components/form/FormHelp"
 import Page from "@/components/Page"
-import { useDefaultChain, useFindChain, useInitiaRegistry } from "@/data/chains"
+import {
+  isDeletedChain,
+  useDefaultChain,
+  useFindChainDisplay,
+  useInitiaRegistry,
+} from "@/data/chains"
 import { useLocationState } from "@/lib/router"
 import { useClaimableReminders } from "./reminder"
 import WithdrawalList from "./WithdrawalList"
@@ -16,7 +21,7 @@ const Withdrawals = () => {
   const [chainId, setChainId] = useState(
     initialChainId ?? (defaultChain.metadata?.is_l1 ? "" : defaultChain.chainId),
   )
-  const findChain = useFindChain()
+  const findChain = useFindChainDisplay()
   const { reminders } = useClaimableReminders()
   const chain = chainId ? findChain(chainId) : undefined
 
@@ -32,6 +37,10 @@ const Withdrawals = () => {
       <div className={styles.content}>
         {!chain ? (
           <FormHelp level="info">Select a chain to display your OP Bridge withdrawals</FormHelp>
+        ) : isDeletedChain(chain) ? (
+          <FormHelp level="info">
+            {chain.name} is no longer available for OP Bridge withdrawals
+          </FormHelp>
         ) : (
           <>
             <h2 className={styles.title}>{chain.name}</h2>

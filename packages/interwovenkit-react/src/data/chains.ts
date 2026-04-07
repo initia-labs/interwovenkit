@@ -32,6 +32,22 @@ function normalizeChain(chain: Chain) {
 }
 
 export type NormalizedChain = ReturnType<typeof normalizeChain>
+export interface DeletedChainFallback {
+  isDeleted: true
+  chain_id: string
+  chainId: string
+  chain_name: string
+  pretty_name: string
+  name: string
+  logoUrl: string
+  network_type: Chain["network_type"]
+}
+
+export type ResolvedChain = NormalizedChain | DeletedChainFallback
+
+export function isDeletedChain(chain: ResolvedChain): chain is DeletedChainFallback {
+  return "isDeleted" in chain
+}
 
 export function resolveEnabledChainState({
   chainId,
@@ -122,10 +138,19 @@ export function useProfilesRegistry() {
 }
 
 export function useFindChain() {
+  const chains = useInitiaRegistry()
+  return (chainId: string): NormalizedChain => {
+    const chain = chains.find((chain) => chain.chain_id === chainId)
+    if (chain) return chain
+    throw new Error(`Chain not found in active registry: ${chainId}`)
+  }
+}
+
+export function useFindChainDisplay() {
   const layer1 = useLayer1()
   const chains = useInitiaRegistry()
   const profiles = useProfilesRegistry()
-  return (chainId: string) => {
+  return (chainId: string): ResolvedChain => {
     const chain = chains.find((chain) => chain.chain_id === chainId)
     if (chain) return chain
 
@@ -133,23 +158,18 @@ export function useFindChain() {
     const profile = profiles.find((profile) => profile.chain_id === chainId)
     if (!profile) throw new Error(`Chain not found: ${chainId}`)
 
-    // Return a minimal chain object with display metadata from profile
+    // Return a display-only fallback and force call sites to narrow before
+    // accessing endpoint/metadata fields from NormalizedChain.
     return {
-      chain_id: profile.chain_id,
-      chain_name: profile.name,
-      pretty_name: profile.pretty_name,
-      network_type: layer1.network_type,
-      bech32_prefix: "init" as const,
-      fees: { fee_tokens: [] },
-      apis: { rpc: [], rest: [], indexer: [] },
+      isDeleted: true,
+      chain_id: profile.chain_id ?? chainId,
       chainId,
-      name: profile.pretty_name,
-      logoUrl: profile.logo,
-      rpcUrl: "",
-      restUrl: "",
-      indexerUrl: "",
-      jsonRpcUrl: "",
-    } as NormalizedChain
+      chain_name: profile.name ?? chainId,
+      pretty_name: profile.pretty_name ?? profile.name ?? chainId,
+      name: profile.pretty_name ?? profile.name ?? chainId,
+      logoUrl: profile.logo ?? "",
+      network_type: layer1.network_type,
+    }
   }
 }
 

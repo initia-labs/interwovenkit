@@ -2,7 +2,7 @@ import { formatAmount } from "@initia/utils"
 import Image from "@/components/Image"
 import PlainModalContent from "@/components/PlainModalContent"
 import { useFindAsset } from "@/data/assets"
-import { useFindChain, useLayer1 } from "@/data/chains"
+import { useFindChainDisplay, useLayer1 } from "@/data/chains"
 import type { ReminderDetails } from "./reminder"
 import styles from "./ClaimableList.module.css"
 
@@ -14,7 +14,7 @@ interface Props {
 
 const ClaimableList = ({ list, onNavigate, onDismiss }: Props) => {
   const layer1 = useLayer1()
-  const findChain = useFindChain()
+  const findChain = useFindChainDisplay()
   const findAsset = useFindAsset(layer1)
 
   return (
