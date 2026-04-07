@@ -2,7 +2,7 @@ import clsx from "clsx"
 import xss from "xss"
 import { IconExternalLink } from "@initia/icons-react"
 import { truncate } from "@initia/utils"
-import { useChain } from "@/data/chains"
+import { isDeletedChain, useFindChainDisplay } from "@/data/chains"
 import { buildExplorerUrl, sanitizeLink } from "./explorer"
 import styles from "./ExplorerLink.module.css"
 
@@ -19,18 +19,30 @@ interface Props extends AnchorHTMLAttributes<HTMLAnchorElement> {
 
 const ExplorerLink = ({ chainId, txHash, accountAddress, pathSuffix, ...props }: Props) => {
   const { showIcon, className, children, onClick, ...attrs } = props
-  const chain = useChain(chainId)
-
-  const url = buildExplorerUrl(chain, { txHash, accountAddress, pathSuffix })
+  const findChainDisplay = useFindChainDisplay()
   const defaultText = txHash ? truncate(txHash) : accountAddress ? truncate(accountAddress) : ""
   const text = children ?? defaultText
 
+  const renderFallback = () => (
+    <span {...attrs} className={clsx(styles.link, className)}>
+      {text}
+    </span>
+  )
+
+  let chain
+  try {
+    chain = findChainDisplay(chainId)
+  } catch {
+    return renderFallback()
+  }
+
+  if (isDeletedChain(chain)) {
+    return renderFallback()
+  }
+
+  const url = buildExplorerUrl(chain, { txHash, accountAddress, pathSuffix })
   if (!url) {
-    return (
-      <span {...attrs} className={clsx(styles.link, className)}>
-        {text}
-      </span>
-    )
+    return renderFallback()
   }
 
   return (
