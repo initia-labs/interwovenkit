@@ -76,17 +76,6 @@ export function useProfilesRegistry() {
   return data
 }
 
-function useProfilesRegistryEnabled(enabled: boolean) {
-  const { registryUrl } = useConfig()
-  return useQuery({
-    queryKey: chainQueryKeys.profiles(registryUrl).queryKey,
-    queryFn: () =>
-      ky.create({ prefixUrl: registryUrl }).get("profiles.json").json<ChainProfile[]>(),
-    staleTime: STALE_TIMES.MINUTE,
-    enabled,
-  })
-}
-
 export function useFindChain() {
   const layer1 = useLayer1()
   const chains = useInitiaRegistry()
@@ -126,22 +115,12 @@ export function useChain(chainId: string) {
 
 export function useChainEnabled(chainId: string, enabled: boolean) {
   const chainsQuery = useInitiaRegistryEnabled(enabled)
-  const profilesQuery = useProfilesRegistryEnabled(enabled)
 
   if (!enabled) {
     return { chain: undefined, error: null, isLoading: false }
   }
 
-  if (chainsQuery.error) {
-    return {
-      chain: undefined,
-      error:
-        chainsQuery.error instanceof Error ? chainsQuery.error : new Error("Failed to load chains"),
-      isLoading: false,
-    }
-  }
-
-  if (chainsQuery.isLoading) {
+  if (chainsQuery.isLoading && !chainsQuery.data) {
     return { chain: undefined, error: null, isLoading: true }
   }
 
@@ -155,56 +134,16 @@ export function useChainEnabled(chainId: string, enabled: boolean) {
     return { chain, error: null, isLoading: false }
   }
 
-  if (profilesQuery.error) {
+  if (chainsQuery.error) {
     return {
       chain: undefined,
       error:
-        profilesQuery.error instanceof Error
-          ? profilesQuery.error
-          : new Error("Failed to load chains"),
+        chainsQuery.error instanceof Error ? chainsQuery.error : new Error("Failed to load chains"),
       isLoading: false,
     }
   }
 
-  if (profilesQuery.isLoading) {
-    return { chain: undefined, error: null, isLoading: true }
-  }
-
-  const profiles = profilesQuery.data
-  if (!profiles) {
-    return { chain: undefined, error: null, isLoading: true }
-  }
-
-  const profile = profiles.find((profile) => profile.chain_id === chainId)
-  if (!profile) {
-    return { chain: undefined, error: new Error(`Chain not found: ${chainId}`), isLoading: false }
-  }
-
-  const layer1 = chains.find((chain) => chain.metadata?.is_l1)
-  if (!layer1) {
-    return { chain: undefined, error: new Error("Layer 1 not found"), isLoading: false }
-  }
-
-  return {
-    chain: {
-      chain_id: profile.chain_id,
-      chain_name: profile.name,
-      pretty_name: profile.pretty_name,
-      network_type: layer1.network_type,
-      bech32_prefix: "init" as const,
-      fees: { fee_tokens: [] },
-      apis: { rpc: [], rest: [], indexer: [] },
-      chainId,
-      name: profile.pretty_name,
-      logoUrl: profile.logo,
-      rpcUrl: "",
-      restUrl: "",
-      indexerUrl: "",
-      jsonRpcUrl: "",
-    } as NormalizedChain,
-    error: null,
-    isLoading: false,
-  }
+  return { chain: undefined, error: new Error(`Chain not found: ${chainId}`), isLoading: false }
 }
 
 export function useDefaultChain() {
