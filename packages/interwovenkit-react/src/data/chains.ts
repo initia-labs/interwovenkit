@@ -33,12 +33,64 @@ function normalizeChain(chain: Chain) {
 
 export type NormalizedChain = ReturnType<typeof normalizeChain>
 
-export function useInitiaRegistry() {
-  const { defaultChainId, registryUrl, customChain } = useConfig()
-  const { data } = useSuspenseQuery({
+export function resolveEnabledChainState({
+  chainId,
+  chains,
+  enabled,
+  error,
+  isLoading,
+}: {
+  chainId: string
+  chains?: NormalizedChain[]
+  enabled: boolean
+  error: unknown
+  isLoading: boolean
+}) {
+  if (!enabled) {
+    return { chain: undefined, error: null, isLoading: false }
+  }
+
+  const chain = chains?.find((chain) => chain.chain_id === chainId)
+  if (chain) {
+    return { chain, error: null, isLoading: false }
+  }
+
+  if (error && !chains) {
+    return {
+      chain: undefined,
+      error: error instanceof Error ? error : new Error(`Failed to load chains: ${String(error)}`),
+      isLoading: false,
+    }
+  }
+
+  if (isLoading || !chains) {
+    return { chain: undefined, error: null, isLoading: true }
+  }
+
+  if (error) {
+    return {
+      chain: undefined,
+      error: error instanceof Error ? error : new Error(`Failed to load chains: ${String(error)}`),
+      isLoading: false,
+    }
+  }
+
+  return { chain: undefined, error: new Error(`Chain not found: ${chainId}`), isLoading: false }
+}
+
+export function createInitiaRegistryQueryOptions({
+  customChain,
+  defaultChainId,
+  registryUrl,
+}: {
+  customChain?: Chain
+  defaultChainId: string
+  registryUrl: string
+}) {
+  return queryOptions({
     queryKey: chainQueryKeys.list(registryUrl).queryKey,
     queryFn: () => ky.create({ prefixUrl: registryUrl }).get("chains.json").json<Chain[]>(),
-    select: (rawChains) => {
+    select: (rawChains: Chain[]) => {
       const chains = customChain
         ? [customChain, ...rawChains.filter((chain) => chain.chain_id !== customChain.chain_id)]
         : rawChains
@@ -46,7 +98,22 @@ export function useInitiaRegistry() {
     },
     staleTime: STALE_TIMES.MINUTE,
   })
+}
+
+export function useInitiaRegistry() {
+  const { defaultChainId, registryUrl, customChain } = useConfig()
+  const { data } = useSuspenseQuery(
+    createInitiaRegistryQueryOptions({ customChain, defaultChainId, registryUrl }),
+  )
   return data
+}
+
+function useInitiaRegistryEnabled(enabled: boolean) {
+  const { defaultChainId, registryUrl, customChain } = useConfig()
+  return useQuery({
+    ...createInitiaRegistryQueryOptions({ customChain, defaultChainId, registryUrl }),
+    enabled,
+  })
 }
 
 export function useProfilesRegistry() {
@@ -95,6 +162,17 @@ export function useFindChain() {
 export function useChain(chainId: string) {
   const findChain = useFindChain()
   return findChain(chainId)
+}
+
+export function useChainEnabled(chainId: string, enabled: boolean) {
+  const chainsQuery = useInitiaRegistryEnabled(enabled)
+  return resolveEnabledChainState({
+    chainId,
+    chains: chainsQuery.data,
+    enabled,
+    error: chainsQuery.error,
+    isLoading: chainsQuery.isLoading,
+  })
 }
 
 export function useDefaultChain() {
