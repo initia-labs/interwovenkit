@@ -7,7 +7,7 @@ import { useAminoConverters, useAminoTypes, useCreateSigningStargateClient } fro
 import { useSkipBalancesQuery } from "./data/balance"
 import { computeRequiredFeeByDenom, hasSufficientFeeBalance } from "./data/bridgeTxUtils"
 import { useChainType, useSkipChain } from "./data/chains"
-import { getExactFeeCheckSetup } from "./data/exactFeeCheck"
+import { shouldCheckExactFee } from "./data/exactFeeCheck"
 import { decodeCosmosAminoMessages, useBridgePreviewState } from "./data/tx"
 
 import type { ReactNode } from "react"
@@ -15,6 +15,21 @@ import type { ReactNode } from "react"
 interface Props {
   tx: TxJson
   children: (status: { exactFeeCheckError?: string; isCheckingFeeBalance: boolean }) => ReactNode
+}
+
+function getFeeBalanceKey({
+  balances,
+  feeDenoms,
+}: {
+  balances?: Record<string, { amount?: string }>
+  feeDenoms: string[]
+}): string {
+  if (!balances) return ""
+
+  return feeDenoms
+    .toSorted()
+    .map((denom) => `${denom}:${balances[denom]?.amount ?? "0"}`)
+    .join("|")
 }
 
 function FooterWithExactFeeCheck({ tx, children }: Props) {
@@ -33,18 +48,19 @@ function FooterWithExactFeeCheck({ tx, children }: Props) {
   const aminoConverters = useAminoConverters()
   const aminoTypes = useAminoTypes()
   const createSigningStargateClient = useCreateSigningStargateClient()
-  const exactFeeCheck = getExactFeeCheckSetup({
-    balances,
+  const requiresExactFeeCheck = shouldCheckExactFee({
     dstChainType,
-    findChain,
     recipient,
     route,
     sender,
-    srcChainId,
     srcChainType,
-    srcDenom,
     tx,
   })
+  const chain = requiresExactFeeCheck ? findChain(srcChainId) : undefined
+  const feeDenoms = chain
+    ? Array.from(new Set([srcDenom, ...chain.fees.fee_tokens.map(({ denom }) => denom)]))
+    : []
+  const balanceKey = getFeeBalanceKey({ balances, feeDenoms })
 
   const {
     data: hasFeeBalance,
@@ -58,11 +74,19 @@ function FooterWithExactFeeCheck({ tx, children }: Props) {
       srcChainId,
       srcDenom,
       route.amount_in,
-      exactFeeCheck?.balanceKey,
+      balanceKey,
     ],
     queryFn: async () => {
       try {
-        if (!(exactFeeCheck && "cosmos_tx" in tx && tx.cosmos_tx.msgs?.length && balances)) {
+        if (
+          !(
+            requiresExactFeeCheck &&
+            chain &&
+            "cosmos_tx" in tx &&
+            tx.cosmos_tx.msgs?.length &&
+            balances
+          )
+        ) {
           throw new Error("Invalid transaction data")
         }
 
@@ -72,7 +96,7 @@ function FooterWithExactFeeCheck({ tx, children }: Props) {
         })
         const client = await createSigningStargateClient(srcChainId)
         const gas = await client.simulate(sender, messages, "")
-        const gasPrices = await fetchGasPrices(findChain(srcChainId))
+        const gasPrices = await fetchGasPrices(chain)
         const requiredFeeByDenom = computeRequiredFeeByDenom({
           gas,
           gasPrices,
@@ -88,11 +112,11 @@ function FooterWithExactFeeCheck({ tx, children }: Props) {
         throw await normalizeError(error)
       }
     },
-    enabled: !!exactFeeCheck && balances !== undefined,
+    enabled: requiresExactFeeCheck && balances !== undefined,
     retry: false,
   })
 
-  if (!exactFeeCheck) {
+  if (!requiresExactFeeCheck) {
     return children({ isCheckingFeeBalance: false })
   }
 
