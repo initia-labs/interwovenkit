@@ -49,6 +49,22 @@ export function useInitiaRegistry() {
   return data
 }
 
+function useInitiaRegistryEnabled(enabled: boolean) {
+  const { defaultChainId, registryUrl, customChain } = useConfig()
+  return useQuery({
+    queryKey: chainQueryKeys.list(registryUrl).queryKey,
+    queryFn: () => ky.create({ prefixUrl: registryUrl }).get("chains.json").json<Chain[]>(),
+    select: (rawChains: Chain[]) => {
+      const chains = customChain
+        ? [customChain, ...rawChains.filter((chain) => chain.chain_id !== customChain.chain_id)]
+        : rawChains
+      return chains.map(normalizeChain).sort(descend((chain) => chain.chainId === defaultChainId))
+    },
+    staleTime: STALE_TIMES.MINUTE,
+    enabled,
+  })
+}
+
 export function useProfilesRegistry() {
   const { registryUrl } = useConfig()
   const { data } = useSuspenseQuery({
@@ -58,6 +74,17 @@ export function useProfilesRegistry() {
     staleTime: STALE_TIMES.MINUTE,
   })
   return data
+}
+
+function useProfilesRegistryEnabled(enabled: boolean) {
+  const { registryUrl } = useConfig()
+  return useQuery({
+    queryKey: chainQueryKeys.profiles(registryUrl).queryKey,
+    queryFn: () =>
+      ky.create({ prefixUrl: registryUrl }).get("profiles.json").json<ChainProfile[]>(),
+    staleTime: STALE_TIMES.MINUTE,
+    enabled,
+  })
 }
 
 export function useFindChain() {
@@ -95,6 +122,70 @@ export function useFindChain() {
 export function useChain(chainId: string) {
   const findChain = useFindChain()
   return findChain(chainId)
+}
+
+export function useChainEnabled(chainId: string, enabled: boolean) {
+  const chainsQuery = useInitiaRegistryEnabled(enabled)
+  const profilesQuery = useProfilesRegistryEnabled(enabled)
+
+  if (!enabled) {
+    return { chain: undefined, error: null, isLoading: false }
+  }
+
+  const queryError = chainsQuery.error ?? profilesQuery.error
+  if (queryError) {
+    return {
+      chain: undefined,
+      error: queryError instanceof Error ? queryError : new Error("Failed to load chains"),
+      isLoading: false,
+    }
+  }
+
+  if (chainsQuery.isLoading || profilesQuery.isLoading) {
+    return { chain: undefined, error: null, isLoading: true }
+  }
+
+  const chains = chainsQuery.data
+  const profiles = profilesQuery.data
+  if (!(chains && profiles)) {
+    return { chain: undefined, error: null, isLoading: true }
+  }
+
+  const chain = chains.find((chain) => chain.chain_id === chainId)
+  if (chain) {
+    return { chain, error: null, isLoading: false }
+  }
+
+  const profile = profiles.find((profile) => profile.chain_id === chainId)
+  if (!profile) {
+    return { chain: undefined, error: new Error(`Chain not found: ${chainId}`), isLoading: false }
+  }
+
+  const layer1 = chains.find((chain) => chain.metadata?.is_l1)
+  if (!layer1) {
+    return { chain: undefined, error: new Error("Layer 1 not found"), isLoading: false }
+  }
+
+  return {
+    chain: {
+      chain_id: profile.chain_id,
+      chain_name: profile.name,
+      pretty_name: profile.pretty_name,
+      network_type: layer1.network_type,
+      bech32_prefix: "init" as const,
+      fees: { fee_tokens: [] },
+      apis: { rpc: [], rest: [], indexer: [] },
+      chainId,
+      name: profile.pretty_name,
+      logoUrl: profile.logo,
+      rpcUrl: "",
+      restUrl: "",
+      indexerUrl: "",
+      jsonRpcUrl: "",
+    } as NormalizedChain,
+    error: null,
+    isLoading: false,
+  }
 }
 
 export function useDefaultChain() {

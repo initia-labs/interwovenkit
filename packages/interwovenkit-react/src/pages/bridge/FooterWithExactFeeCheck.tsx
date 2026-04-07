@@ -1,6 +1,6 @@
 import type { TxJson } from "@skip-go/client"
 import { useQuery } from "@tanstack/react-query"
-import { useFindChain } from "@/data/chains"
+import { useChainEnabled } from "@/data/chains"
 import { fetchGasPrices } from "@/data/fee"
 import { normalizeError } from "@/data/http"
 import { useAminoConverters, useAminoTypes, useCreateSigningStargateClient } from "@/data/signer"
@@ -35,7 +35,6 @@ function getFeeBalanceKey({
 function FooterWithExactFeeCheck({ tx, children }: Props) {
   const { route, values } = useBridgePreviewState()
   const { sender, recipient, srcChainId, srcDenom, dstChainId } = values
-  const findChain = useFindChain()
   const srcChain = useSkipChain(srcChainId)
   const dstChain = useSkipChain(dstChainId)
   const srcChainType = useChainType(srcChain)
@@ -56,7 +55,11 @@ function FooterWithExactFeeCheck({ tx, children }: Props) {
     srcChainType,
     tx,
   })
-  const chain = requiresExactFeeCheck ? findChain(srcChainId) : undefined
+  const {
+    chain,
+    error: chainError,
+    isLoading: isLoadingChain,
+  } = useChainEnabled(srcChainId, requiresExactFeeCheck)
   const feeDenoms = chain
     ? Array.from(new Set([srcDenom, ...chain.fees.fee_tokens.map(({ denom }) => denom)]))
     : []
@@ -120,6 +123,10 @@ function FooterWithExactFeeCheck({ tx, children }: Props) {
     return children({ isCheckingFeeBalance: false })
   }
 
+  if (chainError) {
+    return children({ exactFeeCheckError: chainError.message, isCheckingFeeBalance: false })
+  }
+
   if (balancesError) {
     return children({
       exactFeeCheckError: "Failed to load balances",
@@ -127,7 +134,7 @@ function FooterWithExactFeeCheck({ tx, children }: Props) {
     })
   }
 
-  if (isLoadingBalances || balances === undefined || isLoading) {
+  if (isLoadingChain || isLoadingBalances || balances === undefined || isLoading) {
     return children({ isCheckingFeeBalance: true })
   }
 
