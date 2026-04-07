@@ -1,0 +1,45 @@
+name: E2E Smoke Test (Devin)
+
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+
+jobs:
+  trigger-devin:
+    # Skip draft PRs and release-please PRs
+    if: >-
+      !github.event.pull_request.draft &&
+      !startsWith(github.event.pull_request.title, 'chore(main): release')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Devin E2E smoke test session
+        env:
+          DEVIN_API_KEY: ${{ secrets.DEVIN_API_KEY }}
+          DEVIN_ORG_ID: ${{ secrets.DEVIN_ORG_ID }}
+          DEVIN_PLAYBOOK_ID: ${{ secrets.DEVIN_PLAYBOOK_ID }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          PR_URL="${{ github.event.pull_request.html_url }}"
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          PR_BRANCH="${{ github.event.pull_request.head.ref }}"
+
+          PROMPT="Run the InterwovenKit E2E Smoke Test playbook against PR #${PR_NUMBER}.
+
+          PR details:
+          - Title: ${PR_TITLE}
+          - URL: ${PR_URL}
+          - Branch: ${PR_BRANCH}
+          - PR_NUMBER: ${PR_NUMBER}
+
+          Check out branch '${PR_BRANCH}' from initia-labs/interwovenkit, build, run the example app, and test all 13 phases. Post the results table as a comment on PR #${PR_NUMBER} in initia-labs/interwovenkit."
+
+          PAYLOAD=$(jq -n \
+            --arg prompt "$PROMPT" \
+            --arg playbook_id "$DEVIN_PLAYBOOK_ID" \
+            '{prompt: $prompt, playbook_id: $playbook_id}')
+
+          curl -s -f -X POST "https://api.devin.ai/v3/organizations/${DEVIN_ORG_ID}/sessions" \
+            -H "Authorization: Bearer ${DEVIN_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"
