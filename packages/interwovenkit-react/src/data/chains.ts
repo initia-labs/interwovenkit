@@ -33,6 +33,51 @@ function normalizeChain(chain: Chain) {
 
 export type NormalizedChain = ReturnType<typeof normalizeChain>
 
+export function resolveEnabledChainState({
+  chainId,
+  chains,
+  enabled,
+  error,
+  isLoading,
+}: {
+  chainId: string
+  chains?: NormalizedChain[]
+  enabled: boolean
+  error: unknown
+  isLoading: boolean
+}) {
+  if (!enabled) {
+    return { chain: undefined, error: null, isLoading: false }
+  }
+
+  const chain = chains?.find((chain) => chain.chain_id === chainId)
+  if (chain) {
+    return { chain, error: null, isLoading: false }
+  }
+
+  if (error && !chains) {
+    return {
+      chain: undefined,
+      error: error instanceof Error ? error : new Error("Failed to load chains"),
+      isLoading: false,
+    }
+  }
+
+  if (isLoading || !chains) {
+    return { chain: undefined, error: null, isLoading: true }
+  }
+
+  if (error) {
+    return {
+      chain: undefined,
+      error: error instanceof Error ? error : new Error("Failed to load chains"),
+      isLoading: false,
+    }
+  }
+
+  return { chain: undefined, error: new Error(`Chain not found: ${chainId}`), isLoading: false }
+}
+
 export function useInitiaRegistry() {
   const { defaultChainId, registryUrl, customChain } = useConfig()
   const { data } = useSuspenseQuery({
@@ -115,35 +160,13 @@ export function useChain(chainId: string) {
 
 export function useChainEnabled(chainId: string, enabled: boolean) {
   const chainsQuery = useInitiaRegistryEnabled(enabled)
-
-  if (!enabled) {
-    return { chain: undefined, error: null, isLoading: false }
-  }
-
-  if (chainsQuery.isLoading && !chainsQuery.data) {
-    return { chain: undefined, error: null, isLoading: true }
-  }
-
-  const chains = chainsQuery.data
-  if (!chains) {
-    return { chain: undefined, error: null, isLoading: true }
-  }
-
-  const chain = chains.find((chain) => chain.chain_id === chainId)
-  if (chain) {
-    return { chain, error: null, isLoading: false }
-  }
-
-  if (chainsQuery.error) {
-    return {
-      chain: undefined,
-      error:
-        chainsQuery.error instanceof Error ? chainsQuery.error : new Error("Failed to load chains"),
-      isLoading: false,
-    }
-  }
-
-  return { chain: undefined, error: new Error(`Chain not found: ${chainId}`), isLoading: false }
+  return resolveEnabledChainState({
+    chainId,
+    chains: chainsQuery.data,
+    enabled,
+    error: chainsQuery.error,
+    isLoading: chainsQuery.isLoading,
+  })
 }
 
 export function useDefaultChain() {
