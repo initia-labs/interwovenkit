@@ -5,19 +5,19 @@ interface ExactFeeCheckRoute {
 }
 
 export function shouldCheckExactFee({
-  isDstInitia,
-  recipient,
   route,
-  sender,
-  isSrcInitia,
   tx,
+  isSrcInitia,
+  isDstInitia,
+  sender,
+  recipient,
 }: {
-  isDstInitia: boolean
-  recipient?: string
   route?: ExactFeeCheckRoute
-  sender?: string
-  isSrcInitia: boolean
   tx: TxJson
+  isSrcInitia: boolean
+  isDstInitia: boolean
+  sender?: string
+  recipient?: string
 }): boolean {
   return (
     !!route &&

@@ -48,12 +48,12 @@ function FooterWithExactFeeCheck({ tx, children }: Props) {
   const aminoTypes = useAminoTypes()
   const createSigningStargateClient = useCreateSigningStargateClient()
   const requiresExactFeeCheck = shouldCheckExactFee({
-    isDstInitia: dstChainType === "initia",
-    recipient,
     route,
-    sender,
-    isSrcInitia: srcChainType === "initia",
     tx,
+    isSrcInitia: srcChainType === "initia",
+    isDstInitia: dstChainType === "initia",
+    sender,
+    recipient,
   })
   const {
     chain,
