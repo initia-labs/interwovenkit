@@ -132,28 +132,47 @@ export function useChainEnabled(chainId: string, enabled: boolean) {
     return { chain: undefined, error: null, isLoading: false }
   }
 
-  const queryError = chainsQuery.error ?? profilesQuery.error
-  if (queryError) {
+  if (chainsQuery.error) {
     return {
       chain: undefined,
-      error: queryError instanceof Error ? queryError : new Error("Failed to load chains"),
+      error:
+        chainsQuery.error instanceof Error ? chainsQuery.error : new Error("Failed to load chains"),
       isLoading: false,
     }
   }
 
-  if (chainsQuery.isLoading || profilesQuery.isLoading) {
+  if (chainsQuery.isLoading) {
     return { chain: undefined, error: null, isLoading: true }
   }
 
   const chains = chainsQuery.data
-  const profiles = profilesQuery.data
-  if (!(chains && profiles)) {
+  if (!chains) {
     return { chain: undefined, error: null, isLoading: true }
   }
 
   const chain = chains.find((chain) => chain.chain_id === chainId)
   if (chain) {
     return { chain, error: null, isLoading: false }
+  }
+
+  if (profilesQuery.error) {
+    return {
+      chain: undefined,
+      error:
+        profilesQuery.error instanceof Error
+          ? profilesQuery.error
+          : new Error("Failed to load chains"),
+      isLoading: false,
+    }
+  }
+
+  if (profilesQuery.isLoading) {
+    return { chain: undefined, error: null, isLoading: true }
+  }
+
+  const profiles = profilesQuery.data
+  if (!profiles) {
+    return { chain: undefined, error: null, isLoading: true }
   }
 
   const profile = profiles.find((profile) => profile.chain_id === chainId)
