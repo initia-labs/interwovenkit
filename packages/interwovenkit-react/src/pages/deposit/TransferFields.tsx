@@ -157,6 +157,8 @@ const TransferFields = ({ mode }: Props) => {
     hasBalanceQueryError: !!(balancesError || chainsError),
     isBalancesLoading,
   })
+  // Once balances have loaded, a missing denom means zero balance.
+  // Keep `undefined` only while the first snapshot is still loading.
   const balance = getResolvedTransferBalance({
     hasBalancesSnapshot: balances !== undefined,
     balance: sourceBalance,
