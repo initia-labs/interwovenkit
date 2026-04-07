@@ -24,4 +24,26 @@ describe("getTransferFooterStatus", () => {
       }),
     ).toEqual({ warning: "Make sure to leave enough for transaction fee" })
   })
+
+  it("shows insufficient balance when the fee cannot be covered and there is no warning", () => {
+    expect(
+      getTransferFooterStatus({
+        feeDenom: "uusdc",
+        sourceDenom: "uinit",
+        hasSourceBalance: true,
+        isFeeBalanceSufficient: false,
+      }),
+    ).toEqual({ error: "Insufficient balance" })
+  })
+
+  it("returns an empty status when both transfer amount and fee are covered", () => {
+    expect(
+      getTransferFooterStatus({
+        feeDenom: "uusdc",
+        sourceDenom: "uinit",
+        hasSourceBalance: true,
+        isFeeBalanceSufficient: true,
+      }),
+    ).toEqual({})
+  })
 })
