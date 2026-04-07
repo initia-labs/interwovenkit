@@ -40,7 +40,7 @@ function getNonNegativeAmount(value: string): BigNumber | null {
   if (!value) return null
 
   const amount = BigNumber(value)
-  if (!amount.isFinite() || amount.isNaN() || amount.lt(0)) return null
+  if (!amount.isFinite() || amount.lt(0)) return null
 
   return amount
 }

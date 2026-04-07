@@ -65,6 +65,15 @@ describe("hasSufficientTransferBalance", () => {
     ).toBe(true)
   })
 
+  it("returns true when balance exactly equals required amount", () => {
+    expect(
+      hasSufficientTransferBalance({
+        balance: "100",
+        requiredAmount: "100",
+      }),
+    ).toBe(true)
+  })
+
   it("treats a missing balance as zero when checking a positive spend amount", () => {
     expect(
       hasSufficientTransferBalance({
