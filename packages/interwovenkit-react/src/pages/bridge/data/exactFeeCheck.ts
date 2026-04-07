@@ -1,5 +1,7 @@
 import type { TxJson } from "@skip-go/client"
 
+type ChainType = "cosmos" | "evm" | "svm" | "initia"
+
 interface ExactFeeCheckRoute {
   required_op_hook?: boolean
 }

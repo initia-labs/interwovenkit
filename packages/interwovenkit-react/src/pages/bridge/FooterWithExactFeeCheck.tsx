@@ -134,7 +134,8 @@ function FooterWithExactFeeCheck({ tx, children }: Props) {
 
   if (balancesError) {
     return children({
-      exactFeeCheckError: balancesError instanceof Error ? balancesError.message : "Failed to load balances",
+      exactFeeCheckError:
+        balancesError instanceof Error ? balancesError.message : "Failed to load balances",
       isCheckingFeeBalance: false,
     })
   }
