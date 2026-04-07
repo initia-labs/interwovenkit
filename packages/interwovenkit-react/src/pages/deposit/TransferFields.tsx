@@ -340,24 +340,18 @@ const TransferFields = ({ mode }: Props) => {
             {rawQuantity ? formatValueWithPrice(quantityValue.toString(), price) : "$-"}
           </p>
 
-          {BigNumber(balance).gt(0) ? (
-            <button
-              className={styles.maxButton}
-              onClick={() => {
-                const maxAmount = fromBaseUnit(balance, { decimals: amountDecimals })
-                if (BigNumber(rawQuantity || 0).eq(maxAmount)) return
+          <button
+            className={styles.maxButton}
+            onClick={() => {
+              const maxAmount = fromBaseUnit(balance, { decimals: amountDecimals })
+              if (BigNumber(rawQuantity || 0).eq(maxAmount)) return
 
-                setValue("quantity", maxAmount)
-              }}
-            >
-              <IconWallet size={16} /> {formatAmount(balance, { decimals: amountDecimals })}{" "}
-              <span>MAX</span>
-            </button>
-          ) : (
-            <p className={styles.balanceLabel}>
-              <IconWallet size={16} /> {formatAmount(balance, { decimals: amountDecimals })}
-            </p>
-          )}
+              setValue("quantity", maxAmount)
+            }}
+          >
+            <IconWallet size={16} /> {formatAmount(balance, { decimals: amountDecimals })}{" "}
+            <span>MAX</span>
+          </button>
         </div>
       )}
     </>
