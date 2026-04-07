@@ -1,5 +1,5 @@
 import type { TxJson } from "@skip-go/client"
-import { shouldCheckExactFee } from "./exactFeeCheck"
+import { shouldCheckExactFee, shouldRunExactFeeQuery } from "./exactFeeCheck"
 
 describe("shouldCheckExactFee", () => {
   it("returns false for cosmos-to-initia routes", () => {
@@ -57,5 +57,17 @@ describe("shouldCheckExactFee", () => {
         } as TxJson,
       }),
     ).toBe(true)
+  })
+})
+
+describe("shouldRunExactFeeQuery", () => {
+  it("returns false until both balances and chain data are available", () => {
+    expect(
+      shouldRunExactFeeQuery({
+        hasBalances: true,
+        hasChain: false,
+        requiresExactFeeCheck: true,
+      }),
+    ).toBe(false)
   })
 })

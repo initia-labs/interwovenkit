@@ -7,7 +7,7 @@ import { useAminoConverters, useAminoTypes, useCreateSigningStargateClient } fro
 import { useSkipBalancesQuery } from "./data/balance"
 import { computeRequiredFeeByDenom, hasSufficientFeeBalance } from "./data/bridgeTxUtils"
 import { useChainType, useSkipChain } from "./data/chains"
-import { shouldCheckExactFee } from "./data/exactFeeCheck"
+import { shouldCheckExactFee, shouldRunExactFeeQuery } from "./data/exactFeeCheck"
 import { decodeCosmosAminoMessages, useBridgePreviewState } from "./data/tx"
 
 import type { ReactNode } from "react"
@@ -64,6 +64,11 @@ function FooterWithExactFeeCheck({ tx, children }: Props) {
     ? Array.from(new Set([srcDenom, ...chain.fees.fee_tokens.map(({ denom }) => denom)]))
     : []
   const balanceKey = getFeeBalanceKey({ balances, feeDenoms })
+  const shouldRunFeeQuery = shouldRunExactFeeQuery({
+    hasBalances: balances !== undefined,
+    hasChain: !!chain,
+    requiresExactFeeCheck,
+  })
 
   const {
     data: hasFeeBalance,
@@ -115,7 +120,7 @@ function FooterWithExactFeeCheck({ tx, children }: Props) {
         throw await normalizeError(error)
       }
     },
-    enabled: requiresExactFeeCheck && balances !== undefined,
+    enabled: shouldRunFeeQuery,
     retry: false,
   })
 

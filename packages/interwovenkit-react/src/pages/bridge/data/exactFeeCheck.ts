@@ -30,3 +30,15 @@ export function shouldCheckExactFee({
     !!recipient
   )
 }
+
+export function shouldRunExactFeeQuery({
+  hasBalances,
+  hasChain,
+  requiresExactFeeCheck,
+}: {
+  hasBalances: boolean
+  hasChain: boolean
+  requiresExactFeeCheck: boolean
+}) {
+  return requiresExactFeeCheck && hasBalances && hasChain
+}
