@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.6.0](https://github.com/initia-labs/interwovenkit/compare/v2.5.1...v2.6.0) (2026-04-07)
+
+
+### Features
+
+* **connect:** prioritize sign-in wallets by popularity and recency ([17a379a](https://github.com/initia-labs/interwovenkit/commit/17a379a218d9aaaf53d6fdc8d0bb355395cf1f77))
+
+
+### Bug Fixes
+
+* **bridge,deposit:** stabilize route refresh UX ([52a7355](https://github.com/initia-labs/interwovenkit/commit/52a73556adf5e6415961aeeb7dd3a314ba2997d9))
+* **bridge:** allow hex addresses as recipient for initia chains ([#208](https://github.com/initia-labs/interwovenkit/issues/208)) ([2d65f41](https://github.com/initia-labs/interwovenkit/commit/2d65f410119f0f64115fa557eaeedcb51335d81a))
+* **bridge:** guard preview fee checks for external chains ([1d3bc99](https://github.com/initia-labs/interwovenkit/commit/1d3bc99575e6eedca9203d447b7d957363c105b8))
+* **bridge:** restore swap fee warning for non-max large inputs ([c2812a3](https://github.com/initia-labs/interwovenkit/commit/c2812a36c2e9cd96a061f8cb89d358f1043b8400))
+* **bridge:** show $- when token has no price ([#211](https://github.com/initia-labs/interwovenkit/issues/211)) ([228d3b3](https://github.com/initia-labs/interwovenkit/commit/228d3b361ec0cab7f57981d6c8994f1df8e02d8b))
+* **bridge:** show insufficient balance for zero-balance tokens ([00d2a18](https://github.com/initia-labs/interwovenkit/commit/00d2a1874b0e94851b6d976377f1b063ee519e26))
+* **bridge:** warn when source gas token balance is insufficient after fee ([4f0c47d](https://github.com/initia-labs/interwovenkit/commit/4f0c47d858496a7ab677f3cfa6d2430c20cb68b0))
+* **deposit:** disable withdraw when balance is zero ([4103b7b](https://github.com/initia-labs/interwovenkit/commit/4103b7b3058295006f8a8fc5996fa3e97c33e181))
+* **deposit:** warn when gas-token MAX leaves no fee ([88cf52e](https://github.com/initia-labs/interwovenkit/commit/88cf52e1e30b18cf1da332d1960d3c09b6b1f6fd))
+* replace .toSorted() with .slice().sort() for browser compatibility ([50b336b](https://github.com/initia-labs/interwovenkit/commit/50b336bb1144f1db0e2b24c3ea19c25a50181ce7))
+
 ## [2.5.1](https://github.com/initia-labs/interwovenkit/compare/v2.5.0...v2.5.1) (2026-03-26)
 
 
