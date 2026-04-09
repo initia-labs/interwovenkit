@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import type { NormalizedChain } from "@/data/chains"
 import { aggregateNfts } from "./queries"
 

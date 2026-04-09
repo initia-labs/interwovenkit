@@ -1,5 +1,5 @@
 import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 import {
   buildAutoSignFeeFromSimulation,
   buildAutoSignSimulationInput,

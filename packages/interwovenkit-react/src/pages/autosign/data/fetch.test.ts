@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import type { FeegrantAllowance, Grant } from "./fetch"
 import { getFeegrantAllowedMessages, getFeegrantExpiration, normalizeAutoSignGrants } from "./fetch"
 

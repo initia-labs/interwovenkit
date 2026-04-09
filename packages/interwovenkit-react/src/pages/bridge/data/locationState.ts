@@ -8,8 +8,9 @@ interface BridgePreviewStateInput<TState extends object> {
   quoteVerifiedAt: number
 }
 
-interface BridgePreviewLocationStateInput<TState extends object>
-  extends BridgePreviewStateInput<TState> {
+interface BridgePreviewLocationStateInput<
+  TState extends object,
+> extends BridgePreviewStateInput<TState> {
   requiresReconfirm: boolean
 }
 

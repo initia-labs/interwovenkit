@@ -1,5 +1,5 @@
 import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { createObjectAddress, denomToMetadata, InitiaAddress } from "@initia/utils"
 
 // These are the helper functions we're testing (they're not exported, so we test the logic patterns)

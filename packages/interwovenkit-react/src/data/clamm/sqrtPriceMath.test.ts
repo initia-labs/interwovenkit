@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { getAmount0DeltaRounded, getNextSqrtPriceFromAmount1RoundingDown } from "./sqrtPriceMath"
 
 describe("getNextSqrtPriceFromAmount1RoundingDown", () => {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { i64FromBits, isFullRange, MAX_TICK } from "./const"
 
 describe("clamm const utils", () => {

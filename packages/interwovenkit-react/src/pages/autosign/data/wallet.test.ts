@@ -4,7 +4,7 @@ import { fromBase64, fromHex } from "@cosmjs/encoding"
 import type { EncodeObject } from "@cosmjs/proto-signing"
 import type { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import { ethers } from "ethers"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { createStore } from "jotai/vanilla"
 import {
   derivationSequenceAtom,
@@ -345,7 +345,7 @@ describe("clearAllWalletState", () => {
     expect(store.get(pendingDerivationsAtom)).toEqual({})
     expect(store.get(derivedWalletPrivateKeysAtom)).toEqual({})
     expect(store.get(derivedWalletsAtom)).toEqual({})
-    expect(Array.from(privateKey)).toEqual(new Array(32).fill(0))
+    expect(Array.from(privateKey)).toEqual(Array.from({ length: 32 }).fill(0))
     expect(store.get(derivationSequenceAtom)).toBe(9)
   })
 })

@@ -1,5 +1,5 @@
 import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { denomToMetadata } from "@initia/utils"
 import { INIT_DENOM } from "./constants"
 import { flattenClammPositions } from "./initia-liquidity"

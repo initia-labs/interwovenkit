@@ -3,35 +3,15 @@
     "dev": "pnpm --filter vite dev",
     "watch": "pnpm --filter vite watch",
     "build": "pnpm --filter interwovenkit-react build",
-    "typecheck": "pnpm -r typecheck",
-    "lint": "pnpm -r lint",
+    "check": "vp check",
     "test": "pnpm -r test",
-    "postinstall": "simple-git-hooks"
+    "postinstall": "vp config"
   },
   "devDependencies": {
-    "@initia/eslint-config-react-app": "^1.2.1",
-    "eslint": "^9.39.1",
-    "lint-staged": "^16.2.6",
-    "prettier": "^3.6.2",
-    "simple-git-hooks": "^2.13.1",
+    "@tanstack/eslint-plugin-query": "^5.96.2",
     "stylelint": "^16.25.0",
-    "stylelint-order": "^7.0.0"
-  },
-  "simple-git-hooks": {
-    "pre-commit": "pnpm lint-staged"
-  },
-  "lint-staged": {
-    "*.{ts,tsx}": [
-      "eslint --fix --max-warnings=0",
-      "prettier --write"
-    ],
-    "*.css": [
-      "prettier --write",
-      "stylelint --fix"
-    ],
-    "*.{json,md}": [
-      "prettier --write"
-    ]
+    "stylelint-order": "^7.0.0",
+    "vite-plus": "^0.1.16"
   },
   "packageManager": "pnpm@11.0.8"
 }

@@ -1,5 +1,5 @@
 import path from "path"
-import { mergeConfig } from "vite"
+import { mergeConfig } from "vite-plus"
 import baseConfig from "./vite.config"
 
 const pkg = path.resolve(__dirname, "../../packages/interwovenkit-react")

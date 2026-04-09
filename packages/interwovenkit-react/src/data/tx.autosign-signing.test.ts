@@ -1,7 +1,7 @@
 import type { EncodeObject } from "@cosmjs/proto-signing"
 import type { SigningStargateClient, StdFee } from "@cosmjs/stargate"
 import type { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
-import { describe, expect, it, vi } from "vitest"
+import { describe, expect, it, vi } from "vite-plus/test"
 import { signTxWithAutoSignFeeWithDeps } from "./tx"
 
 const chainId = "initia-1"

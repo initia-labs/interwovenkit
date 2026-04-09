@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { INIT_SYMBOL } from "../constants"
 import type { PortfolioAssetGroup, PortfolioAssetItem } from "../portfolio"
 import type {

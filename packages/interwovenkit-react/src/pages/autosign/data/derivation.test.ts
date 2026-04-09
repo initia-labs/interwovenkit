@@ -1,5 +1,5 @@
 import type { Hex } from "viem"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { deriveWalletFromSignature, getAutoSignMessage, getDerivedWalletKey } from "./derivation"
 
 const VALID_SIGNATURE: Hex =

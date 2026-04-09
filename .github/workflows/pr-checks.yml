@@ -25,14 +25,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run TypeScript typecheck
-        run: pnpm typecheck
-
-      - name: Run ESLint
-        run: pnpm lint --max-warnings=0
+      - name: Run checks
+        run: pnpm check
 
       - name: Run tests
         run: pnpm test
-
-      - name: Check Prettier formatting
-        run: pnpm prettier --check "**/*.{ts,tsx,json,css,md}"

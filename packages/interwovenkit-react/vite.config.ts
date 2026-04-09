@@ -1,9 +1,9 @@
 /* eslint-disable no-console */
-import react from "@vitejs/plugin-react-swc"
+import react from "@vitejs/plugin-react"
 import fs from "fs"
 import path from "path"
 import type { Plugin } from "vite"
-import { defineConfig } from "vite"
+import { defineConfig } from "vite-plus"
 import dts from "vite-plugin-dts"
 import pkg from "./package.json"
 
@@ -49,8 +49,13 @@ function appendJsExtension(): Plugin {
   }
 }
 
+// @ts-expect-error vite-plus defineConfig type is incompatible with extended config (test block)
 export default defineConfig(({ mode }) => {
   return {
+    test: {
+      globals: true,
+      include: ["**/*.test.ts"],
+    },
     define: {
       __INTERWOVENKIT_VERSION__: JSON.stringify(pkg.version),
     },

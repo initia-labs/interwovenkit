@@ -1,5 +1,5 @@
 import { AminoTypes } from "@cosmjs/stargate"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import {
   AllowedMsgAllowance,
   BasicAllowance,

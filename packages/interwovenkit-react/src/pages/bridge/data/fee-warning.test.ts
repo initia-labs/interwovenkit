@@ -1,5 +1,5 @@
 import type { FeeJson } from "@skip-go/client"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it } from "vite-plus/test"
 import { shouldWarnInsufficientFeeBalance } from "./fee-warning"
 
 describe("shouldWarnInsufficientFeeBalance", () => {
