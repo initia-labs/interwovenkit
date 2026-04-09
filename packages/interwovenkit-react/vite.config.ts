@@ -49,7 +49,7 @@ function appendJsExtension(): Plugin {
   }
 }
 
-// @ts-expect-error vite-plus defineConfig type is incompatible with extended config (test block)
+// @ts-expect-error vite-plus defineConfig type does not include test block
 export default defineConfig(({ mode }) => {
   return {
     test: {

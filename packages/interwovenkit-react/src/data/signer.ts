@@ -276,6 +276,7 @@ export function useCreateComet38Client() {
     }
 
     const { rpcUrl } = findChain(chainId)
+    // eslint-disable-next-line @typescript-eslint/await-thenable -- CosmJS returns Promise; oxlint misresolves the type
     const cometClient = await Comet38Client.create(new HttpClient(rpcUrl))
 
     comet38ClientCache.set(chainId, cometClient)
@@ -299,6 +300,7 @@ export function useCreateSigningStargateClient() {
     if (!offlineSigner) throw new Error("Signer not initialized")
 
     const cometClient = await createComet38Client(chainId)
+    // eslint-disable-next-line @typescript-eslint/await-thenable -- CosmJS returns Promise; oxlint misresolves the type
     const client = await SigningStargateClient.createWithSigner(cometClient, offlineSigner, {
       registry,
       aminoTypes,

@@ -188,7 +188,7 @@ function createRow(
   const pool = pools.get(denom) ?? null
   const symbol = pool?.symbol || denom
   const coinLogos = getCoinLogos(pool, assetByDenom)
-  const hasCoinLogos = coinLogos.length > 0 && coinLogos.some((logo) => logo)
+  const hasCoinLogos = coinLogos.some((logo) => logo)
   const logoUrl = hasCoinLogos ? undefined : assetByDenom.get(denom)?.logoUrl
 
   return {

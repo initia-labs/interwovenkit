@@ -241,7 +241,7 @@ async function mapWithConcurrency<T, R>(
   concurrency: number,
   mapper: (item: T, index: number) => Promise<R>,
 ): Promise<R[]> {
-  const results = new Array<R>(items.length)
+  const results = Array.from<R>({ length: items.length })
   const maxConcurrency = Math.max(1, concurrency)
   let nextIndex = 0
 
@@ -395,7 +395,7 @@ export function useInitializeAutoSign() {
     if (timeUntilExpiration <= 0) return
 
     const timeoutId = setTimeout(() => {
-      refetch()
+      void refetch()
     }, timeUntilExpiration + 100)
 
     return () => clearTimeout(timeoutId)

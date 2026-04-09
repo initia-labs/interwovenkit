@@ -92,7 +92,7 @@ function renderLiquidityRowTrigger({
   singleLogoUrl,
   rightContent,
 }: LiquidityRowTriggerProps) {
-  const hasCoinLogos = coinLogos && coinLogos.length > 0 && coinLogos.some((coinLogo) => coinLogo)
+  const hasCoinLogos = coinLogos && coinLogos.some((coinLogo) => coinLogo)
 
   return (
     <button className={styles.tokenTrigger}>

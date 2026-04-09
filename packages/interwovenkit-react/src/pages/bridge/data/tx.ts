@@ -310,7 +310,7 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
         })
       } finally {
         // Always invalidate balance queries
-        queryClient.invalidateQueries({
+        void queryClient.invalidateQueries({
           queryKey: skipQueryKeys.balances(srcChainId, sender).queryKey,
         })
       }

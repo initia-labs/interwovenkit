@@ -58,7 +58,7 @@ const FooterWithAddressList = ({ children }: Props) => {
       }
     }
 
-    fetchPubkey()
+    void fetchPubkey()
   }, [isPubkeyRequired, signer])
 
   if (error) {

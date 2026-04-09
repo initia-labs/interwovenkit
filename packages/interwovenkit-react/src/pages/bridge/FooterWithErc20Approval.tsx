@@ -130,7 +130,7 @@ const FooterWithErc20Approval = ({ tx, children }: Props) => {
           // The approval tx may have confirmed on-chain after the timeout.
           // Refetch allowances so the button state reflects actual on-chain data
           // and the user doesn't pay gas for a redundant second approval.
-          queryClient.invalidateQueries({
+          void queryClient.invalidateQueries({
             queryKey: ["interwovenkit:erc20-approvals-needed", tx],
           })
           throw error

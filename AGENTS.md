@@ -6,13 +6,13 @@ React 19 library for connecting dApps to Initia and Interwoven Rollups. Provides
 
 ## Tech Stack
 
-- **Framework**: React 19, TypeScript 5.9, Vite 7 (SWC)
+- **Framework**: React 19, TypeScript 5.9, Vite 8, vite-plus
 - **State**: Jotai (UI atoms), TanStack React Query 5 (server state), React Hook Form 7 (forms)
 - **Blockchain**: CosmJS 0.36 (Cosmos), wagmi 2 + viem 2 (EVM)
 - **Styling**: CSS Modules + CSS custom properties (Shadow DOM compatible)
 - **UI Primitives**: Base UI 1.0, Radix UI 1.4, React Spring 10
 - **Utilities**: BigNumber.js, ky, ramda, date-fns, xss
-- **Testing**: Vitest 4
+- **Testing**: vite-plus/test (Vitest)
 - **Monorepo**: pnpm workspaces
 
 ## Directory Structure
@@ -49,9 +49,9 @@ examples/vite/         # Demo app for development
 pnpm dev           # Dev server with HMR (example app)
 pnpm watch         # Dev with built package (no HMR)
 pnpm build         # Library build (ES + CJS)
-pnpm typecheck     # TypeScript type checking
-pnpm lint          # ESLint + Prettier
-pnpm test          # Vitest
+pnpm check         # Format, lint, type checks (vp check)
+pnpm lint          # Lint with zero warnings enforced
+pnpm test          # Tests (vp test)
 ```
 
 Package-level (from `packages/interwovenkit-react/`):
@@ -130,7 +130,7 @@ CSS Modules with CSS custom properties. Shadow DOM compatible (`:host` selectors
 
 ## Testing
 
-- **Framework**: Vitest 4 with `globals: true`
+- **Framework**: vite-plus/test (Vitest) with `globals: true`
 - **Location**: Co-located with source as `*.test.ts` across `data/`, `pages/`, `components/`, `lib/`
 - **Scope**: ~24 test files covering errors, signing, tx, portfolio, staking, liquidity, SSE parsing, autosign, bridge formatting, wallet activity, NFT queries, address utilities
 - **Mocking**: `vi.mock()` for modules, `vi.mocked()` for typed assertions
@@ -159,5 +159,5 @@ When instructed to run Playwright MCP tests, use the example app in `examples/vi
 - **CosmJS patches**: `data/patches/` contains monkey patches for amino, pubkeys, signature, encoding, and accounts
 - **Build output**: ES module (`.js`) + CommonJS (`.cjs`), CSS extracted as both `.css` file and string `.js` export, `*.d.ts` declarations bundled
 - **Path alias**: `@/*` maps to `src/*`
-- **Pre-commit**: lint-staged runs ESLint + Prettier on staged files via simple-git-hooks
+- **Pre-commit**: `vp staged` runs lint + format on staged files via vite-plus hooks
 - **Release**: release-please automates versioning, CHANGELOG, and GitHub Releases via Release PR on `main`

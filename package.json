@@ -3,7 +3,7 @@
     "dev": "pnpm --filter vite dev",
     "watch": "pnpm --filter vite watch",
     "build": "pnpm --filter interwovenkit-react build",
-    "check": "vp check",
+    "check": "vp check --no-lint && vp lint --deny-warnings",
     "test": "pnpm -r test",
     "postinstall": "vp config"
   },

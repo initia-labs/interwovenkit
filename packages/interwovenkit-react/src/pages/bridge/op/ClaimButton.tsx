@@ -59,7 +59,7 @@ const ClaimButton = () => {
     },
     onSuccess: async (txHash) => {
       await waitForTxConfirmation({ chainId: layer1.chain_id, txHash })
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: opQueryKeys.withdrawalClaimed(bridge_id, withdrawalHash).queryKey,
       })
     },

@@ -89,7 +89,7 @@ const SendNftFields = () => {
       await requestTxSync({ messages, chainId: srcChain.chainId, internal: "/nfts" })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: nftQueryKeys.nfts._def })
+      void queryClient.invalidateQueries({ queryKey: nftQueryKeys.nfts._def })
     },
   })
 

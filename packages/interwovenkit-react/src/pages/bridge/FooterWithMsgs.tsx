@@ -111,7 +111,7 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
       }
     }
 
-    fetchMessages()
+    void fetchMessages()
     return () => {
       cancelled = true
     }
