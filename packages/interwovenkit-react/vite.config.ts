@@ -2,46 +2,55 @@
 import react from "@vitejs/plugin-react"
 import fs from "fs"
 import path from "path"
-import type { Plugin } from "vite"
 import { defineConfig } from "vite-plus"
-import dts from "vite-plugin-dts"
 import pkg from "./package.json"
 
-function emitCssAsJsString(): Plugin {
+function emitCssAsJsString() {
   return {
     name: "emit-css-as-js-string",
-    apply: "build",
     closeBundle() {
       const outDir = path.resolve(__dirname, "dist")
       const cssPath = path.join(outDir, "styles.css")
-      const jsPath = path.join(outDir, "styles.js")
-      const dtsPath = path.join(outDir, "styles.d.ts")
+      if (!fs.existsSync(cssPath)) return
 
-      if (fs.existsSync(cssPath)) {
-        const cssContent = fs.readFileSync(cssPath, "utf-8")
-        const jsModule = `export default ${JSON.stringify(cssContent)};`
-        fs.writeFileSync(jsPath, jsModule)
-        console.log("✅ Generated styles.js")
-        const dtsContent = "declare const styles: string\nexport default styles\n"
-        fs.writeFileSync(dtsPath, dtsContent)
-        console.log("✅ Generated styles.d.ts")
-      } else {
-        console.error("❌ styles.css not found.")
-      }
+      const cssContent = fs.readFileSync(cssPath, "utf-8")
+      fs.writeFileSync(
+        path.join(outDir, "styles.js"),
+        `export default ${JSON.stringify(cssContent)};`,
+      )
+      console.log("✅ Generated styles.js")
+      fs.writeFileSync(
+        path.join(outDir, "styles.d.ts"),
+        "declare const styles: string\nexport default styles\n",
+      )
+      console.log("✅ Generated styles.d.ts")
     },
   }
 }
 
-function appendJsExtension(): Plugin {
+// Inline SVG imports as data URIs (replaces Vite's built-in asset handling)
+function svgDataUri() {
+  return {
+    name: "svg-data-uri",
+    load(id: string) {
+      if (!id.endsWith(".svg")) return
+      const content = fs.readFileSync(id, "utf-8")
+      const encoded = Buffer.from(content).toString("base64")
+      return `export default "data:image/svg+xml;base64,${encoded}";`
+    },
+  }
+}
+
+// Append .js to deep imports from packages with incomplete ESM exports
+function appendJsExtension() {
   return {
     name: "append-js-extension",
-    apply: "build",
-    renderChunk(code) {
+    renderChunk(code: string) {
       const targetPackages = ["cosmjs-types", "@cosmjs/amino"]
-
-      return targetPackages.reduce((currentCode, pkg) => {
-        const regex = new RegExp(`from\\s+['"](${pkg}/[^'"]*?)['"]`, "g")
-        return currentCode.replace(regex, (match, importPath) => {
+      return targetPackages.reduce((currentCode, packageName) => {
+        const regex = new RegExp(`from\\s+['"](${packageName}/[^'"]*?)['"]`, "g")
+        return currentCode.replace(regex, (match: string, importPath: string) => {
+          if (importPath.endsWith(".js")) return match
           return match.replace(importPath, importPath + ".js")
         })
       }, code)
@@ -49,8 +58,8 @@ function appendJsExtension(): Plugin {
   }
 }
 
-// @ts-expect-error vite-plus defineConfig type does not include test block
-export default defineConfig(({ mode }) => {
+// @ts-expect-error vite-plus defineConfig type does not include test/pack blocks
+export default defineConfig(() => {
   return {
     test: {
       globals: true,
@@ -59,27 +68,22 @@ export default defineConfig(({ mode }) => {
     define: {
       __INTERWOVENKIT_VERSION__: JSON.stringify(pkg.version),
     },
-    plugins: [
-      dts({ rollupTypes: mode !== "fast" }),
-      react(),
-      emitCssAsJsString(),
-      appendJsExtension(),
-    ],
+    plugins: [react()],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "src"),
       },
     },
-    build: {
-      lib: {
-        entry: path.resolve(__dirname, "src/index.ts"),
-        formats: ["es", "cjs"],
-        fileName: (format) => (format === "es" ? "index.js" : "index.cjs"),
-        cssFileName: "styles",
+    pack: {
+      entry: path.resolve(__dirname, "src/index.ts"),
+      dts: { tsgo: true },
+      format: ["esm", "cjs"],
+      define: {
+        __INTERWOVENKIT_VERSION__: JSON.stringify(pkg.version),
       },
-      rollupOptions: {
-        external: (id) => !(id.startsWith(".") || id.startsWith("/") || id.startsWith("@/")),
-      },
+      css: { fileName: "styles.css" },
+      deps: { skipNodeModulesBundle: true },
+      plugins: [svgDataUri(), emitCssAsJsString(), appendJsExtension()],
     },
   }
 })

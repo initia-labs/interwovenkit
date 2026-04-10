@@ -8,11 +8,17 @@
   "files": [
     "dist"
   ],
+  "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "require": "./dist/index.cjs",
-      "import": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./styles.css": "./dist/styles.css",
     "./styles.js": "./dist/styles.js"
@@ -21,8 +27,8 @@
     "access": "public"
   },
   "scripts": {
-    "build": "vp build",
-    "build:fast": "vp build --mode fast",
+    "build": "vp pack",
+    "build:fast": "vp pack",
     "test": "vp test"
   },
   "dependencies": {
@@ -72,9 +78,11 @@
     "@skip-go/client": "^1.5.9",
     "@tanstack/react-query": "^5.90.7",
     "@tsconfig/vite-react": "^7.0.1",
+    "@tsdown/css": "^0.21.7",
     "@types/ramda": "^0.31.1",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
+    "@typescript/native-preview": "7.0.0-dev.20260408.1",
     "@vitejs/plugin-react": "^6.0.1",
     "postcss": "^8.5.6",
     "react": "^19.2.0",
@@ -82,7 +90,6 @@
     "typescript": "^5.9.3",
     "viem": "^2.38.6",
     "vite": "^8.0.7",
-    "vite-plugin-dts": "^4.5.4",
     "vite-plus": "^0.1.16",
     "wagmi": "2.17.2"
   },
