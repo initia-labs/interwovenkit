@@ -73,7 +73,7 @@ const queryKeys = createQueryKeys("interwovenkit:bridge-preparation", {
   }) => [params],
 })
 
-export function getBridgePreparationRouteKey(route: RouterRouteResponseJson): string {
+function getBridgePreparationRouteKey(route: RouterRouteResponseJson): string {
   return JSON.stringify({
     amount_in: route.amount_in,
     amount_out: route.amount_out,
