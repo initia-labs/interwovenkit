@@ -138,6 +138,8 @@ const BridgeFields = () => {
   const routeQuery = preferred.error && fallbackEnabled ? fallback : preferred
   const { data: route, isLoading, error } = routeQuery
   const { data: routeErrorInfo } = useRouteErrorInfo(error)
+  // Prewarm preparation queries (address list, tx, fee check, approvals) so the
+  // preview route loads from cache; return value is intentionally unused.
   useBridgeRoutePreparation({
     route,
     values,

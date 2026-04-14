@@ -1,3 +1,9 @@
+export const BRIDGE_ROUTE_FRESHNESS_MS = {
+  LAYER_2_SAME_CHAIN: 2000,
+  LAYER_1_SAME_CHAIN: 5000,
+  DEFAULT: 10000,
+} as const
+
 interface BridgeRouteFreshnessParams {
   srcChainId: string
   dstChainId: string
@@ -21,9 +27,9 @@ export function getBridgeRouteFreshnessMs({
   const isLayer1Swap = isSameChainRoute && srcChainId === layer1ChainId
   const isLayer2Swap = isSameChainRoute && srcChainType === "initia" && !isLayer1Swap
 
-  if (isLayer1Swap) return 5000
-  if (isLayer2Swap) return 2000
-  return 10000
+  if (isLayer1Swap) return BRIDGE_ROUTE_FRESHNESS_MS.LAYER_1_SAME_CHAIN
+  if (isLayer2Swap) return BRIDGE_ROUTE_FRESHNESS_MS.LAYER_2_SAME_CHAIN
+  return BRIDGE_ROUTE_FRESHNESS_MS.DEFAULT
 }
 
 export function isBridgeQuoteFresh({

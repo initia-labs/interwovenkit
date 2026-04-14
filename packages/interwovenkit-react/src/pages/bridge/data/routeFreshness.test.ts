@@ -1,4 +1,8 @@
-import { getBridgeRouteFreshnessMs, isBridgeQuoteFresh } from "./routeFreshness"
+import {
+  BRIDGE_ROUTE_FRESHNESS_MS,
+  getBridgeRouteFreshnessMs,
+  isBridgeQuoteFresh,
+} from "./routeFreshness"
 
 describe("getBridgeRouteFreshnessMs", () => {
   it("uses the shorter L2 freshness window for same-chain initia swaps", () => {
@@ -9,7 +13,7 @@ describe("getBridgeRouteFreshnessMs", () => {
         srcChainId: "minievm-1",
         srcChainType: "initia",
       }),
-    ).toBe(2000)
+    ).toBe(BRIDGE_ROUTE_FRESHNESS_MS.LAYER_2_SAME_CHAIN)
   })
 
   it("uses the layer 1 freshness window for same-chain L1 swaps", () => {
@@ -20,7 +24,7 @@ describe("getBridgeRouteFreshnessMs", () => {
         srcChainId: "initia-1",
         srcChainType: "initia",
       }),
-    ).toBe(5000)
+    ).toBe(BRIDGE_ROUTE_FRESHNESS_MS.LAYER_1_SAME_CHAIN)
   })
 
   it("falls back to the default freshness window for cross-chain routes", () => {
@@ -31,7 +35,7 @@ describe("getBridgeRouteFreshnessMs", () => {
         srcChainId: "arb-1",
         srcChainType: "evm",
       }),
-    ).toBe(10000)
+    ).toBe(BRIDGE_ROUTE_FRESHNESS_MS.DEFAULT)
   })
 })
 
