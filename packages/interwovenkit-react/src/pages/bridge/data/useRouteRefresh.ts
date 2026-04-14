@@ -1,12 +1,10 @@
 import { useEffect, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { useLayer1 } from "@/data/chains"
 import { normalizeError } from "@/data/http"
 import { useLocationState, useNavigate } from "@/lib/router"
-import { useChainType, useSkipChain } from "./chains"
 import type { FormValues } from "./form"
 import { buildRouteRefreshLocationState } from "./locationState"
-import { getBridgeRouteFreshnessMs, isBridgeQuoteFresh } from "./routeFreshness"
+import { BRIDGE_ROUTE_FRESHNESS_MS, isBridgeQuoteFresh } from "./routeFreshness"
 import type { RouterRouteResponseJson } from "./simulate"
 import { fetchRoute } from "./simulate"
 import { useSkip } from "./skip"
@@ -47,20 +45,10 @@ export function useRouteRefresh(
   const state = useLocationState<Record<string, unknown>>()
   const queryClient = useQueryClient()
   const skip = useSkip()
-  const layer1 = useLayer1()
-  const srcChain = useSkipChain(values.srcChainId)
-  const srcChainType = useChainType(srcChain)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [refreshError, setRefreshError] = useState<string | undefined>(undefined)
   const [lastVerifiedAt, setLastVerifiedAt] = useState(quoteVerifiedAt ?? 0)
   const abortControllerRef = useRef<AbortController | null>(null)
-  const routeFreshnessMs = getBridgeRouteFreshnessMs({
-    dstChainId: values.dstChainId,
-    layer1ChainId: layer1.chainId,
-    srcChainId: values.srcChainId,
-    srcChainType,
-  })
-
   useEffect(() => {
     setLastVerifiedAt(quoteVerifiedAt ?? 0)
   }, [quoteVerifiedAt])
@@ -73,7 +61,14 @@ export function useRouteRefresh(
 
   const refreshRouteIfNeeded = async (): Promise<boolean> => {
     const verifiedAt = Math.max(quoteVerifiedAt ?? 0, lastVerifiedAt)
-    if (isBridgeQuoteFresh({ freshnessMs: routeFreshnessMs, quoteVerifiedAt: verifiedAt })) {
+    if (
+      isBridgeQuoteFresh({
+        // Preview staleness uses the default window only — not the shorter
+        // same-chain L1/L2 simulation intervals from BridgeFields.
+        freshnessMs: BRIDGE_ROUTE_FRESHNESS_MS.DEFAULT,
+        quoteVerifiedAt: verifiedAt,
+      })
+    ) {
       return false
     }
 
