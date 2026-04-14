@@ -2,7 +2,7 @@ import type { FeeJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
 import { sentenceCase } from "change-case"
 import { isAddress } from "ethers"
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useDebounceValue, useLocalStorage } from "usehooks-ts"
 import { useQueryClient } from "@tanstack/react-query"
 import {
@@ -51,6 +51,8 @@ import SelectRouteOption from "./SelectRouteOption"
 import SlippageControl from "./SlippageControl"
 import styles from "./BridgeFields.module.css"
 
+import type { ReactNode } from "react"
+
 function getFallbackFeeTokenDenoms({
   srcChainType,
   chainFeeAssets,
@@ -73,6 +75,17 @@ function getFallbackFeeTokenDenoms({
 
 // Keep the fields page warning-only. Exact fee sufficiency is checked on preview.
 const MIN_FALLBACK_FEE_REMAINDER = BigNumber(1)
+
+function ReleasePreviewSubmitLockOnUnmount({
+  onRelease,
+  children,
+}: {
+  onRelease: () => void
+  children: ReactNode
+}) {
+  useEffect(() => () => onRelease(), [onRelease])
+  return children
+}
 
 const BridgeFields = () => {
   const navigate = useNavigate()
@@ -238,56 +251,53 @@ const BridgeFields = () => {
         const { type = "", message } = latestRoute.warning ?? {}
         openModal({
           content: (
-            <PlainModalContent
-              type="warning"
-              icon={<IconWarningFilled size={40} />}
-              title={sentenceCase(type)}
-              primaryButton={{
-                label: "Cancel",
-                onClick: () => {
-                  releasePreviewSubmitLock()
-                  closeModal()
-                },
-              }}
-              secondaryButton={{
-                label: "Proceed anyway",
-                onClick: async () => {
-                  try {
-                    await prefetchBridgeRoutePreparation({
-                      queryClient,
-                      skip,
+            <ReleasePreviewSubmitLockOnUnmount onRelease={releasePreviewSubmitLock}>
+              <PlainModalContent
+                type="warning"
+                icon={<IconWarningFilled size={40} />}
+                title={sentenceCase(type)}
+                primaryButton={{
+                  label: "Cancel",
+                  onClick: closeModal,
+                }}
+                secondaryButton={{
+                  label: "Proceed anyway",
+                  onClick: async () => {
+                    try {
+                      await prefetchBridgeRoutePreparation({
+                        queryClient,
+                        skip,
+                        route: latestRoute,
+                        values: {
+                          srcChainId: values.srcChainId,
+                          dstChainId: values.dstChainId,
+                          sender: values.sender,
+                          recipient: values.recipient,
+                          slippagePercent: values.slippagePercent,
+                        },
+                        initiaAddress,
+                        hexAddress,
+                        signer,
+                        findSkipChain,
+                        findChainType,
+                      })
+                    } catch (error) {
+                      setPreviewRefreshError((await normalizeError(error)).message)
+                      closeModal()
+                      return
+                    }
+                    navigate("/bridge/preview", {
                       route: latestRoute,
-                      values: {
-                        srcChainId: values.srcChainId,
-                        dstChainId: values.dstChainId,
-                        sender: values.sender,
-                        recipient: values.recipient,
-                        slippagePercent: values.slippagePercent,
-                      },
-                      initiaAddress,
-                      hexAddress,
-                      signer,
-                      findSkipChain,
-                      findChainType,
+                      values,
+                      quoteVerifiedAt,
                     })
-                  } catch (error) {
-                    setPreviewRefreshError((await normalizeError(error)).message)
-                    releasePreviewSubmitLock()
                     closeModal()
-                    return
-                  }
-                  navigate("/bridge/preview", {
-                    route: latestRoute,
-                    values,
-                    quoteVerifiedAt,
-                  })
-                  closeModal()
-                  releasePreviewSubmitLock()
-                },
-              }}
-            >
-              <p className={styles.warning}>{message}</p>
-            </PlainModalContent>
+                  },
+                }}
+              >
+                <p className={styles.warning}>{message}</p>
+              </PlainModalContent>
+            </ReleasePreviewSubmitLockOnUnmount>
           ),
         })
         return
