@@ -1,4 +1,4 @@
-import { shouldRetryBridgeMsgsAfterQuoteRefresh } from "./data/messageRequestKey"
+import { shouldRetryBridgeMsgsAfterQuoteRefresh } from "./data/quoteRefreshRetry"
 
 describe("shouldRetryBridgeMsgsAfterQuoteRefresh", () => {
   it("retries when a refreshed quote arrives while preserving a stale preview", () => {

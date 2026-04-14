@@ -144,7 +144,7 @@ export async function prefetchBridgeRoutePreparation({
   }
 }
 
-export function useBridgeRoutePreparation({ route, values, signedOpHook }: SharedOptions) {
+function useBridgeRoutePreparationInternal({ route, values, signedOpHook }: SharedOptions) {
   const addressListQuery = useBridgeAddressListQuery(route, values, { background: true })
   const txQuery = useBridgeTxQuery(route, values, addressListQuery.data, signedOpHook)
   const exactFeeQuery = useExactFeeCheckQuery(route, values, txQuery.data)
@@ -167,4 +167,9 @@ export function useBridgeRoutePreparation({ route, values, signedOpHook }: Share
     route,
     tx: txQuery.data,
   })
+}
+
+/** Runs preparation queries in the background; return value is unused by design. */
+export function useBridgeRoutePreparationPrewarm(props: SharedOptions): void {
+  void useBridgeRoutePreparationInternal(props)
 }

@@ -20,6 +20,10 @@ function toDeterministicString(value: unknown): string {
     .join(",")}}`
 }
 
+// Detects user-visible route changes after a manual refresh (preview).
+// Broader than `getBridgePreparationRouteKey` in `preparation.ts`, which only
+// keys tx-building cache — keep the two signatures distinct unless both flows
+// are re-audited together.
 function getRouteSignature(route: RouterRouteResponseJson) {
   return toDeterministicString({
     amount_in: route.amount_in,

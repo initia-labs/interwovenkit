@@ -11,8 +11,12 @@ import { InitiaAddress } from "@initia/utils"
 import { useChainEnabled } from "@/data/chains"
 import { fetchGasPrices } from "@/data/fee"
 import { normalizeError, STALE_TIMES } from "@/data/http"
-import { useAminoConverters, useAminoTypes, useCreateSigningStargateClient } from "@/data/signer"
-import { useOfflineSigner } from "@/data/signer"
+import {
+  useAminoConverters,
+  useAminoTypes,
+  useCreateSigningStargateClient,
+  useOfflineSigner,
+} from "@/data/signer"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useSkipBalancesQuery } from "./balance"
 import {
@@ -73,6 +77,11 @@ const queryKeys = createQueryKeys("interwovenkit:bridge-preparation", {
   }) => [params],
 })
 
+// Stable identity for React Query cache keys when building bridge txs from a route.
+// Intentionally narrower than `getRouteSignature` in `useRouteRefresh.ts`, which
+// compares many more fields (fees, warnings, USD, duration) to decide whether a
+// refreshed route "meaningfully" changed for preview navigation — do not unify
+// without revisiting both call sites.
 function getBridgePreparationRouteKey(route: RouterRouteResponseJson): string {
   return JSON.stringify({
     amount_in: route.amount_in,
@@ -399,7 +408,6 @@ export function useBridgeTxQuery(
   return useQuery({
     ...txOptions,
     enabled: !!route && !!addressList?.length && (!route.required_op_hook || !!signedOpHook),
-    staleTime: STALE_TIMES.MINUTE,
   })
 }
 

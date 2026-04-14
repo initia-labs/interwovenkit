@@ -40,7 +40,10 @@ import { shouldWarnInsufficientFeeBalance } from "./data/fee-warning"
 import type { FormValues } from "./data/form"
 import { useBridgeForm } from "./data/form"
 import { calculateMinimumReceived, formatDuration, formatFees } from "./data/format"
-import { prefetchBridgeRoutePreparation, useBridgeRoutePreparation } from "./data/preparedRoute"
+import {
+  prefetchBridgeRoutePreparation,
+  useBridgeRoutePreparationPrewarm,
+} from "./data/preparedRoute"
 import { getBridgeRouteFreshnessMs, isBridgeQuoteFresh } from "./data/routeFreshness"
 import { useIsOpWithdrawable, useRouteErrorInfo, useRouteQuery } from "./data/simulate"
 import { useSkip } from "./data/skip"
@@ -165,8 +168,8 @@ const BridgeFields = () => {
   const { data: route, isLoading, error } = routeQuery
   const { data: routeErrorInfo } = useRouteErrorInfo(error)
   // Prewarm preparation queries (address list, tx, fee check, approvals) so the
-  // preview route loads from cache; return value is intentionally unused.
-  useBridgeRoutePreparation({
+  // preview route loads from cache.
+  useBridgeRoutePreparationPrewarm({
     route,
     values,
   })
