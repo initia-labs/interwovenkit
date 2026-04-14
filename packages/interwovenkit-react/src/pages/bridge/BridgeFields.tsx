@@ -4,6 +4,7 @@ import { sentenceCase } from "change-case"
 import { isAddress } from "ethers"
 import { useCallback, useMemo, useState } from "react"
 import { useDebounceValue, useLocalStorage } from "usehooks-ts"
+import { useQueryClient } from "@tanstack/react-query"
 import {
   IconChevronDown,
   IconInfoFilled,
@@ -24,21 +25,24 @@ import WidgetTooltip from "@/components/WidgetTooltip"
 import { useAnalyticsTrack } from "@/data/analytics"
 import { useLayer1 } from "@/data/chains"
 import { LocalStorageKey } from "@/data/constants"
+import { useOfflineSigner } from "@/data/signer"
 import { useIsMobile } from "@/hooks/useIsMobile"
 import { isInsufficientBalance } from "@/lib/amountValidation"
 import { formatValue } from "@/lib/format"
 import { useNavigate } from "@/lib/router"
 import { useModal } from "@/public/app/ModalContext"
+import { useInterwovenKit } from "@/public/data/hooks"
 import { useSkipAsset } from "./data/assets"
 import { useSkipBalance, useSkipBalancesQuery } from "./data/balance"
-import { useChainType, useSkipChain } from "./data/chains"
+import { useChainType, useFindChainType, useFindSkipChain, useSkipChain } from "./data/chains"
 import { shouldWarnInsufficientFeeBalance } from "./data/fee-warning"
 import type { FormValues } from "./data/form"
 import { useBridgeForm } from "./data/form"
 import { calculateMinimumReceived, formatDuration, formatFees } from "./data/format"
-import { useBridgeRoutePreparation } from "./data/preparedRoute"
+import { prefetchBridgeRoutePreparation, useBridgeRoutePreparation } from "./data/preparedRoute"
 import { getBridgeRouteFreshnessMs, isBridgeQuoteFresh } from "./data/routeFreshness"
 import { useIsOpWithdrawable, useRouteErrorInfo, useRouteQuery } from "./data/simulate"
+import { useSkip } from "./data/skip"
 import BridgeAccount from "./BridgeAccount"
 import SelectedChainAsset from "./SelectedChainAsset"
 import type { RouteType } from "./SelectRouteOption"
@@ -91,6 +95,12 @@ const BridgeFields = () => {
   const srcChainType = useChainType(srcChain)
   const dstChain = useSkipChain(dstChainId)
   const dstChainType = useChainType(dstChain)
+  const queryClient = useQueryClient()
+  const skip = useSkip()
+  const { initiaAddress, hexAddress } = useInterwovenKit()
+  const signer = useOfflineSigner()
+  const findSkipChain = useFindSkipChain()
+  const findChainType = useFindChainType()
   const srcAsset = useSkipAsset(srcDenom, srcChainId)
   const dstAsset = useSkipAsset(dstDenom, dstChainId)
   const { data: balances, isError: isBalanceError } = useSkipBalancesQuery(sender, srcChainId)
@@ -160,6 +170,13 @@ const BridgeFields = () => {
   const { openModal, closeModal } = useModal()
   const submit = handleSubmit(async (values: FormValues) => {
     setPreviewRefreshError(undefined)
+    if (values.quantity !== debouncedQuantity) {
+      setPreviewRefreshError(
+        "Route is still updating for this amount. Please wait a moment and try again.",
+      )
+      return
+    }
+
     const isFreshRoute =
       !!route &&
       isBridgeQuoteFresh({
@@ -195,6 +212,31 @@ const BridgeFields = () => {
       return
     }
 
+    try {
+      await prefetchBridgeRoutePreparation({
+        queryClient,
+        skip,
+        route: latestRoute,
+        values: {
+          srcChainId: values.srcChainId,
+          dstChainId: values.dstChainId,
+          sender: values.sender,
+          recipient: values.recipient,
+          slippagePercent: values.slippagePercent,
+        },
+        initiaAddress,
+        hexAddress,
+        signer,
+        findSkipChain,
+        findChainType,
+      })
+    } catch (error) {
+      setPreviewRefreshError(
+        error instanceof Error ? error.message : "Failed to prepare preview. Please try again.",
+      )
+      return
+    }
+
     track("Bridge Simulation Success", {
       quantity: values.quantity,
       srcChainId: values.srcChainId,
@@ -214,7 +256,32 @@ const BridgeFields = () => {
             primaryButton={{ label: "Cancel", onClick: closeModal }}
             secondaryButton={{
               label: "Proceed anyway",
-              onClick: () => {
+              onClick: async () => {
+                try {
+                  await prefetchBridgeRoutePreparation({
+                    queryClient,
+                    skip,
+                    route: latestRoute,
+                    values: {
+                      srcChainId: values.srcChainId,
+                      dstChainId: values.dstChainId,
+                      sender: values.sender,
+                      recipient: values.recipient,
+                      slippagePercent: values.slippagePercent,
+                    },
+                    initiaAddress,
+                    hexAddress,
+                    signer,
+                    findSkipChain,
+                    findChainType,
+                  })
+                } catch {
+                  setPreviewRefreshError(
+                    "Failed to prepare preview. Close this dialog and try again.",
+                  )
+                  closeModal()
+                  return
+                }
                 navigate("/bridge/preview", {
                   route: latestRoute,
                   values,

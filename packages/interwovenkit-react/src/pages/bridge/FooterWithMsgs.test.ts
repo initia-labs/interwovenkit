@@ -1,18 +1,32 @@
-import {
-  getBridgeMsgsRequestKey,
-  shouldRetryBridgeMsgsAfterQuoteRefresh,
-} from "./data/messageRequestKey"
+import { shouldRetryBridgeMsgsAfterQuoteRefresh } from "./data/messageRequestKey"
+import type { SignedOpHook } from "./data/tx"
 
-describe("getBridgeMsgsRequestKey", () => {
+function bridgeMsgsRequestKeySnapshot({
+  addressList,
+  operations,
+  signedOpHook,
+}: {
+  addressList: string[]
+  operations: unknown
+  signedOpHook?: SignedOpHook
+}): string {
+  return JSON.stringify({
+    addressList,
+    operations,
+    signedOpHook: signedOpHook ?? null,
+  })
+}
+
+describe("bridgeMsgsRequestKeySnapshot", () => {
   it("is stable when route inputs stay the same", () => {
     expect(
-      getBridgeMsgsRequestKey({
+      bridgeMsgsRequestKeySnapshot({
         addressList: ["init1test"],
         operations: [{ transfer: "same-route" }],
         signedOpHook: { signer: "init1test", hook: "hook" },
       }),
     ).toBe(
-      getBridgeMsgsRequestKey({
+      bridgeMsgsRequestKeySnapshot({
         addressList: ["init1test"],
         operations: [{ transfer: "same-route" }],
         signedOpHook: { signer: "init1test", hook: "hook" },

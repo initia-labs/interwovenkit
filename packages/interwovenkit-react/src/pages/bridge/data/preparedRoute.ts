@@ -1,6 +1,13 @@
 import type { TxJson } from "@skip-go/client"
+import type { KyInstance } from "ky"
+import type { QueryClient } from "@tanstack/react-query"
+import type { OfflineSigner } from "@/data/signer"
+import type { useFindChainType, useFindSkipChain } from "./chains"
 import type { FormValues } from "./form"
 import {
+  createBridgeAddressListQueryOptions,
+  createBridgeErc20ApprovalsQueryOptions,
+  createBridgeTxQueryOptions,
   useBridgeAddressListQuery,
   useBridgeErc20ApprovalsQuery,
   useBridgeTxQuery,
@@ -81,6 +88,52 @@ export function getBridgeRoutePreparationState({
     isReady,
     tx,
   }
+}
+
+export async function prefetchBridgeRoutePreparation({
+  queryClient,
+  skip,
+  route,
+  values,
+  signedOpHook,
+  initiaAddress,
+  hexAddress,
+  signer,
+  findSkipChain,
+  findChainType,
+}: {
+  queryClient: QueryClient
+  skip: KyInstance
+  route: RouterRouteResponseJson
+  values: Pick<FormValues, "srcChainId" | "dstChainId" | "sender" | "recipient" | "slippagePercent">
+  signedOpHook?: SignedOpHook
+  initiaAddress: string
+  hexAddress: string
+  signer: OfflineSigner
+  findSkipChain: ReturnType<typeof useFindSkipChain>
+  findChainType: ReturnType<typeof useFindChainType>
+}) {
+  const addressList = await queryClient.fetchQuery(
+    createBridgeAddressListQueryOptions({
+      route,
+      values,
+      initiaAddress,
+      hexAddress,
+      signer,
+      findSkipChain,
+      findChainType,
+    }),
+  )
+  const tx = await queryClient.fetchQuery(
+    createBridgeTxQueryOptions({
+      skip,
+      route,
+      values,
+      addressList,
+      signedOpHook,
+    }),
+  )
+  await queryClient.fetchQuery(createBridgeErc20ApprovalsQueryOptions({ tx, findSkipChain }))
 }
 
 export function useBridgeRoutePreparation({ route, values, signedOpHook }: SharedOptions) {

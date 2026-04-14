@@ -1,21 +1,3 @@
-import type { SignedOpHook } from "./tx"
-
-export function getBridgeMsgsRequestKey({
-  addressList,
-  operations,
-  signedOpHook,
-}: {
-  addressList: string[]
-  operations: unknown
-  signedOpHook?: SignedOpHook
-}): string {
-  return JSON.stringify({
-    addressList,
-    operations,
-    signedOpHook: signedOpHook ?? null,
-  })
-}
-
 export function shouldRetryBridgeMsgsAfterQuoteRefresh({
   previousQuoteVerifiedAt,
   quoteVerifiedAt,

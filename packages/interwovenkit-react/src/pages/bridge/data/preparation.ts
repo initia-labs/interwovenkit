@@ -3,6 +3,7 @@ import { fromBech32, toBech32 } from "@cosmjs/encoding"
 import type { EncodeObject } from "@cosmjs/proto-signing"
 import type { BalanceResponseDenomEntryJson, TxJson } from "@skip-go/client"
 import { ethers } from "ethers"
+import type { KyInstance } from "ky"
 import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
@@ -72,7 +73,7 @@ const queryKeys = createQueryKeys("interwovenkit:bridge-preparation", {
   }) => [params],
 })
 
-function getRouteKey(route: RouterRouteResponseJson): string {
+export function getBridgePreparationRouteKey(route: RouterRouteResponseJson): string {
   return JSON.stringify({
     amount_in: route.amount_in,
     amount_out: route.amount_out,
@@ -100,7 +101,7 @@ function getFeeBalanceKey({
     .join("|")
 }
 
-function getBridgeAddressList({
+async function getBridgeAddressList({
   route,
   values,
   initiaAddress,
@@ -116,7 +117,7 @@ function getBridgeAddressList({
   signer: ReturnType<typeof useOfflineSigner>
   findSkipChain: ReturnType<typeof useFindSkipChain>
   findChainType: ReturnType<typeof useFindChainType>
-}): () => Promise<string[]> {
+}): Promise<string[]> {
   const { required_chain_addresses } = route
   const { srcChainId, dstChainId, sender, recipient } = values
 
@@ -129,43 +130,41 @@ function getBridgeAddressList({
     findChainType,
   })
 
-  return async () => {
-    let pubkey: Uint8Array | undefined
+  let pubkey: Uint8Array | undefined
 
-    if (isPubkeyRequired) {
-      if (!signer) throw new Error("Wallet not connected")
-      const [{ pubkey: signerPubkey }] = await signer.getAccounts()
-      pubkey = signerPubkey
+  if (isPubkeyRequired) {
+    if (!signer) throw new Error("Wallet not connected")
+    const [{ pubkey: signerPubkey }] = await signer.getAccounts()
+    pubkey = signerPubkey
+  }
+
+  return required_chain_addresses.map((chainId, index) => {
+    if (index === required_chain_addresses.length - 1) {
+      const dstChain = findSkipChain(dstChainId)
+      const dstChainType = findChainType(dstChain)
+      if (dstChainType === "initia") return InitiaAddress(recipient).bech32
+      return recipient
     }
 
-    return required_chain_addresses.map((chainId, index) => {
-      if (index === required_chain_addresses.length - 1) {
-        const dstChain = findSkipChain(dstChainId)
-        const dstChainType = findChainType(dstChain)
-        if (dstChainType === "initia") return InitiaAddress(recipient).bech32
-        return recipient
-      }
+    const chain = findSkipChain(chainId)
+    const chainType = findChainType(chain)
 
-      const chain = findSkipChain(chainId)
-      const chainType = findChainType(chain)
-
-      switch (chainType) {
-        case "initia":
-          return initiaAddress
-        case "evm":
-          return hexAddress
-        case "cosmos": {
-          if (srcChainType === "cosmos") {
-            return toBech32(chain.bech32_prefix, fromBech32(sender).data)
-          }
-          if (!pubkey) throw new Error("Pubkey not found")
-          return pubkeyToAddress(encodeSecp256k1Pubkey(pubkey), chain.bech32_prefix)
+    switch (chainType) {
+      case "initia":
+        return initiaAddress
+      case "evm":
+        return hexAddress
+      case "cosmos": {
+        if (srcChainType === "cosmos") {
+          return toBech32(chain.bech32_prefix, fromBech32(sender).data)
         }
-        default:
-          throw new Error("Unlisted chain type")
+        if (!pubkey) throw new Error("Pubkey not found")
+        return pubkeyToAddress(encodeSecp256k1Pubkey(pubkey), chain.bech32_prefix)
       }
-    })
-  }
+      default:
+        throw new Error("Unlisted chain type")
+    }
+  })
 }
 
 function hasCosmosIntermediary({
@@ -198,6 +197,113 @@ function requiresBridgeAddressPubkey({
   const srcChainType = findChainType(srcChain)
 
   return hasCosmosIntermediary({ route, findSkipChain, findChainType }) && srcChainType !== "cosmos"
+}
+
+export function createBridgeAddressListQueryOptions({
+  route,
+  values,
+  initiaAddress,
+  hexAddress,
+  signer,
+  findSkipChain,
+  findChainType,
+  background,
+}: {
+  route: RouterRouteResponseJson | undefined
+  values: Pick<FormValues, "srcChainId" | "dstChainId" | "sender" | "recipient">
+  initiaAddress: string
+  hexAddress: string
+  signer: ReturnType<typeof useOfflineSigner>
+  findSkipChain: ReturnType<typeof useFindSkipChain>
+  findChainType: ReturnType<typeof useFindChainType>
+  background?: boolean
+}) {
+  const requiresPubkey =
+    !!route &&
+    requiresBridgeAddressPubkey({
+      route,
+      srcChainId: values.srcChainId,
+      findSkipChain,
+      findChainType,
+    })
+  const isBackgroundBlocked = !!background && requiresPubkey
+
+  return {
+    // eslint-disable-next-line @tanstack/query/exhaustive-deps -- route identity is encoded in requiredChainAddresses and routeSignature downstream
+    queryKey: queryKeys.addressList({
+      requiredChainAddresses: route?.required_chain_addresses ?? [],
+      srcChainId: values.srcChainId,
+      dstChainId: values.dstChainId,
+      sender: values.sender,
+      recipient: values.recipient,
+      initiaAddress,
+      hexAddress,
+    }).queryKey,
+    queryFn: async () => {
+      if (!route) throw new Error("Route not found")
+      try {
+        return await getBridgeAddressList({
+          route,
+          values,
+          initiaAddress,
+          hexAddress,
+          signer,
+          findSkipChain,
+          findChainType,
+        })
+      } catch (error) {
+        throw await normalizeError(error)
+      }
+    },
+    enabled: !!route && !!values.sender && !!values.recipient && !isBackgroundBlocked,
+    staleTime: STALE_TIMES.MINUTE,
+  }
+}
+
+export function createBridgeTxQueryOptions({
+  skip,
+  route,
+  values,
+  addressList,
+  signedOpHook,
+}: {
+  skip: KyInstance
+  route: RouterRouteResponseJson
+  values: Pick<FormValues, "slippagePercent">
+  addressList: string[]
+  signedOpHook?: SignedOpHook
+}) {
+  return {
+    queryKey: queryKeys.tx({
+      addressList,
+      routeSignature: getBridgePreparationRouteKey(route),
+      slippagePercent: String(values.slippagePercent),
+      signedOpHook,
+    }).queryKey,
+    queryFn: async () => {
+      try {
+        const [tx] = await fetchBridgeTxs(skip, {
+          addressList,
+          route: {
+            amount_in: route.amount_in,
+            amount_out: route.amount_out,
+            source_asset_chain_id: route.source_asset_chain_id,
+            source_asset_denom: route.source_asset_denom,
+            dest_asset_chain_id: route.dest_asset_chain_id,
+            dest_asset_denom: route.dest_asset_denom,
+            operations: route.operations,
+          },
+          slippagePercent: String(values.slippagePercent),
+          signedOpHook,
+        })
+        return tx
+      } catch (error) {
+        throw await normalizeError(error)
+      }
+    },
+    enabled: addressList.length > 0 && (!route.required_op_hook || !!signedOpHook),
+    staleTime: STALE_TIMES.MINUTE,
+  }
 }
 
 export function getBridgeErc20ApprovalsQueryKey(tx: TxJson | undefined) {
@@ -242,45 +348,18 @@ export function useBridgeAddressListQuery(
   const signer = useOfflineSigner()
   const findSkipChain = useFindSkipChain()
   const findChainType = useFindChainType()
-  const requiresPubkey =
-    route &&
-    requiresBridgeAddressPubkey({
-      route,
-      srcChainId: values.srcChainId,
-      findSkipChain,
-      findChainType,
-    })
-  const isBackgroundBlocked = options?.background && requiresPubkey
 
   return useQuery({
-    // eslint-disable-next-line @tanstack/query/exhaustive-deps -- query key tracks address derivation inputs by route content
-    queryKey: queryKeys.addressList({
-      requiredChainAddresses: route?.required_chain_addresses ?? [],
-      srcChainId: values.srcChainId,
-      dstChainId: values.dstChainId,
-      sender: values.sender,
-      recipient: values.recipient,
+    ...createBridgeAddressListQueryOptions({
+      route,
+      values,
       initiaAddress,
       hexAddress,
-    }).queryKey,
-    queryFn: async () => {
-      if (!route) throw new Error("Route not found")
-      try {
-        return await getBridgeAddressList({
-          route,
-          values,
-          initiaAddress,
-          hexAddress,
-          signer,
-          findSkipChain,
-          findChainType,
-        })()
-      } catch (error) {
-        throw await normalizeError(error)
-      }
-    },
-    enabled: !!route && !!values.sender && !!values.recipient && !isBackgroundBlocked,
-    staleTime: STALE_TIMES.MINUTE,
+      signer,
+      findSkipChain,
+      findChainType,
+      background: options?.background,
+    }),
   })
 }
 
@@ -291,50 +370,48 @@ export function useBridgeTxQuery(
   signedOpHook?: SignedOpHook,
 ) {
   const skip = useSkip()
-
-  return useQuery({
-    // eslint-disable-next-line @tanstack/query/exhaustive-deps -- query key tracks route-dependent tx inputs via routeSignature
-    queryKey: queryKeys.tx({
-      addressList: addressList ?? [],
-      routeSignature: route ? getRouteKey(route) : "missing-route",
-      slippagePercent: String(values.slippagePercent),
-      signedOpHook,
-    }).queryKey,
-    queryFn: async () => {
-      if (!route) throw new Error("Route not found")
-      if (!addressList?.length) throw new Error("Intermediary addresses not ready")
-      try {
-        const [tx] = await fetchBridgeTxs(skip, {
+  const txOptions =
+    route && addressList?.length
+      ? createBridgeTxQueryOptions({
+          skip,
+          route,
+          values,
           addressList,
-          route: {
-            amount_in: route.amount_in,
-            amount_out: route.amount_out,
-            source_asset_chain_id: route.source_asset_chain_id,
-            source_asset_denom: route.source_asset_denom,
-            dest_asset_chain_id: route.dest_asset_chain_id,
-            dest_asset_denom: route.dest_asset_denom,
-            operations: route.operations,
-          },
-          slippagePercent: String(values.slippagePercent),
           signedOpHook,
         })
-        return tx
-      } catch (error) {
-        throw await normalizeError(error)
-      }
-    },
+      : {
+          queryKey: queryKeys.tx({
+            addressList: addressList ?? [],
+            routeSignature: "missing-route",
+            slippagePercent: String(values.slippagePercent),
+            signedOpHook,
+          }).queryKey,
+          queryFn: async () => {
+            throw new Error("Route not found")
+          },
+          enabled: false,
+          staleTime: STALE_TIMES.MINUTE,
+        }
+
+  return useQuery({
+    ...txOptions,
     enabled: !!route && !!addressList?.length && (!route.required_op_hook || !!signedOpHook),
     staleTime: STALE_TIMES.MINUTE,
   })
 }
 
-export function useBridgeErc20ApprovalsQuery(tx: TxJson | undefined) {
-  const findSkipChain = useFindSkipChain()
+export function createBridgeErc20ApprovalsQueryOptions({
+  tx,
+  findSkipChain,
+}: {
+  tx: TxJson | undefined
+  findSkipChain: ReturnType<typeof useFindSkipChain>
+}) {
   const evmTx = isEvmBridgeTx(tx) ? tx : undefined
   const chain = evmTx ? findSkipChain(evmTx.evm_tx.chain_id) : undefined
 
-  return useQuery({
-    // eslint-disable-next-line @tanstack/query/exhaustive-deps -- evmTx is derived from tx, and chain?.rpc is tracked explicitly for allowance reads
+  return {
+    // eslint-disable-next-line @tanstack/query/exhaustive-deps -- evmTx is derived from tx; chain?.rpc is tracked explicitly for allowance reads
     queryKey: [...getBridgeErc20ApprovalsQueryKey(tx), chain?.rpc],
     queryFn: async () => {
       if (!evmTx) return []
@@ -349,6 +426,14 @@ export function useBridgeErc20ApprovalsQuery(tx: TxJson | undefined) {
     },
     enabled: !!evmTx && !!evmTx.evm_tx.required_erc20_approvals?.length,
     staleTime: STALE_TIMES.MINUTE,
+  }
+}
+
+export function useBridgeErc20ApprovalsQuery(tx: TxJson | undefined) {
+  const findSkipChain = useFindSkipChain()
+
+  return useQuery({
+    ...createBridgeErc20ApprovalsQueryOptions({ tx, findSkipChain }),
   })
 }
 
