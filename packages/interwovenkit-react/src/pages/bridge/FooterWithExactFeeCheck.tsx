@@ -15,23 +15,31 @@ function FooterWithExactFeeCheck({ tx, children }: Props) {
     data: hasFeeBalance,
     error,
     isLoading,
+    balances,
     balancesError,
     isLoadingBalances,
     requiresExactFeeCheck,
+    chainError,
+    isLoadingChain,
   } = useExactFeeCheckQuery(route, values, tx)
 
   if (!requiresExactFeeCheck) {
     return children({ isCheckingFeeBalance: false })
   }
 
+  if (chainError) {
+    return children({ exactFeeCheckError: chainError.message, isCheckingFeeBalance: false })
+  }
+
   if (balancesError) {
     return children({
-      exactFeeCheckError: "Failed to load balances",
+      exactFeeCheckError:
+        balancesError instanceof Error ? balancesError.message : "Failed to load balances",
       isCheckingFeeBalance: false,
     })
   }
 
-  if (isLoadingBalances || isLoading) {
+  if (isLoadingChain || isLoadingBalances || balances === undefined || isLoading) {
     return children({ isCheckingFeeBalance: true })
   }
 

@@ -94,10 +94,11 @@ export function useBridgeRoutePreparation({ route, values, signedOpHook }: Share
     approvalError: approvalQuery.error,
     balancesError: exactFeeQuery.balancesError,
     blockingError: addressListQuery.error ?? txQuery.error,
-    exactFeeError: exactFeeQuery.error,
+    exactFeeError: exactFeeQuery.error ?? exactFeeQuery.chainError,
     hasApprovalData: approvalQuery.data !== undefined,
     isCheckingApprovals: approvalQuery.isLoading,
-    isCheckingFeeBalance: exactFeeQuery.isLoading || exactFeeQuery.isLoadingBalances,
+    isCheckingFeeBalance:
+      exactFeeQuery.isLoading || exactFeeQuery.isLoadingBalances || exactFeeQuery.isLoadingChain,
     isLoadingAddressList: addressListQuery.isLoading,
     isLoadingTx: txQuery.isLoading,
     isRoutePreparingTx: txQuery.isFetching,

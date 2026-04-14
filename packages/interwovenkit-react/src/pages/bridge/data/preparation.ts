@@ -7,7 +7,7 @@ import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { InitiaAddress } from "@initia/utils"
-import { useChain } from "@/data/chains"
+import { useChainEnabled } from "@/data/chains"
 import { fetchGasPrices } from "@/data/fee"
 import { normalizeError, STALE_TIMES } from "@/data/http"
 import { useAminoConverters, useAminoTypes, useCreateSigningStargateClient } from "@/data/signer"
@@ -21,6 +21,7 @@ import {
   hasSufficientFeeBalance,
 } from "./bridgeTxUtils"
 import { useChainType, useFindChainType, useFindSkipChain, useSkipChain } from "./chains"
+import { shouldCheckExactFee, shouldRunExactFeeQuery } from "./exactFeeCheck"
 import type { FormValues } from "./form"
 import type { RouterRouteResponseJson } from "./simulate"
 import { useSkip } from "./skip"
@@ -357,7 +358,6 @@ export function useExactFeeCheckQuery(
   tx: TxJson | undefined,
 ) {
   const { sender, recipient, srcChainId, dstChainId, srcDenom } = values
-  const chain = useChain(srcChainId)
   const srcChain = useSkipChain(srcChainId)
   const dstChain = useSkipChain(dstChainId)
   const srcChainType = useChainType(srcChain)
@@ -370,22 +370,36 @@ export function useExactFeeCheckQuery(
   const aminoConverters = useAminoConverters()
   const aminoTypes = useAminoTypes()
   const createSigningStargateClient = useCreateSigningStargateClient()
-  const feeDenoms = useMemo(
-    () => Array.from(new Set([srcDenom, ...chain.fees.fee_tokens.map(({ denom }) => denom)])),
-    [chain.fees.fee_tokens, srcDenom],
-  )
-  const balanceKey = useMemo(() => getFeeBalanceKey({ balances, feeDenoms }), [balances, feeDenoms])
 
   const requiresExactFeeCheck =
-    !!route &&
     !!tx &&
-    "cosmos_tx" in tx &&
-    !!tx.cosmos_tx.msgs?.length &&
-    !route.required_op_hook &&
-    srcChainType === "initia" &&
-    dstChainType === "initia" &&
-    !!sender &&
-    !!recipient
+    shouldCheckExactFee({
+      route,
+      tx,
+      isSrcInitia: srcChainType === "initia",
+      isDstInitia: dstChainType === "initia",
+      sender,
+      recipient,
+    })
+
+  const {
+    chain,
+    error: chainError,
+    isLoading: isLoadingChain,
+  } = useChainEnabled(srcChainId, requiresExactFeeCheck)
+  const feeDenoms = useMemo(
+    () =>
+      chain
+        ? Array.from(new Set([srcDenom, ...chain.fees.fee_tokens.map(({ denom }) => denom)]))
+        : [],
+    [chain, srcDenom],
+  )
+  const balanceKey = useMemo(() => getFeeBalanceKey({ balances, feeDenoms }), [balances, feeDenoms])
+  const shouldRunFeeQuery = shouldRunExactFeeQuery({
+    hasBalances: balances !== undefined,
+    hasChain: !!chain,
+    requiresExactFeeCheck,
+  })
 
   const { data, error, isLoading } = useQuery({
     queryKey:
@@ -401,7 +415,17 @@ export function useExactFeeCheckQuery(
         : ["interwovenkit:bridge-preparation", "exactFeeCheck", "missing"],
     queryFn: async () => {
       try {
-        if (!(route && tx && "cosmos_tx" in tx && tx.cosmos_tx.msgs?.length && balances)) {
+        if (
+          !(
+            requiresExactFeeCheck &&
+            chain &&
+            route &&
+            tx &&
+            "cosmos_tx" in tx &&
+            tx.cosmos_tx.msgs?.length &&
+            balances
+          )
+        ) {
           throw new Error("Invalid transaction data")
         }
 
@@ -424,7 +448,7 @@ export function useExactFeeCheckQuery(
         throw await normalizeError(error)
       }
     },
-    enabled: requiresExactFeeCheck && balances !== undefined,
+    enabled: shouldRunFeeQuery,
     retry: false,
     staleTime: STALE_TIMES.MINUTE,
   })
@@ -433,8 +457,11 @@ export function useExactFeeCheckQuery(
     data,
     error,
     isLoading,
+    balances,
     balancesError,
     isLoadingBalances,
     requiresExactFeeCheck,
+    chainError,
+    isLoadingChain,
   }
 }
