@@ -1,49 +1,4 @@
 import { shouldRetryBridgeMsgsAfterQuoteRefresh } from "./data/messageRequestKey"
-import type { SignedOpHook } from "./data/tx"
-
-function bridgeMsgsRequestKeySnapshot({
-  addressList,
-  operations,
-  signedOpHook,
-}: {
-  addressList: string[]
-  operations: unknown
-  signedOpHook?: SignedOpHook
-}): string {
-  return JSON.stringify({
-    addressList,
-    operations,
-    signedOpHook: signedOpHook ?? null,
-  })
-}
-
-describe("bridgeMsgsRequestKeySnapshot", () => {
-  it("serializes inputs deterministically", () => {
-    expect(
-      bridgeMsgsRequestKeySnapshot({
-        addressList: ["init1test"],
-        operations: [{ transfer: "same-route" }],
-        signedOpHook: { signer: "init1test", hook: "hook" },
-      }),
-    ).toBe(
-      '{"addressList":["init1test"],"operations":[{"transfer":"same-route"}],"signedOpHook":{"signer":"init1test","hook":"hook"}}',
-    )
-  })
-
-  it("changes when hook inputs change", () => {
-    const a = bridgeMsgsRequestKeySnapshot({
-      addressList: ["init1test"],
-      operations: [{ transfer: "same-route" }],
-      signedOpHook: { signer: "init1test", hook: "hook-a" },
-    })
-    const b = bridgeMsgsRequestKeySnapshot({
-      addressList: ["init1test"],
-      operations: [{ transfer: "same-route" }],
-      signedOpHook: { signer: "init1test", hook: "hook-b" },
-    })
-    expect(a).not.toBe(b)
-  })
-})
 
 describe("shouldRetryBridgeMsgsAfterQuoteRefresh", () => {
   it("retries when a refreshed quote arrives while preserving a stale preview", () => {

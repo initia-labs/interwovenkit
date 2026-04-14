@@ -171,11 +171,17 @@ const BridgeFields = () => {
 
   // submit
   const { openModal, closeModal } = useModal()
+  const releasePreviewSubmitLock = useCallback(() => {
+    previewSubmitLock.current = false
+    setPreviewSubmitting(false)
+  }, [])
+
   const submit = handleSubmit(async (values: FormValues) => {
     if (previewSubmitLock.current) return
     previewSubmitLock.current = true
     setPreviewSubmitting(true)
     setPreviewRefreshError(undefined)
+    let deferLockReleaseForWarningModal = false
     try {
       if (values.quantity !== debouncedQuantity) {
         setPreviewRefreshError(
@@ -228,6 +234,7 @@ const BridgeFields = () => {
       })
 
       if (latestRoute.warning) {
+        deferLockReleaseForWarningModal = true
         const { type = "", message } = latestRoute.warning ?? {}
         openModal({
           content: (
@@ -235,7 +242,13 @@ const BridgeFields = () => {
               type="warning"
               icon={<IconWarningFilled size={40} />}
               title={sentenceCase(type)}
-              primaryButton={{ label: "Cancel", onClick: closeModal }}
+              primaryButton={{
+                label: "Cancel",
+                onClick: () => {
+                  releasePreviewSubmitLock()
+                  closeModal()
+                },
+              }}
               secondaryButton={{
                 label: "Proceed anyway",
                 onClick: async () => {
@@ -259,6 +272,7 @@ const BridgeFields = () => {
                     })
                   } catch (error) {
                     setPreviewRefreshError((await normalizeError(error)).message)
+                    releasePreviewSubmitLock()
                     closeModal()
                     return
                   }
@@ -268,6 +282,7 @@ const BridgeFields = () => {
                     quoteVerifiedAt,
                   })
                   closeModal()
+                  releasePreviewSubmitLock()
                 },
               }}
             >
@@ -307,8 +322,9 @@ const BridgeFields = () => {
         quoteVerifiedAt,
       })
     } finally {
-      previewSubmitLock.current = false
-      setPreviewSubmitting(false)
+      if (!deferLockReleaseForWarningModal) {
+        releasePreviewSubmitLock()
+      }
     }
   })
 
