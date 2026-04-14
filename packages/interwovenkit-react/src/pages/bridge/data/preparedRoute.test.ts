@@ -195,7 +195,7 @@ describe("prefetchBridgeRoutePreparation", () => {
         dstChainId: "b",
         sender: "init1s",
         recipient: "init1r",
-        slippagePercent: 1,
+        slippagePercent: "1",
       },
       initiaAddress: "init1i",
       hexAddress: "0x1",
