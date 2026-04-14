@@ -219,29 +219,6 @@ const BridgeFields = () => {
         return
       }
 
-      try {
-        await prefetchBridgeRoutePreparation({
-          queryClient,
-          skip,
-          route: latestRoute,
-          values: {
-            srcChainId: values.srcChainId,
-            dstChainId: values.dstChainId,
-            sender: values.sender,
-            recipient: values.recipient,
-            slippagePercent: values.slippagePercent,
-          },
-          initiaAddress,
-          hexAddress,
-          signer,
-          findSkipChain,
-          findChainType,
-        })
-      } catch (error) {
-        setPreviewRefreshError((await normalizeError(error)).message)
-        return
-      }
-
       track("Bridge Simulation Success", {
         quantity: values.quantity,
         srcChainId: values.srcChainId,
@@ -298,6 +275,29 @@ const BridgeFields = () => {
             </PlainModalContent>
           ),
         })
+        return
+      }
+
+      try {
+        await prefetchBridgeRoutePreparation({
+          queryClient,
+          skip,
+          route: latestRoute,
+          values: {
+            srcChainId: values.srcChainId,
+            dstChainId: values.dstChainId,
+            sender: values.sender,
+            recipient: values.recipient,
+            slippagePercent: values.slippagePercent,
+          },
+          initiaAddress,
+          hexAddress,
+          signer,
+          findSkipChain,
+          findChainType,
+        })
+      } catch (error) {
+        setPreviewRefreshError((await normalizeError(error)).message)
         return
       }
 

@@ -1,5 +1,9 @@
 import type { TxJson } from "@skip-go/client"
-import { getBridgeRoutePreparationState } from "./preparedRoute"
+import type { KyInstance } from "ky"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import type { QueryClient } from "@tanstack/react-query"
+import type { OfflineSigner } from "@/data/signer"
+import { getBridgeRoutePreparationState, prefetchBridgeRoutePreparation } from "./preparedRoute"
 import type { RouterRouteResponseJson } from "./simulate"
 
 function createRoute(overrides?: Partial<RouterRouteResponseJson>): RouterRouteResponseJson {
@@ -166,5 +170,40 @@ describe("getBridgeRoutePreparationState", () => {
         isReady: false,
       }),
     )
+  })
+})
+
+describe("prefetchBridgeRoutePreparation", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it("prefetches only the address list when required_op_hook is set without signedOpHook", async () => {
+    const fetchQuery = vi.fn().mockResolvedValueOnce(["init1addr"])
+    const queryClient = { fetchQuery } as unknown as QueryClient
+    const skip = {} as KyInstance
+
+    await prefetchBridgeRoutePreparation({
+      queryClient,
+      skip,
+      route: createRoute({
+        required_op_hook: true,
+        required_chain_addresses: ["initia-1", "initia-1"],
+      }),
+      values: {
+        srcChainId: "a",
+        dstChainId: "b",
+        sender: "init1s",
+        recipient: "init1r",
+        slippagePercent: 1,
+      },
+      initiaAddress: "init1i",
+      hexAddress: "0x1",
+      signer: {} as OfflineSigner,
+      findSkipChain: vi.fn(),
+      findChainType: vi.fn(),
+    })
+
+    expect(fetchQuery).toHaveBeenCalledTimes(1)
   })
 })

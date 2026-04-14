@@ -124,16 +124,24 @@ export async function prefetchBridgeRoutePreparation({
       findChainType,
     }),
   )
-  const tx = await queryClient.fetchQuery(
-    createBridgeTxQueryOptions({
-      skip,
-      route,
-      values,
-      addressList,
-      signedOpHook,
-    }),
-  )
-  await queryClient.fetchQuery(createBridgeErc20ApprovalsQueryOptions({ tx, findSkipChain }))
+  // Mirror useBridgeTxQuery: do not fetch messages until required_op_hook is
+  // satisfied (fetchQuery ignores `enabled`, so we must branch here).
+  const canPrefetchTx = !route.required_op_hook || !!signedOpHook
+  let tx: TxJson | undefined
+  if (canPrefetchTx) {
+    tx = await queryClient.fetchQuery(
+      createBridgeTxQueryOptions({
+        skip,
+        route,
+        values,
+        addressList,
+        signedOpHook,
+      }),
+    )
+  }
+  if (tx) {
+    await queryClient.fetchQuery(createBridgeErc20ApprovalsQueryOptions({ tx, findSkipChain }))
+  }
 }
 
 export function useBridgeRoutePreparation({ route, values, signedOpHook }: SharedOptions) {
