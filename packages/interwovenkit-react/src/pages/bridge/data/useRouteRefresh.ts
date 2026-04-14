@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
+import { useLayer1 } from "@/data/chains"
 import { normalizeError } from "@/data/http"
 import { useLocationState, useNavigate } from "@/lib/router"
+import { useChainType, useSkipChain } from "./chains"
 import type { FormValues } from "./form"
 import { buildRouteRefreshLocationState } from "./locationState"
+import { getBridgeRouteFreshnessMs, isBridgeQuoteFresh } from "./routeFreshness"
 import type { RouterRouteResponseJson } from "./simulate"
 import { fetchRoute } from "./simulate"
 import { useSkip } from "./skip"
 import { BridgeType, getBridgeType } from "./tx"
-
-const ROUTE_MAX_AGE_MS = 10_000
 
 function toDeterministicString(value: unknown): string {
   if (value === undefined) return "undefined"
@@ -46,10 +47,19 @@ export function useRouteRefresh(
   const state = useLocationState<Record<string, unknown>>()
   const queryClient = useQueryClient()
   const skip = useSkip()
+  const layer1 = useLayer1()
+  const srcChain = useSkipChain(values.srcChainId)
+  const srcChainType = useChainType(srcChain)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [refreshError, setRefreshError] = useState<string | undefined>(undefined)
   const [lastVerifiedAt, setLastVerifiedAt] = useState(quoteVerifiedAt ?? 0)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const routeFreshnessMs = getBridgeRouteFreshnessMs({
+    dstChainId: values.dstChainId,
+    layer1ChainId: layer1.chainId,
+    srcChainId: values.srcChainId,
+    srcChainType,
+  })
 
   useEffect(() => {
     setLastVerifiedAt(quoteVerifiedAt ?? 0)
@@ -63,7 +73,9 @@ export function useRouteRefresh(
 
   const refreshRouteIfNeeded = async (): Promise<boolean> => {
     const verifiedAt = Math.max(quoteVerifiedAt ?? 0, lastVerifiedAt)
-    if (Date.now() - verifiedAt <= ROUTE_MAX_AGE_MS) return false
+    if (isBridgeQuoteFresh({ freshnessMs: routeFreshnessMs, quoteVerifiedAt: verifiedAt })) {
+      return false
+    }
 
     setIsRefreshing(true)
     setRefreshError(undefined)

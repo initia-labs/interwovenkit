@@ -64,5 +64,9 @@ export function getBridgePreviewFooterState({
     }
   }
 
+  if (approvalError) {
+    return { kind: "preview", error: approvalError }
+  }
+
   return { kind: "preview" }
 }

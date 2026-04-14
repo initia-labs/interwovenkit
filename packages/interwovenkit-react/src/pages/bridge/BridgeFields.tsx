@@ -36,6 +36,8 @@ import { shouldWarnInsufficientFeeBalance } from "./data/fee-warning"
 import type { FormValues } from "./data/form"
 import { useBridgeForm } from "./data/form"
 import { calculateMinimumReceived, formatDuration, formatFees } from "./data/format"
+import { useBridgeRoutePreparation } from "./data/preparedRoute"
+import { getBridgeRouteFreshnessMs, isBridgeQuoteFresh } from "./data/routeFreshness"
 import { useIsOpWithdrawable, useRouteErrorInfo, useRouteQuery } from "./data/simulate"
 import BridgeAccount from "./BridgeAccount"
 import SelectedChainAsset from "./SelectedChainAsset"
@@ -43,18 +45,6 @@ import type { RouteType } from "./SelectRouteOption"
 import SelectRouteOption from "./SelectRouteOption"
 import SlippageControl from "./SlippageControl"
 import styles from "./BridgeFields.module.css"
-
-function getRouteRefreshMs({
-  isLayer1Swap,
-  isL2Swap,
-}: {
-  isLayer1Swap: boolean
-  isL2Swap: boolean
-}) {
-  if (isLayer1Swap) return 5000
-  if (isL2Swap) return 2000
-  return 10000
-}
 
 function getFallbackFeeTokenDenoms({
   srcChainType,
@@ -123,10 +113,12 @@ const BridgeFields = () => {
     balance: srcBalanceAmount,
     decimals: srcAsset?.decimals,
   })
-  const isSameChainRoute = srcChainId === dstChainId
-  const isLayer1Swap = isSameChainRoute && srcChainId === layer1.chainId
-  const isL2Swap = isSameChainRoute && srcChainType === "initia" && !isLayer1Swap
-  const routeRefreshMs = getRouteRefreshMs({ isLayer1Swap, isL2Swap })
+  const routeRefreshMs = getBridgeRouteFreshnessMs({
+    dstChainId,
+    layer1ChainId: layer1.chainId,
+    srcChainId,
+    srcChainType,
+  })
 
   const isExternalRoute = srcChainType !== "initia" && dstChainType !== "initia"
   const isOpWithdrawable = useIsOpWithdrawable()
@@ -146,6 +138,10 @@ const BridgeFields = () => {
   const routeQuery = preferred.error && fallbackEnabled ? fallback : preferred
   const { data: route, isLoading, error } = routeQuery
   const { data: routeErrorInfo } = useRouteErrorInfo(error)
+  useBridgeRoutePreparation({
+    route,
+    values,
+  })
 
   const isSimulating = debouncedQuantity && isLoading && !previewRefreshing
 
@@ -162,65 +158,82 @@ const BridgeFields = () => {
   const { openModal, closeModal } = useModal()
   const submit = handleSubmit(async (values: FormValues) => {
     setPreviewRefreshError(undefined)
-    setPreviewRefreshing(true)
-    try {
-      const result = await routeQuery.refetch()
-      if (result.error || !result.data || !result.dataUpdatedAt) {
-        setPreviewRefreshError(
-          result.error instanceof Error
-            ? result.error.message
-            : "Failed to refresh route. Please try again.",
-        )
-        return
-      }
-
-      const latestRoute = result.data
-      const quoteVerifiedAt = result.dataUpdatedAt
-
-      track("Bridge Simulation Success", {
-        quantity: values.quantity,
-        srcChainId: values.srcChainId,
-        srcDenom: values.srcDenom,
-        dstChainId: values.dstChainId,
-        dstDenom: values.dstDenom,
+    const isFreshRoute =
+      !!route &&
+      isBridgeQuoteFresh({
+        freshnessMs: routeRefreshMs,
+        quoteVerifiedAt: routeQuery.dataUpdatedAt,
       })
 
-      if (latestRoute.warning) {
-        const { type = "", message } = latestRoute.warning ?? {}
-        openModal({
-          content: (
-            <PlainModalContent
-              type="warning"
-              icon={<IconWarningFilled size={40} />}
-              title={sentenceCase(type)}
-              primaryButton={{ label: "Cancel", onClick: closeModal }}
-              secondaryButton={{
-                label: "Proceed anyway",
-                onClick: () => {
-                  navigate("/bridge/preview", {
-                    route: latestRoute,
-                    values,
-                    quoteVerifiedAt,
-                  })
-                  closeModal()
-                },
-              }}
-            >
-              <p className={styles.warning}>{message}</p>
-            </PlainModalContent>
-          ),
-        })
-        return
-      }
+    let latestRoute = route
+    let quoteVerifiedAt = routeQuery.dataUpdatedAt
 
-      navigate("/bridge/preview", {
-        route: latestRoute,
-        values,
-        quoteVerifiedAt,
-      })
-    } finally {
-      setPreviewRefreshing(false)
+    if (!isFreshRoute) {
+      setPreviewRefreshing(true)
+      try {
+        const result = await routeQuery.refetch()
+        if (result.error || !result.data || !result.dataUpdatedAt) {
+          setPreviewRefreshError(
+            result.error instanceof Error
+              ? result.error.message
+              : "Failed to refresh route. Please try again.",
+          )
+          return
+        }
+
+        latestRoute = result.data
+        quoteVerifiedAt = result.dataUpdatedAt
+      } finally {
+        setPreviewRefreshing(false)
+      }
     }
+
+    if (!latestRoute || !quoteVerifiedAt) {
+      setPreviewRefreshError("Failed to refresh route. Please try again.")
+      return
+    }
+
+    track("Bridge Simulation Success", {
+      quantity: values.quantity,
+      srcChainId: values.srcChainId,
+      srcDenom: values.srcDenom,
+      dstChainId: values.dstChainId,
+      dstDenom: values.dstDenom,
+    })
+
+    if (latestRoute.warning) {
+      const { type = "", message } = latestRoute.warning ?? {}
+      openModal({
+        content: (
+          <PlainModalContent
+            type="warning"
+            icon={<IconWarningFilled size={40} />}
+            title={sentenceCase(type)}
+            primaryButton={{ label: "Cancel", onClick: closeModal }}
+            secondaryButton={{
+              label: "Proceed anyway",
+              onClick: () => {
+                navigate("/bridge/preview", {
+                  route: latestRoute,
+                  values,
+                  quoteVerifiedAt,
+                })
+                closeModal()
+              },
+            }}
+          >
+            <p className={styles.warning}>{message}</p>
+          </PlainModalContent>
+        ),
+      })
+      return
+    }
+
+    navigate("/bridge/preview", {
+      route: latestRoute,
+      values,
+      quoteVerifiedAt,
+    })
   })
 
   // fees

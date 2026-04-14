@@ -32,4 +32,15 @@ describe("getBridgePreviewFooterState", () => {
       }),
     ).toEqual({ kind: "preview", isCheckingApprovals: true })
   })
+
+  it("surfaces approval lookup failures as a blocking preview error", () => {
+    expect(
+      getBridgePreviewFooterState({
+        approvalError: "Failed to check approvals",
+      }),
+    ).toEqual({
+      kind: "preview",
+      error: "Failed to check approvals",
+    })
+  })
 })
