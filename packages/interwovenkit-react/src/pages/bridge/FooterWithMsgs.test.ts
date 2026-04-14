@@ -18,7 +18,7 @@ function bridgeMsgsRequestKeySnapshot({
 }
 
 describe("bridgeMsgsRequestKeySnapshot", () => {
-  it("is stable when route inputs stay the same", () => {
+  it("serializes inputs deterministically", () => {
     expect(
       bridgeMsgsRequestKeySnapshot({
         addressList: ["init1test"],
@@ -26,12 +26,22 @@ describe("bridgeMsgsRequestKeySnapshot", () => {
         signedOpHook: { signer: "init1test", hook: "hook" },
       }),
     ).toBe(
-      bridgeMsgsRequestKeySnapshot({
-        addressList: ["init1test"],
-        operations: [{ transfer: "same-route" }],
-        signedOpHook: { signer: "init1test", hook: "hook" },
-      }),
+      '{"addressList":["init1test"],"operations":[{"transfer":"same-route"}],"signedOpHook":{"signer":"init1test","hook":"hook"}}',
     )
+  })
+
+  it("changes when hook inputs change", () => {
+    const a = bridgeMsgsRequestKeySnapshot({
+      addressList: ["init1test"],
+      operations: [{ transfer: "same-route" }],
+      signedOpHook: { signer: "init1test", hook: "hook-a" },
+    })
+    const b = bridgeMsgsRequestKeySnapshot({
+      addressList: ["init1test"],
+      operations: [{ transfer: "same-route" }],
+      signedOpHook: { signer: "init1test", hook: "hook-b" },
+    })
+    expect(a).not.toBe(b)
   })
 })
 
