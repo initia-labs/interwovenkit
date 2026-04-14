@@ -2,7 +2,7 @@ import type { FeeJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
 import { sentenceCase } from "change-case"
 import { isAddress } from "ethers"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import { useDebounceValue, useLocalStorage } from "usehooks-ts"
 import { useQueryClient } from "@tanstack/react-query"
 import {
@@ -80,6 +80,8 @@ const BridgeFields = () => {
   const track = useAnalyticsTrack()
   const [previewRefreshError, setPreviewRefreshError] = useState<string | undefined>(undefined)
   const [previewRefreshing, setPreviewRefreshing] = useState(false)
+  const [previewSubmitting, setPreviewSubmitting] = useState(false)
+  const previewSubmitLock = useRef(false)
 
   const [selectedType, setSelectedType] = useLocalStorage<RouteType>(
     LocalStorageKey.BRIDGE_ROUTE_TYPE,
@@ -156,7 +158,7 @@ const BridgeFields = () => {
     values,
   })
 
-  const isSimulating = debouncedQuantity && isLoading && !previewRefreshing
+  const isSimulating = debouncedQuantity && isLoading && !previewRefreshing && !previewSubmitting
 
   const flip = () => {
     setValue("srcChainId", dstChainId)
@@ -170,136 +172,144 @@ const BridgeFields = () => {
   // submit
   const { openModal, closeModal } = useModal()
   const submit = handleSubmit(async (values: FormValues) => {
+    if (previewSubmitLock.current) return
+    previewSubmitLock.current = true
+    setPreviewSubmitting(true)
     setPreviewRefreshError(undefined)
-    if (values.quantity !== debouncedQuantity) {
-      setPreviewRefreshError(
-        "Route is still updating for this amount. Please wait a moment and try again.",
-      )
-      return
-    }
-
-    const isFreshRoute =
-      !!route &&
-      isBridgeQuoteFresh({
-        freshnessMs: routeRefreshMs,
-        quoteVerifiedAt: routeQuery.dataUpdatedAt,
-      })
-
-    let latestRoute = route
-    let quoteVerifiedAt = routeQuery.dataUpdatedAt
-
-    if (!isFreshRoute) {
-      setPreviewRefreshing(true)
-      try {
-        const result = await routeQuery.refetch()
-        if (result.error || !result.data || !result.dataUpdatedAt) {
-          setPreviewRefreshError(
-            result.error instanceof Error
-              ? result.error.message
-              : "Failed to refresh route. Please try again.",
-          )
-          return
-        }
-
-        latestRoute = result.data
-        quoteVerifiedAt = result.dataUpdatedAt
-      } finally {
-        setPreviewRefreshing(false)
-      }
-    }
-
-    if (!latestRoute || !quoteVerifiedAt) {
-      setPreviewRefreshError("Failed to refresh route. Please try again.")
-      return
-    }
-
     try {
-      await prefetchBridgeRoutePreparation({
-        queryClient,
-        skip,
-        route: latestRoute,
-        values: {
-          srcChainId: values.srcChainId,
-          dstChainId: values.dstChainId,
-          sender: values.sender,
-          recipient: values.recipient,
-          slippagePercent: values.slippagePercent,
-        },
-        initiaAddress,
-        hexAddress,
-        signer,
-        findSkipChain,
-        findChainType,
+      if (values.quantity !== debouncedQuantity) {
+        setPreviewRefreshError(
+          "Route is still updating for this amount. Please wait a moment and try again.",
+        )
+        return
+      }
+
+      const isFreshRoute =
+        !!route &&
+        isBridgeQuoteFresh({
+          freshnessMs: routeRefreshMs,
+          quoteVerifiedAt: routeQuery.dataUpdatedAt,
+        })
+
+      let latestRoute = route
+      let quoteVerifiedAt = routeQuery.dataUpdatedAt
+
+      if (!isFreshRoute) {
+        setPreviewRefreshing(true)
+        try {
+          const result = await routeQuery.refetch()
+          if (result.error || !result.data || !result.dataUpdatedAt) {
+            setPreviewRefreshError(
+              result.error instanceof Error
+                ? result.error.message
+                : "Failed to refresh route. Please try again.",
+            )
+            return
+          }
+
+          latestRoute = result.data
+          quoteVerifiedAt = result.dataUpdatedAt
+        } finally {
+          setPreviewRefreshing(false)
+        }
+      }
+
+      if (!latestRoute || !quoteVerifiedAt) {
+        setPreviewRefreshError("Failed to refresh route. Please try again.")
+        return
+      }
+
+      try {
+        await prefetchBridgeRoutePreparation({
+          queryClient,
+          skip,
+          route: latestRoute,
+          values: {
+            srcChainId: values.srcChainId,
+            dstChainId: values.dstChainId,
+            sender: values.sender,
+            recipient: values.recipient,
+            slippagePercent: values.slippagePercent,
+          },
+          initiaAddress,
+          hexAddress,
+          signer,
+          findSkipChain,
+          findChainType,
+        })
+      } catch (error) {
+        setPreviewRefreshError((await normalizeError(error)).message)
+        return
+      }
+
+      track("Bridge Simulation Success", {
+        quantity: values.quantity,
+        srcChainId: values.srcChainId,
+        srcDenom: values.srcDenom,
+        dstChainId: values.dstChainId,
+        dstDenom: values.dstDenom,
       })
-    } catch (error) {
-      setPreviewRefreshError((await normalizeError(error)).message)
-      return
-    }
 
-    track("Bridge Simulation Success", {
-      quantity: values.quantity,
-      srcChainId: values.srcChainId,
-      srcDenom: values.srcDenom,
-      dstChainId: values.dstChainId,
-      dstDenom: values.dstDenom,
-    })
-
-    if (latestRoute.warning) {
-      const { type = "", message } = latestRoute.warning ?? {}
-      openModal({
-        content: (
-          <PlainModalContent
-            type="warning"
-            icon={<IconWarningFilled size={40} />}
-            title={sentenceCase(type)}
-            primaryButton={{ label: "Cancel", onClick: closeModal }}
-            secondaryButton={{
-              label: "Proceed anyway",
-              onClick: async () => {
-                try {
-                  await prefetchBridgeRoutePreparation({
-                    queryClient,
-                    skip,
+      if (latestRoute.warning) {
+        const { type = "", message } = latestRoute.warning ?? {}
+        openModal({
+          content: (
+            <PlainModalContent
+              type="warning"
+              icon={<IconWarningFilled size={40} />}
+              title={sentenceCase(type)}
+              primaryButton={{ label: "Cancel", onClick: closeModal }}
+              secondaryButton={{
+                label: "Proceed anyway",
+                onClick: async () => {
+                  try {
+                    await prefetchBridgeRoutePreparation({
+                      queryClient,
+                      skip,
+                      route: latestRoute,
+                      values: {
+                        srcChainId: values.srcChainId,
+                        dstChainId: values.dstChainId,
+                        sender: values.sender,
+                        recipient: values.recipient,
+                        slippagePercent: values.slippagePercent,
+                      },
+                      initiaAddress,
+                      hexAddress,
+                      signer,
+                      findSkipChain,
+                      findChainType,
+                    })
+                  } catch (error) {
+                    setPreviewRefreshError((await normalizeError(error)).message)
+                    closeModal()
+                    return
+                  }
+                  navigate("/bridge/preview", {
                     route: latestRoute,
-                    values: {
-                      srcChainId: values.srcChainId,
-                      dstChainId: values.dstChainId,
-                      sender: values.sender,
-                      recipient: values.recipient,
-                      slippagePercent: values.slippagePercent,
-                    },
-                    initiaAddress,
-                    hexAddress,
-                    signer,
-                    findSkipChain,
-                    findChainType,
+                    values,
+                    quoteVerifiedAt,
                   })
-                } catch (error) {
-                  setPreviewRefreshError((await normalizeError(error)).message)
                   closeModal()
-                  return
-                }
-                navigate("/bridge/preview", {
-                  route: latestRoute,
-                  values,
-                  quoteVerifiedAt,
-                })
-                closeModal()
-              },
-            }}
-          >
-            <p className={styles.warning}>{message}</p>
-          </PlainModalContent>
-        ),
-      })
-      return
-    }
+                },
+              }}
+            >
+              <p className={styles.warning}>{message}</p>
+            </PlainModalContent>
+          ),
+        })
+        return
+      }
 
-    navigate("/bridge/preview", {
-      route: latestRoute,
-      values,
-      quoteVerifiedAt,
-    })
+      navigate("/bridge/preview", {
+        route: latestRoute,
+        values,
+        quoteVerifiedAt,
+      })
+    } finally {
+      previewSubmitLock.current = false
+      setPreviewSubmitting(false)
+    }
   })
 
   // fees
@@ -407,9 +417,10 @@ const BridgeFields = () => {
   ])
   const previewButtonLoading = useMemo(() => {
     if (previewRefreshing) return "Refreshing route..."
+    if (previewSubmitting) return "Preparing preview..."
     if (isSimulating) return "Simulating..."
     return false
-  }, [isSimulating, previewRefreshing])
+  }, [isSimulating, previewRefreshing, previewSubmitting])
 
   const renderFees = useCallback(
     (fees: FeeJson[], tooltip: string) => {
@@ -614,7 +625,7 @@ const BridgeFields = () => {
       >
         <Button.White
           loading={previewButtonLoading}
-          disabled={!!disabledMessage || previewRefreshing}
+          disabled={!!disabledMessage || previewRefreshing || previewSubmitting}
         >
           {disabledMessage ?? "Preview route"}
         </Button.White>
