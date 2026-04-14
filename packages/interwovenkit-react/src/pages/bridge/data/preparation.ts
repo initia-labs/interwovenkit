@@ -282,6 +282,9 @@ export function createBridgeTxQueryOptions({
     }).queryKey,
     queryFn: async () => {
       try {
+        if (route.required_op_hook && !signedOpHook) {
+          throw new Error("Op hook is required")
+        }
         const [tx] = await fetchBridgeTxs(skip, {
           addressList,
           route: {

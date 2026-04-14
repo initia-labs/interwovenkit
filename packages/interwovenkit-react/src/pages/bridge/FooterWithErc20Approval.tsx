@@ -60,8 +60,13 @@ function renderFooterWithErc20ApprovalChildren(
     )
   }
 
-  if (status.approvalError && isValidElement<{ error?: string }>(children)) {
-    return cloneElement(children, { error: status.approvalError })
+  if (status.approvalError) {
+    if (isValidElement<{ error?: string }>(children)) {
+      return cloneElement(children, { error: status.approvalError })
+    }
+    return (
+      <Footer extra={<FormHelp level="error">{status.approvalError}</FormHelp>}>{children}</Footer>
+    )
   }
 
   return children
