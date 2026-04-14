@@ -25,6 +25,7 @@ import WidgetTooltip from "@/components/WidgetTooltip"
 import { useAnalyticsTrack } from "@/data/analytics"
 import { useLayer1 } from "@/data/chains"
 import { LocalStorageKey } from "@/data/constants"
+import { normalizeError } from "@/data/http"
 import { useOfflineSigner } from "@/data/signer"
 import { useIsMobile } from "@/hooks/useIsMobile"
 import { isInsufficientBalance } from "@/lib/amountValidation"
@@ -231,9 +232,7 @@ const BridgeFields = () => {
         findChainType,
       })
     } catch (error) {
-      setPreviewRefreshError(
-        error instanceof Error ? error.message : "Failed to prepare preview. Please try again.",
-      )
+      setPreviewRefreshError((await normalizeError(error)).message)
       return
     }
 
@@ -275,10 +274,8 @@ const BridgeFields = () => {
                     findSkipChain,
                     findChainType,
                   })
-                } catch {
-                  setPreviewRefreshError(
-                    "Failed to prepare preview. Close this dialog and try again.",
-                  )
+                } catch (error) {
+                  setPreviewRefreshError((await normalizeError(error)).message)
                   closeModal()
                   return
                 }
