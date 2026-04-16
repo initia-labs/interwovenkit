@@ -23,10 +23,15 @@ import ModalTrigger from "@/components/ModalTrigger"
 import PlainModalContent from "@/components/PlainModalContent"
 import WidgetTooltip from "@/components/WidgetTooltip"
 import { useAnalyticsTrack } from "@/data/analytics"
-import { useLayer1 } from "@/data/chains"
+import { useFindChain, useLayer1 } from "@/data/chains"
 import { LocalStorageKey } from "@/data/constants"
 import { normalizeError } from "@/data/http"
-import { useOfflineSigner } from "@/data/signer"
+import {
+  useAminoConverters,
+  useAminoTypes,
+  useCreateSigningStargateClient,
+  useOfflineSigner,
+} from "@/data/signer"
 import { useIsMobile } from "@/hooks/useIsMobile"
 import { isInsufficientBalance } from "@/lib/amountValidation"
 import { formatValue } from "@/lib/format"
@@ -45,7 +50,12 @@ import {
   useBridgeRoutePreparationPrewarm,
 } from "./data/preparedRoute"
 import { getBridgeRouteFreshnessMs, isBridgeQuoteFresh } from "./data/routeFreshness"
-import { useIsOpWithdrawable, useRouteErrorInfo, useRouteQuery } from "./data/simulate"
+import {
+  type RouterRouteResponseJson,
+  useIsOpWithdrawable,
+  useRouteErrorInfo,
+  useRouteQuery,
+} from "./data/simulate"
 import { useSkip } from "./data/skip"
 import BridgeAccount from "./BridgeAccount"
 import SelectedChainAsset from "./SelectedChainAsset"
@@ -90,6 +100,55 @@ function ReleasePreviewSubmitLockOnUnmount({
   return children
 }
 
+function RouteWarningModal({
+  message,
+  title,
+  onCancel,
+  onProceed,
+  onRelease,
+}: {
+  message: string
+  title: string
+  onCancel: () => void
+  onProceed: () => Promise<void>
+  onRelease: () => void
+}) {
+  const [isProceeding, setIsProceeding] = useState(false)
+
+  const handleProceed = useCallback(async () => {
+    if (isProceeding) return
+
+    setIsProceeding(true)
+    try {
+      await onProceed()
+    } finally {
+      setIsProceeding(false)
+    }
+  }, [isProceeding, onProceed])
+
+  return (
+    <ReleasePreviewSubmitLockOnUnmount onRelease={onRelease}>
+      <PlainModalContent
+        type="warning"
+        icon={<IconWarningFilled size={40} />}
+        title={title}
+        primaryButton={{
+          label: "Cancel",
+          onClick: onCancel,
+          disabled: isProceeding,
+        }}
+        secondaryButton={{
+          label: isProceeding ? "Preparing preview..." : "Proceed anyway",
+          onClick: handleProceed,
+          disabled: isProceeding,
+        }}
+      >
+        <p className={styles.warning}>{message}</p>
+      </PlainModalContent>
+    </ReleasePreviewSubmitLockOnUnmount>
+  )
+}
+
 const BridgeFields = () => {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
@@ -118,6 +177,10 @@ const BridgeFields = () => {
   const skip = useSkip()
   const { initiaAddress, hexAddress } = useInterwovenKit()
   const signer = useOfflineSigner()
+  const aminoConverters = useAminoConverters()
+  const aminoTypes = useAminoTypes()
+  const createSigningStargateClient = useCreateSigningStargateClient()
+  const findChain = useFindChain()
   const findSkipChain = useFindSkipChain()
   const findChainType = useFindChainType()
   const srcAsset = useSkipAsset(srcDenom, srcChainId)
@@ -167,8 +230,8 @@ const BridgeFields = () => {
   const routeQuery = preferred.error && fallbackEnabled ? fallback : preferred
   const { data: route, isLoading, error } = routeQuery
   const { data: routeErrorInfo } = useRouteErrorInfo(error)
-  // Prewarm preparation queries (address list, tx, fee check, approvals) so the
-  // preview route loads from cache.
+  // Prewarm non-interactive preparation queries so the preview route loads from cache
+  // without triggering wallet prompts while the user is still editing the form.
   useBridgeRoutePreparationPrewarm({
     route,
     values,
@@ -191,6 +254,46 @@ const BridgeFields = () => {
     previewSubmitLock.current = false
     setPreviewSubmitting(false)
   }, [])
+
+  const prefetchPreviewPreparation = useCallback(
+    async (route: RouterRouteResponseJson, values: FormValues) => {
+      await prefetchBridgeRoutePreparation({
+        queryClient,
+        skip,
+        route,
+        values: {
+          srcChainId: values.srcChainId,
+          dstChainId: values.dstChainId,
+          sender: values.sender,
+          recipient: values.recipient,
+          slippagePercent: values.slippagePercent,
+          srcDenom: values.srcDenom,
+        },
+        initiaAddress,
+        hexAddress,
+        signer,
+        findSkipChain,
+        findChainType,
+        findChain,
+        aminoConverters,
+        aminoTypes,
+        createSigningStargateClient,
+      })
+    },
+    [
+      aminoConverters,
+      aminoTypes,
+      createSigningStargateClient,
+      findChain,
+      findChainType,
+      findSkipChain,
+      hexAddress,
+      initiaAddress,
+      queryClient,
+      signer,
+      skip,
+    ],
+  )
 
   const submit = handleSubmit(async (values: FormValues) => {
     if (previewSubmitLock.current) return
@@ -251,79 +354,37 @@ const BridgeFields = () => {
 
       if (latestRoute.warning) {
         deferLockReleaseForWarningModal = true
-        const { type = "", message } = latestRoute.warning ?? {}
+        const { type = "", message = "" } = latestRoute.warning ?? {}
         openModal({
           content: (
-            <ReleasePreviewSubmitLockOnUnmount onRelease={releasePreviewSubmitLock}>
-              <PlainModalContent
-                type="warning"
-                icon={<IconWarningFilled size={40} />}
-                title={sentenceCase(type)}
-                primaryButton={{
-                  label: "Cancel",
-                  onClick: closeModal,
-                }}
-                secondaryButton={{
-                  label: "Proceed anyway",
-                  onClick: async () => {
-                    try {
-                      await prefetchBridgeRoutePreparation({
-                        queryClient,
-                        skip,
-                        route: latestRoute,
-                        values: {
-                          srcChainId: values.srcChainId,
-                          dstChainId: values.dstChainId,
-                          sender: values.sender,
-                          recipient: values.recipient,
-                          slippagePercent: values.slippagePercent,
-                        },
-                        initiaAddress,
-                        hexAddress,
-                        signer,
-                        findSkipChain,
-                        findChainType,
-                      })
-                    } catch (error) {
-                      setPreviewRefreshError((await normalizeError(error)).message)
-                      closeModal()
-                      return
-                    }
-                    navigate("/bridge/preview", {
-                      route: latestRoute,
-                      values,
-                      quoteVerifiedAt,
-                    })
-                    closeModal()
-                  },
-                }}
-              >
-                <p className={styles.warning}>{message}</p>
-              </PlainModalContent>
-            </ReleasePreviewSubmitLockOnUnmount>
+            <RouteWarningModal
+              message={message}
+              title={sentenceCase(type)}
+              onCancel={closeModal}
+              onRelease={releasePreviewSubmitLock}
+              onProceed={async () => {
+                try {
+                  await prefetchPreviewPreparation(latestRoute, values)
+                } catch (error) {
+                  setPreviewRefreshError((await normalizeError(error)).message)
+                  closeModal()
+                  return
+                }
+                navigate("/bridge/preview", {
+                  route: latestRoute,
+                  values,
+                  quoteVerifiedAt,
+                })
+                closeModal()
+              }}
+            />
           ),
         })
         return
       }
 
       try {
-        await prefetchBridgeRoutePreparation({
-          queryClient,
-          skip,
-          route: latestRoute,
-          values: {
-            srcChainId: values.srcChainId,
-            dstChainId: values.dstChainId,
-            sender: values.sender,
-            recipient: values.recipient,
-            slippagePercent: values.slippagePercent,
-          },
-          initiaAddress,
-          hexAddress,
-          signer,
-          findSkipChain,
-          findChainType,
-        })
+        await prefetchPreviewPreparation(latestRoute, values)
       } catch (error) {
         setPreviewRefreshError((await normalizeError(error)).message)
         return

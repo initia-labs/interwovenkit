@@ -14,11 +14,13 @@ interface Props {
   primaryButton: {
     label: string
     onClick: () => void
+    disabled?: boolean
   }
 
   secondaryButton: {
     label: string
-    onClick: () => void
+    onClick: () => void | Promise<void>
+    disabled?: boolean
   }
 }
 
@@ -35,11 +37,21 @@ const PlainModalContent = (props: PropsWithChildren<Props>) => {
       <div className={styles.content}>{children}</div>
 
       <footer className={styles.footer}>
-        <Button.White onClick={primaryButton.onClick} sm fullWidth>
+        <Button.White
+          onClick={primaryButton.onClick}
+          disabled={primaryButton.disabled}
+          sm
+          fullWidth
+        >
           {primaryButton.label}
         </Button.White>
 
-        <button className={styles.secondary} onClick={secondaryButton.onClick}>
+        <button
+          className={styles.secondary}
+          onClick={secondaryButton.onClick}
+          disabled={secondaryButton.disabled}
+          aria-busy={secondaryButton.disabled}
+        >
           <span>{secondaryButton.label}</span>
           <IconChevronRight size={14} aria-hidden="true" />
         </button>

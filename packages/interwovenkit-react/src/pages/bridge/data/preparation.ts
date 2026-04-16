@@ -4,11 +4,11 @@ import type { EncodeObject } from "@cosmjs/proto-signing"
 import type { BalanceResponseDenomEntryJson, TxJson } from "@skip-go/client"
 import { ethers } from "ethers"
 import type { KyInstance } from "ky"
-import { useMemo } from "react"
+import type { QueryClient } from "@tanstack/react-query"
 import { useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { InitiaAddress } from "@initia/utils"
-import { useChainEnabled } from "@/data/chains"
+import { type NormalizedChain, useChainEnabled, type useFindChain } from "@/data/chains"
 import { fetchGasPrices } from "@/data/fee"
 import { normalizeError, STALE_TIMES } from "@/data/http"
 import {
@@ -18,7 +18,7 @@ import {
   useOfflineSigner,
 } from "@/data/signer"
 import { useInterwovenKit } from "@/public/data/hooks"
-import { useSkipBalancesQuery } from "./balance"
+import { fetchSkipBalancesForChain, useSkipBalancesQuery } from "./balance"
 import {
   computeRequiredFeeByDenom,
   decodeCosmosAminoMessages,
@@ -29,7 +29,7 @@ import { useChainType, useFindChainType, useFindSkipChain, useSkipChain } from "
 import { shouldCheckExactFee, shouldRunExactFeeQuery } from "./exactFeeCheck"
 import type { FormValues } from "./form"
 import type { RouterRouteResponseJson } from "./simulate"
-import { useSkip } from "./skip"
+import { skipQueryKeys, useSkip } from "./skip"
 import type { SignedOpHook } from "./tx"
 
 const ERC20_ALLOWANCE_ABI = [
@@ -448,6 +448,180 @@ export function useBridgeErc20ApprovalsQuery(tx: TxJson | undefined) {
   })
 }
 
+async function fetchBridgeExactFeeCheck({
+  route,
+  tx,
+  sender,
+  srcChainId,
+  srcDenom,
+  balances,
+  chain,
+  aminoConverters,
+  aminoTypes,
+  createSigningStargateClient,
+}: {
+  route: RouterRouteResponseJson
+  tx: TxJson
+  sender: string
+  srcChainId: string
+  srcDenom: string
+  balances: Record<string, BalanceResponseDenomEntryJson>
+  chain: NormalizedChain
+  aminoConverters: ReturnType<typeof useAminoConverters>
+  aminoTypes: ReturnType<typeof useAminoTypes>
+  createSigningStargateClient: ReturnType<typeof useCreateSigningStargateClient>
+}) {
+  try {
+    if (!("cosmos_tx" in tx) || !tx.cosmos_tx.msgs?.length) {
+      throw new Error("Invalid transaction data")
+    }
+
+    const messages: EncodeObject[] = decodeCosmosAminoMessages(tx.cosmos_tx.msgs, {
+      converters: aminoConverters,
+      fromAmino: aminoTypes.fromAmino.bind(aminoTypes),
+    })
+    const client = await createSigningStargateClient(srcChainId)
+    const gas = await client.simulate(sender, messages, "")
+    const gasPrices = await fetchGasPrices(chain)
+    const requiredFeeByDenom = computeRequiredFeeByDenom({ gas, gasPrices })
+
+    return hasSufficientFeeBalance({
+      balances,
+      requiredFeeByDenom,
+      sourceDenom: srcDenom,
+      amountIn: route.amount_in,
+    })
+  } catch (error) {
+    throw await normalizeError(error)
+  }
+}
+
+export function createExactFeeCheckQueryOptions({
+  route,
+  tx,
+  sender,
+  srcChainId,
+  srcDenom,
+  balances,
+  chain,
+  aminoConverters,
+  aminoTypes,
+  createSigningStargateClient,
+}: {
+  route: RouterRouteResponseJson | undefined
+  tx: TxJson | undefined
+  sender: string
+  srcChainId: string
+  srcDenom: string
+  balances?: Record<string, BalanceResponseDenomEntryJson>
+  chain?: NormalizedChain
+  aminoConverters: ReturnType<typeof useAminoConverters>
+  aminoTypes: ReturnType<typeof useAminoTypes>
+  createSigningStargateClient: ReturnType<typeof useCreateSigningStargateClient>
+}) {
+  const feeDenoms = chain
+    ? Array.from(new Set([srcDenom, ...chain.fees.fee_tokens.map(({ denom }) => denom)]))
+    : []
+  const balanceKey = getFeeBalanceKey({ balances, feeDenoms })
+
+  return {
+    // eslint-disable-next-line @tanstack/query/exhaustive-deps -- tx and route identity are reduced into the exact-fee key fields above; the remaining inputs are execution dependencies
+    queryKey:
+      route && tx
+        ? queryKeys.exactFeeCheck({
+            tx,
+            sender,
+            srcChainId,
+            srcDenom,
+            routeAmountIn: route.amount_in,
+            balanceKey,
+          }).queryKey
+        : ["interwovenkit:bridge-preparation", "exactFeeCheck", "missing"],
+    queryFn: async () => {
+      if (!(route && tx && chain && balances)) {
+        throw new Error("Invalid transaction data")
+      }
+
+      return fetchBridgeExactFeeCheck({
+        route,
+        tx,
+        sender,
+        srcChainId,
+        srcDenom,
+        balances,
+        chain,
+        aminoConverters,
+        aminoTypes,
+        createSigningStargateClient,
+      })
+    },
+    retry: false,
+    staleTime: STALE_TIMES.MINUTE,
+  }
+}
+
+export async function prefetchBridgeExactFeeCheck({
+  queryClient,
+  skip,
+  route,
+  values,
+  tx,
+  findSkipChain,
+  findChainType,
+  findChain,
+  aminoConverters,
+  aminoTypes,
+  createSigningStargateClient,
+}: {
+  queryClient: QueryClient
+  skip: KyInstance
+  route: RouterRouteResponseJson
+  values: Pick<FormValues, "sender" | "recipient" | "srcChainId" | "dstChainId" | "srcDenom">
+  tx: TxJson
+  findSkipChain: ReturnType<typeof useFindSkipChain>
+  findChainType: ReturnType<typeof useFindChainType>
+  findChain: ReturnType<typeof useFindChain>
+  aminoConverters: ReturnType<typeof useAminoConverters>
+  aminoTypes: ReturnType<typeof useAminoTypes>
+  createSigningStargateClient: ReturnType<typeof useCreateSigningStargateClient>
+}) {
+  const srcChain = findSkipChain(values.srcChainId)
+  const dstChain = findSkipChain(values.dstChainId)
+  const requiresExactFeeCheck = shouldCheckExactFee({
+    route,
+    tx,
+    isSrcInitia: findChainType(srcChain) === "initia",
+    isDstInitia: findChainType(dstChain) === "initia",
+    sender: values.sender,
+    recipient: values.recipient,
+  })
+
+  if (!requiresExactFeeCheck) return
+
+  const chain = findChain(values.srcChainId)
+  const balances = await queryClient.fetchQuery({
+    // eslint-disable-next-line @tanstack/query/exhaustive-deps -- skip is a stable ky instance from useMemo
+    queryKey: skipQueryKeys.balances(values.srcChainId, values.sender).queryKey,
+    queryFn: () => fetchSkipBalancesForChain(skip, values.srcChainId, values.sender),
+    staleTime: STALE_TIMES.SECOND,
+  })
+
+  await queryClient.fetchQuery(
+    createExactFeeCheckQueryOptions({
+      route,
+      tx,
+      sender: values.sender,
+      srcChainId: values.srcChainId,
+      srcDenom: values.srcDenom,
+      balances,
+      chain,
+      aminoConverters,
+      aminoTypes,
+      createSigningStargateClient,
+    }),
+  )
+}
+
 export function useExactFeeCheckQuery(
   route: RouterRouteResponseJson | undefined,
   values: Pick<FormValues, "sender" | "recipient" | "srcChainId" | "dstChainId" | "srcDenom">,
@@ -483,14 +657,6 @@ export function useExactFeeCheckQuery(
     error: chainError,
     isLoading: isLoadingChain,
   } = useChainEnabled(srcChainId, requiresExactFeeCheck)
-  const feeDenoms = useMemo(
-    () =>
-      chain
-        ? Array.from(new Set([srcDenom, ...chain.fees.fee_tokens.map(({ denom }) => denom)]))
-        : [],
-    [chain, srcDenom],
-  )
-  const balanceKey = useMemo(() => getFeeBalanceKey({ balances, feeDenoms }), [balances, feeDenoms])
   const shouldRunFeeQuery = shouldRunExactFeeQuery({
     hasBalances: balances !== undefined,
     hasChain: !!chain,
@@ -498,55 +664,19 @@ export function useExactFeeCheckQuery(
   })
 
   const { data, error, isLoading } = useQuery({
-    queryKey:
-      route && tx
-        ? queryKeys.exactFeeCheck({
-            tx,
-            sender,
-            srcChainId,
-            srcDenom,
-            routeAmountIn: route.amount_in,
-            balanceKey,
-          }).queryKey
-        : ["interwovenkit:bridge-preparation", "exactFeeCheck", "missing"],
-    queryFn: async () => {
-      try {
-        if (
-          !(
-            requiresExactFeeCheck &&
-            chain &&
-            route &&
-            tx &&
-            "cosmos_tx" in tx &&
-            tx.cosmos_tx.msgs?.length &&
-            balances
-          )
-        ) {
-          throw new Error("Invalid transaction data")
-        }
-
-        const messages: EncodeObject[] = decodeCosmosAminoMessages(tx.cosmos_tx.msgs, {
-          converters: aminoConverters,
-          fromAmino: aminoTypes.fromAmino.bind(aminoTypes),
-        })
-        const client = await createSigningStargateClient(srcChainId)
-        const gas = await client.simulate(sender, messages, "")
-        const gasPrices = await fetchGasPrices(chain)
-        const requiredFeeByDenom = computeRequiredFeeByDenom({ gas, gasPrices })
-
-        return hasSufficientFeeBalance({
-          balances: balances as Record<string, BalanceResponseDenomEntryJson>,
-          requiredFeeByDenom,
-          sourceDenom: srcDenom,
-          amountIn: route.amount_in,
-        })
-      } catch (error) {
-        throw await normalizeError(error)
-      }
-    },
+    ...createExactFeeCheckQueryOptions({
+      route,
+      tx,
+      sender,
+      srcChainId,
+      srcDenom,
+      balances,
+      chain,
+      aminoConverters,
+      aminoTypes,
+      createSigningStargateClient,
+    }),
     enabled: shouldRunFeeQuery,
-    retry: false,
-    staleTime: STALE_TIMES.MINUTE,
   })
 
   return {

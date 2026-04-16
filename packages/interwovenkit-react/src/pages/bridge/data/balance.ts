@@ -6,7 +6,7 @@ import { STALE_TIMES } from "@/data/http"
 import { useValidateAddress } from "./address"
 import { skipQueryKeys, useSkip } from "./skip"
 
-async function fetchSkipBalancesForChain(
+export async function fetchSkipBalancesForChain(
   skip: KyInstance,
   chainId: string,
   address: string,
