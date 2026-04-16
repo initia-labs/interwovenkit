@@ -327,7 +327,9 @@ const BridgeFields = () => {
             setPreviewRefreshError(
               result.error instanceof Error
                 ? result.error.message
-                : "Failed to refresh route. Please try again.",
+                : result.error
+                  ? `Failed to refresh route. Please try again. ${String(result.error)}`
+                  : "Failed to refresh route. Please try again.",
             )
             return
           }
