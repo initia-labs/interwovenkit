@@ -44,8 +44,10 @@ const accountQueries = createQueryKeys("interwovenkit:account", {
 })
 
 const EnableAutoSignComponent = () => {
-  const [duration, setDuration] = useState(DEFAULT_DURATION)
   const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
+  const [duration, setDuration] = useState<number>(
+    () => pendingRequest?.defaultDuration ?? DEFAULT_DURATION,
+  )
   const [warningIgnored, setWarningIgnored] = useState(false)
 
   const findChain = useFindChain()
@@ -202,7 +204,9 @@ const EnableAutoSignComponent = () => {
 const EnableAutoSign = () => {
   const pendingRequest = useAtomValue(pendingAutoSignRequestAtom)
   if (!pendingRequest) return null
-  return <EnableAutoSignComponent />
+  return (
+    <EnableAutoSignComponent key={`${pendingRequest.chainId}:${pendingRequest.defaultDuration}`} />
+  )
 }
 
 export default EnableAutoSign

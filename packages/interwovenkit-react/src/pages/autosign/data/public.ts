@@ -2,8 +2,13 @@ import { useSetAtom } from "jotai"
 import { useConfig } from "@/data/config"
 import { useDrawer } from "@/data/ui"
 import { useDisableAutoSign } from "./actions"
+import { resolveAutoSignDuration } from "./constants"
 import { pendingAutoSignRequestAtom } from "./store"
 import { useAutoSignStatus } from "./validation"
+
+interface EnableAutoSignOptions {
+  defaultDuration?: number
+}
 
 /* Public hook for enabling and disabling AutoSign across chains with status tracking */
 export function useAutoSign() {
@@ -20,9 +25,14 @@ export function useAutoSign() {
     isLoading,
   } = useAutoSignStatus()
 
-  const enable = async (chainId: string = defaultChainId) => {
+  const enable = async (chainId: string = defaultChainId, options?: EnableAutoSignOptions) => {
     return new Promise<void>((resolve, reject) => {
-      setPendingAutoSignRequest({ chainId, resolve, reject })
+      setPendingAutoSignRequest({
+        chainId,
+        defaultDuration: resolveAutoSignDuration(options?.defaultDuration),
+        resolve,
+        reject,
+      })
       openDrawer("/autosign/enable")
     })
   }
