@@ -15,7 +15,7 @@ import { useFindChain, useInitiaRegistry } from "@/data/chains"
 import { useDrawer } from "@/data/ui"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useEnableAutoSign } from "./data/actions"
-import { DURATION_OPTIONS } from "./data/constants"
+import { DEFAULT_DURATION, DURATION_OPTIONS } from "./data/constants"
 import { pendingAutoSignRequestAtom } from "./data/store"
 import { isVerifiedWebsiteHost } from "./data/website"
 import styles from "./EnableAutoSign.module.css"
@@ -46,7 +46,7 @@ const accountQueries = createQueryKeys("interwovenkit:account", {
 const EnableAutoSignComponent = () => {
   const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
   const [duration, setDuration] = useState<number>(
-    () => pendingRequest?.defaultDuration ?? DURATION_OPTIONS[0].value,
+    () => pendingRequest?.defaultDuration ?? DEFAULT_DURATION,
   )
   const [warningIgnored, setWarningIgnored] = useState(false)
 
@@ -83,7 +83,7 @@ const EnableAutoSignComponent = () => {
   }
 
   const handleCancel = () => {
-    pendingRequest.reject(new Error("User cancelled"))
+    pendingRequest?.reject(new Error("User cancelled"))
     setPendingRequest(null)
     closeDrawer()
   }
