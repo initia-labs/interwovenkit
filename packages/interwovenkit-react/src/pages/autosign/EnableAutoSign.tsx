@@ -1,6 +1,6 @@
 import ky, { HTTPError } from "ky"
 import { useState } from "react"
-import { useAtom, useAtomValue } from "jotai"
+import { useAtomValue, useSetAtom } from "jotai"
 import { useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { IconCheckCircle, IconExternalLink, IconWallet } from "@initia/icons-react"
@@ -15,8 +15,8 @@ import { useFindChain, useInitiaRegistry } from "@/data/chains"
 import { useDrawer } from "@/data/ui"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useEnableAutoSign } from "./data/actions"
-import { DURATION_OPTIONS, resolveAutoSignDuration } from "./data/constants"
-import { pendingAutoSignRequestAtom } from "./data/store"
+import { DURATION_OPTIONS } from "./data/constants"
+import { type PendingAutoSignRequest, pendingAutoSignRequestAtom } from "./data/store"
 import { isVerifiedWebsiteHost } from "./data/website"
 import styles from "./EnableAutoSign.module.css"
 
@@ -43,11 +43,13 @@ const accountQueries = createQueryKeys("interwovenkit:account", {
   }),
 })
 
-const EnableAutoSignComponent = () => {
-  const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
-  const [duration, setDuration] = useState(() =>
-    resolveAutoSignDuration(pendingRequest?.defaultDuration),
-  )
+interface Props {
+  pendingRequest: PendingAutoSignRequest
+}
+
+const EnableAutoSignComponent = ({ pendingRequest }: Props) => {
+  const setPendingRequest = useSetAtom(pendingAutoSignRequestAtom)
+  const [duration, setDuration] = useState(pendingRequest.defaultDuration)
   const [warningIgnored, setWarningIgnored] = useState(false)
 
   const findChain = useFindChain()
@@ -55,8 +57,6 @@ const EnableAutoSignComponent = () => {
   const { address, initiaAddress, username } = useInterwovenKit()
   const { mutate, isPending } = useEnableAutoSign()
   const { closeDrawer } = useDrawer()
-
-  if (!pendingRequest) throw new Error("Pending request not found")
 
   const { logoUrl, name, restUrl } = findChain(pendingRequest.chainId)
   const {
@@ -83,7 +83,7 @@ const EnableAutoSignComponent = () => {
   }
 
   const handleCancel = () => {
-    pendingRequest?.reject(new Error("User cancelled"))
+    pendingRequest.reject(new Error("User cancelled"))
     setPendingRequest(null)
     closeDrawer()
   }
@@ -206,7 +206,8 @@ const EnableAutoSign = () => {
   if (!pendingRequest) return null
   return (
     <EnableAutoSignComponent
-      key={`${pendingRequest.chainId}:${resolveAutoSignDuration(pendingRequest.defaultDuration)}`}
+      key={`${pendingRequest.chainId}:${pendingRequest.defaultDuration}`}
+      pendingRequest={pendingRequest}
     />
   )
 }
