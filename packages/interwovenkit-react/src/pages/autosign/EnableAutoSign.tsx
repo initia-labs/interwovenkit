@@ -1,6 +1,6 @@
 import ky, { HTTPError } from "ky"
 import { useState } from "react"
-import { useAtomValue, useSetAtom } from "jotai"
+import { useAtom, useAtomValue } from "jotai"
 import { useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { IconCheckCircle, IconExternalLink, IconWallet } from "@initia/icons-react"
@@ -16,7 +16,7 @@ import { useDrawer } from "@/data/ui"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useEnableAutoSign } from "./data/actions"
 import { DURATION_OPTIONS } from "./data/constants"
-import { type PendingAutoSignRequest, pendingAutoSignRequestAtom } from "./data/store"
+import { pendingAutoSignRequestAtom } from "./data/store"
 import { isVerifiedWebsiteHost } from "./data/website"
 import styles from "./EnableAutoSign.module.css"
 
@@ -43,13 +43,11 @@ const accountQueries = createQueryKeys("interwovenkit:account", {
   }),
 })
 
-interface Props {
-  pendingRequest: PendingAutoSignRequest
-}
-
-const EnableAutoSignComponent = ({ pendingRequest }: Props) => {
-  const setPendingRequest = useSetAtom(pendingAutoSignRequestAtom)
-  const [duration, setDuration] = useState(pendingRequest.defaultDuration)
+const EnableAutoSignComponent = () => {
+  const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
+  const [duration, setDuration] = useState<number>(
+    () => pendingRequest?.defaultDuration ?? DURATION_OPTIONS[0].value,
+  )
   const [warningIgnored, setWarningIgnored] = useState(false)
 
   const findChain = useFindChain()
@@ -57,6 +55,8 @@ const EnableAutoSignComponent = ({ pendingRequest }: Props) => {
   const { address, initiaAddress, username } = useInterwovenKit()
   const { mutate, isPending } = useEnableAutoSign()
   const { closeDrawer } = useDrawer()
+
+  if (!pendingRequest) throw new Error("Pending request not found")
 
   const { logoUrl, name, restUrl } = findChain(pendingRequest.chainId)
   const {
@@ -205,10 +205,7 @@ const EnableAutoSign = () => {
   const pendingRequest = useAtomValue(pendingAutoSignRequestAtom)
   if (!pendingRequest) return null
   return (
-    <EnableAutoSignComponent
-      key={`${pendingRequest.chainId}:${pendingRequest.defaultDuration}`}
-      pendingRequest={pendingRequest}
-    />
+    <EnableAutoSignComponent key={`${pendingRequest.chainId}:${pendingRequest.defaultDuration}`} />
   )
 }
 
