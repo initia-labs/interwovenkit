@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.7.0](https://github.com/initia-labs/interwovenkit/compare/v2.6.0...v2.7.0) (2026-04-21)
+
+
+### Features
+
+* **autosign:** support configurable default duration in enable() ([0c19713](https://github.com/initia-labs/interwovenkit/commit/0c1971303d83ab16f70b26e7b6de274942959ba6))
+
 ## [2.6.0](https://github.com/initia-labs/interwovenkit/compare/v2.5.1...v2.6.0) (2026-04-07)
 
 
