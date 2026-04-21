@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.8.0](https://github.com/initia-labs/interwovenkit/compare/v2.7.0...v2.8.0) (2026-04-21)
+
+
+### Features
+
+* **autosign:** export EnableAutoSignOptions type ([31b51c6](https://github.com/initia-labs/interwovenkit/commit/31b51c6bc4c8e1d38bae0afcf13e134d82fc9874))
+
 ## [2.7.0](https://github.com/initia-labs/interwovenkit/compare/v2.6.0...v2.7.0) (2026-04-21)
 
 
