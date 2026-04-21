@@ -6,7 +6,7 @@ import { resolveAutoSignDuration } from "./constants"
 import { pendingAutoSignRequestAtom } from "./store"
 import { useAutoSignStatus } from "./validation"
 
-interface EnableAutoSignOptions {
+export interface EnableAutoSignOptions {
   defaultDuration?: number
 }
 
