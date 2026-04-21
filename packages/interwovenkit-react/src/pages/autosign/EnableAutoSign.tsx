@@ -15,7 +15,7 @@ import { useFindChain, useInitiaRegistry } from "@/data/chains"
 import { useDrawer } from "@/data/ui"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useEnableAutoSign } from "./data/actions"
-import { DEFAULT_DURATION, DURATION_OPTIONS } from "./data/constants"
+import { DURATION_OPTIONS, resolveAutoSignDuration } from "./data/constants"
 import { pendingAutoSignRequestAtom } from "./data/store"
 import { isVerifiedWebsiteHost } from "./data/website"
 import styles from "./EnableAutoSign.module.css"
@@ -44,8 +44,10 @@ const accountQueries = createQueryKeys("interwovenkit:account", {
 })
 
 const EnableAutoSignComponent = () => {
-  const [duration, setDuration] = useState(DEFAULT_DURATION)
   const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
+  const [duration, setDuration] = useState(() =>
+    resolveAutoSignDuration(pendingRequest?.defaultDuration),
+  )
   const [warningIgnored, setWarningIgnored] = useState(false)
 
   const findChain = useFindChain()
@@ -202,7 +204,11 @@ const EnableAutoSignComponent = () => {
 const EnableAutoSign = () => {
   const pendingRequest = useAtomValue(pendingAutoSignRequestAtom)
   if (!pendingRequest) return null
-  return <EnableAutoSignComponent />
+  return (
+    <EnableAutoSignComponent
+      key={`${pendingRequest.chainId}:${resolveAutoSignDuration(pendingRequest.defaultDuration)}`}
+    />
+  )
 }
 
 export default EnableAutoSign
