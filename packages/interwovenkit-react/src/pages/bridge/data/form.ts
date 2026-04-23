@@ -61,6 +61,7 @@ export function useDefaultValues(): Partial<FormValues> {
     dstDenom: localStorage.getItem(LocalStorageKey.BRIDGE_DST_DENOM),
     quantity: localStorage.getItem(LocalStorageKey.BRIDGE_QUANTITY),
     slippagePercent: localStorage.getItem(LocalStorageKey.BRIDGE_SLIPPAGE_PERCENT),
+    recipient: localStorage.getItem(LocalStorageKey.BRIDGE_RECIPIENT),
   })
 
   return {
