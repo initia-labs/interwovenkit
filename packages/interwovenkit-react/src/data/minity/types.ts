@@ -89,9 +89,13 @@ export interface FungiblePosition {
 export interface PerpPosition {
   type: "perp-position"
   direction: "long" | "short"
+  /** Market identifier from Strat, e.g. "BTC-USD" */
   pair: string
+  /** Multiplier (e.g. 5 = 5x), expected > 0 */
   leverage: number
+  /** Margin posted for this position (NOT the notional size) */
   collateral: Balance
+  /** Unrealized P&L in USD; can be negative */
   pnl?: number
   imageUrl?: string
 }

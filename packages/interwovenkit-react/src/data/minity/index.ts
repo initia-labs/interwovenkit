@@ -72,6 +72,7 @@ export {
   groupPositionsByDenom,
   groupPositionsBySection,
   groupPositionsByType,
+  isPerpUnpriced,
   isStakingProtocol,
   isStakingType,
   processMinityBalances,

@@ -82,44 +82,54 @@ export function isStakingProtocol(protocol: ProtocolPosition): boolean {
 // POSITION VALUE UTILITIES
 // ============================================
 
-export function getPerpPnl(position: { pnl?: number }): number {
-  return position.pnl ?? 0
+/** Returns null when the API didn't supply PnL so callers can distinguish "unknown" from "exactly zero". */
+export function getPerpPnl(position: PerpPosition): number | null {
+  return position.pnl ?? null
 }
 
-export function getPerpCollateralValue(position: PerpPosition): number {
-  if (position.collateral.type === "unknown") return 0
-  return position.collateral.value ?? 0
+/** Returns null when collateral can't be priced (unknown asset type or missing value). */
+export function getPerpCollateralValue(position: PerpPosition): number | null {
+  if (position.collateral.type === "unknown") return null
+  return position.collateral.value ?? null
 }
 
-/** "+$2.12" / "-$7.24" / "< +$0.01" / "< -$0.01" / "$0.00" */
-export function formatPerpPnl(pnl: number): string {
-  const value = BigNumber(pnl)
-  if (value.isZero()) return "$0.00"
-  const isNegative = value.lt(0)
-  const sign = isNegative ? "-" : "+"
-  const abs = value.abs()
-
-  // Sub-cent magnitudes collapse to "< $0.01"; keep the sign next to the number.
-  if (abs.lt(0.01)) return `< ${sign}$0.01`
-
-  return `${sign}$${formatNumberUtil(abs.toNumber(), { dp: 2 })}`
+/** True when the perp position lacks a priced collateral basis — UI should surface an "Unpriced" affordance rather than rendering as $0. */
+export function isPerpUnpriced(position: PerpPosition): boolean {
+  return getPerpCollateralValue(position) == null
 }
 
-/** "(+0.04%)" / "(-0.68%)" / "(< +0.01%)" / "(< -0.01%)" / "(0.00%)" / "" when no basis */
-export function formatPerpPnlPercent(pnl: number, collateralValue: number): string {
-  if (!collateralValue) return ""
-  const pct = BigNumber(pnl).div(collateralValue).times(100)
-  if (pct.isZero()) return "(0.00%)"
-  const sign = pct.gt(0) ? "+" : "-"
-  const abs = pct.abs()
-
-  if (abs.lt(0.01)) return `(< ${sign}0.01%)`
-
-  return `(${sign}${abs.toFixed(2)}%)`
+/** "+$2.12" / "-$7.24" / "$0.00" / "—" when null — sub-cent magnitudes round to 0 (no sign). */
+export function formatPerpPnl(pnl: number | null): string {
+  if (pnl == null || !Number.isFinite(pnl)) return "—"
+  const rounded = BigNumber(pnl).decimalPlaces(2, BigNumber.ROUND_HALF_UP)
+  if (rounded.isZero()) return "$0.00"
+  const sign = rounded.gt(0) ? "+" : "-"
+  return `${sign}$${formatNumberUtil(rounded.abs().toNumber(), { dp: 2 })}`
 }
 
-/** Truncate fractional leverage so "7.99x" reads as "7x". */
+/** "(+0.04%)" / "(-0.68%)" / "(0.00%)" / "" when no basis — sub-cent magnitudes round to 0. */
+export function formatPerpPnlPercent(pnl: number | null, collateralValue: number | null): string {
+  if (
+    pnl == null ||
+    collateralValue == null ||
+    !Number.isFinite(pnl) ||
+    !Number.isFinite(collateralValue) ||
+    collateralValue <= 0
+  ) {
+    return ""
+  }
+  const rounded = BigNumber(pnl)
+    .div(collateralValue)
+    .times(100)
+    .decimalPlaces(2, BigNumber.ROUND_HALF_UP)
+  if (rounded.isZero()) return "(0.00%)"
+  const sign = rounded.gt(0) ? "+" : "-"
+  return `(${sign}${rounded.abs().toFixed(2)}%)`
+}
+
+/** Truncate fractional leverage so "7.99X" reads as "7". Returns "" for non-finite or sub-1 values so callers can drop the leverage label entirely. */
 export function formatPerpLeverage(leverage: number): string {
+  if (!Number.isFinite(leverage) || leverage < 1) return ""
   return BigNumber(leverage).decimalPlaces(0, BigNumber.ROUND_DOWN).toString()
 }
 
@@ -129,15 +139,14 @@ export function getPositionValue(position: Position): number {
     return position.value ?? 0
   }
 
-  // Perp equity = collateral value + unrealized PnL.
-  // Collateral is locked in the protocol, so it never appears in wallet balances — no double-count.
-  // If collateral can't be priced (unknown type or missing value) we surface 0 rather than
-  // PnL alone, so totals don't silently understate the position.
+  // Perp equity = collateral + PnL; collateral lives in the protocol so no wallet double-count. Return 0 when collateral can't be priced rather than PnL alone — callers should pair this with isPerpUnpriced() to surface "Unpriced" affordances.
   if (position.type === "perp-position") {
-    if (position.collateral.type === "unknown" || position.collateral.value == null) {
-      return 0
-    }
-    return BigNumber(position.collateral.value).plus(getPerpPnl(position)).toNumber()
+    const collateralValue = getPerpCollateralValue(position)
+    if (collateralValue == null) return 0
+    const pnl = getPerpPnl(position)
+    return BigNumber(collateralValue)
+      .plus(pnl ?? 0)
+      .toNumber()
   }
 
   if (position.balance.type === "unknown") return 0
@@ -178,8 +187,7 @@ export function getSectionLabel(sectionKey: string, context: SectionLabelContext
 
   switch (sectionKey) {
     case "staking":
-      // Strat surfaces vault deposits via the generic `staking` type.
-      // Re-label as "Vault" so users don't read it as validator staking.
+      // Strat reuses the generic `staking` type for vault deposits — relabel so it isn't read as validator staking.
       if (isStratChain) return "Vault"
       return isInitia ? "INIT staking" : "Staking"
     case "perp":
@@ -193,7 +201,7 @@ export function getSectionLabel(sectionKey: string, context: SectionLabelContext
   }
 }
 
-/** Group positions by section (staking, borrowing, lending) - sorted by total value descending */
+/** Group positions by section (staking, perp, borrowing, lending) - sorted by total value descending */
 export function groupPositionsBySection(positions: Position[]): Map<string, SectionGroup> {
   // 1. Group by section key
   const groups = new Map<string, Position[]>()

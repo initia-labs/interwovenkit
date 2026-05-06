@@ -4,7 +4,7 @@ import { useMemo, useState } from "react"
 import { IconChevronDown, IconExternalLink } from "@initia/icons-react"
 import { formatNumber } from "@initia/utils"
 import Image from "@/components/Image"
-import { INIT_SYMBOL } from "@/data/constants"
+import { INIT_SYMBOL, STRAT_CHAIN_NAME } from "@/data/constants"
 import {
   type DenomGroup,
   formatPerpLeverage,
@@ -18,6 +18,7 @@ import {
   groupPositionsByDenom,
   groupPositionsBySection,
   groupPositionsByType,
+  isPerpUnpriced,
   type PerpPosition,
   type Position,
   type ProtocolPosition,
@@ -98,9 +99,8 @@ const PositionSection = ({
   const { positions, totalValue } = sectionGroup
   const label = getSectionLabel(sectionKey, { isInitia, chainName })
   const isStakingSection = sectionKey === "staking"
-  const isStratChain = chainName?.toLowerCase() === "strat"
-  // Strat surfaces vault deposits via the generic `staking` type with no claimable rewards
-  // or breakdown — render as flat rows without the type-breakdown accordion.
+  const isStratChain = chainName?.toLowerCase() === STRAT_CHAIN_NAME
+  // Strat reuses `staking` for vault deposits with no claimable rewards or breakdown — render flat, no accordion.
   const showStakingBreakdown = isStakingSection && !isStratChain
   const isPerpSection = sectionKey === "perp"
   const denomGroups = useMemo(
@@ -132,8 +132,7 @@ const PositionSection = ({
           {positions
             .filter((position): position is PerpPosition => position.type === "perp-position")
             .map((position, idx) => (
-              // The API does not guarantee pair+direction uniqueness (a user can hold multiple
-              // long BTC/USDT positions at once), so include the index to avoid React key collisions.
+              // API doesn't guarantee pair+direction uniqueness (user can hold multiple concurrent BTC/USDT longs) — index avoids key collisions.
               <PerpRow key={`${position.pair}-${position.direction}-${idx}`} position={position} />
             ))}
         </div>
@@ -161,18 +160,23 @@ interface PerpRowProps {
   position: PerpPosition
 }
 
+function getPerpPnlClass(pnl: number | null): string {
+  if (pnl == null || !Number.isFinite(pnl) || pnl === 0) return styles.perpPnlNeutral
+  return pnl > 0 ? styles.perpPnlPositive : styles.perpPnlNegative
+}
+
 const PerpRow = ({ position }: PerpRowProps) => {
   const isLong = position.direction === "long"
   const pnl = getPerpPnl(position)
   const collateralValue = getPerpCollateralValue(position)
   const value = getPositionValue(position)
+  const unpriced = isPerpUnpriced(position)
   const percent = formatPerpPnlPercent(pnl, collateralValue)
   const pnlDisplay = percent ? `${formatPerpPnl(pnl)} ${percent}` : formatPerpPnl(pnl)
-  const pnlClass = !pnl
-    ? styles.perpPnlNeutral
-    : pnl > 0
-      ? styles.perpPnlPositive
-      : styles.perpPnlNegative
+  const directionLabel = isLong ? "Long" : "Short"
+  const leverage = formatPerpLeverage(position.leverage)
+  const positionLabel = leverage ? `${leverage}X ${directionLabel}` : directionLabel
+  const valueDisplay = unpriced ? "—" : formatValue(value)
 
   return (
     <div className={styles.perpRow}>
@@ -182,12 +186,12 @@ const PerpRow = ({ position }: PerpRowProps) => {
         )}
         <span className={styles.tokenSymbol}>{position.pair}</span>
         <span className={isLong ? styles.perpDirectionLong : styles.perpDirectionShort}>
-          {formatPerpLeverage(position.leverage)}X {isLong ? "Long" : "Short"}
+          {positionLabel}
         </span>
       </div>
       <div className={styles.perpValues}>
-        <span className={clsx(styles.perpPnl, pnlClass)}>{pnlDisplay}</span>
-        <span className={styles.tokenValue}>{formatValue(value)}</span>
+        <span className={clsx(styles.perpPnl, getPerpPnlClass(pnl))}>{pnlDisplay}</span>
+        <span className={styles.tokenValue}>{valueDisplay}</span>
       </div>
     </div>
   )

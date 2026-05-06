@@ -6,6 +6,7 @@ import type {
   ChainBalanceData,
   ChainInfo,
   FungiblePosition,
+  PerpPosition,
   Position,
   ProtocolPosition,
   TokenAsset,
@@ -19,6 +20,11 @@ import {
   filterAllAssets,
   filterAssetGroups,
   filterUnlistedAssets,
+  formatPerpLeverage,
+  formatPerpPnl,
+  formatPerpPnlPercent,
+  getPerpCollateralValue,
+  getPerpPnl,
   getPositionBalance,
   getPositionDenom,
   getPositionSymbol,
@@ -30,6 +36,7 @@ import {
   groupPositionsByDenom,
   groupPositionsBySection,
   groupPositionsByType,
+  isPerpUnpriced,
   isStakingProtocol,
   isStakingType,
   processMinityBalances,
@@ -730,6 +737,165 @@ describe("minity/utilities", () => {
         expect(groups[0].symbol).toBe(INIT_SYMBOL)
         expect(groups[1].symbol).toBe("ETH")
         expect(groups[2].symbol).toBe("USDC")
+      })
+    })
+  })
+
+  describe("Perp Helpers", () => {
+    const createMockPerpPosition = (overrides: Partial<PerpPosition> = {}): PerpPosition => ({
+      type: "perp-position",
+      direction: "long",
+      pair: "BTC-USD",
+      leverage: 10,
+      collateral: {
+        type: "asset",
+        denom: "iusd",
+        symbol: "iUSD",
+        decimals: 6,
+        amount: "100000000",
+        formattedAmount: 100,
+        value: 100,
+      },
+      pnl: 5,
+      ...overrides,
+    })
+
+    describe("getPerpPnl", () => {
+      it("returns the PnL when present", () => {
+        expect(getPerpPnl(createMockPerpPosition({ pnl: 12.34 }))).toBe(12.34)
+      })
+
+      it("returns null when PnL is missing so callers can distinguish from zero", () => {
+        expect(getPerpPnl(createMockPerpPosition({ pnl: undefined }))).toBeNull()
+      })
+    })
+
+    describe("getPerpCollateralValue", () => {
+      it("returns collateral USD value when priced", () => {
+        expect(getPerpCollateralValue(createMockPerpPosition())).toBe(100)
+      })
+
+      it("returns null for unknown collateral type", () => {
+        expect(
+          getPerpCollateralValue(
+            createMockPerpPosition({
+              collateral: { type: "unknown", denom: "x", amount: "0" } as Balance,
+            }),
+          ),
+        ).toBeNull()
+      })
+
+      it("returns null when value is missing", () => {
+        expect(
+          getPerpCollateralValue(
+            createMockPerpPosition({
+              collateral: { ...createMockBalance(), value: undefined },
+            }),
+          ),
+        ).toBeNull()
+      })
+    })
+
+    describe("isPerpUnpriced", () => {
+      it("is false when collateral is priced", () => {
+        expect(isPerpUnpriced(createMockPerpPosition())).toBe(false)
+      })
+
+      it("is true when collateral is unknown", () => {
+        expect(
+          isPerpUnpriced(
+            createMockPerpPosition({
+              collateral: { type: "unknown", denom: "x", amount: "0" } as Balance,
+            }),
+          ),
+        ).toBe(true)
+      })
+    })
+
+    describe("formatPerpPnl", () => {
+      it("formats positive PnL with + sign", () => {
+        expect(formatPerpPnl(2.12)).toBe("+$2.12")
+      })
+
+      it("formats negative PnL with - sign", () => {
+        expect(formatPerpPnl(-7.24)).toBe("-$7.24")
+      })
+
+      it("returns $0.00 for exact zero", () => {
+        expect(formatPerpPnl(0)).toBe("$0.00")
+      })
+
+      it("rounds sub-cent magnitudes to zero (no sign)", () => {
+        expect(formatPerpPnl(0.001)).toBe("$0.00")
+        expect(formatPerpPnl(-0.001)).toBe("$0.00")
+      })
+
+      it("returns — when PnL is null or non-finite", () => {
+        expect(formatPerpPnl(null)).toBe("—")
+        expect(formatPerpPnl(NaN)).toBe("—")
+        expect(formatPerpPnl(Infinity)).toBe("—")
+      })
+    })
+
+    describe("formatPerpPnlPercent", () => {
+      it("formats positive percent with + sign", () => {
+        expect(formatPerpPnlPercent(2, 100)).toBe("(+2.00%)")
+      })
+
+      it("formats negative percent with - sign", () => {
+        expect(formatPerpPnlPercent(-5, 100)).toBe("(-5.00%)")
+      })
+
+      it("returns (0.00%) for exact zero", () => {
+        expect(formatPerpPnlPercent(0, 100)).toBe("(0.00%)")
+      })
+
+      it("returns empty string when collateral is missing or non-positive", () => {
+        expect(formatPerpPnlPercent(5, 0)).toBe("")
+        expect(formatPerpPnlPercent(5, null)).toBe("")
+        expect(formatPerpPnlPercent(5, NaN)).toBe("")
+      })
+
+      it("returns empty string when PnL is null or non-finite", () => {
+        expect(formatPerpPnlPercent(null, 100)).toBe("")
+        expect(formatPerpPnlPercent(NaN, 100)).toBe("")
+      })
+    })
+
+    describe("formatPerpLeverage", () => {
+      it("truncates fractional leverage", () => {
+        expect(formatPerpLeverage(7.99)).toBe("7")
+        expect(formatPerpLeverage(20.5)).toBe("20")
+      })
+
+      it("returns empty string for non-finite values so callers can drop the label", () => {
+        expect(formatPerpLeverage(NaN)).toBe("")
+        expect(formatPerpLeverage(Infinity)).toBe("")
+      })
+
+      it("returns empty string for sub-1 leverage", () => {
+        expect(formatPerpLeverage(0)).toBe("")
+        expect(formatPerpLeverage(0.5)).toBe("")
+      })
+    })
+
+    describe("getPositionValue (perp)", () => {
+      it("equals collateral + PnL when both are priced", () => {
+        expect(getPositionValue(createMockPerpPosition({ pnl: 5 }))).toBe(105)
+      })
+
+      it("equals collateral when PnL is missing", () => {
+        expect(getPositionValue(createMockPerpPosition({ pnl: undefined }))).toBe(100)
+      })
+
+      it("returns 0 when collateral can't be priced (caller should pair with isPerpUnpriced)", () => {
+        expect(
+          getPositionValue(
+            createMockPerpPosition({
+              collateral: { type: "unknown", denom: "x", amount: "0" } as Balance,
+            }),
+          ),
+        ).toBe(0)
       })
     })
   })
