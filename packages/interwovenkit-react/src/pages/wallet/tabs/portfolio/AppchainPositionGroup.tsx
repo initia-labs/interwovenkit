@@ -74,7 +74,7 @@ const AppchainPositionContent = ({ chainGroup }: PositionSectionContentProps) =>
 /* -------------------------------------------------------------------------- */
 
 const AppchainPositionGroup = ({ chainGroup }: Props) => {
-  const { chainName, chainLogo, protocols } = chainGroup
+  const { chainName, prettyName, chainLogo, protocols } = chainGroup
 
   // Get the manage URL from first protocol
   const manageUrl = protocols[0]?.manageUrl
@@ -117,7 +117,7 @@ const AppchainPositionGroup = ({ chainGroup }: Props) => {
                 <Image src={chainLogo} width={32} height={32} className={styles.logo} logo />
               )}
               <div className={styles.chainNameContainer}>
-                <span className={styles.chainName}>{chainName}</span>
+                <span className={styles.chainName}>{prettyName}</span>
                 {manageUrl && (
                   <a
                     href={manageUrl}

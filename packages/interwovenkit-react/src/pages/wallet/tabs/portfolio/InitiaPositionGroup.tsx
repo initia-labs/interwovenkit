@@ -205,7 +205,7 @@ const InitiaVipSectionWrapper = () => {
 /* -------------------------------------------------------------------------- */
 
 const InitiaPositionGroup = ({ chainGroup }: Props) => {
-  const { chainId, chainName, chainLogo } = chainGroup
+  const { chainId, prettyName, chainLogo } = chainGroup
   const [isOpen, setIsOpen] = useAtom(openInitiaGroupAtom)
 
   // Shared asset logos - fetch once and pass to child components
@@ -234,7 +234,7 @@ const InitiaPositionGroup = ({ chainGroup }: Props) => {
                 <Image src={chainLogo} width={32} height={32} className={styles.logo} logo />
               )}
               <div className={styles.chainNameContainer}>
-                <span className={styles.chainName}>{chainName}</span>
+                <span className={styles.chainName}>{prettyName}</span>
                 <a
                   href={INITIA_LIQUIDITY_URL}
                   target="_blank"

@@ -83,7 +83,8 @@ const Positions = memo(({ searchQuery, selectedChain, chainInfoMap }: PositionsP
 
       result.push({
         chainId: chainInfo?.chainId ?? "",
-        chainName: chainInfo?.prettyName ?? chainData.chainName,
+        chainName: chainData.chainName,
+        prettyName: chainInfo?.prettyName ?? chainData.chainName,
         chainLogo: chainInfo?.logoUrl ?? "",
         protocols: filteredProtocols,
         isInitia,
@@ -102,7 +103,7 @@ const Positions = memo(({ searchQuery, selectedChain, chainInfoMap }: PositionsP
           excludedChains.includes(group.chainName.toLowerCase()),
         ),
         descend((group: PortfolioChainPositionGroup) => group.totalValue ?? 0),
-        ascend((group: PortfolioChainPositionGroup) => group.chainName.toLowerCase()),
+        ascend((group: PortfolioChainPositionGroup) => group.prettyName.toLowerCase()),
       ],
       result,
     )

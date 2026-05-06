@@ -283,7 +283,10 @@ export interface SSEPortfolioData {
 /** Position group by chain */
 export interface PortfolioChainPositionGroup {
   chainId: string
+  /** Raw lowercase chain identifier from the Minity API; use this for identifier matching (e.g. Strat detection). */
   chainName: string
+  /** Display name from the registry, falls back to chainName when no registry entry exists. */
+  prettyName: string
   chainLogo: string
   protocols: ProtocolPosition[]
   isInitia?: boolean
