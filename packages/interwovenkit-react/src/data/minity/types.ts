@@ -85,6 +85,17 @@ export interface FungiblePosition {
   imageUrl?: string
 }
 
+/** Perpetual Futures Position (Strat) */
+export interface PerpPosition {
+  type: "perp-position"
+  direction: "long" | "short"
+  pair: string
+  leverage: number
+  collateral: Balance
+  pnl?: number
+  imageUrl?: string
+}
+
 /** Position Discriminated Union */
 export type Position =
   | StakingPosition
@@ -92,6 +103,7 @@ export type Position =
   | LockStakingPosition
   | LendingPosition
   | FungiblePosition
+  | PerpPosition
 
 // ============================================
 // PROTOCOL POSITION TYPE

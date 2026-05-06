@@ -203,6 +203,58 @@
   font-weight: 500;
 }
 
+.perpRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.perpToken {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+
+  min-width: 0;
+}
+
+.perpDirectionLong {
+  color: var(--mantine-color-success, var(--success, #2eaf6f));
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.perpDirectionShort {
+  color: var(--mantine-color-error, var(--error, #f15050));
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.perpValues {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.perpPnl {
+  font-family: var(--monospace);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.perpPnlPositive {
+  color: var(--mantine-color-success, var(--success, #2eaf6f));
+}
+
+.perpPnlNegative {
+  color: var(--mantine-color-error, var(--error, #f15050));
+}
+
+.perpPnlNeutral {
+  color: var(--gray-3);
+}
+
 .collapsibleContent {
   overflow: hidden;
 

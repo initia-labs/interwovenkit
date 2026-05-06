@@ -73,6 +73,7 @@ const InitiaStakingSection = ({
 
     for (const position of stakingPositions) {
       if (position.type === "fungible-position") continue
+      if (position.type === "perp-position") continue
       if (position.balance.type === "unknown") continue
 
       const { denom, symbol } = position.balance

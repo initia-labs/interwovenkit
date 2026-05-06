@@ -490,11 +490,20 @@ describe("minity/utilities", () => {
 
     describe("getSectionLabel", () => {
       it("should return 'INIT staking' when isInitia=true", () => {
-        expect(getSectionLabel("staking", true)).toBe("INIT staking")
+        expect(getSectionLabel("staking", { isInitia: true })).toBe("INIT staking")
       })
 
       it("should return 'Staking' when isInitia=false", () => {
-        expect(getSectionLabel("staking", false)).toBe("Staking")
+        expect(getSectionLabel("staking", { isInitia: false })).toBe("Staking")
+      })
+
+      it("should return 'Vault' for Strat staking", () => {
+        expect(getSectionLabel("staking", { chainName: "strat" })).toBe("Vault")
+        expect(getSectionLabel("staking", { chainName: "Strat" })).toBe("Vault")
+      })
+
+      it("should return 'Perpetuals' for perp", () => {
+        expect(getSectionLabel("perp")).toBe("Perpetuals")
       })
 
       it("should return 'Borrowing' for borrowing", () => {

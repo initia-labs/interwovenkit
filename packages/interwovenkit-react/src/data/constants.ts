@@ -9,6 +9,9 @@ export const INIT_DECIMALS = 6
 export const OMNI_INIT_DENOM = "uoinit"
 export const OMNI_INIT_SYMBOL = "omniINIT"
 
+// Strat (perp DEX) chain identifier as it appears in Minity portfolio responses.
+export const STRAT_CHAIN_NAME = "strat"
+
 // External URLs
 export const INITIA_APP_URL = "https://app.initia.xyz"
 export const INITIA_LIQUIDITY_URL = `${INITIA_APP_URL}/liquidity/my`

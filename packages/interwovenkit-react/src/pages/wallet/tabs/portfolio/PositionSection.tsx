@@ -7,12 +7,18 @@ import Image from "@/components/Image"
 import { INIT_SYMBOL } from "@/data/constants"
 import {
   type DenomGroup,
+  formatPerpLeverage,
+  formatPerpPnl,
+  formatPerpPnlPercent,
+  getPerpCollateralValue,
+  getPerpPnl,
   getPositionTypeLabel,
   getPositionValue,
   getSectionLabel,
   groupPositionsByDenom,
   groupPositionsBySection,
   groupPositionsByType,
+  type PerpPosition,
   type Position,
   type ProtocolPosition,
   type SectionGroup,
@@ -25,6 +31,7 @@ export type DenomLogoMap = Map<string, { assetLogo: string; chainLogo: string }>
 interface PositionSectionListProps {
   protocols: ProtocolPosition[]
   denomLogoMap: DenomLogoMap
+  chainName?: string
   isInitia?: boolean
   getClaimableInitByType?: (denom: string, type: Position["type"]) => string
   initPrice?: number
@@ -33,6 +40,7 @@ interface PositionSectionListProps {
 const PositionSectionList = ({
   protocols,
   denomLogoMap,
+  chainName,
   isInitia,
   getClaimableInitByType,
   initPrice,
@@ -55,6 +63,7 @@ const PositionSectionList = ({
           sectionKey={sectionKey}
           sectionGroup={sectionGroup}
           denomLogoMap={denomLogoMap}
+          chainName={chainName}
           isInitia={isInitia}
           manageUrl={manageUrl}
           getClaimableInitByType={getClaimableInitByType}
@@ -69,6 +78,7 @@ interface PositionSectionProps {
   sectionKey: string
   sectionGroup: SectionGroup
   denomLogoMap: DenomLogoMap
+  chainName?: string
   isInitia?: boolean
   manageUrl?: string
   getClaimableInitByType?: (denom: string, type: Position["type"]) => string
@@ -79,22 +89,31 @@ const PositionSection = ({
   sectionKey,
   sectionGroup,
   denomLogoMap,
+  chainName,
   isInitia,
   manageUrl,
   getClaimableInitByType,
   initPrice,
 }: PositionSectionProps) => {
   const { positions, totalValue } = sectionGroup
-  const label = getSectionLabel(sectionKey, isInitia)
-  const denomGroups = useMemo(() => groupPositionsByDenom(positions), [positions])
+  const label = getSectionLabel(sectionKey, { isInitia, chainName })
   const isStakingSection = sectionKey === "staking"
+  const isStratChain = chainName?.toLowerCase() === "strat"
+  // Strat surfaces vault deposits via the generic `staking` type with no claimable rewards
+  // or breakdown — render as flat rows without the type-breakdown accordion.
+  const showStakingBreakdown = isStakingSection && !isStratChain
+  const isPerpSection = sectionKey === "perp"
+  const denomGroups = useMemo(
+    () => (isPerpSection ? [] : groupPositionsByDenom(positions)),
+    [positions, isPerpSection],
+  )
 
   return (
     <section className={styles.section} aria-label={label}>
       <div className={styles.sectionHeader}>
         <div className={styles.sectionTitle}>
           <span className={styles.sectionLabel}>{label}</span>
-          {isStakingSection && manageUrl && (
+          {showStakingBreakdown && manageUrl && (
             <a
               href={manageUrl}
               target="_blank"
@@ -108,19 +127,69 @@ const PositionSection = ({
         </div>
         <span className={styles.sectionValue}>{formatValue(totalValue)}</span>
       </div>
-      <div className={clsx(styles.tokenList, { [styles.stakingTokenList]: isStakingSection })}>
-        {denomGroups.map((group) => (
-          <TokenRow
-            key={group.denom}
-            group={group}
-            showTypeBreakdown={isStakingSection}
-            denomLogoMap={denomLogoMap}
-            getClaimableInitByType={getClaimableInitByType}
-            initPrice={initPrice}
-          />
-        ))}
-      </div>
+      {isPerpSection ? (
+        <div className={styles.tokenList}>
+          {positions
+            .filter((position): position is PerpPosition => position.type === "perp-position")
+            .map((position, idx) => (
+              // The API does not guarantee pair+direction uniqueness (a user can hold multiple
+              // long BTC/USDT positions at once), so include the index to avoid React key collisions.
+              <PerpRow key={`${position.pair}-${position.direction}-${idx}`} position={position} />
+            ))}
+        </div>
+      ) : (
+        <div
+          className={clsx(styles.tokenList, { [styles.stakingTokenList]: showStakingBreakdown })}
+        >
+          {denomGroups.map((group) => (
+            <TokenRow
+              key={group.denom}
+              group={group}
+              showTypeBreakdown={showStakingBreakdown}
+              denomLogoMap={denomLogoMap}
+              getClaimableInitByType={getClaimableInitByType}
+              initPrice={initPrice}
+            />
+          ))}
+        </div>
+      )}
     </section>
+  )
+}
+
+interface PerpRowProps {
+  position: PerpPosition
+}
+
+const PerpRow = ({ position }: PerpRowProps) => {
+  const isLong = position.direction === "long"
+  const pnl = getPerpPnl(position)
+  const collateralValue = getPerpCollateralValue(position)
+  const value = getPositionValue(position)
+  const percent = formatPerpPnlPercent(pnl, collateralValue)
+  const pnlDisplay = percent ? `${formatPerpPnl(pnl)} ${percent}` : formatPerpPnl(pnl)
+  const pnlClass = !pnl
+    ? styles.perpPnlNeutral
+    : pnl > 0
+      ? styles.perpPnlPositive
+      : styles.perpPnlNegative
+
+  return (
+    <div className={styles.perpRow}>
+      <div className={styles.perpToken}>
+        {position.imageUrl && (
+          <Image src={position.imageUrl} width={20} height={20} className={styles.tokenLogo} />
+        )}
+        <span className={styles.tokenSymbol}>{position.pair}</span>
+        <span className={isLong ? styles.perpDirectionLong : styles.perpDirectionShort}>
+          {formatPerpLeverage(position.leverage)}X {isLong ? "Long" : "Short"}
+        </span>
+      </div>
+      <div className={styles.perpValues}>
+        <span className={clsx(styles.perpPnl, pnlClass)}>{pnlDisplay}</span>
+        <span className={styles.tokenValue}>{formatValue(value)}</span>
+      </div>
+    </div>
   )
 }
 
@@ -223,7 +292,7 @@ const TypeBreakdown = ({
   const typeData = useMemo(() => {
     return Array.from(typeGroups.entries()).map(([type, typePositions]) => {
       const typeAmount = typePositions.reduce((sum, position) => {
-        if (position.type === "fungible-position") return sum
+        if (position.type === "fungible-position" || position.type === "perp-position") return sum
         if (position.balance.type === "unknown") return sum
         return sum + position.balance.formattedAmount
       }, 0)

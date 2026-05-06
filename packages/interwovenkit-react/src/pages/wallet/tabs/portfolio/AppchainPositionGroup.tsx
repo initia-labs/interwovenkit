@@ -30,7 +30,7 @@ interface PositionSectionContentProps {
 }
 
 const AppchainPositionContent = ({ chainGroup }: PositionSectionContentProps) => {
-  const { chainId, chainLogo, protocols } = chainGroup
+  const { chainId, chainName, chainLogo, protocols } = chainGroup
 
   // Asset logos (non-blocking - renders immediately, logos appear when ready)
   const chains = useInitiaRegistry()
@@ -47,6 +47,7 @@ const AppchainPositionContent = ({ chainGroup }: PositionSectionContentProps) =>
     for (const protocol of protocols) {
       for (const position of protocol.positions) {
         if (position.type === "fungible-position") continue
+        if (position.type === "perp-position") continue
         if (position.balance.type === "unknown") continue
 
         const { denom, symbol } = position.balance
@@ -63,7 +64,9 @@ const AppchainPositionContent = ({ chainGroup }: PositionSectionContentProps) =>
     return map
   }, [protocols, denomLogos, symbolLogos, chainId, chainLogo])
 
-  return <PositionSectionList protocols={protocols} denomLogoMap={denomLogoMap} />
+  return (
+    <PositionSectionList protocols={protocols} denomLogoMap={denomLogoMap} chainName={chainName} />
+  )
 }
 
 /* -------------------------------------------------------------------------- */

@@ -1,10 +1,13 @@
-import { INIT_SYMBOL } from "../constants"
+import BigNumber from "bignumber.js"
+import { formatNumber as formatNumberUtil } from "@initia/utils"
+import { INIT_SYMBOL, STRAT_CHAIN_NAME } from "../constants"
 import type { PortfolioAssetGroup, PortfolioAssetItem } from "../portfolio"
 import type {
   Balance,
   ChainBalanceData,
   ChainInfo,
   DenomGroup,
+  PerpPosition,
   Position,
   ProtocolPosition,
   SectionGroup,
@@ -79,11 +82,64 @@ export function isStakingProtocol(protocol: ProtocolPosition): boolean {
 // POSITION VALUE UTILITIES
 // ============================================
 
+export function getPerpPnl(position: { pnl?: number }): number {
+  return position.pnl ?? 0
+}
+
+export function getPerpCollateralValue(position: PerpPosition): number {
+  if (position.collateral.type === "unknown") return 0
+  return position.collateral.value ?? 0
+}
+
+/** "+$2.12" / "-$7.24" / "< +$0.01" / "< -$0.01" / "$0.00" */
+export function formatPerpPnl(pnl: number): string {
+  const value = BigNumber(pnl)
+  if (value.isZero()) return "$0.00"
+  const isNegative = value.lt(0)
+  const sign = isNegative ? "-" : "+"
+  const abs = value.abs()
+
+  // Sub-cent magnitudes collapse to "< $0.01"; keep the sign next to the number.
+  if (abs.lt(0.01)) return `< ${sign}$0.01`
+
+  return `${sign}$${formatNumberUtil(abs.toNumber(), { dp: 2 })}`
+}
+
+/** "(+0.04%)" / "(-0.68%)" / "(< +0.01%)" / "(< -0.01%)" / "(0.00%)" / "" when no basis */
+export function formatPerpPnlPercent(pnl: number, collateralValue: number): string {
+  if (!collateralValue) return ""
+  const pct = BigNumber(pnl).div(collateralValue).times(100)
+  if (pct.isZero()) return "(0.00%)"
+  const sign = pct.gt(0) ? "+" : "-"
+  const abs = pct.abs()
+
+  if (abs.lt(0.01)) return `(< ${sign}0.01%)`
+
+  return `(${sign}${abs.toFixed(2)}%)`
+}
+
+/** Truncate fractional leverage so "7.99x" reads as "7x". */
+export function formatPerpLeverage(leverage: number): string {
+  return BigNumber(leverage).decimalPlaces(0, BigNumber.ROUND_DOWN).toString()
+}
+
 /** Get value from a position based on its type */
 export function getPositionValue(position: Position): number {
   if (position.type === "fungible-position") {
     return position.value ?? 0
   }
+
+  // Perp equity = collateral value + unrealized PnL.
+  // Collateral is locked in the protocol, so it never appears in wallet balances — no double-count.
+  // If collateral can't be priced (unknown type or missing value) we surface 0 rather than
+  // PnL alone, so totals don't silently understate the position.
+  if (position.type === "perp-position") {
+    if (position.collateral.type === "unknown" || position.collateral.value == null) {
+      return 0
+    }
+    return BigNumber(position.collateral.value).plus(getPerpPnl(position)).toNumber()
+  }
+
   if (position.balance.type === "unknown") return 0
   const value = position.balance.value ?? 0
   // Borrowing positions should subtract from total (debt/liability)
@@ -93,9 +149,10 @@ export function getPositionValue(position: Position): number {
   return value
 }
 
-/** Get section key for position - groups staking types and separates lending by direction */
+/** Get section key for position - groups staking types, perp, and separates lending by direction */
 export function getSectionKey(position: Position): string | null {
   if (position.type === "fungible-position") return null
+  if (position.type === "perp-position") return "perp"
   if (
     position.type === "staking" ||
     position.type === "unstaking" ||
@@ -109,11 +166,24 @@ export function getSectionKey(position: Position): string | null {
   return null
 }
 
+interface SectionLabelContext {
+  isInitia?: boolean
+  chainName?: string
+}
+
 /** Get display label for section key */
-export function getSectionLabel(sectionKey: string, isInitia = false): string {
+export function getSectionLabel(sectionKey: string, context: SectionLabelContext = {}): string {
+  const { isInitia = false, chainName } = context
+  const isStratChain = chainName?.toLowerCase() === STRAT_CHAIN_NAME
+
   switch (sectionKey) {
     case "staking":
+      // Strat surfaces vault deposits via the generic `staking` type.
+      // Re-label as "Vault" so users don't read it as validator staking.
+      if (isStratChain) return "Vault"
       return isInitia ? "INIT staking" : "Staking"
+    case "perp":
+      return "Perpetuals"
     case "borrowing":
       return "Borrowing"
     case "lending":
@@ -186,6 +256,9 @@ export function getPositionDenom(position: Position): string {
   if (position.type === "fungible-position") {
     return position.title
   }
+  if (position.type === "perp-position") {
+    return position.pair
+  }
   return position.balance.denom
 }
 
@@ -194,15 +267,21 @@ export function getPositionSymbol(position: Position): string {
   if (position.type === "fungible-position") {
     return position.title
   }
+  if (position.type === "perp-position") {
+    return position.pair
+  }
   if (position.balance.type === "unknown") {
     return position.balance.denom
   }
   return position.balance.symbol
 }
 
-/** Get balance from position (returns null for fungible positions) */
+/** Get balance from position (returns null for fungible/perp positions) */
 export function getPositionBalance(position: Position): Balance | null {
   if (position.type === "fungible-position") {
+    return null
+  }
+  if (position.type === "perp-position") {
     return null
   }
   return position.balance
@@ -221,6 +300,8 @@ export function getPositionTypeLabel(type: Position["type"]): string {
       return "Lending"
     case "fungible-position":
       return "Position"
+    case "perp-position":
+      return "Perpetuals"
     default:
       return ""
   }
@@ -262,9 +343,9 @@ export function groupPositionsByDenom(positions: Position[]): DenomGroup[] {
     let totalAmount = 0
 
     for (const pos of positions) {
-      if (pos.type !== "fungible-position" && pos.balance.type !== "unknown") {
-        totalAmount += pos.balance.formattedAmount
-      }
+      if (pos.type === "fungible-position" || pos.type === "perp-position") continue
+      if (pos.balance.type === "unknown") continue
+      totalAmount += pos.balance.formattedAmount
     }
 
     return {

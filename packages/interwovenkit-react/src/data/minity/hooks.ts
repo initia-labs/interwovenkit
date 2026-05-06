@@ -14,7 +14,7 @@ import type {
   ProtocolPosition,
   SSEPortfolioData,
 } from "./types"
-import { applyFallbackPricing, buildPriceMap } from "./utilities"
+import { applyFallbackPricing, buildPriceMap, getPositionValue } from "./utilities"
 
 // ============================================
 // DEFAULT DATA
@@ -128,6 +128,9 @@ export function useMinityChainBreakdown(): ChainBreakdownItem[] {
         if (currentPosition.type === "fungible-position") {
           return sum + (currentPosition.value ?? 0)
         }
+        if (currentPosition.type === "perp-position") {
+          return sum + getPositionValue(currentPosition)
+        }
         if (currentPosition.balance.type === "unknown") return sum
         const value = currentPosition.balance.value ?? 0
         // Borrowing positions should subtract from total (debt/liability)
@@ -230,6 +233,9 @@ export function useAppchainPositionsBalance(): number {
       return position.positions.reduce((sum: number, pos: Position) => {
         if (pos.type === "fungible-position") {
           return sum + (pos.value ?? 0)
+        }
+        if (pos.type === "perp-position") {
+          return sum + getPositionValue(pos)
         }
         if (pos.balance.type === "unknown") return sum
         const value = pos.balance.value ?? 0
