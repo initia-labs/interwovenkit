@@ -10,7 +10,7 @@ export const MAINNET: Config = {
   glyphUrl: "https://glyph.initia.xyz",
   usernamesModuleAddress: "0x72ed9b26ecdcd6a21d304df50f19abfdbe31d2c02f60c84627844620a45940ef",
   lockStakeModuleAddress: "0x3a886b32a802582f2e446e74d4a24d1d7ed01adf46d2a8f65c5723887e708789",
-  minityUrl: "https://portfolio-api.minity.xyz",
+  minityUrl: "https://initia-portfolio-api-staging.up.railway.app",
   dexUrl: "https://dex-api.initia.xyz",
   vipUrl: "https://vip-api.initia.xyz",
   theme: "dark",
