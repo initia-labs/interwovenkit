@@ -10,7 +10,6 @@ import type {
   Balance,
   ChainBreakdownItem,
   ChainInfo,
-  Position,
   ProtocolPosition,
   SSEPortfolioData,
 } from "./types"
@@ -122,24 +121,8 @@ export function useMinityChainBreakdown(): ChainBreakdownItem[] {
       return balance.value ?? 0
     }
 
-    // Helper function to get protocol position value
-    const getProtocolPositionValue = (position: ProtocolPosition): number => {
-      return position.positions.reduce((sum: number, currentPosition: Position) => {
-        if (currentPosition.type === "fungible-position") {
-          return sum + (currentPosition.value ?? 0)
-        }
-        if (currentPosition.type === "perp-position") {
-          return sum + getPositionValue(currentPosition)
-        }
-        if (currentPosition.balance.type === "unknown") return sum
-        const value = currentPosition.balance.value ?? 0
-        // Borrowing positions should subtract from total (debt/liability)
-        if (currentPosition.type === "lending" && currentPosition.direction === "borrow") {
-          return sum - value
-        }
-        return sum + value
-      }, 0)
-    }
+    const getProtocolPositionValue = (position: ProtocolPosition): number =>
+      position.positions.reduce((sum, p) => sum + getPositionValue(p), 0)
 
     // Calculate totals per chain
     const chainTotals = new Map<string, number>()
@@ -228,24 +211,8 @@ export function useAppchainPositionsBalance(): number {
   const { positions } = useMinityPortfolio()
 
   return useMemo(() => {
-    // Helper to get protocol position value
-    const getProtocolPositionValue = (position: ProtocolPosition): number => {
-      return position.positions.reduce((sum: number, pos: Position) => {
-        if (pos.type === "fungible-position") {
-          return sum + (pos.value ?? 0)
-        }
-        if (pos.type === "perp-position") {
-          return sum + getPositionValue(pos)
-        }
-        if (pos.balance.type === "unknown") return sum
-        const value = pos.balance.value ?? 0
-        // Borrowing positions should subtract from total (debt/liability)
-        if (pos.type === "lending" && pos.direction === "borrow") {
-          return sum - value
-        }
-        return sum + value
-      }, 0)
-    }
+    const getProtocolPositionValue = (position: ProtocolPosition): number =>
+      position.positions.reduce((sum, p) => sum + getPositionValue(p), 0)
 
     // Chains to exclude from value calculations (fungible NFTs only, no USD values)
     const excludedChains = ["initia", "civitia", "yominet"]
