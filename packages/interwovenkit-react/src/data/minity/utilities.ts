@@ -89,8 +89,8 @@ export function getPerpPnl(position: PerpPosition): number | null {
 
 /** Returns null when collateral can't be priced (unknown asset type or missing value). */
 export function getPerpCollateralValue(position: PerpPosition): number | null {
-  if (position.collateral.type === "unknown") return null
-  return position.collateral.value ?? null
+  if (position.balance.type === "unknown") return null
+  return position.balance.value ?? null
 }
 
 /** True when the perp position lacks a priced collateral basis — UI should surface an "Unpriced" affordance rather than rendering as $0. */

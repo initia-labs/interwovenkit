@@ -747,7 +747,7 @@ describe("minity/utilities", () => {
       direction: "long",
       pair: "BTC-USD",
       leverage: 10,
-      collateral: {
+      balance: {
         type: "asset",
         denom: "iusd",
         symbol: "iUSD",
@@ -779,7 +779,7 @@ describe("minity/utilities", () => {
         expect(
           getPerpCollateralValue(
             createMockPerpPosition({
-              collateral: { type: "unknown", denom: "x", amount: "0" } as Balance,
+              balance: { type: "unknown", denom: "x", amount: "0" } as Balance,
             }),
           ),
         ).toBeNull()
@@ -789,7 +789,7 @@ describe("minity/utilities", () => {
         expect(
           getPerpCollateralValue(
             createMockPerpPosition({
-              collateral: { ...createMockBalance(), value: undefined },
+              balance: { ...createMockBalance(), value: undefined },
             }),
           ),
         ).toBeNull()
@@ -805,7 +805,7 @@ describe("minity/utilities", () => {
         expect(
           isPerpUnpriced(
             createMockPerpPosition({
-              collateral: { type: "unknown", denom: "x", amount: "0" } as Balance,
+              balance: { type: "unknown", denom: "x", amount: "0" } as Balance,
             }),
           ),
         ).toBe(true)
@@ -892,7 +892,7 @@ describe("minity/utilities", () => {
         expect(
           getPositionValue(
             createMockPerpPosition({
-              collateral: { type: "unknown", denom: "x", amount: "0" } as Balance,
+              balance: { type: "unknown", denom: "x", amount: "0" } as Balance,
             }),
           ),
         ).toBe(0)

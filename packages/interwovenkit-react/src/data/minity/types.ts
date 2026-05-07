@@ -94,7 +94,7 @@ export interface PerpPosition {
   /** Multiplier (e.g. 5 = 5x), expected > 0 */
   leverage: number
   /** Margin posted for this position (NOT the notional size) */
-  collateral: Balance
+  balance: Balance
   /** Unrealized P&L in USD; can be negative */
   pnl?: number
   imageUrl?: string
