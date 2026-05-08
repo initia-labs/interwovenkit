@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-import react from "@vitejs/plugin-react-swc"
+import react from "@vitejs/plugin-react"
 import fs from "fs"
 import path from "path"
 import type { Plugin } from "vite"
