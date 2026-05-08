@@ -142,7 +142,7 @@ const PositionSection = ({
   if (perpOrder.signature !== perpSetSignature) {
     setPerpOrder({
       signature: perpSetSignature,
-      ids: [...perpEntries]
+      ids: perpEntries
         .toSorted((a, b) => getPositionValue(b.position) - getPositionValue(a.position))
         .map((entry) => entry.id),
     })
