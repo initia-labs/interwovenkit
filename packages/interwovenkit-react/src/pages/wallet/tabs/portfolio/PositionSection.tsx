@@ -180,18 +180,20 @@ const PerpRow = ({ position }: PerpRowProps) => {
 
   return (
     <div className={styles.perpRow}>
-      <div className={styles.perpToken}>
+      <div className={styles.perpLeft}>
         {position.imageUrl && (
-          <Image src={position.imageUrl} width={20} height={20} className={styles.tokenLogo} />
+          <Image src={position.imageUrl} width={20} height={20} className={styles.perpLogo} />
         )}
-        <span className={styles.tokenSymbol}>{position.pair}</span>
-        <span className={isLong ? styles.perpDirectionLong : styles.perpDirectionShort}>
-          {positionLabel}
-        </span>
+        <div className={styles.perpInfo}>
+          <span className={styles.perpPair}>{position.pair}</span>
+          <span className={isLong ? styles.perpDirectionLong : styles.perpDirectionShort}>
+            {positionLabel}
+          </span>
+        </div>
       </div>
-      <div className={styles.perpValues}>
+      <div className={styles.perpRight}>
+        <span className={styles.perpValue}>{valueDisplay}</span>
         <span className={clsx(styles.perpPnl, getPerpPnlClass(pnl))}>{pnlDisplay}</span>
-        <span className={styles.tokenValue}>{valueDisplay}</span>
       </div>
     </div>
   )

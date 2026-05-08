@@ -207,33 +207,63 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
 }
 
-.perpToken {
+.perpLeft {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
+  align-items: flex-start;
+  gap: 4px;
 
   min-width: 0;
 }
 
+.perpLogo {
+  flex-shrink: 0;
+
+  border-radius: 50%;
+}
+
+.perpInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  min-width: 0;
+}
+
+.perpPair {
+  color: var(--gray-0);
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .perpDirectionLong {
   color: var(--mantine-color-success, var(--success, #2eaf6f));
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
 }
 
 .perpDirectionShort {
   color: var(--mantine-color-error, var(--error, #f15050));
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
 }
 
-.perpValues {
+.perpRight {
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   align-items: flex-end;
+  gap: 2px;
+}
+
+.perpValue {
+  color: var(--gray-0);
+  font-family: var(--monospace);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .perpPnl {
@@ -252,7 +282,7 @@
 }
 
 .perpPnlNeutral {
-  color: var(--gray-3);
+  color: var(--gray-3, #6b7280);
 }
 
 .collapsibleContent {

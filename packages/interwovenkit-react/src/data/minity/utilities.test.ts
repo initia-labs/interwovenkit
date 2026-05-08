@@ -897,6 +897,10 @@ describe("minity/utilities", () => {
           ),
         ).toBe(0)
       })
+
+      it("subtracts negative PnL from collateral", () => {
+        expect(getPositionValue(createMockPerpPosition({ pnl: -30 }))).toBe(70)
+      })
     })
   })
 
