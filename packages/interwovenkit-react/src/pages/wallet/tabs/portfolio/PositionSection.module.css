@@ -46,6 +46,20 @@
   }
 }
 
+.sectionTitleLink {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  color: var(--gray-3);
+  text-decoration: none;
+  transition: color var(--transition);
+
+  &:hover {
+    color: var(--gray-1);
+  }
+}
+
 .sectionValue {
   color: var(--gray-3);
   font-family: var(--monospace);
@@ -122,7 +136,7 @@
 .tokenInfo {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
 }
 
 .tokenInfoLabel {
@@ -213,7 +227,7 @@
 .perpLeft {
   display: flex;
   align-items: flex-start;
-  gap: 4px;
+  gap: 8px;
 
   min-width: 0;
 }

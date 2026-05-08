@@ -41,6 +41,20 @@
   }
 }
 
+.sectionTitleLink {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  color: var(--gray-3);
+  text-decoration: none;
+  transition: color var(--transition);
+
+  &:hover {
+    color: var(--gray-1);
+  }
+}
+
 .sectionValue {
   color: var(--gray-3);
   font-family: var(--monospace);

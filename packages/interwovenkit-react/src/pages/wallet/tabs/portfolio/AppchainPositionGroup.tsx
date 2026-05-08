@@ -116,20 +116,22 @@ const AppchainPositionGroup = ({ chainGroup }: Props) => {
               {chainLogo && (
                 <Image src={chainLogo} width={32} height={32} className={styles.logo} logo />
               )}
-              <div className={styles.chainNameContainer}>
-                <span className={styles.chainName}>{prettyName}</span>
-                {manageUrl && (
-                  <a
-                    href={manageUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={styles.externalLink}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <IconExternalLink size={12} className={styles.externalIcon} />
-                  </a>
-                )}
-              </div>
+              {manageUrl ? (
+                <a
+                  href={manageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.chainNameLink}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <span className={styles.chainName}>{prettyName}</span>
+                  <IconExternalLink size={14} className={styles.externalIcon} />
+                </a>
+              ) : (
+                <div className={styles.chainNameContainer}>
+                  <span className={styles.chainName}>{prettyName}</span>
+                </div>
+              )}
             </div>
             <div className={styles.valueColumn}>
               {!hideValue && <span className={styles.value}>{formatValue(totalValue)}</span>}

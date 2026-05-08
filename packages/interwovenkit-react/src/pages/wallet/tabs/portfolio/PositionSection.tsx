@@ -111,20 +111,22 @@ const PositionSection = ({
   return (
     <section className={styles.section} aria-label={label}>
       <div className={styles.sectionHeader}>
-        <div className={styles.sectionTitle}>
-          <span className={styles.sectionLabel}>{label}</span>
-          {showStakingBreakdown && manageUrl && (
-            <a
-              href={manageUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.externalLink}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <IconExternalLink size={12} aria-hidden="true" />
-            </a>
-          )}
-        </div>
+        {showStakingBreakdown && manageUrl ? (
+          <a
+            href={manageUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.sectionTitleLink}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className={styles.sectionLabel}>{label}</span>
+            <IconExternalLink size={14} aria-hidden="true" />
+          </a>
+        ) : (
+          <div className={styles.sectionTitle}>
+            <span className={styles.sectionLabel}>{label}</span>
+          </div>
+        )}
         <span className={styles.sectionValue}>{formatValue(totalValue)}</span>
       </div>
       {isPerpSection ? (
