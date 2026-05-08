@@ -108,6 +108,54 @@ const PositionSection = ({
     [positions, isPerpSection],
   )
 
+  // Build deterministic IDs for perp positions; pair+direction may repeat
+  // (multiple BTC/USDT longs), so disambiguate by encounter order.
+  const perpEntries = useMemo(() => {
+    if (!isPerpSection) return []
+    const counts = new Map<string, number>()
+    return positions
+      .filter((position): position is PerpPosition => position.type === "perp-position")
+      .map((position) => {
+        const base = `${position.pair}-${position.direction}`
+        const count = counts.get(base) ?? 0
+        counts.set(base, count + 1)
+        return { id: `${base}-${count}`, position }
+      })
+  }, [positions, isPerpSection])
+
+  // Signature stable across value-only updates — only changes when positions
+  // are added/removed.
+  const perpSetSignature = perpEntries
+    .map((entry) => entry.id)
+    .toSorted()
+    .join("|")
+
+  // Cache the sort order by set signature so rows don't shuffle while the user
+  // watches values fluctuate. Re-sort only when the set of positions changes;
+  // a remount (e.g., page refresh) starts fresh.
+  const [perpOrder, setPerpOrder] = useState<{ signature: string; ids: string[] }>(() => ({
+    signature: perpSetSignature,
+    ids: perpEntries
+      .toSorted((a, b) => getPositionValue(b.position) - getPositionValue(a.position))
+      .map((entry) => entry.id),
+  }))
+  if (perpOrder.signature !== perpSetSignature) {
+    setPerpOrder({
+      signature: perpSetSignature,
+      ids: [...perpEntries]
+        .toSorted((a, b) => getPositionValue(b.position) - getPositionValue(a.position))
+        .map((entry) => entry.id),
+    })
+  }
+
+  // Render in cached order with fresh position data each refetch.
+  const sortedPerpPositions = useMemo(() => {
+    const byId = new Map(perpEntries.map((entry) => [entry.id, entry.position]))
+    return perpOrder.ids
+      .map((id) => ({ id, position: byId.get(id) }))
+      .filter((entry): entry is { id: string; position: PerpPosition } => entry.position != null)
+  }, [perpEntries, perpOrder.ids])
+
   return (
     <section className={styles.section} aria-label={label}>
       <div className={styles.sectionHeader}>
@@ -131,12 +179,9 @@ const PositionSection = ({
       </div>
       {isPerpSection ? (
         <div className={styles.tokenList}>
-          {positions
-            .filter((position): position is PerpPosition => position.type === "perp-position")
-            .map((position, idx) => (
-              // API doesn't guarantee pair+direction uniqueness (user can hold multiple concurrent BTC/USDT longs) — index avoids key collisions.
-              <PerpRow key={`${position.pair}-${position.direction}-${idx}`} position={position} />
-            ))}
+          {sortedPerpPositions.map(({ id, position }) => (
+            <PerpRow key={id} position={position} />
+          ))}
         </div>
       ) : (
         <div
