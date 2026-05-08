@@ -132,8 +132,8 @@ importers:
         specifier: ^0.36.2
         version: 0.36.2(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       '@initia/amino-converter':
-        specifier: ^1.0.16
-        version: 1.0.16(@cosmjs/cosmwasm-stargate@0.33.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))(@cosmjs/proto-signing@0.36.2)(@cosmjs/stargate@0.36.2(bufferutil@4.1.0)(utf-8-validate@5.0.10))(@initia/initia.proto@1.0.4(google-protobuf@3.21.4))(@initia/opinit.proto@1.0.3(google-protobuf@3.21.4))
+        specifier: ^1.0.19
+        version: 1.0.19(@cosmjs/cosmwasm-stargate@0.33.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))(@cosmjs/encoding@0.36.2)(@cosmjs/proto-signing@0.36.2)(@cosmjs/stargate@0.36.2(bufferutil@4.1.0)(utf-8-validate@5.0.10))(@initia/initia.proto@1.0.4(google-protobuf@3.21.4))(@initia/opinit.proto@1.0.3(google-protobuf@3.21.4))
       '@initia/initia.proto':
         specifier: ^1.0.4
         version: 1.0.4(google-protobuf@3.21.4)
@@ -927,10 +927,11 @@ packages:
     peerDependencies:
       google-protobuf: ^3.14.0
 
-  '@initia/amino-converter@1.0.16':
-    resolution: {integrity: sha512-zs0uUZAuBLQP6gj8UMnUTXQt1wy10XqBkcvSbxLd9odgmiVKbU4cOQ2XCEW7nXmaqdOIKkQoKaC7M0KiNzZYFw==}
+  '@initia/amino-converter@1.0.19':
+    resolution: {integrity: sha512-Jev75SOV/ZcM9cLI7WKIiz6mtgRq0Qs97ffp25ogV/jvHcAF9r7ChKEslU/d65rQUEkMiIj0HiDROlIR9iLHZw==}
     peerDependencies:
       '@cosmjs/cosmwasm-stargate': '>=0.36.0'
+      '@cosmjs/encoding': '>=0.36.0'
       '@cosmjs/proto-signing': '>=0.36.0'
       '@cosmjs/stargate': '>=0.36.0'
       '@initia/initia.proto': '>=1.0.0'
@@ -7350,9 +7351,10 @@ snapshots:
       browser-headers: 0.4.1
       google-protobuf: 3.21.4
 
-  '@initia/amino-converter@1.0.16(@cosmjs/cosmwasm-stargate@0.33.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))(@cosmjs/proto-signing@0.36.2)(@cosmjs/stargate@0.36.2(bufferutil@4.1.0)(utf-8-validate@5.0.10))(@initia/initia.proto@1.0.4(google-protobuf@3.21.4))(@initia/opinit.proto@1.0.3(google-protobuf@3.21.4))':
+  '@initia/amino-converter@1.0.19(@cosmjs/cosmwasm-stargate@0.33.1(bufferutil@4.1.0)(utf-8-validate@5.0.10))(@cosmjs/encoding@0.36.2)(@cosmjs/proto-signing@0.36.2)(@cosmjs/stargate@0.36.2(bufferutil@4.1.0)(utf-8-validate@5.0.10))(@initia/initia.proto@1.0.4(google-protobuf@3.21.4))(@initia/opinit.proto@1.0.3(google-protobuf@3.21.4))':
     dependencies:
       '@cosmjs/cosmwasm-stargate': 0.33.1(bufferutil@4.1.0)(utf-8-validate@5.0.10)
+      '@cosmjs/encoding': 0.36.2
       '@cosmjs/proto-signing': 0.36.2
       '@cosmjs/stargate': 0.36.2(bufferutil@4.1.0)(utf-8-validate@5.0.10)
       '@initia/initia.proto': 1.0.4(google-protobuf@3.21.4)
