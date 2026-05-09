@@ -124,7 +124,10 @@ const PositionSection = ({
   }, [positions, isPerpSection])
 
   // Signature stable across value-only updates — only changes when positions
-  // are added/removed.
+  // are added/removed. Not wrapped in useMemo because `perpEntries` gets a new
+  // reference on every refetch, so the memo would recompute every time anyway;
+  // the underlying work (one map + sort + join over a handful of entries) is
+  // cheaper than the memo bookkeeping.
   const perpSetSignature = perpEntries
     .map((entry) => entry.id)
     .toSorted()
@@ -133,6 +136,13 @@ const PositionSection = ({
   // Cache the sort order by set signature so rows don't shuffle while the user
   // watches values fluctuate. Re-sort only when the set of positions changes;
   // a remount (e.g., page refresh) starts fresh.
+  //
+  // The `if (...) setState(...)` block during render is React's documented
+  // "storing information from previous renders" pattern — see
+  // https://react.dev/reference/react/useState#storing-information-from-previous-renders.
+  // useEffect would re-render twice; a useRef-based memo is rejected by the
+  // `react-hooks/refs` lint rule. The condition is idempotent under Strict
+  // Mode double-render because the second pass already has matching state.
   const [perpOrder, setPerpOrder] = useState<{ signature: string; ids: string[] }>(() => ({
     signature: perpSetSignature,
     ids: perpEntries
