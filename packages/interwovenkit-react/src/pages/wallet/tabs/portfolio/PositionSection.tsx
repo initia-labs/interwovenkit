@@ -29,6 +29,12 @@ import styles from "./PositionSection.module.css"
 
 export type DenomLogoMap = Map<string, { assetLogo: string; chainLogo: string }>
 
+function sortPerpIdsByValue(entries: { id: string; position: PerpPosition }[]): string[] {
+  return entries
+    .toSorted((a, b) => getPositionValue(b.position) - getPositionValue(a.position))
+    .map((entry) => entry.id)
+}
+
 interface PositionSectionListProps {
   protocols: ProtocolPosition[]
   denomLogoMap: DenomLogoMap
@@ -134,27 +140,17 @@ const PositionSection = ({
     .join("|")
 
   // Cache the sort order by set signature so rows don't shuffle while the user
-  // watches values fluctuate. Re-sort only when the set of positions changes;
-  // a remount (e.g., page refresh) starts fresh.
-  //
-  // The `if (...) setState(...)` block during render is React's documented
-  // "storing information from previous renders" pattern — see
+  // watches values fluctuate. setState-during-render is React's "storing
+  // information from previous renders" pattern:
   // https://react.dev/reference/react/useState#storing-information-from-previous-renders.
-  // useEffect would re-render twice; a useRef-based memo is rejected by the
-  // `react-hooks/refs` lint rule. The condition is idempotent under Strict
-  // Mode double-render because the second pass already has matching state.
   const [perpOrder, setPerpOrder] = useState<{ signature: string; ids: string[] }>(() => ({
     signature: perpSetSignature,
-    ids: perpEntries
-      .toSorted((a, b) => getPositionValue(b.position) - getPositionValue(a.position))
-      .map((entry) => entry.id),
+    ids: sortPerpIdsByValue(perpEntries),
   }))
   if (perpOrder.signature !== perpSetSignature) {
     setPerpOrder({
       signature: perpSetSignature,
-      ids: perpEntries
-        .toSorted((a, b) => getPositionValue(b.position) - getPositionValue(a.position))
-        .map((entry) => entry.id),
+      ids: sortPerpIdsByValue(perpEntries),
     })
   }
 

@@ -160,19 +160,23 @@ export function getPositionValue(position: Position): number {
 
 /** Get section key for position - groups staking types, perp, and separates lending by direction */
 export function getSectionKey(position: Position): string | null {
-  if (position.type === "fungible-position") return null
-  if (position.type === "perp-position") return "perp"
-  if (
-    position.type === "staking" ||
-    position.type === "unstaking" ||
-    position.type === "lockstaking"
-  ) {
-    return "staking"
+  switch (position.type) {
+    case "fungible-position":
+      return null
+    case "perp-position":
+      return "perp"
+    case "staking":
+    case "unstaking":
+    case "lockstaking":
+      return "staking"
+    case "lending":
+      return position.direction === "supply" ? "lending" : "borrowing"
+    default: {
+      // Compile-time exhaustiveness — adding a new Position variant must surface here.
+      const _exhaustive: never = position
+      return _exhaustive
+    }
   }
-  if (position.type === "lending") {
-    return position.direction === "supply" ? "lending" : "borrowing"
-  }
-  return null
 }
 
 interface SectionLabelContext {
