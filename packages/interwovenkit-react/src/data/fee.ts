@@ -20,8 +20,7 @@ export async function fetchGasPrices(chain: NormalizedChain) {
       .create({ prefixUrl: restUrl })
       .get("initia/tx/v1/gas_prices")
       .json<{ gas_prices: Coin[] }>()
-    return gas_prices
-      .slice()
+    return [...gas_prices]
       .sort(descend(({ denom }) => denom === "uinit"))
       .map(({ denom, amount }) => {
         const multiplier = denom === "uinit" ? 1 : DEFAULT_GAS_PRICE_MULTIPLIER

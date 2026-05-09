@@ -501,7 +501,7 @@ export function groupBalancesBySymbol(
   const groups: PortfolioAssetGroup[] = []
 
   for (const [symbol, assets] of groupMap) {
-    const sortedAssets = assets.slice().sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
+    const sortedAssets = [...assets].sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
     const totalValue = sortedAssets.reduce((sum, a) => sum + (a.value ?? 0), 0)
     const totalAmount = sortedAssets.reduce((sum, a) => sum + Number(a.quantity), 0)
 

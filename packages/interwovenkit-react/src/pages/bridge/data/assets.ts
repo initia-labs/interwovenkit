@@ -68,7 +68,7 @@ export function useSkipAssets(chainId: string) {
       for (const asset of assets) {
         queryClient.setQueryData(skipQueryKeys.asset(chainId, asset.denom).queryKey, asset)
       }
-      return assets.slice().sort(descend((asset) => asset.symbol === "INIT"))
+      return [...assets].sort(descend((asset) => asset.symbol === "INIT"))
     },
     staleTime: STALE_TIMES.MINUTE,
   })
