@@ -4,15 +4,22 @@ import { useMemo, useState } from "react"
 import { IconChevronDown, IconExternalLink } from "@initia/icons-react"
 import { formatNumber } from "@initia/utils"
 import Image from "@/components/Image"
-import { INIT_SYMBOL } from "@/data/constants"
+import { INIT_SYMBOL, STRAT_CHAIN_NAME } from "@/data/constants"
 import {
   type DenomGroup,
+  formatPerpLeverage,
+  formatPerpPnl,
+  formatPerpPnlPercent,
+  getPerpCollateralValue,
+  getPerpPnl,
   getPositionTypeLabel,
   getPositionValue,
   getSectionLabel,
   groupPositionsByDenom,
   groupPositionsBySection,
   groupPositionsByType,
+  isPerpUnpriced,
+  type PerpPosition,
   type Position,
   type ProtocolPosition,
   type SectionGroup,
@@ -22,9 +29,16 @@ import styles from "./PositionSection.module.css"
 
 export type DenomLogoMap = Map<string, { assetLogo: string; chainLogo: string }>
 
+function sortPerpIdsByValue(entries: { id: string; position: PerpPosition }[]): string[] {
+  return [...entries]
+    .sort((a, b) => getPositionValue(b.position) - getPositionValue(a.position))
+    .map((entry) => entry.id)
+}
+
 interface PositionSectionListProps {
   protocols: ProtocolPosition[]
   denomLogoMap: DenomLogoMap
+  chainName?: string
   isInitia?: boolean
   getClaimableInitByType?: (denom: string, type: Position["type"]) => string
   initPrice?: number
@@ -33,6 +47,7 @@ interface PositionSectionListProps {
 const PositionSectionList = ({
   protocols,
   denomLogoMap,
+  chainName,
   isInitia,
   getClaimableInitByType,
   initPrice,
@@ -55,6 +70,7 @@ const PositionSectionList = ({
           sectionKey={sectionKey}
           sectionGroup={sectionGroup}
           denomLogoMap={denomLogoMap}
+          chainName={chainName}
           isInitia={isInitia}
           manageUrl={manageUrl}
           getClaimableInitByType={getClaimableInitByType}
@@ -69,6 +85,7 @@ interface PositionSectionProps {
   sectionKey: string
   sectionGroup: SectionGroup
   denomLogoMap: DenomLogoMap
+  chainName?: string
   isInitia?: boolean
   manageUrl?: string
   getClaimableInitByType?: (denom: string, type: Position["type"]) => string
@@ -79,48 +96,159 @@ const PositionSection = ({
   sectionKey,
   sectionGroup,
   denomLogoMap,
+  chainName,
   isInitia,
   manageUrl,
   getClaimableInitByType,
   initPrice,
 }: PositionSectionProps) => {
   const { positions, totalValue } = sectionGroup
-  const label = getSectionLabel(sectionKey, isInitia)
-  const denomGroups = useMemo(() => groupPositionsByDenom(positions), [positions])
+  const label = getSectionLabel(sectionKey, { isInitia, chainName })
   const isStakingSection = sectionKey === "staking"
+  const isStratChain = chainName?.toLowerCase() === STRAT_CHAIN_NAME
+  // Strat reuses `staking` for vault deposits with no claimable rewards or breakdown — render flat, no accordion.
+  const showStakingBreakdown = isStakingSection && !isStratChain
+  const isPerpSection = sectionKey === "perp"
+  const denomGroups = useMemo(
+    () => (isPerpSection ? [] : groupPositionsByDenom(positions)),
+    [positions, isPerpSection],
+  )
+
+  // Build deterministic IDs for perp positions; pair+direction may repeat
+  // (multiple BTC/USDT longs), so disambiguate by encounter order.
+  const perpEntries = useMemo(() => {
+    if (!isPerpSection) return []
+    const counts = new Map<string, number>()
+    return positions
+      .filter((position): position is PerpPosition => position.type === "perp-position")
+      .map((position) => {
+        const base = `${position.pair}-${position.direction}`
+        const count = counts.get(base) ?? 0
+        counts.set(base, count + 1)
+        return { id: `${base}-${count}`, position }
+      })
+  }, [positions, isPerpSection])
+
+  // Signature stable across value-only updates — only changes when positions
+  // are added/removed. Not wrapped in useMemo because `perpEntries` gets a new
+  // reference on every refetch, so the memo would recompute every time anyway;
+  // the underlying work (one map + sort + join over a handful of entries) is
+  // cheaper than the memo bookkeeping.
+  const perpSetSignature = perpEntries
+    .map((entry) => entry.id)
+    .sort()
+    .join("|")
+
+  // Cache the sort order by set signature so rows don't shuffle while the user
+  // watches values fluctuate. setState-during-render is React's "storing
+  // information from previous renders" pattern:
+  // https://react.dev/reference/react/useState#storing-information-from-previous-renders.
+  const [perpOrder, setPerpOrder] = useState<{ signature: string; ids: string[] }>(() => ({
+    signature: perpSetSignature,
+    ids: sortPerpIdsByValue(perpEntries),
+  }))
+  if (perpOrder.signature !== perpSetSignature) {
+    setPerpOrder({
+      signature: perpSetSignature,
+      ids: sortPerpIdsByValue(perpEntries),
+    })
+  }
+
+  // Render in cached order with fresh position data each refetch.
+  const sortedPerpPositions = useMemo(() => {
+    const byId = new Map(perpEntries.map((entry) => [entry.id, entry.position]))
+    return perpOrder.ids
+      .map((id) => ({ id, position: byId.get(id) }))
+      .filter((entry): entry is { id: string; position: PerpPosition } => entry.position != null)
+  }, [perpEntries, perpOrder.ids])
 
   return (
     <section className={styles.section} aria-label={label}>
       <div className={styles.sectionHeader}>
-        <div className={styles.sectionTitle}>
-          <span className={styles.sectionLabel}>{label}</span>
-          {isStakingSection && manageUrl && (
-            <a
-              href={manageUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.externalLink}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <IconExternalLink size={12} aria-hidden="true" />
-            </a>
-          )}
-        </div>
+        {showStakingBreakdown && manageUrl ? (
+          <a
+            href={manageUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.sectionTitleLink}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className={styles.sectionLabel}>{label}</span>
+            <IconExternalLink size={14} aria-hidden="true" />
+          </a>
+        ) : (
+          <div className={styles.sectionTitle}>
+            <span className={styles.sectionLabel}>{label}</span>
+          </div>
+        )}
         <span className={styles.sectionValue}>{formatValue(totalValue)}</span>
       </div>
-      <div className={clsx(styles.tokenList, { [styles.stakingTokenList]: isStakingSection })}>
-        {denomGroups.map((group) => (
-          <TokenRow
-            key={group.denom}
-            group={group}
-            showTypeBreakdown={isStakingSection}
-            denomLogoMap={denomLogoMap}
-            getClaimableInitByType={getClaimableInitByType}
-            initPrice={initPrice}
-          />
-        ))}
-      </div>
+      {isPerpSection ? (
+        <div className={styles.tokenList}>
+          {sortedPerpPositions.map(({ id, position }) => (
+            <PerpRow key={id} position={position} />
+          ))}
+        </div>
+      ) : (
+        <div
+          className={clsx(styles.tokenList, { [styles.stakingTokenList]: showStakingBreakdown })}
+        >
+          {denomGroups.map((group) => (
+            <TokenRow
+              key={group.denom}
+              group={group}
+              showTypeBreakdown={showStakingBreakdown}
+              denomLogoMap={denomLogoMap}
+              getClaimableInitByType={getClaimableInitByType}
+              initPrice={initPrice}
+            />
+          ))}
+        </div>
+      )}
     </section>
+  )
+}
+
+interface PerpRowProps {
+  position: PerpPosition
+}
+
+function getPerpPnlClass(pnl: number | null): string {
+  if (pnl == null || !Number.isFinite(pnl) || pnl === 0) return styles.perpPnlNeutral
+  return pnl > 0 ? styles.perpPnlPositive : styles.perpPnlNegative
+}
+
+const PerpRow = ({ position }: PerpRowProps) => {
+  const isLong = position.direction === "long"
+  const pnl = getPerpPnl(position)
+  const collateralValue = getPerpCollateralValue(position)
+  const value = getPositionValue(position)
+  const unpriced = isPerpUnpriced(position)
+  const percent = formatPerpPnlPercent(pnl, collateralValue)
+  const pnlDisplay = percent ? `${formatPerpPnl(pnl)} ${percent}` : formatPerpPnl(pnl)
+  const directionLabel = isLong ? "Long" : "Short"
+  const leverage = formatPerpLeverage(position.leverage)
+  const positionLabel = leverage ? `${leverage}X ${directionLabel}` : directionLabel
+  const valueDisplay = unpriced ? "—" : formatValue(value)
+
+  return (
+    <div className={styles.perpRow}>
+      <div className={styles.perpLeft}>
+        {position.imageUrl && (
+          <Image src={position.imageUrl} width={20} height={20} className={styles.perpLogo} />
+        )}
+        <div className={styles.perpInfo}>
+          <span className={styles.perpPair}>{position.pair}</span>
+          <span className={isLong ? styles.perpDirectionLong : styles.perpDirectionShort}>
+            {positionLabel}
+          </span>
+        </div>
+      </div>
+      <div className={styles.perpRight}>
+        <span className={styles.perpValue}>{valueDisplay}</span>
+        <span className={clsx(styles.perpPnl, getPerpPnlClass(pnl))}>{pnlDisplay}</span>
+      </div>
+    </div>
   )
 }
 
@@ -223,7 +351,7 @@ const TypeBreakdown = ({
   const typeData = useMemo(() => {
     return Array.from(typeGroups.entries()).map(([type, typePositions]) => {
       const typeAmount = typePositions.reduce((sum, position) => {
-        if (position.type === "fungible-position") return sum
+        if (position.type === "fungible-position" || position.type === "perp-position") return sum
         if (position.balance.type === "unknown") return sum
         return sum + position.balance.formattedAmount
       }, 0)

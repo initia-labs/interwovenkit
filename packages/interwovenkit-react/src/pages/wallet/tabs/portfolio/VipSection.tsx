@@ -22,18 +22,16 @@ const VipSection = ({ data }: VipSectionProps) => {
     <div className={styles.container}>
       <section className={styles.section} aria-label="VIP rewards">
         <div className={styles.sectionHeader}>
-          <div className={styles.sectionTitle}>
+          <a
+            href={INITIA_VIP_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.sectionTitleLink}
+            onClick={(e) => e.stopPropagation()}
+          >
             <span className={styles.sectionLabel}>VIP</span>
-            <a
-              href={INITIA_VIP_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.externalLink}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <IconExternalLink size={12} aria-hidden="true" />
-            </a>
-          </div>
+            <IconExternalLink size={14} aria-hidden="true" />
+          </a>
           <span className={styles.sectionValue}>{formatValue(totalValue)}</span>
         </div>
         <div className={styles.tokenList}>

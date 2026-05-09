@@ -85,6 +85,21 @@ export interface FungiblePosition {
   imageUrl?: string
 }
 
+/** Perpetual Futures Position (Strat) */
+export interface PerpPosition {
+  type: "perp-position"
+  direction: "long" | "short"
+  /** Market identifier from Strat, e.g. "BTC-USD" */
+  pair: string
+  /** Multiplier (e.g. 5 = 5x), expected > 0 */
+  leverage: number
+  /** Margin posted for this position (NOT the notional size) */
+  balance: Balance
+  /** Unrealized P&L in USD; can be negative */
+  pnl?: number
+  imageUrl?: string
+}
+
 /** Position Discriminated Union */
 export type Position =
   | StakingPosition
@@ -92,6 +107,7 @@ export type Position =
   | LockStakingPosition
   | LendingPosition
   | FungiblePosition
+  | PerpPosition
 
 // ============================================
 // PROTOCOL POSITION TYPE
@@ -267,7 +283,10 @@ export interface SSEPortfolioData {
 /** Position group by chain */
 export interface PortfolioChainPositionGroup {
   chainId: string
+  /** Raw lowercase chain identifier from the Minity API; use this for identifier matching (e.g. Strat detection). */
   chainName: string
+  /** Display name from the registry, falls back to chainName when no registry entry exists. */
+  prettyName: string
   chainLogo: string
   protocols: ProtocolPosition[]
   isInitia?: boolean

@@ -39,6 +39,7 @@ const Positions = memo(({ searchQuery, selectedChain, chainInfoMap }: PositionsP
       // Get chain info from breakdown
       const chainInfo = chainInfoMap.get(chainData.chainName.toLowerCase())
       const chainNameLower = chainData.chainName.toLowerCase()
+      const prettyNameLower = (chainInfo?.prettyName ?? chainData.chainName).toLowerCase()
 
       // Filter by selected chain (using chainId)
       if (selectedChain && chainInfo?.chainId !== selectedChain) {
@@ -55,9 +56,12 @@ const Positions = memo(({ searchQuery, selectedChain, chainInfoMap }: PositionsP
         continue
       }
 
-      // Skip chain if search query doesn't match chain name
-      if (searchQuery && !chainNameLower.includes(searchQuery.toLowerCase())) {
-        continue
+      // Skip chain if search query doesn't match raw identifier or display label
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase()
+        if (!chainNameLower.includes(query) && !prettyNameLower.includes(query)) {
+          continue
+        }
       }
 
       // Filter protocols by search query (match protocol name)
@@ -83,7 +87,8 @@ const Positions = memo(({ searchQuery, selectedChain, chainInfoMap }: PositionsP
 
       result.push({
         chainId: chainInfo?.chainId ?? "",
-        chainName: chainInfo?.prettyName ?? chainData.chainName,
+        chainName: chainData.chainName,
+        prettyName: chainInfo?.prettyName ?? chainData.chainName,
         chainLogo: chainInfo?.logoUrl ?? "",
         protocols: filteredProtocols,
         isInitia,
@@ -102,7 +107,7 @@ const Positions = memo(({ searchQuery, selectedChain, chainInfoMap }: PositionsP
           excludedChains.includes(group.chainName.toLowerCase()),
         ),
         descend((group: PortfolioChainPositionGroup) => group.totalValue ?? 0),
-        ascend((group: PortfolioChainPositionGroup) => group.chainName.toLowerCase()),
+        ascend((group: PortfolioChainPositionGroup) => group.prettyName.toLowerCase()),
       ],
       result,
     )

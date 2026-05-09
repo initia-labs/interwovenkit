@@ -30,7 +30,7 @@ interface PositionSectionContentProps {
 }
 
 const AppchainPositionContent = ({ chainGroup }: PositionSectionContentProps) => {
-  const { chainId, chainLogo, protocols } = chainGroup
+  const { chainId, chainName, chainLogo, protocols } = chainGroup
 
   // Asset logos (non-blocking - renders immediately, logos appear when ready)
   const chains = useInitiaRegistry()
@@ -47,6 +47,7 @@ const AppchainPositionContent = ({ chainGroup }: PositionSectionContentProps) =>
     for (const protocol of protocols) {
       for (const position of protocol.positions) {
         if (position.type === "fungible-position") continue
+        if (position.type === "perp-position") continue
         if (position.balance.type === "unknown") continue
 
         const { denom, symbol } = position.balance
@@ -63,7 +64,9 @@ const AppchainPositionContent = ({ chainGroup }: PositionSectionContentProps) =>
     return map
   }, [protocols, denomLogos, symbolLogos, chainId, chainLogo])
 
-  return <PositionSectionList protocols={protocols} denomLogoMap={denomLogoMap} />
+  return (
+    <PositionSectionList protocols={protocols} denomLogoMap={denomLogoMap} chainName={chainName} />
+  )
 }
 
 /* -------------------------------------------------------------------------- */
@@ -71,7 +74,7 @@ const AppchainPositionContent = ({ chainGroup }: PositionSectionContentProps) =>
 /* -------------------------------------------------------------------------- */
 
 const AppchainPositionGroup = ({ chainGroup }: Props) => {
-  const { chainName, chainLogo, protocols } = chainGroup
+  const { chainName, prettyName, chainLogo, protocols } = chainGroup
 
   // Get the manage URL from first protocol
   const manageUrl = protocols[0]?.manageUrl
@@ -113,20 +116,22 @@ const AppchainPositionGroup = ({ chainGroup }: Props) => {
               {chainLogo && (
                 <Image src={chainLogo} width={32} height={32} className={styles.logo} logo />
               )}
-              <div className={styles.chainNameContainer}>
-                <span className={styles.chainName}>{chainName}</span>
-                {manageUrl && (
-                  <a
-                    href={manageUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={styles.externalLink}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <IconExternalLink size={12} className={styles.externalIcon} />
-                  </a>
-                )}
-              </div>
+              {manageUrl ? (
+                <a
+                  href={manageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.chainNameLink}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <span className={styles.chainName}>{prettyName}</span>
+                  <IconExternalLink size={14} className={styles.externalIcon} />
+                </a>
+              ) : (
+                <div className={styles.chainNameContainer}>
+                  <span className={styles.chainName}>{prettyName}</span>
+                </div>
+              )}
             </div>
             <div className={styles.valueColumn}>
               {!hideValue && <span className={styles.value}>{formatValue(totalValue)}</span>}
