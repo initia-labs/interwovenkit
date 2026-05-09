@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.9.0](https://github.com/initia-labs/interwovenkit/compare/v2.8.0...v2.9.0) (2026-05-09)
+
+
+### Features
+
+* **portfolio:** render Strat perp/vault positions ([8eb40d6](https://github.com/initia-labs/interwovenkit/commit/8eb40d6a1934fab18403b82592ddee06179591e9))
+
 ## [2.8.0](https://github.com/initia-labs/interwovenkit/compare/v2.7.0...v2.8.0) (2026-04-21)
 
 
