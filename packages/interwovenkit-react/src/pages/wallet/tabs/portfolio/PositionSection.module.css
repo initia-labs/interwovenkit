@@ -253,13 +253,13 @@
 }
 
 .perpDirectionLong {
-  color: var(--mantine-color-success, var(--success, #2eaf6f));
+  color: var(--success);
   font-size: 12px;
   font-weight: 500;
 }
 
 .perpDirectionShort {
-  color: var(--mantine-color-error, var(--error, #f15050));
+  color: var(--error);
   font-size: 12px;
   font-weight: 500;
 }
@@ -288,15 +288,15 @@
 }
 
 .perpPnlPositive {
-  color: var(--mantine-color-success, var(--success, #2eaf6f));
+  color: var(--success);
 }
 
 .perpPnlNegative {
-  color: var(--mantine-color-error, var(--error, #f15050));
+  color: var(--error);
 }
 
 .perpPnlNeutral {
-  color: var(--gray-3, #6b7280);
+  color: var(--gray-3);
 }
 
 .collapsibleContent {

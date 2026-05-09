@@ -30,8 +30,8 @@ import styles from "./PositionSection.module.css"
 export type DenomLogoMap = Map<string, { assetLogo: string; chainLogo: string }>
 
 function sortPerpIdsByValue(entries: { id: string; position: PerpPosition }[]): string[] {
-  return entries
-    .toSorted((a, b) => getPositionValue(b.position) - getPositionValue(a.position))
+  return [...entries]
+    .sort((a, b) => getPositionValue(b.position) - getPositionValue(a.position))
     .map((entry) => entry.id)
 }
 
@@ -136,7 +136,7 @@ const PositionSection = ({
   // cheaper than the memo bookkeeping.
   const perpSetSignature = perpEntries
     .map((entry) => entry.id)
-    .toSorted()
+    .sort()
     .join("|")
 
   // Cache the sort order by set signature so rows don't shuffle while the user

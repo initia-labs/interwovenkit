@@ -27,7 +27,8 @@ function getFeeBalanceKey({
   if (!balances) return ""
 
   return feeDenoms
-    .toSorted()
+    .slice()
+    .sort()
     .map((denom) => `${denom}:${balances[denom]?.amount ?? "0"}`)
     .join("|")
 }
