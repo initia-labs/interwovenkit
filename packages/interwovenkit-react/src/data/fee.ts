@@ -25,8 +25,10 @@ export async function fetchGasPrices(chain: NormalizedChain) {
       .flatMap(({ denom, amount }) => {
         // Drop entries with empty/whitespace-only amounts so downstream fee
         // selection can't silently treat them as a zero-fee option (which
-        // would let transactions through with an unpayable fee).
-        const trimmed = amount.trim()
+        // would let transactions through with an unpayable fee). Coerce
+        // missing/null values first since the upstream API can violate the
+        // declared `string` type.
+        const trimmed = (amount || "").trim()
         if (!trimmed) {
           // eslint-disable-next-line no-console
           console.error(`Gas price entry has empty amount for ${denom}`)
