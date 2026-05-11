@@ -44,6 +44,10 @@ const SlippageControl = ({ afterConfirm }: { afterConfirm: () => void }) => {
   }
 
   const message = useMemo(() => {
+    if (!value || Number(value) <= 0) {
+      return { type: "error" as const, text: "Slippage must be greater than 0" }
+    }
+
     if (Number(value) > 100) {
       return { type: "error" as const, text: "Slippage must be less than 100%" }
     }

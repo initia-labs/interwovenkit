@@ -54,14 +54,18 @@ export function useDefaultValues(): Partial<FormValues> {
     dstDenom: "uinit",
   }
 
-  const localStorageDefaultValues: Partial<FormValues> = pickBy((value) => value !== null, {
-    srcChainId: localStorage.getItem(LocalStorageKey.BRIDGE_SRC_CHAIN_ID),
-    srcDenom: localStorage.getItem(LocalStorageKey.BRIDGE_SRC_DENOM),
-    dstChainId: localStorage.getItem(LocalStorageKey.BRIDGE_DST_CHAIN_ID),
-    dstDenom: localStorage.getItem(LocalStorageKey.BRIDGE_DST_DENOM),
-    quantity: localStorage.getItem(LocalStorageKey.BRIDGE_QUANTITY),
-    slippagePercent: localStorage.getItem(LocalStorageKey.BRIDGE_SLIPPAGE_PERCENT),
-  })
+  // Filter both null (key absent) and "" (empty value persisted) so defaults aren't overridden by blanks
+  const localStorageDefaultValues: Partial<FormValues> = pickBy(
+    (value) => value !== null && value !== "",
+    {
+      srcChainId: localStorage.getItem(LocalStorageKey.BRIDGE_SRC_CHAIN_ID),
+      srcDenom: localStorage.getItem(LocalStorageKey.BRIDGE_SRC_DENOM),
+      dstChainId: localStorage.getItem(LocalStorageKey.BRIDGE_DST_CHAIN_ID),
+      dstDenom: localStorage.getItem(LocalStorageKey.BRIDGE_DST_DENOM),
+      quantity: localStorage.getItem(LocalStorageKey.BRIDGE_QUANTITY),
+      slippagePercent: localStorage.getItem(LocalStorageKey.BRIDGE_SLIPPAGE_PERCENT),
+    },
+  )
 
   return {
     ...(isTestnet ? testnetDefaultValues : mainnetDefaultValues),
