@@ -28,8 +28,8 @@ export function formatDuration(totalSeconds: number) {
 }
 
 export function calculateMinimumReceived(amountOut: string, slippagePercent: string): string {
-  return BigNumber(amountOut)
-    .times(BigNumber(100).minus(slippagePercent))
+  return BigNumber(amountOut || 0)
+    .times(BigNumber(100).minus(slippagePercent || 0))
     .div(100)
     .integerValue(BigNumber.ROUND_FLOOR)
     .toFixed(0)

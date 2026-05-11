@@ -22,10 +22,18 @@ export async function fetchGasPrices(chain: NormalizedChain) {
       .json<{ gas_prices: Coin[] }>()
     return [...gas_prices]
       .sort(descend(({ denom }) => denom === "uinit"))
-      .map(({ denom, amount }) => {
+      .flatMap(({ denom, amount }) => {
+        // Drop entries with empty/missing amounts so downstream fee selection
+        // can't silently treat them as a zero-fee option (which would let
+        // transactions through with an unpayable fee).
+        if (!amount) {
+          // eslint-disable-next-line no-console
+          console.error(`Gas price entry has empty amount for ${denom}`)
+          return []
+        }
         const multiplier = denom === "uinit" ? 1 : DEFAULT_GAS_PRICE_MULTIPLIER
         const price = BigNumber(amount).times(multiplier).toFixed(18)
-        return { amount: price, denom }
+        return [{ amount: price, denom }]
       })
   }
 

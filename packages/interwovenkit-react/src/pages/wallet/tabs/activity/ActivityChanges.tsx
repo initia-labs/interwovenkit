@@ -13,8 +13,9 @@ import styles from "./ActivityChanges.module.css"
 
 const Change = ({ amount, asset }: { amount: string; asset: BaseAsset }) => {
   const { denom, symbol, decimals } = asset
-  const isPositive = new BigNumber(amount).isPositive()
-  const absAmount = new BigNumber(amount).abs().toString()
+  const safeAmount = amount || "0"
+  const isPositive = BigNumber(safeAmount).isPositive()
+  const absAmount = BigNumber(safeAmount).abs().toString()
 
   return (
     <div className={clsx(styles.change, isPositive ? styles.positive : styles.negative)}>

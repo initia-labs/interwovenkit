@@ -22,7 +22,7 @@ const SelectAsset = ({ address, chain, onSelect }: Props) => {
         [
           descend((asset) => asset.symbol === "INIT"),
           descend((asset) => asset.value),
-          ({ balance: a = "0" }, { balance: b = "0" }) => BigNumber(b).comparedTo(a) ?? 0,
+          ({ balance: a = "0" }, { balance: b = "0" }) => BigNumber(b || 0).comparedTo(a || 0) ?? 0,
           ascend((asset) => asset.symbol.toLowerCase()),
         ],
         assets

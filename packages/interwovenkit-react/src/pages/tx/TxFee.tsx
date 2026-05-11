@@ -24,7 +24,7 @@ const TxFee = ({ options, value, onChange }: Props) => {
   }
 
   const getLabel = ({ amount: [{ amount, denom }] }: StdFee) => {
-    if (BigNumber(amount).isZero()) return "0"
+    if (BigNumber(amount || 0).isZero()) return "0"
     const { symbol, decimals } = findAsset(denom)
     const dp = getDp(amount, decimals)
     return `${formatAmount(amount, { decimals, dp })} ${symbol}`

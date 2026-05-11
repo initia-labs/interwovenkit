@@ -39,11 +39,11 @@ const TxRequest = () => {
   const feeCoins = feeOptions.map((fee) => fee.amount[0])
 
   const getFeeDetails = (feeDenom: string) => {
-    const balance = balances.find((balance) => balance.denom === feeDenom)?.amount ?? "0"
-    const feeAmount = feeCoins.find((coin) => coin.denom === feeDenom)?.amount ?? "0"
+    const balance = balances.find((balance) => balance.denom === feeDenom)?.amount || "0"
+    const feeAmount = feeCoins.find((coin) => coin.denom === feeDenom)?.amount || "0"
     const spendAmount = spendCoins
       .filter((coin) => coin.denom === feeDenom)
-      .reduce((total, coin) => BigNumber(total).plus(coin.amount), BigNumber("0"))
+      .reduce((total, coin) => total.plus(coin.amount || 0), BigNumber(0))
     const totalRequired = BigNumber(feeAmount).plus(spendAmount)
     const isSufficient = BigNumber(balance).gte(totalRequired)
 

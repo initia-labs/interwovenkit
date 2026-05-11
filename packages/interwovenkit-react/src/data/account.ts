@@ -78,15 +78,15 @@ export function useSortedBalancesWithValue(chain: NormalizedChain) {
       descend(({ denom }) => isFeeToken(denom)),
       descend(({ value }) => value),
       descend(({ denom }) => isListed(denom)),
-      ({ balance: a }, { balance: b }) => BigNumber(b).comparedTo(a) ?? 0,
+      ({ balance: a }, { balance: b }) => BigNumber(b || 0).comparedTo(a || 0) ?? 0,
       descend(({ symbol }) => symbol.toLowerCase()),
     ],
     balances
-      .filter(({ amount }) => !BigNumber(amount).isZero())
+      .filter(({ amount }) => !BigNumber(amount || 0).isZero())
       .map(({ amount: balance, denom }) => {
         const asset = findAsset(denom)
         const price = prices?.find(({ id }) => id === asset?.denom)?.price ?? 0
-        const value = BigNumber(balance)
+        const value = BigNumber(balance || 0)
           .times(price)
           .div(BigNumber(10).pow(asset.decimals))
           .toNumber()

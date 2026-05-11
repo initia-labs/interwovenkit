@@ -7,7 +7,7 @@ import styles from "./QuantityInput.module.css"
 
 const QuantityInputReadOnly = ({ children }: { children: string }) => {
   return (
-    <p className={clsx(styles.input, { [styles.placeholder]: BigNumber(children).isZero() })}>
+    <p className={clsx(styles.input, { [styles.placeholder]: BigNumber(children || 0).isZero() })}>
       {children}
     </p>
   )
@@ -25,7 +25,7 @@ const QuantityInput = ({ balance, decimals, className }: Props) => {
   const rules = {
     required: "Enter amount",
     validate: (quantity: string) => {
-      if (BigNumber(quantity).isZero()) {
+      if (BigNumber(quantity || 0).isZero()) {
         return "Enter amount"
       }
 

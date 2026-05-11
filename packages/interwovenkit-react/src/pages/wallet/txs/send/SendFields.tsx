@@ -46,7 +46,7 @@ export const SendFields = () => {
   const asset = useAsset(denom, chain)
   const { data: prices } = usePricesQuery(chain)
   const { decimals } = asset
-  const balance = balances.find((coin) => coin.denom === denom)?.amount ?? "0"
+  const balance = balances.find((coin) => coin.denom === denom)?.amount || "0"
   const price = prices?.find(({ id }) => id === denom)?.price
 
   const { data: estimatedGas = 0, isLoading } = useQuery({

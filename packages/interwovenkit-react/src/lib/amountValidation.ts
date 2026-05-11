@@ -11,7 +11,11 @@ export const isInsufficientBalance = ({
   decimals?: number
 }) => {
   if (!quantity || balance === undefined || decimals === undefined) return false
-  if (BigNumber(quantity).isZero()) return false
 
-  return BigNumber(toBaseUnit(quantity, { decimals })).gt(balance)
+  // toBaseUnit returns "" for unparseable input (e.g. "abc"); treat that as
+  // "not insufficient" so the upstream form validator owns the error message.
+  const baseAmount = toBaseUnit(quantity, { decimals })
+  if (!baseAmount || BigNumber(baseAmount).isZero()) return false
+
+  return BigNumber(baseAmount).gt(balance || 0)
 }

@@ -112,7 +112,7 @@ const BridgeFields = () => {
   // skipping validation (which it does when balance is undefined / loading).
   const srcBalanceAmount = srcBalance?.amount ?? (balances ? "0" : undefined)
 
-  const hasZeroBalance = !srcBalanceAmount || BigNumber(srcBalanceAmount).isZero()
+  const hasZeroBalance = !srcBalanceAmount || BigNumber(srcBalanceAmount || 0).isZero()
 
   // simulation
   // Avoid hitting the simulation API on every keystroke.  Wait a short period
@@ -244,9 +244,12 @@ const BridgeFields = () => {
     if (!hasLoadedBalances) return
 
     for (const fee of additionalFees) {
-      const balance = balances?.[fee.origin_asset.denom]?.amount ?? "0"
-      const amount = route?.source_asset_denom === fee.origin_asset.denom ? route.amount_in : "0"
-      const insufficient = BigNumber(balance).lt(BigNumber(amount).plus(fee.amount ?? "0"))
+      const balance = balances?.[fee.origin_asset.denom]?.amount || "0"
+      // Skip route fields are typed `string` but can arrive empty; guard alongside fee.amount.
+      const amount =
+        (route?.source_asset_denom === fee.origin_asset.denom ? route.amount_in : "0") || "0"
+      const feeAmount = fee.amount || "0"
+      const insufficient = BigNumber(balance).lt(BigNumber(amount).plus(feeAmount))
       if (insufficient) return `Insufficient ${fee.origin_asset.symbol} for fees`
     }
   }, [additionalFees, balances, hasLoadedBalances, route])
@@ -263,10 +266,10 @@ const BridgeFields = () => {
         sourceDenom?: string
       },
     ) => {
-      const balance = BigNumber(balances?.[denom]?.amount ?? "0")
+      const balance = BigNumber(balances?.[denom]?.amount || 0)
       const spendAmount =
         denom === (options?.sourceDenom ?? srcDenom)
-          ? BigNumber(options?.amountIn ?? route?.amount_in ?? "0")
+          ? BigNumber(options?.amountIn || route?.amount_in || 0)
           : BigNumber(0)
       return balance.minus(spendAmount)
     },
@@ -352,7 +355,7 @@ const BridgeFields = () => {
   )
 
   const shouldShowRouteOptions =
-    BigNumber(quantity).gt(0) &&
+    BigNumber(quantity || 0).gt(0) &&
     isOpWithdrawable &&
     routeQueryDefault.data &&
     routeQueryOpWithdrawal.data &&

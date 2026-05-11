@@ -22,7 +22,7 @@ export function getTransferFeeWarning({
     if (denom !== sourceDenom && feeDetails.isSufficient) return
   }
 
-  const canCoverFeeWithoutSpendingSource = BigNumber(sourceFee.balance).gte(sourceFee.fee)
+  const canCoverFeeWithoutSpendingSource = BigNumber(sourceFee.balance || 0).gte(sourceFee.fee || 0)
   if (!canCoverFeeWithoutSpendingSource) return
 
   return "Make sure to leave enough for transaction fee"
