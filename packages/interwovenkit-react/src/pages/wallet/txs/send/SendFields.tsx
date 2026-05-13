@@ -78,8 +78,11 @@ export const SendFields = () => {
   const isMaxButtonDisabled = hasZeroBalance || isEstimatingGas
 
   const parsedQuantity = parseQuantity(quantity)
+  // `price` is `PriceItem.price: number | undefined`, so `?? 0` is sufficient;
+  // BigNumber.times never sees an empty string here, unlike Skip's string-typed
+  // price fields elsewhere where `|| 0` is required.
   const quantityValue = parsedQuantity
-    ? formatValueWithPrice(parsedQuantity.times(price || 0), price)
+    ? formatValueWithPrice(parsedQuantity.times(price ?? 0), price)
     : "$0"
 
   const { mutate, isPending } = useMutation({
