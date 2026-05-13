@@ -1,10 +1,10 @@
 import type { OperationJson, RouteResponseJson } from "@skip-go/client"
-import BigNumber from "bignumber.js"
 import { HTTPError } from "ky"
 import type { QueryClient } from "@tanstack/react-query"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { toBaseUnit } from "@initia/utils"
 import { useInitiaRegistry, useLayer1 } from "@/data/chains"
+import { parseQuantity } from "@/lib/amountValidation"
 import type { RouterAsset } from "./assets"
 import { useSkipAsset } from "./assets"
 import { useChainType, useSkipChain } from "./chains"
@@ -76,8 +76,7 @@ export function useRouteQuery(
     !debouncedValues.srcDenom ||
     !debouncedValues.dstChainId ||
     !debouncedValues.dstDenom
-  const quantityBn = BigNumber(debouncedValues.quantity || 0)
-  const isQuantityValid = quantityBn.isFinite() && quantityBn.gt(0)
+  const isQuantityValid = !!parseQuantity(debouncedValues.quantity)?.gt(0)
   const refreshMs = opWithdrawal?.refreshMs ?? 10_000
   const enabled = isQuantityValid && !opWithdrawal?.disabled && !isDisabled
 

@@ -1,5 +1,55 @@
 import { describe, expect, it } from "vitest"
-import { isInsufficientBalance } from "./amountValidation"
+import { isInsufficientBalance, parseQuantity } from "./amountValidation"
+
+describe("parseQuantity", () => {
+  it("returns null for undefined", () => {
+    expect(parseQuantity(undefined)).toBeNull()
+  })
+
+  it("returns null for empty string", () => {
+    expect(parseQuantity("")).toBeNull()
+  })
+
+  it("returns null for null", () => {
+    expect(parseQuantity(null)).toBeNull()
+  })
+
+  it("returns null for a bare decimal point", () => {
+    // NumericFormat can emit "." while the user is mid-input; strict-mode
+    // BigNumber would throw, so the helper must swallow it.
+    expect(parseQuantity(".")).toBeNull()
+  })
+
+  it("returns null for non-numeric strings", () => {
+    expect(parseQuantity("abc")).toBeNull()
+  })
+
+  it("parses zero", () => {
+    expect(parseQuantity("0")?.toFixed()).toBe("0")
+  })
+
+  it("parses trailing-decimal forms", () => {
+    expect(parseQuantity("0.")?.toFixed()).toBe("0")
+  })
+
+  it("parses leading-decimal forms", () => {
+    expect(parseQuantity(".5")?.toFixed()).toBe("0.5")
+  })
+
+  it("parses positive decimals", () => {
+    expect(parseQuantity("12.34")?.toFixed()).toBe("12.34")
+  })
+
+  it("parses negative decimals", () => {
+    expect(parseQuantity("-1.5")?.toFixed()).toBe("-1.5")
+  })
+
+  it("returns a finite BigNumber for large values", () => {
+    const bn = parseQuantity("1000000000000000000")
+    expect(bn?.isFinite()).toBe(true)
+    expect(bn?.toFixed()).toBe("1000000000000000000")
+  })
+})
 
 describe("isInsufficientBalance", () => {
   it("returns false when quantity is empty", () => {

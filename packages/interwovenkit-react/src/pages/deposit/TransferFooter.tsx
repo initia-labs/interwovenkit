@@ -9,6 +9,7 @@ import { useBalances } from "@/data/account"
 import { useFindAsset } from "@/data/assets"
 import { useChain } from "@/data/chains"
 import { useGasPrices, useLastFeeDenom } from "@/data/fee"
+import { parseQuantity } from "@/lib/amountValidation"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import BridgePreviewFooter from "../bridge/BridgePreviewFooter"
 import { useAllSkipAssets } from "../bridge/data/assets"
@@ -125,7 +126,7 @@ const TransferFooterWithFee = ({
   )
   const balancesByDenom = new Map(balances.map(({ denom, amount }) => [denom, amount]))
   const sourceSpendAmount = srcAsset
-    ? BigNumber(quantity || "0")
+    ? (parseQuantity(quantity) ?? BigNumber(0))
         .times(BigNumber(10).pow(srcAsset.decimals))
         .toFixed(0)
     : "0"

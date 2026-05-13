@@ -20,6 +20,7 @@ import { useAsset } from "@/data/assets"
 import { useChain, usePricesQuery } from "@/data/chains"
 import { useGasPrices, useLastFeeDenom } from "@/data/fee"
 import { STALE_TIMES } from "@/data/http"
+import { parseQuantity } from "@/lib/amountValidation"
 import { formatValueWithPrice } from "@/lib/format"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { useInterwovenKit } from "@/public/data/hooks"
@@ -75,6 +76,11 @@ export const SendFields = () => {
   const isFeeToken = gasPrices.some(({ denom: feeDenom }) => feeDenom === denom)
   const isEstimatingGas = isFeeToken && isLoading
   const isMaxButtonDisabled = hasZeroBalance || isEstimatingGas
+
+  const parsedQuantity = parseQuantity(quantity)
+  const quantityValue = parsedQuantity
+    ? formatValueWithPrice(parsedQuantity.times(price ?? 0), price)
+    : "$0"
 
   const { mutate, isPending } = useMutation({
     mutationFn: ({ chainId, denom, quantity, recipient, memo }: FormValues) => {
@@ -137,9 +143,7 @@ export const SendFields = () => {
                 {formatAmount(balance ?? "0", { decimals })}
               </BalanceButton>
             }
-            value={
-              !quantity ? "$0" : formatValueWithPrice(BigNumber(quantity).times(price ?? 0), price)
-            }
+            value={quantityValue}
           />
 
           <div className={styles.divider} />

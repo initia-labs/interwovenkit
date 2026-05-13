@@ -25,7 +25,7 @@ import { useAnalyticsTrack } from "@/data/analytics"
 import { useLayer1 } from "@/data/chains"
 import { LocalStorageKey } from "@/data/constants"
 import { useIsMobile } from "@/hooks/useIsMobile"
-import { isInsufficientBalance } from "@/lib/amountValidation"
+import { isInsufficientBalance, parseQuantity } from "@/lib/amountValidation"
 import { formatValue } from "@/lib/format"
 import { useNavigate } from "@/lib/router"
 import { useModal } from "@/public/app/ModalContext"
@@ -355,7 +355,7 @@ const BridgeFields = () => {
   )
 
   const shouldShowRouteOptions =
-    BigNumber(quantity || 0).gt(0) &&
+    !!parseQuantity(quantity)?.gt(0) &&
     isOpWithdrawable &&
     routeQueryDefault.data &&
     routeQueryOpWithdrawal.data &&

@@ -9,6 +9,7 @@ import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import QuantityInput from "@/components/form/QuantityInput"
 import Status from "@/components/Status"
+import { parseQuantity } from "@/lib/amountValidation"
 import { formatValueWithPrice } from "@/lib/format"
 import { useLocationState, useNavigate } from "@/lib/router"
 import { useHexAddress } from "@/public/data/hooks"
@@ -147,7 +148,7 @@ const TransferFields = ({ mode }: Props) => {
   const sourceBalance = balances?.[srcChainId]?.[srcDenom]?.amount
   const price = balances?.[srcChainId]?.[srcDenom]?.price
 
-  const quantityValue = BigNumber(price ?? 0).times(rawQuantity || 0)
+  const quantityValue = BigNumber(price ?? 0).times(parseQuantity(rawQuantity) ?? 0)
 
   const [debouncedQuantity] = useDebounceValue(rawQuantity, 300)
 
@@ -167,8 +168,8 @@ const TransferFields = ({ mode }: Props) => {
   const disabledMessage = useMemo(() => {
     if (mode === "deposit" && !externalAsset) return "Select asset"
 
-    const quantityBn = BigNumber(rawQuantity || 0)
-    if (!quantityBn.isFinite() || quantityBn.lte(0)) return "Enter amount"
+    const quantityBn = parseQuantity(rawQuantity)
+    if (!quantityBn || quantityBn.lte(0)) return "Enter amount"
 
     if (mode === "withdraw" && !externalAsset) return "Select destination"
 
@@ -183,8 +184,8 @@ const TransferFields = ({ mode }: Props) => {
   const isRouteQueryDisabled = useMemo(() => {
     if (mode === "deposit" && !externalAsset) return true
 
-    const quantityBn = BigNumber(rawQuantity || 0)
-    if (!quantityBn.isFinite() || quantityBn.lte(0)) return true
+    const quantityBn = parseQuantity(rawQuantity)
+    if (!quantityBn || quantityBn.lte(0)) return true
 
     if (mode === "withdraw" && !externalAsset) return true
     if (balanceBlocker === "error") return true
@@ -344,7 +345,7 @@ const TransferFields = ({ mode }: Props) => {
             className={styles.maxButton}
             onClick={() => {
               const maxAmount = fromBaseUnit(balance, { decimals: amountDecimals })
-              if (BigNumber(rawQuantity || 0).eq(maxAmount)) return
+              if (parseQuantity(rawQuantity)?.eq(maxAmount)) return
 
               setValue("quantity", maxAmount)
             }}

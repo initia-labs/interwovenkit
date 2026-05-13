@@ -1,16 +1,13 @@
-import BigNumber from "bignumber.js"
 import clsx from "clsx"
 import { useFormContext } from "react-hook-form"
-import { isInsufficientBalance } from "@/lib/amountValidation"
+import { isInsufficientBalance, parseQuantity } from "@/lib/amountValidation"
 import NumericInput from "./NumericInput"
 import styles from "./QuantityInput.module.css"
 
 const QuantityInputReadOnly = ({ children }: { children: string }) => {
-  return (
-    <p className={clsx(styles.input, { [styles.placeholder]: BigNumber(children || 0).isZero() })}>
-      {children}
-    </p>
-  )
+  const parsed = parseQuantity(children)
+  const isPlaceholder = !parsed || parsed.isZero()
+  return <p className={clsx(styles.input, { [styles.placeholder]: isPlaceholder })}>{children}</p>
 }
 
 interface Props {
@@ -25,7 +22,8 @@ const QuantityInput = ({ balance, decimals, className }: Props) => {
   const rules = {
     required: "Enter amount",
     validate: (quantity: string) => {
-      if (BigNumber(quantity || 0).isZero()) {
+      const parsed = parseQuantity(quantity)
+      if (!parsed || parsed.lte(0)) {
         return "Enter amount"
       }
 
