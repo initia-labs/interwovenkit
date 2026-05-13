@@ -6,7 +6,7 @@ React 19 library for connecting dApps to Initia and Interwoven Rollups. Provides
 
 ## Tech Stack
 
-- **Framework**: React 19, TypeScript 5.9, Vite 7 (SWC)
+- **Framework**: React 19, TypeScript 5.9, Vite 8
 - **State**: Jotai (UI atoms), TanStack React Query 5 (server state), React Hook Form 7 (forms)
 - **Blockchain**: CosmJS 0.36 (Cosmos), wagmi 2 + viem 2 (EVM)
 - **Styling**: CSS Modules + CSS custom properties (Shadow DOM compatible)
