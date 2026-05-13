@@ -5,7 +5,10 @@ import NumericInput from "./NumericInput"
 import styles from "./QuantityInput.module.css"
 
 const QuantityInputReadOnly = ({ children }: { children: string }) => {
-  const parsed = parseQuantity(children)
+  // `children` is a pre-formatted display string from `formatAmount`, which adds
+  // comma thousand separators (e.g. "1,000.000000"). Strip them before parseQuantity
+  // because BigNumber strict mode rejects commas as invalid input.
+  const parsed = parseQuantity(children.replace(/,/g, ""))
   const isPlaceholder = !parsed || parsed.isZero()
   return <p className={clsx(styles.input, { [styles.placeholder]: isPlaceholder })}>{children}</p>
 }
