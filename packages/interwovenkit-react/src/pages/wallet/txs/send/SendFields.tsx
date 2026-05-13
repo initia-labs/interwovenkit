@@ -79,7 +79,7 @@ export const SendFields = () => {
 
   const parsedQuantity = parseQuantity(quantity)
   const quantityValue = parsedQuantity
-    ? formatValueWithPrice(parsedQuantity.times(price ?? 0), price)
+    ? formatValueWithPrice(parsedQuantity.times(price || 0), price)
     : "$0"
 
   const { mutate, isPending } = useMutation({
