@@ -157,6 +157,11 @@ When instructed to run Playwright MCP tests, use the example app in `examples/vi
 - **Shadow DOM**: Widget renders into Shadow DOM; styles use `:host` selector; `injectStyles()` required
 - **Auto-sign**: Opt-in feature deriving a deterministic wallet from seed phrase; falls back to manual signing on error
 - **CosmJS patches**: `data/patches/` contains monkey patches for amino, pubkeys, signature, encoding, and accounts
+- **BigNumber strict mode**: Pick the fallback operator by the input's static type before passing a value to `BigNumber()` or any BigNumber-coercing method (`.plus()`, `.times()`, `.minus()`, `.div()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.eq()`, `.comparedTo()`, etc.):
+  - **`string | undefined` / `string`** (Skip `price`/`amount`/`amount_in` fields, `fromBaseUnit`/`toBaseUnit` results, cosmos `Coin.amount`, user-typed form values, persisted localStorage strings): use `|| 0` (or `|| "0"`). `?? 0` lets empty strings through, and `BigNumber("")` throws under strict mode. The realistic empty-string sources are `@initia/utils`' `fromBaseUnit`/`toBaseUnit` (return `""` on invalid input) and any `string`-typed upstream field that can arrive empty.
+  - **`number | undefined`** (e.g. `PriceItem.price` from `usePricesQuery`): `?? 0` is sufficient. Empty strings cannot occur, so `|| 0` adds no strict-mode protection and only changes how `0`/`NaN` are handled. Prefer `?? 0` to keep the intent (nullish-only fallback) explicit.
+  - **BigNumber object | null** (e.g. `parseQuantity()` results): `?? 0` (object is truthy regardless). Don't reach for `|| 0` here either.
+    This matters because the peer dep allows `bignumber.js@>=9` and v10 removed the opt-in `DEBUG` flag, making throws on invalid input the default; v11 keeps this as the default behind a new `STRICT` option (defaults to `true`, opt-out only). The vitest setup keeps `BigNumber.DEBUG = true` so every test acts as a strict-mode regression check. Before adding a guard, confirm the input's type origin — a `|| 0` on a `number`-typed field is overcautious noise, not a strict-mode fix.
 - **Build output**: ES module (`.js`) + CommonJS (`.cjs`), CSS extracted as both `.css` file and string `.js` export, `*.d.ts` declarations bundled
 - **Path alias**: `@/*` maps to `src/*`
 - **Pre-commit**: lint-staged runs ESLint + Prettier on staged files via simple-git-hooks

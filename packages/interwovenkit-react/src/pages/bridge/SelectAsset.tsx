@@ -22,7 +22,9 @@ const SelectAsset = ({ address, chain, onSelect }: Props) => {
         [
           descend((asset) => asset.symbol === "INIT"),
           descend((asset) => asset.value),
-          ({ balance: a = "0" }, { balance: b = "0" }) => BigNumber(b).comparedTo(a) ?? 0,
+          // `|| 0` keeps BigNumber strict-mode from throwing on empty balances; `?? 0` is leftover
+          // defense for comparedTo's null-on-NaN return (the `= "0"` default only covers undefined).
+          ({ balance: a = "0" }, { balance: b = "0" }) => BigNumber(b || 0).comparedTo(a || 0) ?? 0,
           ascend((asset) => asset.symbol.toLowerCase()),
         ],
         assets

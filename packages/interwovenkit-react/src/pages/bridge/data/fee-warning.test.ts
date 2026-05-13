@@ -119,6 +119,33 @@ describe("shouldWarnInsufficientFeeBalance", () => {
     ).toBe(true)
   })
 
+  it("ignores fee entries whose amount is an empty string (Skip strict-mode guard)", () => {
+    const additionalFees = [
+      {
+        amount: "1000",
+        origin_asset: { denom: "uinit", symbol: "INIT", decimals: 6 },
+      } as FeeJson,
+      {
+        amount: "",
+        origin_asset: { denom: "uusdc", symbol: "USDC", decimals: 6 },
+      } as FeeJson,
+    ]
+
+    expect(
+      shouldWarnInsufficientFeeBalance({
+        sourceDenom: "uinit",
+        sourceBalance: "1000000",
+        amountIn: "999500",
+        feeTokenDenoms: ["uinit", "uusdc"],
+        balancesByDenom: {
+          uinit: { amount: "1000000" },
+          uusdc: { amount: "0" },
+        },
+        additionalFees,
+      }),
+    ).toBe(true)
+  })
+
   it("does not warn when the source asset is not a fee token", () => {
     expect(
       shouldWarnInsufficientFeeBalance({

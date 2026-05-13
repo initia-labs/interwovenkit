@@ -12,8 +12,10 @@ function createAvailableFeeOptions({
 }) {
   return gasPrices
     .map(({ denom, amount: price }) => {
-      const amount = BigNumber(price).times(gas).toFixed(0, BigNumber.ROUND_CEIL)
-      const balance = balances.find((coin) => coin.denom === denom)?.amount ?? "0"
+      const amount = BigNumber(price || 0)
+        .times(gas)
+        .toFixed(0, BigNumber.ROUND_CEIL)
+      const balance = balances.find((coin) => coin.denom === denom)?.amount || "0"
       return { amount, denom, balance }
     })
     .filter(({ amount, balance }) => BigNumber(balance).gte(amount))
@@ -32,7 +34,7 @@ export function calcMaxAmount({
   lastFeeDenom: string | null
   gas: number
 }) {
-  const balance = balances.find((coin) => coin.denom === denom)?.amount ?? "0"
+  const balance = balances.find((coin) => coin.denom === denom)?.amount || "0"
   const availableFeeOptions = createAvailableFeeOptions({ balances, gasPrices, gas })
   const lastFeeOption = availableFeeOptions.find((option) => option.denom === lastFeeDenom)
 

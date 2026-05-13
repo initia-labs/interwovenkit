@@ -20,6 +20,21 @@ describe("calculateMinimumReceived", () => {
   it("handles large amounts", () => {
     expect(calculateMinimumReceived("999999999999999999", "1")).toBe("989999999999999999")
   })
+
+  // BigNumber strict mode (v10+ default) throws on inputs like "." or "abc".
+  // SlippageControl persists mid-input slippage values through localStorage,
+  // so these can re-enter via the route memos on the next session.
+  it("treats a bare decimal slippage as zero instead of throwing", () => {
+    expect(calculateMinimumReceived("1000000", ".")).toBe("1000000")
+  })
+
+  it("treats a bare decimal amount as zero instead of throwing", () => {
+    expect(calculateMinimumReceived(".", "0.5")).toBe("0")
+  })
+
+  it("treats empty slippage as zero", () => {
+    expect(calculateMinimumReceived("1000000", "")).toBe("1000000")
+  })
 })
 
 describe("formatDuration", () => {

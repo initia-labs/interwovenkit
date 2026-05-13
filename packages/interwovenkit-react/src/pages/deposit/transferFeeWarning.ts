@@ -22,7 +22,11 @@ export function getTransferFeeWarning({
     if (denom !== sourceDenom && feeDetails.isSufficient) return
   }
 
-  const canCoverFeeWithoutSpendingSource = BigNumber(sourceFee.balance).gte(sourceFee.fee)
+  // `sourceFee.fee` is the amount field on a `calculateFee(...)` result built
+  // by the only call site (TransferFooter), which always emits a numeric
+  // string, so `|| 0` here is purely defensive against future callers — empty
+  // input does not occur on the live path.
+  const canCoverFeeWithoutSpendingSource = BigNumber(sourceFee.balance || 0).gte(sourceFee.fee || 0)
   if (!canCoverFeeWithoutSpendingSource) return
 
   return "Make sure to leave enough for transaction fee"

@@ -169,13 +169,13 @@ export function useInitiaVipPositions(): VipSectionData {
 
         // Use BigNumber for precision-safe value calculations (same pattern as TxSimulate.tsx)
         const lockedRewardValue = BigNumber(
-          fromBaseUnit(String(entry.lockedReward), { decimals: INIT_DECIMALS }),
+          fromBaseUnit(String(entry.lockedReward), { decimals: INIT_DECIMALS }) || 0,
         )
           .times(initPrice)
           .toNumber()
 
         const claimableRewardValue = BigNumber(
-          fromBaseUnit(String(entry.claimableReward), { decimals: INIT_DECIMALS }),
+          fromBaseUnit(String(entry.claimableReward), { decimals: INIT_DECIMALS }) || 0,
         )
           .times(initPrice)
           .toNumber()

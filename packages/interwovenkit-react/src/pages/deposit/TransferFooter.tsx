@@ -9,6 +9,7 @@ import { useBalances } from "@/data/account"
 import { useFindAsset } from "@/data/assets"
 import { useChain } from "@/data/chains"
 import { useGasPrices, useLastFeeDenom } from "@/data/fee"
+import { parseQuantity } from "@/lib/amountValidation"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import BridgePreviewFooter from "../bridge/BridgePreviewFooter"
 import { useAllSkipAssets } from "../bridge/data/assets"
@@ -125,16 +126,16 @@ const TransferFooterWithFee = ({
   )
   const balancesByDenom = new Map(balances.map(({ denom, amount }) => [denom, amount]))
   const sourceSpendAmount = srcAsset
-    ? BigNumber(quantity || "0")
+    ? (parseQuantity(quantity) ?? BigNumber(0))
         .times(BigNumber(10).pow(srcAsset.decimals))
         .toFixed(0)
     : "0"
   const feeDetailsByDenom = new Map(
     feeOptions.map((fee) => {
       const [{ amount, denom }] = fee.amount
-      const balance = balancesByDenom.get(denom) ?? "0"
+      const balance = balancesByDenom.get(denom) || "0"
       const spendAmount = srcAsset && srcDenom === denom ? sourceSpendAmount : "0"
-      const totalRequired = BigNumber(amount).plus(spendAmount)
+      const totalRequired = BigNumber(amount || 0).plus(spendAmount)
       const { symbol, decimals } = findAsset(denom)
 
       return [
@@ -173,7 +174,7 @@ const TransferFooterWithFee = ({
     feeDetailsByDenom,
   })
   const hasSourceBalance = hasSufficientTransferBalance({
-    balance: balancesByDenom.get(srcDenom) ?? "0", // suspense boundary ensures balances are loaded; missing denom means zero
+    balance: balancesByDenom.get(srcDenom) || "0", // suspense boundary ensures balances are loaded; missing denom means zero
     requiredAmount: sourceSpendAmount,
   })
   const footerStatus = getTransferFooterStatus({
@@ -203,7 +204,7 @@ const TransferFooterWithFee = ({
 
   const getFeeLabel = (fee: StdFee) => {
     const [{ amount, denom }] = fee.amount
-    if (BigNumber(amount).isZero()) return "0"
+    if (BigNumber(amount || 0).isZero()) return "0"
     const { symbol, decimals } = findAsset(denom)
     const dp = getDp(amount, decimals)
     return `${formatAmount(amount, { decimals, dp })} ${symbol}`

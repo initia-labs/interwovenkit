@@ -7,6 +7,7 @@ import FormHelp from "@/components/form/FormHelp"
 import NumericInput from "@/components/form/NumericInput"
 import Scrollable from "@/components/Scrollable"
 import { useBridgeForm } from "./data/form"
+import { getSlippageMessage } from "./slippageMessage"
 import styles from "./SlippageControl.module.css"
 
 const PRESETS = ["0.1", "0.5", "1.0"]
@@ -43,21 +44,7 @@ const SlippageControl = ({ afterConfirm }: { afterConfirm: () => void }) => {
     setActivePreset(null)
   }
 
-  const message = useMemo(() => {
-    if (Number(value) > 100) {
-      return { type: "error" as const, text: "Slippage must be less than 100%" }
-    }
-
-    if (Number(value) > 5) {
-      return { type: "warning" as const, text: "Your transaction may be frontrun" }
-    }
-
-    if (Number(value) < 0.1) {
-      return { type: "warning" as const, text: "Your transaction may fail" }
-    }
-
-    return null
-  }, [value])
+  const message = useMemo(() => getSlippageMessage(value), [value])
 
   const isError = message?.type === "error"
 
