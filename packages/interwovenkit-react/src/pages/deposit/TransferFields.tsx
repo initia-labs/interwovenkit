@@ -148,7 +148,7 @@ const TransferFields = ({ mode }: Props) => {
   const sourceBalance = balances?.[srcChainId]?.[srcDenom]?.amount
   const price = balances?.[srcChainId]?.[srcDenom]?.price
 
-  const quantityValue = BigNumber(price ?? 0).times(parseQuantity(rawQuantity) ?? 0)
+  const quantityValue = BigNumber(price || 0).times(parseQuantity(rawQuantity) || 0)
 
   const [debouncedQuantity] = useDebounceValue(rawQuantity, 300)
 
@@ -178,7 +178,7 @@ const TransferFields = ({ mode }: Props) => {
 
     if (balance !== undefined) {
       const balanceAmount = fromBaseUnit(balance, { decimals: amountAsset?.decimals || 6 })
-      if (quantityBn.gt(balanceAmount)) return "Insufficient balance"
+      if (quantityBn.gt(balanceAmount || 0)) return "Insufficient balance"
     }
   }, [amountAsset, balance, balanceBlocker, externalAsset, mode, rawQuantity])
   const isRouteQueryDisabled = useMemo(() => {
@@ -192,7 +192,7 @@ const TransferFields = ({ mode }: Props) => {
 
     if (balance !== undefined) {
       const balanceAmount = fromBaseUnit(balance, { decimals: amountAsset?.decimals || 6 })
-      if (quantityBn.gt(balanceAmount)) return true
+      if (quantityBn.gt(balanceAmount || 0)) return true
     }
 
     return false
@@ -345,7 +345,7 @@ const TransferFields = ({ mode }: Props) => {
             className={styles.maxButton}
             onClick={() => {
               const maxAmount = fromBaseUnit(balance, { decimals: amountDecimals })
-              if (parseQuantity(rawQuantity)?.eq(maxAmount)) return
+              if (parseQuantity(rawQuantity)?.eq(maxAmount || 0)) return
 
               setValue("quantity", maxAmount)
             }}
