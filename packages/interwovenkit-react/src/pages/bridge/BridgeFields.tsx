@@ -267,6 +267,7 @@ const BridgeFields = () => {
       },
     ) => {
       const balance = BigNumber(balances?.[denom]?.amount || 0)
+      // `||` (not `??`) chains through Skip's empty-string amount fields to the next fallback.
       const spendAmount =
         denom === (options?.sourceDenom ?? srcDenom)
           ? BigNumber(options?.amountIn || route?.amount_in || 0)
