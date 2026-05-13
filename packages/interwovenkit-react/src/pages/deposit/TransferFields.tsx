@@ -148,7 +148,9 @@ const TransferFields = ({ mode }: Props) => {
   const sourceBalance = balances?.[srcChainId]?.[srcDenom]?.amount
   const price = balances?.[srcChainId]?.[srcDenom]?.price
 
-  const quantityValue = BigNumber(price || 0).times(parseQuantity(rawQuantity) || 0)
+  // `price` is Skip's `string | null` — `|| 0` (not `?? 0`) catches both empty strings and null.
+  // `parseQuantity` returns `BigNumber | null`, so `?? 0` is the documented choice for that branch.
+  const quantityValue = BigNumber(price || 0).times(parseQuantity(rawQuantity) ?? 0)
 
   const [debouncedQuantity] = useDebounceValue(rawQuantity, 300)
 
