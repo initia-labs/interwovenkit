@@ -24,6 +24,42 @@ describe("parseQuantity", () => {
     expect(parseQuantity("abc")).toBeNull()
   })
 
+  it("returns null for whitespace-only input", () => {
+    expect(parseQuantity(" ")).toBeNull()
+  })
+
+  it("returns null for a bare minus sign", () => {
+    expect(parseQuantity("-")).toBeNull()
+  })
+
+  it("returns null for multi-decimal-point input", () => {
+    expect(parseQuantity("1.2.3")).toBeNull()
+  })
+
+  it("returns null for comma-grouped input", () => {
+    expect(parseQuantity("1,000")).toBeNull()
+  })
+
+  // BigNumber("Infinity") parses without throwing but `isFinite()` is false,
+  // so the helper must reject it via the isFinite branch rather than the catch.
+  it("returns null for Infinity", () => {
+    expect(parseQuantity("Infinity")).toBeNull()
+  })
+
+  it("returns null for -Infinity", () => {
+    expect(parseQuantity("-Infinity")).toBeNull()
+  })
+
+  it("returns null for NaN", () => {
+    expect(parseQuantity("NaN")).toBeNull()
+  })
+
+  // Lock in scientific notation as a valid input so a future defensive regex
+  // cannot regress it.
+  it("accepts scientific notation 1e10", () => {
+    expect(parseQuantity("1e10")?.toFixed()).toBe("10000000000")
+  })
+
   it("parses zero", () => {
     expect(parseQuantity("0")?.toFixed()).toBe("0")
   })
