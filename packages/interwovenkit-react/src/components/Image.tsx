@@ -34,7 +34,9 @@ const Image = ({ src, alt, placeholder, classNames, style, logo, ...attrs }: Pro
       className={clsx(attrs.className, { [styles.logo]: logo })}
       style={{ width, height, ...style }}
       src={src}
-      alt={alt}
+      // Default to alt="" (decorative) so screen readers skip the image
+      // instead of announcing the src filename.
+      alt={alt ?? ""}
       loading="lazy"
       onError={() => setErrorSrc(src)}
     />
