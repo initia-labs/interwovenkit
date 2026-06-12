@@ -397,7 +397,7 @@ export interface CreateTestCosmosWalletConfig {
  *
  * Pass the returned wallet via the `cosmosWallets` config prop
  * on `InterwovenKitProvider`. It will appear in the Bridge's
- * "Connect wallet" list alongside Keplr and Leap.
+ * "Connect wallet" list alongside Keplr.
  *
  * @example
  * ```ts
