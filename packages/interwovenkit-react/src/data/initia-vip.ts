@@ -54,7 +54,8 @@ export interface VipPositionRow {
   bridgeId: number
   version: number
   name: string
-  logoUrl?: string
+  /** Always truthy: falls back to placeholder when the chain has no logo */
+  logoUrl: string
   lockedReward: number
   lockedRewardValue: number
   claimableReward: number
