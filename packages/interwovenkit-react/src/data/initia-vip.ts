@@ -192,8 +192,8 @@ export function useInitiaVipPositions(): VipSectionData {
           bridgeId: entry.rollup.bridgeId,
           version: entry.rollup.version,
           // Chains removed from chains.json may still have VIP rewards
-          name: chain?.name ?? `Bridge #${entry.rollup.bridgeId}`,
-          logoUrl: chain?.logoUrl ?? placeholder,
+          name: chain?.name || `Bridge #${entry.rollup.bridgeId}`,
+          logoUrl: chain?.logoUrl || placeholder,
           lockedReward: lockedFormatted,
           lockedRewardValue,
           claimableReward: claimableFormatted,
