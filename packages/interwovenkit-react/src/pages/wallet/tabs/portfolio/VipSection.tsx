@@ -67,9 +67,7 @@ const VipRow = ({ row }: VipRowProps) => {
               aria-hidden="true"
             />
             <div className={styles.tokenInfoLabel}>
-              {logoUrl && (
-                <Image src={logoUrl} width={20} height={20} className={styles.tokenLogo} logo />
-              )}
+              <Image src={logoUrl} width={20} height={20} className={styles.tokenLogo} logo />
               <span className={styles.tokenName}>{name}</span>
             </div>
           </div>

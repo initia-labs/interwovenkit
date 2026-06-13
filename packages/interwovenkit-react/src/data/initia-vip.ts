@@ -5,10 +5,11 @@ import { useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { fromBaseUnit } from "@initia/utils"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { useInitiaRegistry, useLayer1, usePricesQuery } from "./chains"
+import { useInitiaRegistry, useLayer1, usePricesQuery, useProfilesRegistry } from "./chains"
 import { useConfig } from "./config"
 import { INIT_DECIMALS, INIT_DENOM } from "./constants"
 import { STALE_TIMES } from "./http"
+import placeholder from "./placeholder"
 
 // ============================================
 // QUERY KEYS
@@ -53,7 +54,8 @@ export interface VipPositionRow {
   bridgeId: number
   version: number
   name: string
-  logoUrl?: string
+  /** Always truthy: falls back to placeholder when the chain has no logo */
+  logoUrl: string
   lockedReward: number
   lockedRewardValue: number
   claimableReward: number
@@ -125,15 +127,22 @@ export function useAllVipVestingPositions() {
   })
 }
 
-/** Hook to find chain profile by bridgeId */
+/** Hook to find chain display info (name, logo) by bridgeId */
 export function useFindChainByBridgeId() {
   const chains = useInitiaRegistry()
+  const profiles = useProfilesRegistry()
 
   return useCallback(
     (bridgeId: number | string) => {
-      return chains.find(({ metadata }) => metadata?.op_bridge_id === String(bridgeId))
+      const chain = chains.find(({ metadata }) => metadata?.op_bridge_id === String(bridgeId))
+      if (chain) return chain
+
+      // Fallback to profiles.json for chains removed from chains.json (same pattern as useFindChain)
+      const profile = profiles.find((profile) => profile.op_bridge_id === String(bridgeId))
+      if (!profile) return undefined
+      return { name: profile.pretty_name, logoUrl: profile.logo }
     },
-    [chains],
+    [chains, profiles],
   )
 }
 
@@ -183,8 +192,9 @@ export function useInitiaVipPositions(): VipSectionData {
         return {
           bridgeId: entry.rollup.bridgeId,
           version: entry.rollup.version,
-          name: chain?.name ?? "",
-          logoUrl: chain?.logoUrl,
+          // Chains removed from chains.json may still have VIP rewards
+          name: chain?.name || `Bridge #${entry.rollup.bridgeId}`,
+          logoUrl: chain?.logoUrl || placeholder,
           lockedReward: lockedFormatted,
           lockedRewardValue,
           claimableReward: claimableFormatted,
