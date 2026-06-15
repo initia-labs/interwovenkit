@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.9.1](https://github.com/initia-labs/interwovenkit/compare/v2.9.0...v2.9.1) (2026-06-15)
+
+
+### Bug Fixes
+
+* **connect:** remove Leap wallet from wallet lists ([5dc9ed4](https://github.com/initia-labs/interwovenkit/commit/5dc9ed4d6c87a7cdc7e0d7ced697c8cee19399f0))
+* support BigNumber strict mode (v10+) ([0c1ae8d](https://github.com/initia-labs/interwovenkit/commit/0c1ae8d0888aa5a7ea68860258480d3f5e7f4463))
+* **vip:** show icon for delisted appchains ([2df2e19](https://github.com/initia-labs/interwovenkit/commit/2df2e19d7f4bb8b205ee629fd9557e04fcbc24ba))
+
 ## [2.9.0](https://github.com/initia-labs/interwovenkit/compare/v2.8.0...v2.9.0) (2026-05-09)
 
 
