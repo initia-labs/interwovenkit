@@ -78,12 +78,6 @@ const POPULAR_WALLETS = [
     url: "https://keplr.app",
   },
   {
-    id: "io.leapwallet",
-    name: "Leap",
-    icon: "https://assets.initia.xyz/images/wallets/Leap.webp",
-    url: "https://leapwallet.io",
-  },
-  {
     id: "io.metamask",
     name: "MetaMask",
     icon: "https://assets.initia.xyz/images/wallets/MetaMask.webp",
