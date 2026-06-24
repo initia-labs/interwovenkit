@@ -719,6 +719,26 @@ describe("minity/utilities", () => {
         expect(groups[0].symbol).toBe(INIT_SYMBOL)
       })
 
+      it("should sort iUSD right after INIT", () => {
+        const positions = [
+          createMockPosition({
+            balance: createMockBalance({ symbol: "USDC", denom: "uusdc", value: 200 }),
+          }),
+          createMockPosition({
+            balance: createMockBalance({ symbol: "iUSD", denom: "iusd", value: 50 }),
+          }),
+          createMockPosition({
+            balance: createMockBalance({ symbol: INIT_SYMBOL, denom: "uinit", value: 100 }),
+          }),
+        ]
+
+        const groups = groupPositionsByDenom(positions)
+
+        expect(groups[0].symbol).toBe(INIT_SYMBOL)
+        expect(groups[1].symbol).toBe("iUSD")
+        expect(groups[2].symbol).toBe("USDC")
+      })
+
       it("should sort by value descending after INIT", () => {
         const positions = [
           createMockPosition({
@@ -981,8 +1001,21 @@ describe("minity/utilities", () => {
         const initGroup = createMockAssetGroup({ symbol: INIT_SYMBOL, totalValue: 50 })
         const usdcGroup = createMockAssetGroup({ symbol: "USDC", totalValue: 100 })
 
-        expect(compareAssetGroups(initGroup, usdcGroup)).toBe(-1)
-        expect(compareAssetGroups(usdcGroup, initGroup)).toBe(1)
+        expect(compareAssetGroups(initGroup, usdcGroup)).toBeLessThan(0)
+        expect(compareAssetGroups(usdcGroup, initGroup)).toBeGreaterThan(0)
+      })
+
+      it("should place iUSD right after INIT", () => {
+        const initGroup = createMockAssetGroup({ symbol: INIT_SYMBOL, totalValue: 10 })
+        const iusdGroup = createMockAssetGroup({ symbol: "iUSD", totalValue: 50 })
+        const usdcGroup = createMockAssetGroup({ symbol: "USDC", totalValue: 100 })
+
+        // iUSD outranks any non-INIT group regardless of value
+        expect(compareAssetGroups(iusdGroup, usdcGroup)).toBeLessThan(0)
+        expect(compareAssetGroups(usdcGroup, iusdGroup)).toBeGreaterThan(0)
+        // but INIT still comes before iUSD
+        expect(compareAssetGroups(initGroup, iusdGroup)).toBeLessThan(0)
+        expect(compareAssetGroups(iusdGroup, initGroup)).toBeGreaterThan(0)
       })
 
       it("should sort by value descending", () => {

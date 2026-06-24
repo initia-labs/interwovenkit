@@ -246,6 +246,17 @@ describe("sortAssetGroups", () => {
     const sorted = sortAssetGroups(groups)
     expect(sorted[0].symbol).toBe("INIT")
   })
+
+  it("should keep iUSD right after INIT regardless of value", () => {
+    const groups = [
+      createAssetGroup({ symbol: "USDC", totalValue: 1000 }),
+      createAssetGroup({ symbol: "iUSD", totalValue: 10 }),
+      createAssetGroup({ symbol: "INIT", totalValue: 5 }),
+      createAssetGroup({ symbol: "ETH", totalValue: 500 }),
+    ]
+    const sorted = sortAssetGroups(groups)
+    expect(sorted.map(({ symbol }) => symbol)).toEqual(["INIT", "iUSD", "USDC", "ETH"])
+  })
 })
 
 describe("sortChainsWithinGroup", () => {

@@ -5,6 +5,9 @@ export const INIT_DENOM = "uinit"
 export const INIT_SYMBOL = "INIT"
 export const INIT_DECIMALS = 6
 
+// iUSD (pinned right after INIT in token lists)
+export const IUSD_SYMBOL = "iUSD"
+
 // omniINIT (Minitswap LP token)
 export const OMNI_INIT_DENOM = "uoinit"
 export const OMNI_INIT_SYMBOL = "omniINIT"

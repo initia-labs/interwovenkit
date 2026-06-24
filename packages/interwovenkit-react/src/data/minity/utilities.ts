@@ -1,6 +1,6 @@
 import BigNumber from "bignumber.js"
 import { formatNumber as formatNumberUtil } from "@initia/utils"
-import { INIT_SYMBOL, STRAT_CHAIN_NAME } from "../constants"
+import { INIT_SYMBOL, IUSD_SYMBOL, STRAT_CHAIN_NAME } from "../constants"
 import type { PortfolioAssetGroup, PortfolioAssetItem } from "../portfolio"
 import type {
   Balance,
@@ -330,11 +330,20 @@ export function groupPositionsByType(positions: Position[]): Map<Position["type"
   return groups
 }
 
-/** Sort comparator for denom groups: INIT first, then by value desc, then alphabetically */
+/** Pinned symbols in display order; lower rank sorts first. */
+const PINNED_SYMBOLS = [INIT_SYMBOL, IUSD_SYMBOL]
+
+/** Returns the pinned rank for a symbol, or Infinity if it isn't pinned. */
+function getPinnedRank(symbol: string): number {
+  const index = PINNED_SYMBOLS.indexOf(symbol)
+  return index === -1 ? Infinity : index
+}
+
+/** Sort comparator for denom groups: INIT then iUSD first, then by value desc, then alphabetically */
 function compareDenomGroups(a: DenomGroup, b: DenomGroup): number {
-  if (a.symbol === INIT_SYMBOL && b.symbol === INIT_SYMBOL) return 0
-  if (a.symbol === INIT_SYMBOL) return -1
-  if (b.symbol === INIT_SYMBOL) return 1
+  const rankA = getPinnedRank(a.symbol)
+  const rankB = getPinnedRank(b.symbol)
+  if (rankA !== rankB) return rankA - rankB
   if (b.totalValue !== a.totalValue) return b.totalValue - a.totalValue
   return a.symbol.localeCompare(b.symbol, undefined, { sensitivity: "base" })
 }
@@ -437,11 +446,11 @@ export function applyFallbackPricing(
   }))
 }
 
-/** Sort comparator for asset groups: INIT first, then by value desc, then alphabetically */
+/** Sort comparator for asset groups: INIT then iUSD first, then by value desc, then alphabetically */
 export function compareAssetGroups(a: PortfolioAssetGroup, b: PortfolioAssetGroup): number {
-  if (a.symbol === INIT_SYMBOL && b.symbol === INIT_SYMBOL) return 0
-  if (a.symbol === INIT_SYMBOL) return -1
-  if (b.symbol === INIT_SYMBOL) return 1
+  const rankA = getPinnedRank(a.symbol)
+  const rankB = getPinnedRank(b.symbol)
+  if (rankA !== rankB) return rankA - rankB
   if (b.totalValue !== a.totalValue) return b.totalValue - a.totalValue
   return a.symbol.localeCompare(b.symbol, undefined, { sensitivity: "base" })
 }

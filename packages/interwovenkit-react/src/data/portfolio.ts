@@ -7,7 +7,7 @@ import { type NormalizedAsset, useAllChainsAssetsQueries } from "./assets"
 import type { NormalizedChain, PriceItem } from "./chains"
 import { useAllChainPriceQueries, useInitiaRegistry } from "./chains"
 import { useConfig } from "./config"
-import { INIT_SYMBOL } from "./constants"
+import { INIT_SYMBOL, IUSD_SYMBOL } from "./constants"
 import placeholder from "./placeholder"
 
 export interface PortfolioAssetGroupInfo {
@@ -66,13 +66,15 @@ function toChainInfo(chain: NormalizedChain): PortfolioChainInfo {
 /**
  * Sorts asset groups with deterministic rules:
  * 1. INIT symbol always
- * 2. Higher total value
- * 3. Group with more chains
- * 4. Alphabetically by symbol
+ * 2. iUSD symbol next
+ * 3. Higher total value
+ * 4. Group with more chains
+ * 5. Alphabetically by symbol
  */
 export function sortAssetGroups(assetGroups: PortfolioAssetGroup[]) {
   return sortWith<PortfolioAssetGroup>([
     descend(({ symbol }) => symbol === INIT_SYMBOL),
+    descend(({ symbol }) => symbol === IUSD_SYMBOL),
     descend(calculateTotalValue),
     descend(({ assets }) => assets.length),
     ascend(({ symbol }) => symbol),
