@@ -207,14 +207,14 @@ const InitiaVipSectionWrapper = () => {
 /*                               Vault Section                                */
 /* -------------------------------------------------------------------------- */
 
-const InitiaVaultSectionWrapper = () => {
+const InitiaVaultSectionWrapper = ({ chainId }: { chainId: string }) => {
   const vaultData = useInitiaVaultPositions()
 
   if (vaultData.rows.length === 0) {
     return null
   }
 
-  return <VaultSection data={vaultData} />
+  return <VaultSection data={vaultData} chainId={chainId} />
 }
 
 /* -------------------------------------------------------------------------- */
@@ -286,6 +286,11 @@ const InitiaPositionGroup = ({ chainGroup }: Props) => {
               />
             </AsyncBoundary>
 
+            {/* Vault section */}
+            <AsyncBoundary suspenseFallback={<Skeletons height={36} length={1} />}>
+              <InitiaVaultSectionWrapper chainId={chainId} />
+            </AsyncBoundary>
+
             {/* Liquidity section */}
             <AsyncBoundary suspenseFallback={<Skeletons height={36} length={2} />}>
               <InitiaLiquiditySectionWrapper
@@ -299,11 +304,6 @@ const InitiaPositionGroup = ({ chainGroup }: Props) => {
             {/* VIP section */}
             <AsyncBoundary suspenseFallback={<Skeletons height={36} length={1} />}>
               <InitiaVipSectionWrapper />
-            </AsyncBoundary>
-
-            {/* Vault section */}
-            <AsyncBoundary suspenseFallback={<Skeletons height={36} length={1} />}>
-              <InitiaVaultSectionWrapper />
             </AsyncBoundary>
           </div>
         </Collapsible.Content>

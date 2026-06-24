@@ -2,6 +2,7 @@ import clsx from "clsx"
 import { Collapsible } from "radix-ui"
 import { useState } from "react"
 import { IconChevronDown, IconExternalLink } from "@initia/icons-react"
+import ExplorerLink from "@/components/ExplorerLink"
 import Image from "@/components/Image"
 import { INITIA_LIQUIDITY_URL } from "@/data/constants"
 import type { VaultPositionRow, VaultSectionData } from "@/data/initia-vault"
@@ -10,9 +11,10 @@ import styles from "./VaultSection.module.css"
 
 interface VaultSectionProps {
   data: VaultSectionData
+  chainId: string
 }
 
-const VaultSection = ({ data }: VaultSectionProps) => {
+const VaultSection = ({ data, chainId }: VaultSectionProps) => {
   const { totalValue, rows } = data
 
   if (rows.length === 0) return null
@@ -35,7 +37,7 @@ const VaultSection = ({ data }: VaultSectionProps) => {
         </div>
         <div className={styles.tokenList}>
           {rows.map((row) => (
-            <VaultRow key={row.vaultAddress} row={row} />
+            <VaultRow key={row.vaultAddress} row={row} chainId={chainId} />
           ))}
         </div>
       </section>
@@ -43,9 +45,9 @@ const VaultSection = ({ data }: VaultSectionProps) => {
   )
 }
 
-const VaultRow = ({ row }: { row: VaultPositionRow }) => {
+const VaultRow = ({ row, chainId }: { row: VaultPositionRow; chainId: string }) => {
   const [isOpen, setIsOpen] = useState(false)
-  const { symbol, coinLogos, value, claimableValue, isActive } = row
+  const { symbol, coinLogos, value, claimableValue, isActive, curatorAddress } = row
   const hasCoinLogos = coinLogos.some((logo) => logo)
 
   return (
@@ -97,6 +99,17 @@ const VaultRow = ({ row }: { row: VaultPositionRow }) => {
               <span>{isActive ? "Active" : "Inactive"}</span>
             </div>
           </div>
+          {curatorAddress && (
+            <div className={styles.breakdownRow}>
+              <span className={styles.breakdownLabel}>Curator</span>
+              <ExplorerLink
+                chainId={chainId}
+                accountAddress={curatorAddress}
+                className={styles.curatorLink}
+                showIcon
+              />
+            </div>
+          )}
           <div className={styles.breakdownRow}>
             <span className={styles.breakdownLabel}>Claimable rewards</span>
             <div className={styles.breakdownValues}>

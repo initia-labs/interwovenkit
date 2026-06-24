@@ -195,6 +195,17 @@
   font-weight: 500;
 }
 
+.curatorLink {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  color: var(--gray-3);
+  font-family: var(--monospace);
+  font-size: 12px;
+  font-weight: 500;
+}
+
 .collapsibleContent {
   overflow: hidden;
 

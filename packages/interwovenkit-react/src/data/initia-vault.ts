@@ -1,7 +1,7 @@
 import BigNumber from "bignumber.js"
 import { useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
-import { bcs, createMoveClient, fromBaseUnit } from "@initia/utils"
+import { bcs, createMoveClient, fromBaseUnit, InitiaAddress } from "@initia/utils"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useAssets, useDenoms } from "./assets"
 import { useLayer1, usePricesQuery } from "./chains"
@@ -51,6 +51,7 @@ interface VaultInfoView {
   oracle_price_0: string
   oracle_price_1: string
   is_active: boolean
+  curator: string
 }
 
 interface RewardAsset {
@@ -69,6 +70,9 @@ export interface VaultPositionRow {
   symbol: string
   coinLogos: string[]
   isActive: boolean
+  // Same pool can host vaults from different curators, so the curator disambiguates otherwise
+  // identical rows. Stored as a bech32 (init1…) address for the explorer link.
+  curatorAddress: string
   /** USD value of the underlying assets. */
   value: number
   /** USD value of the claimable rewards. */
@@ -193,27 +197,31 @@ export function useInitiaVaultPositions(): VaultSectionData {
       const underlying = underlyingData[index]
       if (!info || !underlying) return null
 
-      // Oracle prices are pre-scaled, so price * rawAmount yields a USD value directly.
-      const value = BigNumber(info.oracle_price_0)
-        .times(underlying[0])
-        .plus(BigNumber(info.oracle_price_1).times(underlying[1]))
+      // Oracle prices are pre-scaled, so price * rawAmount yields a USD value directly. Guard the
+      // string operands ("" would throw under BigNumber strict mode).
+      const value = BigNumber(info.oracle_price_0 || 0)
+        .times(underlying[0] || 0)
+        .plus(BigNumber(info.oracle_price_1 || 0).times(underlying[1] || 0))
         .toNumber()
 
       const asset0 = assetByDenom.get(denomMap.get(info.asset_0) ?? "")
       const asset1 = assetByDenom.get(denomMap.get(info.asset_1) ?? "")
 
-      const claimableValue = claimableData[index].reduce((sum, reward) => {
-        const denom = rewardDenomMap.get(reward.metadata) ?? ""
-        const asset = assetByDenom.get(denom)
-        const amount = fromBaseUnit(reward.amount, { decimals: asset?.decimals ?? 6 })
-        return sum + Number(amount) * priceOf(denom)
-      }, 0)
+      const claimableValue = claimableData[index]
+        .reduce((sum, reward) => {
+          const denom = rewardDenomMap.get(reward.metadata) ?? ""
+          const asset = assetByDenom.get(denom)
+          const amount = fromBaseUnit(reward.amount, { decimals: asset?.decimals ?? 6 })
+          return sum.plus(BigNumber(amount || 0).times(priceOf(denom)))
+        }, BigNumber(0))
+        .toNumber()
 
       return {
         vaultAddress: token.metadata,
         symbol: [asset0?.symbol, asset1?.symbol].filter(Boolean).join("-"),
         coinLogos: [asset0?.logoUrl ?? "", asset1?.logoUrl ?? ""],
         isActive: info.is_active,
+        curatorAddress: info.curator ? InitiaAddress(info.curator).bech32 : "",
         value,
         claimableValue,
       }
