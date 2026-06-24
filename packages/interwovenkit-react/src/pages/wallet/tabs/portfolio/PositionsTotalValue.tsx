@@ -1,6 +1,7 @@
 import { useMemo } from "react"
 import { useInitiaLiquidityPositions } from "@/data/initia-liquidity"
 import { useInitiaStakingPositions } from "@/data/initia-staking"
+import { useInitiaVaultPositions } from "@/data/initia-vault"
 import { useInitiaVipPositions } from "@/data/initia-vip"
 import type { PortfolioChainPositionGroup } from "@/data/minity"
 import { formatValue } from "@/lib/format"
@@ -15,7 +16,8 @@ const PositionsTotalValue = ({ filteredChainGroups }: PositionsTotalValueProps) 
   const { totalValue: stakingValue } = useInitiaStakingPositions()
   const { totalValue: liquidityValue } = useInitiaLiquidityPositions()
   const { totalValue: vipValue } = useInitiaVipPositions()
-  const l1PositionsTotal = stakingValue + liquidityValue + vipValue
+  const { totalValue: vaultValue } = useInitiaVaultPositions()
+  const l1PositionsTotal = stakingValue + liquidityValue + vipValue + vaultValue
 
   // Calculate total positions value:
   // - L1 (Initia): use on-chain data totals
