@@ -105,18 +105,16 @@ export function useInitiaVaultPositions(): VaultSectionData {
   const { data: staked } = useSuspenseQuery({
     queryKey: initiaVaultQueryKeys.staked(restUrl, moduleAddress, address).queryKey,
     queryFn: async (): Promise<StakedToken[]> => {
-      if (!address || !moduleAddress) return []
-      try {
-        return await viewFunction<StakedToken[]>({
-          moduleAddress,
-          moduleName: VAULT_STAKING_MODULE,
-          functionName: "user_staked_tokens",
-          typeArgs: [],
-          args: [addressArg(address)],
-        })
-      } catch {
-        return []
-      }
+      // No connected wallet is the only "empty" case; let real RPC/view failures throw so the
+      // AsyncBoundary surfaces them (consistent with the per-vault queries and sibling hooks).
+      if (!address) return []
+      return await viewFunction<StakedToken[]>({
+        moduleAddress,
+        moduleName: VAULT_STAKING_MODULE,
+        functionName: "user_staked_tokens",
+        typeArgs: [],
+        args: [addressArg(address)],
+      })
     },
     staleTime: STALE_TIMES.MINUTE,
   })
@@ -172,8 +170,7 @@ export function useInitiaVaultPositions(): VaultSectionData {
     })),
   })
 
-  // react-query data is referentially stable; copy out the parts we need so nothing downstream
-  // depends on the (unstable) useSuspenseQueries result objects.
+  // Pull out just the data (defaulting claimables to []) so the rest of the hook reads plainly.
   const infoData = infos.map((query) => query.data)
   const underlyingData = underlyings.map((query) => query.data)
   const claimableData = claimables.map((query) => query.data ?? [])
@@ -197,8 +194,9 @@ export function useInitiaVaultPositions(): VaultSectionData {
       const underlying = underlyingData[index]
       if (!info || !underlying) return null
 
-      // Oracle prices are pre-scaled, so price * rawAmount yields a USD value directly. Guard the
-      // string operands ("" would throw under BigNumber strict mode).
+      // Vault oracle prices are per RAW unit, so multiply the raw underlying amounts directly (no
+      // fromBaseUnit) — unlike the reward feed below, which is per DISPLAY unit. Guard the string
+      // operands ("" would throw under BigNumber strict mode).
       const value = BigNumber(info.oracle_price_0 || 0)
         .times(underlying[0] || 0)
         .plus(BigNumber(info.oracle_price_1 || 0).times(underlying[1] || 0))
@@ -227,6 +225,9 @@ export function useInitiaVaultPositions(): VaultSectionData {
       }
     })
     .filter((row): row is VaultPositionRow => row !== null)
+    // Sort by total worth descending, matching the Liquidity/VIP sections. `.sort` is safe here —
+    // the array is freshly built by map/filter (toSorted isn't available under this tsconfig lib).
+    .sort((a, b) => b.value + b.claimableValue - (a.value + a.claimableValue))
 
   const totalValue = rows.reduce((sum, row) => sum + row.value + row.claimableValue, 0)
   return { totalValue, rows }
