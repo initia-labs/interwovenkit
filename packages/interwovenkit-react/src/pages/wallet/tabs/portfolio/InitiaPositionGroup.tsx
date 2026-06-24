@@ -16,11 +16,13 @@ import {
   useInitiaStakingPositions,
   useInitiaStakingRewards,
 } from "@/data/initia-staking"
+import { useInitiaVaultPositions } from "@/data/initia-vault"
 import { useInitiaVipPositions } from "@/data/initia-vip"
 import { buildAssetLogoMaps, type PortfolioChainPositionGroup, type Position } from "@/data/minity"
 import { formatValue } from "@/lib/format"
 import LiquiditySection from "./LiquiditySection"
 import PositionSectionList, { type DenomLogoMap } from "./PositionSection"
+import VaultSection from "./VaultSection"
 import VipSection from "./VipSection"
 import styles from "./InitiaPositionGroup.module.css"
 
@@ -38,8 +40,9 @@ const InitiaTotalValue = () => {
   const { totalValue: stakingValue } = useInitiaStakingPositions()
   const { totalValue: liquidityValue } = useInitiaLiquidityPositions()
   const { totalValue: vipValue } = useInitiaVipPositions()
+  const { totalValue: vaultValue } = useInitiaVaultPositions()
 
-  const totalValue = stakingValue + liquidityValue + vipValue
+  const totalValue = stakingValue + liquidityValue + vipValue + vaultValue
 
   return <span className={styles.value}>{formatValue(totalValue)}</span>
 }
@@ -201,6 +204,20 @@ const InitiaVipSectionWrapper = () => {
 }
 
 /* -------------------------------------------------------------------------- */
+/*                               Vault Section                                */
+/* -------------------------------------------------------------------------- */
+
+const InitiaVaultSectionWrapper = () => {
+  const vaultData = useInitiaVaultPositions()
+
+  if (vaultData.rows.length === 0) {
+    return null
+  }
+
+  return <VaultSection data={vaultData} />
+}
+
+/* -------------------------------------------------------------------------- */
 /*                           Main Component                                   */
 /* -------------------------------------------------------------------------- */
 
@@ -282,6 +299,11 @@ const InitiaPositionGroup = ({ chainGroup }: Props) => {
             {/* VIP section */}
             <AsyncBoundary suspenseFallback={<Skeletons height={36} length={1} />}>
               <InitiaVipSectionWrapper />
+            </AsyncBoundary>
+
+            {/* Vault section */}
+            <AsyncBoundary suspenseFallback={<Skeletons height={36} length={1} />}>
+              <InitiaVaultSectionWrapper />
             </AsyncBoundary>
           </div>
         </Collapsible.Content>
