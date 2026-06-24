@@ -1,8 +1,9 @@
 import type { AssetJson } from "@skip-go/client"
-import { descend } from "ramda"
+import { ascend } from "ramda"
 import { useMemo } from "react"
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { STALE_TIMES } from "@/data/http"
+import { getPinnedAssetSymbolRank } from "@/data/pinnedAssets"
 import { useSkipChains } from "./chains"
 import { skipQueryKeys, useSkip } from "./skip"
 
@@ -68,7 +69,7 @@ export function useSkipAssets(chainId: string) {
       for (const asset of assets) {
         queryClient.setQueryData(skipQueryKeys.asset(chainId, asset.denom).queryKey, asset)
       }
-      return [...assets].sort(descend((asset) => asset.symbol === "INIT"))
+      return [...assets].sort(ascend((asset) => getPinnedAssetSymbolRank(asset.symbol)))
     },
     staleTime: STALE_TIMES.MINUTE,
   })

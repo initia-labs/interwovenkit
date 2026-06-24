@@ -7,7 +7,7 @@ import { type NormalizedAsset, useAllChainsAssetsQueries } from "./assets"
 import type { NormalizedChain, PriceItem } from "./chains"
 import { useAllChainPriceQueries, useInitiaRegistry } from "./chains"
 import { useConfig } from "./config"
-import { INIT_SYMBOL, IUSD_SYMBOL } from "./constants"
+import { getPinnedAssetSymbolRank } from "./pinnedAssets"
 import placeholder from "./placeholder"
 
 export interface PortfolioAssetGroupInfo {
@@ -73,8 +73,7 @@ function toChainInfo(chain: NormalizedChain): PortfolioChainInfo {
  */
 export function sortAssetGroups(assetGroups: PortfolioAssetGroup[]) {
   return sortWith<PortfolioAssetGroup>([
-    descend(({ symbol }) => symbol === INIT_SYMBOL),
-    descend(({ symbol }) => symbol === IUSD_SYMBOL),
+    ascend(({ symbol }) => getPinnedAssetSymbolRank(symbol)),
     descend(calculateTotalValue),
     descend(({ assets }) => assets.length),
     ascend(({ symbol }) => symbol),

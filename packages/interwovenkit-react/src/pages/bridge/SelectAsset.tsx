@@ -3,6 +3,7 @@ import BigNumber from "bignumber.js"
 import { ascend, descend, sortWith } from "ramda"
 import { truncate } from "@initia/utils"
 import AssetOptions from "@/components/form/AssetOptions"
+import { getPinnedAssetSymbolRank } from "@/data/pinnedAssets"
 import { useSkipAssets } from "./data/assets"
 import { useSkipBalancesQuery } from "./data/balance"
 
@@ -20,7 +21,7 @@ const SelectAsset = ({ address, chain, onSelect }: Props) => {
     <AssetOptions
       assets={sortWith(
         [
-          descend((asset) => asset.symbol === "INIT"),
+          ascend((asset) => getPinnedAssetSymbolRank(asset.symbol)),
           descend((asset) => asset.value),
           // `|| 0` keeps BigNumber strict-mode from throwing on empty balances; `?? 0` is leftover
           // defense for comparedTo's null-on-NaN return (the `= "0"` default only covers undefined).

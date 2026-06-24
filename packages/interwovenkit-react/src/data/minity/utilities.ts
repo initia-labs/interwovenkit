@@ -1,6 +1,7 @@
 import BigNumber from "bignumber.js"
 import { formatNumber as formatNumberUtil } from "@initia/utils"
-import { INIT_SYMBOL, IUSD_SYMBOL, STRAT_CHAIN_NAME } from "../constants"
+import { STRAT_CHAIN_NAME } from "../constants"
+import { getPinnedAssetSymbolRank } from "../pinnedAssets"
 import type { PortfolioAssetGroup, PortfolioAssetItem } from "../portfolio"
 import type {
   Balance,
@@ -330,19 +331,10 @@ export function groupPositionsByType(positions: Position[]): Map<Position["type"
   return groups
 }
 
-/** Pinned symbols in display order; lower rank sorts first. */
-const PINNED_SYMBOLS = [INIT_SYMBOL, IUSD_SYMBOL]
-
-/** Returns the pinned rank for a symbol, or Infinity if it isn't pinned. */
-function getPinnedRank(symbol: string): number {
-  const index = PINNED_SYMBOLS.indexOf(symbol)
-  return index === -1 ? Infinity : index
-}
-
 /** Sort comparator for denom groups: INIT then iUSD first, then by value desc, then alphabetically */
 function compareDenomGroups(a: DenomGroup, b: DenomGroup): number {
-  const rankA = getPinnedRank(a.symbol)
-  const rankB = getPinnedRank(b.symbol)
+  const rankA = getPinnedAssetSymbolRank(a.symbol)
+  const rankB = getPinnedAssetSymbolRank(b.symbol)
   if (rankA !== rankB) return rankA - rankB
   if (b.totalValue !== a.totalValue) return b.totalValue - a.totalValue
   return a.symbol.localeCompare(b.symbol, undefined, { sensitivity: "base" })
@@ -448,8 +440,8 @@ export function applyFallbackPricing(
 
 /** Sort comparator for asset groups: INIT then iUSD first, then by value desc, then alphabetically */
 export function compareAssetGroups(a: PortfolioAssetGroup, b: PortfolioAssetGroup): number {
-  const rankA = getPinnedRank(a.symbol)
-  const rankB = getPinnedRank(b.symbol)
+  const rankA = getPinnedAssetSymbolRank(a.symbol)
+  const rankB = getPinnedAssetSymbolRank(b.symbol)
   if (rankA !== rankB) return rankA - rankB
   if (b.totalValue !== a.totalValue) return b.totalValue - a.totalValue
   return a.symbol.localeCompare(b.symbol, undefined, { sensitivity: "base" })
