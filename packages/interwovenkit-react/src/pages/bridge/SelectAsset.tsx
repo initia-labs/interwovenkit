@@ -3,7 +3,8 @@ import BigNumber from "bignumber.js"
 import { ascend, descend, sortWith } from "ramda"
 import { truncate } from "@initia/utils"
 import AssetOptions from "@/components/form/AssetOptions"
-import { useSkipAssets } from "./data/assets"
+import { getPinnedAssetSymbolRank } from "@/data/pinnedAssets"
+import { isVisibleRouterAsset, useSkipAssets } from "./data/assets"
 import { useSkipBalancesQuery } from "./data/balance"
 
 interface Props {
@@ -20,28 +21,26 @@ const SelectAsset = ({ address, chain, onSelect }: Props) => {
     <AssetOptions
       assets={sortWith(
         [
-          descend((asset) => asset.symbol === "INIT"),
+          ascend((asset) => getPinnedAssetSymbolRank(asset.symbol)),
           descend((asset) => asset.value),
           // `|| 0` keeps BigNumber strict-mode from throwing on empty balances; `?? 0` is leftover
           // defense for comparedTo's null-on-NaN return (the `= "0"` default only covers undefined).
           ({ balance: a = "0" }, { balance: b = "0" }) => BigNumber(b || 0).comparedTo(a || 0) ?? 0,
           ascend((asset) => asset.symbol.toLowerCase()),
         ],
-        assets
-          .filter((asset) => !asset.hidden)
-          .map((asset) => {
-            const { denom, symbol = truncate(denom), logo_uri } = asset
-            const balance = balances[denom] ?? {}
-            return {
-              ...asset,
-              symbol,
-              decimals: asset.decimals ?? 0,
-              logoUrl: logo_uri ?? "",
-              name: asset.name ?? "",
-              balance: balance.amount,
-              value: Number(balance.value_usd ?? 0),
-            }
-          }),
+        assets.filter(isVisibleRouterAsset).map((asset) => {
+          const { denom, symbol = truncate(denom), logo_uri } = asset
+          const balance = balances[denom] ?? {}
+          return {
+            ...asset,
+            symbol,
+            decimals: asset.decimals ?? 0,
+            logoUrl: logo_uri ?? "",
+            name: asset.name ?? "",
+            balance: balance.amount,
+            value: Number(balance.value_usd ?? 0),
+          }
+        }),
       )}
       onSelect={onSelect}
     />
