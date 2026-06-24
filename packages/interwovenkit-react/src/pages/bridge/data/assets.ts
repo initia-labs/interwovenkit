@@ -14,6 +14,21 @@ export interface RouterAsset extends AssetJson {
   hidden?: boolean
 }
 
+export function isVisibleRouterAsset(asset: Pick<RouterAsset, "hidden">): boolean {
+  return !asset.hidden
+}
+
+export function findVisibleRouterAsset(
+  assets: RouterAsset[],
+  denom: string,
+): RouterAsset | undefined {
+  return assets.find((asset) => asset.denom === denom && isVisibleRouterAsset(asset))
+}
+
+export function getFirstVisibleRouterAsset(assets: RouterAsset[]): RouterAsset | undefined {
+  return assets.find(isVisibleRouterAsset)
+}
+
 export type AllAssetsResponse = {
   chain_to_assets_map: Partial<Record<string, { assets: RouterAsset[] }>>
 }
