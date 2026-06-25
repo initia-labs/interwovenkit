@@ -196,13 +196,16 @@ export function useInitiaVaultPositions(): VaultSectionData {
       // No connected wallet is the only "empty" case; let real RPC/view failures throw so the
       // AsyncBoundary surfaces them (consistent with the per-vault queries and sibling hooks).
       if (!address) return []
-      return await viewFunction<StakedToken[]>({
+      // Normalize a null/undefined view payload to [] so the downstream `.map` calls can't throw,
+      // matching the sibling hooks (e.g. lock-staking's `return result ?? []`).
+      const result = await viewFunction<StakedToken[]>({
         moduleAddress,
         moduleName: VAULT_STAKING_MODULE,
         functionName: "user_staked_tokens",
         typeArgs: [],
         args: [addressArg(address)],
       })
+      return result ?? []
     },
     staleTime: STALE_TIMES.MINUTE,
   })
