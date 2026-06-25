@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.10.0](https://github.com/initia-labs/interwovenkit/compare/v2.9.1...v2.10.0) (2026-06-25)
+
+
+### Features
+
+* **assets:** pin iUSD after INIT in token lists ([0ad865d](https://github.com/initia-labs/interwovenkit/commit/0ad865d4bf39b5b2b54620a72c95d245f0295d1b))
+* **portfolio:** add Initia vault positions ([b543122](https://github.com/initia-labs/interwovenkit/commit/b543122ae8058f637c8b844ec34acaa42b9f5d5c))
+
 ## [2.9.1](https://github.com/initia-labs/interwovenkit/compare/v2.9.0...v2.9.1) (2026-06-15)
 
 
