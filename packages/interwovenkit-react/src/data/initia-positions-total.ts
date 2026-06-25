@@ -9,6 +9,7 @@ import {
   useInitiaLockStaking,
   useInitiaUndelegations,
 } from "./initia-staking"
+import { useInitiaVaultPositions } from "./initia-vault"
 import { useAllVipVestingPositions } from "./initia-vip"
 
 // ============================================
@@ -16,11 +17,12 @@ import { useAllVipVestingPositions } from "./initia-vip"
 // ============================================
 
 /**
- * Calculates total L1 positions value (staking + liquidity + VIP).
+ * Calculates total L1 positions value (staking + liquidity + VIP + vault).
  * Uses the same liquidity aggregation source as the liquidity section so totals stay consistent.
  */
 export function useL1PositionsTotal(): number {
   const { totalValue: liquidityTotal } = useInitiaLiquidityPositions()
+  const { totalValue: vaultTotal } = useInitiaVaultPositions()
   const { data: delegations } = useInitiaDelegations()
   const { data: lockStaking } = useInitiaLockStaking()
   const { data: undelegations } = useInitiaUndelegations()
@@ -79,7 +81,7 @@ export function useL1PositionsTotal(): number {
       }
     }
 
-    return stakingTotal + lockStakingInitTotal + liquidityTotal + vipTotal
+    return stakingTotal + lockStakingInitTotal + liquidityTotal + vipTotal + vaultTotal
   }, [
     delegations,
     lockStaking,
@@ -88,5 +90,6 @@ export function useL1PositionsTotal(): number {
     vestingPositions,
     initPrice,
     liquidityTotal,
+    vaultTotal,
   ])
 }

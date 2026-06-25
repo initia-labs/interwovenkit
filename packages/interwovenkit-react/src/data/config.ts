@@ -33,6 +33,7 @@ export interface Config {
   glyphUrl: string
   usernamesModuleAddress: string
   lockStakeModuleAddress: string
+  clammVaultModuleAddress: string
   minityUrl: string
   dexUrl: string
   vipUrl: string
