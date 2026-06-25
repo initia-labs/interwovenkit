@@ -1,4 +1,5 @@
 import BigNumber from "bignumber.js"
+import { useMemo } from "react"
 import { useSuspenseQueries, useSuspenseQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { bcs, createMoveClient, fromBaseUnit, InitiaAddress } from "@initia/utils"
@@ -85,6 +86,96 @@ export interface VaultSectionData {
 }
 
 // ============================================
+// PER-VAULT QUERY HOOKS
+// ============================================
+
+type ViewFunction = ReturnType<typeof createMoveClient>["viewFunction"]
+
+const objectArg = (value: string) => bcs.object().serialize(value).toBase64()
+const addressArg = (value: string) => bcs.address().serialize(value).toBase64()
+
+// Each hook uses `combine` so its return value is a referentially stable array of just the data.
+// Extracting them into custom hooks (rather than calling useSuspenseQueries inline) also lets the
+// caller list these results in a useMemo dependency array — the @tanstack/query/no-unstable-deps
+// rule only flags a useSuspenseQueries result used directly, not one returned from a custom hook.
+
+function useVaultInfos(
+  staked: StakedToken[],
+  restUrl: string,
+  moduleAddress: string,
+  viewFunction: ViewFunction,
+) {
+  return useSuspenseQueries({
+    queries: staked.map((token) => ({
+      queryKey: initiaVaultQueryKeys.info(restUrl, moduleAddress, token.metadata).queryKey,
+      queryFn: () =>
+        viewFunction<VaultInfoView>({
+          moduleAddress,
+          moduleName: VAULT_MODULE,
+          functionName: "vault_info",
+          typeArgs: [],
+          args: [objectArg(token.metadata)],
+        }),
+      staleTime: STALE_TIMES.MINUTE,
+    })),
+    combine: (results) => results.map((result) => result.data),
+  })
+}
+
+function useVaultUnderlyings(
+  staked: StakedToken[],
+  restUrl: string,
+  moduleAddress: string,
+  viewFunction: ViewFunction,
+) {
+  return useSuspenseQueries({
+    queries: staked.map((token) => ({
+      queryKey: initiaVaultQueryKeys.shareToAsset(
+        restUrl,
+        moduleAddress,
+        token.metadata,
+        token.amount,
+      ).queryKey,
+      queryFn: () =>
+        viewFunction<ShareToAsset>({
+          moduleAddress,
+          moduleName: VAULT_MODULE,
+          functionName: "vault_share_to_asset",
+          typeArgs: [],
+          args: [objectArg(token.metadata), bcs.u64().serialize(token.amount).toBase64()],
+        }),
+      staleTime: STALE_TIMES.MINUTE,
+    })),
+    combine: (results) => results.map((result) => result.data),
+  })
+}
+
+function useVaultClaimables(
+  staked: StakedToken[],
+  restUrl: string,
+  moduleAddress: string,
+  address: string,
+  viewFunction: ViewFunction,
+) {
+  return useSuspenseQueries({
+    queries: staked.map((token) => ({
+      queryKey: initiaVaultQueryKeys.claimable(restUrl, moduleAddress, token.metadata, address)
+        .queryKey,
+      queryFn: () =>
+        viewFunction<RewardAsset[]>({
+          moduleAddress,
+          moduleName: VAULT_MODULE,
+          functionName: "user_claimable_rewards",
+          typeArgs: [],
+          args: [objectArg(token.metadata), addressArg(address)],
+        }),
+      staleTime: STALE_TIMES.MINUTE,
+    })),
+    combine: (results) => results.map((result) => result.data ?? []),
+  })
+}
+
+// ============================================
 // HOOK
 // ============================================
 
@@ -98,9 +189,6 @@ export function useInitiaVaultPositions(): VaultSectionData {
   const { viewFunction } = createMoveClient(restUrl)
   const { data: prices } = usePricesQuery(layer1)
   const assets = useAssets(layer1)
-
-  const objectArg = (value: string) => bcs.object().serialize(value).toBase64()
-  const addressArg = (value: string) => bcs.address().serialize(value).toBase64()
 
   const { data: staked } = useSuspenseQuery({
     queryKey: initiaVaultQueryKeys.staked(restUrl, moduleAddress, address).queryKey,
@@ -119,61 +207,11 @@ export function useInitiaVaultPositions(): VaultSectionData {
     staleTime: STALE_TIMES.MINUTE,
   })
 
-  const infos = useSuspenseQueries({
-    queries: staked.map((token) => ({
-      queryKey: initiaVaultQueryKeys.info(restUrl, moduleAddress, token.metadata).queryKey,
-      queryFn: () =>
-        viewFunction<VaultInfoView>({
-          moduleAddress,
-          moduleName: VAULT_MODULE,
-          functionName: "vault_info",
-          typeArgs: [],
-          args: [objectArg(token.metadata)],
-        }),
-      staleTime: STALE_TIMES.MINUTE,
-    })),
-  })
-
-  const underlyings = useSuspenseQueries({
-    queries: staked.map((token) => ({
-      queryKey: initiaVaultQueryKeys.shareToAsset(
-        restUrl,
-        moduleAddress,
-        token.metadata,
-        token.amount,
-      ).queryKey,
-      queryFn: () =>
-        viewFunction<ShareToAsset>({
-          moduleAddress,
-          moduleName: VAULT_MODULE,
-          functionName: "vault_share_to_asset",
-          typeArgs: [],
-          args: [objectArg(token.metadata), bcs.u64().serialize(token.amount).toBase64()],
-        }),
-      staleTime: STALE_TIMES.MINUTE,
-    })),
-  })
-
-  const claimables = useSuspenseQueries({
-    queries: staked.map((token) => ({
-      queryKey: initiaVaultQueryKeys.claimable(restUrl, moduleAddress, token.metadata, address)
-        .queryKey,
-      queryFn: () =>
-        viewFunction<RewardAsset[]>({
-          moduleAddress,
-          moduleName: VAULT_MODULE,
-          functionName: "user_claimable_rewards",
-          typeArgs: [],
-          args: [objectArg(token.metadata), addressArg(address)],
-        }),
-      staleTime: STALE_TIMES.MINUTE,
-    })),
-  })
-
-  // Pull out just the data (defaulting claimables to []) so the rest of the hook reads plainly.
-  const infoData = infos.map((query) => query.data)
-  const underlyingData = underlyings.map((query) => query.data)
-  const claimableData = claimables.map((query) => query.data ?? [])
+  // These return referentially stable data arrays (via `combine`), so the derivation below can be
+  // memoized — like the sibling Liquidity/Staking hooks — keyed on them.
+  const infoData = useVaultInfos(staked, restUrl, moduleAddress, viewFunction)
+  const underlyingData = useVaultUnderlyings(staked, restUrl, moduleAddress, viewFunction)
+  const claimableData = useVaultClaimables(staked, restUrl, moduleAddress, address, viewFunction)
 
   // Resolve fungible-asset metadata addresses to denoms so the pair (and rewards) can be named/priced.
   const assetMetadatas = [
@@ -185,50 +223,54 @@ export function useInitiaVaultPositions(): VaultSectionData {
   const denomMap = useDenoms(assetMetadatas, { failSoft: true })
   const rewardDenomMap = useDenoms(rewardMetadatas, { failSoft: true })
 
-  const assetByDenom = new Map(assets.map((asset) => [asset.denom, asset]))
-  const priceOf = (denom: string) => prices?.find((p) => p.id === denom)?.price ?? 0
+  // Memoize the derivation (like the sibling Liquidity/Staking hooks) so the rows/total references
+  // stay stable across renders for the 5 call sites that consume this hook.
+  return useMemo(() => {
+    const assetByDenom = new Map(assets.map((asset) => [asset.denom, asset]))
+    const priceOf = (denom: string) => prices?.find((p) => p.id === denom)?.price ?? 0
 
-  const rows = staked
-    .map((token, index): VaultPositionRow | null => {
-      const info = infoData[index]
-      const underlying = underlyingData[index]
-      if (!info || !underlying) return null
+    const rows = staked
+      .map((token, index): VaultPositionRow | null => {
+        const info = infoData[index]
+        const underlying = underlyingData[index]
+        if (!info || !underlying) return null
 
-      // Vault oracle prices are per RAW unit, so multiply the raw underlying amounts directly (no
-      // fromBaseUnit) — unlike the reward feed below, which is per DISPLAY unit. Guard the string
-      // operands ("" would throw under BigNumber strict mode).
-      const value = BigNumber(info.oracle_price_0 || 0)
-        .times(underlying[0] || 0)
-        .plus(BigNumber(info.oracle_price_1 || 0).times(underlying[1] || 0))
-        .toNumber()
+        // Vault oracle prices are per RAW unit, so multiply the raw underlying amounts directly (no
+        // fromBaseUnit) — unlike the reward feed below, which is per DISPLAY unit. Guard the string
+        // operands ("" would throw under BigNumber strict mode).
+        const value = BigNumber(info.oracle_price_0 || 0)
+          .times(underlying[0] || 0)
+          .plus(BigNumber(info.oracle_price_1 || 0).times(underlying[1] || 0))
+          .toNumber()
 
-      const asset0 = assetByDenom.get(denomMap.get(info.asset_0) ?? "")
-      const asset1 = assetByDenom.get(denomMap.get(info.asset_1) ?? "")
+        const asset0 = assetByDenom.get(denomMap.get(info.asset_0) ?? "")
+        const asset1 = assetByDenom.get(denomMap.get(info.asset_1) ?? "")
 
-      const claimableValue = claimableData[index]
-        .reduce((sum, reward) => {
-          const denom = rewardDenomMap.get(reward.metadata) ?? ""
-          const asset = assetByDenom.get(denom)
-          const amount = fromBaseUnit(reward.amount, { decimals: asset?.decimals ?? 6 })
-          return sum.plus(BigNumber(amount || 0).times(priceOf(denom)))
-        }, BigNumber(0))
-        .toNumber()
+        const claimableValue = claimableData[index]
+          .reduce((sum, reward) => {
+            const denom = rewardDenomMap.get(reward.metadata) ?? ""
+            const asset = assetByDenom.get(denom)
+            const amount = fromBaseUnit(reward.amount, { decimals: asset?.decimals ?? 6 })
+            return sum.plus(BigNumber(amount || 0).times(priceOf(denom)))
+          }, BigNumber(0))
+          .toNumber()
 
-      return {
-        vaultAddress: token.metadata,
-        symbol: [asset0?.symbol, asset1?.symbol].filter(Boolean).join("-"),
-        coinLogos: [asset0?.logoUrl ?? "", asset1?.logoUrl ?? ""],
-        isActive: info.is_active,
-        curatorAddress: info.curator ? InitiaAddress(info.curator).bech32 : "",
-        value,
-        claimableValue,
-      }
-    })
-    .filter((row): row is VaultPositionRow => row !== null)
-    // Sort by total worth descending, matching the Liquidity/VIP sections. `.sort` is safe here —
-    // the array is freshly built by map/filter (toSorted isn't available under this tsconfig lib).
-    .sort((a, b) => b.value + b.claimableValue - (a.value + a.claimableValue))
+        return {
+          vaultAddress: token.metadata,
+          symbol: [asset0?.symbol, asset1?.symbol].filter(Boolean).join("-"),
+          coinLogos: [asset0?.logoUrl ?? "", asset1?.logoUrl ?? ""],
+          isActive: info.is_active,
+          curatorAddress: info.curator ? InitiaAddress(info.curator).bech32 : "",
+          value,
+          claimableValue,
+        }
+      })
+      .filter((row): row is VaultPositionRow => row !== null)
+      // Sort by total worth descending, matching the Liquidity/VIP sections. `.sort` is safe here —
+      // the array is freshly built by map/filter (toSorted isn't available under this tsconfig lib).
+      .sort((a, b) => b.value + b.claimableValue - (a.value + a.claimableValue))
 
-  const totalValue = rows.reduce((sum, row) => sum + row.value + row.claimableValue, 0)
-  return { totalValue, rows }
+    const totalValue = rows.reduce((sum, row) => sum + row.value + row.claimableValue, 0)
+    return { totalValue, rows }
+  }, [staked, infoData, underlyingData, claimableData, denomMap, rewardDenomMap, assets, prices])
 }
