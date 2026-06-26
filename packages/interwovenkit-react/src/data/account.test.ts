@@ -42,4 +42,16 @@ describe("sortSendBalanceItems", () => {
 
     expect(sorted.map(({ symbol }) => symbol)).toEqual(["INIT", "iUSD", "USDC"])
   })
+
+  it("should sort alphabetically by symbol when higher-priority fields tie", () => {
+    const items = [
+      createItem({ symbol: "USDC", denom: "uusdc" }),
+      createItem({ symbol: "ETH", denom: "ueth" }),
+      createItem({ symbol: "ATOM", denom: "uatom" }),
+    ]
+
+    const sorted = sortSendBalanceItems(items, sorters)
+
+    expect(sorted.map(({ symbol }) => symbol)).toEqual(["ATOM", "ETH", "USDC"])
+  })
 })

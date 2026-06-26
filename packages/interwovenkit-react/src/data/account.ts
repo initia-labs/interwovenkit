@@ -38,7 +38,7 @@ export function sortSendBalanceItems<T extends SendBalanceSortItem>(
       // `|| 0` keeps BigNumber strict-mode from throwing on empty balances; `?? 0` is leftover
       // defense for comparedTo's null-on-NaN return, which the upstream guards now make unreachable.
       ({ balance: a }, { balance: b }) => BigNumber(b || 0).comparedTo(a || 0) ?? 0,
-      descend(({ symbol }) => symbol.toLowerCase()),
+      ascend(({ symbol }) => symbol.toLowerCase()),
     ],
     items,
   )
