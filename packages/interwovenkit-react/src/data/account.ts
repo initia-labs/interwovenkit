@@ -35,8 +35,9 @@ export function sortSendBalanceItems<T extends SendBalanceSortItem>(
       descend(({ denom }) => isFeeToken(denom)),
       descend(({ value }) => value),
       descend(({ denom }) => isListed(denom)),
-      // `|| 0` maps empty Coin.amount strings to 0 before BigNumber parses them.
-      // `?? 0` keeps comparedTo's null-on-NaN return out of the sort comparator.
+      // Both fallbacks are intentional and type-required, not dead code, despite looking redundant.
+      // `?? 0`: comparedTo is declared `1 | -1 | 0 | null`, and a ramda comparator must return `number`.
+      // `|| 0`: an empty balance string must not reach BigNumber as "" (NaN; throws under strict mode).
       ({ balance: a }, { balance: b }) => BigNumber(b || 0).comparedTo(a || 0) ?? 0,
       ascend(({ symbol }) => symbol.toLowerCase()),
     ],

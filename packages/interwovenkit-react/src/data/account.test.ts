@@ -59,6 +59,20 @@ describe("sortSendBalanceItems", () => {
     expect(sorted.map(({ symbol }) => symbol)).toEqual(["ZETA", "ALPHA"])
   })
 
+  it("should sort by value before listed status", () => {
+    const items = [
+      createItem({ symbol: "LOW", denom: "ulisted", value: 1 }),
+      createItem({ symbol: "HIGH", denom: "uunlisted", value: 100 }),
+    ]
+
+    const sorted = sortSendBalanceItems(items, {
+      isFeeToken: () => false,
+      isListed: (denom) => denom === "ulisted",
+    })
+
+    expect(sorted.map(({ symbol }) => symbol)).toEqual(["HIGH", "LOW"])
+  })
+
   it("should sort by balance when higher-priority fields tie", () => {
     const items = [
       createItem({ symbol: "ALPHA", denom: "ualpha", balance: "1000", value: 10 }),
