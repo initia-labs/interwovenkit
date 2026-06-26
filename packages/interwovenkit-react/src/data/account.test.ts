@@ -47,8 +47,8 @@ describe("sortSendBalanceItems", () => {
 
   it("should prioritize listed assets when higher-priority fields tie", () => {
     const items = [
-      createItem({ symbol: "UNLISTED", denom: "uunlisted", value: 10 }),
-      createItem({ symbol: "LISTED", denom: "ulisted", value: 10 }),
+      createItem({ symbol: "ALPHA", denom: "uunlisted", value: 10 }),
+      createItem({ symbol: "ZETA", denom: "ulisted", value: 10 }),
     ]
 
     const sorted = sortSendBalanceItems(items, {
@@ -56,18 +56,18 @@ describe("sortSendBalanceItems", () => {
       isListed: (denom) => denom === "ulisted",
     })
 
-    expect(sorted.map(({ symbol }) => symbol)).toEqual(["LISTED", "UNLISTED"])
+    expect(sorted.map(({ symbol }) => symbol)).toEqual(["ZETA", "ALPHA"])
   })
 
   it("should sort by balance when higher-priority fields tie", () => {
     const items = [
-      createItem({ symbol: "SMALL", denom: "usmall", balance: "1000", value: 10 }),
-      createItem({ symbol: "LARGE", denom: "ularge", balance: "2000", value: 10 }),
+      createItem({ symbol: "ALPHA", denom: "ualpha", balance: "1000", value: 10 }),
+      createItem({ symbol: "ZETA", denom: "uzeta", balance: "2000", value: 10 }),
     ]
 
     const sorted = sortSendBalanceItems(items, sorters)
 
-    expect(sorted.map(({ symbol }) => symbol)).toEqual(["LARGE", "SMALL"])
+    expect(sorted.map(({ symbol }) => symbol)).toEqual(["ZETA", "ALPHA"])
   })
 
   it("should treat empty balances as zero", () => {
