@@ -35,9 +35,8 @@ export function sortSendBalanceItems<T extends SendBalanceSortItem>(
       descend(({ denom }) => isFeeToken(denom)),
       descend(({ value }) => value),
       descend(({ denom }) => isListed(denom)),
-      // `|| 0` maps empty Coin.amount strings to 0 (BigNumber throws on "" under strict mode).
-      // `?? 0` covers comparedTo's null-on-NaN return, reachable only for a non-empty,
-      // non-numeric balance, which Coin.amount never is, but kept for this exported helper.
+      // `|| 0` maps empty Coin.amount strings to 0 before BigNumber parses them.
+      // `?? 0` keeps comparedTo's null-on-NaN return out of the sort comparator.
       ({ balance: a }, { balance: b }) => BigNumber(b || 0).comparedTo(a || 0) ?? 0,
       ascend(({ symbol }) => symbol.toLowerCase()),
     ],

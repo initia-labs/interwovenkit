@@ -45,15 +45,51 @@ describe("sortSendBalanceItems", () => {
     expect(sorted.map(({ symbol }) => symbol)).toEqual(["INIT", "iUSD", "USDC", "ETH"])
   })
 
-  it("should sort alphabetically by symbol when higher-priority fields tie", () => {
+  it("should prioritize listed assets when higher-priority fields tie", () => {
     const items = [
-      createItem({ symbol: "USDC", denom: "uusdc" }),
-      createItem({ symbol: "ETH", denom: "ueth" }),
-      createItem({ symbol: "ATOM", denom: "uatom" }),
+      createItem({ symbol: "UNLISTED", denom: "uunlisted", value: 10 }),
+      createItem({ symbol: "LISTED", denom: "ulisted", value: 10 }),
+    ]
+
+    const sorted = sortSendBalanceItems(items, {
+      isFeeToken: () => false,
+      isListed: (denom) => denom === "ulisted",
+    })
+
+    expect(sorted.map(({ symbol }) => symbol)).toEqual(["LISTED", "UNLISTED"])
+  })
+
+  it("should sort by balance when higher-priority fields tie", () => {
+    const items = [
+      createItem({ symbol: "SMALL", denom: "usmall", balance: "1000", value: 10 }),
+      createItem({ symbol: "LARGE", denom: "ularge", balance: "2000", value: 10 }),
     ]
 
     const sorted = sortSendBalanceItems(items, sorters)
 
-    expect(sorted.map(({ symbol }) => symbol)).toEqual(["ATOM", "ETH", "USDC"])
+    expect(sorted.map(({ symbol }) => symbol)).toEqual(["LARGE", "SMALL"])
+  })
+
+  it("should treat empty balances as zero", () => {
+    const items = [
+      createItem({ symbol: "EMPTY", denom: "uempty", balance: "", value: 10 }),
+      createItem({ symbol: "FUNDED", denom: "ufunded", balance: "1", value: 10 }),
+    ]
+
+    const sorted = sortSendBalanceItems(items, sorters)
+
+    expect(sorted.map(({ symbol }) => symbol)).toEqual(["FUNDED", "EMPTY"])
+  })
+
+  it("should sort alphabetically by symbol when higher-priority fields tie", () => {
+    const items = [
+      createItem({ symbol: "ctoken" }),
+      createItem({ symbol: "Btoken" }),
+      createItem({ symbol: "aToken" }),
+    ]
+
+    const sorted = sortSendBalanceItems(items, sorters)
+
+    expect(sorted.map(({ symbol }) => symbol)).toEqual(["aToken", "Btoken", "ctoken"])
   })
 })
