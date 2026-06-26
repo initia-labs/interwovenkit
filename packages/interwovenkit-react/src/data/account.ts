@@ -1,15 +1,48 @@
 import BigNumber from "bignumber.js"
 import type { Coin } from "cosmjs-types/cosmos/base/v1beta1/coin"
-import { descend, sortWith } from "ramda"
+import { ascend, descend, sortWith } from "ramda"
 import { queryOptions, useQueries, useSuspenseQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { useAssets, useFindAsset, useGetLayer1Denom } from "./assets"
+import { useAssets, useFindAsset } from "./assets"
 import { type NormalizedChain, useInitiaRegistry, useLayer1, usePricesQuery } from "./chains"
 import { useConfig } from "./config"
 import { STALE_TIMES } from "./http"
 import { fetchAllPages } from "./pagination"
+import { getPinnedAssetSymbolRank } from "./pinnedAssets"
 import { createUsernameClient } from "./username"
+
+export interface SendBalanceSortItem {
+  symbol: string
+  denom: string
+  balance: string
+  value: number
+}
+
+export function sortSendBalanceItems<T extends SendBalanceSortItem>(
+  items: T[],
+  {
+    isFeeToken,
+    isListed,
+  }: {
+    isFeeToken: (denom: string) => boolean
+    isListed: (denom: string) => boolean
+  },
+): T[] {
+  return sortWith(
+    [
+      ascend(({ symbol }) => getPinnedAssetSymbolRank(symbol)),
+      descend(({ denom }) => isFeeToken(denom)),
+      descend(({ value }) => value),
+      descend(({ denom }) => isListed(denom)),
+      // `|| 0` keeps BigNumber strict-mode from throwing on empty balances; `?? 0` is leftover
+      // defense for comparedTo's null-on-NaN return, which the upstream guards now make unreachable.
+      ({ balance: a }, { balance: b }) => BigNumber(b || 0).comparedTo(a || 0) ?? 0,
+      descend(({ symbol }) => symbol.toLowerCase()),
+    ],
+    items,
+  )
+}
 
 export const accountQueryKeys = createQueryKeys("interwovenkit:account", {
   username: (restUrl: string, address: string) => [restUrl, address],
@@ -60,7 +93,6 @@ export function useSortedBalancesWithValue(chain: NormalizedChain) {
   const balances = useBalances(chain)
   const assets = useAssets(chain)
   const findAsset = useFindAsset(chain)
-  const getLayer1Denom = useGetLayer1Denom(chain)
 
   const { data: prices } = usePricesQuery(chain)
 
@@ -72,17 +104,7 @@ export function useSortedBalancesWithValue(chain: NormalizedChain) {
     return assets.some((asset) => asset.denom === denom)
   }
 
-  return sortWith(
-    [
-      descend(({ denom }) => getLayer1Denom(denom) === "uinit"),
-      descend(({ denom }) => isFeeToken(denom)),
-      descend(({ value }) => value),
-      descend(({ denom }) => isListed(denom)),
-      // `|| 0` keeps BigNumber strict-mode from throwing on empty balances; `?? 0` is leftover
-      // defense for comparedTo's null-on-NaN return, which the upstream guards now make unreachable.
-      ({ balance: a }, { balance: b }) => BigNumber(b || 0).comparedTo(a || 0) ?? 0,
-      descend(({ symbol }) => symbol.toLowerCase()),
-    ],
+  return sortSendBalanceItems(
     balances
       .filter(({ amount }) => !BigNumber(amount || 0).isZero())
       .map(({ amount: balance, denom }) => {
@@ -94,5 +116,6 @@ export function useSortedBalancesWithValue(chain: NormalizedChain) {
           .toNumber()
         return { ...asset, balance, price, value }
       }),
+    { isFeeToken, isListed },
   )
 }
