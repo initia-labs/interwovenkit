@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.10.1](https://github.com/initia-labs/interwovenkit/compare/v2.10.0...v2.10.1) (2026-06-30)
+
+
+### Bug Fixes
+
+* **send:** pin iUSD after INIT in asset picker ([95f88e3](https://github.com/initia-labs/interwovenkit/commit/95f88e3370024e0f6c12b1a022c38f6b88ff4099))
+
 ## [2.10.0](https://github.com/initia-labs/interwovenkit/compare/v2.9.1...v2.10.0) (2026-06-25)
 
 
