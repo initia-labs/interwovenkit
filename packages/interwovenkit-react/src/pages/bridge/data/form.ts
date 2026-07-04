@@ -34,7 +34,28 @@ export function normalizePersistedSlippage(persisted: string | null): string | n
   return slippageBn && slippageBn.gt(0) ? persisted : null
 }
 
-export function useDefaultValues(): Partial<FormValues> {
+interface PersistedRecipient {
+  address: string
+  recipient: string
+}
+
+export function getPersistedRecipient(persisted: string | null, address?: string): string | null {
+  if (!persisted || !address) return null
+
+  try {
+    const parsed = JSON.parse(persisted) as Partial<PersistedRecipient>
+    if (parsed.address?.toLowerCase() !== address.toLowerCase()) return null
+    return typeof parsed.recipient === "string" ? parsed.recipient : null
+  } catch {
+    return null
+  }
+}
+
+export function createPersistedRecipient(address: string, recipient: string) {
+  return JSON.stringify({ address, recipient } satisfies PersistedRecipient)
+}
+
+export function useDefaultValues(address?: string): Partial<FormValues> {
   const stateDefaultValues = useLocationState<Partial<FormValues>>()
 
   const isTestnet = useIsTestnet()
@@ -72,7 +93,10 @@ export function useDefaultValues(): Partial<FormValues> {
     slippagePercent: normalizePersistedSlippage(
       localStorage.getItem(LocalStorageKey.BRIDGE_SLIPPAGE_PERCENT),
     ),
-    recipient: localStorage.getItem(LocalStorageKey.BRIDGE_RECIPIENT),
+    recipient: getPersistedRecipient(
+      localStorage.getItem(LocalStorageKey.BRIDGE_RECIPIENT),
+      address,
+    ),
   })
 
   return {

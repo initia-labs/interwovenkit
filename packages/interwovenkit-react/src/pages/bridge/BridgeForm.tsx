@@ -12,7 +12,7 @@ import { useGetDefaultAddress, useValidateAddress } from "./data/address"
 import { findVisibleRouterAsset, getFirstVisibleRouterAsset, useSkipAssets } from "./data/assets"
 import { useSkipChain } from "./data/chains"
 import type { FormValues } from "./data/form"
-import { useDefaultValues } from "./data/form"
+import { createPersistedRecipient, useDefaultValues } from "./data/form"
 import { useClaimableModal, useClaimableReminders } from "./op/reminder"
 import BridgeFields from "./BridgeFields"
 
@@ -23,7 +23,7 @@ const BridgeForm = () => {
   const navigate = useNavigate()
   const address = useAddress()
 
-  const defaultValues = useDefaultValues()
+  const defaultValues = useDefaultValues(address)
   const form = useForm<FormValues>({
     mode: "onChange",
     defaultValues,
@@ -100,8 +100,14 @@ const BridgeForm = () => {
     localStorage.setItem(LocalStorageKey.BRIDGE_DST_DENOM, dstDenom)
     localStorage.setItem(LocalStorageKey.BRIDGE_QUANTITY, quantity)
     localStorage.setItem(LocalStorageKey.BRIDGE_SLIPPAGE_PERCENT, slippagePercent)
-    localStorage.setItem(LocalStorageKey.BRIDGE_RECIPIENT, recipient)
+    if (address) {
+      localStorage.setItem(
+        LocalStorageKey.BRIDGE_RECIPIENT,
+        createPersistedRecipient(address, recipient),
+      )
+    }
   }, [
+    address,
     srcChainId,
     srcDenom,
     dstChainId,
