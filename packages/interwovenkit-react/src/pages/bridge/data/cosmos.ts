@@ -6,7 +6,6 @@ import { useConfig } from "@/data/config"
 declare global {
   interface Window {
     keplr?: Keplr
-    leap?: Keplr
   }
 }
 
@@ -22,12 +21,6 @@ export function useCosmosWallets() {
         image: "https://assets.initia.xyz/images/wallets/Keplr.webp",
         getProvider: () => window.keplr as CosmosWalletProvider | undefined,
         fallbackUrl: "https://keplr.app/get",
-      },
-      {
-        name: "Leap",
-        image: "https://assets.initia.xyz/images/wallets/Leap.webp",
-        getProvider: () => window.leap as CosmosWalletProvider | undefined,
-        fallbackUrl: "https://leapwallet.io/download",
       },
     ]
     const builtInFiltered = builtInList.filter(

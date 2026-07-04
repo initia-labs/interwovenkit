@@ -1,5 +1,60 @@
 # Changelog
 
+## [2.10.0](https://github.com/initia-labs/interwovenkit/compare/v2.9.1...v2.10.0) (2026-06-25)
+
+
+### Features
+
+* **assets:** pin iUSD after INIT in token lists ([0ad865d](https://github.com/initia-labs/interwovenkit/commit/0ad865d4bf39b5b2b54620a72c95d245f0295d1b))
+* **portfolio:** add Initia vault positions ([b543122](https://github.com/initia-labs/interwovenkit/commit/b543122ae8058f637c8b844ec34acaa42b9f5d5c))
+
+## [2.9.1](https://github.com/initia-labs/interwovenkit/compare/v2.9.0...v2.9.1) (2026-06-15)
+
+
+### Bug Fixes
+
+* **connect:** remove Leap wallet from wallet lists ([5dc9ed4](https://github.com/initia-labs/interwovenkit/commit/5dc9ed4d6c87a7cdc7e0d7ced697c8cee19399f0))
+* support BigNumber strict mode (v10+) ([0c1ae8d](https://github.com/initia-labs/interwovenkit/commit/0c1ae8d0888aa5a7ea68860258480d3f5e7f4463))
+* **vip:** show icon for delisted appchains ([2df2e19](https://github.com/initia-labs/interwovenkit/commit/2df2e19d7f4bb8b205ee629fd9557e04fcbc24ba))
+
+## [2.9.0](https://github.com/initia-labs/interwovenkit/compare/v2.8.0...v2.9.0) (2026-05-09)
+
+
+### Features
+
+* **portfolio:** render Strat perp/vault positions ([8eb40d6](https://github.com/initia-labs/interwovenkit/commit/8eb40d6a1934fab18403b82592ddee06179591e9))
+
+## [2.8.0](https://github.com/initia-labs/interwovenkit/compare/v2.7.0...v2.8.0) (2026-04-21)
+
+
+### Features
+
+* **autosign:** export EnableAutoSignOptions type ([31b51c6](https://github.com/initia-labs/interwovenkit/commit/31b51c6bc4c8e1d38bae0afcf13e134d82fc9874))
+
+## [2.7.0](https://github.com/initia-labs/interwovenkit/compare/v2.6.0...v2.7.0) (2026-04-21)
+
+
+### Features
+
+* **autosign:** support configurable default duration in enable() ([0c19713](https://github.com/initia-labs/interwovenkit/commit/0c1971303d83ab16f70b26e7b6de274942959ba6))
+
+## [2.6.0](https://github.com/initia-labs/interwovenkit/compare/v2.5.1...v2.6.0) (2026-04-07)
+
+
+### Features
+
+* **connect:** prioritize sign-in wallets by popularity and recency ([17a379a](https://github.com/initia-labs/interwovenkit/commit/17a379a218d9aaaf53d6fdc8d0bb355395cf1f77))
+
+
+### Bug Fixes
+
+* **bridge,deposit:** improve fee validation for edge cases: guard checks for external chains, restore swap fee warning for non-max inputs, warn on insufficient gas token balance, warn when MAX leaves no fee ([1d3bc99](https://github.com/initia-labs/interwovenkit/commit/1d3bc99575e6eedca9203d447b7d957363c105b8), [c2812a3](https://github.com/initia-labs/interwovenkit/commit/c2812a36c2e9cd96a061f8cb89d358f1043b8400), [4f0c47d](https://github.com/initia-labs/interwovenkit/commit/4f0c47d858496a7ab677f3cfa6d2430c20cb68b0), [88cf52e](https://github.com/initia-labs/interwovenkit/commit/88cf52e1e30b18cf1da332d1960d3c09b6b1f6fd))
+* **bridge,deposit:** handle zero-balance states: show insufficient balance for zero-balance tokens, disable withdraw ([00d2a18](https://github.com/initia-labs/interwovenkit/commit/00d2a1874b0e94851b6d976377f1b063ee519e26), [4103b7b](https://github.com/initia-labs/interwovenkit/commit/4103b7b3058295006f8a8fc5996fa3e97c33e181))
+* **bridge,deposit:** stabilize route refresh UX ([52a7355](https://github.com/initia-labs/interwovenkit/commit/52a73556adf5e6415961aeeb7dd3a314ba2997d9))
+* **bridge:** allow hex addresses as recipient for initia chains ([2d65f41](https://github.com/initia-labs/interwovenkit/commit/2d65f410119f0f64115fa557eaeedcb51335d81a))
+* **bridge:** show $- when token has no price ([228d3b3](https://github.com/initia-labs/interwovenkit/commit/228d3b361ec0cab7f57981d6c8994f1df8e02d8b))
+* replace .toSorted() with .slice().sort() for browser compatibility ([50b336b](https://github.com/initia-labs/interwovenkit/commit/50b336bb1144f1db0e2b24c3ea19c25a50181ce7))
+
 ## [2.5.1](https://github.com/initia-labs/interwovenkit/compare/v2.5.0...v2.5.1) (2026-03-26)
 
 
@@ -24,8 +79,8 @@
 - **copy:** rename user-facing "appchain" to "app" ([63b7054](https://github.com/initia-labs/interwovenkit/commit/63b7054221412310aab58d6132264eaadc528494))
 - **deposit:** harden route error state handling ([229ef5b](https://github.com/initia-labs/interwovenkit/commit/229ef5b97151bbebc6e2a247dc266a1bc402d3c1))
 - **deposit:** show $- for assets with missing price data ([3988ac1](https://github.com/initia-labs/interwovenkit/commit/3988ac1d06bc744fcb3e1272314358853aa83a8b))
-- **deposit:** skip balance validation while loading ([#203](https://github.com/initia-labs/interwovenkit/issues/203)) ([3a8521b](https://github.com/initia-labs/interwovenkit/commit/3a8521bddf8e1473aef97c2df9927a6f8cd1b731))
-- **portal:** prevent container reset on modal-drawer transition ([#202](https://github.com/initia-labs/interwovenkit/issues/202)) ([5691b03](https://github.com/initia-labs/interwovenkit/commit/5691b03e458ded3cfcde6e8fcfdeebd2b0d70423))
+- **deposit:** skip balance validation while loading ([3a8521b](https://github.com/initia-labs/interwovenkit/commit/3a8521bddf8e1473aef97c2df9927a6f8cd1b731))
+- **portal:** prevent container reset on modal-drawer transition ([5691b03](https://github.com/initia-labs/interwovenkit/commit/5691b03e458ded3cfcde6e8fcfdeebd2b0d70423))
 - simplify TransferTxDetails ([886c29f](https://github.com/initia-labs/interwovenkit/commit/886c29f67e39e048ed27f15571174b2505fb870c))
 
 ## [2.4.6](https://github.com/initia-labs/interwovenkit/compare/v2.4.5...v2.4.6) (2026-03-02)
@@ -117,7 +172,7 @@
 
 ### Bug Fixes
 
-- deposit and withdraw bugs and inconsistencies ([#133](https://github.com/initia-labs/interwovenkit/issues/133)) ([6b692d9](https://github.com/initia-labs/interwovenkit/commit/6b692d90ed04bab69185278c6b667fe6c48793ef))
+- deposit and withdraw bugs and inconsistencies ([6b692d9](https://github.com/initia-labs/interwovenkit/commit/6b692d90ed04bab69185278c6b667fe6c48793ef))
 - **portfolio:** prevent cross-chain denom logo collision ([bd907a5](https://github.com/initia-labs/interwovenkit/commit/bd907a51f3d567e7ff56fe20756fa0d95717b569))
 - **bridge:** add route data conditions to Fast/Lossless toggle ([251110e](https://github.com/initia-labs/interwovenkit/commit/251110e1022d6e59fdb67710f6a5a8c7056b1c16))
 - **deps:** patch brace-expansion transitive vulnerability ([08c9555](https://github.com/initia-labs/interwovenkit/commit/08c95555ddb5ca62b1f6eae3118e5ac46812ec10))

@@ -5,7 +5,7 @@ const POPULAR_WALLETS: WalletLike[] = [
   { id: "io.rabby", name: "Rabby" },
   { id: "app.phantom", name: "Phantom" },
   { id: "app.keplr", name: "Keplr" },
-  { id: "io.leapwallet", name: "Leap" },
+  { id: "wallet.example", name: "Example" },
   { id: "io.metamask", name: "MetaMask" },
 ]
 
@@ -58,7 +58,7 @@ describe("prioritizeSignInWallets", () => {
     const readyWallets: WalletLike[] = [
       { id: "wallet.alpha", name: "Alpha" },
       { id: "wallet.beta", name: "Beta" },
-      { id: "wallet.custom.leap", name: "Leap Wallet" },
+      { id: "wallet.custom.example", name: "Example Wallet" },
       { id: "wallet.gamma", name: "Gamma" },
       { id: "wallet.delta", name: "Delta" },
       { id: "wallet.epsilon", name: "Epsilon" },
@@ -67,7 +67,7 @@ describe("prioritizeSignInWallets", () => {
     const result = prioritizeSignInWallets(readyWallets, POPULAR_WALLETS, 5)
 
     expect(result.map((wallet) => wallet.id)).toEqual([
-      "wallet.custom.leap",
+      "wallet.custom.example",
       "wallet.alpha",
       "wallet.beta",
       "wallet.gamma",
@@ -102,7 +102,7 @@ describe("prioritizeSignInWallets", () => {
       { id: "io.rabby", name: "Rabby" },
       { id: "app.phantom", name: "Phantom" },
       { id: "app.keplr", name: "Keplr" },
-      { id: "io.leapwallet", name: "Leap" },
+      { id: "wallet.example", name: "Example" },
       { id: "io.metamask", name: "MetaMask" },
     ]
 
@@ -113,7 +113,7 @@ describe("prioritizeSignInWallets", () => {
       "io.rabby",
       "app.phantom",
       "app.keplr",
-      "io.leapwallet",
+      "wallet.example",
     ])
   })
 

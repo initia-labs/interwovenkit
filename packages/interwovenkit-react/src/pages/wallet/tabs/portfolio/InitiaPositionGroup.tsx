@@ -16,11 +16,13 @@ import {
   useInitiaStakingPositions,
   useInitiaStakingRewards,
 } from "@/data/initia-staking"
+import { useInitiaVaultPositions } from "@/data/initia-vault"
 import { useInitiaVipPositions } from "@/data/initia-vip"
 import { buildAssetLogoMaps, type PortfolioChainPositionGroup, type Position } from "@/data/minity"
 import { formatValue } from "@/lib/format"
 import LiquiditySection from "./LiquiditySection"
 import PositionSectionList, { type DenomLogoMap } from "./PositionSection"
+import VaultSection from "./VaultSection"
 import VipSection from "./VipSection"
 import styles from "./InitiaPositionGroup.module.css"
 
@@ -38,8 +40,9 @@ const InitiaTotalValue = () => {
   const { totalValue: stakingValue } = useInitiaStakingPositions()
   const { totalValue: liquidityValue } = useInitiaLiquidityPositions()
   const { totalValue: vipValue } = useInitiaVipPositions()
+  const { totalValue: vaultValue } = useInitiaVaultPositions()
 
-  const totalValue = stakingValue + liquidityValue + vipValue
+  const totalValue = stakingValue + liquidityValue + vipValue + vaultValue
 
   return <span className={styles.value}>{formatValue(totalValue)}</span>
 }
@@ -73,6 +76,7 @@ const InitiaStakingSection = ({
 
     for (const position of stakingPositions) {
       if (position.type === "fungible-position") continue
+      if (position.type === "perp-position") continue
       if (position.balance.type === "unknown") continue
 
       const { denom, symbol } = position.balance
@@ -200,11 +204,25 @@ const InitiaVipSectionWrapper = () => {
 }
 
 /* -------------------------------------------------------------------------- */
+/*                               Vault Section                                */
+/* -------------------------------------------------------------------------- */
+
+const InitiaVaultSectionWrapper = ({ chainId }: { chainId: string }) => {
+  const vaultData = useInitiaVaultPositions()
+
+  if (vaultData.rows.length === 0) {
+    return null
+  }
+
+  return <VaultSection data={vaultData} chainId={chainId} />
+}
+
+/* -------------------------------------------------------------------------- */
 /*                           Main Component                                   */
 /* -------------------------------------------------------------------------- */
 
 const InitiaPositionGroup = ({ chainGroup }: Props) => {
-  const { chainId, chainName, chainLogo } = chainGroup
+  const { chainId, prettyName, chainLogo } = chainGroup
   const [isOpen, setIsOpen] = useAtom(openInitiaGroupAtom)
 
   // Shared asset logos - fetch once and pass to child components
@@ -232,18 +250,16 @@ const InitiaPositionGroup = ({ chainGroup }: Props) => {
               {chainLogo && (
                 <Image src={chainLogo} width={32} height={32} className={styles.logo} logo />
               )}
-              <div className={styles.chainNameContainer}>
-                <span className={styles.chainName}>{chainName}</span>
-                <a
-                  href={INITIA_LIQUIDITY_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={styles.externalLink}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <IconExternalLink size={12} className={styles.externalIcon} />
-                </a>
-              </div>
+              <a
+                href={INITIA_LIQUIDITY_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.chainNameLink}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span className={styles.chainName}>{prettyName}</span>
+                <IconExternalLink size={14} className={styles.externalIcon} />
+              </a>
             </div>
             <div className={styles.valueColumn}>
               <AsyncBoundary suspenseFallback={<Skeletons height={16} width={60} length={1} />}>
@@ -268,6 +284,11 @@ const InitiaPositionGroup = ({ chainGroup }: Props) => {
                 symbolLogos={symbolLogos}
                 initPrice={initPrice}
               />
+            </AsyncBoundary>
+
+            {/* Vault section */}
+            <AsyncBoundary suspenseFallback={<Skeletons height={36} length={1} />}>
+              <InitiaVaultSectionWrapper chainId={chainId} />
             </AsyncBoundary>
 
             {/* Liquidity section */}

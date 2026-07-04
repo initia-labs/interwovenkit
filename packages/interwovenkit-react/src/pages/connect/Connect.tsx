@@ -8,6 +8,7 @@ import { initiaPrivyWalletOptions } from "@/public/data/connectors"
 import AllWallets from "./AllWallets"
 import SignIn from "./SignIn"
 import { fetchWalletConnectWallets, walletConnectWalletsQueryKey } from "./useWalletConnectWallets"
+import { isExcludedWallet } from "./walletExclusions"
 
 const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
   const { connectors, connectAsync } = useConnect()
@@ -57,7 +58,8 @@ const Connect = ({ onSuccess }: { onSuccess?: () => void }) => {
     [sortedConnectors],
   )
   const walletConnectors = useMemo(
-    () => sortedConnectors.filter((c) => c.id !== initiaPrivyWalletOptions.id),
+    () =>
+      sortedConnectors.filter((c) => c.id !== initiaPrivyWalletOptions.id && !isExcludedWallet(c)),
     [sortedConnectors],
   )
 

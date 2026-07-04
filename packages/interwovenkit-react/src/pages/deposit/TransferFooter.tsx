@@ -9,13 +9,16 @@ import { useBalances } from "@/data/account"
 import { useFindAsset } from "@/data/assets"
 import { useChain } from "@/data/chains"
 import { useGasPrices, useLastFeeDenom } from "@/data/fee"
+import { parseQuantity } from "@/lib/amountValidation"
 import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import BridgePreviewFooter from "../bridge/BridgePreviewFooter"
 import { useAllSkipAssets } from "../bridge/data/assets"
 import { type BridgeTxResult, useBridgePreviewState } from "../bridge/data/tx"
 import FooterWithErc20Approval from "../bridge/FooterWithErc20Approval"
 import { type TransferMode, useTransferForm } from "./hooks"
+import { hasSufficientTransferBalance } from "./transferBalanceGate"
 import { getTransferFeeWarning } from "./transferFeeWarning"
+import { getTransferFooterStatus } from "./transferFooterState"
 import TransferTxDetails from "./TransferTxDetails"
 import styles from "./TransferFooter.module.css"
 
@@ -123,16 +126,16 @@ const TransferFooterWithFee = ({
   )
   const balancesByDenom = new Map(balances.map(({ denom, amount }) => [denom, amount]))
   const sourceSpendAmount = srcAsset
-    ? BigNumber(quantity || "0")
+    ? (parseQuantity(quantity) ?? BigNumber(0))
         .times(BigNumber(10).pow(srcAsset.decimals))
         .toFixed(0)
     : "0"
   const feeDetailsByDenom = new Map(
     feeOptions.map((fee) => {
       const [{ amount, denom }] = fee.amount
-      const balance = balancesByDenom.get(denom) ?? "0"
+      const balance = balancesByDenom.get(denom) || "0"
       const spendAmount = srcAsset && srcDenom === denom ? sourceSpendAmount : "0"
-      const totalRequired = BigNumber(amount).plus(spendAmount)
+      const totalRequired = BigNumber(amount || 0).plus(spendAmount)
       const { symbol, decimals } = findAsset(denom)
 
       return [
@@ -170,15 +173,25 @@ const TransferFooterWithFee = ({
     sourceDenom: srcDenom,
     feeDetailsByDenom,
   })
-  const balanceError = feeDetails && !feeDetails.isSufficient ? "Insufficient balance" : undefined
+  const hasSourceBalance = hasSufficientTransferBalance({
+    balance: balancesByDenom.get(srcDenom) || "0", // suspense boundary ensures balances are loaded; missing denom means zero
+    requiredAmount: sourceSpendAmount,
+  })
+  const footerStatus = getTransferFooterStatus({
+    feeDenom,
+    sourceDenom: srcDenom,
+    feeWarning,
+    hasSourceBalance,
+    isFeeBalanceSufficient: feeDetails?.isSufficient ?? true,
+  })
   const footer = (
     <BridgePreviewFooter
       tx={tx}
       fee={selectedFee}
       onCompleted={onCompleted}
       confirmMessage={confirmMessage}
-      error={feeWarning && feeDenom === srcDenom ? undefined : balanceError}
-      warning={feeDenom === srcDenom ? feeWarning : undefined}
+      error={footerStatus.error}
+      warning={footerStatus.warning}
       {...loadingStateProps}
     />
   )
@@ -191,7 +204,7 @@ const TransferFooterWithFee = ({
 
   const getFeeLabel = (fee: StdFee) => {
     const [{ amount, denom }] = fee.amount
-    if (BigNumber(amount).isZero()) return "0"
+    if (BigNumber(amount || 0).isZero()) return "0"
     const { symbol, decimals } = findAsset(denom)
     const dp = getDp(amount, decimals)
     return `${formatAmount(amount, { decimals, dp })} ${symbol}`

@@ -9,7 +9,7 @@ import { useHistory, useNavigate } from "@/lib/router"
 import { useNotification } from "@/public/app/NotificationContext"
 import { useAddress } from "@/public/data/hooks"
 import { useGetDefaultAddress, useValidateAddress } from "./data/address"
-import { useSkipAssets } from "./data/assets"
+import { findVisibleRouterAsset, getFirstVisibleRouterAsset, useSkipAssets } from "./data/assets"
 import { useSkipChain } from "./data/chains"
 import type { FormValues } from "./data/form"
 import { useDefaultValues } from "./data/form"
@@ -62,32 +62,34 @@ const BridgeForm = () => {
   const dstChain = useSkipChain(dstChainId)
   const srcAssets = useSkipAssets(srcChainId)
   const dstAssets = useSkipAssets(dstChainId)
+  const fallbackSrcAsset = getFirstVisibleRouterAsset(srcAssets)
+  const fallbackDstAsset = getFirstVisibleRouterAsset(dstAssets)
 
-  // Fall back to the first available asset when the selected denom is not supported
-  const isSrcDenomValid = srcAssets.some((asset) => asset.denom === srcDenom)
-  const isDstDenomValid = dstAssets.some((asset) => asset.denom === dstDenom)
+  // Fall back to the first visible asset when the selected denom is not supported
+  const isSrcDenomValid = !!findVisibleRouterAsset(srcAssets, srcDenom)
+  const isDstDenomValid = !!findVisibleRouterAsset(dstAssets, dstDenom)
   useEffect(() => {
-    if (srcAssets.length > 0 && !isSrcDenomValid) {
-      setValue("srcDenom", srcAssets[0].denom)
+    if (fallbackSrcAsset && !isSrcDenomValid) {
+      setValue("srcDenom", fallbackSrcAsset.denom)
       showNotification({
         type: "info",
-        title: `Switched to ${srcAssets[0].symbol}`,
+        title: `Switched to ${fallbackSrcAsset.symbol}`,
         description: `The selected asset is not available on ${srcChain.pretty_name}.`,
         autoHide: true,
       })
     }
-  }, [srcAssets, isSrcDenomValid, setValue, showNotification, srcChain.pretty_name])
+  }, [fallbackSrcAsset, isSrcDenomValid, setValue, showNotification, srcChain.pretty_name])
   useEffect(() => {
-    if (dstAssets.length > 0 && !isDstDenomValid) {
-      setValue("dstDenom", dstAssets[0].denom)
+    if (fallbackDstAsset && !isDstDenomValid) {
+      setValue("dstDenom", fallbackDstAsset.denom)
       showNotification({
         type: "info",
-        title: `Switched to ${dstAssets[0].symbol}`,
+        title: `Switched to ${fallbackDstAsset.symbol}`,
         description: `The selected asset is not available on ${dstChain.pretty_name}.`,
         autoHide: true,
       })
     }
-  }, [dstAssets, isDstDenomValid, setValue, showNotification, dstChain.pretty_name])
+  }, [fallbackDstAsset, isDstDenomValid, setValue, showNotification, dstChain.pretty_name])
 
   // localStorage
   useEffect(() => {

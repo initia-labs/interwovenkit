@@ -9,6 +9,7 @@ import Loader from "@/components/Loader"
 import Scrollable from "@/components/Scrollable"
 import { normalizeWalletName } from "./normalizeWalletName"
 import { useWalletConnectWallets } from "./useWalletConnectWallets"
+import { isExcludedWallet } from "./walletExclusions"
 import styles from "./Connect.module.css"
 
 const isSafeHttpsUrl = (url: string): boolean => {
@@ -60,6 +61,7 @@ const AllWallets = ({
     const searchLower = search.toLowerCase()
 
     return wcWallets
+      .filter((w) => !isExcludedWallet(w))
       .filter((w) => !connectorNamesNormalized.has(normalizeWalletName(w.name)))
       .filter((w) => !search || w.name.toLowerCase().includes(searchLower))
       .sort((a, b) => a.name.localeCompare(b.name))

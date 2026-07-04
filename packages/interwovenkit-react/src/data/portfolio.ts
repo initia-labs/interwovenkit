@@ -7,7 +7,7 @@ import { type NormalizedAsset, useAllChainsAssetsQueries } from "./assets"
 import type { NormalizedChain, PriceItem } from "./chains"
 import { useAllChainPriceQueries, useInitiaRegistry } from "./chains"
 import { useConfig } from "./config"
-import { INIT_SYMBOL } from "./constants"
+import { getPinnedAssetSymbolRank } from "./pinnedAssets"
 import placeholder from "./placeholder"
 
 export interface PortfolioAssetGroupInfo {
@@ -50,7 +50,9 @@ export function calculateTotalValue(group: PortfolioAssetGroup): number {
 
 /** Calculates total quantity for an asset group */
 export function calculateTotalQuantity(group: PortfolioAssetGroup): string {
-  return group.assets.reduce((sum, { quantity }) => sum.plus(quantity), BigNumber(0)).toString()
+  return group.assets
+    .reduce((sum, { quantity }) => sum.plus(quantity || 0), BigNumber(0))
+    .toString()
 }
 
 function toAssetInfo(denom: string, asset?: NormalizedAsset): PortfolioAssetGroupInfo {
@@ -64,13 +66,14 @@ function toChainInfo(chain: NormalizedChain): PortfolioChainInfo {
 /**
  * Sorts asset groups with deterministic rules:
  * 1. INIT symbol always
- * 2. Higher total value
- * 3. Group with more chains
- * 4. Alphabetically by symbol
+ * 2. iUSD symbol next
+ * 3. Higher total value
+ * 4. Group with more chains
+ * 5. Alphabetically by symbol
  */
 export function sortAssetGroups(assetGroups: PortfolioAssetGroup[]) {
   return sortWith<PortfolioAssetGroup>([
-    descend(({ symbol }) => symbol === INIT_SYMBOL),
+    ascend(({ symbol }) => getPinnedAssetSymbolRank(symbol)),
     descend(calculateTotalValue),
     descend(({ assets }) => assets.length),
     ascend(({ symbol }) => symbol),
@@ -139,13 +142,17 @@ export function createPortfolio(
     const items: PortfolioAssetItem[] = []
 
     for (const { amount, denom } of balances) {
-      if (!BigNumber(amount).gt(0)) continue
+      if (!BigNumber(amount || 0).gt(0)) continue
 
       const asset = assets?.find((a) => a.denom === denom)
       const price = prices?.find((p) => p.id === denom)?.price
       const decimals = asset?.decimals ?? 0
       const quantity = fromBaseUnit(amount, { decimals })
-      const value = price ? BigNumber(quantity).times(price).toNumber() : undefined
+      const value = price
+        ? BigNumber(quantity || 0)
+            .times(price)
+            .toNumber()
+        : undefined
 
       items.push({
         ...toAssetInfo(denom, asset),
@@ -199,7 +206,7 @@ export function createPortfolio(
     const sortedAssets = sortAssets(assets)
     const totalValue = sortedAssets.reduce((sum, { value }) => sum + (value ?? 0), 0)
     const totalAmount = sortedAssets
-      .reduce((sum, { quantity }) => sum.plus(quantity), BigNumber(0))
+      .reduce((sum, { quantity }) => sum.plus(quantity || 0), BigNumber(0))
       .toNumber()
     assetGroups.push({
       symbol,

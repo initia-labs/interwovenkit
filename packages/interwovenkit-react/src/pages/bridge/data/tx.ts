@@ -149,7 +149,7 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
           const balances = await client.getAllBalances(sender)
           const availableFeeAsset = srcChain.fee_assets.find((asset) =>
             balances.some(
-              (balance) => balance.denom === asset.denom && BigNumber(balance.amount).gt(0),
+              (balance) => balance.denom === asset.denom && BigNumber(balance.amount || 0).gt(0),
             ),
           )
           if (!availableFeeAsset) {

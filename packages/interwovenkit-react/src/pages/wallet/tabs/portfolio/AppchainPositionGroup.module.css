@@ -55,6 +55,18 @@
   }
 }
 
+.chainNameLink {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  text-decoration: none;
+
+  &:hover .externalIcon {
+    color: var(--gray-1);
+  }
+}
+
 .externalIcon {
   color: var(--gray-3);
   transition: color var(--transition);

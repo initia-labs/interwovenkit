@@ -3,7 +3,7 @@ import { normalizeWalletName } from "./normalizeWalletName"
 
 describe("normalizeWalletName", () => {
   it("removes supported suffixes only when separated by whitespace", () => {
-    expect(normalizeWalletName("Leap Wallet")).toBe("leap")
+    expect(normalizeWalletName("Example Wallet")).toBe("example")
     expect(normalizeWalletName("Rainbow Extension")).toBe("rainbow")
     expect(normalizeWalletName("Some App")).toBe("some")
   })
@@ -14,6 +14,6 @@ describe("normalizeWalletName", () => {
   })
 
   it("handles trailing spaces before normalization", () => {
-    expect(normalizeWalletName("Leap Wallet   ")).toBe("leap")
+    expect(normalizeWalletName("Example Wallet   ")).toBe("example")
   })
 })

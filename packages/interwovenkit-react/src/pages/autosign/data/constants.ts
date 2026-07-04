@@ -10,3 +10,11 @@ export const DURATION_OPTIONS: DropdownOption<number>[] = [
 ]
 
 export const DEFAULT_DURATION = DURATION_OPTIONS[0].value
+
+export function resolveAutoSignDuration(duration?: number) {
+  if (duration === undefined) {
+    return DEFAULT_DURATION
+  }
+
+  return DURATION_OPTIONS.some((option) => option.value === duration) ? duration : DEFAULT_DURATION
+}

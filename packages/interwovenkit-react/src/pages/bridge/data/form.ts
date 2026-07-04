@@ -2,6 +2,7 @@ import { pickBy } from "ramda"
 import { useFormContext } from "react-hook-form"
 import { useLayer1 } from "@/data/chains"
 import { LocalStorageKey } from "@/data/constants"
+import { parseQuantity } from "@/lib/amountValidation"
 import { useLocationState } from "@/lib/router"
 
 export function useIsTestnet() {
@@ -23,6 +24,14 @@ export interface FormValues {
 
 export function useBridgeForm() {
   return useFormContext<FormValues>()
+}
+
+// Earlier builds let SlippageControl persist mid-input values like "" or "."
+// into localStorage. Replaying those would either throw under BigNumber strict
+// mode or sign with no slippage protection. Accept only finite positives.
+export function normalizePersistedSlippage(persisted: string | null): string | null {
+  const slippageBn = parseQuantity(persisted)
+  return slippageBn && slippageBn.gt(0) ? persisted : null
 }
 
 export function useDefaultValues(): Partial<FormValues> {
@@ -60,7 +69,9 @@ export function useDefaultValues(): Partial<FormValues> {
     dstChainId: localStorage.getItem(LocalStorageKey.BRIDGE_DST_CHAIN_ID),
     dstDenom: localStorage.getItem(LocalStorageKey.BRIDGE_DST_DENOM),
     quantity: localStorage.getItem(LocalStorageKey.BRIDGE_QUANTITY),
-    slippagePercent: localStorage.getItem(LocalStorageKey.BRIDGE_SLIPPAGE_PERCENT),
+    slippagePercent: normalizePersistedSlippage(
+      localStorage.getItem(LocalStorageKey.BRIDGE_SLIPPAGE_PERCENT),
+    ),
     recipient: localStorage.getItem(LocalStorageKey.BRIDGE_RECIPIENT),
   })
 

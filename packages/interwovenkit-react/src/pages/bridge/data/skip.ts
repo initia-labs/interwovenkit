@@ -1,8 +1,8 @@
-import BigNumber from "bignumber.js"
 import ky from "ky"
 import { useMemo } from "react"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { useConfig } from "@/data/config"
+import { parseQuantity } from "@/lib/amountValidation"
 import type { FormValues } from "./form"
 
 type RouteParams = Pick<
@@ -18,7 +18,10 @@ export const skipQueryKeys = createQueryKeys("interwovenkit:skip", {
   allBalances: (chainIds: string[], addresses: string[]) => [chainIds, addresses],
   balances: (chainId: string, address: string) => [chainId, address],
   route: (values: RouteParams, isOpWithdraw?: boolean) => [
-    { ...values, quantity: BigNumber(values.quantity || 0).toString() },
+    // queryKey is computed every render regardless of `enabled`. Mid-typing
+    // values like "." would throw under BigNumber strict mode (v10+ default),
+    // so normalize through parseQuantity which swallows invalid input.
+    { ...values, quantity: parseQuantity(values.quantity)?.toString() ?? "0" },
     isOpWithdraw,
   ],
   routeErrorInfo: (error?: Error) => [error],

@@ -1,16 +1,16 @@
-import BigNumber from "bignumber.js"
 import clsx from "clsx"
 import { useFormContext } from "react-hook-form"
-import { isInsufficientBalance } from "@/lib/amountValidation"
+import { isInsufficientBalance, parseQuantity } from "@/lib/amountValidation"
 import NumericInput from "./NumericInput"
 import styles from "./QuantityInput.module.css"
 
 const QuantityInputReadOnly = ({ children }: { children: string }) => {
-  return (
-    <p className={clsx(styles.input, { [styles.placeholder]: BigNumber(children).isZero() })}>
-      {children}
-    </p>
-  )
+  // `children` is a pre-formatted display string from `formatAmount`, which adds
+  // comma thousand separators (e.g. "1,000.000000"). Strip them before parseQuantity
+  // because BigNumber strict mode rejects commas as invalid input.
+  const parsed = parseQuantity(children.replace(/,/g, ""))
+  const isPlaceholder = !parsed || parsed.isZero()
+  return <p className={clsx(styles.input, { [styles.placeholder]: isPlaceholder })}>{children}</p>
 }
 
 interface Props {
@@ -25,7 +25,8 @@ const QuantityInput = ({ balance, decimals, className }: Props) => {
   const rules = {
     required: "Enter amount",
     validate: (quantity: string) => {
-      if (BigNumber(quantity).isZero()) {
+      const parsed = parseQuantity(quantity)
+      if (!parsed || parsed.lte(0)) {
         return "Enter amount"
       }
 

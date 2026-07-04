@@ -13,6 +13,19 @@ import { useInitiaAddress } from "@/public/data/hooks"
 import { chainQueryKeys, type NormalizedChain } from "./chains"
 import { STALE_TIMES } from "./http"
 
+// Normalize an L1 gas-price entry. Returns null when the amount is missing or
+// whitespace so the caller can decide whether to log/skip; throwing here would
+// drop the loop information about which denom failed.
+export function normalizeL1GasPriceEntry({ denom, amount }: Coin): Coin | null {
+  // Coerce missing/null values first since the upstream API can violate the
+  // declared `string` type.
+  const trimmed = (amount || "").trim()
+  if (!trimmed) return null
+  const multiplier = denom === "uinit" ? 1 : DEFAULT_GAS_PRICE_MULTIPLIER
+  const price = BigNumber(trimmed).times(multiplier).toFixed(18)
+  return { amount: price, denom }
+}
+
 export async function fetchGasPrices(chain: NormalizedChain) {
   if (chain.metadata?.is_l1) {
     const { restUrl } = chain
@@ -20,14 +33,29 @@ export async function fetchGasPrices(chain: NormalizedChain) {
       .create({ prefixUrl: restUrl })
       .get("initia/tx/v1/gas_prices")
       .json<{ gas_prices: Coin[] }>()
-    return gas_prices
-      .slice()
+    const normalized = [...gas_prices]
       .sort(descend(({ denom }) => denom === "uinit"))
-      .map(({ denom, amount }) => {
-        const multiplier = denom === "uinit" ? 1 : DEFAULT_GAS_PRICE_MULTIPLIER
-        const price = BigNumber(amount).times(multiplier).toFixed(18)
-        return { amount: price, denom }
+      .flatMap((entry) => {
+        // Drop entries with empty/whitespace-only amounts so downstream fee
+        // selection can't silently treat them as a zero-fee option (which
+        // would let transactions through with an unpayable fee).
+        const result = normalizeL1GasPriceEntry(entry)
+        if (!result) {
+          // eslint-disable-next-line no-console
+          console.error(`Gas price entry has empty amount for ${entry.denom}`)
+          return []
+        }
+        return [result]
       })
+    // Fail fast when every entry is invalid: returning `[]` here silently
+    // disables fee selection in max-amount, bridge fee balance, and tx
+    // approval paths, all of which short-circuit when no fee options exist.
+    // Mirror the non-L1 branch (which throws on missing price) so the React
+    // Query error boundary surfaces the failure.
+    if (normalized.length === 0) {
+      throw new Error("Gas prices response is empty or invalid")
+    }
+    return normalized
   }
 
   return chain.fees.fee_tokens.map(({ denom, fixed_min_gas_price: price }) => {

@@ -94,7 +94,7 @@ export function computeRequiredFeeByDenom({
     (result, { amount, denom }) => {
       result[denom] = BigNumber(gas)
         .times(gasAdjustment)
-        .times(amount)
+        .times(amount || 0)
         .integerValue(BigNumber.ROUND_CEIL)
         .toFixed(0)
       return result
@@ -118,9 +118,9 @@ export function hasSufficientFeeBalance({
   if (feeDenoms.length === 0) return true
 
   return feeDenoms.some((denom) => {
-    const balance = BigNumber(balances[denom]?.amount ?? "0")
-    const spendAmount = denom === sourceDenom ? BigNumber(amountIn) : BigNumber(0)
-    const requiredFee = BigNumber(requiredFeeByDenom[denom] ?? "0")
+    const balance = BigNumber(balances[denom]?.amount || 0)
+    const spendAmount = denom === sourceDenom ? BigNumber(amountIn || 0) : BigNumber(0)
+    const requiredFee = BigNumber(requiredFeeByDenom[denom] || 0)
     return balance.minus(spendAmount).gte(requiredFee)
   })
 }

@@ -559,14 +559,17 @@ export function useInitiaStakingPositions(): InitiaStakingPositionsResult {
 
     // Filter to only include INIT tokens (LP tokens are handled by useInitiaLiquidityPositions)
     return result.filter(
-      (pos) => pos.type !== "fungible-position" && pos.balance.denom === INIT_DENOM,
+      (pos) =>
+        pos.type !== "fungible-position" &&
+        pos.type !== "perp-position" &&
+        pos.balance.denom === INIT_DENOM,
     )
   }, [delegations, lockStaking, undelegations, denomsMap, assetByDenom, priceByDenom])
 
   // Calculate total value from position balances (prices fetched via usePricesQuery)
   const totalValue = useMemo(() => {
     return positions.reduce((sum, pos) => {
-      if (pos.type === "fungible-position") return sum
+      if (pos.type === "fungible-position" || pos.type === "perp-position") return sum
       if (pos.balance.type === "unknown") return sum
       return sum + (pos.balance.value ?? 0)
     }, 0)

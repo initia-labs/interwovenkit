@@ -7,6 +7,7 @@ import Skeletons from "@/components/Skeletons"
 import { useAllChainsAssetsQueries } from "@/data/assets"
 import { useAllChainPriceQueries, useInitiaRegistry, useLayer1 } from "@/data/chains"
 import { useConfig } from "@/data/config"
+import { useInitiaVaultPositions } from "@/data/initia-vault"
 import { useInitiaVipPositions } from "@/data/initia-vip"
 import {
   buildAssetLogoMaps,
@@ -37,6 +38,7 @@ const ChainSelectWithData = ({
   const layer1 = useLayer1()
   const chainBreakdown = useMinityChainBreakdown()
   const { totalValue: vipTotalValue } = useInitiaVipPositions()
+  const { totalValue: vaultTotalValue } = useInitiaVaultPositions()
 
   // Derive chainIds and value map from chainBreakdown (single data source)
   // Sort: connected chain first, then Initia (L1), then by value descending
@@ -49,10 +51,11 @@ const ChainSelectWithData = ({
       total += chain.totalBalance
     }
 
-    // Add VIP reward value to Initia (L1) chain and total
-    if (vipTotalValue > 0) {
-      valueMap.set(layer1.chainId, (valueMap.get(layer1.chainId) ?? 0) + vipTotalValue)
-      total += vipTotalValue
+    // Add on-chain L1 values Minity doesn't price (VIP rewards + vault) to Initia (L1) and the total.
+    const l1OnchainExtra = vipTotalValue + vaultTotalValue
+    if (l1OnchainExtra > 0) {
+      valueMap.set(layer1.chainId, (valueMap.get(layer1.chainId) ?? 0) + l1OnchainExtra)
+      total += l1OnchainExtra
     }
 
     // Sort chainIds: connected chain first, then L1, then by value descending
@@ -66,7 +69,7 @@ const ChainSelectWithData = ({
     )
 
     return { chainIds: sortedIds, chainIdToValueMap: valueMap, totalBalance: total }
-  }, [chainBreakdown, defaultChainId, layer1, vipTotalValue])
+  }, [chainBreakdown, defaultChainId, layer1, vipTotalValue, vaultTotalValue])
 
   return (
     <ChainSelect

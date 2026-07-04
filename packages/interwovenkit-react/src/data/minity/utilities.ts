@@ -1,10 +1,14 @@
-import { INIT_SYMBOL } from "../constants"
+import BigNumber from "bignumber.js"
+import { formatNumber as formatNumberUtil } from "@initia/utils"
+import { STRAT_CHAIN_NAME } from "../constants"
+import { getPinnedAssetSymbolRank } from "../pinnedAssets"
 import type { PortfolioAssetGroup, PortfolioAssetItem } from "../portfolio"
 import type {
   Balance,
   ChainBalanceData,
   ChainInfo,
   DenomGroup,
+  PerpPosition,
   Position,
   ProtocolPosition,
   SectionGroup,
@@ -79,11 +83,73 @@ export function isStakingProtocol(protocol: ProtocolPosition): boolean {
 // POSITION VALUE UTILITIES
 // ============================================
 
+/** Returns null when the API didn't supply PnL so callers can distinguish "unknown" from "exactly zero". */
+export function getPerpPnl(position: PerpPosition): number | null {
+  return position.pnl ?? null
+}
+
+/** Returns null when collateral can't be priced (unknown asset type or missing value). */
+export function getPerpCollateralValue(position: PerpPosition): number | null {
+  if (position.balance.type === "unknown") return null
+  return position.balance.value ?? null
+}
+
+/** True when the perp position lacks a priced collateral basis — UI should surface an "Unpriced" affordance rather than rendering as $0. */
+export function isPerpUnpriced(position: PerpPosition): boolean {
+  return getPerpCollateralValue(position) == null
+}
+
+/** "+$2.12" / "-$7.24" / "$0.00" / "—" when null — sub-cent magnitudes round to 0 (no sign). */
+export function formatPerpPnl(pnl: number | null): string {
+  if (pnl == null || !Number.isFinite(pnl)) return "—"
+  const rounded = BigNumber(pnl).decimalPlaces(2, BigNumber.ROUND_HALF_UP)
+  if (rounded.isZero()) return "$0.00"
+  const sign = rounded.gt(0) ? "+" : "-"
+  return `${sign}$${formatNumberUtil(rounded.abs().toNumber(), { dp: 2 })}`
+}
+
+/** "(+0.04%)" / "(-0.68%)" / "(0.00%)" / "" when no basis — sub-cent magnitudes round to 0. */
+export function formatPerpPnlPercent(pnl: number | null, collateralValue: number | null): string {
+  if (
+    pnl == null ||
+    collateralValue == null ||
+    !Number.isFinite(pnl) ||
+    !Number.isFinite(collateralValue) ||
+    collateralValue <= 0
+  ) {
+    return ""
+  }
+  const rounded = BigNumber(pnl)
+    .div(collateralValue)
+    .times(100)
+    .decimalPlaces(2, BigNumber.ROUND_HALF_UP)
+  if (rounded.isZero()) return "(0.00%)"
+  const sign = rounded.gt(0) ? "+" : "-"
+  return `(${sign}${rounded.abs().toFixed(2)}%)`
+}
+
+/** Truncate fractional leverage so "7.99X" reads as "7". Returns "" for non-finite or sub-1 values so callers can drop the leverage label entirely. */
+export function formatPerpLeverage(leverage: number): string {
+  if (!Number.isFinite(leverage) || leverage < 1) return ""
+  return BigNumber(leverage).decimalPlaces(0, BigNumber.ROUND_DOWN).toString()
+}
+
 /** Get value from a position based on its type */
 export function getPositionValue(position: Position): number {
   if (position.type === "fungible-position") {
     return position.value ?? 0
   }
+
+  // Perp equity = collateral + PnL; collateral lives in the protocol so no wallet double-count. Return 0 when collateral can't be priced rather than PnL alone — callers should pair this with isPerpUnpriced() to surface "Unpriced" affordances.
+  if (position.type === "perp-position") {
+    const collateralValue = getPerpCollateralValue(position)
+    if (collateralValue == null) return 0
+    const pnl = getPerpPnl(position)
+    return BigNumber(collateralValue)
+      .plus(pnl ?? 0)
+      .toNumber()
+  }
+
   if (position.balance.type === "unknown") return 0
   const value = position.balance.value ?? 0
   // Borrowing positions should subtract from total (debt/liability)
@@ -93,27 +159,44 @@ export function getPositionValue(position: Position): number {
   return value
 }
 
-/** Get section key for position - groups staking types and separates lending by direction */
+/** Get section key for position - groups staking types, perp, and separates lending by direction */
 export function getSectionKey(position: Position): string | null {
-  if (position.type === "fungible-position") return null
-  if (
-    position.type === "staking" ||
-    position.type === "unstaking" ||
-    position.type === "lockstaking"
-  ) {
-    return "staking"
+  switch (position.type) {
+    case "fungible-position":
+      return null
+    case "perp-position":
+      return "perp"
+    case "staking":
+    case "unstaking":
+    case "lockstaking":
+      return "staking"
+    case "lending":
+      return position.direction === "supply" ? "lending" : "borrowing"
+    default: {
+      // Compile-time exhaustiveness — adding a new Position variant must surface here.
+      const _exhaustive: never = position
+      return _exhaustive
+    }
   }
-  if (position.type === "lending") {
-    return position.direction === "supply" ? "lending" : "borrowing"
-  }
-  return null
+}
+
+interface SectionLabelContext {
+  isInitia?: boolean
+  chainName?: string
 }
 
 /** Get display label for section key */
-export function getSectionLabel(sectionKey: string, isInitia = false): string {
+export function getSectionLabel(sectionKey: string, context: SectionLabelContext = {}): string {
+  const { isInitia = false, chainName } = context
+  const isStratChain = chainName?.toLowerCase() === STRAT_CHAIN_NAME
+
   switch (sectionKey) {
     case "staking":
+      // Strat reuses the generic `staking` type for vault deposits — relabel so it isn't read as validator staking.
+      if (isStratChain) return "Vault"
       return isInitia ? "INIT staking" : "Staking"
+    case "perp":
+      return "Perpetuals"
     case "borrowing":
       return "Borrowing"
     case "lending":
@@ -123,7 +206,7 @@ export function getSectionLabel(sectionKey: string, isInitia = false): string {
   }
 }
 
-/** Group positions by section (staking, borrowing, lending) - sorted by total value descending */
+/** Group positions by section (staking, perp, borrowing, lending) - sorted by total value descending */
 export function groupPositionsBySection(positions: Position[]): Map<string, SectionGroup> {
   // 1. Group by section key
   const groups = new Map<string, Position[]>()
@@ -186,6 +269,9 @@ export function getPositionDenom(position: Position): string {
   if (position.type === "fungible-position") {
     return position.title
   }
+  if (position.type === "perp-position") {
+    return position.pair
+  }
   return position.balance.denom
 }
 
@@ -194,15 +280,21 @@ export function getPositionSymbol(position: Position): string {
   if (position.type === "fungible-position") {
     return position.title
   }
+  if (position.type === "perp-position") {
+    return position.pair
+  }
   if (position.balance.type === "unknown") {
     return position.balance.denom
   }
   return position.balance.symbol
 }
 
-/** Get balance from position (returns null for fungible positions) */
+/** Get balance from position (returns null for fungible/perp positions) */
 export function getPositionBalance(position: Position): Balance | null {
   if (position.type === "fungible-position") {
+    return null
+  }
+  if (position.type === "perp-position") {
     return null
   }
   return position.balance
@@ -221,6 +313,8 @@ export function getPositionTypeLabel(type: Position["type"]): string {
       return "Lending"
     case "fungible-position":
       return "Position"
+    case "perp-position":
+      return "Perpetuals"
     default:
       return ""
   }
@@ -237,11 +331,11 @@ export function groupPositionsByType(positions: Position[]): Map<Position["type"
   return groups
 }
 
-/** Sort comparator for denom groups: INIT first, then by value desc, then alphabetically */
+/** Sort comparator for denom groups: INIT then iUSD first, then by value desc, then alphabetically */
 function compareDenomGroups(a: DenomGroup, b: DenomGroup): number {
-  if (a.symbol === INIT_SYMBOL && b.symbol === INIT_SYMBOL) return 0
-  if (a.symbol === INIT_SYMBOL) return -1
-  if (b.symbol === INIT_SYMBOL) return 1
+  const rankA = getPinnedAssetSymbolRank(a.symbol)
+  const rankB = getPinnedAssetSymbolRank(b.symbol)
+  if (rankA !== rankB) return rankA - rankB
   if (b.totalValue !== a.totalValue) return b.totalValue - a.totalValue
   return a.symbol.localeCompare(b.symbol, undefined, { sensitivity: "base" })
 }
@@ -262,9 +356,9 @@ export function groupPositionsByDenom(positions: Position[]): DenomGroup[] {
     let totalAmount = 0
 
     for (const pos of positions) {
-      if (pos.type !== "fungible-position" && pos.balance.type !== "unknown") {
-        totalAmount += pos.balance.formattedAmount
-      }
+      if (pos.type === "fungible-position" || pos.type === "perp-position") continue
+      if (pos.balance.type === "unknown") continue
+      totalAmount += pos.balance.formattedAmount
     }
 
     return {
@@ -344,11 +438,11 @@ export function applyFallbackPricing(
   }))
 }
 
-/** Sort comparator for asset groups: INIT first, then by value desc, then alphabetically */
+/** Sort comparator for asset groups: INIT then iUSD first, then by value desc, then alphabetically */
 export function compareAssetGroups(a: PortfolioAssetGroup, b: PortfolioAssetGroup): number {
-  if (a.symbol === INIT_SYMBOL && b.symbol === INIT_SYMBOL) return 0
-  if (a.symbol === INIT_SYMBOL) return -1
-  if (b.symbol === INIT_SYMBOL) return 1
+  const rankA = getPinnedAssetSymbolRank(a.symbol)
+  const rankB = getPinnedAssetSymbolRank(b.symbol)
+  if (rankA !== rankB) return rankA - rankB
   if (b.totalValue !== a.totalValue) return b.totalValue - a.totalValue
   return a.symbol.localeCompare(b.symbol, undefined, { sensitivity: "base" })
 }
@@ -408,7 +502,7 @@ export function groupBalancesBySymbol(
   const groups: PortfolioAssetGroup[] = []
 
   for (const [symbol, assets] of groupMap) {
-    const sortedAssets = assets.slice().sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
+    const sortedAssets = [...assets].sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
     const totalValue = sortedAssets.reduce((sum, a) => sum + (a.value ?? 0), 0)
     const totalAmount = sortedAssets.reduce((sum, a) => sum + Number(a.quantity), 0)
 

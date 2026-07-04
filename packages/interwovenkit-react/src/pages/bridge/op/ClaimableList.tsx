@@ -24,8 +24,7 @@ const ClaimableList = ({ list, onNavigate, onDismiss }: Props) => {
       secondaryButton={{ label: "Do not show again", onClick: onDismiss }}
     >
       <div className={styles.list}>
-        {list
-          .slice()
+        {[...list]
           .sort((a, b) => a.chainId.localeCompare(b.chainId))
           .map(({ txHash, chainId, amount, denom }) => {
             const chain = findChain(chainId)

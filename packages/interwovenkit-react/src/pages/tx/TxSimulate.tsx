@@ -22,7 +22,11 @@ import type { ReactNode } from "react"
 const Change = ({ amount, asset, price }: { amount: string; asset: BaseAsset; price?: number }) => {
   const { denom, symbol, decimals, logoUrl } = asset
   const formattedAmount = formatAmount(amount, { decimals })
-  const value = price && BigNumber(fromBaseUnit(amount, { decimals })).times(price).abs()
+  const value =
+    price &&
+    BigNumber(fromBaseUnit(amount, { decimals }) || 0)
+      .times(price)
+      .abs()
 
   return (
     <div className={styles.change}>
@@ -126,5 +130,5 @@ const TxSimulate = ({ messages, memo, chainId }: Props) => {
 export default TxSimulate
 
 function splitChanges<T extends { amount: string }>(changes: T[]) {
-  return partition((change) => new BigNumber(change.amount).isNegative(), changes)
+  return partition((change) => BigNumber(change.amount || 0).isNegative(), changes)
 }

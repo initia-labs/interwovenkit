@@ -9,6 +9,7 @@ import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import QuantityInput from "@/components/form/QuantityInput"
 import Status from "@/components/Status"
+import { parseQuantity } from "@/lib/amountValidation"
 import { formatValueWithPrice } from "@/lib/format"
 import { useLocationState, useNavigate } from "@/lib/router"
 import { useHexAddress } from "@/public/data/hooks"
@@ -29,7 +30,7 @@ import {
   useTransferMode,
 } from "./hooks"
 import { buildTransferLocationState, type TransferLocationState } from "./state"
-import { getTransferBalanceBlocker } from "./transferBalanceGate"
+import { getResolvedTransferBalance, getTransferBalanceBlocker } from "./transferBalanceGate"
 import TransferFooter from "./TransferFooter"
 import { shouldSyncTransferNavigationState } from "./transferNavigationState"
 import styles from "./Fields.module.css"
@@ -144,10 +145,12 @@ const TransferFields = ({ mode }: Props) => {
     : ""
   const externalChain = selectedExternalChainId ? findChain(selectedExternalChainId) : null
 
-  const balance = balances?.[srcChainId]?.[srcDenom]?.amount
+  const sourceBalance = balances?.[srcChainId]?.[srcDenom]?.amount
   const price = balances?.[srcChainId]?.[srcDenom]?.price
 
-  const quantityValue = BigNumber(price ?? 0).times(rawQuantity || 0)
+  // `price` is Skip's `string | null` — `|| 0` (not `?? 0`) catches both empty strings and null.
+  // `parseQuantity` returns `BigNumber | null`, so `?? 0` is the documented choice for that branch.
+  const quantityValue = BigNumber(price || 0).times(parseQuantity(rawQuantity) ?? 0)
 
   const [debouncedQuantity] = useDebounceValue(rawQuantity, 300)
 
@@ -157,39 +160,41 @@ const TransferFields = ({ mode }: Props) => {
     hasBalanceQueryError: !!(balancesError || chainsError),
     isBalancesLoading,
   })
+  // Once balances have loaded, a missing denom means zero balance.
+  // Keep `undefined` only while the first snapshot is still loading.
+  const balance = getResolvedTransferBalance({
+    hasBalancesSnapshot: balances !== undefined,
+    balance: sourceBalance,
+  })
 
   const disabledMessage = useMemo(() => {
     if (mode === "deposit" && !externalAsset) return "Select asset"
 
-    const quantityBn = BigNumber(rawQuantity || 0)
-    if (!quantityBn.isFinite() || quantityBn.lte(0)) return "Enter amount"
+    const quantityBn = parseQuantity(rawQuantity)
+    if (!quantityBn || quantityBn.lte(0)) return "Enter amount"
 
     if (mode === "withdraw" && !externalAsset) return "Select destination"
 
     if (balanceBlocker === "loading") return "Loading balances..."
     if (balanceBlocker === "error") return "Failed to load balances"
 
-    // Skip validation when balance is unavailable (e.g. still loading)
-    // to avoid disabling the button with "Insufficient balance" prematurely.
     if (balance !== undefined) {
       const balanceAmount = fromBaseUnit(balance, { decimals: amountAsset?.decimals || 6 })
-      if (quantityBn.gt(balanceAmount)) return "Insufficient balance"
+      if (quantityBn.gt(balanceAmount || 0)) return "Insufficient balance"
     }
   }, [amountAsset, balance, balanceBlocker, externalAsset, mode, rawQuantity])
   const isRouteQueryDisabled = useMemo(() => {
     if (mode === "deposit" && !externalAsset) return true
 
-    const quantityBn = BigNumber(rawQuantity || 0)
-    if (!quantityBn.isFinite() || quantityBn.lte(0)) return true
+    const quantityBn = parseQuantity(rawQuantity)
+    if (!quantityBn || quantityBn.lte(0)) return true
 
     if (mode === "withdraw" && !externalAsset) return true
     if (balanceBlocker === "error") return true
 
-    // Allow route fetching to start while balances load. Once a balance exists,
-    // still block invalid over-balance requests from hitting the route API.
     if (balance !== undefined) {
       const balanceAmount = fromBaseUnit(balance, { decimals: amountAsset?.decimals || 6 })
-      if (quantityBn.gt(balanceAmount)) return true
+      if (quantityBn.gt(balanceAmount || 0)) return true
     }
 
     return false
@@ -332,7 +337,7 @@ const TransferFields = ({ mode }: Props) => {
     <>
       <p className={styles.label}>Amount</p>
       <QuantityInput balance={balance} decimals={amountDecimals} className={styles.input} />
-      {Number(balance) > 0 && (
+      {balance !== undefined && (
         <div className={styles.balanceContainer}>
           <p className={styles.value}>
             {rawQuantity ? formatValueWithPrice(quantityValue.toString(), price) : "$-"}
@@ -341,8 +346,8 @@ const TransferFields = ({ mode }: Props) => {
           <button
             className={styles.maxButton}
             onClick={() => {
-              const maxAmount = fromBaseUnit(balance ?? "0", { decimals: amountDecimals })
-              if (BigNumber(rawQuantity || 0).eq(maxAmount)) return
+              const maxAmount = fromBaseUnit(balance, { decimals: amountDecimals })
+              if (parseQuantity(rawQuantity)?.eq(maxAmount || 0)) return
 
               setValue("quantity", maxAmount)
             }}
