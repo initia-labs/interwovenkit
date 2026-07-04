@@ -100,7 +100,6 @@ const BridgeForm = () => {
     localStorage.setItem(LocalStorageKey.BRIDGE_DST_DENOM, dstDenom)
     localStorage.setItem(LocalStorageKey.BRIDGE_QUANTITY, quantity)
     localStorage.setItem(LocalStorageKey.BRIDGE_SLIPPAGE_PERCENT, slippagePercent)
-    localStorage.setItem(LocalStorageKey.BRIDGE_RECIPIENT, recipient)
   }, [
     srcChainId,
     srcDenom,
@@ -108,7 +107,6 @@ const BridgeForm = () => {
     dstDenom,
     quantity,
     slippagePercent,
-    recipient,
     isSrcDenomValid,
     isDstDenomValid,
   ])

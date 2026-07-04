@@ -72,7 +72,6 @@ export function useDefaultValues(): Partial<FormValues> {
     slippagePercent: normalizePersistedSlippage(
       localStorage.getItem(LocalStorageKey.BRIDGE_SLIPPAGE_PERCENT),
     ),
-    recipient: localStorage.getItem(LocalStorageKey.BRIDGE_RECIPIENT),
   })
 
   return {
