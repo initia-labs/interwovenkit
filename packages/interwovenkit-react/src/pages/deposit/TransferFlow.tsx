@@ -1,11 +1,14 @@
 import { animated, useTransition } from "@react-spring/web"
 import { FormProvider, useForm } from "react-hook-form"
 import AnimatedHeight from "@/components/AnimatedHeight"
+import { useLocationState } from "@/lib/router"
 import {
+  type AssetOption,
   type TransferFormValues,
   type TransferMode,
   useAllBalancesQuery,
   useTransferForm,
+  useTransferMode,
 } from "./hooks"
 import SelectExternalAsset from "./SelectExternalAsset"
 import SelectLocalAsset from "./SelectLocalAsset"
@@ -18,17 +21,28 @@ interface Props {
 }
 
 const TransferFlow = ({ mode }: Props) => {
-  const form = useForm<TransferFormValues>({
-    mode: "onChange",
-    defaultValues: {
-      page: "select-local",
-      quantity: "",
-      srcDenom: "",
-      srcChainId: "",
-      dstDenom: "",
-      dstChainId: "",
-    },
-  })
+  const { local } = useTransferMode(mode)
+  const { localOptions = [] } = useLocationState<{ localOptions?: AssetOption[] }>()
+
+  const defaultValues: TransferFormValues = {
+    page: "select-local",
+    quantity: "",
+    srcDenom: "",
+    srcChainId: "",
+    dstDenom: "",
+    dstChainId: "",
+  }
+
+  // With a single local asset there is nothing to pick, so pre-select it and
+  // skip the "select-local" page entirely to avoid flashing the asset picker.
+  if (localOptions.length === 1) {
+    const [{ denom, chainId }] = localOptions
+    defaultValues[local.denomKey] = denom
+    defaultValues[local.chainIdKey] = chainId
+    defaultValues.page = mode === "deposit" ? "select-external" : "fields"
+  }
+
+  const form = useForm<TransferFormValues>({ mode: "onChange", defaultValues })
 
   // prefetch balances
   useAllBalancesQuery()

@@ -288,8 +288,8 @@ const TransferFields = ({ mode }: Props) => {
 
     // When hasSingleExternalAssetOption, navigating to select-external would
     // immediately auto-fill and jump back to fields, creating an infinite loop.
-    // Go directly to select-local instead, which is safe because the Back button
-    // only renders when options.length > 1 (so select-local won't auto-skip).
+    // Go directly to select-local instead; select-local never navigates away on
+    // its own, so this cannot loop.
     const previousPage =
       mode === "withdraw" || hasSingleExternalAssetOption ? "select-local" : "select-external"
     setValue("page", previousPage)
