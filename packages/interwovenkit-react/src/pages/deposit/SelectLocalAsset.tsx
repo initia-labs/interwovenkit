@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useTransition } from "react"
+import { useTransition } from "react"
 import { type TransferMode, useLocalAssetOptions, useTransferForm, useTransferMode } from "./hooks"
 import styles from "./SelectLocalAsset.module.css"
 
@@ -9,7 +9,7 @@ interface Props {
 const SelectLocalAsset = ({ mode }: Props) => {
   const { local, external } = useTransferMode(mode)
   const { setValue } = useTransferForm()
-  const { data: options, isLoading } = useLocalAssetOptions()
+  const { data: options } = useLocalAssetOptions()
   const [isPending, startTransition] = useTransition()
 
   const selectLocalAsset = (denom: string, chain_id: string) => {
@@ -26,17 +26,6 @@ const SelectLocalAsset = ({ mode }: Props) => {
       setValue("page", mode === "withdraw" ? "fields" : "select-external")
     })
   }
-
-  const selectDefaultAsset = useEffectEvent(() => {
-    const { denom, chain_id } = options[0]
-    selectLocalAsset(denom, chain_id)
-  })
-
-  useEffect(() => {
-    if (!isLoading && options.length === 1) {
-      selectDefaultAsset()
-    }
-  }, [options, isLoading])
 
   if (!options.length) {
     return <div>No assets found</div>
