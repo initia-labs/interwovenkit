@@ -1,4 +1,5 @@
-import type { AssetOption } from "@/pages/deposit/hooks"
+import type { AssetOption } from "@/pages/deposit/data/assetOptions"
+import { usePrefetchDepositAssets } from "@/pages/deposit/data/assets"
 import { useAddress } from "@/public/data/hooks"
 import { useDefaultChain } from "./chains"
 import { useModal } from "./ui"
@@ -7,6 +8,7 @@ export function useOpenDeposit() {
   const address = useAddress()
   const defaultChain = useDefaultChain()
   const { openModal } = useModal()
+  const prefetchDepositAssets = usePrefetchDepositAssets()
 
   return (params: {
     denoms: string[]
@@ -21,6 +23,9 @@ export function useOpenDeposit() {
     if (denoms.length === 0) {
       throw new Error("denoms cannot be empty")
     }
+    // Start the Deposit API route fetch alongside the modal so the method hub
+    // arrives with availability resolved (see usePrefetchDepositAssets).
+    prefetchDepositAssets()
     const targetChainId = chainId ?? defaultChain.chainId
     const localOptions: AssetOption[] = denoms.map((denom) => ({
       denom,

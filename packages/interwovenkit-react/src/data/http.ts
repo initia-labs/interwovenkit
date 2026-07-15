@@ -44,5 +44,5 @@ export async function normalizeErrorMessage(error: unknown): Promise<string> {
 }
 
 export async function normalizeError(error: unknown): Promise<Error> {
-  return new Error(await normalizeErrorMessage(error))
+  return new Error(await normalizeErrorMessage(error), { cause: error })
 }

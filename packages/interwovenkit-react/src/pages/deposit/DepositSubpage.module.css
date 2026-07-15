@@ -1,0 +1,50 @@
+.title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+/* Full-bleed list: the negative margins mirror the page surface padding
+ * (`DepositSurface.module.css` `.surface`) so rows run edge to edge —
+ * keep the two in sync. Corner clipping comes from the surface's
+ * overflow: hidden, so no radius is needed here. */
+.list {
+  display: flex;
+  flex-direction: column;
+
+  margin: 0 -20px -24px;
+  max-height: min(60vh, 480px);
+}
+
+/* Default scroll mode: the list itself is the scroll region. Omitted when a
+ * child (e.g. AssetOptions) scrolls internally. */
+.scroll {
+  overflow-y: auto;
+  /* hide scrollbar */
+  scrollbar-width: none;
+}
+
+/* Option row frame: divider, hover/active background, shared padding.
+ * Typography stays with each row's content. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  width: 100%;
+
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px;
+
+  transition: background-color var(--transition) ease;
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.row:hover,
+.activeRow {
+  background-color: var(--gray-8);
+}

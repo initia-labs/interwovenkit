@@ -1,3 +1,4 @@
+import clsx from "clsx"
 import { useState } from "react"
 import { formatAmount } from "@initia/utils"
 import { formatValue } from "@/lib/format"
@@ -15,12 +16,28 @@ interface Props {
   assets: BaseAsset[]
   onSelect: (denom: string) => void
   renderAsset?: (asset: BaseAsset, children: (asset: BaseAsset) => ReactNode) => ReactNode
+  /** Asset fields matched by the search box. Defaults to symbol only. */
+  searchKeys?: Array<keyof BaseAsset>
+  /** Search box placeholder. */
+  placeholder?: string
+  /** Empty-state message shown when nothing matches the search. */
+  emptyMessage?: string
+  /** Extra class on the scrollable list, e.g. to cap height outside a modal. */
+  listClassName?: string
 }
 
 const AssetOptions = (props: Props) => {
-  const { assets, onSelect, renderAsset = (asset, children) => children(asset) } = props
+  const {
+    assets,
+    onSelect,
+    renderAsset = (asset, children) => children(asset),
+    searchKeys = ["symbol"],
+    placeholder = "Search by symbol",
+    emptyMessage = "No assets",
+    listClassName,
+  } = props
   const [search, setSearch] = useState("")
-  const filteredAssets = filterBySearch(["symbol"], search, assets)
+  const filteredAssets = filterBySearch(searchKeys, search, assets)
 
   return (
     <div className={styles.container}>
@@ -28,16 +45,16 @@ const AssetOptions = (props: Props) => {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         onClear={() => setSearch("")}
-        placeholder="Search by symbol"
+        placeholder={placeholder}
         rootClassName={styles.search}
         padding={20}
         ref={useAutoFocus()}
       />
 
       {filteredAssets.length === 0 ? (
-        <Status>No assets</Status>
+        <Status>{emptyMessage}</Status>
       ) : (
-        <div className={styles.list}>
+        <div className={clsx(styles.list, listClassName)}>
           {filteredAssets.map((asset) => (
             <button
               type="button"
@@ -49,7 +66,14 @@ const AssetOptions = (props: Props) => {
                 const { denom, logoUrl, symbol, name, balance, decimals, value = 0 } = asset
                 return (
                   <>
-                    <Image src={logoUrl} width={32} height={32} className={styles.logo} logo />
+                    <Image
+                      src={logoUrl}
+                      width={32}
+                      height={32}
+                      className={styles.logo}
+                      classNames={{ placeholder: styles.fallback }}
+                      logo
+                    />
                     <div className={styles.info}>
                       <div className={styles.symbol}>{symbol || denom}</div>
                       <div className={styles.name}>{name}</div>

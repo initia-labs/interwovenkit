@@ -1,0 +1,14 @@
+.surface {
+  position: relative;
+
+  width: 100%;
+
+  background-color: var(--gray-9);
+  border-radius: 20px;
+  /* The surface owns corner clipping: full-bleed children (DepositSubpage.List)
+   * cancel the padding and reach the rounded corners, relying on this to clip
+   * their square hover backgrounds. */
+  overflow: hidden;
+  padding: 24px 20px;
+  padding-top: 32px;
+}

@@ -1,0 +1,27 @@
+.links {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+
+  font-size: 13px;
+  font-weight: 500;
+
+  a {
+    text-decoration: none;
+  }
+}
+
+/* Same treatment as anchors (global.css): this one navigates inside the widget. */
+.link {
+  color: var(--info);
+  transition: color var(--transition) ease;
+
+  &:hover {
+    color: var(--info-light);
+  }
+}
+
+.divider {
+  color: var(--gray-6);
+}

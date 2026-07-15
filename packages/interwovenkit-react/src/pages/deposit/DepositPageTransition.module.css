@@ -1,0 +1,11 @@
+.container {
+  position: relative;
+}
+
+/* Positioning-only wrapper for the cross-fade: the visual surface is
+ * DepositSurface, composed per page by each flow's renderPage. */
+.page {
+  position: relative;
+
+  width: 100%;
+}

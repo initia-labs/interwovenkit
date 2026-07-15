@@ -1,0 +1,19 @@
+/* The borderless select-like field shared by the deposit screens
+   (source-asset display, network dropdown, payment method).
+   Interactive states (cursor, hover, layout tweaks) stay in each composer. */
+.field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  width: 100%;
+  height: 56px;
+
+  background-color: var(--gray-8);
+  border-radius: 8px;
+
+  color: var(--gray-0);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 12px;
+}

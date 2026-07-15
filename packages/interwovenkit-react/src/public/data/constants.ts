@@ -14,6 +14,10 @@ export const MAINNET: Config = {
   minityUrl: "https://portfolio-api.minity.xyz",
   dexUrl: "https://dex-api.initia.xyz",
   vipUrl: "https://vip-api.initia.xyz",
+  depositApiUrl: "https://deposit-api.initia.xyz",
+  onramperApiUrl: "https://api.onramper.com",
+  // Publishable key: safe to bundle; access is gated by Onramper's domain rules.
+  onramperApiKey: "pk_prod_01K6EJ9DA43P83T691WQ4HQKKC",
   theme: "dark",
 }
 
@@ -28,6 +32,10 @@ export const TESTNET: Config = {
   minityUrl: "https://portfolio-api.minity.xyz",
   dexUrl: "https://dex-api.initiation-2.initia.xyz",
   vipUrl: "https://vip-api.testnet.initia.xyz",
+  // Explicit `undefined` so spreading TESTNET over MAINNET clears the onramp config.
+  depositApiUrl: undefined,
+  onramperApiUrl: undefined,
+  onramperApiKey: undefined,
   theme: "dark",
   disableAnalytics: true,
 }

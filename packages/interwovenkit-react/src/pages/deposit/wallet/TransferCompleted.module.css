@@ -1,0 +1,40 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.subtitle {
+  color: var(--gray-2);
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: -16px;
+}
+
+.subtitle:last-child {
+  margin-bottom: 8px;
+  margin-top: -16px;
+}
+
+.subtitle span {
+  color: var(--gray-0);
+}
+
+.errorIcon {
+  color: var(--error);
+  margin: 8px;
+}
+
+.error {
+  width: 100%;
+
+  color: var(--error);
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 8px;
+  max-height: 100px;
+  overflow-y: scroll;
+  text-align: center;
+  word-wrap: break-word;
+}

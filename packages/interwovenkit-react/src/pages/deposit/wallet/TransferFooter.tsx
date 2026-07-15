@@ -1,0 +1,308 @@
+import type { StdFee } from "@cosmjs/stargate"
+import { calculateFee, GasPrice } from "@cosmjs/stargate"
+import type { TxJson } from "@skip-go/client"
+import BigNumber from "bignumber.js"
+import { useState } from "react"
+import { formatAmount } from "@initia/utils"
+import Dropdown, { type DropdownOption } from "@/components/Dropdown"
+import { useBalances } from "@/data/account"
+import { useFindAsset } from "@/data/assets"
+import { useChain } from "@/data/chains"
+import { useGasPrices, useLastFeeDenom } from "@/data/fee"
+import { parseQuantity } from "@/lib/amountValidation"
+import BridgePreviewFooter from "@/pages/bridge/BridgePreviewFooter"
+import { useAllSkipAssets } from "@/pages/bridge/data/assets"
+import { type BridgeTxResult, useBridgePreviewState } from "@/pages/bridge/data/tx"
+import FooterWithErc20Approval from "@/pages/bridge/FooterWithErc20Approval"
+import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
+import { hasSufficientTransferBalance } from "./transferBalanceGate"
+import { useTransferFlow, useTransferForm } from "./transferFlowConfig"
+import { getTransferFeeWarning, getTransferFooterStatus } from "./transferFooterLogic"
+import TransferTxDetails from "./TransferTxDetails"
+import styles from "./TransferFooter.module.css"
+
+interface Props {
+  tx: TxJson
+  gas: number | null
+  messageRefreshError?: string
+  isRouteTransitioning?: boolean
+  isFetchingMessages?: boolean
+  isEstimatingGas?: boolean
+}
+
+interface ApprovalState {
+  isFetchingMessages?: boolean
+  messageRefreshError?: string
+}
+
+function shouldEnableApproval(options: ApprovalState): boolean {
+  return !options.isFetchingMessages && !options.messageRefreshError
+}
+
+function renderWithApprovalGate(tx: TxJson, footer: React.ReactNode, state: ApprovalState) {
+  if (!shouldEnableApproval(state)) {
+    return footer
+  }
+
+  return <FooterWithErc20Approval tx={tx}>{footer}</FooterWithErc20Approval>
+}
+
+function selectFeeDenom({
+  feeDetailsByDenom,
+  feeOptions,
+  lastUsedFeeDenom,
+  preferredFeeDenom,
+}: {
+  feeDetailsByDenom: Map<string, { isSufficient: boolean }>
+  feeOptions: StdFee[]
+  lastUsedFeeDenom?: string | null
+  preferredFeeDenom: string | null
+}) {
+  if (preferredFeeDenom && feeDetailsByDenom.get(preferredFeeDenom)?.isSufficient) {
+    return preferredFeeDenom
+  }
+
+  if (lastUsedFeeDenom && feeDetailsByDenom.get(lastUsedFeeDenom)?.isSufficient) {
+    return lastUsedFeeDenom
+  }
+
+  for (const fee of feeOptions) {
+    const [{ denom }] = fee.amount
+    if (feeDetailsByDenom.get(denom)?.isSufficient) {
+      return denom
+    }
+  }
+
+  return feeOptions[0]?.amount[0].denom
+}
+
+interface FooterWithFeeProps extends Omit<Props, "gas"> {
+  gas: number | null
+  confirmMessage: "Deposit" | "Withdraw"
+  onCompleted: (result: BridgeTxResult) => void
+}
+
+const TransferFooterWithFee = ({
+  tx,
+  gas,
+  confirmMessage,
+  onCompleted,
+  messageRefreshError,
+  isRouteTransitioning,
+  isFetchingMessages,
+  isEstimatingGas,
+}: FooterWithFeeProps) => {
+  const { values } = useBridgePreviewState()
+  const { srcChainId, srcDenom, quantity } = values
+  const skipAssets = useAllSkipAssets()
+  const srcAsset = skipAssets.find(
+    ({ denom, chain_id }) => denom === srcDenom && chain_id === srcChainId,
+  )
+
+  // Fee calculation for cosmos transactions
+  const chain = useChain(srcChainId)
+  const balances = useBalances(chain)
+  const gasPrices = useGasPrices(chain)
+  const lastUsedFeeDenom = useLastFeeDenom(chain)
+  const findAsset = useFindAsset(chain)
+
+  const feeOptions: StdFee[] =
+    gas == null
+      ? []
+      : gasPrices.map(({ amount, denom }) =>
+          calculateFee(
+            Math.ceil(gas * DEFAULT_GAS_ADJUSTMENT),
+            GasPrice.fromString(amount + denom),
+          ),
+        )
+
+  const feeOptionsByDenom = new Map(
+    feeOptions.map((fee) => {
+      const [{ denom }] = fee.amount
+      return [denom, fee]
+    }),
+  )
+  const balancesByDenom = new Map(balances.map(({ denom, amount }) => [denom, amount]))
+  const sourceSpendAmount = srcAsset
+    ? (parseQuantity(quantity) ?? BigNumber(0))
+        .times(BigNumber(10).pow(srcAsset.decimals))
+        .toFixed(0)
+    : "0"
+  const feeDetailsByDenom = new Map(
+    feeOptions.map((fee) => {
+      const [{ amount, denom }] = fee.amount
+      const balance = balancesByDenom.get(denom) || "0"
+      const spendAmount = srcAsset && srcDenom === denom ? sourceSpendAmount : "0"
+      const totalRequired = BigNumber(amount || 0).plus(spendAmount)
+      const { symbol, decimals } = findAsset(denom)
+
+      return [
+        denom,
+        {
+          symbol,
+          decimals,
+          spend: BigNumber(spendAmount).gt(0) ? spendAmount : null,
+          fee: amount,
+          total: totalRequired.toFixed(),
+          balance,
+          isSufficient: BigNumber(balance).gte(totalRequired),
+        },
+      ]
+    }),
+  )
+  const [preferredFeeDenom, setPreferredFeeDenom] = useState<string | null>(null)
+  const loadingStateProps = {
+    isRouteTransitioning,
+    isFetchingMessages,
+    isEstimatingGas,
+    messageRefreshError,
+  }
+  const feeDenom = selectFeeDenom({
+    feeDetailsByDenom,
+    feeOptions,
+    lastUsedFeeDenom,
+    preferredFeeDenom,
+  })
+
+  const selectedFee = feeDenom ? feeOptionsByDenom.get(feeDenom) : undefined
+
+  const feeDetails = feeDenom ? feeDetailsByDenom.get(feeDenom) : null
+  const feeWarning = getTransferFeeWarning({
+    sourceDenom: srcDenom,
+    feeDetailsByDenom,
+  })
+  const hasSourceBalance = hasSufficientTransferBalance({
+    balance: balancesByDenom.get(srcDenom) || "0", // suspense boundary ensures balances are loaded; missing denom means zero
+    requiredAmount: sourceSpendAmount,
+  })
+  const footerStatus = getTransferFooterStatus({
+    feeDenom,
+    sourceDenom: srcDenom,
+    feeWarning,
+    hasSourceBalance,
+    isFeeBalanceSufficient: feeDetails?.isSufficient ?? true,
+  })
+  const footer = (
+    <BridgePreviewFooter
+      tx={tx}
+      fee={selectedFee}
+      onCompleted={onCompleted}
+      confirmMessage={confirmMessage}
+      error={footerStatus.error}
+      warning={footerStatus.warning}
+      {...loadingStateProps}
+    />
+  )
+
+  const getDp = (amount: string, decimals: number) => {
+    if (formatAmount(amount, { decimals }) === "0.000000") return 8
+    return undefined
+  }
+
+  const getFeeLabel = (fee: StdFee) => {
+    const [{ amount, denom }] = fee.amount
+    if (BigNumber(amount || 0).isZero()) return "0"
+    const { symbol, decimals } = findAsset(denom)
+    const dp = getDp(amount, decimals)
+    return `${formatAmount(amount, { decimals, dp })} ${symbol}`
+  }
+
+  const renderFee = () => {
+    if (feeOptions.length === 0) return null
+
+    if (feeOptions.length === 1) {
+      return <span className="monospace">{getFeeLabel(feeOptions[0])}</span>
+    }
+
+    if (!selectedFee || !feeDenom) return null
+
+    const dropdownOptions: DropdownOption<string>[] = feeOptions.map((option) => {
+      const [{ denom }] = option.amount
+      const { symbol } = findAsset(denom)
+
+      return {
+        value: denom,
+        label: getFeeLabel(option),
+        triggerLabel: symbol,
+      }
+    })
+
+    const [{ amount, denom }] = selectedFee.amount
+    const { decimals } = findAsset(denom)
+    const dp = getDp(amount, decimals)
+
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <span className="monospace">{formatAmount(amount, { decimals, dp })}</span>
+        <Dropdown
+          options={dropdownOptions}
+          value={feeDenom}
+          onChange={setPreferredFeeDenom}
+          classNames={styles}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <TransferTxDetails renderFee={feeOptions.length > 0 ? renderFee : undefined} />
+      {renderWithApprovalGate(tx, footer, loadingStateProps)}
+    </>
+  )
+}
+
+const TransferFooter = ({
+  tx,
+  gas,
+  messageRefreshError,
+  isRouteTransitioning,
+  isFetchingMessages,
+  isEstimatingGas,
+}: Props) => {
+  const { mode } = useTransferFlow()
+  const { setValue } = useTransferForm()
+  const loadingStateProps = {
+    isRouteTransitioning,
+    isFetchingMessages,
+    isEstimatingGas,
+    messageRefreshError,
+  }
+
+  const onCompleted = (result: BridgeTxResult) => {
+    setValue("page", "completed")
+    setValue("result", result)
+  }
+
+  const confirmMessage = mode === "withdraw" ? "Withdraw" : "Deposit"
+  const footer = (
+    <BridgePreviewFooter
+      tx={tx}
+      fee={undefined}
+      onCompleted={onCompleted}
+      confirmMessage={confirmMessage}
+      {...loadingStateProps}
+    />
+  )
+
+  if (!("cosmos_tx" in tx)) {
+    return (
+      <>
+        <TransferTxDetails />
+        {renderWithApprovalGate(tx, footer, loadingStateProps)}
+      </>
+    )
+  }
+
+  return (
+    <TransferFooterWithFee
+      tx={tx}
+      gas={gas}
+      onCompleted={onCompleted}
+      confirmMessage={confirmMessage}
+      {...loadingStateProps}
+    />
+  )
+}
+
+export default TransferFooter

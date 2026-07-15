@@ -3,9 +3,17 @@ import styles from "./Status.module.css"
 
 import type { PropsWithChildren } from "react"
 
-const Status = ({ error, children }: PropsWithChildren<{ error?: boolean }>) => {
+interface Props {
+  error?: boolean
+  className?: string
+}
+
+const Status = ({ error, className, children }: PropsWithChildren<Props>) => {
   return (
-    <p className={clsx(styles.status, { [styles.error]: error })} role={error ? "alert" : "status"}>
+    <p
+      className={clsx(styles.status, { [styles.error]: error }, className)}
+      role={error ? "alert" : "status"}
+    >
       {children}
     </p>
   )

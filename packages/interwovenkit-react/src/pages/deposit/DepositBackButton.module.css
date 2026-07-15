@@ -1,0 +1,17 @@
+/* Anchored to the modal popup via portal (or to the page surface on the
+ * first-render fallback); insets mirror the modal's close button
+ * (`Modal.module.css` `.closeButton`, top 16px / inset 20px) so the two sit
+ * level. The z-index matches the close button's so the pinned arrow paints
+ * above the content scrolling beneath it. */
+.back {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  z-index: calc(var(--z-index) + 2);
+
+  color: var(--gray-4);
+}
+
+.back:hover {
+  color: var(--gray-2);
+}

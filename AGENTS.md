@@ -31,7 +31,7 @@ packages/interwovenkit-react/src/
     wallet/            # Portfolio, NFTs, activity, send
     bridge/            # Cross-chain bridging (Skip.go integration)
     autosign/          # Auto-sign wallet derivation
-    deposit/           # L1 <-> L2 transfers (includes Withdraw.tsx)
+    deposit/           # Deposit hub: via wallet, via address, buy with cash (includes Withdraw.tsx)
     tx/                # Transaction signing modal
     connect/           # Wallet connection
     receive/           # Receive address QR
@@ -79,6 +79,8 @@ pnpm build:fast    # Fast build (skips rollup type bundling)
 1. External libraries (`react`, `@tanstack/react-query`, `bignumber.js`)
 2. Internal `@/` alias imports (`@/data/`, `@/components/`, `@/lib/`)
 3. Local relative imports (`./styles`, `./Component`)
+
+Path style: relative paths (`./`, `../`) only within the same feature directory (`pages/<feature>/`); use the `@/` alias for everything outside it, including cross-feature imports (`@/pages/bridge/data/chains`).
 
 ### Component Patterns
 
@@ -132,7 +134,7 @@ CSS Modules with CSS custom properties. Shadow DOM compatible (`:host` selectors
 
 - **Framework**: Vitest 4 with `globals: true`
 - **Location**: Co-located with source as `*.test.ts` across `data/`, `pages/`, `components/`, `lib/`
-- **Scope**: ~24 test files covering errors, signing, tx, portfolio, staking, liquidity, SSE parsing, autosign, bridge formatting, wallet activity, NFT queries, address utilities
+- **Scope**: errors, signing, tx, portfolio, staking, liquidity, SSE parsing, autosign, bridge formatting, wallet activity, NFT queries, address utilities, deposit methods
 - **Mocking**: `vi.mock()` for modules, `vi.mocked()` for typed assertions
 - **No component render tests** — tests cover pure logic and data functions only
 

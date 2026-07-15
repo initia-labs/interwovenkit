@@ -15,6 +15,11 @@
   left: 50%;
   z-index: calc(var(--z-index) + 1);
 
+  /* Flex column so .content is bounded by max-height and can shrink into a
+   * scroll region (block layout would let it overflow the cap unclipped). */
+  display: flex;
+  flex-direction: column;
+
   width: 400px;
 
   background-color: var(--gray-9);
@@ -24,8 +29,18 @@
   -webkit-font-smoothing: antialiased;
   letter-spacing: -0.01em;
   line-height: 1.5;
-  max-height: 90vh;
+  max-height: 90vh; /* fallback */
+  max-height: 90dvh;
   transform: translate(-50%, -50%);
+}
+
+/* Scroll region for content taller than the modal's height cap (e.g. the
+ * deposit flow on short mobile viewports). */
+.content {
+  border-radius: inherit;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 @media (max-width: 420px) {
