@@ -1,0 +1,179 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Pay + Receive grouped in a single card with a divider (no flip). */
+.card {
+  background-color: var(--gray-8);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fieldLabel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  color: var(--gray-2);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* The "on {chain}" part reads slightly brighter than the label. */
+.fieldLabelChain {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  color: var(--gray-1);
+}
+
+.fieldMain {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pill {
+  flex: none;
+
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  height: 42px;
+
+  background-color: var(--gray-7);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0 8px;
+
+  transition: background-color var(--transition) ease;
+}
+
+.pill:hover {
+  background-color: var(--gray-6);
+}
+
+.pillChevron {
+  flex: none;
+
+  color: var(--gray-4);
+}
+
+/* Pay input and Receive readout share one style: both numbers render
+   identically: Roboto Mono Bold 24px, filling the row (flex) and right-aligned. */
+.amount,
+.amountReadOnly {
+  flex: 1;
+
+  color: var(--gray-0);
+  font-family: var(--monospace);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.24px;
+  min-width: 0;
+
+  overflow-x: auto;
+  overflow-y: hidden;
+  text-align: right;
+}
+
+.amount {
+  /* Same height as the pill, so the row (and the gap to the divider) stays
+     the designed 42px on both the Pay and Receive sides. */
+  height: 42px;
+
+  background-color: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+}
+
+/* Placeholder color: the input's native placeholder, and the readout's zero state. */
+.amount::placeholder,
+.amountReadOnly.placeholder {
+  color: var(--gray-4);
+}
+
+.amount:focus {
+  outline: none;
+}
+
+.divider {
+  height: 1px;
+
+  background-color: var(--gray-7);
+  margin: 20px 0;
+}
+
+.coin {
+  flex: none;
+
+  background-color: var(--gray-8);
+  border: 1px solid var(--gray-5);
+  border-radius: 50%;
+}
+
+.chainLogo {
+  flex: none;
+
+  background-color: var(--gray-8);
+  border-radius: 50%;
+}
+
+/* Payment method field (full-width button opening the picker). */
+.sectionLabel {
+  color: var(--gray-2);
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.methodField {
+  justify-content: space-between;
+
+  composes: field from "../SelectField.module.css";
+
+  transition: background-color var(--transition) ease;
+}
+
+.methodField:hover {
+  background-color: var(--gray-7);
+}
+
+.methodLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Provider pill inside the details rows. */
+.providerPill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  background-color: var(--gray-7);
+  border-radius: 6px;
+  color: var(--gray-2);
+  font-family: var(--monospace);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 8px;
+
+  transition: background-color var(--transition) ease;
+}
+
+.providerPill:hover {
+  background-color: var(--gray-6);
+}

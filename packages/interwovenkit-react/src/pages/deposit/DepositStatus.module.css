@@ -1,0 +1,16 @@
+/* Element-qualified so these outrank the shared `.status`/`.error` declarations
+   regardless of CSS module injection order (class-only selectors would tie on
+   specificity and depend on import order). */
+p.status {
+  font-size: 12px;
+  font-weight: 500;
+  overflow-wrap: break-word;
+  /* The shared class breaks anywhere (`break-all`) for hash-like strings, but
+     deposit statuses are prose — wrap whole words, splitting one only when it
+     alone overflows the line. */
+  word-break: normal;
+}
+
+p.contrast {
+  color: var(--gray-0);
+}

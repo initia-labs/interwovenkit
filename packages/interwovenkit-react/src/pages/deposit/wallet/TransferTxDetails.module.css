@@ -1,0 +1,17 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  color: var(--gray-3);
+
+  padding-top: 24px;
+}
+
+.token {
+  width: 14px;
+  height: 14px;
+
+  border: 1px solid var(--border);
+  border-radius: 50%;
+}

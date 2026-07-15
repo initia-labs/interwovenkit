@@ -1,0 +1,34 @@
+.container {
+  min-height: 228px;
+}
+
+.emptyIcon {
+  width: 158px;
+
+  margin: 0 auto;
+}
+
+.empty {
+  color: var(--gray-3);
+  font-size: 12px;
+  font-weight: 500;
+  margin: 0 auto;
+  max-width: 240px;
+  text-align: center;
+}
+
+.emptyDescription {
+  color: var(--gray-3);
+  font-size: 12px;
+  font-weight: 500;
+  margin: 8px auto 0;
+  max-width: 280px;
+  text-align: center;
+}
+
+/* Keeps the loading skeleton from collapsing the page height. The max-height
+ * differs from DepositSubpage.List's default and is passed inline where the
+ * list is rendered. */
+.list {
+  min-height: 160px;
+}
