@@ -63,7 +63,7 @@ export function findDestinationNetwork(
   chainId: string,
   denom: string,
 ): DestinationNetwork | undefined {
-  // host vs Skip casing, see normalizeDenom
+  // host vs Deposit API `config/assets` casing — see normalizeDenom
   return route.dst_networks.find(
     (network) =>
       network.chain_id === chainId && normalizeDenom(network.denom) === normalizeDenom(denom),

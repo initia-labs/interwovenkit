@@ -1,4 +1,7 @@
 .placeholder {
+  /* The placeholder is a <span>; width/height from props need a box. */
+  display: inline-block;
+
   background-color: var(--gray-6);
 }
 

@@ -1,6 +1,6 @@
 import type { KyInstance } from "ky"
 import { describe, expect, it } from "vitest"
-import { createDepositAssetsQueryOptions, parseAssets } from "./assets"
+import { createDepositAssetsQueryOptions, parseAssets, routeFeedsDestination } from "./assets"
 import type { Asset, DestinationNetwork } from "./types"
 
 const route = (min_deposit_amount: string): Asset => ({
@@ -125,5 +125,58 @@ describe("createDepositAssetsQueryOptions", () => {
     it("stops polling once the fetch budget is spent", () => {
       expect(getRefetchInterval(missingEstimate, 7)).toBe(false)
     })
+  })
+})
+
+describe("routeFeedsDestination", () => {
+  const asset = { ...route("1"), dst_networks: [network(60)] }
+
+  it("matches a supported destination network", () => {
+    expect(routeFeedsDestination(asset, "interwoven-1", "uusdc")).toBe(true)
+  })
+
+  it("matches denoms case-insensitively for EVM (0x) denoms only", () => {
+    const evm = {
+      ...route("1"),
+      dst_networks: [{ ...network(60), denom: "0xAbCd", vm_type: "evm" }],
+    }
+    expect(routeFeedsDestination(evm, "interwoven-1", "0xABCD")).toBe(true)
+    expect(routeFeedsDestination(asset, "interwoven-1", "UUSDC")).toBe(false)
+  })
+
+  it("does not match a different chain or denom", () => {
+    expect(routeFeedsDestination(asset, "yominet-1", "uusdc")).toBe(false)
+    expect(routeFeedsDestination(asset, "interwoven-1", "uinit")).toBe(false)
+  })
+
+  it("matches when any one of several networks feeds the destination", () => {
+    const multi = {
+      ...route("1"),
+      dst_networks: [{ ...network(60), chain_id: "yominet-1" }, network(60)],
+    }
+    expect(routeFeedsDestination(multi, "interwoven-1", "uusdc")).toBe(true)
+  })
+
+  // The vm_type gate must hold per network inside the `some` predicate: a
+  // supported network elsewhere on the same asset must not open a destination
+  // whose own network is unsupported.
+  it("gates vm_type on the matching network, not the asset as a whole", () => {
+    const mixed = {
+      ...route("1"),
+      dst_networks: [
+        network(60),
+        { ...network(60), chain_id: "yominet-1", vm_type: "not_supported" },
+      ],
+    }
+    expect(routeFeedsDestination(mixed, "yominet-1", "uusdc")).toBe(false)
+  })
+
+  // A destination this client can't receive on must not enable the
+  // address/onramp methods, even when the host presets it.
+  it("fails closed on unsupported or unknown vm_type", () => {
+    for (const vm_type of ["not_supported", "svm", ""]) {
+      const unknown = { ...route("1"), dst_networks: [{ ...network(60), vm_type }] }
+      expect(routeFeedsDestination(unknown, "interwoven-1", "uusdc")).toBe(false)
+    }
   })
 })

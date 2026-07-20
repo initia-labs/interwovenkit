@@ -60,7 +60,7 @@ const SyncReceiveSymbol = () => {
   const receiveSymbol = watch("receiveSymbol")
   const receiveDenom = watch("receiveDenom")
   const receiveChainId = watch("receiveChainId")
-  const { data: options, error } = useLocalAssetOptions()
+  const { data: options, isLoading, error } = useLocalAssetOptions()
   const resolvedSymbol = options.find(
     ({ denom, chain_id }) => denom === receiveDenom && chain_id === receiveChainId,
   )?.symbol
@@ -70,10 +70,14 @@ const SyncReceiveSymbol = () => {
     setValue("receiveSymbol", resolvedSymbol)
   }, [receiveSymbol, resolvedSymbol, setValue])
 
-  // A preset asset whose symbol can never resolve (metadata query failed, cache
-  // couldn't fill in) would leave downstream screens showing a blank name —
-  // throw to the modal's AsyncBoundary (message + retry) instead.
-  if (error && receiveDenom && !receiveSymbol && !resolvedSymbol) throw error
+  // A preset asset whose symbol can never resolve — the metadata query failed,
+  // or it settled without listing the host-passed denom — would leave
+  // downstream screens showing a blank name. Throw to the modal's AsyncBoundary
+  // (message + retry) instead.
+  if (receiveDenom && !receiveSymbol && !resolvedSymbol && !isLoading) {
+    if (error) throw error
+    throw new Error(`Asset metadata not found for ${receiveDenom} on ${receiveChainId}`)
+  }
 
   return null
 }

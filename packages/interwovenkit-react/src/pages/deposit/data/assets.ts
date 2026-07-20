@@ -7,7 +7,7 @@ import { normalizeError, STALE_TIMES } from "@/data/http"
 import { depositQueryKeys, useDepositApi } from "./api"
 import { normalizeDenom } from "./assetOptions"
 import { findDestinationNetwork } from "./source"
-import type { Asset, ListAssetsResponse } from "./types"
+import { type Asset, isSupportedVmType, type ListAssetsResponse } from "./types"
 
 // Missing `processing_time_seconds` is usually transient: a cold backend cache
 // responds without it while refreshing the router estimate in the background.
@@ -197,7 +197,7 @@ export function useReceiveAssets(): ReceiveAssets {
 
     const chainAssets: ReceiveAsset[] = data.flatMap((asset) =>
       asset.dst_networks
-        .filter((network) => network.vm_type !== "not_supported")
+        .filter((network) => isSupportedVmType(network.vm_type))
         .map((network) => {
           const chain = findChain(network.chain_id)
           return {
@@ -237,6 +237,22 @@ export function useSourceRoute(srcChainId: string, srcDenom: string): Asset | un
 }
 
 /**
+ * Whether a route feeds the destination (chain, denom) on a network this
+ * client can receive on. An unknown `vm_type` fails closed here as well as in
+ * the receive picker (see SUPPORTED_VM_TYPES): a host-preset destination the
+ * picker never showed must not enable the address/onramp methods either.
+ */
+export function routeFeedsDestination(asset: Asset, chainId: string, assetDenom: string): boolean {
+  return asset.dst_networks.some(
+    (network) =>
+      network.chain_id === chainId &&
+      // host vs Deposit API `config/assets` casing — see normalizeDenom
+      normalizeDenom(network.denom) === normalizeDenom(assetDenom) &&
+      isSupportedVmType(network.vm_type),
+  )
+}
+
+/**
  * The supported source routes that feed a destination (chain, denom). A single
  * destination can be fed by more than one source asset; each carries its own
  * `min_deposit_amount` (in that source's denom units).
@@ -244,15 +260,7 @@ export function useSourceRoute(srcChainId: string, srcDenom: string): Asset | un
 export function useDepositRoutes(chainId: string, assetDenom: string): Asset[] {
   const { data } = useDepositAssetsQuery()
   return useMemo(
-    () =>
-      // host vs Skip casing — see normalizeDenom
-      data.filter((asset) =>
-        asset.dst_networks.some(
-          (network) =>
-            network.chain_id === chainId &&
-            normalizeDenom(network.denom) === normalizeDenom(assetDenom),
-        ),
-      ),
+    () => data.filter((asset) => routeFeedsDestination(asset, chainId, assetDenom)),
     [data, chainId, assetDenom],
   )
 }

@@ -264,8 +264,6 @@ interface QuotesParams {
   /** Fiat amount to spend, as a user-typed string. */
   amount: string
   paymentMethod: string
-  /** Delivery address (the deposit address); optional for price-only quotes. */
-  walletAddress?: string
 }
 
 // Quotes are live prices; refresh on a short interval so the picker does not go
@@ -273,27 +271,22 @@ interface QuotesParams {
 const QUOTE_STALE_TIME = STALE_TIMES.SECOND * 30
 
 /**
- * GET /quotes/{fiat}/{crypto}. One entry per provider, plus error-only
- * entries that `rankQuotes` drops. Not debounced: fast typing can accumulate
+ * GET /quotes/{fiat}/{crypto}, always price-only (no walletAddress): delivery
+ * goes through the Deposit API checkout, which derives the address itself. A
+ * walletAddress param here would need to join the query key to avoid colliding
+ * with price-only cache entries. Not debounced: fast typing can accumulate
  * calls and hit Onramper's rate limit (a follow-up improvement).
  *
  * @see https://docs.onramper.com/reference/get_quotes-fiat-crypto.md (Get Buy Quotes)
  */
-export function useOnramperQuotes({
-  fiat,
-  crypto,
-  amount,
-  paymentMethod,
-  walletAddress,
-}: QuotesParams) {
+export function useOnramperQuotes({ fiat, crypto, amount, paymentMethod }: QuotesParams) {
   const onramperEnabled = useOnramperEnabled()
   const api = useOnramper()
   return useQuery({
     queryKey: depositQueryKeys.onramperQuotes(fiat, crypto, amount, paymentMethod).queryKey,
     queryFn: async (): Promise<OnramperQuote[]> => {
       try {
-        const searchParams: Record<string, string> = { type: "buy", amount, paymentMethod }
-        if (walletAddress) searchParams.walletAddress = walletAddress
+        const searchParams = { type: "buy", amount, paymentMethod }
         const quotes = await api
           .get(`quotes/${fiat}/${crypto}`, { searchParams })
           .json<OnramperQuote[]>()

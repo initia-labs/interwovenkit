@@ -4,7 +4,17 @@
 // Router-style strings: EVM sources are numeric ("1" = Ethereum), Initia L1 is
 // "interwoven-1", rollups are "yominet-1", "civitia-1", etc.
 
-export type VmType = "move" | "evm" | "wasm" | "not_supported"
+// VM types this client can receive on. Like `bucket`, the wire field is an open
+// set (`string`): the server can add values ("not_supported" already exists,
+// new VMs can follow), so the receive filter allowlists this set and an unknown
+// value fails closed (network hidden) instead of rendering as supported.
+export const SUPPORTED_VM_TYPES = ["move", "evm", "wasm"] as const
+
+export type VmType = (typeof SUPPORTED_VM_TYPES)[number]
+
+export function isSupportedVmType(vmType: string): vmType is VmType {
+  return (SUPPORTED_VM_TYPES as readonly string[]).includes(vmType)
+}
 
 /** One destination network a logical asset can be received on. */
 export interface DestinationNetwork {
@@ -13,7 +23,8 @@ export interface DestinationNetwork {
   denom: string
   /** Decimals for this network (e.g. iUSD is 6 on move, 18 on EVM). */
   decimals: number
-  vm_type: VmType
+  /** Open wire set; see SUPPORTED_VM_TYPES. */
+  vm_type: string
   /**
    * Best-effort processing estimate (route min amount → this network) in
    * seconds. Omitted when the backend has no cached router estimate, so treat

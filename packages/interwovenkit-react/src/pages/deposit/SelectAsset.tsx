@@ -29,12 +29,16 @@ const SelectAsset = () => {
     throw new Error("openDeposit requires at least one denom")
   }
 
-  // The metadata lookup is best-effort with a registry-cache fallback; when
-  // both fail, the list would render unlabeled buttons forever. Show loading
-  // while it resolves, throw to the modal's AsyncBoundary when it never will.
-  const hasUnresolvedSymbols = options.some(({ symbol }) => !symbol)
-  if (error && hasUnresolvedSymbols) throw error
-  if (isLoading && hasUnresolvedSymbols) return <DepositStatus>Loading...</DepositStatus>
+  // The metadata lookup is best-effort with a registry-cache fallback; when it
+  // fails — or settles without listing a host-passed denom — the list would
+  // render unlabeled buttons forever. Show loading while it resolves, throw to
+  // the modal's AsyncBoundary when it never will.
+  const unresolved = options.filter(({ symbol }) => !symbol)
+  if (unresolved.length) {
+    if (error) throw error
+    if (isLoading) return <DepositStatus>Loading...</DepositStatus>
+    throw new Error(`Asset metadata not found for ${unresolved.map(({ denom }) => denom).join(", ")}`)
+  }
 
   return (
     <DepositSubpage title="Select an asset to receive">

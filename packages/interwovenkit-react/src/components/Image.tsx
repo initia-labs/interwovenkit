@@ -14,8 +14,10 @@ const Image = ({ src, alt, placeholder, classNames, style, logo, ...attrs }: Pro
   const [errorSrc, setErrorSrc] = useState<string | undefined>(undefined)
   const { width, height } = attrs
 
+  // <span>, not <div>: the placeholder must be valid wherever an <img> is,
+  // including phrasing contexts like <p> (a <div> there is invalid HTML).
   const unloader = placeholder ?? (
-    <div
+    <span
       className={clsx(styles.placeholder, classNames?.placeholder)}
       style={{ width, height, ...style }}
       aria-hidden="true"

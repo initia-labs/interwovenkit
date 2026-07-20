@@ -212,10 +212,10 @@ const OnrampProcessingBody = () => {
     return () => clearTimeout(timer)
   }, [ready])
 
-  // Surface a checkout failure to the local AsyncBoundary (see OnrampProcessing
-  // below) instead of silently advancing.
   const fiatDisplayCode = useFiatDisplayCode(fiatId)
 
+  // Surface a checkout failure to the local AsyncBoundary (see OnrampProcessing
+  // below) instead of silently advancing.
   if (checkoutError) throw checkoutError
 
   return (
