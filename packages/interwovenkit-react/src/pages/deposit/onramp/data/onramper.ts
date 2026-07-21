@@ -274,8 +274,9 @@ const QUOTE_STALE_TIME = STALE_TIMES.SECOND * 30
  * GET /quotes/{fiat}/{crypto}, always price-only (no walletAddress): delivery
  * goes through the Deposit API checkout, which derives the address itself. A
  * walletAddress param here would need to join the query key to avoid colliding
- * with price-only cache entries. Not debounced: fast typing can accumulate
- * calls and hit Onramper's rate limit (a follow-up improvement).
+ * with price-only cache entries. `amount` joins the query key and `/quotes`
+ * fans out to every provider on Onramper's side, so callers must debounce a
+ * typed amount (useOnrampQuote does) or risk Onramper's rate limit.
  *
  * @see https://docs.onramper.com/reference/get_quotes-fiat-crypto.md (Get Buy Quotes)
  */
@@ -284,11 +285,11 @@ export function useOnramperQuotes({ fiat, crypto, amount, paymentMethod }: Quote
   const api = useOnramper()
   return useQuery({
     queryKey: depositQueryKeys.onramperQuotes(fiat, crypto, amount, paymentMethod).queryKey,
-    queryFn: async (): Promise<OnramperQuote[]> => {
+    queryFn: async ({ signal }): Promise<OnramperQuote[]> => {
       try {
         const searchParams = { type: "buy", amount, paymentMethod }
         const quotes = await api
-          .get(`quotes/${fiat}/${crypto}`, { searchParams })
+          .get(`quotes/${fiat}/${crypto}`, { searchParams, signal })
           .json<OnramperQuote[]>()
         logSuppressedQuoteErrors(quotes)
         return quotes

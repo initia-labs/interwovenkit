@@ -1,4 +1,5 @@
 import { useWatch } from "react-hook-form"
+import { useDebounceValue } from "usehooks-ts"
 import { formatNumber } from "@initia/utils"
 import { formatSourceMin } from "../data/source"
 import type { Asset } from "../data/types"
@@ -177,7 +178,7 @@ export function useOnrampQuote(): OnrampQuote {
 
   // Pre-quote validation: an amount outside the selected payment type's
   // aggregated fiat bounds is known to fail, so it never reaches `/quotes`
-  // (fewer wasted calls against the undebounced hook, instant feedback).
+  // (instant feedback, no wasted call).
   const fiatEntry = useOnramperFiat(fiatId)
   const paymentTypes = useOnramperPaymentTypes(fiatId, sourceCrypto?.id ?? "")
   const aggregatedLimit = findAggregatedLimit(paymentTypes.data ?? [], paymentMethodId)
@@ -191,10 +192,25 @@ export function useOnrampQuote(): OnrampQuote {
     paymentMethodName,
   )
 
+  // Only the quotes query sees the debounced amount (it joins the query key —
+  // see useOnramperQuotes); display and validation stay on the typed value.
+  // Trade-off: for one debounce interval after an edit, the previous amount's
+  // quote stays shown and submittable (as in the bridge form); the processing
+  // screen re-quotes the final amount, so such a submit self-heals.
+  const [debouncedFiatAmount] = useDebounceValue(fiatAmount, 300)
+  // Re-derived from the debounced amount: the typed-value `limitError` clears
+  // before the debounced amount catches up, leaking an out-of-range request.
+  const debouncedLimitError = fiatLimitError(
+    debouncedFiatAmount,
+    aggregatedLimit,
+    fiatEntry?.symbol ?? "",
+    paymentMethodName,
+  )
+
   const quotesQuery = useOnramperQuotes({
     fiat: fiatId,
     crypto: sourceCrypto?.id ?? "",
-    amount: limitError ? "" : fiatAmount,
+    amount: debouncedLimitError ? "" : debouncedFiatAmount,
     paymentMethod: paymentMethodId,
   })
 
