@@ -35,6 +35,86 @@
   max-width: 280px;
 }
 
+/* Deposit (forwarding) address block. Left-aligned inside the centered body:
+   the address and its caption read as a document row, not a status line. */
+.addressSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  width: 100%;
+
+  /* With the body's 12px gap this yields the designed 28px separation from
+     the flow chips. */
+  margin-top: 16px;
+  text-align: left;
+}
+
+.addressHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  color: var(--gray-2);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.addressChain {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.addressChainLogo {
+  flex: none;
+
+  border-radius: 50%;
+}
+
+.addressField {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+
+  width: 100%;
+
+  background-color: var(--gray-8);
+  border-radius: 8px;
+  color: var(--gray-0);
+  padding: 8px;
+  text-align: left;
+
+  transition: background-color var(--transition) ease;
+
+  &:hover {
+    background-color: var(--gray-7);
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+}
+
+.addressValue {
+  font-family: var(--monospace);
+  font-size: 12px;
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.addressCaption {
+  color: var(--gray-2);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.addressOwner {
+  color: var(--gray-0);
+}
+
 /* Popup-blocked fallback link, styled after Button.Outline (sm). An anchor
    rather than a button: the hand-off is a navigation to the provider's page. */
 .continueLink {

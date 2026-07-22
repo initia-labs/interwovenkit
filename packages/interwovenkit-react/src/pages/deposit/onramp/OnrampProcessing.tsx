@@ -1,14 +1,19 @@
 import { useEffect, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
+import { IconCheck, IconCopy } from "@initia/icons-react"
+import { truncate } from "@initia/utils"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import Button from "@/components/Button"
+import CopyButton from "@/components/CopyButton"
 import Footer from "@/components/Footer"
+import Image from "@/components/Image"
 import { useSkipChains } from "@/pages/bridge/data/chains"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { depositQueryKeys } from "../data/api"
 import { useProcessingTime, useReceiveAsset } from "../data/assets"
 import { useFreshDepositAddress } from "../data/depositAddress"
 import { useNewDeposits } from "../data/deposits"
+import { fallbackChainName } from "../data/source"
 import { useSourceAssetLookup } from "../data/sourceAssets"
 import { useDepositForm, useDepositNavigate } from "../context"
 import DepositStatus from "../DepositStatus"
@@ -101,9 +106,12 @@ const OnrampProcessingBody = () => {
     ? lookup.logoUrl(sourceRoute.route.src_chain_id, sourceRoute.route.src_denom)
     : ""
   const skipChains = useSkipChains()
-  const buyChainLogoUrl = sourceRoute
-    ? (skipChains.find((chain) => chain.chain_id === sourceRoute.route.src_chain_id)?.logo_uri ??
-      "")
+  const buyChain = sourceRoute
+    ? skipChains.find((chain) => chain.chain_id === sourceRoute.route.src_chain_id)
+    : undefined
+  const buyChainLogoUrl = buyChain?.logo_uri ?? ""
+  const buyChainName = sourceRoute
+    ? (buyChain?.pretty_name ?? fallbackChainName(sourceRoute.route.src_chain_id))
     : ""
   const ramp = quote.status === "quoted" ? quote.selected.ramp : ""
   const sourceCryptoId = sourceCrypto?.id ?? ""
@@ -191,10 +199,8 @@ const OnrampProcessingBody = () => {
     assetDenom: receiveDenom,
   })
   const { data: addressData, isError: isAddressError, refetch: refetchAddress } = addressQuery
-  const detection = useNewDeposits({
-    depositAddress: addressData?.deposit_address ?? "",
-    after: freshCursor,
-  })
+  const depositAddress = addressData?.deposit_address ?? ""
+  const detection = useNewDeposits({ depositAddress, after: freshCursor })
   const shouldAdvance = !!detection.data?.length
   useEffect(() => {
     if (shouldAdvance) navigate("track")
@@ -301,6 +307,58 @@ const OnrampProcessingBody = () => {
             },
           ]}
         />
+
+        {/* The deposit (forwarding) address the provider pays out to, labeled
+            as such so it isn't mistaken for the user's wallet — shown here so
+            the user can cross-check it against the address on the provider's
+            payment page. The chain is the source network the provider sends
+            on (the Buy chip's), not the destination. */}
+        {depositAddress && (
+          <div className={styles.addressSection}>
+            <div className={styles.addressHeader}>
+              <span>Deposit address</span>
+              {buyChainName && (
+                <span className={styles.addressChain}>
+                  <Image
+                    src={buyChainLogoUrl}
+                    width={16}
+                    height={16}
+                    className={styles.addressChainLogo}
+                    classNames={{ placeholder: styles.addressChainLogo }}
+                  />
+                  {buyChainName}
+                </span>
+              )}
+            </div>
+
+            <CopyButton value={depositAddress}>
+              {({ copy, copied }) => (
+                <button
+                  type="button"
+                  className={styles.addressField}
+                  onClick={copy}
+                  aria-label={copied ? "Copied" : "Copy deposit address"}
+                >
+                  <span className={styles.addressValue}>{depositAddress}</span>
+                  {copied ? (
+                    <IconCheck size={12} aria-hidden="true" />
+                  ) : (
+                    <IconCopy size={12} aria-hidden="true" />
+                  )}
+                </button>
+              )}
+            </CopyButton>
+
+            {displayRamp && buySymbol && (
+              <p className={styles.addressCaption}>
+                {getOnrampDisplayName(onramps, displayRamp)} sends {buySymbol} here, then to{" "}
+                <span className={styles.addressOwner}>your wallet ({truncate(walletAddress)})</span>
+                . This should match the address on {getOnrampDisplayName(onramps, displayRamp)}
+                &apos;s page.
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </DepositSubpage>
   )
