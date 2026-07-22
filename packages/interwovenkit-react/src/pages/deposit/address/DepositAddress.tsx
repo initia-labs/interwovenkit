@@ -230,14 +230,6 @@ const DepositAddress = () => {
                 </CopyButton>
               </div>
 
-              {/* Explicit resume entry for an in-flight transfer from an
-                  earlier session; see the useActiveDeposits comment above. */}
-              {hasTransferInProgress && (
-                <button type="button" className={styles.resume} onClick={() => navigate("track")}>
-                  View the transfer detected at this address
-                </button>
-              )}
-
               {/* Auto-advance and the resume link both rely on the polling
                   above; when it fails the user would otherwise stare at a
                   static QR with no feedback after sending. The transfer itself
@@ -251,6 +243,14 @@ const DepositAddress = () => {
             </>
           )}
         </div>
+
+        {/* Explicit resume entry for an in-flight transfer from an earlier
+            session; see the useActiveDeposits comment above. */}
+        {!hardError && hasTransferInProgress && (
+          <button type="button" className={styles.resume} onClick={() => navigate("track")}>
+            View the transfer detected at this address
+          </button>
+        )}
 
         {/* No price impact or slippage control: the address is reusable and
           accepts any amount, so neither an input amount nor a user-chosen

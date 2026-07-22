@@ -173,21 +173,27 @@
   }
 }
 
-/* Resume link for an in-flight transfer from an earlier session. Text-styled
-   but padded to a comfortable hit target; underlined so it reads as a link
-   rather than a status line. */
+/* Resume link for an in-flight transfer from an earlier session. The pseudo
+   element expands the hit target without changing the design's text spacing. */
 .resume {
-  color: var(--gray-1);
+  position: relative;
+
+  color: var(--gray-0);
   font-size: 12px;
   font-weight: 500;
-  padding: 6px;
   text-decoration: underline;
-  text-underline-offset: 3px;
 
   transition: color var(--transition) ease;
 
+  &::before {
+    position: absolute;
+    inset: -12px -8px;
+
+    content: "";
+  }
+
   &:hover {
-    color: var(--gray-0);
+    color: var(--gray-1);
   }
 }
 
