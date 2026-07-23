@@ -33,18 +33,23 @@ import { useOnrampQuote } from "./quote"
 import styles from "./OnrampProcessing.module.css"
 
 // Hand off to the provider's hosted payment/KYC page in a new tab so the widget
-// stays mounted and can advance to the tracking screen; returns whether the tab
-// opened. Running after async work, the open isn't always a user gesture and may
-// be popup-blocked — the fallback is a rendered continue link, never a
-// current-tab navigation (which unmounts the widget with its form state and its
-// route back to this purchase's tracking).
-function openCheckoutTab(url: string): boolean {
-  const tab = window.open(url, "_blank")
-  // Sever the reverse handle: with `opener` intact the third-party page could
-  // script this tab (reverse tabnabbing). Assigning after open preserves the
-  // popup-blocked detection that a "noopener" feature string would break (null).
-  if (tab) tab.opener = null
-  return !!tab
+// stays mounted and can advance to the tracking screen — never a current-tab
+// navigation (which unmounts the widget with its form state and its route back
+// to this purchase's tracking). A programmatic anchor click instead of
+// window.open, whose "noreferrer" feature string is not reliable across
+// browsers: `rel="noreferrer"` strips the Referer header, which some
+// providers' WAFs 403 when it carries an unregistered dApp origin (Guardarian),
+// and `noopener` blocks reverse tabnabbing. The click reports nothing, so a
+// blocked popup is undetectable — recovery is the always-rendered continue
+// link below, which covers every failure mode of this auto-open.
+function openCheckoutTab(url: string) {
+  const anchor = document.createElement("a")
+  anchor.href = url
+  anchor.target = "_blank"
+  anchor.rel = "noopener noreferrer"
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
 }
 
 // crypto.randomUUID is secure-context-only, but host dApps can run on plain-HTTP
@@ -68,7 +73,7 @@ const READY_TIMEOUT = 5000
  * Processing screen: provider hand-off prompt + flow chips. On entry it runs the
  * cash checkout once (`POST /v1/onramper/checkout` signs the deposit address and
  * creates the Onramper checkout server-side), opens the returned payment/KYC url
- * in a new tab (manual continue link on popup block), then stays up polling for
+ * in a new tab (with an always-rendered continue link), then stays up polling for
  * the purchased funds at the deposit address — advancing to the tracking screen
  * once a deposit is detected, the same detection DepositAddress uses. Provider
  * and assets come from the live quote.
@@ -128,12 +133,9 @@ const OnrampProcessingBody = () => {
   // re-renders can swallow the observer's error notification (stuck on
   // "Processing…"). A setState from the awaited mutation always re-renders.
   const [checkoutError, setCheckoutError] = useState<Error | null>(null)
-  // The created checkout's payment url, plus whether the automatic new-tab open
-  // was blocked (see openCheckoutTab) — while blocked, a manual continue link
-  // renders.
-  const [handoff, setHandoff] = useState<{ url: string; blocked: boolean; ramp: string } | null>(
-    null,
-  )
+  // The created checkout's payment url; while set, the manual continue link
+  // renders (the auto-open in openCheckoutTab can fail undetectably).
+  const [handoff, setHandoff] = useState<{ url: string; ramp: string } | null>(null)
   // Once the checkout exists, name the provider it was created with
   // (`handoff.ramp`), not the live quote's: the quote refetches every 30s and can
   // rank a different provider best, but the heading must match `handoff.url`.
@@ -162,7 +164,8 @@ const OnrampProcessingBody = () => {
           paymentMethod: paymentMethodId,
           uuid,
         })
-        setHandoff({ url: info.url, blocked: !openCheckoutTab(info.url), ramp })
+        openCheckoutTab(info.url)
+        setHandoff({ url: info.url, ramp })
       } catch (caught) {
         setCheckoutError(caught instanceof Error ? caught : new Error(String(caught)))
       }
@@ -234,18 +237,24 @@ const OnrampProcessingBody = () => {
           {displayRamp ? getOnrampDisplayName(onramps, displayRamp) : "your provider"}
         </p>
 
-        {/* Popup-blocked fallback: hand-off completes from this link's own user
-            gesture; stays rendered afterwards to reopen the payment page. */}
-        {handoff?.blocked && (
-          <a
-            className={styles.continueLink}
-            href={handoff.url}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Continue with{" "}
-            {displayRamp ? getOnrampDisplayName(onramps, displayRamp) : "your provider"}
-          </a>
+        {/* Always rendered once the checkout exists: the auto-open's failures
+            (popup blockers, browser/host quirks) are not all detectable, so
+            this link is the one guaranteed way forward — its own user gesture
+            sends no Referer and can't be popup-blocked. Stays rendered to
+            reopen the payment page. */}
+        {handoff && (
+          <p className={styles.redirectFallback}>
+            If you weren&apos;t redirected automatically,{" "}
+            <a
+              className={styles.continueLink}
+              href={handoff.url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              continue with{" "}
+              {displayRamp ? getOnrampDisplayName(onramps, displayRamp) : "your provider"}
+            </a>
+          </p>
         )}
 
         {/* Bridge-side estimate from the Deposit API's config/assets (same value

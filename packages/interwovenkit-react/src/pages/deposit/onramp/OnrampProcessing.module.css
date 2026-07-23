@@ -115,29 +115,31 @@
   color: var(--gray-0);
 }
 
-/* Popup-blocked fallback link, styled after Button.Outline (sm). An anchor
-   rather than a button: the hand-off is a navigation to the provider's page. */
+/* Always-visible redirect fallback: a conditional sentence with the hand-off
+   link inline, subdued so successfully redirected users skim past it. An
+   anchor rather than a button: the hand-off is a navigation to the provider's
+   page. */
+.redirectFallback {
+  color: var(--gray-3);
+  font-size: 13px;
+  font-weight: 500;
+}
+
 .continueLink {
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
+  /* Expand the inline link's hit area toward the 24px minimum without
+     shifting the surrounding line box. */
+  display: inline-block;
 
-  height: 44px;
-
-  border: 1px solid var(--gray-0);
-  border-radius: 8px;
   color: var(--gray-0);
-  font-size: 14px;
   font-weight: 600;
-  padding: 0 20px;
-  text-decoration: none;
+  margin: -6px -2px;
+  padding: 6px 2px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 
-  transition:
-    border-color var(--transition) ease,
-    color var(--transition) ease;
+  transition: color var(--transition) ease;
 
   &:hover {
-    border-color: var(--gray-1);
     color: var(--gray-1);
   }
 }

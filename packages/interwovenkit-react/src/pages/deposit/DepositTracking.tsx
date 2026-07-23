@@ -258,9 +258,11 @@ const DepositTracking = () => {
           <>
             <IconCloseCircleFilled size={48} className={styles.failIcon} aria-hidden="true" />
             <p className={styles.heading}>Deposit failed</p>
+            {/* No support channel exists in the widget or config, so the copy
+                must not point at one. */}
             <DepositStatus error>
               This deposit could not be completed. Your funds remain at the deposit address with no
-              automatic refund. Please contact support to recover them.
+              automatic refund.
             </DepositStatus>
             <ExplorerLinks explorerUrl={explorerUrl} />
           </>
@@ -272,8 +274,7 @@ const DepositTracking = () => {
             <p className={styles.heading}>Amount below minimum</p>
             <DepositStatus error>
               {minLabel ? `Deposits below ${minLabel} can't be processed. ` : ""}
-              Your funds remain at the deposit address with no automatic refund. Please contact
-              support.
+              Your funds remain at the deposit address with no automatic refund.
             </DepositStatus>
           </>
         )
