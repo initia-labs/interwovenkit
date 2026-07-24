@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.10.1](https://github.com/initia-labs/interwovenkit/compare/v2.10.0...v2.10.1) (2026-07-24)
+
+
+### Bug Fixes
+
+* **deposit:** skip asset picker for single option ([73d6fa4](https://github.com/initia-labs/interwovenkit/commit/73d6fa495747f6cf0996dcf02dffdf5e7536a9d3))
+* **portfolio:** keep query arrays reference-stable ([c222961](https://github.com/initia-labs/interwovenkit/commit/c2229611d1c8536241f3748e6805974b59f6580a))
+* **send:** pin iUSD after INIT in asset picker ([95f88e3](https://github.com/initia-labs/interwovenkit/commit/95f88e3370024e0f6c12b1a022c38f6b88ff4099))
+
 ## [2.10.0](https://github.com/initia-labs/interwovenkit/compare/v2.9.1...v2.10.0) (2026-06-25)
 
 
