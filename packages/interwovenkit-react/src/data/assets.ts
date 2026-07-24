@@ -76,6 +76,10 @@ export function useAllChainsAssetsQueries() {
   const createAssetsQuery = useCreateAssetsQuery()
   return useQueries({
     queries: chains.map((chain) => createAssetsQuery(chain)),
+    // `combine` keeps this array reference-stable across renders — plain
+    // `useQueries` returns a brand-new array every render otherwise.
+    combine: (results) =>
+      results.map(({ data, isLoading, refetch }) => ({ data, isLoading, refetch })),
   })
 }
 
