@@ -33,3 +33,7 @@
   display: grid;
   gap: 10px;
 }
+
+.loadMore {
+  margin: -8px 0 16px;
+}

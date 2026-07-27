@@ -75,7 +75,7 @@ const BridgeHistory = () => {
         )}
 
         {filteredHistory.length > page * BRIDGE_HISTORY_LIMIT_PER_PAGE ? (
-          <LoadMoreButton onClick={() => setPage((page) => page + 1)} />
+          <LoadMoreButton onClick={() => setPage((page) => page + 1)} className={styles.loadMore} />
         ) : (
           history.length >= BRIDGE_HISTORY_LIMIT && (
             <Status>

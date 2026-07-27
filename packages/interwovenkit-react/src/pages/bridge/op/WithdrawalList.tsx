@@ -14,7 +14,7 @@ const WithdrawalList = ({ chain }: { chain: NormalizedChain }) => {
   const executorUrl = chain.metadata?.executor_uri
   if (!executorUrl) throw new Error("Executor URL is not defined")
 
-  const { data, fetchNextPage, hasNextPage, isFetching } = useWithdrawals(executorUrl)
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useWithdrawals(executorUrl)
   const list = useMemo(() => data?.pages.flat() ?? [], [data])
 
   const { syncReminders } = useClaimableReminders()
@@ -47,7 +47,9 @@ const WithdrawalList = ({ chain }: { chain: NormalizedChain }) => {
         )
       })}
 
-      {hasNextPage && <LoadMoreButton onClick={() => fetchNextPage()} disabled={isFetching} />}
+      {hasNextPage && (
+        <LoadMoreButton onClick={() => fetchNextPage()} disabled={isFetchingNextPage} />
+      )}
     </>
   )
 }

@@ -1,5 +1,7 @@
+import { useState } from "react"
 import { IconBack } from "@initia/icons-react"
 import { Link, useHistory } from "@/lib/router"
+import { PageScrollContext } from "./PageScrollContext"
 import Scrollable from "./Scrollable"
 import styles from "./Page.module.css"
 
@@ -13,6 +15,7 @@ interface Props {
 
 const Page = ({ title, backButton, extra, children }: PropsWithChildren<Props>) => {
   const history = useHistory()
+  const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null)
 
   return (
     <>
@@ -31,7 +34,9 @@ const Page = ({ title, backButton, extra, children }: PropsWithChildren<Props>) 
         {extra}
       </header>
 
-      <Scrollable>{children}</Scrollable>
+      <PageScrollContext.Provider value={scrollRoot}>
+        <Scrollable ref={setScrollRoot}>{children}</Scrollable>
+      </PageScrollContext.Provider>
     </>
   )
 }
