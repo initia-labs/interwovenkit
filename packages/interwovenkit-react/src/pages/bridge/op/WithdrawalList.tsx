@@ -48,7 +48,7 @@ const WithdrawalList = ({ chain }: { chain: NormalizedChain }) => {
       })}
 
       {hasNextPage && (
-        <LoadMoreButton onClick={() => fetchNextPage()} disabled={isFetchingNextPage} />
+        <LoadMoreButton onClick={() => fetchNextPage()} isLoading={isFetchingNextPage} />
       )}
     </>
   )

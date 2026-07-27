@@ -10,11 +10,12 @@
 
   transition: color var(--transition) ease;
 
-  &:hover {
+  &:hover:not([aria-disabled="true"]) {
     color: var(--gray-1);
   }
 
-  &:disabled {
-    color: var(--gray-6);
+  /* Loading keeps the label at full contrast; the spinner carries the state. */
+  &[aria-disabled="true"] {
+    cursor: default;
   }
 }
