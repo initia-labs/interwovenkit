@@ -3,6 +3,7 @@ import { Collapsible } from "radix-ui"
 import { useMemo } from "react"
 import { atom, useAtom } from "jotai"
 import { IconChevronDown, IconExternalLink } from "@initia/icons-react"
+import { sanitizeLink } from "@/components/explorer"
 import Image from "@/components/Image"
 import { useAllChainsAssetsQueries } from "@/data/assets"
 import { useInitiaRegistry } from "@/data/chains"
@@ -118,7 +119,7 @@ const AppchainPositionGroup = ({ chainGroup }: Props) => {
               )}
               {manageUrl ? (
                 <a
-                  href={manageUrl}
+                  href={sanitizeLink(manageUrl)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={styles.chainNameLink}
