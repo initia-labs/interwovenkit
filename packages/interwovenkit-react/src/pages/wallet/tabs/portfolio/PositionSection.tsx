@@ -3,6 +3,7 @@ import { Collapsible } from "radix-ui"
 import { useMemo, useState } from "react"
 import { IconChevronDown, IconExternalLink } from "@initia/icons-react"
 import { formatNumber } from "@initia/utils"
+import { sanitizeLink } from "@/components/explorer"
 import Image from "@/components/Image"
 import { INIT_SYMBOL, STRAT_CHAIN_NAME } from "@/data/constants"
 import {
@@ -167,7 +168,7 @@ const PositionSection = ({
       <div className={styles.sectionHeader}>
         {showStakingBreakdown && manageUrl ? (
           <a
-            href={manageUrl}
+            href={sanitizeLink(manageUrl)}
             target="_blank"
             rel="noopener noreferrer"
             className={styles.sectionTitleLink}
