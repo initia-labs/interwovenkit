@@ -39,7 +39,8 @@ export type OnrampQuote = { sourceCryptoId: string } &
     // The amount is outside the selected payment type's aggregated fiat bounds;
     // while in this state no quotes request is made. `message` is actionable.
     | { status: "limit-error"; message: string }
-    // Quotes are being fetched (or the request is gated) and none are cached yet.
+    // Quotes are being fetched, the typed amount is still being debounced, or
+    // the request is gated and none are cached yet.
     | { status: "loading" }
     // The quotes request failed with nothing cached — an outage/rate limit, not
     // "no provider made an offer" — so it reads as its own state, not a
@@ -87,9 +88,10 @@ export interface DeriveOnrampQuoteParams {
 
 /**
  * Derives exactly one OnrampQuote variant, ordered from the broadest gate
- * inward: unsupported → idle → limit-error → error → loading → no-offers →
- * quoted. Each check returns, so the variants stay mutually exclusive by
- * construction. Pure so the gate ordering is testable without the hooks.
+ * inward: unsupported → idle → limit-error → stale amount → error → loading →
+ * no-offers → quoted. Each check returns, so the variants stay mutually
+ * exclusive by construction. Pure so the gate ordering is testable without the
+ * hooks.
  */
 export function deriveOnrampQuote({
   sourceCryptoId,
@@ -104,6 +106,9 @@ export function deriveOnrampQuote({
   if (!sourceRoute) return { sourceCryptoId, status: "unsupported" }
   if (!(Number(fiatAmount) > 0)) return { sourceCryptoId, status: "idle" }
   if (limitError) return { sourceCryptoId, status: "limit-error", message: limitError }
+  // A cached quote for the previous input must not pass the bridge-minimum
+  // checks or enable checkout for the newly typed amount.
+  if (fiatAmount !== quotedFiatAmount) return { sourceCryptoId, status: "loading" }
 
   // A failed fetch with stale data still renders the cached quotes below: they
   // refresh every 30s, and blanking a workable form on a transient refetch
@@ -201,9 +206,8 @@ export function useOnrampQuote(): OnrampQuote {
 
   // Only the quotes query sees the debounced amount (it joins the query key —
   // see useOnramperQuotes); display and validation stay on the typed value.
-  // Trade-off: for one debounce interval after an edit, the previous amount's
-  // quote stays shown and submittable (as in the bridge form); the processing
-  // screen re-quotes the final amount, so such a submit self-heals.
+  // While the debounce lags, deriveOnrampQuote returns loading so the previous
+  // amount's payout cannot enable checkout for the new amount.
   const [debouncedFiatAmount] = useDebounceValue(fiatAmount, 300)
   // Re-derived from the debounced amount: the typed-value `limitError` clears
   // before the debounced amount catches up, leaking an out-of-range request.

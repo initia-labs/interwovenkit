@@ -84,6 +84,11 @@ describe("deriveOnrampQuote", () => {
     expect(quote).toMatchObject({ status: "limit-error", message: "Minimum purchase is $30" })
   })
 
+  it("does not expose a cached quote while the typed amount is still being debounced", () => {
+    const quote = deriveOnrampQuote(params({ fiatAmount: "9", quotedFiatAmount: "100" }))
+    expect(quote.status).toBe("loading")
+  })
+
   it("is an error only when the fetch failed with nothing cached", () => {
     const quote = deriveOnrampQuote(
       params({ quotes: { isError: true, data: undefined, errorMessage: "rate limited" } }),

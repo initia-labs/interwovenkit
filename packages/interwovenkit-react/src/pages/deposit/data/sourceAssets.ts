@@ -1,5 +1,6 @@
 import { useMemo } from "react"
-import { useAllSkipAssetsRaw } from "@/pages/bridge/data/assets"
+import { type AllAssetsResponse, useAllSkipAssetsRaw } from "@/pages/bridge/data/assets"
+import { normalizeDenom } from "./assetOptions"
 import { useDepositRoutes } from "./assets"
 import { fallbackAssetSymbol } from "./source"
 import type { Asset } from "./types"
@@ -9,6 +10,22 @@ export interface SourceAssetLookup {
   symbol: (chainId: string, denom: string) => string
   /** Logo URL for a (source chain, denom) pair; "" when the Router lacks an entry. */
   logoUrl: (chainId: string, denom: string) => string
+}
+
+/** Creates source-asset display metadata resolvers from the Router asset map. */
+export function createSourceAssetLookup(
+  chainToAssetsMap: AllAssetsResponse["chain_to_assets_map"],
+): SourceAssetLookup {
+  const find = (chainId: string, denom: string) => {
+    const normalizedDenom = normalizeDenom(denom)
+    return chainToAssetsMap[chainId]?.assets.find(
+      (asset) => normalizeDenom(asset.denom) === normalizedDenom,
+    )
+  }
+  return {
+    symbol: (chainId, denom) => find(chainId, denom)?.symbol ?? fallbackAssetSymbol(denom),
+    logoUrl: (chainId, denom) => find(chainId, denom)?.logo_uri ?? "",
+  }
 }
 
 /**
@@ -22,14 +39,7 @@ export function useSourceAssetLookup(): SourceAssetLookup {
     data: { chain_to_assets_map },
   } = useAllSkipAssetsRaw()
 
-  return useMemo(() => {
-    const find = (chainId: string, denom: string) =>
-      chain_to_assets_map[chainId]?.assets.find((asset) => asset.denom === denom)
-    return {
-      symbol: (chainId, denom) => find(chainId, denom)?.symbol ?? fallbackAssetSymbol(denom),
-      logoUrl: (chainId, denom) => find(chainId, denom)?.logo_uri ?? "",
-    }
-  }, [chain_to_assets_map])
+  return useMemo(() => createSourceAssetLookup(chain_to_assets_map), [chain_to_assets_map])
 }
 
 /** A source asset grouped across source chains, identified by display symbol. */
