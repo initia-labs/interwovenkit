@@ -84,20 +84,15 @@ describe("pollInterval", () => {
 
 describe("pollUntilTerminal", () => {
   it("stops polling once the deposit is terminal", () => {
-    expect(pollUntilTerminal(deposit({ status: "completed", bucket: "completed" }), 0, false)).toBe(
-      false,
-    )
+    expect(pollUntilTerminal(deposit({ status: "completed", bucket: "completed" }), 0)).toBe(false)
   })
 
-  it("stops polling after a query error", () => {
-    expect(pollUntilTerminal(deposit({ bucket: "waiting" }), 0, true)).toBe(false)
-  })
-
-  // A null/undefined deposit is the transient not-yet-fetched frame, not a
-  // terminal answer — stopping here would freeze the screen on "Waiting".
-  it("keeps polling a not-yet-fetched deposit", () => {
-    expect(pollUntilTerminal(null, 0, false)).not.toBe(false)
-    expect(pollUntilTerminal(undefined, 0, false)).not.toBe(false)
+  // A null/undefined deposit covers both the not-yet-fetched frame and a query
+  // error before data exists. Neither is terminal: stopping would freeze the
+  // screen and make the UI's automatic-recovery message false.
+  it("keeps polling without data so transient errors can recover", () => {
+    expect(pollUntilTerminal(null, 0)).not.toBe(false)
+    expect(pollUntilTerminal(undefined, 0)).not.toBe(false)
   })
 })
 

@@ -178,6 +178,12 @@
   &:hover {
     color: var(--gray-1);
   }
+
+  &:focus-visible {
+    border-radius: 4px;
+    outline: 2px solid var(--gray-4);
+    outline-offset: 2px;
+  }
 }
 
 .details {
