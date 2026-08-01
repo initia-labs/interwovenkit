@@ -1,6 +1,7 @@
 import clsx from "clsx"
 import { useEffect } from "react"
 import { IconChevronDown } from "@initia/icons-react"
+import { formatNumber } from "@initia/utils"
 import Button from "@/components/Button"
 import Collapsible from "@/components/Collapsible"
 import DetailRow from "@/components/DetailRow"
@@ -27,7 +28,7 @@ import FiatFlag from "./FiatFlag"
 import PaymentMethodIcon from "./PaymentMethodIcon"
 import ProviderLogo from "./ProviderLogo"
 import type { OnrampQuote } from "./quote"
-import { useOnrampQuote } from "./quote"
+import { formatEstimatedPriceLabel, useOnrampQuote } from "./quote"
 import styles from "./OnrampFields.module.css"
 
 // Submit gate copy per quote state; undefined enables the Buy button. Exhaustive
@@ -153,6 +154,15 @@ const OnrampFields = () => {
   const processingTime = useProcessingTime(sourceRoute?.route, receiveChainId, receiveDenom)
 
   const fiat = useFiatDisplayCode(fiatId)
+  const estimatedPriceLabel =
+    quoted && minReceived.isSettled
+      ? formatEstimatedPriceLabel(
+          quoted.quotedFiatAmount,
+          minReceived.amountOut,
+          receiveSymbol,
+          fiat,
+        )
+      : ""
 
   // The backend-declined gate (layer 4) lives outside submitDisabledMessage on
   // purpose: that map is exhaustive over the Onramper quote union, and this
@@ -246,8 +256,12 @@ const OnrampFields = () => {
                 <IconChevronDown size={16} className={styles.pillChevron} aria-hidden="true" />
               </button>
 
-              <p className={clsx(styles.amountReadOnly, { [styles.placeholder]: !provider })}>
-                {quoted?.receiveAmount ?? "0"}
+              <p
+                className={clsx(styles.amountReadOnly, {
+                  [styles.placeholder]: !minReceived.amountOut,
+                })}
+              >
+                {minReceived.amountOut ? formatNumber(minReceived.amountOut, { dp: 6 }) : "0"}
               </p>
             </div>
           </div>
@@ -288,7 +302,7 @@ const OnrampFields = () => {
             </button>
           </DetailRow>
 
-          <DetailRow label="Estimated price">{quoted?.estimatedPriceLabel ?? "—"}</DetailRow>
+          <DetailRow label="Estimated price">{estimatedPriceLabel || "—"}</DetailRow>
           <DetailRow label="Estimated time">
             <ProcessingTimeValue estimate={processingTime} />
           </DetailRow>

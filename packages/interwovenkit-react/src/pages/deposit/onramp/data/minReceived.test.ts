@@ -35,15 +35,16 @@ describe("classifyQuoteFailure", () => {
   })
 })
 
-const quoted = (minReceived: string) => ({
+const quoted = (minReceived: string, amountOut = "1230000") => ({
   status: "quoted" as const,
-  quote: { amount_out: "0", min_received: minReceived },
+  quote: { amount_out: amountOut, min_received: minReceived },
 })
 
 describe("selectMinReceived", () => {
   it("formats a quoted minimum in token units", () => {
     expect(selectMinReceived(quoted("1000000"), 6, "123")).toEqual({
       value: "1.000000",
+      amountOut: "1.23",
       isDeclined: false,
       declineReason: "",
     })
@@ -54,6 +55,7 @@ describe("selectMinReceived", () => {
   it("resets without a live payout even when previous data is held", () => {
     expect(selectMinReceived(quoted("1000000"), 6, "")).toEqual({
       value: "",
+      amountOut: "",
       isDeclined: false,
       declineReason: "",
     })
@@ -62,6 +64,7 @@ describe("selectMinReceived", () => {
   it("reports a decline with the backend's reason", () => {
     expect(selectMinReceived({ status: "declined", reason: "below minimum" }, 6, "123")).toEqual({
       value: "",
+      amountOut: "",
       isDeclined: true,
       declineReason: "below minimum",
     })
@@ -70,6 +73,10 @@ describe("selectMinReceived", () => {
   // "—" means "unknown"; "0" would claim a guaranteed minimum of zero.
   it("falls back to the placeholder for a zero minimum", () => {
     expect(selectMinReceived(quoted("0"), 6, "123").value).toBe("")
+  })
+
+  it("falls back to the placeholder for a zero destination estimate", () => {
+    expect(selectMinReceived(quoted("1000000", "0"), 6, "123").amountOut).toBe("")
   })
 
   it("falls back to the placeholder for an unparseable minimum", () => {
@@ -83,6 +90,7 @@ describe("selectMinReceived", () => {
   it("is empty before the first result arrives", () => {
     expect(selectMinReceived(undefined, 6, "123")).toEqual({
       value: "",
+      amountOut: "",
       isDeclined: false,
       declineReason: "",
     })
@@ -152,8 +160,13 @@ describe("deriveSettlement", () => {
 })
 
 describe("composeMinReceived", () => {
-  const declined = { value: "", isDeclined: true, declineReason: "below minimum" }
-  const estimate = { value: "1.000000", isDeclined: false, declineReason: "" }
+  const declined = { value: "", amountOut: "", isDeclined: true, declineReason: "below minimum" }
+  const estimate = {
+    value: "1.000000",
+    amountOut: "1.23",
+    isDeclined: false,
+    declineReason: "",
+  }
 
   it("passes a settled result through", () => {
     const settlement = { isSettled: true, isFailed: false }
@@ -167,6 +180,7 @@ describe("composeMinReceived", () => {
   it("suppresses a stale decline while the verdict is unsettled", () => {
     expect(composeMinReceived(declined, { isSettled: false, isFailed: false })).toEqual({
       value: "",
+      amountOut: "",
       isDeclined: false,
       declineReason: "",
       isSettled: false,
@@ -179,6 +193,7 @@ describe("composeMinReceived", () => {
   it("prefers the failure over a stale decline", () => {
     expect(composeMinReceived(declined, { isSettled: false, isFailed: true })).toEqual({
       value: "",
+      amountOut: "",
       isDeclined: false,
       declineReason: "",
       isSettled: false,
@@ -194,5 +209,9 @@ describe("composeMinReceived", () => {
       "1.000000",
     )
     expect(composeMinReceived(estimate, { isSettled: false, isFailed: true }).value).toBe("")
+    expect(composeMinReceived(estimate, { isSettled: false, isFailed: false }).amountOut).toBe(
+      "1.23",
+    )
+    expect(composeMinReceived(estimate, { isSettled: false, isFailed: true }).amountOut).toBe("")
   })
 })

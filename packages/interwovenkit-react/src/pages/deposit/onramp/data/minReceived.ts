@@ -24,6 +24,8 @@ type QuoteResult =
 export interface MinReceived {
   /** Formatted token-unit string; "" when unavailable (the row shows its "—" placeholder). */
   value: string
+  /** Unformatted destination token-unit estimate; "" when unavailable. */
+  amountOut: string
   /**
    * The backend refused to quote this payout (HTTP 400). The client-side
    * bridge-minimum gate reads a `config/assets` snapshot that can lag the
@@ -97,16 +99,18 @@ export function selectMinReceived(
   data: QuoteResult | undefined,
   decimals: number | undefined,
   amountIn: string,
-): Pick<MinReceived, "value" | "isDeclined" | "declineReason"> {
+): Pick<MinReceived, "value" | "amountOut" | "isDeclined" | "declineReason"> {
   if (!amountIn || !data || decimals === undefined) {
-    return { value: "", isDeclined: false, declineReason: "" }
+    return { value: "", amountOut: "", isDeclined: false, declineReason: "" }
   }
   if (data.status === "declined") {
-    return { value: "", isDeclined: true, declineReason: data.reason }
+    return { value: "", amountOut: "", isDeclined: true, declineReason: data.reason }
   }
-  const value = fromBaseUnit(data.quote.min_received, { decimals })
+  const minReceived = fromBaseUnit(data.quote.min_received, { decimals })
+  const amountOut = fromBaseUnit(data.quote.amount_out, { decimals })
   return {
-    value: value && BigNumber(value).gt(0) ? formatNumber(value, { dp: 6 }) : "",
+    value: minReceived && BigNumber(minReceived).gt(0) ? formatNumber(minReceived, { dp: 6 }) : "",
+    amountOut: amountOut && BigNumber(amountOut).gt(0) ? amountOut : "",
     isDeclined: false,
     declineReason: "",
   }
@@ -121,11 +125,12 @@ export function selectMinReceived(
  * live-looking minimum for an amount the backend never quoted.
  */
 export function composeMinReceived(
-  selected: Pick<MinReceived, "value" | "isDeclined" | "declineReason">,
+  selected: Pick<MinReceived, "value" | "amountOut" | "isDeclined" | "declineReason">,
   settlement: Pick<MinReceived, "isSettled" | "isFailed">,
 ): MinReceived {
   return {
     value: settlement.isFailed ? "" : selected.value,
+    amountOut: settlement.isFailed ? "" : selected.amountOut,
     isDeclined: settlement.isSettled && selected.isDeclined,
     declineReason: settlement.isSettled ? selected.declineReason : "",
     ...settlement,

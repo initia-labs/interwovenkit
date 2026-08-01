@@ -4,11 +4,11 @@ Architecture guide for the deposit and withdrawal flows. Keep cross-cutting inva
 
 ## Flows
 
-| Method | Transaction sender | Implementation |
-| --- | --- | --- |
-| Deposit via wallet | Connected wallet signs a Router transaction | `wallet/` |
-| Deposit via address | User sends from a wallet or exchange | `address/` |
-| Buy with cash/card | Onramper provider sends the purchased asset | `onramp/` |
+| Method              | Transaction sender                          | Implementation |
+| ------------------- | ------------------------------------------- | -------------- |
+| Deposit via wallet  | Connected wallet signs a Router transaction | `wallet/`      |
+| Deposit via address | User sends from a wallet or exchange        | `address/`     |
+| Buy with cash/card  | Onramper provider sends the purchased asset | `onramp/`      |
 
 `/deposit` is the method hub. `/withdraw` uses the same `TransferFlow` engine as the wallet method, which is why that directory uses transfer-oriented names.
 

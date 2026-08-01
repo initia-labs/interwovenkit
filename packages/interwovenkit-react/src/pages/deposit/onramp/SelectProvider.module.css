@@ -38,14 +38,9 @@
   white-space: nowrap;
 }
 
-.badgeSuccess {
+.badge-success {
   background-color: var(--success-bg);
   color: var(--success);
-}
-
-.badgeInfo {
-  background-color: var(--info-bg);
-  color: var(--info);
 }
 
 .right {

@@ -55,16 +55,16 @@ describe("findBalanceByDenom", () => {
   }
 
   it("returns the exact-key match", () => {
-    expect(
-      findBalanceByDenom(denomBalances, "0xAbCd000000000000000000000000000000000000"),
-    ).toEqual(evmBalance)
+    expect(findBalanceByDenom(denomBalances, "0xAbCd000000000000000000000000000000000000")).toEqual(
+      evmBalance,
+    )
     expect(findBalanceByDenom(denomBalances, "uinit")).toEqual(cosmosBalance)
   })
 
   it("falls back to case-insensitive matching for EVM denoms", () => {
-    expect(
-      findBalanceByDenom(denomBalances, "0xABCD000000000000000000000000000000000000"),
-    ).toEqual(evmBalance)
+    expect(findBalanceByDenom(denomBalances, "0xABCD000000000000000000000000000000000000")).toEqual(
+      evmBalance,
+    )
   })
 
   it("does not case-fold non-EVM denoms", () => {

@@ -82,7 +82,15 @@ const SelectExternalAsset = () => {
 
   const onBack = showBack ? goBack : undefined
 
-  if (!localAsset) return <div>No assets found</div>
+  if (!localAsset) {
+    return (
+      <div className={styles.container}>
+        <DepositSubpage title="No available assets" onBack={onBack}>
+          <DepositStatus>No assets found</DepositStatus>
+        </DepositSubpage>
+      </div>
+    )
+  }
 
   // A balance-query failure empties the deposit-mode list (the filter keeps
   // only assets with a positive balance snapshot), so it must render as an
@@ -118,11 +126,11 @@ const SelectExternalAsset = () => {
           <img
             src={theme === "dark" ? EmptyIconDark : EmptyIconLight}
             alt="No assets"
-            className={styles.emptyIcon}
+            className={styles["empty-icon"]}
           />
           <p className={styles.empty}>{emptyTitle}</p>
           {mode === "deposit" && (
-            <p className={styles.emptyDescription}>{emptyDepositCopy.description}</p>
+            <p className={styles["empty-description"]}>{emptyDepositCopy.description}</p>
           )}
         </DepositSubpage>
       </div>

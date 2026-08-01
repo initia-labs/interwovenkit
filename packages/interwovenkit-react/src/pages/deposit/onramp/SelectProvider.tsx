@@ -1,9 +1,10 @@
 import clsx from "clsx"
 import { formatNumber } from "@initia/utils"
+import { useSourceAssetLookup } from "../data/sourceAssets"
 import { useDepositForm, useDepositNavigate } from "../context"
 import DepositStatus from "../DepositStatus"
 import DepositSubpage from "../DepositSubpage"
-import { useOnrampsMetadata } from "./data/onramper"
+import { useOnramperSourceRoute, useOnrampsMetadata } from "./data/onramper"
 import { getOnrampDisplayName } from "./data/onramperLogic"
 import ProviderLogo from "./ProviderLogo"
 import { useOnrampQuote } from "./quote"
@@ -14,16 +15,22 @@ import styles from "./SelectProvider.module.css"
 const SelectProvider = () => {
   const { watch, setValue } = useDepositForm()
   const navigate = useDepositNavigate()
-  const receiveSymbol = watch("receiveSymbol")
+  const receiveChainId = watch("receiveChainId")
+  const receiveDenom = watch("receiveDenom")
   const providerId = watch("providerId")
   const quote = useOnrampQuote()
   const onramps = useOnrampsMetadata()
+  const sourceRoute = useOnramperSourceRoute(receiveChainId, receiveDenom)
+  const sourceAssetLookup = useSourceAssetLookup()
+  const sourceSymbol = sourceRoute
+    ? sourceAssetLookup.symbol(sourceRoute.route.src_chain_id, sourceRoute.route.src_denom)
+    : ""
 
   const renderList = () => {
     if (quote.status === "loading") return <DepositStatus>Loading…</DepositStatus>
     // Surface the quotes failure itself: an API outage or rate limit must not
     // read as "no provider made an offer".
-    if (quote.status === "error") return <DepositStatus>{quote.message}</DepositStatus>
+    if (quote.status === "error") return <DepositStatus error>{quote.message}</DepositStatus>
     // Surface the no-offers reason (a provider's amount-range guidance, else
     // widget copy — see quotesErrorMessage) so the state doesn't read as a bug.
     if (quote.status === "no-offers") return <DepositStatus>{quote.reason}</DepositStatus>
@@ -41,13 +48,13 @@ const SelectProvider = () => {
           <ProviderLogo ramp={entry.ramp} size={28} />
           <span className={styles.name}>{getOnrampDisplayName(onramps, entry.ramp)}</span>
           {entry.isBest && (
-            <span className={clsx(styles.badge, styles.badgeSuccess)}>Best price</span>
+            <span className={clsx(styles.badge, styles["badge-success"])}>Best price</span>
           )}
         </span>
 
         <span className={styles.right}>
           <span className={styles.amount}>
-            {formatNumber(String(entry.payout), { dp: 6 })} {receiveSymbol}
+            {formatNumber(String(entry.payout), { dp: 6 })} {sourceSymbol}
           </span>
           {entry.diffLabel && <span className={styles.diff}>{entry.diffLabel}</span>}
         </span>

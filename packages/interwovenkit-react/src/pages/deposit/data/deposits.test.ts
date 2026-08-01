@@ -84,14 +84,20 @@ describe("pollInterval", () => {
 
 describe("pollUntilTerminal", () => {
   it("stops polling once the deposit is terminal", () => {
-    expect(pollUntilTerminal(deposit({ status: "completed", bucket: "completed" }), 0)).toBe(false)
+    expect(pollUntilTerminal(deposit({ status: "completed", bucket: "completed" }), 0, false)).toBe(
+      false,
+    )
+  })
+
+  it("stops polling after a query error", () => {
+    expect(pollUntilTerminal(deposit({ bucket: "waiting" }), 0, true)).toBe(false)
   })
 
   // A null/undefined deposit is the transient not-yet-fetched frame, not a
   // terminal answer — stopping here would freeze the screen on "Waiting".
   it("keeps polling a not-yet-fetched deposit", () => {
-    expect(pollUntilTerminal(null, 0)).not.toBe(false)
-    expect(pollUntilTerminal(undefined, 0)).not.toBe(false)
+    expect(pollUntilTerminal(null, 0, false)).not.toBe(false)
+    expect(pollUntilTerminal(undefined, 0, false)).not.toBe(false)
   })
 })
 

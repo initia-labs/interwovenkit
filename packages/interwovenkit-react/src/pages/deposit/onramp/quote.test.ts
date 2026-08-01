@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import type { Asset } from "../data/types"
 import type { OnramperCrypto, OnramperQuote } from "./data/onramperTypes"
 import type { DeriveOnrampQuoteParams } from "./quote"
-import { deriveOnrampQuote } from "./quote"
+import { deriveOnrampQuote, formatEstimatedPriceLabel } from "./quote"
 
 // Mirrors the Deposit API's live config/assets (USDC on Ethereum, 10 USDC
 // minimum in base units).
@@ -58,7 +58,7 @@ const params = (overrides: Partial<DeriveOnrampQuoteParams>): DeriveOnrampQuoteP
   limitError: "",
   quotes: { isError: false, data: [offer("moonpay", 99)], errorMessage: "" },
   providerId: "",
-  receiveSymbol: "iUSD",
+  quotedFiatAmount: "100",
   fiat: "USD",
   ...overrides,
 })
@@ -147,7 +147,7 @@ describe("deriveOnrampQuote", () => {
     expect(at.belowRouteMinimum).toBe(false)
   })
 
-  it("formats the quoted labels", () => {
+  it("keeps the quote input amount and formats the fee label", () => {
     const quote = deriveOnrampQuote(
       params({
         quotes: {
@@ -158,8 +158,19 @@ describe("deriveOnrampQuote", () => {
       }),
     )
     if (quote.status !== "quoted") throw new Error("not quoted")
-    expect(quote.receiveAmount).toBe("99.380000")
-    expect(quote.estimatedPriceLabel).toBe("1 iUSD ≈ 1.23 USD")
+    expect(quote.quotedFiatAmount).toBe("100")
     expect(quote.feeLabel).toBe("4.50 USD")
+  })
+})
+
+describe("formatEstimatedPriceLabel", () => {
+  it("uses destination units for the effective fiat price", () => {
+    expect(formatEstimatedPriceLabel("100", "80.5", "iUSD", "USD")).toBe("1 iUSD ≈ 1.24 USD")
+  })
+
+  it("returns no label without positive finite amounts", () => {
+    expect(formatEstimatedPriceLabel("", "80.5", "iUSD", "USD")).toBe("")
+    expect(formatEstimatedPriceLabel("100", "0", "iUSD", "USD")).toBe("")
+    expect(formatEstimatedPriceLabel("100", "not-a-number", "iUSD", "USD")).toBe("")
   })
 })

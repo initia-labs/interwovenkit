@@ -156,17 +156,26 @@ export function useProcessingTime(
   const seconds = route
     ? findDestinationNetwork(route, chainId, denom)?.processing_time_seconds
     : undefined
+  const selectionKey = `${route?.src_chain_id ?? ""}:${route?.src_denom ?? ""}:${chainId}:${denom}`
 
-  const [deadlinePassed, setDeadlinePassed] = useState(false)
+  // Key the timer result to its selection so a previous route's deadline cannot
+  // render for even one frame. The conditional render-time adjustment follows
+  // React's previous-prop state pattern and converges immediately.
+  const [deadline, setDeadline] = useState({ selectionKey, passed: false })
+  if (deadline.selectionKey !== selectionKey || (seconds !== undefined && deadline.passed)) {
+    setDeadline({ selectionKey, passed: false })
+  }
+  const deadlinePassed = deadline.selectionKey === selectionKey && deadline.passed
+
   useEffect(() => {
     if (seconds !== undefined) return
     const remainingFetches = Math.max(0, PROCESSING_TIME_FETCH_LIMIT - fetchCount)
     const timer = setTimeout(
-      () => setDeadlinePassed(true),
+      () => setDeadline({ selectionKey, passed: true }),
       remainingFetches * PROCESSING_TIME_REFETCH_INTERVAL,
     )
     return () => clearTimeout(timer)
-  }, [seconds, fetchCount])
+  }, [selectionKey, seconds, fetchCount])
 
   if (seconds !== undefined) return { status: "ready", seconds }
   return deadlinePassed || fetchCount >= PROCESSING_TIME_FETCH_LIMIT

@@ -37,7 +37,9 @@ const SelectAsset = () => {
   if (unresolved.length) {
     if (error) throw error
     if (isLoading) return <DepositStatus>Loading...</DepositStatus>
-    throw new Error(`Asset metadata not found for ${unresolved.map(({ denom }) => denom).join(", ")}`)
+    throw new Error(
+      `Asset metadata not found for ${unresolved.map(({ denom }) => denom).join(", ")}`,
+    )
   }
 
   return (

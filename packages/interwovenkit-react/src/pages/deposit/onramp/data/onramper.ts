@@ -187,9 +187,11 @@ export function useOnramperSourceRoute(
       ),
     [routes, crypto],
   )
-  if (!route) return null
-  const sourceCrypto = matchOnramperCrypto(crypto, route.src_chain_id, route.src_denom)
-  return sourceCrypto ? { route, crypto: sourceCrypto } : null
+  return useMemo(() => {
+    if (!route) return null
+    const sourceCrypto = matchOnramperCrypto(crypto, route.src_chain_id, route.src_denom)
+    return sourceCrypto ? { route, crypto: sourceCrypto } : null
+  }, [route, crypto])
 }
 
 /** The Onramper crypto to buy for a chosen destination, without its route. */

@@ -168,8 +168,8 @@ const DepositAddress = () => {
     >
       <div className={styles.root}>
         <div className={styles.selectors}>
-          <div className={styles.selectorGroup}>
-            <span className={styles.selectorLabel}>Source asset</span>
+          <div className={styles["selector-group"]}>
+            <span className={styles["selector-label"]}>Source asset</span>
             <SourceSelector
               label="Source asset"
               options={assetOptions}
@@ -178,8 +178,8 @@ const DepositAddress = () => {
             />
           </div>
 
-          <div className={styles.selectorGroup}>
-            <span className={styles.selectorLabel}>Supported network</span>
+          <div className={styles["selector-group"]}>
+            <span className={styles["selector-label"]}>Supported network</span>
             <SourceSelector
               label="Supported network"
               options={chainOptions}
@@ -189,8 +189,8 @@ const DepositAddress = () => {
           </div>
         </div>
 
-        <div className={styles.qrSection}>
-          <div className={styles.minGroup}>
+        <div className={styles["qr-section"]}>
+          <div className={styles["min-group"]}>
             {minLabel && <p className={styles.min}>Minimum deposit: {minLabel}</p>}
 
             <p className={styles.warning} role="alert">
@@ -205,9 +205,12 @@ const DepositAddress = () => {
             </p>
           ) : (
             <>
-              <div className={clsx(styles.qr, { [styles.qrLoading]: !depositAddress })} ref={ref} />
+              <div
+                className={clsx(styles.qr, { [styles["qr-loading"]]: !depositAddress })}
+                ref={ref}
+              />
 
-              <div className={styles.addressGroup}>
+              <div className={styles["address-group"]}>
                 <span className={styles.address}>
                   {depositAddress || "Generating your deposit address…"}
                 </span>
@@ -222,9 +225,9 @@ const DepositAddress = () => {
                       aria-label={copied ? "Copied" : "Copy deposit address"}
                     >
                       <IconCopy size={12} aria-hidden="true" />
-                      <div className={styles.labelWrapper}>
-                        <span className={styles.labelCopy}>Copy address</span>
-                        <span className={styles.labelCopied}>Copied!</span>
+                      <div className={styles["label-wrapper"]}>
+                        <span className={styles["label-copy"]}>Copy address</span>
+                        <span className={styles["label-copied"]}>Copied!</span>
                       </div>
                     </button>
                   )}

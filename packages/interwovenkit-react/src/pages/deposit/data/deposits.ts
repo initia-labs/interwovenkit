@@ -52,8 +52,11 @@ function useMountedAt() {
 
 /** Stop polling once the deposit is terminal. A null/undefined deposit keeps
  * polling — not-yet-fetched is not a terminal answer. */
-export const pollUntilTerminal = (deposit: Deposit | null | undefined, elapsedMs: number) =>
-  deposit && isTerminalBucket(deposit.bucket) ? false : pollInterval(elapsedMs)
+export const pollUntilTerminal = (
+  deposit: Deposit | null | undefined,
+  elapsedMs: number,
+  isError: boolean,
+) => (isError || (deposit && isTerminalBucket(deposit.bucket)) ? false : pollInterval(elapsedMs))
 
 /**
  * GET /v1/deposits/{id}. Authoritative single-deposit lifecycle polling.
@@ -74,7 +77,8 @@ export function useDeposit(id: string) {
       }
     },
     enabled: !!depositApiUrl && !!id,
-    refetchInterval: (query) => pollUntilTerminal(query.state.data, Date.now() - mountedAt),
+    refetchInterval: (query) =>
+      pollUntilTerminal(query.state.data, Date.now() - mountedAt, query.state.status === "error"),
   })
 }
 
@@ -143,7 +147,8 @@ export function useNewDeposits({ depositAddress, after }: NewDepositsParams) {
       }
     },
     enabled: !!depositApiUrl && !!depositAddress && !!after,
-    refetchInterval: () => pollInterval(Date.now() - mountedAt),
+    refetchInterval: (query) =>
+      query.state.status === "error" ? false : pollInterval(Date.now() - mountedAt),
   })
 }
 
@@ -175,7 +180,7 @@ export function useActiveDeposits(depositAddress: string) {
       }
     },
     enabled: !!depositApiUrl && !!depositAddress,
-    refetchInterval: IDLE_POLL_INTERVAL,
+    refetchInterval: (query) => (query.state.status === "error" ? false : IDLE_POLL_INTERVAL),
   })
 }
 

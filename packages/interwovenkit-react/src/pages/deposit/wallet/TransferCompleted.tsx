@@ -1,9 +1,9 @@
 import Button from "@/components/Button"
 import { useConfig } from "@/data/config"
 import { useDrawer, useModal } from "@/data/ui"
-import { useSkipAsset } from "@/pages/bridge/data/assets"
 import { formatDuration } from "@/pages/bridge/data/format"
 import { useTrackTxQuery, useTxStatusQuery } from "@/pages/bridge/data/tx"
+import { useSourceAssetLookup } from "../data/sourceAssets"
 import DepositSubpage from "../DepositSubpage"
 import ExplorerLinks from "../ExplorerLinks"
 import FailedDarkIcon from "./assets/FailedDark.svg"
@@ -48,7 +48,8 @@ export function TransferCompleted() {
 
   const { route, values } = result
   const { srcDenom, srcChainId, quantity } = values
-  const srcAsset = useSkipAsset(srcDenom, srcChainId)
+  const sourceAssetLookup = useSourceAssetLookup()
+  const sourceSymbol = sourceAssetLookup.symbol(srcChainId, srcDenom)
 
   const actionLabel = mode === "deposit" ? "Deposit" : "Withdraw"
 
@@ -108,7 +109,7 @@ export function TransferCompleted() {
   const title = () => {
     switch (txState) {
       case "pending":
-        return `${mode === "deposit" ? "Depositing" : "Withdrawing"} ${quantity} ${srcAsset.symbol}`
+        return `${mode === "deposit" ? "Depositing" : "Withdrawing"} ${quantity} ${sourceSymbol}`
       case "success":
         return `${actionLabel} complete`
       case "failed":

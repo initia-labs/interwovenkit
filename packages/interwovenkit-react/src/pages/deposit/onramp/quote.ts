@@ -1,3 +1,4 @@
+import BigNumber from "bignumber.js"
 import { useWatch } from "react-hook-form"
 import { useDebounceValue } from "usehooks-ts"
 import { formatNumber } from "@initia/utils"
@@ -59,16 +60,13 @@ export type OnrampQuote = { sourceCryptoId: string } &
         belowRouteMinimum: boolean
         /** Bridge minimum in source token units (e.g. "5 ETH"). */
         routeMinimumLabel: string
-        /** Formatted crypto received (payout) for the selected offer. */
-        receiveAmount: string
-        /** "1 {receiveSymbol} ≈ {rate} {FIAT}". */
-        estimatedPriceLabel: string
+        /** Debounced fiat amount used to fetch this exact provider quote. */
+        quotedFiatAmount: string
         /** Total provider + network fee in fiat. */
         feeLabel: string
       }
   )
 
-const RECEIVE_DP = 6
 const FIAT_DP = 2
 
 export interface DeriveOnrampQuoteParams {
@@ -81,7 +79,8 @@ export interface DeriveOnrampQuoteParams {
   /** The quotes query state, decomposed so this stays a pure function. */
   quotes: { isError: boolean; data: OnramperQuote[] | undefined; errorMessage: string }
   providerId: string
-  receiveSymbol: string
+  /** Debounced fiat amount used as the current quotes query key. */
+  quotedFiatAmount: string
   /** Fiat display code for labels, e.g. "USD". */
   fiat: string
 }
@@ -99,7 +98,7 @@ export function deriveOnrampQuote({
   limitError,
   quotes,
   providerId,
-  receiveSymbol,
+  quotedFiatAmount,
   fiat,
 }: DeriveOnrampQuoteParams): OnrampQuote {
   if (!sourceRoute) return { sourceCryptoId, status: "unsupported" }
@@ -136,36 +135,44 @@ export function deriveOnrampQuote({
     selected,
     belowRouteMinimum,
     routeMinimumLabel,
-    receiveAmount: formatNumber(String(selected.payout), { dp: RECEIVE_DP }),
-    estimatedPriceLabel: `1 ${receiveSymbol} ≈ ${formatNumber(String(selected.quote.rate), { dp: FIAT_DP })} ${fiat}`,
+    quotedFiatAmount,
     feeLabel: `${formatNumber(String(fee), { dp: FIAT_DP })} ${fiat}`,
   }
+}
+
+/** Effective fiat price per destination token from the route quote. */
+export function formatEstimatedPriceLabel(
+  fiatAmount: string,
+  destinationAmount: string,
+  destinationSymbol: string,
+  fiat: string,
+): string {
+  const numericFiatAmount = Number(fiatAmount)
+  const numericDestinationAmount = Number(destinationAmount)
+  if (
+    !Number.isFinite(numericFiatAmount) ||
+    numericFiatAmount <= 0 ||
+    !Number.isFinite(numericDestinationAmount) ||
+    numericDestinationAmount <= 0
+  ) {
+    return ""
+  }
+  const price = BigNumber(fiatAmount).div(destinationAmount)
+  return `1 ${destinationSymbol} ≈ ${formatNumber(price.toString(), { dp: FIAT_DP })} ${fiat}`
 }
 
 /**
  * Live cash-path quote derived from the form state. Resolves the destination's
  * Onramper source asset, fetches provider quotes for the entered fiat amount,
- * and ranks them, returning exactly one OnrampQuote variant. The displayed
- * receive amount is the provider payout (the source asset Onramper delivers to
- * the deposit address); the destination is near 1:1, so it is shown against
- * the destination symbol.
+ * and ranks them, returning exactly one OnrampQuote variant.
  */
 export function useOnrampQuote(): OnrampQuote {
   const { control } = useDepositForm()
-  const [
-    fiatId,
-    fiatAmount,
-    receiveSymbol,
-    receiveDenom,
-    receiveChainId,
-    paymentMethodId,
-    providerId,
-  ] = useWatch({
+  const [fiatId, fiatAmount, receiveDenom, receiveChainId, paymentMethodId, providerId] = useWatch({
     control,
     name: [
       "fiatId",
       "fiatAmount",
-      "receiveSymbol",
       "receiveDenom",
       "receiveChainId",
       "paymentMethodId",
@@ -228,7 +235,7 @@ export function useOnrampQuote(): OnrampQuote {
       errorMessage: quotesQuery.error?.message ?? "",
     },
     providerId,
-    receiveSymbol,
+    quotedFiatAmount: debouncedFiatAmount,
     fiat,
   })
 }
