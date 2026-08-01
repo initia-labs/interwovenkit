@@ -100,18 +100,17 @@ export const useAllActivities = () => {
   // refetchInterval is applied here (not in createTxsQuery) so only the
   // activity tab polls; other consumers of the same query (e.g. fee.ts)
   // fetch once.
-  const queries = useQueries({
+  return useQueries({
     queries: chains.map((chain) => ({
       ...createTxsQuery(chain, { enabled: true }),
       refetchInterval: ACTIVITY_REFETCH_INTERVAL,
     })),
+    // Plain useQueries returns a new results array on every render. Combining
+    // here lets React Query structurally share the aggregate until query data
+    // changes, keeping Activity's downstream memoization effective.
+    combine: (results) => ({
+      activities: aggregateActivities(chains, results.map(prop("data"))),
+      isLoading: results.some((query) => query.isLoading),
+    }),
   })
-
-  const results = queries.map(prop("data"))
-  const activities = aggregateActivities(chains, results)
-
-  // Aggregate loading state - true if any chain is still loading
-  const isLoading = queries.some((query) => query.isLoading)
-
-  return { activities, isLoading }
 }

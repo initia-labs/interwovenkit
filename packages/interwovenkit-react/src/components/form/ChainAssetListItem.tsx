@@ -1,5 +1,6 @@
 import clsx from "clsx"
 import { IconCheck } from "@initia/icons-react"
+import Image from "@/components/Image"
 import styles from "./ChainAssetListItem.module.css"
 
 const ChainAssetListItemSkeleton = () => {
@@ -44,8 +45,18 @@ const ChainAssetListItem = ({
       onClick={onClick}
     >
       <div className={styles.iconContainer}>
-        <img src={assetLogoUrl} alt={assetSymbol} className={styles.assetIcon} />
-        <img src={chainLogoUrl} alt={chainName} className={styles.chainIcon} />
+        <Image
+          src={assetLogoUrl}
+          alt={assetSymbol}
+          className={styles.assetIcon}
+          classNames={{ placeholder: styles.assetIcon }}
+        />
+        <Image
+          src={chainLogoUrl}
+          alt={chainName}
+          className={styles.chainIcon}
+          classNames={{ placeholder: styles.chainIcon }}
+        />
       </div>
       <p className={styles.assetName}>
         {assetSymbol}{" "}
