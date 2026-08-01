@@ -10,7 +10,7 @@ import {
   TESTNET,
 } from "@initia/interwovenkit-react"
 import css from "@initia/interwovenkit-react/styles.css?inline"
-import { chainId, depositApiUrl, isTestnet, routerApiUrl, useTheme } from "./data"
+import { chainId, isTestnet, routerApiUrl, useTheme } from "./data"
 
 import type { PropsWithChildren } from "react"
 
@@ -35,7 +35,7 @@ const InterwovenKitWrapper = ({ children }: PropsWithChildren) => {
     <InterwovenKitProvider
       {...(isTestnet ? TESTNET : {})}
       {...(routerApiUrl ? { routerApiUrl } : {})}
-      {...(depositApiUrl ? { depositApiUrl } : {})}
+      depositApiUrl="http://localhost:8788"
       theme={theme}
       container={import.meta.env.DEV ? document.body : undefined}
       enableAutoSign={{ [chainId]: ["/cosmos.bank.v1beta1.MsgSend", "/initia.move.v1.MsgExecute"] }}

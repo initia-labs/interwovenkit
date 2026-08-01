@@ -340,13 +340,17 @@ export function logSuppressedQuoteErrors(quotes: OnramperQuote[]) {
 }
 
 // Guards the external checkout URL: non-https schemes fail loudly instead of
-// being opened.
+// being opened. Loopback http is exempt so a local mock Deposit API can host
+// the fake payment page; a loopback URL only ever reaches the user's own
+// machine, so the exemption adds no external attack surface.
 export function assertCheckoutUrl(url: string) {
-  let protocol = ""
+  let parsed: URL | null = null
   try {
-    protocol = new URL(url).protocol
+    parsed = new URL(url)
   } catch {
     // Not a parseable URL; the throw below reports it.
   }
-  if (protocol !== "https:") throw new Error(`Unexpected checkout URL from the provider: ${url}`)
+  const isLoopback = parsed?.hostname === "localhost" || parsed?.hostname === "127.0.0.1"
+  const allowed = parsed?.protocol === "https:" || (parsed?.protocol === "http:" && isLoopback)
+  if (!allowed) throw new Error(`Unexpected checkout URL from the provider: ${url}`)
 }

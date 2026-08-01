@@ -627,4 +627,14 @@ describe("assertCheckoutUrl", () => {
     expect(() => assertCheckoutUrl("")).toThrow(/Unexpected checkout URL/)
     expect(() => assertCheckoutUrl("not a url")).toThrow(/Unexpected checkout URL/)
   })
+
+  // A loopback URL only ever reaches the user's own machine (local mock hosting
+  // the fake payment page), so plain http is acceptable there and nowhere else.
+  it("passes loopback http but rejects other http hosts", () => {
+    expect(() => assertCheckoutUrl("http://localhost:8788/checkout/tx1")).not.toThrow()
+    expect(() => assertCheckoutUrl("http://127.0.0.1:8788/checkout/tx1")).not.toThrow()
+    expect(() => assertCheckoutUrl("http://localhost.evil.com/checkout")).toThrow(
+      /Unexpected checkout URL/,
+    )
+  })
 })

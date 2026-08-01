@@ -1,0 +1,22 @@
+{
+  "name": "@mock/deposit",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/index.ts",
+    "start": "node src/index.ts",
+    "typecheck": "tsc",
+    "lint": "eslint src --fix",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.14",
+    "hono": "^4.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.9",
+    "eslint": "^9.39.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.8"
+  }
+}
