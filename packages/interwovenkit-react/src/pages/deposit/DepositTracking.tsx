@@ -59,9 +59,10 @@ const DepositTracking = () => {
     symbol: receiveSymbol,
   })
 
-  // Without the deposit address, discovery cannot match anything and the screen
-  // would show "Waiting" forever, so its failure is a hard error, unlike the
-  // transient polling errors below.
+  // The deposit address is only the trust-boundary input for the mismatch
+  // check below (skipped while empty — see resolveTrackedDeposit); the record
+  // itself is polled by id. So an address failure alone must not replace a
+  // live status view (see isHardError).
   const {
     data: addressData,
     isError: isAddressError,
@@ -84,7 +85,12 @@ const DepositTracking = () => {
     error: trackingError,
   } = useTrackedDeposit({ depositAddress, depositId: trackedDepositId })
   const isMismatchError = trackingError instanceof DepositAddressMismatchError
-  const isHardError = isAddressError || isMismatchError
+  // Hard only when nothing can render: the mismatch violation (every poll
+  // reproduces it), or an address failure with no record — without either the
+  // screen would sit on the bare loader forever. With a record in hand an
+  // address failure is ignored; the mismatch check applies once the address
+  // arrives.
+  const isHardError = isMismatchError || (isAddressError && !deposit)
 
   // displayBucket is the one render point where the wire can betray the type
   // claim: an unknown bucket normalizes to the failed screen (fail-closed).
