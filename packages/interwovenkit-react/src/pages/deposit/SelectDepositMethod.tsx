@@ -12,7 +12,8 @@ import { depositQueryKeys, useOnramperEnabled } from "./data/api"
 import type { DepositLocationState } from "./data/assetOptions"
 import { useDepositRoutes } from "./data/assets"
 import CashMethodSubtext, { CASH_SUBTEXT_FALLBACK } from "./onramp/CashMethodSubtext"
-import { usePrefetchOnramperGeoDefaults } from "./onramp/data/onramper"
+import { useOnramperCryptos, usePrefetchOnramperGeoDefaults } from "./onramp/data/onramper"
+import { matchOnramperCrypto } from "./onramp/data/onramperLogic"
 import { useDepositForm, useDepositNavigate, useSelectDepositMethod } from "./context"
 import DepositMethodList, { type DepositMethodSection } from "./DepositMethodList"
 import DepositSubpage from "./DepositSubpage"
@@ -29,8 +30,15 @@ type CryptoAvailability =
  * `address`/`onramp` select the deposit method (see useSelectDepositMethod). */
 type HubMethodId = "wallet" | "address" | "onramp"
 
+interface MethodSectionsProps {
+  availability: CryptoAvailability
+  /** Cash-only unavailability on top of `availability` (e.g. no route maps to
+   * an Onramper-listed source); the address method is unaffected. */
+  onrampUnavailableReason?: string
+}
+
 /** The method list for a known crypto availability (see CryptoAvailability). */
-const MethodSections = ({ availability }: { availability: CryptoAvailability }) => {
+const MethodSections = ({ availability, onrampUnavailableReason }: MethodSectionsProps) => {
   const onramperEnabled = useOnramperEnabled()
   const navigate = useDepositNavigate()
   const selectMethod = useSelectDepositMethod()
@@ -90,27 +98,28 @@ const MethodSections = ({ availability }: { availability: CryptoAvailability }) 
         {
           id: "onramp",
           title: "Buy with cash/card",
-          // Subtext priority: Deposit API reason, then Onramper config gate,
-          // then the live limit. The limit gets its own boundary so a slow or
-          // failing Onramper lookup degrades to static copy instead of
-          // suspending the whole screen; a misconfigured key still fails loudly
-          // inside the cash flow.
-          subtext: cryptoReason ? (
-            cryptoReason
-          ) : !onramperEnabled ? (
-            "Unavailable on this app"
-          ) : availability.status === "loading" ? (
-            CASH_SUBTEXT_FALLBACK
-          ) : (
-            <AsyncBoundary
-              errorBoundaryProps={{ fallbackRender: () => CASH_SUBTEXT_FALLBACK }}
-              suspenseFallback={CASH_SUBTEXT_FALLBACK}
-            >
-              <CashMethodSubtext />
-            </AsyncBoundary>
-          ),
+          // Subtext priority: Deposit API reason, then the cash-only source
+          // gate, then the Onramper config gate, then the live limit. The limit
+          // gets its own boundary so a slow or failing Onramper lookup degrades
+          // to static copy instead of suspending the whole screen; a
+          // misconfigured key still fails loudly inside the cash flow.
+          subtext:
+            (cryptoReason ?? onrampUnavailableReason) ? (
+              (cryptoReason ?? onrampUnavailableReason)
+            ) : !onramperEnabled ? (
+              "Unavailable on this app"
+            ) : availability.status === "loading" ? (
+              CASH_SUBTEXT_FALLBACK
+            ) : (
+              <AsyncBoundary
+                errorBoundaryProps={{ fallbackRender: () => CASH_SUBTEXT_FALLBACK }}
+                suspenseFallback={CASH_SUBTEXT_FALLBACK}
+              >
+                <CashMethodSubtext />
+              </AsyncBoundary>
+            ),
           Icon: IconBuy,
-          disabled: cryptoDisabled || !onramperEnabled,
+          disabled: cryptoDisabled || !onramperEnabled || !!onrampUnavailableReason,
         },
       ],
     },
@@ -147,6 +156,21 @@ const GatedMethodSections = () => {
   const receiveChainId = watch("receiveChainId")
   const routes = useDepositRoutes(receiveChainId, receiveDenom)
 
+  // Cash additionally needs a route whose Ethereum source is Onramper-listed
+  // (see matchOnramperCrypto) — without one the Buy form is a dead end
+  // ("Not available for this asset" on entry). Gate only on a loaded list with
+  // no match: while the list is unknown (loading, failing, cash path not
+  // configured) the method stays enabled, so an Onramper outage keeps degrading
+  // inside the cash flow instead of disabling the method here.
+  const onramperCryptos = useOnramperCryptos()
+  const onrampUnavailableReason =
+    onramperCryptos &&
+    !routes.some((route) =>
+      matchOnramperCrypto(onramperCryptos, route.src_chain_id, route.src_denom),
+    )
+      ? "Not available for this asset"
+      : undefined
+
   return (
     <MethodSections
       availability={
@@ -154,6 +178,7 @@ const GatedMethodSections = () => {
           ? { status: "available" }
           : { status: "unavailable", reason: "Not supported for this asset" }
       }
+      onrampUnavailableReason={onrampUnavailableReason}
     />
   )
 }

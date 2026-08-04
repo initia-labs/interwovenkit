@@ -20,6 +20,7 @@ import DepositStatus from "../DepositStatus"
 import DepositSubpage from "../DepositSubpage"
 import FlowChips from "../FlowChips"
 import ProcessingTimeValue from "../ProcessingTimeValue"
+import { useMinReceived } from "./data/minReceived"
 import {
   useFiatDisplayCode,
   useOnrampCheckout,
@@ -126,6 +127,13 @@ const OnrampProcessingBody = () => {
     : ""
   const ramp = quote.status === "quoted" ? quote.selected.ramp : ""
   const belowRouteMinimum = quote.status === "quoted" && quote.belowRouteMinimum
+  const payout = quote.status === "quoted" ? quote.selected.payout : undefined
+  // The backend pre-quote gate (the Buy form's fourth submit layer): the
+  // config/assets snapshot behind belowRouteMinimum can lag the backend's live
+  // minimum, so that check alone can pass a payout the backend would refuse.
+  // Paused after handoff alongside the quote poll (an undefined payout disables
+  // the query): the checkout already started, so nothing consumes the verdict.
+  const minReceived = useMinReceived(handoff ? undefined : payout, receiveChainId, receiveDenom)
   const sourceCryptoId = sourceCrypto?.id ?? ""
   const sourceCryptoNetwork = sourceCrypto?.network ?? ""
 
@@ -172,7 +180,7 @@ const OnrampProcessingBody = () => {
   // (and any quote refetch) to a single run.
   const checkoutInputsReady =
     !!walletAddress && !!ramp && !!sourceCryptoId && !!sourceCryptoNetwork && Number(fiatAmount) > 0
-  const ready = checkoutInputsReady && !!depositAddress && !!freshCursor
+  const ready = checkoutInputsReady && !!depositAddress && !!freshCursor && minReceived.isSettled
   const startedRef = useRef(false)
   useEffect(() => {
     if (startedRef.current || !ready) return
@@ -186,6 +194,15 @@ const OnrampProcessingBody = () => {
         if (belowRouteMinimum) {
           throw new Error(
             "The amount is now below the route minimum. Please go back and adjust it.",
+          )
+        }
+        // Same drift re-check against the backend's live minimum: a declined
+        // pre-quote means the backend would refuse to route this payout now
+        // (see useMinReceived.isDeclined).
+        if (minReceived.isDeclined) {
+          throw new Error(
+            minReceived.declineReason ||
+              "The bridge can't quote this purchase. It may be below the route minimum. Please go back and adjust your amount.",
           )
         }
         const info = await mutateAsync({
@@ -210,6 +227,8 @@ const OnrampProcessingBody = () => {
   }, [
     ready,
     belowRouteMinimum,
+    minReceived.isDeclined,
+    minReceived.declineReason,
     mutateAsync,
     walletAddress,
     receiveChainId,
@@ -223,16 +242,18 @@ const OnrampProcessingBody = () => {
     uuid,
   ])
 
-  // Fail explicitly when the inputs never become ready (see READY_TIMEOUT).
+  // Fail explicitly when the inputs never become ready or the backend
+  // pre-quote never settles (see READY_TIMEOUT) — both otherwise leave the
+  // screen on "Processing…" forever with no error.
   useEffect(() => {
-    if (checkoutInputsReady) return
+    if (checkoutInputsReady && minReceived.isSettled) return
     const timer = setTimeout(() => {
       if (!startedRef.current) {
         setCheckoutError(new Error("Couldn't start the checkout. Please go back and try again."))
       }
     }, READY_TIMEOUT)
     return () => clearTimeout(timer)
-  }, [checkoutInputsReady])
+  }, [checkoutInputsReady, minReceived.isSettled])
 
   const fiatDisplayCode = useFiatDisplayCode(fiatId)
 

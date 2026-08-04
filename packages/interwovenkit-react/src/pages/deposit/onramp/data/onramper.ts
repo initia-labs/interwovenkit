@@ -28,16 +28,10 @@ import type {
 
 // Onramper API reference index (LLM-friendly): https://docs.onramper.com/llms.txt
 
-/**
- * GET /supported. Fiat and crypto lists for the cash path, fetched together
- * (one call feeds both the fiat picker and the source-asset mapping). Near
- * static, so cache long. Suspends into the modal's AsyncBoundary.
- *
- * @see https://docs.onramper.com/reference/get_supported.md (Get Currencies)
- */
-export function useOnramperSupported(): OnramperSupported["message"] {
-  const api = useOnramper()
-  const { data } = useSuspenseQuery({
+// Shared by the suspense read and the non-suspending availability view so both
+// hit the same cache entry.
+function onramperSupportedQueryOptions(api: KyInstance) {
+  return {
     queryKey: depositQueryKeys.onramperSupported.queryKey,
     queryFn: async () => {
       try {
@@ -50,8 +44,34 @@ export function useOnramperSupported(): OnramperSupported["message"] {
       }
     },
     staleTime: STALE_TIMES.INFINITY,
-  })
+  }
+}
+
+/**
+ * GET /supported. Fiat and crypto lists for the cash path, fetched together
+ * (one call feeds both the fiat picker and the source-asset mapping). Near
+ * static, so cache long. Suspends into the modal's AsyncBoundary.
+ *
+ * @see https://docs.onramper.com/reference/get_supported.md (Get Currencies)
+ */
+export function useOnramperSupported(): OnramperSupported["message"] {
+  const api = useOnramper()
+  const { data } = useSuspenseQuery(onramperSupportedQueryOptions(api))
   return data
+}
+
+/**
+ * Non-suspending view of the supported crypto list, for availability gating
+ * outside the cash flow's boundaries. `undefined` while the list is loading or
+ * failing, or when the cash path is not configured — callers must treat that
+ * as unknown and fail open, so an Onramper outage degrades inside the cash
+ * flow instead of disabling the method on a transient failure.
+ */
+export function useOnramperCryptos(): OnramperCrypto[] | undefined {
+  const onramperEnabled = useOnramperEnabled()
+  const api = useOnramper()
+  const { data } = useQuery({ ...onramperSupportedQueryOptions(api), enabled: onramperEnabled })
+  return data?.crypto
 }
 
 /**
