@@ -266,6 +266,9 @@ interface QuotesParams {
   /** Fiat amount to spend, as a user-typed string. */
   amount: string
   paymentMethod: string
+  /** Gate for pausing the poll while the quote has no consumer (e.g. after the
+   * checkout hand-off, where the provider is pinned and nothing reads it). */
+  enabled?: boolean
 }
 
 // Quotes are live prices; refresh on a short interval so the picker does not go
@@ -282,7 +285,13 @@ const QUOTE_STALE_TIME = STALE_TIMES.SECOND * 30
  *
  * @see https://docs.onramper.com/reference/get_quotes-fiat-crypto.md (Get Buy Quotes)
  */
-export function useOnramperQuotes({ fiat, crypto, amount, paymentMethod }: QuotesParams) {
+export function useOnramperQuotes({
+  fiat,
+  crypto,
+  amount,
+  paymentMethod,
+  enabled = true,
+}: QuotesParams) {
   const onramperEnabled = useOnramperEnabled()
   const api = useOnramper()
   return useQuery({
@@ -299,7 +308,8 @@ export function useOnramperQuotes({ fiat, crypto, amount, paymentMethod }: Quote
         throw await normalizeError(error)
       }
     },
-    enabled: onramperEnabled && !!fiat && !!crypto && Number(amount) > 0 && !!paymentMethod,
+    enabled:
+      enabled && onramperEnabled && !!fiat && !!crypto && Number(amount) > 0 && !!paymentMethod,
     staleTime: QUOTE_STALE_TIME,
     refetchInterval: QUOTE_STALE_TIME,
   })

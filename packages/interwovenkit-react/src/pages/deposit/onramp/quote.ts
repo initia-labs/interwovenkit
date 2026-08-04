@@ -170,8 +170,11 @@ export function formatEstimatedPriceLabel(
  * Live cash-path quote derived from the form state. Resolves the destination's
  * Onramper source asset, fetches provider quotes for the entered fiat amount,
  * and ranks them, returning exactly one OnrampQuote variant.
+ *
+ * `enabled: false` pauses the quotes poll (cached data still derives a variant)
+ * for screens that keep the hook mounted after the quote stops being consumed.
  */
-export function useOnrampQuote(): OnrampQuote {
+export function useOnrampQuote({ enabled = true }: { enabled?: boolean } = {}): OnrampQuote {
   const { control } = useDepositForm()
   const [fiatId, fiatAmount, receiveDenom, receiveChainId, paymentMethodId, providerId] = useWatch({
     control,
@@ -223,6 +226,7 @@ export function useOnrampQuote(): OnrampQuote {
     crypto: sourceCrypto?.id ?? "",
     amount: debouncedLimitError ? "" : debouncedFiatAmount,
     paymentMethod: paymentMethodId,
+    enabled,
   })
 
   const fiat = useFiatDisplayCode(fiatId)

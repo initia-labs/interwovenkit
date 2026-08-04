@@ -81,7 +81,13 @@ const READY_TIMEOUT = 5000
 const OnrampProcessingBody = () => {
   const { watch } = useDepositForm()
   const trackDeposit = useTrackDeposit()
-  const quote = useOnrampQuote()
+  // The created checkout's payment url; while set, the manual continue link
+  // renders (the auto-open in openCheckoutTab can fail undetectably).
+  const [handoff, setHandoff] = useState<{ url: string; ramp: string } | null>(null)
+  // Once the checkout exists nothing consumes the live quote (the provider is
+  // pinned from `handoff.ramp` below), so pause its 30s poll for the whole
+  // payment/KYC dwell. Back/Retry remounts with `handoff` reset, resuming it.
+  const quote = useOnrampQuote({ enabled: !handoff })
   const onramps = useOnrampsMetadata()
   const walletAddress = useInitiaAddress()
 
@@ -119,6 +125,7 @@ const OnrampProcessingBody = () => {
     ? (buyChain?.pretty_name ?? fallbackChainName(sourceRoute.route.src_chain_id))
     : ""
   const ramp = quote.status === "quoted" ? quote.selected.ramp : ""
+  const belowRouteMinimum = quote.status === "quoted" && quote.belowRouteMinimum
   const sourceCryptoId = sourceCrypto?.id ?? ""
   const sourceCryptoNetwork = sourceCrypto?.network ?? ""
 
@@ -154,9 +161,6 @@ const OnrampProcessingBody = () => {
   // re-renders can swallow the observer's error notification (stuck on
   // "Processing…"). A setState from the awaited mutation always re-renders.
   const [checkoutError, setCheckoutError] = useState<Error | null>(null)
-  // The created checkout's payment url; while set, the manual continue link
-  // renders (the auto-open in openCheckoutTab can fail undetectably).
-  const [handoff, setHandoff] = useState<{ url: string; ramp: string } | null>(null)
   // Once the checkout exists, name the provider it was created with
   // (`handoff.ramp`), not the live quote's: the quote refetches every 30s and can
   // rank a different provider best, but the heading must match `handoff.url`.
@@ -175,6 +179,15 @@ const OnrampProcessingBody = () => {
     startedRef.current = true
     const startCheckout = async () => {
       try {
+        // Re-check the bridge minimum against the live quote: the Buy form's
+        // gate passed at submit time, but the quote can refetch before checkout
+        // starts and the payout drift below the route minimum — such a purchase
+        // would clear payment but die at the bridge (funds stranded, no refund).
+        if (belowRouteMinimum) {
+          throw new Error(
+            "The amount is now below the route minimum. Please go back and adjust it.",
+          )
+        }
         const info = await mutateAsync({
           walletAddress,
           chainId: receiveChainId,
@@ -196,6 +209,7 @@ const OnrampProcessingBody = () => {
     void startCheckout()
   }, [
     ready,
+    belowRouteMinimum,
     mutateAsync,
     walletAddress,
     receiveChainId,
