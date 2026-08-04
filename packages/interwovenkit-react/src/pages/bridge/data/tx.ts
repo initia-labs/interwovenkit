@@ -539,7 +539,7 @@ export function useTrackTxQuery(details: HistoryDetails) {
     retry: 6,
     retryDelay: 5000, // 5 seconds - less frequent retries for background tracking
     staleTime: STALE_TIMES.INFINITY,
-    enabled: !tracked,
+    enabled: !tracked && !!chainId && !!txHash,
   })
 }
 

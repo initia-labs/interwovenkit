@@ -38,6 +38,16 @@
   flex: none;
 }
 
+/* A missing or 404ing icon (e.g. Onramper's CDN lacks some fiat flags)
+ * degrades to a circle like the loaded logos, not a bare square. The border
+ * mirrors the 1px --logo-border ring that Image applies to loaded logos. */
+.fallback {
+  flex: none;
+
+  border: 1px solid var(--logo-border);
+  border-radius: 50%;
+}
+
 .info {
   flex: 1;
 

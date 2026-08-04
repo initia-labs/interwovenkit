@@ -1,0 +1,29 @@
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  height: 26px;
+
+  color: var(--gray-3);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.value {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  color: var(--gray-2);
+
+  font-family: var(--monospace);
+}
+
+.emphasized {
+  color: var(--gray-1);
+}
+
+.emphasized .value {
+  color: var(--gray-0);
+}

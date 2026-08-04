@@ -1,0 +1,450 @@
+import { useEffect, useRef, useState } from "react"
+import { useQueryClient } from "@tanstack/react-query"
+import { IconCheck, IconCopy } from "@initia/icons-react"
+import { truncate } from "@initia/utils"
+import AsyncBoundary from "@/components/AsyncBoundary"
+import Button from "@/components/Button"
+import CopyButton from "@/components/CopyButton"
+import Footer from "@/components/Footer"
+import Image from "@/components/Image"
+import { useSkipChains } from "@/pages/bridge/data/chains"
+import { useInitiaAddress } from "@/public/data/hooks"
+import { depositQueryKeys } from "../data/api"
+import { useProcessingTime, useReceiveAsset } from "../data/assets"
+import { useFreshDepositAddress } from "../data/depositAddress"
+import { useNewDeposits } from "../data/deposits"
+import { fallbackChainName } from "../data/source"
+import { useSourceAssetLookup } from "../data/sourceAssets"
+import { useDepositForm, useDepositNavigate, useTrackDeposit } from "../context"
+import DepositStatus from "../DepositStatus"
+import DepositSubpage from "../DepositSubpage"
+import FlowChips from "../FlowChips"
+import ProcessingTimeValue from "../ProcessingTimeValue"
+import { useMinReceived } from "./data/minReceived"
+import {
+  useFiatDisplayCode,
+  useOnrampCheckout,
+  useOnramperSourceRoute,
+  useOnrampsMetadata,
+} from "./data/onramper"
+import { getOnrampDisplayName } from "./data/onramperLogic"
+import FiatFlag from "./FiatFlag"
+import ProviderLogo from "./ProviderLogo"
+import { useOnrampQuote } from "./quote"
+import styles from "./OnrampProcessing.module.css"
+
+// Hand off to the provider's hosted payment/KYC page in a new tab so the widget
+// stays mounted and can advance to the tracking screen — never a current-tab
+// navigation (which unmounts the widget with its form state and its route back
+// to this purchase's tracking). A programmatic anchor click instead of
+// window.open, whose "noreferrer" feature string is not reliable across
+// browsers: `rel="noreferrer"` strips the Referer header, which some
+// providers' WAFs 403 when it carries an unregistered dApp origin (Guardarian),
+// and `noopener` blocks reverse tabnabbing. The click reports nothing, so a
+// blocked popup is undetectable — recovery is the always-rendered continue
+// link below, which covers every failure mode of this auto-open.
+function openCheckoutTab(url: string) {
+  const anchor = document.createElement("a")
+  anchor.href = url
+  anchor.target = "_blank"
+  anchor.rel = "noopener noreferrer"
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+}
+
+// crypto.randomUUID is secure-context-only, but host dApps can run on plain-HTTP
+// origins (LAN/staging), so fall back to a getRandomValues v4 UUID —
+// getRandomValues has no secure-context restriction.
+function generateIdempotencyKey(): string {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID()
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  bytes[6] = (bytes[6] & 0x0f) | 0x40
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
+// Failure deadline for the checkout inputs: normally present on entry (the Buy
+// form blocks submit until the quote resolves), a few seconds covers a re-render
+// race. Past it the screen would otherwise show "Processing…" forever with no error.
+const READY_TIMEOUT = 5000
+
+/**
+ * Processing screen: provider hand-off prompt + flow chips. On entry it runs the
+ * cash checkout once (`POST /v1/onramper/checkout` signs the deposit address and
+ * creates the Onramper checkout server-side), opens the returned payment/KYC url
+ * in a new tab (with an always-rendered continue link), then stays up polling for
+ * the purchased funds at the deposit address — advancing to the tracking screen
+ * once a deposit is detected, the same detection DepositAddress uses. Provider
+ * and assets come from the live quote.
+ */
+const OnrampProcessingBody = () => {
+  const { watch } = useDepositForm()
+  const trackDeposit = useTrackDeposit()
+  // The created checkout's payment url; while set, the manual continue link
+  // renders (the auto-open in openCheckoutTab can fail undetectably).
+  const [handoff, setHandoff] = useState<{ url: string; ramp: string } | null>(null)
+  // Once the checkout exists nothing consumes the live quote (the provider is
+  // pinned from `handoff.ramp` below), so pause its 30s poll for the whole
+  // payment/KYC dwell. Back/Retry remounts with `handoff` reset, resuming it.
+  const quote = useOnrampQuote({ enabled: !handoff })
+  const onramps = useOnrampsMetadata()
+  const walletAddress = useInitiaAddress()
+
+  const fiatId = watch("fiatId")
+  const fiatAmount = watch("fiatAmount")
+  const paymentMethodId = watch("paymentMethodId")
+  const receiveSymbol = watch("receiveSymbol")
+  const receiveDenom = watch("receiveDenom")
+  const receiveChainId = watch("receiveChainId")
+
+  const receiveAsset = useReceiveAsset({
+    denom: receiveDenom,
+    chainId: receiveChainId,
+    symbol: receiveSymbol,
+  })
+
+  // The Onramper source crypto bought for this destination (e.g. USDC on
+  // Ethereum); its id and network feed the checkout body, its route identifiers
+  // the Buy chip's symbol and logo (Onramper's `symbol` is unfit for display).
+  const sourceRoute = useOnramperSourceRoute(receiveChainId, receiveDenom)
+  const sourceCrypto = sourceRoute?.crypto ?? null
+  const lookup = useSourceAssetLookup()
+  const buySymbol = sourceRoute
+    ? lookup.symbol(sourceRoute.route.src_chain_id, sourceRoute.route.src_denom)
+    : ""
+  const buyLogoUrl = sourceRoute
+    ? lookup.logoUrl(sourceRoute.route.src_chain_id, sourceRoute.route.src_denom)
+    : ""
+  const skipChains = useSkipChains()
+  const buyChain = sourceRoute
+    ? skipChains.find((chain) => chain.chain_id === sourceRoute.route.src_chain_id)
+    : undefined
+  const buyChainLogoUrl = buyChain?.logo_uri ?? ""
+  const buyChainName = sourceRoute
+    ? (buyChain?.pretty_name ?? fallbackChainName(sourceRoute.route.src_chain_id))
+    : ""
+  const ramp = quote.status === "quoted" ? quote.selected.ramp : ""
+  const belowRouteMinimum = quote.status === "quoted" && quote.belowRouteMinimum
+  const payout = quote.status === "quoted" ? quote.selected.payout : undefined
+  // The backend pre-quote gate (the Buy form's fourth submit layer): the
+  // config/assets snapshot behind belowRouteMinimum can lag the backend's live
+  // minimum, so that check alone can pass a payout the backend would refuse.
+  // Paused after handoff alongside the quote poll (an undefined payout disables
+  // the query): the checkout already started, so nothing consumes the verdict.
+  const minReceived = useMinReceived(handoff ? undefined : payout, receiveChainId, receiveDenom)
+  const sourceCryptoId = sourceCrypto?.id ?? ""
+  const sourceCryptoNetwork = sourceCrypto?.network ?? ""
+
+  const processingTime = useProcessingTime(sourceRoute?.route, receiveChainId, receiveDenom)
+
+  // Cursor issuance must finish before checkout starts. Otherwise the provider
+  // can deliver funds before the watermark exists and the subsequent `after`
+  // query would permanently exclude that purchase.
+  const {
+    query: addressQuery,
+    data: freshAddressData,
+    freshCursor,
+  } = useFreshDepositAddress({
+    walletAddress,
+    chainId: receiveChainId,
+    assetDenom: receiveDenom,
+  })
+  const { isError: isAddressError, refetch: refetchAddress } = addressQuery
+  const depositAddress = freshAddressData?.deposit_address ?? ""
+  const detection = useNewDeposits({ depositAddress, after: freshCursor })
+  const detectedDepositId = detection.data?.[0]?.id ?? ""
+  useEffect(() => {
+    if (detectedDepositId) trackDeposit(detectedDepositId)
+  }, [detectedDepositId, trackDeposit])
+  const isDetectionError = detection.isError
+
+  const { mutateAsync } = useOnrampCheckout()
+  // Idempotency key: one per checkout attempt, stable across this screen's
+  // renders and the mutation's retries (a fresh attempt remounts with a new key).
+  const [uuid] = useState(generateIdempotencyKey)
+  // Hold the checkout failure in component state, not the mutation observer's
+  // `error`: this screen renders inside a react-spring transition whose rapid
+  // re-renders can swallow the observer's error notification (stuck on
+  // "Processing…"). A setState from the awaited mutation always re-renders.
+  const [checkoutError, setCheckoutError] = useState<Error | null>(null)
+  // Once the checkout exists, name the provider it was created with
+  // (`handoff.ramp`), not the live quote's: the quote refetches every 30s and can
+  // rank a different provider best, but the heading must match `handoff.url`.
+  const displayRamp = handoff?.ramp ?? ramp
+  const displayRampName = displayRamp ? getOnrampDisplayName(onramps, displayRamp) : "your provider"
+
+  // Start the one-shot checkout once its inputs are ready (wallet, provider,
+  // source crypto, positive amount). The ref collapses React's double-invoke
+  // (and any quote refetch) to a single run.
+  const checkoutInputsReady =
+    !!walletAddress && !!ramp && !!sourceCryptoId && !!sourceCryptoNetwork && Number(fiatAmount) > 0
+  const ready = checkoutInputsReady && !!depositAddress && !!freshCursor && minReceived.isSettled
+  const startedRef = useRef(false)
+  useEffect(() => {
+    if (startedRef.current || !ready) return
+    startedRef.current = true
+    const startCheckout = async () => {
+      try {
+        // Re-check the bridge minimum against the live quote: the Buy form's
+        // gate passed at submit time, but the quote can refetch before checkout
+        // starts and the payout drift below the route minimum — such a purchase
+        // would clear payment but die at the bridge (funds stranded, no refund).
+        if (belowRouteMinimum) {
+          throw new Error(
+            "The amount is now below the route minimum. Please go back and adjust it.",
+          )
+        }
+        // Same drift re-check against the backend's live minimum: a declined
+        // pre-quote means the backend would refuse to route this payout now
+        // (see useMinReceived.isDeclined).
+        if (minReceived.isDeclined) {
+          throw new Error(
+            minReceived.declineReason ||
+              "The bridge can't quote this purchase. It may be below the route minimum. Please go back and adjust your amount.",
+          )
+        }
+        const info = await mutateAsync({
+          walletAddress,
+          chainId: receiveChainId,
+          assetDenom: receiveDenom,
+          onramp: ramp,
+          fiat: fiatId,
+          crypto: sourceCryptoId,
+          network: sourceCryptoNetwork,
+          amount: Number(fiatAmount),
+          paymentMethod: paymentMethodId,
+          uuid,
+        })
+        openCheckoutTab(info.url)
+        setHandoff({ url: info.url, ramp })
+      } catch (caught) {
+        setCheckoutError(caught instanceof Error ? caught : new Error(String(caught)))
+      }
+    }
+    void startCheckout()
+  }, [
+    ready,
+    belowRouteMinimum,
+    minReceived.isDeclined,
+    minReceived.declineReason,
+    mutateAsync,
+    walletAddress,
+    receiveChainId,
+    receiveDenom,
+    ramp,
+    fiatId,
+    sourceCryptoId,
+    sourceCryptoNetwork,
+    fiatAmount,
+    paymentMethodId,
+    uuid,
+  ])
+
+  // Fail explicitly when the inputs never become ready or the backend
+  // pre-quote never settles (see READY_TIMEOUT) — both otherwise leave the
+  // screen on "Processing…" forever with no error.
+  useEffect(() => {
+    if (checkoutInputsReady && minReceived.isSettled) return
+    const timer = setTimeout(() => {
+      if (!startedRef.current) {
+        setCheckoutError(new Error("Couldn't start the checkout. Please go back and try again."))
+      }
+    }, READY_TIMEOUT)
+    return () => clearTimeout(timer)
+  }, [checkoutInputsReady, minReceived.isSettled])
+
+  const fiatDisplayCode = useFiatDisplayCode(fiatId)
+
+  // Surface a checkout failure to the local AsyncBoundary (see OnrampProcessing
+  // below) instead of silently advancing.
+  if (checkoutError) throw checkoutError
+
+  return (
+    <DepositSubpage title="Processing…">
+      <div className={styles.body}>
+        {displayRamp ? <ProviderLogo ramp={displayRamp} size={48} /> : null}
+
+        <p className={styles.heading}>Please proceed with {displayRampName}</p>
+
+        {/* Always rendered once the checkout exists: the auto-open's failures
+            (popup blockers, browser/host quirks) are not all detectable, so
+            this link is the one guaranteed way forward — its own user gesture
+            sends no Referer and can't be popup-blocked. Stays rendered to
+            reopen the payment page. */}
+        {handoff && (
+          <p className={styles.redirectFallback}>
+            If you weren&apos;t redirected automatically,{" "}
+            <a
+              className={styles.continueLink}
+              href={handoff.url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              continue with {displayRampName}
+            </a>
+          </p>
+        )}
+
+        {/* Bridge-side estimate from the Deposit API's config/assets (same value
+            as the deposit-address details screen); excludes the provider's
+            payment/KYC and delivery time, which nothing exposes. */}
+        <p className={styles.duration}>
+          Estimated duration{" "}
+          <span className={styles.durationValue}>
+            <ProcessingTimeValue estimate={processingTime} />
+          </span>
+        </p>
+
+        <p className={styles.note}>Your transaction will continue even if you close this.</p>
+
+        {/* Checkout cannot start safely without a fresh cursor and address. The
+            failure surfaces inline with Retry as the recovery. */}
+        {isAddressError && (
+          <>
+            <DepositStatus error>
+              Checkout hasn't started because we couldn't prepare your deposit address.
+            </DepositStatus>
+            <Button.White onClick={() => void refetchAddress()}>Retry</Button.White>
+          </>
+        )}
+
+        {/* Advance to tracking relies on this polling; a failure leaves the user
+            with no feedback after paying (the purchase is unaffected). Hidden
+            behind the address error, which is the more fundamental one. */}
+        {isDetectionError && !isAddressError && (
+          <DepositStatus error>
+            Deposit detection is temporarily unavailable. Your purchase is unaffected; it will
+            appear once the connection recovers.
+          </DepositStatus>
+        )}
+
+        <FlowChips
+          steps={[
+            {
+              label: "Pay",
+              icon: <FiatFlag fiatId={fiatId} size={20} />,
+              text: fiatDisplayCode,
+            },
+            // The purchase buys the destination's SOURCE crypto (e.g. Ethereum
+            // USDC); the bridge then delivers the destination asset.
+            {
+              label: "Buy",
+              logoUrl: buyLogoUrl,
+              chainLogoUrl: buyChainLogoUrl,
+              text: buySymbol,
+            },
+            {
+              label: "Receive",
+              logoUrl: receiveAsset.logoUrl,
+              chainLogoUrl: receiveAsset.chainLogoUrl,
+              text: receiveSymbol,
+            },
+          ]}
+        />
+
+        {/* The deposit (forwarding) address the provider pays out to, labeled
+            as such so it isn't mistaken for the user's wallet — shown here so
+            the user can cross-check it against the address on the provider's
+            payment page. The chain is the source network the provider sends
+            on (the Buy chip's), not the destination. */}
+        {depositAddress && (
+          <div className={styles.addressSection}>
+            <div className={styles.addressHeader}>
+              <span>Deposit address</span>
+              {buyChainName && (
+                <span className={styles.addressChain}>
+                  <Image
+                    src={buyChainLogoUrl}
+                    width={16}
+                    height={16}
+                    className={styles.addressChainLogo}
+                    classNames={{ placeholder: styles.addressChainLogo }}
+                  />
+                  {buyChainName}
+                </span>
+              )}
+            </div>
+
+            <CopyButton value={depositAddress}>
+              {({ copy, copied }) => (
+                <button
+                  type="button"
+                  className={styles.addressField}
+                  onClick={copy}
+                  aria-label={copied ? "Copied" : "Copy deposit address"}
+                >
+                  <span className={styles.addressValue}>{depositAddress}</span>
+                  {copied ? (
+                    <IconCheck size={12} aria-hidden="true" />
+                  ) : (
+                    <IconCopy size={12} aria-hidden="true" />
+                  )}
+                </button>
+              )}
+            </CopyButton>
+
+            {displayRamp && buySymbol && (
+              <p className={styles.addressCaption}>
+                {displayRampName} sends {buySymbol} here, then to{" "}
+                <span className={styles.addressOwner}>your wallet ({truncate(walletAddress)})</span>
+                . This should match the address on {displayRampName}&apos;s page.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </DepositSubpage>
+  )
+}
+
+interface CheckoutFailureProps {
+  error: Error
+  resetErrorBoundary: () => void
+}
+
+/** In-flow checkout failure screen: the error with Retry and a way back. */
+const CheckoutFailure = ({ error, resetErrorBoundary }: CheckoutFailureProps) => {
+  const navigate = useDepositNavigate()
+  const queryClient = useQueryClient()
+
+  // Reset errored suspense queries with the boundary, or remount rethrows the
+  // cached error.
+  const retry = () => {
+    queryClient.resetQueries({ queryKey: depositQueryKeys.assets.queryKey })
+    queryClient.resetQueries({ queryKey: depositQueryKeys.onramperSupported.queryKey })
+    queryClient.resetQueries({ queryKey: depositQueryKeys.onramperOnramps.queryKey })
+    resetErrorBoundary()
+  }
+
+  return (
+    <DepositSubpage title="Processing…" onBack={() => navigate("onramp")}>
+      <DepositStatus error>{error.message}</DepositStatus>
+      <Footer>
+        <Button.White onClick={retry}>Retry</Button.White>
+      </Footer>
+    </DepositSubpage>
+  )
+}
+
+// Local boundary so a checkout failure lands on an in-flow screen with Retry and
+// a way back, not the modal-level fallback (a bare message with no next step).
+// Retry needs no manual state reset: remounting the body recreates `uuid` and
+// `startedRef`, so it runs a fresh checkout under a new idempotency key.
+const OnrampProcessing = () => (
+  <AsyncBoundary
+    errorBoundaryProps={{
+      // The fallback hides the cause; log it for diagnosis.
+      // eslint-disable-next-line no-console
+      onError: (error) => console.error(error),
+      fallbackRender: ({ error, resetErrorBoundary }) => (
+        <CheckoutFailure error={error} resetErrorBoundary={resetErrorBoundary} />
+      ),
+    }}
+  >
+    <OnrampProcessingBody />
+  </AsyncBoundary>
+)
+
+export default OnrampProcessing
