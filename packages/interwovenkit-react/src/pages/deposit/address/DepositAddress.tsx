@@ -49,6 +49,12 @@ const DepositAddress = () => {
   const selectedRoute = routes.find((route) => route.src_chain_id === selectedChainId) ?? routes[0]
   const activeChainId = selectedRoute?.src_chain_id ?? ""
 
+  const handleAssetChange = (symbol: string) => {
+    const nextAsset = selectSourceAssetOption(options, symbol)
+    setSelectedAssetSymbol(symbol)
+    setSelectedChainId(nextAsset?.routes[0]?.src_chain_id ?? "")
+  }
+
   const minLabel = selectedRoute
     ? formatSourceMin(
         selectedRoute.min_deposit_amount,
@@ -174,7 +180,7 @@ const DepositAddress = () => {
               label="Source asset"
               options={assetOptions}
               value={activeAssetSymbol}
-              onChange={setSelectedAssetSymbol}
+              onChange={handleAssetChange}
             />
           </div>
 
