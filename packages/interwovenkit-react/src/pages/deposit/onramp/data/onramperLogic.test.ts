@@ -555,13 +555,30 @@ describe("resolveFiatAnchor", () => {
   const KRW = fiat("krw", "KRW")
   const FIATS = [USD, THB, KRW]
   const candidates = (overrides: {
+    presetCurrency?: string | null
     persistedId?: string | null
     recommendedCode?: string | null
   }) => ({
+    presetCurrency: null,
     persistedId: null,
     recommendedCode: null,
     defaultId: "usd",
     ...overrides,
+  })
+
+  it("prefers a host preset over remembered and recommended currencies", () => {
+    expect(
+      resolveFiatAnchor(
+        FIATS,
+        candidates({ presetCurrency: "KRW", persistedId: "thb", recommendedCode: "USD" }),
+      ),
+    ).toBe(KRW)
+  })
+
+  it("skips an unsupported host preset in favor of the remembered currency", () => {
+    expect(
+      resolveFiatAnchor(FIATS, candidates({ presetCurrency: "XYZ", persistedId: "thb" })),
+    ).toBe(THB)
   })
 
   it("prefers the user's remembered pick over the recommendation", () => {

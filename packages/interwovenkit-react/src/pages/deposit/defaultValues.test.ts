@@ -11,6 +11,7 @@ describe("buildDepositDefaultValues", () => {
     expect(values.receiveChainId).toBe("")
     expect(values.receiveSymbol).toBe("")
     expect(values.trackedDepositId).toBe("")
+    expect(values.fiatAmount).toBe("")
   })
 
   test("single option: pre-selects it and skips the picker", () => {
@@ -63,5 +64,15 @@ describe("buildDepositDefaultValues", () => {
     const values = buildDepositDefaultValues([], { paymentMethodId: "banktransfer", fiatId: "eur" })
     expect(values.paymentMethodId).toBe("banktransfer")
     expect(values.fiatId).toBe("eur")
+  })
+
+  test("host onramp values override the remembered fiat and prefill the amount", () => {
+    const values = buildDepositDefaultValues(
+      [],
+      { fiatId: "eur" },
+      { amount: "40", currency: "usd" },
+    )
+    expect(values.fiatAmount).toBe("40")
+    expect(values.fiatId).toBe("usd")
   })
 })

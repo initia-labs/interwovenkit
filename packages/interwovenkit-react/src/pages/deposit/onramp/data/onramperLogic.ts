@@ -52,6 +52,8 @@ export function matchOnramperCrypto(
 
 /** Candidate sources for the Buy form's fiat anchor, in priority order. */
 export interface FiatAnchorCandidates {
+  /** Host-provided initial currency code or id. */
+  presetCurrency: string | null
   /** The user's remembered explicit pick (localStorage), a lowercase fiat id. */
   persistedId: string | null
   /** Onramper's geolocated recommendation, an uppercase fiat CODE (e.g.
@@ -62,16 +64,16 @@ export interface FiatAnchorCandidates {
 }
 
 /**
- * The fiat the Buy form should anchor to: the user's remembered pick, else
- * Onramper's geolocated recommendation, else the default currency, else the
- * first listed fiat. Every candidate must resolve against the live supported
- * list — an unlisted value would wedge the payment-types and quotes queries
- * with no automatic recovery. Non-empty input (assertOnramperSupported)
+ * The fiat the Buy form should anchor to: the host preset, the user's remembered
+ * pick, Onramper's geolocated recommendation, the default currency, or the first
+ * listed fiat, in that order. Every candidate must resolve against the live
+ * supported list — an unlisted value would wedge the payment-types and quotes
+ * queries with no automatic recovery. Non-empty input (assertOnramperSupported)
  * guarantees a result.
  */
 export function resolveFiatAnchor(
   supportedFiat: OnramperFiat[],
-  { persistedId, recommendedCode, defaultId }: FiatAnchorCandidates,
+  { presetCurrency, persistedId, recommendedCode, defaultId }: FiatAnchorCandidates,
 ): OnramperFiat {
   const byId = (id: string | null) =>
     id ? supportedFiat.find((entry) => entry.id === id) : undefined
@@ -86,7 +88,13 @@ export function resolveFiatAnchor(
       supportedFiat.find((entry) => entry.id === lower)
     )
   }
-  return byId(persistedId) ?? byCode(recommendedCode) ?? byId(defaultId) ?? supportedFiat[0]
+  return (
+    byCode(presetCurrency) ??
+    byId(persistedId) ??
+    byCode(recommendedCode) ??
+    byId(defaultId) ??
+    supportedFiat[0]
+  )
 }
 
 const APPLE_PAY_PAYMENT_TYPE_ID = "applepay"

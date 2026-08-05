@@ -14,6 +14,14 @@ export interface AssetOption {
   chainId: string
 }
 
+/** Initial editable values for the buy-with-cash form. */
+export interface OnrampPreset {
+  /** Non-negative fiat amount with at most two decimal places, e.g. "40". */
+  amount: string
+  /** ISO currency code, matched case-insensitively, e.g. "USD". */
+  currency: string
+}
+
 /** Location state passed by useOpenDeposit/useOpenWithdraw (data/deposit.ts). */
 export interface DepositLocationState {
   /** Receive-side (local) assets provided by the host dApp. */
@@ -23,6 +31,8 @@ export interface DepositLocationState {
   /** Host-provided recipient override; only the wallet method honors it (see
    * getTransferRecipient). */
   recipientAddress?: string
+  /** Host-provided initial values for the onramp form. */
+  onramp?: OnrampPreset
 }
 
 /**

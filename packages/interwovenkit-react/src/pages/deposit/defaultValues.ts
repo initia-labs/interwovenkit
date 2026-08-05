@@ -1,4 +1,4 @@
-import type { AssetOption } from "./data/assetOptions"
+import type { AssetOption, OnrampPreset } from "./data/assetOptions"
 import { DEFAULT_FIAT_ID, DEFAULT_PAYMENT_TYPE_ID, type DepositFormValues } from "./context"
 
 /**
@@ -25,6 +25,7 @@ export interface PersistedOnrampDefaults {
 export function buildDepositDefaultValues(
   localOptions: AssetOption[],
   persisted: PersistedOnrampDefaults = {},
+  onramp?: OnrampPreset,
 ): DepositFormValues {
   const defaultValues: DepositFormValues = {
     page: "select-asset",
@@ -33,8 +34,8 @@ export function buildDepositDefaultValues(
     receiveChainId: "",
     method: "address",
     trackedDepositId: "",
-    fiatId: persisted.fiatId || DEFAULT_FIAT_ID,
-    fiatAmount: "",
+    fiatId: onramp?.currency || persisted.fiatId || DEFAULT_FIAT_ID,
+    fiatAmount: onramp?.amount ?? "",
     paymentMethodId: persisted.paymentMethodId || DEFAULT_PAYMENT_TYPE_ID,
     providerId: "",
   }
