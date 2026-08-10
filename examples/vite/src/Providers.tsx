@@ -11,6 +11,7 @@ import {
 } from "@initia/interwovenkit-react"
 import css from "@initia/interwovenkit-react/styles.css?inline"
 import { chainId, depositApiUrl, isTestnet, routerApiUrl, useTheme } from "./data"
+import { mockStratPosition } from "./mockStratPosition"
 
 import type { PropsWithChildren } from "react"
 
@@ -27,6 +28,15 @@ const wagmiConfig = createConfig({
   transports: { [mainnet.id]: http() },
 })
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+// DEBUG ONLY — exposes queryClient as window.__qc, and window.__mockStratPosition(...) to inject
+// a fake Strat vault position into the portfolio cache. See mockStratPosition.ts for usage.
+if (import.meta.env.DEV) {
+  Object.assign(window, {
+    __qc: queryClient,
+    __mockStratPosition: (options?: Parameters<typeof mockStratPosition>[1]) =>
+      mockStratPosition(queryClient, options),
+  })
+}
 
 const InterwovenKitWrapper = ({ children }: PropsWithChildren) => {
   const theme = useTheme()

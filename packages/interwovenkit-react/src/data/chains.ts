@@ -3,13 +3,18 @@ import { descend, path } from "ramda"
 import { queryOptions, useQueries, useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import type { Chain, ChainProfile, SecureEndpoint } from "@initia/initia-registry-types"
+import type { Config } from "./config"
 import { useConfig } from "./config"
 import { STALE_TIMES } from "./http"
+import { fetchStratSupplementalPrices } from "./strat"
 
 export const chainQueryKeys = createQueryKeys("interwovenkit:chain", {
   list: (registryUrl: string) => [registryUrl],
   profiles: (registryUrl: string) => [registryUrl],
-  prices: (chainId: string) => [chainId],
+  prices: (
+    chainId: string,
+    stratConfig: Pick<Config, "stratLpModuleAddress" | "stratXslpCollateralMetadata">,
+  ) => [chainId, stratConfig],
   gasPrices: (chain: NormalizedChain) => [chain],
 })
 
@@ -190,20 +195,44 @@ export function useLayer1() {
 export interface PriceItem {
   id: string
   price: number
+  /** Only present on the raw indexer response; used to look up well-known assets (e.g. "xSLP", "iUSD") by symbol rather than by a hardcoded denom. */
+  symbol?: string
 }
 
 function useCreatePricesQuery() {
-  return ({ chainId }: NormalizedChain) => {
+  const config = useConfig()
+  const { stratLpModuleAddress, stratXslpCollateralMetadata } = config
+  return (chain: NormalizedChain) => {
+    const { chainId } = chain
     return queryOptions({
-      queryKey: chainQueryKeys.prices(chainId).queryKey,
-      queryFn: () =>
-        ky
+      queryKey: chainQueryKeys.prices(chainId, {
+        stratLpModuleAddress,
+        stratXslpCollateralMetadata,
+      }).queryKey,
+      queryFn: async () => {
+        const prices = await ky
           .create({ prefixUrl: "https://indexer.initia.xyz" })
           .get(`initia/${chainId}/assets`, { searchParams: { quote: "USD", with_prices: true } })
-          .json<PriceItem[]>(),
+          .json<PriceItem[]>()
+        const supplementalPrices = await fetchStratSupplementalPrices(chain, prices, {
+          stratLpModuleAddress,
+          stratXslpCollateralMetadata,
+        })
+        return mergePriceItems(prices, supplementalPrices)
+      },
       staleTime: STALE_TIMES.SECOND,
     })
   }
+}
+
+function mergePriceItems(prices: PriceItem[], supplementalPrices: PriceItem[]) {
+  if (supplementalPrices.length === 0) return prices
+
+  const priceById = new Map(prices.map((price) => [price.id, price]))
+  for (const price of supplementalPrices) {
+    priceById.set(price.id, price)
+  }
+  return Array.from(priceById.values())
 }
 
 export function usePricesQuery(chain: NormalizedChain) {

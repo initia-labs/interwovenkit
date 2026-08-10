@@ -11,6 +11,8 @@ export const MAINNET: Config = {
   usernamesModuleAddress: "0x72ed9b26ecdcd6a21d304df50f19abfdbe31d2c02f60c84627844620a45940ef",
   lockStakeModuleAddress: "0x3a886b32a802582f2e446e74d4a24d1d7ed01adf46d2a8f65c5723887e708789",
   clammVaultModuleAddress: "0xef13fcd6485529958442e833ceffbd4fcb2c489e2715d8a4c703779ba28577b6",
+  stratLpModuleAddress: "0x9a838c8d805e885481f594efee110d6f5b407d530866f4973955afae88941733",
+  stratXslpCollateralMetadata: "0x13bab7c0ed9dd9f4609f7dee7a5f69c99e14eca507f77e088d9b429f77e47b81", // iUSD, not xSLP itself
   minityUrl: "https://portfolio-api.minity.xyz",
   dexUrl: "https://dex-api.initia.xyz",
   vipUrl: "https://vip-api.initia.xyz",
@@ -29,6 +31,8 @@ export const TESTNET: Config = {
   usernamesModuleAddress: "0x42cd8467b1c86e59bf319e5664a09b6b5840bb3fac64f5ce690b5041c530565a",
   lockStakeModuleAddress: "0x81c3ea419d2fd3a27971021d9dd3cc708def05e5d6a09d39b2f1f9ba18312264",
   clammVaultModuleAddress: "0x7b7811c87e398995937f35eb7bad9a92f7ac199f025735923e1a95f05f21215a",
+  stratLpModuleAddress: undefined,
+  stratXslpCollateralMetadata: undefined,
   minityUrl: "https://portfolio-api.minity.xyz",
   dexUrl: "https://dex-api.initiation-2.initia.xyz",
   vipUrl: "https://vip-api.testnet.initia.xyz",

@@ -138,6 +138,7 @@ const Portfolio = () => {
             searchQuery={searchQuery}
             selectedChain={selectedChain}
             chainInfoMap={chainInfoMap}
+            chainPrices={chainPrices}
           />
         </AsyncBoundary>
       </section>

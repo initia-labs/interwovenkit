@@ -5,6 +5,7 @@ import type {
   Balance,
   ChainBalanceData,
   ChainInfo,
+  ChainPositionData,
   FungiblePosition,
   PerpPosition,
   Position,
@@ -12,6 +13,7 @@ import type {
   TokenAsset,
 } from "./types"
 import {
+  applyFallbackPositionPricing,
   applyFallbackPricing,
   applyLogosToGroups,
   buildAssetLogoMaps,
@@ -921,6 +923,95 @@ describe("minity/utilities", () => {
       it("subtracts negative PnL from collateral", () => {
         expect(getPositionValue(createMockPerpPosition({ pnl: -30 }))).toBe(70)
       })
+    })
+  })
+
+  describe("applyFallbackPositionPricing", () => {
+    it("adds value to unpriced positions from the chain price map", () => {
+      const positions: ChainPositionData[] = [
+        {
+          chainId: "strat-1",
+          chainName: "strat",
+          positions: [
+            createMockProtocolPosition([
+              createMockPosition({
+                type: "staking",
+                balance: createMockBalance({
+                  symbol: "xSLP",
+                  denom: "move/xslp",
+                  formattedAmount: 2.5,
+                  value: undefined,
+                }),
+              }),
+            ]),
+          ],
+        },
+      ]
+
+      const result = applyFallbackPositionPricing(
+        positions,
+        new Map([["strat-1", new Map([["move/xslp", 1.2]])]]),
+      )
+      const priced = result[0].positions[0].positions[0]
+
+      expect(getPositionValue(priced)).toBe(3)
+    })
+
+    it("does not overwrite existing values", () => {
+      const positions: ChainPositionData[] = [
+        {
+          chainId: "strat-1",
+          chainName: "strat",
+          positions: [
+            createMockProtocolPosition([
+              createMockPosition({
+                type: "staking",
+                balance: createMockBalance({
+                  symbol: "xSLP",
+                  formattedAmount: 2.5,
+                  value: 10,
+                }),
+              }),
+            ]),
+          ],
+        },
+      ]
+
+      const result = applyFallbackPositionPricing(
+        positions,
+        new Map([["strat-1", new Map([["uinit", 1.2]])]]),
+      )
+
+      expect(getPositionValue(result[0].positions[0].positions[0])).toBe(10)
+    })
+
+    it("skips positions when the chain price map has no matching denom", () => {
+      const positions: ChainPositionData[] = [
+        {
+          chainId: "other-1",
+          chainName: "other",
+          positions: [
+            createMockProtocolPosition([
+              createMockPosition({
+                type: "staking",
+                balance: createMockBalance({
+                  symbol: "xSLP",
+                  denom: "move/xslp",
+                  formattedAmount: 2.5,
+                  value: undefined,
+                }),
+              }),
+            ]),
+          ],
+        },
+      ]
+
+      const result = applyFallbackPositionPricing(
+        positions,
+        new Map([["other-1", new Map([["uinit", 1.2]])]]),
+      )
+
+      expect(getPositionValue(result[0].positions[0].positions[0])).toBe(0)
     })
   })
 

@@ -48,6 +48,7 @@ export { minityQueryKeys, minityQueryOptions } from "./query-keys"
 // Utilities
 export type { StakingType } from "./utilities"
 export {
+  applyFallbackPositionPricing,
   applyFallbackPricing,
   applyLogosToGroups,
   buildAssetLogoMaps,

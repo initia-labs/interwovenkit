@@ -44,6 +44,10 @@ export interface Config {
   lockStakeModuleAddress: string
   /** Move module address for CLAMM vaults. */
   clammVaultModuleAddress: string
+  /** Strat `lp` module deployer address, used for xSLP pricing. Absent where Strat isn't deployed (e.g. testnet). */
+  stratLpModuleAddress?: string
+  /** Metadata of the xSLP vault's collateral asset (e.g. iUSD) — NOT xSLP's own metadata. See `fetchStratSupplementalPrices`. */
+  stratXslpCollateralMetadata?: string
   /** Minity portfolio API base URL (SSE streaming). */
   minityUrl: string
   /** DEX indexer API base URL for LP prices and positions. */

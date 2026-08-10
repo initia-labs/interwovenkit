@@ -11,7 +11,11 @@ interface Props {
 }
 
 const AsyncBoundary = ({
-  errorBoundaryProps = { fallbackRender: ({ error }) => <Status error>{error.message}</Status> },
+  errorBoundaryProps = {
+    fallbackRender: ({ error }) => (
+      <Status error>{error instanceof Error ? error.message : String(error)}</Status>
+    ),
+  },
   suspenseFallback = <Status>Loading...</Status>,
   children,
 }: PropsWithChildren<Props>) => {

@@ -13,7 +13,12 @@ import type {
   ProtocolPosition,
   SSEPortfolioData,
 } from "./types"
-import { applyFallbackPricing, buildPriceMap, getPositionValue } from "./utilities"
+import {
+  applyFallbackPositionPricing,
+  applyFallbackPricing,
+  buildPriceMap,
+  getPositionValue,
+} from "./utilities"
 
 // ============================================
 // DEFAULT DATA
@@ -105,6 +110,8 @@ export function useChainInfoMap(): Map<string, ChainInfo> {
 export function useMinityChainBreakdown(): ChainBreakdownItem[] {
   const { balances, positions } = useMinityPortfolio()
   const registry = useInitiaRegistry()
+  const priceQueries = useAllChainPriceQueries()
+  const chainPrices = useMemo(() => buildPriceMap(registry, priceQueries), [registry, priceQueries])
 
   const registryMap = useMemo(() => {
     const map = new Map<string, (typeof registry)[number]>()
@@ -128,7 +135,9 @@ export function useMinityChainBreakdown(): ChainBreakdownItem[] {
     const chainTotals = new Map<string, number>()
 
     const safeBalances = Array.isArray(balances) ? balances : []
-    const safePositions = Array.isArray(positions) ? positions : []
+    const safePositions = Array.isArray(positions)
+      ? applyFallbackPositionPricing(positions, chainPrices)
+      : []
 
     for (const { chainName, balances: chainBalances } of safeBalances) {
       if (!Array.isArray(chainBalances)) continue
@@ -160,7 +169,7 @@ export function useMinityChainBreakdown(): ChainBreakdownItem[] {
 
     const isInitia = (item: ChainBreakdownItem) => item.chainName.toLowerCase() === "initia"
     return sortWith([descend(isInitia), descend(prop("totalBalance"))], filtered)
-  }, [balances, positions, registryMap])
+  }, [balances, positions, registryMap, chainPrices])
 
   return data
 }
@@ -209,6 +218,9 @@ export function useLiquidAssetsBalance(): number {
  */
 export function useAppchainPositionsBalance(): number {
   const { positions } = useMinityPortfolio()
+  const chains = useInitiaRegistry()
+  const priceQueries = useAllChainPriceQueries()
+  const chainPrices = useMemo(() => buildPriceMap(chains, priceQueries), [chains, priceQueries])
 
   return useMemo(() => {
     const getProtocolPositionValue = (position: ProtocolPosition): number =>
@@ -218,7 +230,9 @@ export function useAppchainPositionsBalance(): number {
     const excludedChains = ["initia", "civitia", "yominet"]
 
     let total = 0
-    const safePositions = Array.isArray(positions) ? positions : []
+    const safePositions = Array.isArray(positions)
+      ? applyFallbackPositionPricing(positions, chainPrices)
+      : []
     for (const { chainName, positions: chainPositions } of safePositions) {
       const lowerChainName = chainName.toLowerCase()
 
@@ -229,5 +243,5 @@ export function useAppchainPositionsBalance(): number {
       total += chainPositions.reduce((sum, p) => sum + getProtocolPositionValue(p), 0)
     }
     return total
-  }, [positions])
+  }, [positions, chainPrices])
 }

@@ -5,6 +5,7 @@ import Skeletons from "@/components/Skeletons"
 import Status from "@/components/Status"
 import { useLayer1 } from "@/data/chains"
 import {
+  applyFallbackPositionPricing,
   type ChainInfo,
   getPositionValue,
   type PortfolioChainPositionGroup,
@@ -19,141 +20,145 @@ export interface PositionsProps {
   searchQuery: string
   selectedChain: string
   chainInfoMap: Map<string, ChainInfo>
+  chainPrices: Map<string, Map<string, number>>
 }
 
-const Positions = memo(({ searchQuery, selectedChain, chainInfoMap }: PositionsProps) => {
-  // Position data (SSE - streams progressively)
-  const { positions, isLoading } = useMinityPortfolio()
+const Positions = memo(
+  ({ searchQuery, selectedChain, chainInfoMap, chainPrices }: PositionsProps) => {
+    // Position data (SSE - streams progressively)
+    const { positions, isLoading } = useMinityPortfolio()
 
-  // Layer 1 chain info
-  const layer1 = useLayer1()
+    // Layer 1 chain info
+    const layer1 = useLayer1()
 
-  // Filter and transform positions into chain groups
-  const filteredChainGroups = useMemo(() => {
-    const result: PortfolioChainPositionGroup[] = []
+    // Filter and transform positions into chain groups
+    const filteredChainGroups = useMemo(() => {
+      const result: PortfolioChainPositionGroup[] = []
+      const pricedPositions = applyFallbackPositionPricing(positions, chainPrices)
 
-    for (const chainData of positions) {
-      // Skip if positions is not an array
-      if (!Array.isArray(chainData.positions)) continue
+      for (const chainData of pricedPositions) {
+        // Skip if positions is not an array
+        if (!Array.isArray(chainData.positions)) continue
 
-      // Get chain info from breakdown
-      const chainInfo = chainInfoMap.get(chainData.chainName.toLowerCase())
-      const chainNameLower = chainData.chainName.toLowerCase()
-      const prettyNameLower = (chainInfo?.prettyName ?? chainData.chainName).toLowerCase()
+        // Get chain info from breakdown
+        const chainInfo = chainInfoMap.get(chainData.chainName.toLowerCase())
+        const chainNameLower = chainData.chainName.toLowerCase()
+        const prettyNameLower = (chainInfo?.prettyName ?? chainData.chainName).toLowerCase()
 
-      // Filter by selected chain (using chainId)
-      if (selectedChain && chainInfo?.chainId !== selectedChain) {
-        continue
-      }
-
-      // Check if chain has any actual renderable positions (not fungible positions)
-      const hasAnyPositions = chainData.positions.some((protocol) =>
-        protocol.positions.some((position) => position.type !== "fungible-position"),
-      )
-
-      // Skip chain if it has no displayable content
-      if (!hasAnyPositions) {
-        continue
-      }
-
-      // Skip chain if search query doesn't match raw identifier or display label
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase()
-        if (!chainNameLower.includes(query) && !prettyNameLower.includes(query)) {
+        // Filter by selected chain (using chainId)
+        if (selectedChain && chainInfo?.chainId !== selectedChain) {
           continue
         }
+
+        // Check if chain has any actual renderable positions (not fungible positions)
+        const hasAnyPositions = chainData.positions.some((protocol) =>
+          protocol.positions.some((position) => position.type !== "fungible-position"),
+        )
+
+        // Skip chain if it has no displayable content
+        if (!hasAnyPositions) {
+          continue
+        }
+
+        // Skip chain if search query doesn't match raw identifier or display label
+        if (searchQuery) {
+          const query = searchQuery.toLowerCase()
+          if (!chainNameLower.includes(query) && !prettyNameLower.includes(query)) {
+            continue
+          }
+        }
+
+        // Filter protocols by search query (match protocol name)
+        const filteredProtocols = chainData.positions.filter((protocol) => {
+          if (searchQuery && !protocol.protocol.toLowerCase().includes(searchQuery.toLowerCase())) {
+            return false
+          }
+          return Array.isArray(protocol.positions) && protocol.positions.length > 0
+        })
+
+        const isInitia = layer1.chainId === chainInfo?.chainId
+
+        // Calculate total value for this chain
+        const totalValue = filteredProtocols.reduce((sum, protocol) => {
+          return (
+            sum +
+            protocol.positions.reduce(
+              (positionSum, position) => positionSum + getPositionValue(position),
+              0,
+            )
+          )
+        }, 0)
+
+        result.push({
+          chainId: chainInfo?.chainId ?? "",
+          chainName: chainData.chainName,
+          prettyName: chainInfo?.prettyName ?? chainData.chainName,
+          chainLogo: chainInfo?.logoUrl ?? "",
+          protocols: filteredProtocols,
+          isInitia,
+          totalValue,
+        })
       }
 
-      // Filter protocols by search query (match protocol name)
-      const filteredProtocols = chainData.positions.filter((protocol) => {
-        if (searchQuery && !protocol.protocol.toLowerCase().includes(searchQuery.toLowerCase())) {
-          return false
-        }
-        return Array.isArray(protocol.positions) && protocol.positions.length > 0
-      })
+      // Chains excluded from value calculations (fungible NFTs only, no USD values)
+      const excludedChains = ["civitia", "yominet"]
 
-      const isInitia = layer1.chainId === chainInfo?.chainId
+      // Sort: Initia first, then excluded chains last, then by value descending, then alphabetically
+      return sortWith(
+        [
+          descend((group: PortfolioChainPositionGroup) => group.isInitia ?? false),
+          ascend((group: PortfolioChainPositionGroup) =>
+            excludedChains.includes(group.chainName.toLowerCase()),
+          ),
+          descend((group: PortfolioChainPositionGroup) => group.totalValue ?? 0),
+          ascend((group: PortfolioChainPositionGroup) => group.prettyName.toLowerCase()),
+        ],
+        result,
+      )
+    }, [positions, chainPrices, chainInfoMap, searchQuery, selectedChain, layer1.chainId])
 
-      // Calculate total value for this chain
-      const totalValue = filteredProtocols.reduce((sum, protocol) => {
-        return (
-          sum +
-          protocol.positions.reduce(
-            (positionSum, position) => positionSum + getPositionValue(position),
-            0,
-          )
-        )
-      }, 0)
+    const hasPositions = filteredChainGroups.length > 0
 
-      result.push({
-        chainId: chainInfo?.chainId ?? "",
-        chainName: chainData.chainName,
-        prettyName: chainInfo?.prettyName ?? chainData.chainName,
-        chainLogo: chainInfo?.logoUrl ?? "",
-        protocols: filteredProtocols,
-        isInitia,
-        totalValue,
-      })
-    }
-
-    // Chains excluded from value calculations (fungible NFTs only, no USD values)
-    const excludedChains = ["civitia", "yominet"]
-
-    // Sort: Initia first, then excluded chains last, then by value descending, then alphabetically
-    return sortWith(
-      [
-        descend((group: PortfolioChainPositionGroup) => group.isInitia ?? false),
-        ascend((group: PortfolioChainPositionGroup) =>
-          excludedChains.includes(group.chainName.toLowerCase()),
-        ),
-        descend((group: PortfolioChainPositionGroup) => group.totalValue ?? 0),
-        ascend((group: PortfolioChainPositionGroup) => group.prettyName.toLowerCase()),
-      ],
-      result,
-    )
-  }, [positions, chainInfoMap, searchQuery, selectedChain, layer1.chainId])
-
-  const hasPositions = filteredChainGroups.length > 0
-
-  return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <span className={styles.title}>Positions</span>
-        {hasPositions && (
-          <AsyncBoundary suspenseFallback={<Skeletons height={16} width={60} length={1} />}>
-            <PositionsTotalValue filteredChainGroups={filteredChainGroups} />
-          </AsyncBoundary>
+    return (
+      <div className={styles.container}>
+        <div className={styles.header}>
+          <span className={styles.title}>Positions</span>
+          {hasPositions && (
+            <AsyncBoundary suspenseFallback={<Skeletons height={16} width={60} length={1} />}>
+              <PositionsTotalValue filteredChainGroups={filteredChainGroups} />
+            </AsyncBoundary>
+          )}
+        </div>
+        {hasPositions ? (
+          <div className={styles.list}>
+            {filteredChainGroups.map((chainGroup) => {
+              if (chainGroup.isInitia) {
+                // For L1, render InitiaPositionGroup with on-chain staking data
+                // Wrap in AsyncBoundary for suspense queries (rewards)
+                return (
+                  <AsyncBoundary
+                    key={chainGroup.chainName}
+                    suspenseFallback={
+                      <div className={styles.skeletonWrapper}>
+                        <Skeletons height={56} length={1} />
+                      </div>
+                    }
+                  >
+                    <InitiaPositionGroup chainGroup={chainGroup} />
+                  </AsyncBoundary>
+                )
+              }
+              return <AppchainPositionGroup key={chainGroup.chainName} chainGroup={chainGroup} />
+            })}
+          </div>
+        ) : positions.length === 0 && isLoading ? (
+          <Skeletons height={56} length={3} />
+        ) : (
+          <Status>No positions</Status>
         )}
       </div>
-      {hasPositions ? (
-        <div className={styles.list}>
-          {filteredChainGroups.map((chainGroup) => {
-            if (chainGroup.isInitia) {
-              // For L1, render InitiaPositionGroup with on-chain staking data
-              // Wrap in AsyncBoundary for suspense queries (rewards)
-              return (
-                <AsyncBoundary
-                  key={chainGroup.chainName}
-                  suspenseFallback={
-                    <div className={styles.skeletonWrapper}>
-                      <Skeletons height={56} length={1} />
-                    </div>
-                  }
-                >
-                  <InitiaPositionGroup chainGroup={chainGroup} />
-                </AsyncBoundary>
-              )
-            }
-            return <AppchainPositionGroup key={chainGroup.chainName} chainGroup={chainGroup} />
-          })}
-        </div>
-      ) : positions.length === 0 && isLoading ? (
-        <Skeletons height={56} length={3} />
-      ) : (
-        <Status>No positions</Status>
-      )}
-    </div>
-  )
-})
+    )
+  },
+)
 
 export default Positions

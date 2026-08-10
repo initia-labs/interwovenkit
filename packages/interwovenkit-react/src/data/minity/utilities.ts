@@ -7,6 +7,7 @@ import type {
   Balance,
   ChainBalanceData,
   ChainInfo,
+  ChainPositionData,
   DenomGroup,
   PerpPosition,
   Position,
@@ -157,6 +158,48 @@ export function getPositionValue(position: Position): number {
     return -value
   }
   return value
+}
+
+type PositionWithPricedBalance = Position & { balance: Exclude<Balance, { type: "unknown" }> }
+
+function hasPricedBalance(position: Position): position is PositionWithPricedBalance {
+  if (position.type === "fungible-position" || position.type === "perp-position") return false
+  return position.balance.type !== "unknown"
+}
+
+export function applyFallbackPositionPricing(
+  positions: ChainPositionData[],
+  chainPrices: Map<string, Map<string, number>>,
+): ChainPositionData[] {
+  return positions.map((chainData) => {
+    const prices = chainPrices.get(chainData.chainId)
+    if (!prices) return chainData
+
+    let changedProtocol = false
+    const protocols = chainData.positions.map((protocol) => {
+      let changedPosition = false
+      const protocolPositions = protocol.positions.map((position) => {
+        if (!hasPricedBalance(position)) return position
+
+        const { balance } = position
+        if (balance.value != null && balance.value > 0) return position
+
+        const price = prices.get(balance.denom) ?? 0
+        const value = balance.formattedAmount * price
+        if (!Number.isFinite(value) || value <= 0) return position
+
+        changedPosition = true
+        return { ...position, balance: { ...balance, value } }
+      })
+
+      if (!changedPosition) return protocol
+      changedProtocol = true
+      return { ...protocol, positions: protocolPositions }
+    })
+
+    if (!changedProtocol) return chainData
+    return { ...chainData, positions: protocols }
+  })
 }
 
 /** Get section key for position - groups staking types, perp, and separates lending by direction */

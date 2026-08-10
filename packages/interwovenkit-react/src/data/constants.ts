@@ -13,6 +13,7 @@ export const OMNI_INIT_SYMBOL = "omniINIT"
 
 // Strat (perp DEX) chain identifier as it appears in Minity portfolio responses.
 export const STRAT_CHAIN_NAME = "strat"
+export const XSLP_SYMBOL = "xSLP"
 
 // External URLs
 export const INITIA_APP_URL = "https://app.initia.xyz"
