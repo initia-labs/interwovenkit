@@ -5,16 +5,14 @@
 
 ### Features
 
-* **deposit:** add address and onramp methods ([d410679](https://github.com/initia-labs/interwovenkit/commit/d4106798ab7a6f4e52a93631d8e49483648360cf))
-* **deposit:** support onramp presets ([6b0cec2](https://github.com/initia-labs/interwovenkit/commit/6b0cec2253c5f6a4a1c104fe3b7330bec70f5504))
+* **deposit:** add a unified flow for wallet transfers, reusable deposit addresses, and cash or card purchases; hosts can prefill the purchase amount and currency, and single-asset flows skip the asset picker ([73d6fa4](https://github.com/initia-labs/interwovenkit/commit/73d6fa495747f6cf0996dcf02dffdf5e7536a9d3), [d410679](https://github.com/initia-labs/interwovenkit/commit/d4106798ab7a6f4e52a93631d8e49483648360cf), [6b0cec2](https://github.com/initia-labs/interwovenkit/commit/6b0cec2253c5f6a4a1c104fe3b7330bec70f5504))
 
 
 ### Bug Fixes
 
-* **deposit:** skip asset picker for single option ([73d6fa4](https://github.com/initia-labs/interwovenkit/commit/73d6fa495747f6cf0996dcf02dffdf5e7536a9d3))
-* harden external link handling ([808fff9](https://github.com/initia-labs/interwovenkit/commit/808fff9dd1a56ae92288e6c24e4e0eed802e8ba1))
-* **portfolio:** keep query arrays reference-stable ([c222961](https://github.com/initia-labs/interwovenkit/commit/c2229611d1c8536241f3748e6805974b59f6580a))
-* **send:** pin iUSD after INIT in asset picker ([95f88e3](https://github.com/initia-labs/interwovenkit/commit/95f88e3370024e0f6c12b1a022c38f6b88ff4099))
+* **security:** allow only safe portfolio management links and prevent wallet installation or private key export pages from accessing the widget or referrer data ([808fff9](https://github.com/initia-labs/interwovenkit/commit/808fff9dd1a56ae92288e6c24e4e0eed802e8ba1))
+* **portfolio:** keep portfolio search responsive during background data refreshes ([c222961](https://github.com/initia-labs/interwovenkit/commit/c2229611d1c8536241f3748e6805974b59f6580a))
+* **send:** show iUSD directly after INIT in the asset picker and sort otherwise tied assets alphabetically ([95f88e3](https://github.com/initia-labs/interwovenkit/commit/95f88e3370024e0f6c12b1a022c38f6b88ff4099))
 
 ## [2.10.0](https://github.com/initia-labs/interwovenkit/compare/v2.9.1...v2.10.0) (2026-06-25)
 
