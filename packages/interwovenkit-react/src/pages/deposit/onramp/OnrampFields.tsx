@@ -10,6 +10,8 @@ import FormHelp from "@/components/form/FormHelp"
 import NumericInput from "@/components/form/NumericInput"
 import Image from "@/components/Image"
 import { LocalStorageKey } from "@/data/constants"
+import { useLocationState } from "@/lib/router"
+import type { DepositLocationState } from "../data/assetOptions"
 import { useProcessingTime, useReceiveAsset } from "../data/assets"
 import { DEFAULT_FIAT_ID, useDepositForm, useDepositNavigate } from "../context"
 import DepositSubpage from "../DepositSubpage"
@@ -79,6 +81,7 @@ function submitBlockedReason(quote: OnrampQuote): string {
  * selection opens a sub-page; submit advances to the processing screen. */
 const OnrampFields = () => {
   const { control, watch, setValue, handleSubmit } = useDepositForm()
+  const { onramp } = useLocationState<DepositLocationState>()
   const navigate = useDepositNavigate()
   const quote = useOnrampQuote()
   const onramps = useOnrampsMetadata()
@@ -122,25 +125,23 @@ const OnrampFields = () => {
     setValue("paymentMethodId", types[0].paymentTypeId)
   }, [paymentTypes.data, paymentMethodId, setValue])
 
-  // Same guard for the fiat, plus localization: converge the form's fiat on
-  // resolveFiatAnchor's pick (see its JSDoc). Convergence is unconditional
-  // because every other fiat writer agrees with the anchor (the seed is the
-  // persisted pick or the static default, and SelectFiat persists each pick), so
-  // the effect only rewrites the two automatic seeds. The result is deliberately
-  // not persisted: an automatic substitution must not overwrite the user's
-  // preference. Both lists resolve via suspense, so the effect never runs against
-  // a loading placeholder and settles on the first commit.
+  // A host preset overrides the remembered currency until SelectFiat persists
+  // the current form value. Comparing those values keeps that explicit user pick
+  // when this page remounts. Automatic substitutions remain unpersisted.
   const { fiat: supportedFiat } = useOnramperSupported()
   const recommendedFiatCode = useOnramperRecommendedFiatCode()
   useEffect(() => {
+    const persistedId = localStorage.getItem(LocalStorageKey.ONRAMP_FIAT_ID)
+    const presetCurrency = onramp?.currency && fiatId !== persistedId ? onramp.currency : null
     const anchor = resolveFiatAnchor(supportedFiat, {
-      persistedId: localStorage.getItem(LocalStorageKey.ONRAMP_FIAT_ID),
+      presetCurrency,
+      persistedId,
       recommendedCode: recommendedFiatCode,
       defaultId: DEFAULT_FIAT_ID,
     })
     if (fiatId === anchor.id) return
     setValue("fiatId", anchor.id)
-  }, [supportedFiat, recommendedFiatCode, fiatId, setValue])
+  }, [supportedFiat, recommendedFiatCode, fiatId, onramp?.currency, setValue])
 
   const quoted = quote.status === "quoted" ? quote : null
   const provider = quoted?.selected ?? null
