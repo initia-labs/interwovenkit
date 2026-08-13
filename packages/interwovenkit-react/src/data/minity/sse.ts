@@ -36,13 +36,16 @@ let lastRefreshTime = 0
 export function useRefreshPortfolio() {
   const setTrigger = useSetAtom(portfolioRefreshTriggerAtom)
 
-  return useCallback(() => {
-    const now = Date.now()
-    if (now - lastRefreshTime >= REFRESH_THROTTLE_MS) {
-      lastRefreshTime = now
-      setTrigger((n) => n + 1)
-    }
-  }, [setTrigger])
+  return useCallback(
+    (options?: { force?: boolean }) => {
+      const now = Date.now()
+      if (options?.force || now - lastRefreshTime >= REFRESH_THROTTLE_MS) {
+        lastRefreshTime = now
+        setTrigger((n) => n + 1)
+      }
+    },
+    [setTrigger],
+  )
 }
 
 // ============================================

@@ -28,7 +28,7 @@ const TxWatcher = () => {
 
     const settleTx = () => {
       queryClient.invalidateQueries({ queryKey: accountQueryKeys.balances._def })
-      refreshPortfolio()
+      refreshPortfolio({ force: true })
       setTxStatus(null)
     }
 
