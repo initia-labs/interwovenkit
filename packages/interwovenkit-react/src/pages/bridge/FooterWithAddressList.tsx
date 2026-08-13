@@ -47,10 +47,11 @@ const FooterWithAddressList = ({ children }: Props) => {
 
     const fetchPubkey = async () => {
       try {
+        setPubkey(undefined)
+        setError(null)
         if (!isPubkeyRequired) return
         if (!signer) throw new Error("Wallet not connected")
         setLoading(true)
-        setError(null)
         const [{ pubkey }] = await signer.getAccounts()
         if (cancelled) return
         setPubkey(pubkey)
