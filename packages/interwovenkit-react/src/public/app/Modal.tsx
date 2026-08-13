@@ -24,7 +24,7 @@ const Modal = ({ children }: PropsWithChildren) => {
     <Dialog.Root open={isModalOpen} onOpenChange={(isOpen) => !isOpen && closeModal()}>
       <Dialog.Portal container={portalContainer}>
         <Dialog.Backdrop className={styles.backdrop} onClick={closeModal} />
-        <Dialog.Popup className={styles.modal} ref={containerRef}>
+        <Dialog.Popup className={styles.modal} ref={containerRef} aria-label="Initia wallet">
           <button className={styles.closeButton} onClick={closeModal} aria-label="Close">
             <IconClose size={20} />
           </button>

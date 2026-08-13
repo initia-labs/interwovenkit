@@ -28,7 +28,7 @@ const OperationItemComponent = (props: ComponentProps) => {
           <div className={styles.divider} />
           {label ? (
             <WidgetTooltip label={label}>
-              <button className={styles.type}>
+              <button className={styles.type} aria-label={label}>
                 <IconArrowDown size={12} />
               </button>
             </WidgetTooltip>
