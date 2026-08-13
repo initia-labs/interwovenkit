@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent } from "react"
+import { useCallback, useEffect, useEffectEvent } from "react"
 import { atom, useAtomValue, useSetAtom } from "jotai"
 import { useQueryClient } from "@tanstack/react-query"
 import { useIsTestnet } from "@/pages/bridge/data/form"
@@ -35,7 +35,8 @@ let lastRefreshTime = 0
 // Hook to trigger portfolio SSE refresh (throttled to max once per second)
 export function useRefreshPortfolio() {
   const setTrigger = useSetAtom(portfolioRefreshTriggerAtom)
-  useEffect(() => {
+
+  return useCallback(() => {
     const now = Date.now()
     if (now - lastRefreshTime >= REFRESH_THROTTLE_MS) {
       lastRefreshTime = now

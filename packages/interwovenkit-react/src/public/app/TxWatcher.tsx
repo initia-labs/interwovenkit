@@ -1,12 +1,17 @@
 import { useEffect } from "react"
 import { useAtom } from "jotai"
+import { useQueryClient } from "@tanstack/react-query"
 import ExplorerLink from "@/components/ExplorerLink"
+import { accountQueryKeys } from "@/data/account"
+import { useRefreshPortfolio } from "@/data/minity/sse"
 import { txStatusAtom } from "@/data/tx"
 import { useNotification } from "./NotificationContext"
 
 const TxWatcher = () => {
   const [txStatus, setTxStatus] = useAtom(txStatusAtom)
   const { showNotification, updateNotification, hideNotification } = useNotification()
+  const queryClient = useQueryClient()
+  const refreshPortfolio = useRefreshPortfolio()
 
   useEffect(() => {
     if (!txStatus) return
@@ -21,6 +26,12 @@ const TxWatcher = () => {
       </ExplorerLink>
     ) : null
 
+    const settleTx = () => {
+      queryClient.invalidateQueries({ queryKey: accountQueryKeys.balances._def })
+      refreshPortfolio()
+      setTxStatus(null)
+    }
+
     switch (status) {
       case "loading":
         showNotification({
@@ -34,7 +45,7 @@ const TxWatcher = () => {
           title: "Transaction failed",
           description,
         })
-        setTxStatus(null)
+        settleTx()
         break
       case "success":
         updateNotification({
@@ -43,10 +54,18 @@ const TxWatcher = () => {
           description,
           autoHide: true,
         })
-        setTxStatus(null)
+        settleTx()
         break
     }
-  }, [txStatus, setTxStatus, showNotification, updateNotification, hideNotification])
+  }, [
+    txStatus,
+    setTxStatus,
+    showNotification,
+    updateNotification,
+    hideNotification,
+    queryClient,
+    refreshPortfolio,
+  ])
 
   return null
 }
