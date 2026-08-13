@@ -116,7 +116,7 @@ const Drawer = ({ children }: PropsWithChildren) => {
           </Dialog.Backdrop>
         )}
 
-        <Dialog.Popup className={styles.content}>
+        <Dialog.Popup className={styles.content} aria-label="Initia wallet">
           <div className={clsx(styles.inner, "body")} ref={containerRef}>
             {isSmall && <ScrollLock />}
             <TxWatcher />
