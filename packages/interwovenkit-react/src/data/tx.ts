@@ -225,6 +225,7 @@ interface SignTxWithAutoSignFeeDeps {
     fee: StdFee,
     memo: string,
   ) => Promise<TxRaw>
+  formatError: (chainId: string, error: Error) => Promise<Error>
   onAutoSignFallback?: (params: {
     chainId: string
     reason: AutoSignFallbackReason
@@ -385,9 +386,10 @@ export async function signTxWithAutoSignFeeWithDeps(
   } catch (error) {
     // A Move VM abort during fee simulation means the transaction itself would
     // fail regardless of signer, so falling back to manual signing would only
-    // defer the same failure to after the wallet confirmation prompt.
+    // defer the same failure to after the wallet confirmation prompt. Format
+    // here because the tx confirmation UI rejects errors without formatting.
     if (error instanceof Error && parseMoveError(error.message)) {
-      throw error
+      throw await deps.formatError(chainId, error)
     }
     reportFallback("fee_computation_failed", error)
     return signManually()
@@ -410,7 +412,7 @@ export async function signTxWithAutoSignFeeWithDeps(
 
 export function useSignTxWithAutoSignFee() {
   const address = useInitiaAddress()
-  const { autoSignFeePolicy } = useConfig()
+  const { autoSignFeePolicy, registryUrl } = useConfig()
   const findChain = useFindChain()
   const createComet38Client = useCreateComet38Client()
   const createSigningStargateClient = useCreateSigningStargateClient()
@@ -534,6 +536,7 @@ export function useSignTxWithAutoSignFee() {
         computeAutoSignFee,
         signWithDerivedWallet,
         signWithEthSecp256k1,
+        formatError: (chainId, error) => formatMoveError(error, findChain(chainId), registryUrl),
         onAutoSignFallback: ({ chainId, reason, errorMessage }) => {
           track("AutoSign Fallback", {
             chainId,

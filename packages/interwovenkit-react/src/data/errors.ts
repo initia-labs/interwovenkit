@@ -104,6 +104,11 @@ export async function formatMoveError(
   chain: Chain,
   registryUrl: string,
 ): Promise<Error> {
+  // Already formatted. Reformatting would fail the VM abort regex and wrap the
+  // error into a plain Error via normalizeError, losing the MoveError class
+  // that consumers rely on for instanceof checks.
+  if (error instanceof MoveError) return error
+
   if (!chain.metadata?.is_l1 && chain.metadata?.minitia?.type !== "minimove") {
     return await normalizeError(error)
   }

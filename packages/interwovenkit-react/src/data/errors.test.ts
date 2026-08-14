@@ -96,6 +96,25 @@ describe("Move Error Handling", () => {
 
     const registryUrl = "https://registry.initia.xyz"
 
+    test("should return MoveError unchanged without reformatting", async () => {
+      const originalError = new Error("VM aborted: location=1::module, code=1")
+      const moveError = new MoveError(
+        "Registry message",
+        originalError,
+        "0x1",
+        "module",
+        "1",
+        "0x1",
+        true,
+      )
+
+      const result = await formatMoveError(moveError, mockChainL1, registryUrl)
+
+      expect(result).toBe(moveError)
+      expect(http.normalizeError).not.toHaveBeenCalled()
+      expect(ky.get).not.toHaveBeenCalled()
+    })
+
     test("should return original error for non-L1 and non-minimove chains", async () => {
       const error = new Error("VM aborted: location=1::module, code=1")
       const result = await formatMoveError(error, mockChainOther, registryUrl)
