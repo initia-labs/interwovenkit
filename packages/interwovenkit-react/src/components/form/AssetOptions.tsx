@@ -1,5 +1,5 @@
 import clsx from "clsx"
-import { useState } from "react"
+import { useDeferredValue, useMemo, useState } from "react"
 import { formatAmount } from "@initia/utils"
 import { formatValue } from "@/lib/format"
 import Image from "../Image"
@@ -11,6 +11,8 @@ import type { BaseAsset } from "./types"
 import styles from "./AssetOptions.module.css"
 
 import type { ReactNode } from "react"
+
+const DEFAULT_SEARCH_KEYS: Array<keyof BaseAsset> = ["symbol"]
 
 interface Props {
   assets: BaseAsset[]
@@ -31,13 +33,17 @@ const AssetOptions = (props: Props) => {
     assets,
     onSelect,
     renderAsset = (asset, children) => children(asset),
-    searchKeys = ["symbol"],
+    searchKeys = DEFAULT_SEARCH_KEYS,
     placeholder = "Search by symbol",
     emptyMessage = "No assets",
     listClassName,
   } = props
   const [search, setSearch] = useState("")
-  const filteredAssets = filterBySearch(searchKeys, search, assets)
+  const deferredSearch = useDeferredValue(search)
+  const filteredAssets = useMemo(
+    () => filterBySearch(searchKeys, deferredSearch, assets),
+    [searchKeys, deferredSearch, assets],
+  )
 
   return (
     <div className={styles.container}>
