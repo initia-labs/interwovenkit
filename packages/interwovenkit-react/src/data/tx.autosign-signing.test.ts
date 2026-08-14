@@ -71,6 +71,21 @@ describe("signTxWithAutoSignFeeWithDeps", () => {
     })
   })
 
+  it("propagates Move VM aborts from fee simulation without manual signing fallback", async () => {
+    const vmAbortError = new Error(
+      "rpc error: code = Unknown desc = failed to execute message: VM aborted: location=71a637b4772748e83189965f5b34732ac846d5b798d744a555342f19ea2fe43c::position, code=196614",
+    )
+    const deps = createDeps({
+      computeAutoSignFee: vi.fn().mockRejectedValue(vmAbortError),
+    })
+
+    await expect(signTxWithAutoSignFeeWithDeps(buildParams(), deps)).rejects.toThrow(vmAbortError)
+
+    expect(deps.signWithEthSecp256k1).not.toHaveBeenCalled()
+    expect(deps.signWithDerivedWallet).not.toHaveBeenCalled()
+    expect(deps.onAutoSignFallback).not.toHaveBeenCalled()
+  })
+
   it("falls back to manual signing when derived wallet signing fails", async () => {
     const deps = createDeps({
       signWithDerivedWallet: vi.fn().mockRejectedValue(new Error("account not found")),

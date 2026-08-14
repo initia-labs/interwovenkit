@@ -31,7 +31,7 @@ import { encodePubkeyInitia } from "./patches/pubkeys"
 import { useAnalyticsTrack } from "./analytics"
 import { useFindChain } from "./chains"
 import { useConfig } from "./config"
-import { formatMoveError } from "./errors"
+import { formatMoveError, parseMoveError } from "./errors"
 import { fetchGasPrices } from "./fee"
 import {
   resolveSignerAccountSequence,
@@ -383,6 +383,12 @@ export async function signTxWithAutoSignFeeWithDeps(
       client: signingClient,
     })
   } catch (error) {
+    // A Move VM abort during fee simulation means the transaction itself would
+    // fail regardless of signer, so falling back to manual signing would only
+    // defer the same failure to after the wallet confirmation prompt.
+    if (error instanceof Error && parseMoveError(error.message)) {
+      throw error
+    }
     reportFallback("fee_computation_failed", error)
     return signManually()
   }
