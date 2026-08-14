@@ -49,6 +49,7 @@ const createDeps = (
   computeAutoSignFee: vi.fn().mockResolvedValue(computedFee),
   signWithDerivedWallet: vi.fn().mockResolvedValue(autoSignedTx),
   signWithEthSecp256k1: vi.fn().mockResolvedValue(manualSignedTx),
+  formatError: vi.fn().mockImplementation(async (_chainId: string, error: Error) => error),
   onAutoSignFallback: vi.fn(),
   ...overrides,
 })
@@ -69,6 +70,24 @@ describe("signTxWithAutoSignFeeWithDeps", () => {
       reason: "fee_computation_failed",
       errorMessage: "simulate failed",
     })
+  })
+
+  it("propagates Move VM aborts from fee simulation without manual signing fallback", async () => {
+    const vmAbortError = new Error(
+      "rpc error: code = Unknown desc = failed to execute message: VM aborted: location=71a637b4772748e83189965f5b34732ac846d5b798d744a555342f19ea2fe43c::position, code=196614",
+    )
+    const formattedError = new Error("Trade cooldown window has not elapsed")
+    const deps = createDeps({
+      computeAutoSignFee: vi.fn().mockRejectedValue(vmAbortError),
+      formatError: vi.fn().mockResolvedValue(formattedError),
+    })
+
+    await expect(signTxWithAutoSignFeeWithDeps(buildParams(), deps)).rejects.toBe(formattedError)
+
+    expect(deps.formatError).toHaveBeenCalledWith(chainId, vmAbortError)
+    expect(deps.signWithEthSecp256k1).not.toHaveBeenCalled()
+    expect(deps.signWithDerivedWallet).not.toHaveBeenCalled()
+    expect(deps.onAutoSignFallback).not.toHaveBeenCalled()
   })
 
   it("falls back to manual signing when derived wallet signing fails", async () => {
