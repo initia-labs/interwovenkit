@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.11.1](https://github.com/initia-labs/interwovenkit/compare/v2.11.0...v2.11.1) (2026-08-14)
+
+
+### Bug Fixes
+
+* add accessible names to wallet controls ([#253](https://github.com/initia-labs/interwovenkit/issues/253)) ([5806d0a](https://github.com/initia-labs/interwovenkit/commit/5806d0a084c670847f6ec7585c3dd29b8948254e))
+* bridge footer async race guards ([#250](https://github.com/initia-labs/interwovenkit/issues/250)) ([2aadb87](https://github.com/initia-labs/interwovenkit/commit/2aadb87b3307505b4dd549071a9c9ab941d8463f))
+* propagate Move VM aborts from auto-sign fee simulation ([#255](https://github.com/initia-labs/interwovenkit/issues/255)) ([a9c35a5](https://github.com/initia-labs/interwovenkit/commit/a9c35a5c26e2dc343971507c808299021f85668e))
+* refresh balances after tx confirmation ([#252](https://github.com/initia-labs/interwovenkit/issues/252)) ([f8bb881](https://github.com/initia-labs/interwovenkit/commit/f8bb881ded8bf1e5778c29db522219fcb491c372))
+
 ## [2.11.0](https://github.com/initia-labs/interwovenkit/compare/v2.10.0...v2.11.0) (2026-08-12)
 
 
