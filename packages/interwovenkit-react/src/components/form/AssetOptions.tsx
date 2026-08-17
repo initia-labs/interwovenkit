@@ -1,5 +1,5 @@
 import clsx from "clsx"
-import { useState } from "react"
+import { memo, useDeferredValue, useMemo, useState } from "react"
 import { formatAmount } from "@initia/utils"
 import { formatValue } from "@/lib/format"
 import Image from "../Image"
@@ -11,6 +11,58 @@ import type { BaseAsset } from "./types"
 import styles from "./AssetOptions.module.css"
 
 import type { ReactNode } from "react"
+
+const DEFAULT_SEARCH_KEYS: Array<keyof BaseAsset> = ["symbol"]
+const DEFAULT_RENDER_ASSET = (asset: BaseAsset, children: (asset: BaseAsset) => ReactNode) =>
+  children(asset)
+
+interface AssetListProps {
+  assets: BaseAsset[]
+  onSelect: (denom: string) => void
+  renderAsset: (asset: BaseAsset, children: (asset: BaseAsset) => ReactNode) => ReactNode
+  listClassName?: string
+}
+
+const AssetList = memo(function AssetList(props: AssetListProps) {
+  const { assets, onSelect, renderAsset, listClassName } = props
+
+  return (
+    <div className={clsx(styles.list, listClassName)}>
+      {assets.map((asset) => (
+        <button
+          type="button"
+          className={styles.item}
+          onClick={() => onSelect(asset.denom)}
+          key={asset.denom}
+        >
+          {renderAsset(asset, (asset) => {
+            const { denom, logoUrl, symbol, name, balance, decimals, value = 0 } = asset
+            return (
+              <>
+                <Image
+                  src={logoUrl}
+                  width={32}
+                  height={32}
+                  className={styles.logo}
+                  classNames={{ placeholder: styles.fallback }}
+                  logo
+                />
+                <div className={styles.info}>
+                  <div className={styles.symbol}>{symbol || denom}</div>
+                  <div className={styles.name}>{name}</div>
+                </div>
+                <div className={styles.balance}>
+                  {balance && <div>{formatAmount(balance, { decimals })}</div>}
+                  {value > 0 && <div className={styles.value}>{formatValue(value)}</div>}
+                </div>
+              </>
+            )
+          })}
+        </button>
+      ))}
+    </div>
+  )
+})
 
 interface Props {
   assets: BaseAsset[]
@@ -30,14 +82,18 @@ const AssetOptions = (props: Props) => {
   const {
     assets,
     onSelect,
-    renderAsset = (asset, children) => children(asset),
-    searchKeys = ["symbol"],
+    renderAsset = DEFAULT_RENDER_ASSET,
+    searchKeys = DEFAULT_SEARCH_KEYS,
     placeholder = "Search by symbol",
     emptyMessage = "No assets",
     listClassName,
   } = props
   const [search, setSearch] = useState("")
-  const filteredAssets = filterBySearch(searchKeys, search, assets)
+  const deferredSearch = useDeferredValue(search)
+  const filteredAssets = useMemo(
+    () => filterBySearch(searchKeys, deferredSearch, assets),
+    [searchKeys, deferredSearch, assets],
+  )
 
   return (
     <div className={styles.container}>
@@ -54,40 +110,12 @@ const AssetOptions = (props: Props) => {
       {filteredAssets.length === 0 ? (
         <Status>{emptyMessage}</Status>
       ) : (
-        <div className={clsx(styles.list, listClassName)}>
-          {filteredAssets.map((asset) => (
-            <button
-              type="button"
-              className={styles.item}
-              onClick={() => onSelect(asset.denom)}
-              key={asset.denom}
-            >
-              {renderAsset(asset, (asset) => {
-                const { denom, logoUrl, symbol, name, balance, decimals, value = 0 } = asset
-                return (
-                  <>
-                    <Image
-                      src={logoUrl}
-                      width={32}
-                      height={32}
-                      className={styles.logo}
-                      classNames={{ placeholder: styles.fallback }}
-                      logo
-                    />
-                    <div className={styles.info}>
-                      <div className={styles.symbol}>{symbol || denom}</div>
-                      <div className={styles.name}>{name}</div>
-                    </div>
-                    <div className={styles.balance}>
-                      {balance && <div>{formatAmount(balance, { decimals })}</div>}
-                      {value > 0 && <div className={styles.value}>{formatValue(value)}</div>}
-                    </div>
-                  </>
-                )
-              })}
-            </button>
-          ))}
-        </div>
+        <AssetList
+          assets={filteredAssets}
+          onSelect={onSelect}
+          renderAsset={renderAsset}
+          listClassName={listClassName}
+        />
       )}
     </div>
   )
