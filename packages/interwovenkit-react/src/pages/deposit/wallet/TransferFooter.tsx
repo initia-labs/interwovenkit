@@ -10,6 +10,7 @@ import { useFindAsset } from "@/data/assets"
 import { useChain } from "@/data/chains"
 import { useGasPrices, useLastFeeDenom } from "@/data/fee"
 import { parseQuantity } from "@/lib/amountValidation"
+import { getFeeDp, getFeeLabel } from "@/lib/feeLabel"
 import BridgePreviewFooter from "@/pages/bridge/BridgePreviewFooter"
 import { useAllSkipAssets } from "@/pages/bridge/data/assets"
 import { type BridgeTxResult, useBridgePreviewState } from "@/pages/bridge/data/tx"
@@ -194,24 +195,11 @@ const TransferFooterWithFee = ({
     />
   )
 
-  const getDp = (amount: string, decimals: number) => {
-    if (formatAmount(amount, { decimals }) === "0.000000") return 8
-    return undefined
-  }
-
-  const getFeeLabel = (fee: StdFee) => {
-    const [{ amount, denom }] = fee.amount
-    if (BigNumber(amount || 0).isZero()) return "0"
-    const { symbol, decimals } = findAsset(denom)
-    const dp = getDp(amount, decimals)
-    return `${formatAmount(amount, { decimals, dp })} ${symbol}`
-  }
-
   const renderFee = () => {
     if (feeOptions.length === 0) return null
 
     if (feeOptions.length === 1) {
-      return <span className="monospace">{getFeeLabel(feeOptions[0])}</span>
+      return <span className="monospace">{getFeeLabel(feeOptions[0], findAsset)}</span>
     }
 
     if (!selectedFee || !feeDenom) return null
@@ -222,14 +210,14 @@ const TransferFooterWithFee = ({
 
       return {
         value: denom,
-        label: getFeeLabel(option),
+        label: getFeeLabel(option, findAsset),
         triggerLabel: symbol,
       }
     })
 
     const [{ amount, denom }] = selectedFee.amount
     const { decimals } = findAsset(denom)
-    const dp = getDp(amount, decimals)
+    const dp = getFeeDp(amount, decimals)
 
     return (
       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
