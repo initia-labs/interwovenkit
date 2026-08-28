@@ -132,6 +132,10 @@ export type CreateTestWalletConfig = CreateTestWalletOptions & {
  * | *(any other method)* | Proxied to the current chain's RPC node |
  */
 export function createTestWalletConnector(options: CreateTestWalletConfig) {
+  if (options.privateKey && options.addressIndex !== undefined) {
+    throw new Error("addressIndex requires mnemonic")
+  }
+
   const defaultId =
     options.addressIndex === undefined ? "testWallet" : `testWallet-${options.addressIndex}`
   const defaultName =
