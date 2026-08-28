@@ -26,10 +26,16 @@ export type CreateTestWalletOptions =
        * BIP-39 mnemonic phrase. Provide either `mnemonic` or `privateKey`.
        */
       mnemonic: string
+      /**
+       * Address index in the HD path (`m/44'/60'/0'/0/${addressIndex}`).
+       * @default 0
+       */
+      addressIndex?: number
       privateKey?: never
     }
   | {
       mnemonic?: never
+      addressIndex?: never
       /**
        * Hex-encoded private key (with `0x` prefix).
        * Provide either `mnemonic` or `privateKey`.
@@ -40,12 +46,14 @@ export type CreateTestWalletOptions =
 export type CreateTestWalletConfig = CreateTestWalletOptions & {
   /**
    * Wagmi connector id. Useful when running multiple test wallets.
-   * @default "testWallet"
+   * Defaults to `"testWallet"` when `addressIndex` is omitted, or
+   * `"testWallet-${addressIndex}"` when it is provided.
    */
   id?: string
   /**
    * Display name shown in wallet selection UI.
-   * @default "Test Wallet"
+   * Defaults to `"Test Wallet"` when `addressIndex` is omitted, or
+   * `"Test Wallet ${addressIndex}"` when it is provided.
    */
   name?: string
   /**
@@ -90,6 +98,15 @@ export type CreateTestWalletConfig = CreateTestWalletOptions & {
  *   mnemonic: process.env.TEST_MNEMONIC!,
  * })
  *
+ * // Derive multiple connectors from one mnemonic. Explicit indexes also
+ * // produce unique default ids and names for wagmi and wallet selection UIs.
+ * const testConnectors = Array.from({ length: 40 }, (_, addressIndex) =>
+ *   createTestWalletConnector({
+ *     mnemonic: process.env.TEST_MNEMONIC!,
+ *     addressIndex,
+ *   }),
+ * )
+ *
  * // Or from private key
  * const connector = createTestWalletConnector({
  *   privateKey: process.env.TEST_PRIVATE_KEY as `0x${string}`,
@@ -115,9 +132,13 @@ export type CreateTestWalletConfig = CreateTestWalletOptions & {
  * | *(any other method)* | Proxied to the current chain's RPC node |
  */
 export function createTestWalletConnector(options: CreateTestWalletConfig) {
+  const defaultId =
+    options.addressIndex === undefined ? "testWallet" : `testWallet-${options.addressIndex}`
+  const defaultName =
+    options.addressIndex === undefined ? "Test Wallet" : `Test Wallet ${options.addressIndex}`
   const {
-    id = "testWallet",
-    name = "Test Wallet",
+    id = defaultId,
+    name = defaultName,
     rpcUrls: userRpcUrls,
     debug = false,
     sendTransactionOverrides,
@@ -138,7 +159,7 @@ export function createTestWalletConnector(options: CreateTestWalletConfig) {
   let account: ReturnType<typeof mnemonicToAccount> | ReturnType<typeof privateKeyToAccount>
   try {
     account = options.mnemonic
-      ? mnemonicToAccount(options.mnemonic)
+      ? mnemonicToAccount(options.mnemonic, { addressIndex: options.addressIndex })
       : privateKeyToAccount(options.privateKey!)
   } catch (error) {
     throw new Error(
