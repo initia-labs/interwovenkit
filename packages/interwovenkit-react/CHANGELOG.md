@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.12.0](https://github.com/initia-labs/interwovenkit/compare/v2.11.1...v2.12.0) (2026-08-28)
+
+
+### Features
+
+* support HD address indexes in test wallet connector ([#258](https://github.com/initia-labs/interwovenkit/issues/258)) ([cd7cd38](https://github.com/initia-labs/interwovenkit/commit/cd7cd386e2bca6ce5651f5f8b295b51a7518e276))
+
+
+### Performance Improvements
+
+* defer asset picker search filtering ([#254](https://github.com/initia-labs/interwovenkit/issues/254)) ([ff4c86e](https://github.com/initia-labs/interwovenkit/commit/ff4c86ec1b2c3995ea0067d23f66c519a9f8431e))
+
 ## [2.11.1](https://github.com/initia-labs/interwovenkit/compare/v2.11.0...v2.11.1) (2026-08-14)
 
 
