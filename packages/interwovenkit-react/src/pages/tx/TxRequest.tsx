@@ -33,7 +33,9 @@ const TxRequest = () => {
   const findAsset = useFindAsset(chain)
   const signTxWithAutoSignFee = useSignTxWithAutoSignFee()
   // Resolved before Approve is enabled so the click reaches the wallet without a network
-  // wait. If the lookup fails, signing repeats it and surfaces the error on approval.
+  // wait. Approve also waits out refetches (e.g. on tab focus) so a sequence consumed by a
+  // transaction sent elsewhere is not reused. If the lookup fails, signing repeats it and
+  // surfaces the error on approval.
   const accountSequence = useSignerAccountSequenceQuery(chainId)
 
   const feeOptions = (txRequest.gasPrices ?? gasPrices).map(({ amount, denom }) =>
@@ -148,7 +150,7 @@ const TxRequest = () => {
         </Button.Outline>
         <Button.White
           onClick={() => approve()}
-          disabled={isInsufficient || accountSequence.isPending}
+          disabled={isInsufficient || accountSequence.isFetching}
           loading={isPending}
         >
           Approve

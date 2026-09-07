@@ -50,4 +50,16 @@ describe("public key storage", () => {
     expect(loadPublicKey("init1other")).toBeNull()
     expect(localStorage.getItem(`${LocalStorageKey.PUBLIC_KEY}:init1signer`)).toBe(toHex(publicKey))
   })
+
+  it("ignores a failed write", () => {
+    vi.stubGlobal("localStorage", {
+      ...createMemoryStorage(),
+      setItem: () => {
+        throw new DOMException("quota exceeded", "QuotaExceededError")
+      },
+    })
+
+    expect(() => storePublicKey("init1signer", new Uint8Array([2]))).not.toThrow()
+    expect(loadPublicKey("init1signer")).toBeNull()
+  })
 })

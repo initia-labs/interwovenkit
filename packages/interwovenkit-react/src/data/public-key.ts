@@ -27,5 +27,11 @@ export function loadPublicKey(address: string): Uint8Array | null {
 }
 
 export function storePublicKey(address: string, publicKey: Uint8Array): void {
-  localStorage.setItem(getStorageKey(address), toHex(publicKey))
+  try {
+    localStorage.setItem(getStorageKey(address), toHex(publicKey))
+  } catch {
+    // The host origin's storage quota can be exhausted by the embedding page. The write
+    // runs right after a wallet signature, so failing here would discard that signature
+    // over a cache that only saves an identification request on a later reload.
+  }
 }
