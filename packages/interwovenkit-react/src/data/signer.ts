@@ -175,6 +175,7 @@ export function useSignerAccountSequenceQuery(chainId: string) {
       const client = await createSigningStargateClient(chainId)
       return client.getSequence(address)
     },
+    enabled: !!address,
     // A sequence is only valid until the next transaction lands, so never serve a cached one.
     staleTime: 0,
     gcTime: 0,
