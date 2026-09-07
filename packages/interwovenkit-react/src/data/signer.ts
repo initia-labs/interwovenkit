@@ -11,8 +11,8 @@ import {
   makeSignDoc as makeSignDocAmino,
   sortedJsonStringify,
 } from "@cosmjs/amino/build/signdoc"
-import { Secp256k1, Secp256k1Signature } from "@cosmjs/crypto"
-import { fromBase64, fromHex, toHex } from "@cosmjs/encoding"
+import { Secp256k1Signature } from "@cosmjs/crypto"
+import { fromBase64, fromHex } from "@cosmjs/encoding"
 import { Int53 } from "@cosmjs/math"
 import type { EncodeObject, TxBodyEncodeObject } from "@cosmjs/proto-signing"
 import { makeAuthInfoBytes, Registry } from "@cosmjs/proto-signing"
@@ -21,10 +21,11 @@ import { Comet38Client, HttpClient } from "@cosmjs/tendermint-rpc"
 import { SignMode } from "cosmjs-types/cosmos/tx/signing/v1beta1/signing"
 import { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import type { Eip1193Provider } from "ethers"
-import { BrowserProvider, ethers } from "ethers"
+import { BrowserProvider } from "ethers"
 import ky from "ky"
 import { useAccount, useSignMessage } from "wagmi"
 import { useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { protoRegistry } from "@initia/amino-converter"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { parseAccount } from "./patches/accounts"
@@ -32,9 +33,10 @@ import { patchedAminoConverters } from "./patches/amino"
 import { encodeEthSecp256k1Pubkey } from "./patches/encoding"
 import { encodePubkeyInitia } from "./patches/pubkeys"
 import { encodeEthSecp256k1Signature } from "./patches/signature"
+import { accountQueryKeys } from "./account"
 import { useFindChain, useLayer1 } from "./chains"
 import { useConfig } from "./config"
-import { LocalStorageKey } from "./constants"
+import { loadPublicKey, recoverPublicKey, storePublicKey } from "./public-key"
 
 export const useRegistry = () => {
   const config = useConfig()
@@ -61,35 +63,32 @@ export class OfflineSigner implements OfflineAminoSigner {
   // Cache the public key so we don't have to ask the wallet to sign the
   // identification message every time a transaction is built.
   private cachedPublicKey: Uint8Array | null = null
+  private setCachedPublicKey(publicKey: Uint8Array) {
+    this.cachedPublicKey = publicKey
+    storePublicKey(this.address, publicKey)
+  }
+
   private async getCachedPublicKey() {
     if (this.cachedPublicKey) {
       return this.cachedPublicKey
     }
 
-    // Persist the derived key in localStorage so reloads don't trigger another
-    // sign request. Note that the host page can also access this key since
-    // localStorage is scoped to the embedding origin. The key itself is not
-    // secret.
-    const storageKey = `${LocalStorageKey.PUBLIC_KEY}:${this.address}`
-    const localPublicKey = localStorage.getItem(storageKey)
-    if (localPublicKey) {
-      this.cachedPublicKey = fromHex(localPublicKey)
-      return fromHex(localPublicKey)
+    const storedPublicKey = loadPublicKey(this.address)
+    if (storedPublicKey) {
+      this.cachedPublicKey = storedPublicKey
+      return storedPublicKey
     }
 
     // Try to fetch the public key from L1 REST API first
     const publicKeyFromRestApi = await this.getPublicKeyFromRestApi()
     if (publicKeyFromRestApi) {
-      this.cachedPublicKey = publicKeyFromRestApi
-      localStorage.setItem(storageKey, toHex(publicKeyFromRestApi))
+      this.setCachedPublicKey(publicKeyFromRestApi)
       return publicKeyFromRestApi
     }
 
     // Fallback to signature-based derivation if API doesn't have the public key
     const publicKey = await this.getPublicKey()
-    this.cachedPublicKey = publicKey
-    localStorage.setItem(storageKey, toHex(publicKey))
-
+    this.setCachedPublicKey(publicKey)
     return publicKey
   }
 
@@ -120,9 +119,7 @@ export class OfflineSigner implements OfflineAminoSigner {
     // The key itself is not sensitive.
     const message = "Sign this message to identify your Initia account."
     const signature = await this.signMessage(message)
-    const messageHash = ethers.hashMessage(message)
-    const uncompressedPublicKey = ethers.SigningKey.recoverPublicKey(messageHash, signature)
-    return Secp256k1.compressPubkey(fromHex(uncompressedPublicKey.replace("0x", "")))
+    return recoverPublicKey(message, signature)
   }
 
   async getAccounts(): Promise<readonly AccountData[]> {
@@ -142,13 +139,47 @@ export class OfflineSigner implements OfflineAminoSigner {
 
     const signDocAminoJSON = escapeCharacters(sortedJsonStringify(signDoc))
     const signatureHex = await this.signMessage(signDocAminoJSON)
+
+    // The transaction signature itself reveals the public key, so signing never has to
+    // request a separate identification signature first. This matters for popup-based
+    // wallets: browsers block a second popup because the first one already consumed the
+    // click's user activation, so a two-signature flow could never complete.
+    const publicKey = recoverPublicKey(signDocAminoJSON, signatureHex)
+    this.setCachedPublicKey(publicKey)
+
     const signatureFromHex = fromHex(signatureHex.replace("0x", "")).subarray(0, -1)
     const secp256signature = Secp256k1Signature.fromFixedLength(signatureFromHex)
     const signatureBytes = secp256signature.toFixedLength()
-    const signature = encodeEthSecp256k1Signature(await this.getCachedPublicKey(), signatureBytes)
+    const signature = encodeEthSecp256k1Signature(publicKey, signatureBytes)
 
     return { signed: signDoc, signature }
   }
+}
+
+export interface AccountSequence {
+  accountNumber: number
+  sequence: number
+}
+
+/* Fetches the signer's account number and sequence ahead of the approval click. With it in
+ * hand, signing reaches the wallet without a network round trip in between. That matters
+ * for Safari: it keeps a click's user activation only across microtasks, not across real
+ * async waits, and popup-based wallets are blocked by the popup blocker once it is gone. */
+export function useSignerAccountSequenceQuery(chainId: string) {
+  const address = useInitiaAddress()
+  const createSigningStargateClient = useCreateSigningStargateClient()
+
+  return useQuery({
+    queryKey: accountQueryKeys.sequence(chainId, address).queryKey,
+    queryFn: async (): Promise<AccountSequence> => {
+      const client = await createSigningStargateClient(chainId)
+      return client.getSequence(address)
+    },
+    // A sequence is only valid until the next transaction lands, so never serve a cached one.
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+  })
 }
 
 export function useSignWithEthSecp256k1() {
@@ -163,30 +194,40 @@ export function useSignWithEthSecp256k1() {
     messages: readonly EncodeObject[],
     fee: StdFee,
     memo: string,
-    options?: { incrementSequence?: number; customSigner?: OfflineAminoSigner },
+    options?: {
+      incrementSequence?: number
+      customSigner?: OfflineAminoSigner
+      accountSequence?: AccountSequence
+    },
   ): Promise<TxRaw> {
     const signer = options?.customSigner ?? offlineSigner
     if (!signer) throw new Error("Signer not initialized")
     const client = await createSigningStargateClient(chainId)
-    const { accountNumber, sequence } = await resolveSignerAccountSequence({
-      getSequence: (address) => client.getSequence(address),
-      signerAddress,
-      incrementSequence: options?.incrementSequence ?? 0,
-      // Derived autosign wallets may not have an account yet. In that case, use zero defaults.
-      allowMissingAccount: !!options?.customSigner,
-    })
+    const { accountNumber, sequence } =
+      options?.accountSequence ??
+      (await resolveSignerAccountSequence({
+        getSequence: (address) => client.getSequence(address),
+        signerAddress,
+        incrementSequence: options?.incrementSequence ?? 0,
+        // Derived autosign wallets may not have an account yet. In that case, use zero defaults.
+        allowMissingAccount: !!options?.customSigner,
+      }))
 
     // Returns a signed tx that includes `signerInfos`, `fee`, and the `signatures` created with OfflineSigner's `signAmino()`.
     // https://github.com/cosmos/cosmjs/blob/main/packages/stargate/src/signingstargateclient.ts
     // This overrides SigningStargateClient's `signAmino()` method because
     // 1. it doesn't support Initia's `EthSecp256k1Pubkey`
     // 2. it forces the `signMode` to `SIGN_MODE_LEGACY_AMINO_JSON`.
-    const [accountFromSigner] = await signer.getAccounts()
-    /* 1 */ const pubkey = encodePubkeyInitia(encodeEthSecp256k1Pubkey(accountFromSigner.pubkey))
     /* 2 */ const signMode = SignMode.SIGN_MODE_EIP_191
     const msgs = messages.map((msg) => aminoTypes.toAmino(msg))
     const signDoc = makeSignDocAmino(msgs, fee, chainId, memo, accountNumber, sequence)
     const { signature, signed } = await signer.signAmino(signerAddress, signDoc)
+    // The signature response carries the public key, so `signer.getAccounts()` is not
+    // consulted here: for a wallet whose key is not cached yet it would open a wallet
+    // request of its own before the signing request.
+    /* 1 */ const pubkey = encodePubkeyInitia(
+      encodeEthSecp256k1Pubkey(fromBase64(signature.pub_key.value)),
+    )
     const signedTxBody = {
       messages: signed.msgs.map((msg) => aminoTypes.fromAmino(msg)),
       memo,
