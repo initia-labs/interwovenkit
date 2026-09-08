@@ -4,7 +4,11 @@ import { fromBase64, fromHex, toHex } from "@cosmjs/encoding"
 import { ethers } from "ethers"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { LocalStorageKey } from "./constants"
-import { OfflineSigner, resolveSignerAccountSequence } from "./signer"
+import {
+  OfflineSigner,
+  resolveSignerAccountSequence,
+  selectPrefetchedAccountSequence,
+} from "./signer"
 
 function createMemoryStorage(): Storage {
   const entries = new Map<string, string>()
@@ -148,5 +152,23 @@ describe("resolveSignerAccountSequence", () => {
         allowMissingAccount: true,
       }),
     ).rejects.toThrow(error)
+  })
+})
+
+describe("selectPrefetchedAccountSequence", () => {
+  it("drops the retained sequence after a failed refetch until a retry succeeds", () => {
+    const initial = { data: { accountNumber: 1, sequence: 7 }, isError: false }
+    expect(selectPrefetchedAccountSequence(initial)).toEqual({ accountNumber: 1, sequence: 7 })
+
+    // TanStack Query keeps the previous data when a refetch fails
+    const failedRefetch = { data: { accountNumber: 1, sequence: 7 }, isError: true }
+    expect(selectPrefetchedAccountSequence(failedRefetch)).toBeUndefined()
+
+    const retried = { data: { accountNumber: 1, sequence: 8 }, isError: false }
+    expect(selectPrefetchedAccountSequence(retried)).toEqual({ accountNumber: 1, sequence: 8 })
+  })
+
+  it("returns undefined before the first lookup completes", () => {
+    expect(selectPrefetchedAccountSequence({ data: undefined, isError: false })).toBeUndefined()
   })
 })

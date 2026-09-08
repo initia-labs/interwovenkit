@@ -28,6 +28,8 @@ const TxWatcher = () => {
 
     const settleTx = () => {
       queryClient.invalidateQueries({ queryKey: accountQueryKeys.balances._def })
+      // An open approval prefetched its sequence before this transaction consumed it.
+      queryClient.invalidateQueries({ queryKey: accountQueryKeys.sequence._def })
       refreshPortfolio({ force: true })
       setTxStatus(null)
     }

@@ -183,6 +183,18 @@ export function useSignerAccountSequenceQuery(chainId: string) {
   })
 }
 
+/* After a failed refetch TanStack Query keeps the previous data. That sequence may already
+ * be consumed by a transaction sent elsewhere, so it is dropped and signing looks it up again. */
+export function selectPrefetchedAccountSequence({
+  data,
+  isError,
+}: {
+  data: AccountSequence | undefined
+  isError: boolean
+}): AccountSequence | undefined {
+  return isError ? undefined : data
+}
+
 export function useSignWithEthSecp256k1() {
   const registry = useRegistry()
   const aminoTypes = useAminoTypes()

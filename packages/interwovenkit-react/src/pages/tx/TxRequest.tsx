@@ -13,7 +13,7 @@ import { useBalances } from "@/data/account"
 import { useFindAsset } from "@/data/assets"
 import { useChain } from "@/data/chains"
 import { useGasPrices, useLastFeeDenom } from "@/data/fee"
-import { useSignerAccountSequenceQuery } from "@/data/signer"
+import { selectPrefetchedAccountSequence, useSignerAccountSequenceQuery } from "@/data/signer"
 import { TX_APPROVAL_MUTATION_KEY, useSignTxWithAutoSignFee, useTxRequestHandler } from "@/data/tx"
 import TxFee from "./TxFee"
 import TxFeeInsufficient from "./TxFeeInsufficient"
@@ -34,8 +34,8 @@ const TxRequest = () => {
   const signTxWithAutoSignFee = useSignTxWithAutoSignFee()
   // Resolved before Approve is enabled so the click reaches the wallet without a network
   // wait. Approve also waits out refetches (e.g. on tab focus) so a sequence consumed by a
-  // transaction sent elsewhere is not reused. If the lookup fails, signing repeats it and
-  // surfaces the error on approval.
+  // transaction sent elsewhere is not reused. If the latest lookup failed, signing repeats
+  // it and surfaces the error on approval.
   const accountSequence = useSignerAccountSequenceQuery(chainId)
 
   const feeOptions = (txRequest.gasPrices ?? gasPrices).map(({ amount, denom }) =>
@@ -96,7 +96,7 @@ const TxRequest = () => {
         preferredFeeDenom: feeDenom,
         allowAutoSign: !txRequest.internal,
         allowWalletDerivation: true,
-        accountSequence: accountSequence.data,
+        accountSequence: selectPrefetchedAccountSequence(accountSequence),
       })
 
       await resolve(signedTx)
