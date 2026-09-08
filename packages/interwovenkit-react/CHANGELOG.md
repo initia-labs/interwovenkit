@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.12.1](https://github.com/initia-labs/interwovenkit/compare/v2.12.0...v2.12.1) (2026-09-08)
+
+
+### Bug Fixes
+
+* keep wallet popups inside the click's user activation ([#259](https://github.com/initia-labs/interwovenkit/issues/259)) ([7db98fe](https://github.com/initia-labs/interwovenkit/commit/7db98fe67cefd6c7c278dc77ce494b3a7e9cbe14))
+
 ## [2.12.0](https://github.com/initia-labs/interwovenkit/compare/v2.11.1...v2.12.0) (2026-08-28)
 
 
