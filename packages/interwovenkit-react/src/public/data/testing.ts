@@ -77,6 +77,15 @@ export type CreateTestWalletConfig = CreateTestWalletOptions & {
     maxFeePerGas?: bigint
     maxPriorityFeePerGas?: bigint
   }
+  /**
+   * Open a blank window before every signing request and fail with the same error as
+   * popup-based wallets (Privy) when the browser blocks it. Lets browser tests check that
+   * signing is still inside the click's user activation when the wallet is asked.
+   * `delayMs` waits that long before opening the window, which is useful as a negative
+   * control since the activation expires during the wait.
+   * @default false
+   */
+  simulatePopup?: boolean | { delayMs: number }
 }
 
 /**
@@ -146,7 +155,24 @@ export function createTestWalletConnector(options: CreateTestWalletConfig) {
     rpcUrls: userRpcUrls,
     debug = false,
     sendTransactionOverrides,
+    simulatePopup = false,
   } = options
+
+  // Mirrors @privy-io/cross-app-connect, which opens the window first and throws this exact
+  // message when `window.open()` returns null.
+  async function signThroughSimulatedPopup<T>(sign: () => Promise<T>): Promise<T> {
+    if (!simulatePopup) return sign()
+    if (typeof simulatePopup === "object") {
+      await new Promise((resolve) => setTimeout(resolve, simulatePopup.delayMs))
+    }
+    const popup = window.open(undefined, undefined, "popup=1,width=400,height=680")
+    if (!popup) throw new Error("Failed to initialize request")
+    try {
+      return await sign()
+    } finally {
+      popup.close()
+    }
+  }
 
   if ("mnemonic" in options && options.mnemonic === "") {
     throw new Error("mnemonic must not be empty")
@@ -301,7 +327,9 @@ export function createTestWalletConnector(options: CreateTestWalletConfig) {
 
         case "personal_sign": {
           const [message] = params as [string]
-          return account.signMessage({ message: { raw: message as `0x${string}` } })
+          return signThroughSimulatedPopup(() =>
+            account.signMessage({ message: { raw: message as `0x${string}` } }),
+          )
         }
 
         case "eth_signTypedData":

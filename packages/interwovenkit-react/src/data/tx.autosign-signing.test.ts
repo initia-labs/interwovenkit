@@ -55,6 +55,19 @@ const createDeps = (
 })
 
 describe("signTxWithAutoSignFeeWithDeps", () => {
+  it("hands a prefetched account sequence to manual signing only", async () => {
+    const accountSequence = { accountNumber: 7, sequence: 3 }
+    const deps = createDeps({ validateAutoSign: vi.fn().mockReturnValue(false) })
+
+    const result = await signTxWithAutoSignFeeWithDeps(buildParams({ accountSequence }), deps)
+
+    expect(result).toBe(manualSignedTx)
+    expect(deps.signWithEthSecp256k1).toHaveBeenCalledWith(chainId, address, messages, fee, memo, {
+      accountSequence,
+    })
+    expect(deps.signWithDerivedWallet).not.toHaveBeenCalled()
+  })
+
   it("falls back to manual signing when auto-sign fee computation fails", async () => {
     const deps = createDeps({
       computeAutoSignFee: vi.fn().mockRejectedValue(new Error("simulate failed")),
@@ -63,7 +76,9 @@ describe("signTxWithAutoSignFeeWithDeps", () => {
     const result = await signTxWithAutoSignFeeWithDeps(buildParams(), deps)
 
     expect(result).toBe(manualSignedTx)
-    expect(deps.signWithEthSecp256k1).toHaveBeenCalledWith(chainId, address, messages, fee, memo)
+    expect(deps.signWithEthSecp256k1).toHaveBeenCalledWith(chainId, address, messages, fee, memo, {
+      accountSequence: undefined,
+    })
     expect(deps.signWithDerivedWallet).not.toHaveBeenCalled()
     expect(deps.onAutoSignFallback).toHaveBeenCalledWith({
       chainId,
@@ -99,7 +114,9 @@ describe("signTxWithAutoSignFeeWithDeps", () => {
 
     expect(result).toBe(manualSignedTx)
     expect(deps.signWithDerivedWallet).toHaveBeenCalledTimes(1)
-    expect(deps.signWithEthSecp256k1).toHaveBeenCalledWith(chainId, address, messages, fee, memo)
+    expect(deps.signWithEthSecp256k1).toHaveBeenCalledWith(chainId, address, messages, fee, memo, {
+      accountSequence: undefined,
+    })
     expect(deps.onAutoSignFallback).toHaveBeenCalledWith({
       chainId,
       reason: "derived_wallet_sign_failed",
@@ -136,7 +153,9 @@ describe("signTxWithAutoSignFeeWithDeps", () => {
     const result = await signTxWithAutoSignFeeWithDeps(buildParams(), deps)
 
     expect(result).toBe(manualSignedTx)
-    expect(deps.signWithEthSecp256k1).toHaveBeenCalledWith(chainId, address, messages, fee, memo)
+    expect(deps.signWithEthSecp256k1).toHaveBeenCalledWith(chainId, address, messages, fee, memo, {
+      accountSequence: undefined,
+    })
     expect(deps.onAutoSignFallback).toHaveBeenCalledWith({
       chainId,
       reason: "validation_failed",
@@ -192,7 +211,9 @@ describe("signTxWithAutoSignFeeWithDeps", () => {
     expect(deps.deriveWallet).not.toHaveBeenCalled()
     expect(deps.computeAutoSignFee).not.toHaveBeenCalled()
     expect(deps.signWithDerivedWallet).not.toHaveBeenCalled()
-    expect(deps.signWithEthSecp256k1).toHaveBeenCalledWith(chainId, address, messages, fee, memo)
+    expect(deps.signWithEthSecp256k1).toHaveBeenCalledWith(chainId, address, messages, fee, memo, {
+      accountSequence: undefined,
+    })
     expect(deps.onAutoSignFallback).not.toHaveBeenCalled()
   })
 
@@ -227,7 +248,9 @@ describe("signTxWithAutoSignFeeWithDeps", () => {
     )
 
     expect(result).toBe(manualSignedTx)
-    expect(deps.signWithEthSecp256k1).toHaveBeenCalledWith(chainId, address, messages, fee, memo)
+    expect(deps.signWithEthSecp256k1).toHaveBeenCalledWith(chainId, address, messages, fee, memo, {
+      accountSequence: undefined,
+    })
     expect(deps.onAutoSignFallback).toHaveBeenCalledWith({
       chainId,
       reason: "derive_wallet_failed",

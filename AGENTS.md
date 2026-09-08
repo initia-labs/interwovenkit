@@ -140,6 +140,10 @@ CSS Modules with CSS custom properties. Shadow DOM compatible (`:host` selectors
 
 Run: `pnpm test`
 
+### Browser test
+
+`pnpm --filter vite test:e2e` runs Playwright (Chromium) against the example app. It checks that the wallet request on Approve stays inside the click's task (no network wait in between), which is the condition Safari imposes on wallet popups. Needs `INITIA_TEST_MNEMONIC` for a funded account in `examples/vite/.env`, a built package (`pnpm build`), and it broadcasts a 1 uinit self-transfer.
+
 ## Playwright MCP Testing
 
 When instructed to run Playwright MCP tests, use the example app in `examples/vite/`. It already wires up `createTestWalletConnector` (EVM) and `createTestCosmosWallet` (Cosmos) from `INITIA_TEST_MNEMONIC` env var. Both perform in-memory signing, so no browser extension wallet is needed.
@@ -158,6 +162,7 @@ When instructed to run Playwright MCP tests, use the example app in `examples/vi
 
 - **Shadow DOM**: Widget renders into Shadow DOM; styles use `:host` selector; `injectStyles()` required
 - **Auto-sign**: Opt-in feature deriving a deterministic wallet from seed phrase; falls back to manual signing on error
+- **Wallet popups**: Popup-based wallets (Privy) are blocked whenever `window.open()` runs outside the click's user activation. Browsers consume it on the first popup, and Safari drops it across any real async wait (only microtasks survive). Hence the signer recovers the public key from the first signature instead of requesting an identification signature (`data/public-key.ts`), and the approval page prefetches the account sequence so nothing but microtasks sit between the Approve click and the wallet request
 - **CosmJS patches**: `data/patches/` contains monkey patches for amino, pubkeys, signature, encoding, and accounts
 - **BigNumber strict mode**: Pick the fallback operator by the input's static type before passing a value to `BigNumber()` or any BigNumber-coercing method (`.plus()`, `.times()`, `.minus()`, `.div()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.eq()`, `.comparedTo()`, etc.):
   - **`string | undefined` / `string`** (Skip `price`/`amount`/`amount_in` fields, `fromBaseUnit`/`toBaseUnit` results, cosmos `Coin.amount`, user-typed form values, persisted localStorage strings): use `|| 0` (or `|| "0"`). `?? 0` lets empty strings through, and `BigNumber("")` throws under strict mode. The realistic empty-string sources are `@initia/utils`' `fromBaseUnit`/`toBaseUnit` (return `""` on invalid input) and any `string`-typed upstream field that can arrive empty.

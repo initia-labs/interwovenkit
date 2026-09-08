@@ -7,5 +7,5 @@
       "@/*": ["../../packages/interwovenkit-react/src/*"]
     }
   },
-  "include": ["src", "../../packages/interwovenkit-react/env.d.ts"]
+  "include": ["src", "e2e", "playwright.config.ts", "../../packages/interwovenkit-react/env.d.ts"]
 }
