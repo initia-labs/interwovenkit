@@ -25,7 +25,7 @@ import { BrowserProvider } from "ethers"
 import ky from "ky"
 import { useAccount, useSignMessage } from "wagmi"
 import { useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { protoRegistry } from "@initia/amino-converter"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { parseAccount } from "./patches/accounts"
@@ -181,6 +181,14 @@ export function useSignerAccountSequenceQuery(chainId: string) {
     gcTime: 0,
     retry: false,
   })
+}
+
+/* Drops a prefetched sequence once a transaction is known to be included, so an open
+ * approval looks it up again. Broadcasting alone leaves the committed sequence unchanged,
+ * so only observed settlements call this. */
+export function useInvalidateAccountSequence() {
+  const queryClient = useQueryClient()
+  return () => queryClient.invalidateQueries({ queryKey: accountQueryKeys.sequence._def })
 }
 
 /* After a failed refetch TanStack Query keeps the previous data. That sequence may already
