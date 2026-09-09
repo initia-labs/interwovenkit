@@ -43,12 +43,14 @@ import { encodePubkeyInitia } from "./patches/pubkeys"
 import { useAnalyticsTrack } from "./analytics"
 import { useFindChain } from "./chains"
 import { useConfig } from "./config"
-import { formatMoveError } from "./errors"
+import { formatMoveError, parseMoveError } from "./errors"
 import { fetchGasPrices } from "./fee"
 import {
+  type AccountSequence,
   resolveSignerAccountSequence,
   useCreateComet38Client,
   useCreateSigningStargateClient,
+  useInvalidateAccountSequence,
   useOfflineSigner,
   useRegistry,
   useSignWithEthSecp256k1,
@@ -216,6 +218,9 @@ interface SignTxWithAutoSignFeeParams {
   client?: SigningStargateClient
   allowAutoSign?: boolean
   allowWalletDerivation?: boolean
+  // Prefetched signer account state for manual signing, so no network wait precedes the
+  // wallet request. Derived-wallet signing resolves its own sequence and ignores this.
+  accountSequence?: AccountSequence
 }
 
 interface ComputeAutoSignFeeParams {
@@ -257,7 +262,9 @@ interface SignTxWithAutoSignFeeDeps {
     messages: EncodeObject[],
     fee: StdFee,
     memo: string,
+    options?: { accountSequence?: AccountSequence },
   ) => Promise<TxRaw>
+  formatError: (chainId: string, error: Error) => Promise<Error>
   onAutoSignFallback?: (params: {
     chainId: string
     reason: AutoSignFallbackReason
@@ -358,12 +365,13 @@ export async function signTxWithAutoSignFeeWithDeps(
     client,
     allowAutoSign = true,
     allowWalletDerivation = false,
+    accountSequence,
   }: SignTxWithAutoSignFeeParams,
   deps: SignTxWithAutoSignFeeDeps,
 ): Promise<TxRaw> {
   const signManually = async () => {
     deps.assertCurrentOperation?.()
-    return deps.signWithEthSecp256k1(chainId, address, messages, fee, memo)
+    return deps.signWithEthSecp256k1(chainId, address, messages, fee, memo, { accountSequence })
   }
   const reportFallback = (reason: AutoSignFallbackReason, error?: unknown) => {
     deps.onAutoSignFallback?.({
@@ -429,6 +437,13 @@ export async function signTxWithAutoSignFeeWithDeps(
       client: signingClient,
     })
   } catch (error) {
+    // A Move VM abort during fee simulation means the transaction itself would
+    // fail regardless of signer, so falling back to manual signing would only
+    // defer the same failure to after the wallet confirmation prompt. Format
+    // here because the tx confirmation UI rejects errors without formatting.
+    if (error instanceof Error && parseMoveError(error.message)) {
+      throw await deps.formatError(chainId, error)
+    }
     reportFallback("fee_computation_failed", error)
     return signManually()
   }
@@ -452,7 +467,7 @@ export async function signTxWithAutoSignFeeWithDeps(
 export function useSignTxWithAutoSignFee() {
   const store = useStore()
   const address = useInitiaAddress()
-  const { autoSignFeePolicy, autoSignGrantPolicy } = useConfig()
+  const { autoSignFeePolicy, autoSignGrantPolicy, registryUrl } = useConfig()
   const findChain = useFindChain()
   const createComet38Client = useCreateComet38Client()
   const createSigningStargateClient = useCreateSigningStargateClient()
@@ -650,6 +665,7 @@ export function useSignTxWithAutoSignFee() {
         computeAutoSignFee,
         signWithDerivedWallet,
         signWithEthSecp256k1,
+        formatError: (chainId, error) => formatMoveError(error, findChain(chainId), registryUrl),
         onAutoSignFallback: ({ chainId, reason, errorMessage }) => {
           track("AutoSign Fallback", {
             chainId,
@@ -682,6 +698,7 @@ export function useTx() {
   const offlineSigner = useOfflineSigner()
   const registry = useRegistry()
   const signTxWithAutoSignFee = useSignTxWithAutoSignFee()
+  const invalidateAccountSequence = useInvalidateAccountSequence()
 
   const estimateGas = async ({ messages, memo, chainId = defaultChainId }: TxRequest) => {
     try {
@@ -810,6 +827,7 @@ export function useTx() {
       txRequest,
       broadcaster: async (client, signedTxBytes) => {
         const response = await client.broadcastTx(signedTxBytes, timeoutMs, intervalMs)
+        invalidateAccountSequence()
         if (response.code !== 0)
           throw new TxExecutionError(response.rawLog, response.code, response.transactionHash)
         return response
@@ -878,6 +896,7 @@ export function useTx() {
         timeoutMs,
         intervalMs,
       )
+      invalidateAccountSequence()
       if (response.code !== 0)
         throw new TxExecutionError(response.rawLog, response.code, response.transactionHash)
       return response
@@ -897,7 +916,9 @@ export function useTx() {
   }) => {
     try {
       const client = await createSigningStargateClient(chainId)
-      return await waitForTxConfirmationWithClient({ ...params, client })
+      const tx = await waitForTxConfirmationWithClient({ ...params, client })
+      invalidateAccountSequence()
+      return tx
     } catch (error) {
       // Preserve TimeoutError so callers can distinguish "not yet confirmed"
       // from execution failures. formatMoveError wraps into a plain Error,

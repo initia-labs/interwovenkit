@@ -44,6 +44,7 @@ const QuantityInput = ({ balance, decimals, className }: Props) => {
       control={control}
       className={clsx(styles.input, className)}
       rules={rules}
+      aria-label="Amount"
     />
   )
 }

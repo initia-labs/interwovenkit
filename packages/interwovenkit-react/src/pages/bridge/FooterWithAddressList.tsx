@@ -43,22 +43,31 @@ const FooterWithAddressList = ({ children }: Props) => {
   const [error, setError] = useState<Error | null>(null)
 
   useEffect(() => {
+    let cancelled = false
+
     const fetchPubkey = async () => {
       try {
+        setPubkey(undefined)
+        setError(null)
         if (!isPubkeyRequired) return
         if (!signer) throw new Error("Wallet not connected")
         setLoading(true)
-        setError(null)
         const [{ pubkey }] = await signer.getAccounts()
+        if (cancelled) return
         setPubkey(pubkey)
       } catch (error) {
-        setError(await normalizeError(error))
+        const normalized = await normalizeError(error)
+        if (cancelled) return
+        setError(normalized)
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
 
     fetchPubkey()
+    return () => {
+      cancelled = true
+    }
   }, [isPubkeyRequired, signer])
 
   if (error) {

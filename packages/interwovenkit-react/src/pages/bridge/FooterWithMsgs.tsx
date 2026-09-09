@@ -104,8 +104,9 @@ const FooterWithMsgs = ({ addressList, signedOpHook, children }: Props) => {
         const [tx] = txs
         setValue(tx)
       } catch (error) {
+        const normalized = await normalizeError(error)
         if (cancelled) return
-        setError(await normalizeError(error))
+        setError(normalized)
       } finally {
         if (!cancelled) setLoading(false)
       }

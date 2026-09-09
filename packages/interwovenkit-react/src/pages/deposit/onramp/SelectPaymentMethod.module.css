@@ -1,0 +1,13 @@
+.name {
+  flex: 1;
+
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.check {
+  flex: none;
+
+  color: var(--gray-0);
+}

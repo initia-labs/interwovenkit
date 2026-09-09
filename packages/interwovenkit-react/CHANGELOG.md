@@ -1,5 +1,48 @@
 # Changelog
 
+## [2.12.1](https://github.com/initia-labs/interwovenkit/compare/v2.12.0...v2.12.1) (2026-09-08)
+
+
+### Bug Fixes
+
+* keep wallet popups inside the click's user activation ([#259](https://github.com/initia-labs/interwovenkit/issues/259)) ([7db98fe](https://github.com/initia-labs/interwovenkit/commit/7db98fe67cefd6c7c278dc77ce494b3a7e9cbe14))
+
+## [2.12.0](https://github.com/initia-labs/interwovenkit/compare/v2.11.1...v2.12.0) (2026-08-28)
+
+
+### Features
+
+* support HD address indexes in test wallet connector ([#258](https://github.com/initia-labs/interwovenkit/issues/258)) ([cd7cd38](https://github.com/initia-labs/interwovenkit/commit/cd7cd386e2bca6ce5651f5f8b295b51a7518e276))
+
+
+### Performance Improvements
+
+* defer asset picker search filtering ([#254](https://github.com/initia-labs/interwovenkit/issues/254)) ([ff4c86e](https://github.com/initia-labs/interwovenkit/commit/ff4c86ec1b2c3995ea0067d23f66c519a9f8431e))
+
+## [2.11.1](https://github.com/initia-labs/interwovenkit/compare/v2.11.0...v2.11.1) (2026-08-14)
+
+
+### Bug Fixes
+
+* add accessible names to wallet controls ([#253](https://github.com/initia-labs/interwovenkit/issues/253)) ([5806d0a](https://github.com/initia-labs/interwovenkit/commit/5806d0a084c670847f6ec7585c3dd29b8948254e))
+* bridge footer async race guards ([#250](https://github.com/initia-labs/interwovenkit/issues/250)) ([2aadb87](https://github.com/initia-labs/interwovenkit/commit/2aadb87b3307505b4dd549071a9c9ab941d8463f))
+* propagate Move VM aborts from auto-sign fee simulation ([#255](https://github.com/initia-labs/interwovenkit/issues/255)) ([a9c35a5](https://github.com/initia-labs/interwovenkit/commit/a9c35a5c26e2dc343971507c808299021f85668e))
+* refresh balances after tx confirmation ([#252](https://github.com/initia-labs/interwovenkit/issues/252)) ([f8bb881](https://github.com/initia-labs/interwovenkit/commit/f8bb881ded8bf1e5778c29db522219fcb491c372))
+
+## [2.11.0](https://github.com/initia-labs/interwovenkit/compare/v2.10.0...v2.11.0) (2026-08-12)
+
+
+### Features
+
+* **deposit:** add a unified flow for wallet transfers, reusable deposit addresses, and cash or card purchases; hosts can prefill the purchase amount and currency, and single-asset flows skip the asset picker ([73d6fa4](https://github.com/initia-labs/interwovenkit/commit/73d6fa495747f6cf0996dcf02dffdf5e7536a9d3), [d410679](https://github.com/initia-labs/interwovenkit/commit/d4106798ab7a6f4e52a93631d8e49483648360cf), [6b0cec2](https://github.com/initia-labs/interwovenkit/commit/6b0cec2253c5f6a4a1c104fe3b7330bec70f5504))
+
+
+### Bug Fixes
+
+* **security:** allow only safe portfolio management links and prevent wallet installation or private key export pages from accessing the widget or referrer data ([808fff9](https://github.com/initia-labs/interwovenkit/commit/808fff9dd1a56ae92288e6c24e4e0eed802e8ba1))
+* **portfolio:** keep portfolio search responsive during background data refreshes ([c222961](https://github.com/initia-labs/interwovenkit/commit/c2229611d1c8536241f3748e6805974b59f6580a))
+* **send:** show iUSD directly after INIT in the asset picker and sort otherwise tied assets alphabetically ([95f88e3](https://github.com/initia-labs/interwovenkit/commit/95f88e3370024e0f6c12b1a022c38f6b88ff4099))
+
 ## [2.10.0](https://github.com/initia-labs/interwovenkit/compare/v2.9.1...v2.10.0) (2026-06-25)
 
 

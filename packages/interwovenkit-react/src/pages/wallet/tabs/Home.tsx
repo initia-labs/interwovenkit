@@ -1,5 +1,5 @@
 import clsx from "clsx"
-import { useRef } from "react"
+import { useEffect, useRef } from "react"
 import { Tabs } from "@base-ui/react/tabs"
 import { IconBridge, IconQrCode, IconSend } from "@initia/icons-react"
 import AsyncBoundary from "@/components/AsyncBoundary"
@@ -51,7 +51,11 @@ const TotalBalance = () => {
 
 const Home = () => {
   useClaimableModal()
-  useRefreshPortfolio()
+  const refreshPortfolio = useRefreshPortfolio()
+
+  useEffect(() => {
+    refreshPortfolio()
+  }, [refreshPortfolio])
 
   const isTestnet = useIsTestnet()
   const navigate = useNavigate()

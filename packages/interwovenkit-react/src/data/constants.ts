@@ -39,6 +39,10 @@ export const LocalStorageKey = {
   BRIDGE_ROUTE_TYPE: `${NAMESPACE}:bridge:route-type`,
   BRIDGE_HISTORY: `${NAMESPACE}:bridge:history`,
 
+  // onramp
+  ONRAMP_PAYMENT_TYPE_ID: `${NAMESPACE}:onramp:payment-type-id`,
+  ONRAMP_FIAT_ID: `${NAMESPACE}:onramp:fiat-id`,
+
   // op
   OP_REMINDER: `${NAMESPACE}:op:reminder`,
 }

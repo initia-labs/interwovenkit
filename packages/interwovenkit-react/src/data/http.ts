@@ -34,15 +34,21 @@ export async function normalizeErrorMessage(error: unknown): Promise<string> {
     const errorMessage = path<string>(["error", "message"], error)
     const causeMessage = path<string>(["cause", "message"], error)
     const shortMessage = path<string>(["shortMessage"], error)
-    if (errorMessage) return errorMessage
-    if (causeMessage) return causeMessage
-    if (shortMessage) return shortMessage
-    return error.message
+    const message = errorMessage || causeMessage || shortMessage || error.message
+    if (message === PRIVY_POPUP_BLOCKED_MESSAGE) return POPUP_BLOCKED_MESSAGE
+    return message
   }
 
   return String(error)
 }
 
+// `@privy-io/cross-app-connect` throws this when `window.open()` returns null, i.e. the
+// browser blocked the wallet popup (popup blocker, or the click's user activation expired
+// before the request reached the wallet). The raw text gives users nothing to act on.
+const PRIVY_POPUP_BLOCKED_MESSAGE = "Failed to initialize request"
+export const POPUP_BLOCKED_MESSAGE =
+  "The wallet popup was blocked by the browser. Allow pop-ups for this site and try again."
+
 export async function normalizeError(error: unknown): Promise<Error> {
-  return new Error(await normalizeErrorMessage(error))
+  return new Error(await normalizeErrorMessage(error), { cause: error })
 }

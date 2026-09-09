@@ -45,7 +45,7 @@ const BridgeAccount = ({ type }: Props) => {
               const provider = item.getProvider()
               if (!provider) {
                 if (item.fallbackUrl) {
-                  window.open(item.fallbackUrl, "_blank")
+                  window.open(item.fallbackUrl, "_blank", "noopener,noreferrer")
                 } else {
                   showNotification({
                     type: "error",

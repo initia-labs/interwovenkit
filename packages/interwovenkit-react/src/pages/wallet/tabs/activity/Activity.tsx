@@ -29,7 +29,11 @@ const Activity = () => {
   }
 
   if (!activities.length && !isLoading) {
-    return <Status>No activity yet</Status>
+    // The indexer can lag on-chain state by a few seconds, and users land here
+    // right after a deposit completes ("Go to history"). The list polls while
+    // mounted, so the record surfaces in place — the empty state must not
+    // read as final in the meantime.
+    return <Status>No activity yet. Recent transactions may take a moment to appear.</Status>
   }
 
   return (

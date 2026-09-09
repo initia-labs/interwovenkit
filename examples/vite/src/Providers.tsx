@@ -10,16 +10,27 @@ import {
   TESTNET,
 } from "@initia/interwovenkit-react"
 import css from "@initia/interwovenkit-react/styles.css?inline"
-import { chainId, isTestnet, routerApiUrl, useTheme } from "./data"
+import { chainId, depositApiUrl, isTestnet, routerApiUrl, useTheme } from "./data"
 
 import type { PropsWithChildren } from "react"
 
 injectStyles(css)
 const mnemonic = import.meta.env.INITIA_TEST_MNEMONIC as string | undefined
 const cosmosWallets = mnemonic ? [createTestCosmosWallet({ mnemonic })] : []
+
+// `?simulatePopup` makes the test wallet open a window like Privy does, so browser tests can
+// check that signing runs inside the click's user activation. `&popupDelayMs=N` delays it.
+const searchParams = new URLSearchParams(window.location.search)
+const popupDelayMs = Number(searchParams.get("popupDelayMs"))
+const simulatePopup = searchParams.has("simulatePopup")
+  ? popupDelayMs > 0
+    ? { delayMs: popupDelayMs }
+    : true
+  : false
+
 const connectors = [
   initiaPrivyWalletConnector,
-  ...(mnemonic ? [createTestWalletConnector({ mnemonic })] : []),
+  ...(mnemonic ? [createTestWalletConnector({ mnemonic, simulatePopup })] : []),
 ]
 const wagmiConfig = createConfig({
   connectors,
@@ -35,6 +46,7 @@ const InterwovenKitWrapper = ({ children }: PropsWithChildren) => {
     <InterwovenKitProvider
       {...(isTestnet ? TESTNET : {})}
       {...(routerApiUrl ? { routerApiUrl } : {})}
+      {...(depositApiUrl ? { depositApiUrl } : {})}
       theme={theme}
       container={import.meta.env.DEV ? document.body : undefined}
       enableAutoSign={{ [chainId]: ["/cosmos.bank.v1beta1.MsgSend", "/initia.move.v1.MsgExecute"] }}

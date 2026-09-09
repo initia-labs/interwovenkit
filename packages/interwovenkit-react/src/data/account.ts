@@ -50,6 +50,7 @@ export const accountQueryKeys = createQueryKeys("interwovenkit:account", {
   address: (restUrl: string, username: string) => [restUrl, username],
   balances: (restUrl: string, address: string) => [restUrl, address],
   txs: (indexerUrl: string, address: string) => [indexerUrl, address],
+  sequence: (chainId: string, address: string) => [chainId, address],
 })
 
 export function useUsernameClient() {

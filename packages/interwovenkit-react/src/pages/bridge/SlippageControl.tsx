@@ -92,6 +92,7 @@ const SlippageControl = ({ afterConfirm }: { afterConfirm: () => void }) => {
               onFocus={handleInputFocus}
               placeholder=""
               className={clsx(styles.preset, styles.active)}
+              aria-label="Slippage percent"
             />
             <span className={styles.percent}>%</span>
           </div>

@@ -24,11 +24,18 @@ const Modal = ({ children }: PropsWithChildren) => {
     <Dialog.Root open={isModalOpen} onOpenChange={(isOpen) => !isOpen && closeModal()}>
       <Dialog.Portal container={portalContainer}>
         <Dialog.Backdrop className={styles.backdrop} onClick={closeModal} />
-        <Dialog.Popup className={styles.modal} ref={containerRef}>
+        <Dialog.Popup className={styles.modal} ref={containerRef} aria-label="Initia wallet">
           <button className={styles.closeButton} onClick={closeModal} aria-label="Close">
             <IconClose size={20} />
           </button>
-          <AsyncBoundary>{children}</AsyncBoundary>
+          {/* The modal owns the height cap (max-height), so it also owns the
+              overflow: without this scroll region, content taller than the cap
+              spills past the modal and off short (mobile) viewports with no way
+              to scroll to it (the dialog locks body scroll). The close button
+              stays outside so it remains pinned while scrolling. */}
+          <div className={styles.content}>
+            <AsyncBoundary>{children}</AsyncBoundary>
+          </div>
         </Dialog.Popup>
       </Dialog.Portal>
     </Dialog.Root>

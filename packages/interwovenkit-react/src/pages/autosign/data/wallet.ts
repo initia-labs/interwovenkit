@@ -20,6 +20,7 @@ import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
 import { useFindChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import { encodeEthSecp256k1Signature } from "@/data/patches/signature"
+import { recoverPublicKey, storePublicKey } from "@/data/public-key"
 import { useInitiaAddress } from "@/public/data/hooks"
 import {
   createRandomWallet,
@@ -592,6 +593,11 @@ export function useDeriveWallet() {
         const origin = window.location.origin
         const message = getAutoSignMessage(origin)
         const signature = await signMessageAsync({ message })
+
+        // The derivation signature also reveals the user's own public key. Caching it here
+        // lets the grant transaction that follows (gas simulation and signing) proceed
+        // without an identification signature, which would be a second wallet popup.
+        storePublicKey(userAddress, recoverPublicKey(message, signature))
 
         const wallet = await deriveWalletFromSignature(signature as Hex, identity.bech32Prefix)
         const publicWallet = toPublicWallet(wallet)

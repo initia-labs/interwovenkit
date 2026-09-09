@@ -11,6 +11,13 @@ import { useInitiaAddress } from "@/public/data/hooks"
 
 export const ACTIVITY_PAGINATION_LIMIT = 10
 
+// Indexers lag a few seconds behind on-chain state, and users often land on
+// the activity tab right after a transfer completes (e.g. the deposit
+// tracking screen's "Go to history"). Polling while the tab is mounted lets
+// the missing record surface in place instead of requiring the user to leave
+// and revisit the tab.
+export const ACTIVITY_REFETCH_INTERVAL = 5000
+
 export interface TxItem {
   tx: {
     body: {
@@ -89,16 +96,21 @@ export const useAllActivities = () => {
   const createTxsQuery = useCreateTxsQuery()
 
   // Fetch transactions from all chains in parallel
-  // Each query fetches the most recent transactions for the user's address
-  const queries = useQueries({
-    queries: chains.map((chain) => createTxsQuery(chain, { enabled: true })),
+  // Each query fetches the most recent transactions for the user's address.
+  // refetchInterval is applied here (not in createTxsQuery) so only the
+  // activity tab polls; other consumers of the same query (e.g. fee.ts)
+  // fetch once.
+  return useQueries({
+    queries: chains.map((chain) => ({
+      ...createTxsQuery(chain, { enabled: true }),
+      refetchInterval: ACTIVITY_REFETCH_INTERVAL,
+    })),
+    // Plain useQueries returns a new results array on every render. Combining
+    // here lets React Query structurally share the aggregate until query data
+    // changes, keeping Activity's downstream memoization effective.
+    combine: (results) => ({
+      activities: aggregateActivities(chains, results.map(prop("data"))),
+      isLoading: results.some((query) => query.isLoading),
+    }),
   })
-
-  const results = queries.map(prop("data"))
-  const activities = aggregateActivities(chains, results)
-
-  // Aggregate loading state - true if any chain is still loading
-  const isLoading = queries.some((query) => query.isLoading)
-
-  return { activities, isLoading }
 }

@@ -22,6 +22,14 @@ function NumericInput<T extends FieldValues>(props: Props<T>) {
   const { name, control, dp = 6, className, rules, ...attrs } = props
   const autoFocusRef = useAutoFocus()
 
+  // Paste is deliberately left to NumericFormat's default strip-and-join,
+  // even though it mangles some formats ("1234,56" -> "123456", "1e5" -> "15").
+  // The constraints — never block paste, no silent transformation, form-state/
+  // display parity — are jointly unsatisfiable: a client-side normalizer only
+  // re-encodes the trade-off as locale-guessing heuristics (is "1,234" grouping
+  // or a decimal?) whose ambiguity rules breed their own edge cases and bugs.
+  // Locale-aware parsing belongs upstream in the input library, not in ad-hoc
+  // regexes here. Accepted trade-off: exotic pastes keep their digits only.
   return (
     <Controller
       name={name}

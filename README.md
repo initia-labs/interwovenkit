@@ -45,7 +45,7 @@ pnpm dev
 ```
 
 - The package source files will be injected into the portal element in the document body.
-- The demo site will be available at: [http://localhost:5173](http://localhost:5173)
+- The demo site will be available at: [http://localhost:17303](http://localhost:17303)
 
 ### Production Mode
 
@@ -57,7 +57,7 @@ pnpm watch  # Serve the demo using the built package and styles.
 ```
 
 - In production mode, the package and its styles will be injected into a Shadow DOM.
-- The demo site will be available at: [http://localhost:5173](http://localhost:5173)
+- The demo site will be available at: [http://localhost:17303](http://localhost:17303)
 
 ## Deployment Security Headers
 

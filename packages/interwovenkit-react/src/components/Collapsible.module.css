@@ -1,0 +1,24 @@
+.button {
+  justify-content: flex-start;
+  align-items: center;
+  gap: 2px;
+
+  width: fit-content;
+  height: 18px;
+
+  color: var(--gray-3);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.button:hover {
+  color: var(--gray-1);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  padding-top: 8px;
+}

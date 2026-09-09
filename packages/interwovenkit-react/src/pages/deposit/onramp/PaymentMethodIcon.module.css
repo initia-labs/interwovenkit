@@ -1,0 +1,14 @@
+.icon {
+  flex: none;
+
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+
+  color: var(--gray-1);
+}
+
+.mono {
+  font-weight: 700;
+  line-height: 1;
+}

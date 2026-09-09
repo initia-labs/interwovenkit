@@ -8,4 +8,8 @@ export default defineConfig({
   },
   plugins: [react()],
   envPrefix: "INITIA_",
+  server: {
+    port: 17303,
+    strictPort: true,
+  },
 })

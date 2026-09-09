@@ -1,0 +1,5 @@
+/* The AssetOptions internal scroll region (the height bound comes from
+ * DepositSubpage.List); hide its scrollbar to match the other deposit lists. */
+.list {
+  scrollbar-width: none;
+}

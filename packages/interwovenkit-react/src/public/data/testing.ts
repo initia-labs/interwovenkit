@@ -26,10 +26,16 @@ export type CreateTestWalletOptions =
        * BIP-39 mnemonic phrase. Provide either `mnemonic` or `privateKey`.
        */
       mnemonic: string
+      /**
+       * Address index in the HD path (`m/44'/60'/0'/0/${addressIndex}`).
+       * @default 0
+       */
+      addressIndex?: number
       privateKey?: never
     }
   | {
       mnemonic?: never
+      addressIndex?: never
       /**
        * Hex-encoded private key (with `0x` prefix).
        * Provide either `mnemonic` or `privateKey`.
@@ -40,12 +46,14 @@ export type CreateTestWalletOptions =
 export type CreateTestWalletConfig = CreateTestWalletOptions & {
   /**
    * Wagmi connector id. Useful when running multiple test wallets.
-   * @default "testWallet"
+   * Defaults to `"testWallet"` when `addressIndex` is omitted, or
+   * `"testWallet-${addressIndex}"` when it is provided.
    */
   id?: string
   /**
    * Display name shown in wallet selection UI.
-   * @default "Test Wallet"
+   * Defaults to `"Test Wallet"` when `addressIndex` is omitted, or
+   * `"Test Wallet ${addressIndex}"` when it is provided.
    */
   name?: string
   /**
@@ -69,6 +77,15 @@ export type CreateTestWalletConfig = CreateTestWalletOptions & {
     maxFeePerGas?: bigint
     maxPriorityFeePerGas?: bigint
   }
+  /**
+   * Open a blank window before every signing request and fail with the same error as
+   * popup-based wallets (Privy) when the browser blocks it. Lets browser tests check that
+   * signing is still inside the click's user activation when the wallet is asked.
+   * `delayMs` waits that long before opening the window, which is useful as a negative
+   * control since the activation expires during the wait.
+   * @default false
+   */
+  simulatePopup?: boolean | { delayMs: number }
 }
 
 /**
@@ -89,6 +106,15 @@ export type CreateTestWalletConfig = CreateTestWalletOptions & {
  * const connector = createTestWalletConnector({
  *   mnemonic: process.env.TEST_MNEMONIC!,
  * })
+ *
+ * // Derive multiple connectors from one mnemonic. Explicit indexes also
+ * // produce unique default ids and names for wagmi and wallet selection UIs.
+ * const testConnectors = Array.from({ length: 40 }, (_, addressIndex) =>
+ *   createTestWalletConnector({
+ *     mnemonic: process.env.TEST_MNEMONIC!,
+ *     addressIndex,
+ *   }),
+ * )
  *
  * // Or from private key
  * const connector = createTestWalletConnector({
@@ -115,13 +141,38 @@ export type CreateTestWalletConfig = CreateTestWalletOptions & {
  * | *(any other method)* | Proxied to the current chain's RPC node |
  */
 export function createTestWalletConnector(options: CreateTestWalletConfig) {
+  if (options.privateKey && options.addressIndex !== undefined) {
+    throw new Error("addressIndex requires mnemonic")
+  }
+
+  const defaultId =
+    options.addressIndex === undefined ? "testWallet" : `testWallet-${options.addressIndex}`
+  const defaultName =
+    options.addressIndex === undefined ? "Test Wallet" : `Test Wallet ${options.addressIndex}`
   const {
-    id = "testWallet",
-    name = "Test Wallet",
+    id = defaultId,
+    name = defaultName,
     rpcUrls: userRpcUrls,
     debug = false,
     sendTransactionOverrides,
+    simulatePopup = false,
   } = options
+
+  // Mirrors @privy-io/cross-app-connect, which opens the window first and throws this exact
+  // message when `window.open()` returns null.
+  async function signThroughSimulatedPopup<T>(sign: () => Promise<T>): Promise<T> {
+    if (!simulatePopup) return sign()
+    if (typeof simulatePopup === "object") {
+      await new Promise((resolve) => setTimeout(resolve, simulatePopup.delayMs))
+    }
+    const popup = window.open(undefined, undefined, "popup=1,width=400,height=680")
+    if (!popup) throw new Error("Failed to initialize request")
+    try {
+      return await sign()
+    } finally {
+      popup.close()
+    }
+  }
 
   if ("mnemonic" in options && options.mnemonic === "") {
     throw new Error("mnemonic must not be empty")
@@ -138,7 +189,7 @@ export function createTestWalletConnector(options: CreateTestWalletConfig) {
   let account: ReturnType<typeof mnemonicToAccount> | ReturnType<typeof privateKeyToAccount>
   try {
     account = options.mnemonic
-      ? mnemonicToAccount(options.mnemonic)
+      ? mnemonicToAccount(options.mnemonic, { addressIndex: options.addressIndex })
       : privateKeyToAccount(options.privateKey!)
   } catch (error) {
     throw new Error(
@@ -276,7 +327,9 @@ export function createTestWalletConnector(options: CreateTestWalletConfig) {
 
         case "personal_sign": {
           const [message] = params as [string]
-          return account.signMessage({ message: { raw: message as `0x${string}` } })
+          return signThroughSimulatedPopup(() =>
+            account.signMessage({ message: { raw: message as `0x${string}` } }),
+          )
         }
 
         case "eth_signTypedData":

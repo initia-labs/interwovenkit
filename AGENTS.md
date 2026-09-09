@@ -31,7 +31,7 @@ packages/interwovenkit-react/src/
     wallet/            # Portfolio, NFTs, activity, send
     bridge/            # Cross-chain bridging (Skip.go integration)
     autosign/          # Auto-sign wallet derivation
-    deposit/           # L1 <-> L2 transfers (includes Withdraw.tsx)
+    deposit/           # Deposit hub: via wallet, via address, buy with cash (includes Withdraw.tsx)
     tx/                # Transaction signing modal
     connect/           # Wallet connection
     receive/           # Receive address QR
@@ -79,6 +79,8 @@ pnpm build:fast    # Fast build (skips rollup type bundling)
 1. External libraries (`react`, `@tanstack/react-query`, `bignumber.js`)
 2. Internal `@/` alias imports (`@/data/`, `@/components/`, `@/lib/`)
 3. Local relative imports (`./styles`, `./Component`)
+
+Path style: relative paths (`./`, `../`) only within the same feature directory (`pages/<feature>/`); use the `@/` alias for everything outside it, including cross-feature imports (`@/pages/bridge/data/chains`).
 
 ### Component Patterns
 
@@ -132,11 +134,15 @@ CSS Modules with CSS custom properties. Shadow DOM compatible (`:host` selectors
 
 - **Framework**: Vitest 4 with `globals: true`
 - **Location**: Co-located with source as `*.test.ts` across `data/`, `pages/`, `components/`, `lib/`
-- **Scope**: ~24 test files covering errors, signing, tx, portfolio, staking, liquidity, SSE parsing, autosign, bridge formatting, wallet activity, NFT queries, address utilities
+- **Scope**: errors, signing, tx, portfolio, staking, liquidity, SSE parsing, autosign, bridge formatting, wallet activity, NFT queries, address utilities, deposit methods
 - **Mocking**: `vi.mock()` for modules, `vi.mocked()` for typed assertions
 - **No component render tests** — tests cover pure logic and data functions only
 
 Run: `pnpm test`
+
+### Browser test
+
+`pnpm --filter vite test:e2e` runs Playwright (Chromium) against the example app. It checks that the wallet request on Approve stays inside the click's task (no network wait in between), which is the condition Safari imposes on wallet popups. Needs `INITIA_TEST_MNEMONIC` for a funded account in `examples/vite/.env`, a built package (`pnpm build`), and it broadcasts a 1 uinit self-transfer.
 
 ## Playwright MCP Testing
 
@@ -156,6 +162,7 @@ When instructed to run Playwright MCP tests, use the example app in `examples/vi
 
 - **Shadow DOM**: Widget renders into Shadow DOM; styles use `:host` selector; `injectStyles()` required
 - **Auto-sign**: Opt-in feature deriving a deterministic wallet from seed phrase; falls back to manual signing on error
+- **Wallet popups**: Popup-based wallets (Privy) are blocked whenever `window.open()` runs outside the click's user activation. Browsers consume it on the first popup, and Safari drops it across any real async wait (only microtasks survive). Hence the signer recovers the public key from the first signature instead of requesting an identification signature (`data/public-key.ts`), and the approval page prefetches the account sequence so nothing but microtasks sit between the Approve click and the wallet request
 - **CosmJS patches**: `data/patches/` contains monkey patches for amino, pubkeys, signature, encoding, and accounts
 - **BigNumber strict mode**: Pick the fallback operator by the input's static type before passing a value to `BigNumber()` or any BigNumber-coercing method (`.plus()`, `.times()`, `.minus()`, `.div()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.eq()`, `.comparedTo()`, etc.):
   - **`string | undefined` / `string`** (Skip `price`/`amount`/`amount_in` fields, `fromBaseUnit`/`toBaseUnit` results, cosmos `Coin.amount`, user-typed form values, persisted localStorage strings): use `|| 0` (or `|| "0"`). `?? 0` lets empty strings through, and `BigNumber("")` throws under strict mode. The realistic empty-string sources are `@initia/utils`' `fromBaseUnit`/`toBaseUnit` (return `""` on invalid input) and any `string`-typed upstream field that can arrive empty.

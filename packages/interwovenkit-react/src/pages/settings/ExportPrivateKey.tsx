@@ -4,7 +4,7 @@ import SettingItem from "./SettingItem"
 const PRIVY_EXPORT_URL = "https://export.initia.xyz/"
 
 const ExportPrivateKey = () => {
-  const windowFeatures = "width=600,height=768,scrollbars=yes,resizable=yes"
+  const windowFeatures = "width=600,height=768,scrollbars=yes,resizable=yes,noopener,noreferrer"
 
   return (
     <SettingItem
