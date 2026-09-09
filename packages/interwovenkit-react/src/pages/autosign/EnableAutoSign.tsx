@@ -1,4 +1,3 @@
-import { formatDuration, intervalToDuration } from "date-fns"
 import ky, { HTTPError } from "ky"
 import { useState } from "react"
 import { useAtom, useAtomValue } from "jotai"
@@ -83,16 +82,9 @@ const EnableAutoSignComponent = () => {
     ? isVerifiedWebsiteHost(targetChain.website, window.location.hostname)
     : false
 
-  const configuredDuration = DURATION_OPTIONS.find(
+  const durationLabel = DURATION_OPTIONS.find(
     (option) => option.value === pendingRequest.defaultDuration,
   )?.label
-  const durationLabel =
-    configuredDuration ??
-    (pendingRequest.defaultDuration > 0
-      ? `for ${formatDuration(
-          intervalToDuration({ start: 0, end: pendingRequest.defaultDuration }),
-        )}`
-      : undefined)
   const ownerMismatch = pendingRequest.owner !== initiaAddress
 
   const handleEnable = () => {

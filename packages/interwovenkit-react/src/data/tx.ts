@@ -14,6 +14,7 @@ import { ServiceClientImpl, SimulateRequest } from "cosmjs-types/cosmos/tx/v1bet
 import { AuthInfo, Fee, Tx, TxBody, TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import type { Any } from "cosmjs-types/google/protobuf/any"
 import { atom, useAtomValue, useSetAtom, useStore } from "jotai"
+import { useEventCallback } from "usehooks-ts"
 import { TimeoutError } from "@/lib/promise"
 import { useNavigate } from "@/lib/router"
 import { getFeegrantSpendLimit } from "@/pages/autosign/data/fetch"
@@ -564,6 +565,7 @@ export function useSignTxWithAutoSignFee() {
       remainingBudget: getFeegrantSpendLimit(feegrant.allowance),
     })
   }
+  const latestComputeAutoSignFee = useEventCallback(computeAutoSignFee)
 
   const signWithDerivedWallet: SignTxWithAutoSignFeeDeps["signWithDerivedWallet"] = async (
     chainId,
@@ -641,7 +643,7 @@ export function useSignTxWithAutoSignFee() {
         restoreWallet,
         deriveWallet: requestAutoSignUnlock,
         getSigningClient: createSigningStargateClient,
-        computeAutoSignFee,
+        computeAutoSignFee: latestComputeAutoSignFee,
         signWithDerivedWallet,
         signWithEthSecp256k1,
         formatError: (chainId, error) => formatMoveError(error, findChain(chainId), registryUrl),

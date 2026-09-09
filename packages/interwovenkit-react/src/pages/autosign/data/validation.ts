@@ -283,7 +283,7 @@ export function useAutoSignStatus() {
         fetchFeegrant,
       }),
     staleTime: STALE_TIMES.MINUTE,
-    refetchInterval: AUTO_SIGN_STATUS_MAX_AGE_MS,
+    refetchInterval: AUTO_SIGN_STATUS_MAX_AGE_MS / 2,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     retry: 1,

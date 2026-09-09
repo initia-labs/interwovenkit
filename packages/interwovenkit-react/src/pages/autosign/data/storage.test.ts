@@ -298,17 +298,27 @@ describe("stable auto-sign identity", () => {
     replacement.privateKey.fill(0)
   })
 
-  it("aborts durable writes and restores the exact prior session value after cancellation", async () => {
+  it("cleans staged sibling sessions and restores the prior current value after cancellation", async () => {
     const records = installIndexedDb()
     const sessionStorage = new MemoryStorage()
     vi.stubGlobal("window", { sessionStorage })
     const originalWallet = await createRandomWallet(identity.bech32Prefix)
+    const siblingIdentity = { ...identity, chainId: "initiation-3" }
+    const siblingWallet = await createRandomWallet(siblingIdentity.bech32Prefix)
     await saveAutoSignWallet(identity, originalWallet, "persistent")
+    await saveAutoSignWallet(siblingIdentity, siblingWallet, "persistent")
     const preferenceKey = `preference:${identity.owner}`
     const identityKey = `identity:${identity.owner}:${identity.chainId}:${identity.bech32Prefix}`
+    const walletKey = `wallet:${identity.owner}:${identity.chainId}:${identity.bech32Prefix}`
+    const siblingIdentityKey = `identity:${siblingIdentity.owner}:${siblingIdentity.chainId}:${siblingIdentity.bech32Prefix}`
+    const siblingWalletKey = `wallet:${siblingIdentity.owner}:${siblingIdentity.chainId}:${siblingIdentity.bech32Prefix}`
     const originalPreference = records.get(preferenceKey)
     const originalIdentity = records.get(identityKey)
+    const originalWalletRecord = records.get(walletKey)
+    const originalSiblingIdentity = records.get(siblingIdentityKey)
+    const originalSiblingWalletRecord = records.get(siblingWalletKey)
     const sessionKey = `interwovenkit:autosign:session:${identity.owner}:${identity.chainId}:${identity.bech32Prefix}`
+    const siblingSessionKey = `interwovenkit:autosign:session:${siblingIdentity.owner}:${siblingIdentity.chainId}:${siblingIdentity.bech32Prefix}`
     sessionStorage.setItem(sessionKey, "prior-session-value")
 
     const replacement = await createRandomWallet(identity.bech32Prefix)
@@ -325,9 +335,14 @@ describe("stable auto-sign identity", () => {
 
     expect(records.get(preferenceKey)).toBe(originalPreference)
     expect(records.get(identityKey)).toBe(originalIdentity)
+    expect(records.get(walletKey)).toBe(originalWalletRecord)
+    expect(records.get(siblingIdentityKey)).toBe(originalSiblingIdentity)
+    expect(records.get(siblingWalletKey)).toBe(originalSiblingWalletRecord)
     expect(sessionStorage.getItem(sessionKey)).toBe("prior-session-value")
+    expect(sessionStorage.getItem(siblingSessionKey)).toBeNull()
 
     originalWallet.privateKey.fill(0)
+    siblingWallet.privateKey.fill(0)
     replacement.privateKey.fill(0)
   })
 })

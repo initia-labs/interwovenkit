@@ -16,14 +16,6 @@ export interface Grant {
   expiration?: string
 }
 
-export interface GrantsResponse {
-  grants: Grant[]
-  pagination?: {
-    next_key: string | null
-    total: string
-  }
-}
-
 export interface FeegrantAllowance {
   granter: string
   grantee: string

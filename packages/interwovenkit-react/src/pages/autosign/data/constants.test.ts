@@ -13,7 +13,9 @@ describe("resolveAutoSignDuration", () => {
     expect(resolveAutoSignDuration(0)).toBe(0)
   })
 
-  it("falls back to the default duration for unsupported values", () => {
-    expect(resolveAutoSignDuration(5 * MINUTE_IN_MS)).toBe(DEFAULT_DURATION)
+  it("rejects unsupported durations instead of silently widening them", () => {
+    expect(() => resolveAutoSignDuration(5 * MINUTE_IN_MS)).toThrow(
+      "Auto-sign duration must match a supported option",
+    )
   })
 })

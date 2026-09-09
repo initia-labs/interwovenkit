@@ -964,7 +964,15 @@ export async function saveAutoSignWallet(
         }
       })
     } catch (error) {
-      if (serialized && storage.getItem(key) === serialized) {
+      const shouldRestoreOriginal = !!serialized && storage.getItem(key) === serialized
+      if (previous.stayConnected) {
+        try {
+          clearAutoSignOwnerSessionWallets(identity.owner)
+        } catch {
+          // Preserve the original handoff failure when session storage is unavailable.
+        }
+      }
+      if (shouldRestoreOriginal) {
         if (original === null) storage.removeItem(key)
         else storage.setItem(key, original)
       }
@@ -1246,7 +1254,6 @@ export async function deleteAutoSignWallet(
   } catch (error) {
     if (!deleted) throw error
   }
-  if (!deleted) throw new AutoSignCancelledError()
 }
 
 export async function setAutoSignWalletState(

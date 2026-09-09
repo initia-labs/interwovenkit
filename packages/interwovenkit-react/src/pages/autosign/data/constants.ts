@@ -18,5 +18,8 @@ export function resolveAutoSignDuration(duration?: number) {
     return DEFAULT_DURATION
   }
 
-  return DURATION_OPTIONS.some((option) => option.value === duration) ? duration : DEFAULT_DURATION
+  if (!DURATION_OPTIONS.some((option) => option.value === duration)) {
+    throw new Error("Auto-sign duration must match a supported option")
+  }
+  return duration
 }
