@@ -16,10 +16,6 @@ export class TxExecutionError extends Error {
   }
 }
 
-export function isConfirmedTxFailure(error: unknown): boolean {
-  return error instanceof BroadcastTxError || error instanceof TxExecutionError
-}
-
 export interface ParsedMoveError {
   moduleAddress: string
   moduleName: string
@@ -52,6 +48,14 @@ export class MoveError extends Error {
     this.errorCodeHex = errorCodeHex
     this.isFromRegistry = isFromRegistry
   }
+}
+
+export function isConfirmedTxFailure(error: unknown): boolean {
+  return (
+    error instanceof BroadcastTxError ||
+    error instanceof TxExecutionError ||
+    (error instanceof MoveError && isConfirmedTxFailure(error.originalError))
+  )
 }
 
 const MOVE_ERROR_REGEX = /VM aborted: location=([0-9A-Fa-f]+)::(\w+), code=(\d+)/
@@ -122,20 +126,20 @@ export async function formatMoveError(
   chain: Chain,
   registryUrl: string,
 ): Promise<Error> {
-  // Permission lifecycle callers must distinguish a confirmed failure from an
-  // unknown broadcast outcome before deleting keys or restoring paused grants.
-  if (isConfirmedTxFailure(error) || error instanceof TimeoutError) return error
+  // Permission lifecycle callers must distinguish an unknown broadcast outcome
+  // before deleting keys or restoring paused grants.
+  if (error instanceof TimeoutError) return error
 
   // Already formatted. Reformatting would fail the VM abort regex and wrap the
   // error into a plain Error via normalizeError, losing the MoveError class
   // that consumers rely on for instanceof checks.
   if (error instanceof MoveError) return error
-  if (!chain.metadata?.is_l1 && chain.metadata?.minitia?.type !== "minimove") {
-    return await normalizeError(error)
-  }
+  const confirmedTxFailure = isConfirmedTxFailure(error)
+  if (!chain.metadata?.is_l1 && chain.metadata?.minitia?.type !== "minimove")
+    return confirmedTxFailure ? error : await normalizeError(error)
 
   const parsed = parseMoveError(error.message)
-  if (!parsed) return await normalizeError(error)
+  if (!parsed) return confirmedTxFailure ? error : await normalizeError(error)
 
   const errorRegistry = await fetchErrorRegistry(
     chain.chain_name,

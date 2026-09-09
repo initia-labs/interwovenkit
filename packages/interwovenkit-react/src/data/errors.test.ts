@@ -120,6 +120,16 @@ describe("Move Error Handling", () => {
       expect(isConfirmedTxFailure(timeout)).toBe(false)
     })
 
+    test("formats a confirmed Move failure without losing definite-failure classification", async () => {
+      const error = new TxExecutionError("VM aborted: location=1::coin, code=65537", 4, "TXHASH")
+
+      const formatted = await formatMoveError(error, mockChainL1, registryUrl)
+
+      expect(formatted).toBeInstanceOf(MoveError)
+      expect((formatted as MoveError).originalError).toBe(error)
+      expect(isConfirmedTxFailure(formatted)).toBe(true)
+    })
+
     test("should return MoveError unchanged without reformatting", async () => {
       const originalError = new Error("VM aborted: location=1::module, code=1")
       const moveError = new MoveError(
