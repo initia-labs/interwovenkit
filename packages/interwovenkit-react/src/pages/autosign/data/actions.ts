@@ -4,9 +4,9 @@ import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-q
 import { MsgRevoke } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import { MsgRevokeAllowance } from "@initia/initia.proto/cosmos/feegrant/v1beta1/tx"
 import { useConfig } from "@/data/config"
+import { isConfirmedTxFailure } from "@/data/errors"
 import { clearSigningClientCache } from "@/data/signer"
 import { useTx } from "@/data/tx"
-import { isConfirmedTxFailure } from "@/data/errors"
 import { useDrawer } from "@/data/ui"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { getFeegrantAllowedMessages, getFeegrantExpiration, useAutoSignApi } from "./fetch"
@@ -444,6 +444,7 @@ export function useEnableAutoSign() {
             derivedWallet,
             owner: initiaAddress,
             ownerGeneration,
+            expectedGrantee,
             request: pendingRequest,
             legacyExpectedAddressAction: getLegacyExpectedAddressAction(
               getWalletProvenance(chainId),
@@ -470,6 +471,7 @@ export function useEnableAutoSign() {
       derivedWallet,
       owner,
       ownerGeneration,
+      expectedGrantee,
       request,
       legacyExpectedAddressAction,
     }) => {
@@ -481,8 +483,8 @@ export function useEnableAutoSign() {
       }
       if (legacyExpectedAddressAction === "store") {
         storeExpectedAddress(owner, chainId, derivedWallet.address)
-      } else if (legacyExpectedAddressAction === "clear") {
-        clearExpectedAddress(owner, chainId, derivedWallet.address)
+      } else if (legacyExpectedAddressAction === "clear" && expectedGrantee) {
+        clearExpectedAddress(owner, chainId, expectedGrantee)
       }
 
       await invalidateAutoSignQueries(queryClient)
@@ -654,6 +656,7 @@ export function useRenewAutoSign() {
             derivedWallet: wallet,
             owner,
             ownerGeneration,
+            expectedGrantee,
             legacyExpectedAddressAction: getLegacyExpectedAddressAction(
               getWalletProvenance(chainId),
             ),
@@ -679,13 +682,14 @@ export function useRenewAutoSign() {
       derivedWallet,
       owner,
       ownerGeneration,
+      expectedGrantee,
       legacyExpectedAddressAction,
     }) => {
       if (!isOwnerFenceCurrent(store, owner, ownerGeneration)) return
       if (legacyExpectedAddressAction === "store") {
         storeExpectedAddress(owner, chainId, derivedWallet.address)
-      } else if (legacyExpectedAddressAction === "clear") {
-        clearExpectedAddress(owner, chainId, derivedWallet.address)
+      } else if (legacyExpectedAddressAction === "clear" && expectedGrantee) {
+        clearExpectedAddress(owner, chainId, expectedGrantee)
       }
       await invalidateAutoSignQueries(queryClient)
     },

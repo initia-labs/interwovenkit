@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { activeWalletOwnerAtom, walletGenerationAtom } from "./store"
 
 const mocks = vi.hoisted(() => ({
   activateWallet: vi.fn(),
+  clearExpectedAddress: vi.fn(),
   createWallet: vi.fn(),
   deriveWallet: vi.fn(),
   discardPendingIdentity: vi.fn(),
@@ -16,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   requestTxBlock: vi.fn(),
   restoreWallet: vi.fn(),
   setStayConnected: vi.fn(),
+  storeExpectedAddress: vi.fn(),
   updateWalletObservation: vi.fn(),
 }))
 
@@ -79,9 +81,9 @@ vi.mock("./validation", () => ({
 }))
 
 vi.mock("./wallet", () => ({
-  clearExpectedAddress: vi.fn(),
+  clearExpectedAddress: mocks.clearExpectedAddress,
   getExpectedAddress: mocks.getExpectedAddress,
-  storeExpectedAddress: vi.fn(),
+  storeExpectedAddress: mocks.storeExpectedAddress,
   useDeriveWallet: () => ({
     activateWallet: mocks.activateWallet,
     createWallet: mocks.createWallet,
@@ -104,6 +106,14 @@ interface RenewMutation {
     durationInMs: number
     stayConnected?: boolean
   }) => Promise<unknown>
+  onSuccess: (result: {
+    chainId: string
+    derivedWallet: { address: string }
+    owner: string
+    ownerGeneration: number
+    expectedGrantee?: string | null
+    legacyExpectedAddressAction?: "store" | "clear"
+  }) => Promise<unknown>
 }
 
 const input = {
@@ -112,7 +122,13 @@ const input = {
   stayConnected: true,
 }
 
+afterEach(() => {
+  vi.runOnlyPendingTimers()
+  vi.useRealTimers()
+})
+
 beforeEach(() => {
+  vi.useFakeTimers()
   vi.clearAllMocks()
   mocks.getExpectedAddress.mockReturnValue(undefined)
   mocks.getActiveIdentity.mockResolvedValue({
@@ -198,5 +214,23 @@ describe("useRenewAutoSign random signer recovery", () => {
     expect(mocks.createWallet).not.toHaveBeenCalled()
     expect(mocks.requestTxBlock).not.toHaveBeenCalled()
     expect(mocks.activateWallet).not.toHaveBeenCalled()
+  })
+
+  it("clears the exact legacy mirror after a random replacement succeeds", async () => {
+    await useRenewMutationForTest().onSuccess({
+      chainId: "initiation-2",
+      derivedWallet: { address: "init1newrandom" },
+      owner: "init1owner",
+      ownerGeneration: 7,
+      expectedGrantee: "init1legacyderived",
+      legacyExpectedAddressAction: "clear",
+    })
+
+    expect(mocks.clearExpectedAddress).toHaveBeenCalledWith(
+      "init1owner",
+      "initiation-2",
+      "init1legacyderived",
+    )
+    expect(mocks.storeExpectedAddress).not.toHaveBeenCalled()
   })
 })
