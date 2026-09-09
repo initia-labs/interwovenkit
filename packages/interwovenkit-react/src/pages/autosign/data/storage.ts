@@ -964,7 +964,8 @@ export async function saveAutoSignWallet(
         }
       })
     } catch (error) {
-      const shouldRestoreOriginal = !!serialized && storage.getItem(key) === serialized
+      const shouldRestoreOriginal =
+        previous.stayConnected || (!!serialized && storage.getItem(key) === serialized)
       if (previous.stayConnected) {
         try {
           clearAutoSignOwnerSessionWallets(identity.owner)

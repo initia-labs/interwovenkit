@@ -341,6 +341,16 @@ describe("stable auto-sign identity", () => {
     expect(sessionStorage.getItem(sessionKey)).toBe("prior-session-value")
     expect(sessionStorage.getItem(siblingSessionKey)).toBeNull()
 
+    records.set(siblingWalletKey, {
+      ...(originalSiblingWalletRecord as Record<string, unknown>),
+      wrappingKey: undefined,
+    })
+    await expect(saveAutoSignWallet(identity, replacement, "session")).rejects.toBeInstanceOf(
+      AutoSignStorageError,
+    )
+    expect(sessionStorage.getItem(sessionKey)).toBe("prior-session-value")
+    expect(sessionStorage.getItem(siblingSessionKey)).toBeNull()
+
     originalWallet.privateKey.fill(0)
     siblingWallet.privateKey.fill(0)
     replacement.privateKey.fill(0)
