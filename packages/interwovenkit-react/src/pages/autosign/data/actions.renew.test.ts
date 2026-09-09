@@ -9,7 +9,6 @@ const mocks = vi.hoisted(() => ({
   discardPendingIdentity: vi.fn(),
   fetchFeegrant: vi.fn(),
   fetchGrants: vi.fn(),
-  getActiveIdentity: vi.fn(),
   getExpectedAddress: vi.fn(),
   getStayConnected: vi.fn(),
   getWalletIdentities: vi.fn(),
@@ -99,7 +98,6 @@ vi.mock("./wallet", () => ({
     createWallet: mocks.createWallet,
     deriveWallet: mocks.deriveWallet,
     discardPendingIdentity: mocks.discardPendingIdentity,
-    getActiveIdentity: mocks.getActiveIdentity,
     getStayConnected: mocks.getStayConnected,
     getWalletProvenance: mocks.getWalletProvenance,
     getWalletRevision: mocks.getWalletRevision,
@@ -135,13 +133,12 @@ const input = {
 beforeEach(() => {
   vi.clearAllMocks()
   mocks.getExpectedAddress.mockReturnValue(undefined)
-  mocks.getActiveIdentity.mockResolvedValue({
-    address: "init1oldrandom",
-    provenance: "random",
-  })
   mocks.restoreWallet.mockResolvedValue(undefined)
   mocks.getStayConnected.mockResolvedValue(true)
-  mocks.getWalletIdentities.mockResolvedValue([])
+  mocks.getWalletIdentities.mockResolvedValue([
+    { address: "init1oldrandom", provenance: "random", state: "active" },
+    { address: "init1forgotten", provenance: "random", state: "forgotten" },
+  ])
   mocks.createWallet.mockResolvedValue({
     address: "init1newrandom",
     publicKey: new Uint8Array(),
@@ -198,6 +195,10 @@ describe("useRenewAutoSign random signer recovery", () => {
         expect.objectContaining({
           typeUrl: "/cosmos.authz.v1beta1.MsgRevoke",
           value: expect.objectContaining({ grantee: "init1oldrandom" }),
+        }),
+        expect.objectContaining({
+          typeUrl: "/cosmos.authz.v1beta1.MsgRevoke",
+          value: expect.objectContaining({ grantee: "init1forgotten" }),
         }),
         expect.objectContaining({
           typeUrl: "/cosmos.authz.v1beta1.MsgGrant",

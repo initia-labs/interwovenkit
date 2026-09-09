@@ -525,7 +525,7 @@ export function useRenewAutoSign() {
     createWallet,
     deriveWallet,
     discardPendingIdentity,
-    getActiveIdentity,
+    getWalletIdentities,
     getWalletProvenance,
     getWalletRevision,
     restoreWallet,
@@ -551,7 +551,10 @@ export function useRenewAutoSign() {
             throw new AutoSignCancelledError()
           }
           const expectedGrantee = getExpectedAddress(owner, chainId)
-          const activeIdentity = await getActiveIdentity(chainId)
+          const identitiesBeforeRenewal = await getWalletIdentities(chainId)
+          const activeIdentity = identitiesBeforeRenewal.find(
+            (identity) => identity.state === "active",
+          )
           if (!isOwnerFenceCurrent(store, owner, ownerGeneration)) {
             throw new AutoSignCancelledError()
           }
@@ -607,6 +610,7 @@ export function useRenewAutoSign() {
             currentGrantee: wallet.address,
             expectedGrantee,
             activeGrantee: activeIdentity?.address,
+            knownGrantees: identitiesBeforeRenewal.map((identity) => identity.address),
           })
           const revocations = await Promise.all(
             grantees.map((grantee) => fetchRevokeMessages({ chainId, grantee })),
