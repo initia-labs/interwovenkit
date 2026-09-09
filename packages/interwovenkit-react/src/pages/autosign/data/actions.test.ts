@@ -9,6 +9,7 @@ import {
   scheduleAutoSignGrantRevalidation,
   shouldClearDerivedWalletAfterDisable,
   shouldCreateRandomAutoSignCandidate,
+  shouldCreateRandomAutoSignCandidateOnRenew,
   shouldUpdateStayConnectedOnEnable,
 } from "./actions"
 import { autoSignQueryKeys } from "./validation"
@@ -135,6 +136,30 @@ describe("enable storage preference", () => {
         autoSignStorage: "browser",
       }),
     ).toBe(true)
+  })
+})
+
+describe("renew storage preference", () => {
+  it("allows reconnect to replace an unavailable random signer when Stay connected stays on", () => {
+    expect(
+      shouldCreateRandomAutoSignCandidateOnRenew({
+        activeIdentityProvenance: "random",
+        expectedGrantee: undefined,
+        stayConnected: true,
+        autoSignStorage: "browser",
+      }),
+    ).toBe(true)
+  })
+
+  it("does not replace a recoverable legacy signer with a random candidate", () => {
+    expect(
+      shouldCreateRandomAutoSignCandidateOnRenew({
+        activeIdentityProvenance: "legacy-derived",
+        expectedGrantee: "init1legacy",
+        stayConnected: true,
+        autoSignStorage: "browser",
+      }),
+    ).toBe(false)
   })
 })
 
