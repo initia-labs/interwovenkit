@@ -20,6 +20,23 @@ export function isConfirmedTxFailure(error: unknown): boolean {
   return error instanceof BroadcastTxError || error instanceof TxExecutionError
 }
 
+function formatConfirmedTxFailure(
+  error: BroadcastTxError | TxExecutionError,
+  message: string,
+): BroadcastTxError | TxExecutionError {
+  if (error.message === message) return error
+
+  if (error instanceof BroadcastTxError) {
+    const formattedError = new BroadcastTxError(error.code, error.codespace, message)
+    formattedError.stack = error.stack
+    return formattedError
+  }
+
+  const formattedError = new TxExecutionError(message, error.code, error.transactionHash)
+  formattedError.stack = error.stack
+  return formattedError
+}
+
 export interface ParsedMoveError {
   moduleAddress: string
   moduleName: string
@@ -122,20 +139,19 @@ export async function formatMoveError(
   chain: Chain,
   registryUrl: string,
 ): Promise<Error> {
-  // Permission lifecycle callers must distinguish a confirmed failure from an
-  // unknown broadcast outcome before deleting keys or restoring paused grants.
-  if (isConfirmedTxFailure(error) || error instanceof TimeoutError) return error
-
   // Already formatted. Reformatting would fail the VM abort regex and wrap the
   // error into a plain Error via normalizeError, losing the MoveError class
   // that consumers rely on for instanceof checks.
   if (error instanceof MoveError) return error
+  if (error instanceof TimeoutError) return error
+
+  const confirmedTxFailure = isConfirmedTxFailure(error)
   if (!chain.metadata?.is_l1 && chain.metadata?.minitia?.type !== "minimove") {
-    return await normalizeError(error)
+    return confirmedTxFailure ? error : await normalizeError(error)
   }
 
   const parsed = parseMoveError(error.message)
-  if (!parsed) return await normalizeError(error)
+  if (!parsed) return confirmedTxFailure ? error : await normalizeError(error)
 
   const errorRegistry = await fetchErrorRegistry(
     chain.chain_name,
@@ -149,6 +165,10 @@ export async function formatMoveError(
   const registryMessage = errorRegistry?.[parsed.moduleName]?.[parsed.errorCode]
   const message = registryMessage || defaultMessage
   const isFromRegistry = !!registryMessage
+
+  if (confirmedTxFailure) {
+    return formatConfirmedTxFailure(error as BroadcastTxError | TxExecutionError, message)
+  }
 
   return createMoveError(
     message,

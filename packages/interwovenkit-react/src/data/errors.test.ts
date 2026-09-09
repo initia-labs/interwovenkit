@@ -105,7 +105,7 @@ describe("Move Error Handling", () => {
 
     const registryUrl = "https://registry.initia.xyz"
 
-    test("preserves definite transaction failures and unknown timeouts through formatting", async () => {
+    test("preserves definite transaction failures for non-move errors and unknown timeouts", async () => {
       const failures = [
         new BroadcastTxError(4, "authz", "unauthorized"),
         new TxExecutionError("execution failed", 4, "TXHASH"),
@@ -118,6 +118,47 @@ describe("Move Error Handling", () => {
       const timeout = new TimeoutError("confirmation pending")
       expect(await formatMoveError(timeout, mockChainL1, registryUrl)).toBe(timeout)
       expect(isConfirmedTxFailure(timeout)).toBe(false)
+    })
+
+    test("formats move abort messages while preserving confirmed failure classes", async () => {
+      const mockErrorData = {
+        errors: {
+          fungible_asset: {
+            "65540": "Insufficient balance",
+          },
+        },
+      }
+
+      vi.mocked(ky.get).mockReturnValue({
+        json: vi.fn().mockResolvedValue(mockErrorData),
+      } as unknown as ReturnType<typeof ky.get>)
+
+      const rawMessage =
+        "VM aborted: location=0000000000000000000000000000000000000000000000000000000000000001::fungible_asset, code=65540"
+      const failures = [
+        new BroadcastTxError(4, "authz", rawMessage),
+        new TxExecutionError(rawMessage, 4, "TXHASH"),
+      ]
+
+      for (const error of failures) {
+        const formatted = await formatMoveError(error, mockChainL1, registryUrl)
+
+        expect(formatted).not.toBe(error)
+        expect(formatted.message).toContain("Insufficient balance")
+        expect(isConfirmedTxFailure(formatted)).toBe(true)
+        expect(formatted).not.toBeInstanceOf(MoveError)
+        if (formatted instanceof BroadcastTxError) {
+          expect(formatted.code).toBe(4)
+          expect(formatted.codespace).toBe("authz")
+          expect(formatted.log).toBe("Insufficient balance")
+        } else if (formatted instanceof TxExecutionError) {
+          expect(formatted.code).toBe(4)
+          expect(formatted.transactionHash).toBe("TXHASH")
+          expect(formatted.message).toBe("Insufficient balance")
+        }
+      }
+
+      expect(ky.get).toHaveBeenCalledTimes(1)
     })
 
     test("should return MoveError unchanged without reformatting", async () => {
