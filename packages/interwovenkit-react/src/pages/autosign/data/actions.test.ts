@@ -7,7 +7,6 @@ import {
   resolveEnableAutoSignGranteeCandidates,
   resolveEnableStayConnected,
   scheduleAutoSignGrantRevalidation,
-  shouldClearDerivedWalletAfterDisable,
   shouldCreateRandomAutoSignCandidate,
   shouldCreateRenewRandomCandidate,
   shouldDiscardPendingAutoSignCandidate,
@@ -240,73 +239,5 @@ describe("collectRevokeAuthzMessageTypes", () => {
     ])
 
     expect(result).toEqual(["/cosmos.bank.v1beta1.MsgSend"])
-  })
-})
-
-describe("shouldClearDerivedWalletAfterDisable", () => {
-  it("does not clear wallet when target chain is still enabled", () => {
-    const shouldClearWallet = shouldClearDerivedWalletAfterDisable({
-      isEnabledOnTargetChain: true,
-      hasEnabledSibling: false,
-      didBroadcast: true,
-      hasExplicitGrantee: false,
-    })
-
-    expect(shouldClearWallet).toBe(false)
-  })
-
-  it("does not clear wallet when target chain status is unknown and no transaction was broadcast", () => {
-    const shouldClearWallet = shouldClearDerivedWalletAfterDisable({
-      isEnabledOnTargetChain: undefined,
-      hasEnabledSibling: false,
-      didBroadcast: false,
-      hasExplicitGrantee: false,
-    })
-
-    expect(shouldClearWallet).toBe(false)
-  })
-
-  it("retains wallet when target chain status is unknown after broadcast", () => {
-    const shouldClearWallet = shouldClearDerivedWalletAfterDisable({
-      isEnabledOnTargetChain: undefined,
-      hasEnabledSibling: false,
-      didBroadcast: true,
-      hasExplicitGrantee: false,
-    })
-
-    expect(shouldClearWallet).toBe(false)
-  })
-
-  it("does not clear wallet when status is unknown after explicit grantee revoke", () => {
-    const shouldClearWallet = shouldClearDerivedWalletAfterDisable({
-      isEnabledOnTargetChain: undefined,
-      hasEnabledSibling: false,
-      didBroadcast: true,
-      hasExplicitGrantee: true,
-    })
-
-    expect(shouldClearWallet).toBe(false)
-  })
-
-  it("does not clear wallet when another sibling chain remains enabled", () => {
-    const shouldClearWallet = shouldClearDerivedWalletAfterDisable({
-      isEnabledOnTargetChain: false,
-      hasEnabledSibling: true,
-      didBroadcast: true,
-      hasExplicitGrantee: false,
-    })
-
-    expect(shouldClearWallet).toBe(false)
-  })
-
-  it("clears wallet when target chain is disabled and no siblings are enabled", () => {
-    const shouldClearWallet = shouldClearDerivedWalletAfterDisable({
-      isEnabledOnTargetChain: false,
-      hasEnabledSibling: false,
-      didBroadcast: false,
-      hasExplicitGrantee: false,
-    })
-
-    expect(shouldClearWallet).toBe(true)
   })
 })

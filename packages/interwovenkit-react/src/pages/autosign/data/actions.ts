@@ -202,28 +202,6 @@ function isOwnerFenceCurrent(
   )
 }
 
-export function shouldClearDerivedWalletAfterDisable(params: {
-  isEnabledOnTargetChain?: boolean
-  hasEnabledSibling: boolean
-  didBroadcast: boolean
-  hasExplicitGrantee: boolean
-}): boolean {
-  const { isEnabledOnTargetChain, hasEnabledSibling } = params
-
-  if (hasEnabledSibling) {
-    return false
-  }
-
-  if (isEnabledOnTargetChain === false) {
-    return true
-  }
-
-  // Unknown query state is not evidence of a completed revoke. Retain the key
-  // until chain state can be verified instead of turning an RPC failure into
-  // permission absence.
-  return false
-}
-
 export function collectRevokeAuthzMessageTypes(
   grants: Array<{ authorization: { "@type"?: string; msg?: string } }>,
 ): string[] {
@@ -450,7 +428,12 @@ export function useEnableAutoSign() {
           if (!isOwnerFenceCurrent(store, initiaAddress, ownerGeneration)) {
             throw new AutoSignCancelledError()
           }
-          if (createRandomCandidate) await activateWallet(chainId)
+          if (createRandomCandidate) {
+            if (getWalletRevision(chainId)?.keyId !== pendingCandidateKeyId) {
+              throw new AutoSignCancelledError()
+            }
+            await activateWallet(chainId)
+          }
           await updateWalletObservation(chainId, {
             requestedDurationMs: durationInMs,
             observedExpiration: expiration?.toISOString(),
