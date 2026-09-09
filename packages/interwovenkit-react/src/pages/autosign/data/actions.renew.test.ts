@@ -1,0 +1,202 @@
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { activeWalletOwnerAtom, walletGenerationAtom } from "./store"
+
+const mocks = vi.hoisted(() => ({
+  activateWallet: vi.fn(),
+  createWallet: vi.fn(),
+  deriveWallet: vi.fn(),
+  discardPendingIdentity: vi.fn(),
+  fetchFeegrant: vi.fn(),
+  fetchGrants: vi.fn(),
+  getActiveIdentity: vi.fn(),
+  getExpectedAddress: vi.fn(),
+  getWalletProvenance: vi.fn(),
+  getWalletRevision: vi.fn(),
+  invalidateQueries: vi.fn(),
+  requestTxBlock: vi.fn(),
+  restoreWallet: vi.fn(),
+  setStayConnected: vi.fn(),
+  updateWalletObservation: vi.fn(),
+}))
+
+vi.mock("jotai", async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...(actual as object),
+    useAtom: vi.fn(),
+    useStore: () => ({
+      get: (atom: unknown) => {
+        if (atom === activeWalletOwnerAtom) return "init1owner"
+        if (atom === walletGenerationAtom) return 7
+        return undefined
+      },
+    }),
+  }
+})
+
+vi.mock("@tanstack/react-query", () => ({
+  useMutation: (options: unknown) => options,
+  useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
+}))
+
+vi.mock("@/data/config", () => ({
+  useConfig: () => ({
+    autoSignStorage: "browser",
+    autoSignGrantPolicy: {},
+  }),
+}))
+
+vi.mock("@/data/tx", () => ({
+  useTx: () => ({ requestTxBlock: mocks.requestTxBlock }),
+}))
+
+vi.mock("@/data/ui", () => ({
+  useDrawer: () => ({ closeDrawer: vi.fn() }),
+}))
+
+vi.mock("@/public/data/hooks", () => ({
+  useInitiaAddress: () => "init1owner",
+}))
+
+vi.mock("./fetch", () => ({
+  getFeegrantAllowedMessages: vi.fn(),
+  getFeegrantExpiration: vi.fn(),
+  useAutoSignApi: () => ({
+    fetchFeegrant: mocks.fetchFeegrant,
+    fetchGrants: mocks.fetchGrants,
+  }),
+}))
+
+vi.mock("./validation", () => ({
+  autoSignQueryKeys: {
+    expirations: { _def: ["autosign", "expirations"] },
+    grants: { _def: ["autosign", "grants"] },
+  },
+  useAutoSignMessageTypes: () => ({
+    "initiation-2": ["/cosmos.bank.v1beta1.MsgSend"],
+  }),
+  useAutoSignStatus: vi.fn(),
+}))
+
+vi.mock("./wallet", () => ({
+  clearExpectedAddress: vi.fn(),
+  getExpectedAddress: mocks.getExpectedAddress,
+  storeExpectedAddress: vi.fn(),
+  useDeriveWallet: () => ({
+    activateWallet: mocks.activateWallet,
+    createWallet: mocks.createWallet,
+    deriveWallet: mocks.deriveWallet,
+    discardPendingIdentity: mocks.discardPendingIdentity,
+    getActiveIdentity: mocks.getActiveIdentity,
+    getWalletProvenance: mocks.getWalletProvenance,
+    getWalletRevision: mocks.getWalletRevision,
+    restoreWallet: mocks.restoreWallet,
+    setStayConnected: mocks.setStayConnected,
+    updateWalletObservation: mocks.updateWalletObservation,
+  }),
+}))
+
+import { useRenewAutoSign } from "./actions"
+
+interface RenewMutation {
+  mutationFn: (input: {
+    chainId: string
+    durationInMs: number
+    stayConnected?: boolean
+  }) => Promise<unknown>
+}
+
+const input = {
+  chainId: "initiation-2",
+  durationInMs: 60_000,
+  stayConnected: true,
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  mocks.getExpectedAddress.mockReturnValue(undefined)
+  mocks.getActiveIdentity.mockResolvedValue({
+    address: "init1oldrandom",
+    provenance: "random",
+  })
+  mocks.restoreWallet.mockResolvedValue(undefined)
+  mocks.createWallet.mockResolvedValue({
+    address: "init1newrandom",
+    publicKey: new Uint8Array(),
+  })
+  mocks.getWalletRevision.mockReturnValue({ keyId: "replacement-key" })
+  mocks.getWalletProvenance.mockReturnValue("random")
+  mocks.fetchFeegrant.mockResolvedValue(undefined)
+  mocks.fetchGrants.mockResolvedValue([{ authorization: { msg: "/cosmos.bank.v1beta1.MsgSend" } }])
+  mocks.activateWallet.mockResolvedValue(undefined)
+  mocks.discardPendingIdentity.mockResolvedValue(undefined)
+  mocks.setStayConnected.mockResolvedValue(undefined)
+  mocks.updateWalletObservation.mockResolvedValue(undefined)
+})
+
+function useRenewMutationForTest() {
+  return useRenewAutoSign() as unknown as RenewMutation
+}
+
+describe("useRenewAutoSign random signer recovery", () => {
+  it("revokes the old grantee, grants the replacement, then activates it after success", async () => {
+    mocks.requestTxBlock.mockResolvedValue({ code: 0, rawLog: "" })
+
+    await useRenewMutationForTest().mutationFn(input)
+
+    const request = mocks.requestTxBlock.mock.calls[0]![0] as {
+      messages: Array<{ typeUrl: string; value: { grantee?: string } }>
+    }
+    expect(request.messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          typeUrl: "/cosmos.authz.v1beta1.MsgRevoke",
+          value: expect.objectContaining({ grantee: "init1oldrandom" }),
+        }),
+        expect.objectContaining({
+          typeUrl: "/cosmos.authz.v1beta1.MsgGrant",
+          value: expect.objectContaining({ grantee: "init1newrandom" }),
+        }),
+      ]),
+    )
+    expect(mocks.activateWallet).toHaveBeenCalledWith("initiation-2")
+    expect(mocks.requestTxBlock.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.activateWallet.mock.invocationCallOrder[0]!,
+    )
+    expect(mocks.discardPendingIdentity).not.toHaveBeenCalled()
+  })
+
+  it("revokes the old grantee and discards the pending key after a confirmed failure", async () => {
+    mocks.requestTxBlock.mockResolvedValue({ code: 5, rawLog: "renewal failed" })
+
+    await expect(useRenewMutationForTest().mutationFn(input)).rejects.toThrow("renewal failed")
+
+    expect(mocks.fetchGrants).toHaveBeenCalledWith("initiation-2", "init1oldrandom")
+    expect(mocks.requestTxBlock).toHaveBeenCalledOnce()
+    expect(mocks.activateWallet).not.toHaveBeenCalled()
+    expect(mocks.discardPendingIdentity).toHaveBeenCalledWith("initiation-2", "replacement-key")
+    expect(mocks.setStayConnected).not.toHaveBeenCalled()
+  })
+
+  it("retains the pending key when the broadcast outcome is unknown", async () => {
+    mocks.requestTxBlock.mockRejectedValue(new Error("confirmation timed out"))
+
+    await expect(useRenewMutationForTest().mutationFn(input)).rejects.toThrow(
+      "confirmation timed out",
+    )
+
+    expect(mocks.fetchGrants).toHaveBeenCalledWith("initiation-2", "init1oldrandom")
+    expect(mocks.activateWallet).not.toHaveBeenCalled()
+    expect(mocks.discardPendingIdentity).not.toHaveBeenCalled()
+  })
+
+  it("keeps tab-only renewal from replacing an unavailable random signer", async () => {
+    await expect(
+      useRenewMutationForTest().mutationFn({ ...input, stayConnected: false }),
+    ).rejects.toThrow("Select Stay connected to replace it")
+
+    expect(mocks.createWallet).not.toHaveBeenCalled()
+    expect(mocks.requestTxBlock).not.toHaveBeenCalled()
+    expect(mocks.activateWallet).not.toHaveBeenCalled()
+  })
+})

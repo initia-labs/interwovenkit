@@ -9,6 +9,8 @@ import {
   scheduleAutoSignGrantRevalidation,
   shouldClearDerivedWalletAfterDisable,
   shouldCreateRandomAutoSignCandidate,
+  shouldCreateRenewRandomCandidate,
+  shouldDiscardPendingAutoSignCandidate,
   shouldUpdateStayConnectedOnEnable,
 } from "./actions"
 import { autoSignQueryKeys } from "./validation"
@@ -133,6 +135,54 @@ describe("enable storage preference", () => {
         hasActiveIdentity: false,
         stayConnected: true,
         autoSignStorage: "browser",
+      }),
+    ).toBe(true)
+  })
+})
+
+describe("renew random signer replacement", () => {
+  it("stages a durable replacement when the active random signer cannot be restored", () => {
+    expect(
+      shouldCreateRenewRandomCandidate({
+        activeIdentityProvenance: "random",
+        restoredWallet: false,
+        stayConnected: true,
+        autoSignStorage: "browser",
+      }),
+    ).toBe(true)
+  })
+
+  it("does not replace an unavailable random signer in tab-only mode", () => {
+    expect(
+      shouldCreateRenewRandomCandidate({
+        activeIdentityProvenance: "random",
+        restoredWallet: false,
+        stayConnected: false,
+        autoSignStorage: "browser",
+      }),
+    ).toBe(false)
+  })
+
+  it("keeps a pending replacement after an unknown broadcast outcome", () => {
+    expect(
+      shouldDiscardPendingAutoSignCandidate({
+        requestStarted: true,
+        confirmedFailure: false,
+        confirmedTxFailure: false,
+        explicitUserRejection: false,
+      }),
+    ).toBe(false)
+  })
+
+  it.each([
+    { requestStarted: false, confirmedFailure: false, explicitUserRejection: false },
+    { requestStarted: true, confirmedFailure: true, explicitUserRejection: false },
+    { requestStarted: true, confirmedFailure: false, explicitUserRejection: true },
+  ])("discards an ungranted replacement after a definitive failure", (failure) => {
+    expect(
+      shouldDiscardPendingAutoSignCandidate({
+        ...failure,
+        confirmedTxFailure: false,
       }),
     ).toBe(true)
   })

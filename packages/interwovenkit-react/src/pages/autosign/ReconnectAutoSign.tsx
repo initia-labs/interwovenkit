@@ -13,6 +13,7 @@ import { useLocationState } from "@/lib/router"
 import { useRenewAutoSign } from "./data/actions"
 import { DURATION_OPTIONS } from "./data/constants"
 import { useDeriveWallet } from "./data/wallet"
+import StayConnected from "./StayConnected"
 import enableStyles from "./EnableAutoSign.module.css"
 import styles from "./ReconnectAutoSign.module.css"
 
@@ -110,18 +111,23 @@ const ReconnectAutoSign = () => {
                   options={FINITE_DURATION_OPTIONS}
                   value={durationInMs}
                   onChange={setDurationInMs}
-                  classNames={{ trigger: styles.durationTrigger, item: styles.durationItem }}
+                  classNames={{
+                    trigger: styles["duration-trigger"],
+                    item: styles["duration-item"],
+                  }}
                 />
               )}
             </div>
-            <div className={enableStyles.infoItem}>
-              <div className={enableStyles.label}>Connection</div>
-              <div className={enableStyles.infoValue}>
-                {stayConnected ? "Remembered on this browser" : "This tab only"}
-              </div>
-            </div>
           </div>
         </section>
+
+        {autoSignStorage !== "memory" && (
+          <StayConnected
+            checked={stayConnected}
+            disabled={isLoadingPreference || renew.isPending}
+            onChange={setStayConnected}
+          />
+        )}
 
         <p className={styles.explanation}>
           Your wallet will ask you to approve the renewed permission scope.

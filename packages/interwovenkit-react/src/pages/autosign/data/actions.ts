@@ -145,6 +145,34 @@ export function shouldCreateRandomAutoSignCandidate(params: {
   )
 }
 
+export function shouldCreateRenewRandomCandidate(params: {
+  activeIdentityProvenance: "legacy-derived" | "random" | undefined
+  restoredWallet: boolean
+  stayConnected: boolean | undefined
+  autoSignStorage: "browser" | "memory" | undefined
+}): boolean {
+  return (
+    params.activeIdentityProvenance === "random" &&
+    !params.restoredWallet &&
+    params.stayConnected === true &&
+    params.autoSignStorage !== "memory"
+  )
+}
+
+export function shouldDiscardPendingAutoSignCandidate(params: {
+  requestStarted: boolean
+  confirmedFailure: boolean
+  confirmedTxFailure: boolean
+  explicitUserRejection: boolean
+}): boolean {
+  return (
+    !params.requestStarted ||
+    params.confirmedFailure ||
+    params.confirmedTxFailure ||
+    params.explicitUserRejection
+  )
+}
+
 /** A legacy mirror verifies only reproducible signature-derived signers. */
 export function getLegacyExpectedAddressAction(
   provenance: "legacy-derived" | "random" | undefined,
@@ -442,10 +470,12 @@ export function useEnableAutoSign() {
       } catch (error) {
         if (
           pendingCandidateKeyId &&
-          (!requestStarted ||
-            confirmedFailure ||
-            isConfirmedTxFailure(error) ||
-            isExplicitUserRejection(error))
+          shouldDiscardPendingAutoSignCandidate({
+            requestStarted,
+            confirmedFailure,
+            confirmedTxFailure: isConfirmedTxFailure(error),
+            explicitUserRejection: isExplicitUserRejection(error),
+          })
         ) {
           await discardPendingIdentity(chainId, pendingCandidateKeyId).catch(() => undefined)
         }
@@ -503,11 +533,16 @@ export function useRenewAutoSign() {
   const messageTypes = useAutoSignMessageTypes()
   const { requestTxBlock } = useTx()
   const queryClient = useQueryClient()
+  const store = useStore()
   const fetchRevokeMessages = useFetchRevokeMessages()
   const {
+    activateWallet,
+    createWallet,
     deriveWallet,
+    discardPendingIdentity,
     getActiveIdentity,
     getWalletProvenance,
+    getWalletRevision,
     restoreWallet,
     setStayConnected,
     updateWalletObservation,
@@ -516,73 +551,158 @@ export function useRenewAutoSign() {
   return useMutation({
     mutationFn: async ({ chainId, durationInMs, stayConnected }: RenewAutoSignInput) => {
       if (!initiaAddress) throw new Error("Wallet not connected")
+      const owner = initiaAddress
+      const ownerGeneration = store.get(walletGenerationAtom)
       const chainMsgTypes = messageTypes[chainId]
       if (!chainMsgTypes?.length)
         throw new Error(`No message types configured for chain ${chainId}`)
+      let pendingCandidateKeyId: string | undefined
+      let requestStarted = false
+      let confirmedFailure = false
 
-      return withAutoSignOperation(initiaAddress, async () => {
-        const expectedGrantee = getExpectedAddress(initiaAddress, chainId)
-        const activeIdentity = await getActiveIdentity(chainId)
-        const wallet = activeIdentity
-          ? await restoreWallet(chainId).then(async (restored) => {
-              if (restored) return restored
-              if (activeIdentity.provenance === "legacy-derived") {
-                return deriveWallet(chainId, { stayConnected })
-              }
-              if (activeIdentity.provenance === "random") {
-                throw new Error(
-                  "This tab no longer has the random signing key. Select Stay connected to replace it.",
-                )
-              }
-              throw new Error("Autosign signer needs recovery before renewal")
+      try {
+        return await withAutoSignOperation(owner, async () => {
+          if (!isOwnerFenceCurrent(store, owner, ownerGeneration)) {
+            throw new AutoSignCancelledError()
+          }
+          const expectedGrantee = getExpectedAddress(owner, chainId)
+          const activeIdentity = await getActiveIdentity(chainId)
+          if (!isOwnerFenceCurrent(store, owner, ownerGeneration)) {
+            throw new AutoSignCancelledError()
+          }
+
+          let wallet = activeIdentity ? await restoreWallet(chainId) : undefined
+          if (!isOwnerFenceCurrent(store, owner, ownerGeneration)) {
+            throw new AutoSignCancelledError()
+          }
+          const createRandomCandidate = shouldCreateRenewRandomCandidate({
+            activeIdentityProvenance: activeIdentity?.provenance,
+            restoredWallet: !!wallet,
+            stayConnected,
+            autoSignStorage: config.autoSignStorage,
+          })
+
+          if (!wallet && createRandomCandidate) {
+            wallet = await createWallet(chainId, { stayConnected: true, random: true })
+            pendingCandidateKeyId = getWalletRevision(chainId)?.keyId
+            if (!pendingCandidateKeyId) throw new AutoSignCancelledError()
+          } else if (!wallet && activeIdentity?.provenance === "legacy-derived") {
+            wallet = await deriveWallet(chainId, { stayConnected })
+          } else if (!wallet && activeIdentity?.provenance === "random") {
+            throw new Error(
+              "This tab no longer has the random signing key. Select Stay connected to replace it.",
+            )
+          } else if (!wallet && activeIdentity) {
+            throw new Error("Autosign signer needs recovery before renewal")
+          } else if (!wallet && expectedGrantee) {
+            wallet = await deriveWallet(chainId, { stayConnected })
+          } else if (!wallet) {
+            throw new Error("No known autosign signer available for renewal")
+          }
+
+          if (!isOwnerFenceCurrent(store, owner, ownerGeneration)) {
+            throw new AutoSignCancelledError()
+          }
+          if (
+            activeIdentity &&
+            stayConnected !== undefined &&
+            shouldUpdateStayConnectedOnEnable({
+              hasActiveIdentity: true,
+              createRandomCandidate,
+              stayConnected,
             })
-          : expectedGrantee
-            ? await deriveWallet(chainId, { stayConnected })
-            : (() => {
-                throw new Error("No known autosign signer available for renewal")
-              })()
-        if (activeIdentity && stayConnected !== undefined) {
-          await setStayConnected(chainId, stayConnected, { alreadyLocked: true })
+          ) {
+            await setStayConnected(chainId, stayConnected, { alreadyLocked: true })
+          }
+          if (!isOwnerFenceCurrent(store, owner, ownerGeneration)) {
+            throw new AutoSignCancelledError()
+          }
+
+          const grantees = resolveEnableAutoSignGranteeCandidates({
+            currentGrantee: wallet.address,
+            expectedGrantee,
+            activeGrantee: activeIdentity?.address,
+          })
+          const revocations = await Promise.all(
+            grantees.map((grantee) => fetchRevokeMessages({ chainId, grantee })),
+          )
+          if (!isOwnerFenceCurrent(store, owner, ownerGeneration)) {
+            throw new AutoSignCancelledError()
+          }
+          const expiration =
+            durationInMs === 0 ? undefined : addMilliseconds(new Date(), durationInMs)
+          const grantPolicy = config.autoSignGrantPolicy?.[chainId]
+          const grants = buildAutoSignGrantMessages({
+            granter: owner,
+            grantee: wallet.address,
+            messageTypes: chainMsgTypes,
+            authorization: grantPolicy?.authorization,
+            expiration,
+            feeBudget: grantPolicy?.feeBudget ? { spendLimit: grantPolicy.feeBudget } : undefined,
+          })
+          requestStarted = true
+          const response = await requestTxBlock({
+            messages: [...revocations.flat(), ...grants],
+            chainId,
+            internal: true,
+          })
+          if (response.code !== 0) {
+            confirmedFailure = true
+            throw new Error(response.rawLog || "Auto-sign renewal transaction failed")
+          }
+          if (!isOwnerFenceCurrent(store, owner, ownerGeneration)) {
+            throw new AutoSignCancelledError()
+          }
+          if (createRandomCandidate) {
+            if (getWalletRevision(chainId)?.keyId !== pendingCandidateKeyId) {
+              throw new AutoSignCancelledError()
+            }
+            await activateWallet(chainId)
+          }
+          await updateWalletObservation(chainId, {
+            requestedDurationMs: durationInMs,
+            observedExpiration: expiration?.toISOString(),
+          })
+          if (!isOwnerFenceCurrent(store, owner, ownerGeneration)) {
+            throw new AutoSignCancelledError()
+          }
+          return {
+            chainId,
+            derivedWallet: wallet,
+            owner,
+            ownerGeneration,
+            legacyExpectedAddressAction: getLegacyExpectedAddressAction(
+              getWalletProvenance(chainId),
+            ),
+          }
+        })
+      } catch (error) {
+        if (
+          pendingCandidateKeyId &&
+          shouldDiscardPendingAutoSignCandidate({
+            requestStarted,
+            confirmedFailure,
+            confirmedTxFailure: isConfirmedTxFailure(error),
+            explicitUserRejection: isExplicitUserRejection(error),
+          })
+        ) {
+          await discardPendingIdentity(chainId, pendingCandidateKeyId).catch(() => undefined)
         }
-        const grantees = resolveEnableAutoSignGranteeCandidates({
-          currentGrantee: wallet.address,
-          expectedGrantee,
-        })
-        const revocations = await Promise.all(
-          grantees.map((grantee) => fetchRevokeMessages({ chainId, grantee })),
-        )
-        const expiration =
-          durationInMs === 0 ? undefined : addMilliseconds(new Date(), durationInMs)
-        const grantPolicy = config.autoSignGrantPolicy?.[chainId]
-        const grants = buildAutoSignGrantMessages({
-          granter: initiaAddress,
-          grantee: wallet.address,
-          messageTypes: chainMsgTypes,
-          authorization: grantPolicy?.authorization,
-          expiration,
-          feeBudget: grantPolicy?.feeBudget ? { spendLimit: grantPolicy.feeBudget } : undefined,
-        })
-        await requestTxBlock({
-          messages: [...revocations.flat(), ...grants],
-          chainId,
-          internal: true,
-        })
-        await updateWalletObservation(chainId, {
-          requestedDurationMs: durationInMs,
-          observedExpiration: expiration?.toISOString(),
-        })
-        return {
-          chainId,
-          derivedWallet: wallet,
-          legacyExpectedAddressAction: getLegacyExpectedAddressAction(getWalletProvenance(chainId)),
-        }
-      })
+        throw error
+      }
     },
-    onSuccess: async ({ chainId, derivedWallet, legacyExpectedAddressAction }) => {
-      if (initiaAddress && legacyExpectedAddressAction === "store") {
-        storeExpectedAddress(initiaAddress, chainId, derivedWallet.address)
-      } else if (initiaAddress && legacyExpectedAddressAction === "clear") {
-        clearExpectedAddress(initiaAddress, chainId, derivedWallet.address)
+    onSuccess: async ({
+      chainId,
+      derivedWallet,
+      owner,
+      ownerGeneration,
+      legacyExpectedAddressAction,
+    }) => {
+      if (!isOwnerFenceCurrent(store, owner, ownerGeneration)) return
+      if (legacyExpectedAddressAction === "store") {
+        storeExpectedAddress(owner, chainId, derivedWallet.address)
+      } else if (legacyExpectedAddressAction === "clear") {
+        clearExpectedAddress(owner, chainId, derivedWallet.address)
       }
       await invalidateAutoSignQueries(queryClient)
     },
