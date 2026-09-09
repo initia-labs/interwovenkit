@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { activeWalletOwnerAtom, walletGenerationAtom } from "./store"
+import { activeWalletOwnerAtom, pendingAutoSignRequestAtom, walletGenerationAtom } from "./store"
 
 const mocks = vi.hoisted(() => ({
   activateWallet: vi.fn(),
@@ -11,24 +11,35 @@ const mocks = vi.hoisted(() => ({
   fetchGrants: vi.fn(),
   getActiveIdentity: vi.fn(),
   getExpectedAddress: vi.fn(),
+  getStayConnected: vi.fn(),
+  getWalletIdentities: vi.fn(),
   getWalletProvenance: vi.fn(),
   getWalletRevision: vi.fn(),
   invalidateQueries: vi.fn(),
   requestTxBlock: vi.fn(),
   restoreWallet: vi.fn(),
+  setPendingRequest: vi.fn(),
   setStayConnected: vi.fn(),
   updateWalletObservation: vi.fn(),
+  pendingRequest: {
+    owner: "init1owner",
+    chainId: "initiation-2",
+    defaultDuration: 60_000,
+    resolve: vi.fn(),
+    reject: vi.fn(),
+  },
 }))
 
 vi.mock("jotai", async (importOriginal) => {
   const actual = await importOriginal()
   return {
     ...(actual as object),
-    useAtom: vi.fn(),
+    useAtom: () => [mocks.pendingRequest, mocks.setPendingRequest],
     useStore: () => ({
       get: (atom: unknown) => {
         if (atom === activeWalletOwnerAtom) return "init1owner"
         if (atom === walletGenerationAtom) return 7
+        if (atom === pendingAutoSignRequestAtom) return mocks.pendingRequest
         return undefined
       },
     }),
@@ -89,15 +100,22 @@ vi.mock("./wallet", () => ({
     deriveWallet: mocks.deriveWallet,
     discardPendingIdentity: mocks.discardPendingIdentity,
     getActiveIdentity: mocks.getActiveIdentity,
+    getStayConnected: mocks.getStayConnected,
     getWalletProvenance: mocks.getWalletProvenance,
     getWalletRevision: mocks.getWalletRevision,
+    getWalletIdentities: mocks.getWalletIdentities,
     restoreWallet: mocks.restoreWallet,
     setStayConnected: mocks.setStayConnected,
     updateWalletObservation: mocks.updateWalletObservation,
   }),
 }))
 
-import { useRenewAutoSign } from "./actions"
+import { useEnableAutoSign, useRenewAutoSign } from "./actions"
+
+interface EnableMutation {
+  mutationFn: (input: { durationInMs: number; stayConnected?: boolean }) => Promise<unknown>
+  onSuccess: (result: unknown) => Promise<void>
+}
 
 interface RenewMutation {
   mutationFn: (input: {
@@ -122,6 +140,8 @@ beforeEach(() => {
     provenance: "random",
   })
   mocks.restoreWallet.mockResolvedValue(undefined)
+  mocks.getStayConnected.mockResolvedValue(true)
+  mocks.getWalletIdentities.mockResolvedValue([])
   mocks.createWallet.mockResolvedValue({
     address: "init1newrandom",
     publicKey: new Uint8Array(),
@@ -139,6 +159,30 @@ beforeEach(() => {
 function useRenewMutationForTest() {
   return useRenewAutoSign() as unknown as RenewMutation
 }
+
+function useEnableMutationForTest() {
+  return useEnableAutoSign() as unknown as EnableMutation
+}
+
+describe("useEnableAutoSign random signer recovery", () => {
+  it("clears the captured legacy mirror after granting a random replacement", async () => {
+    mocks.getExpectedAddress.mockReturnValue("init1legacy")
+    mocks.getWalletIdentities.mockResolvedValue([
+      { address: "init1oldrandom", provenance: "random", state: "active" },
+    ])
+    mocks.requestTxBlock.mockResolvedValue({ code: 0, rawLog: "" })
+    const mutation = useEnableMutationForTest()
+
+    const result = await mutation.mutationFn(input)
+    await mutation.onSuccess(result)
+
+    expect(mocks.clearExpectedAddress).toHaveBeenCalledWith(
+      "init1owner",
+      "initiation-2",
+      "init1legacy",
+    )
+  })
+})
 
 describe("useRenewAutoSign random signer recovery", () => {
   it("revokes the old grantee, grants the replacement, then activates it after success", async () => {
