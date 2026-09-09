@@ -2,6 +2,7 @@ import { BroadcastTxError } from "@cosmjs/stargate"
 import ky from "ky"
 import type { Chain } from "@initia/initia-registry-types"
 import { TimeoutError } from "@/lib/promise"
+import { AutoSignCancelledError } from "@/pages/autosign/data/storage"
 import {
   clearErrorCache,
   formatMoveError,
@@ -118,6 +119,10 @@ describe("Move Error Handling", () => {
       const timeout = new TimeoutError("confirmation pending")
       expect(await formatMoveError(timeout, mockChainL1, registryUrl)).toBe(timeout)
       expect(isConfirmedTxFailure(timeout)).toBe(false)
+
+      const cancelled = new AutoSignCancelledError()
+      expect(await formatMoveError(cancelled, mockChainL1, registryUrl)).toBe(cancelled)
+      expect(isConfirmedTxFailure(cancelled)).toBe(false)
     })
 
     test("formats a confirmed Move failure without losing definite-failure classification", async () => {

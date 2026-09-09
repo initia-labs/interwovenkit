@@ -3,6 +3,7 @@ import { activeWalletOwnerAtom, walletGenerationAtom } from "./store"
 
 const mocks = vi.hoisted(() => ({
   activateWallet: vi.fn(),
+  clearExpectedAddress: vi.fn(),
   createWallet: vi.fn(),
   deriveWallet: vi.fn(),
   discardPendingIdentity: vi.fn(),
@@ -79,7 +80,7 @@ vi.mock("./validation", () => ({
 }))
 
 vi.mock("./wallet", () => ({
-  clearExpectedAddress: vi.fn(),
+  clearExpectedAddress: mocks.clearExpectedAddress,
   getExpectedAddress: mocks.getExpectedAddress,
   storeExpectedAddress: vi.fn(),
   useDeriveWallet: () => ({
@@ -104,6 +105,7 @@ interface RenewMutation {
     durationInMs: number
     stayConnected?: boolean
   }) => Promise<unknown>
+  onSuccess: (result: unknown) => Promise<void>
 }
 
 const input = {
@@ -164,6 +166,21 @@ describe("useRenewAutoSign random signer recovery", () => {
       mocks.activateWallet.mock.invocationCallOrder[0]!,
     )
     expect(mocks.discardPendingIdentity).not.toHaveBeenCalled()
+  })
+
+  it("clears the captured legacy mirror after granting a random replacement", async () => {
+    mocks.getExpectedAddress.mockReturnValue("init1legacy")
+    mocks.requestTxBlock.mockResolvedValue({ code: 0, rawLog: "" })
+    const mutation = useRenewMutationForTest()
+
+    const result = await mutation.mutationFn(input)
+    await mutation.onSuccess(result)
+
+    expect(mocks.clearExpectedAddress).toHaveBeenCalledWith(
+      "init1owner",
+      "initiation-2",
+      "init1legacy",
+    )
   })
 
   it("revokes the old grantee and discards the pending key after a confirmed failure", async () => {

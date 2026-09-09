@@ -445,6 +445,7 @@ export function useEnableAutoSign() {
             owner: initiaAddress,
             ownerGeneration,
             request: pendingRequest,
+            legacyExpectedAddress: expectedGrantee,
             legacyExpectedAddressAction: getLegacyExpectedAddressAction(
               getWalletProvenance(chainId),
             ),
@@ -471,6 +472,7 @@ export function useEnableAutoSign() {
       owner,
       ownerGeneration,
       request,
+      legacyExpectedAddress,
       legacyExpectedAddressAction,
     }) => {
       if (
@@ -481,8 +483,8 @@ export function useEnableAutoSign() {
       }
       if (legacyExpectedAddressAction === "store") {
         storeExpectedAddress(owner, chainId, derivedWallet.address)
-      } else if (legacyExpectedAddressAction === "clear") {
-        clearExpectedAddress(owner, chainId, derivedWallet.address)
+      } else if (legacyExpectedAddressAction === "clear" && legacyExpectedAddress) {
+        clearExpectedAddress(owner, chainId, legacyExpectedAddress)
       }
 
       await invalidateAutoSignQueries(queryClient)
@@ -654,6 +656,7 @@ export function useRenewAutoSign() {
             derivedWallet: wallet,
             owner,
             ownerGeneration,
+            legacyExpectedAddress: expectedGrantee,
             legacyExpectedAddressAction: getLegacyExpectedAddressAction(
               getWalletProvenance(chainId),
             ),
@@ -679,13 +682,14 @@ export function useRenewAutoSign() {
       derivedWallet,
       owner,
       ownerGeneration,
+      legacyExpectedAddress,
       legacyExpectedAddressAction,
     }) => {
       if (!isOwnerFenceCurrent(store, owner, ownerGeneration)) return
       if (legacyExpectedAddressAction === "store") {
         storeExpectedAddress(owner, chainId, derivedWallet.address)
-      } else if (legacyExpectedAddressAction === "clear") {
-        clearExpectedAddress(owner, chainId, derivedWallet.address)
+      } else if (legacyExpectedAddressAction === "clear" && legacyExpectedAddress) {
+        clearExpectedAddress(owner, chainId, legacyExpectedAddress)
       }
       await invalidateAutoSignQueries(queryClient)
     },

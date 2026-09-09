@@ -2,6 +2,7 @@ import { BroadcastTxError } from "@cosmjs/stargate"
 import ky from "ky"
 import type { Chain } from "@initia/initia-registry-types"
 import { TimeoutError } from "@/lib/promise"
+import { AutoSignCancelledError } from "@/pages/autosign/data/storage"
 import { normalizeError } from "./http"
 
 /** A transaction was included on-chain and execution definitively failed. */
@@ -128,7 +129,7 @@ export async function formatMoveError(
 ): Promise<Error> {
   // Permission lifecycle callers must distinguish an unknown broadcast outcome
   // before deleting keys or restoring paused grants.
-  if (error instanceof TimeoutError) return error
+  if (error instanceof TimeoutError || error instanceof AutoSignCancelledError) return error
 
   // Already formatted. Reformatting would fail the VM abort regex and wrap the
   // error into a plain Error via normalizeError, losing the MoveError class
