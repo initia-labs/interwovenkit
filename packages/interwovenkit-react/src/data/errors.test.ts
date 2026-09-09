@@ -1,7 +1,10 @@
+import { BroadcastTxError } from "@cosmjs/stargate"
 import ky from "ky"
 import type { Chain } from "@initia/initia-registry-types"
+import { TimeoutError } from "@/lib/promise"
 import { clearErrorCache, formatMoveError, MoveError, parseMoveError } from "./errors"
 import * as http from "./http"
+import { isConfirmedTxFailure, TxExecutionError } from "./tx-errors"
 
 vi.mock("ky")
 vi.mock("./http", () => ({
@@ -95,6 +98,21 @@ describe("Move Error Handling", () => {
     } as Chain
 
     const registryUrl = "https://registry.initia.xyz"
+
+    test("preserves definite transaction failures and unknown timeouts through formatting", async () => {
+      const failures = [
+        new BroadcastTxError(4, "authz", "unauthorized"),
+        new TxExecutionError("execution failed", 4, "TXHASH"),
+      ]
+      for (const error of failures) {
+        const formatted = await formatMoveError(error, mockChainL1, registryUrl)
+        expect(formatted).toBe(error)
+        expect(isConfirmedTxFailure(formatted)).toBe(true)
+      }
+      const timeout = new TimeoutError("confirmation pending")
+      expect(await formatMoveError(timeout, mockChainL1, registryUrl)).toBe(timeout)
+      expect(isConfirmedTxFailure(timeout)).toBe(false)
+    })
 
     test("should return original error for non-L1 and non-minimove chains", async () => {
       const error = new Error("VM aborted: location=1::module, code=1")

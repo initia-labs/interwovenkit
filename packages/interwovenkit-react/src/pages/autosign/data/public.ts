@@ -1,33 +1,49 @@
 import { useSetAtom } from "jotai"
 import { useConfig } from "@/data/config"
 import { useDrawer } from "@/data/ui"
+import { useInitiaAddress } from "@/public/data/hooks"
 import { useDisableAutoSign } from "./actions"
 import { resolveAutoSignDuration } from "./constants"
 import { pendingAutoSignRequestAtom } from "./store"
-import { useAutoSignStatus } from "./validation"
+import { type AutoSignStatusResult, useAutoSignStatus } from "./validation"
 
 export interface EnableAutoSignOptions {
   defaultDuration?: number
 }
 
+export interface AutoSignResult extends AutoSignStatusResult {
+  isLoading: boolean
+  enable: (chainId?: string, options?: EnableAutoSignOptions) => Promise<void>
+  disable: (chainId?: string) => Promise<void>
+}
+
+const EMPTY_AUTOSIGN_STATUS: AutoSignStatusResult = Object.freeze({
+  expiredAtByChain: Object.freeze({}),
+  feegrantByChain: Object.freeze({}),
+  isEnabledByChain: Object.freeze({}),
+  granteeByChain: Object.freeze({}),
+  requestedDurationInMsByChain: Object.freeze({}),
+  observedAuthorizationByChain: Object.freeze({}),
+  statusByChain: Object.freeze({}),
+})
+
 /* Public hook for enabling and disabling AutoSign across chains with status tracking */
-export function useAutoSign() {
+export function useAutoSign(): AutoSignResult {
   const { defaultChainId } = useConfig()
+  const owner = useInitiaAddress()
   const { openDrawer } = useDrawer()
   const setPendingAutoSignRequest = useSetAtom(pendingAutoSignRequestAtom)
   const disableAutoSign = useDisableAutoSign()
-  const {
-    data = {
-      expiredAtByChain: {} as Record<string, Date | null | undefined>,
-      isEnabledByChain: {} as Record<string, boolean>,
-      granteeByChain: {} as Record<string, string | undefined>,
-    },
-    isLoading,
-  } = useAutoSignStatus()
+  const { data = EMPTY_AUTOSIGN_STATUS, isLoading } = useAutoSignStatus()
 
   const enable = async (chainId: string = defaultChainId, options?: EnableAutoSignOptions) => {
     return new Promise<void>((resolve, reject) => {
+      if (!owner) {
+        reject(new Error("Wallet not connected"))
+        return
+      }
       setPendingAutoSignRequest({
+        owner,
         chainId,
         defaultDuration: resolveAutoSignDuration(options?.defaultDuration),
         resolve,

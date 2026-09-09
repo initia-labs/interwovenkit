@@ -2,6 +2,7 @@ import type { IndexedTx, SigningStargateClient } from "@cosmjs/stargate"
 import { describe, expect, it, vi } from "vitest"
 import { TimeoutError } from "@/lib/promise"
 import { waitForTxConfirmationWithClient } from "./tx"
+import { TxExecutionError } from "./tx-errors"
 
 function createMockClient(getTx: SigningStargateClient["getTx"]) {
   return { getTx } as unknown as SigningStargateClient
@@ -24,7 +25,7 @@ describe("waitForTxConfirmationWithClient", () => {
     expect(result).toBe(tx)
   })
 
-  it("throws a plain Error when tx is found but code !== 0", async () => {
+  it("preserves a definite execution failure separately from an unknown outcome", async () => {
     const tx = createMockTx({ code: 1, rawLog: "execution reverted" })
     const client = createMockClient(() => Promise.resolve(tx))
 
@@ -33,7 +34,8 @@ describe("waitForTxConfirmationWithClient", () => {
       client,
     }).catch((error: unknown) => error)
 
-    expect(error).toBeInstanceOf(Error)
+    expect(error).toBeInstanceOf(TxExecutionError)
+    expect(error).toMatchObject({ code: 1, transactionHash: "ABC123" })
     expect(error).not.toBeInstanceOf(TimeoutError)
     expect((error as Error).message).toBe("execution reverted")
   })

@@ -9,7 +9,9 @@ export const DURATION_OPTIONS: DropdownOption<number>[] = [
   { value: 0, label: "until revoked" },
 ]
 
-export const DEFAULT_DURATION = DURATION_OPTIONS[0].value
+// New approvals remain valid until their owner explicitly revokes them unless
+// an integration supplies one of the bounded duration options.
+export const DEFAULT_DURATION = 0
 
 export function resolveAutoSignDuration(duration?: number) {
   if (duration === undefined) {

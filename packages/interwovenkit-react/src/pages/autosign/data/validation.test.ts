@@ -1,12 +1,19 @@
 import { describe, expect, it, vi } from "vitest"
 import type { FeegrantAllowance } from "./fetch"
+import { validateAutoSignMessages } from "./policy"
 import {
+  canActivatePendingAutoSignIdentity,
   createAutoSignMessageTypesKey,
+  createAutoSignNetworkKey,
   fetchAutoSignStatus,
   findEarliestDate,
   findValidGranteeCandidates,
   findValidGranteeWithFeegrant,
+  isAutoSignStatusEnabledAndFresh,
+  isFeegrantEligibleForAutoSign,
   resolveAutoSignEnabledForChain,
+  resolveAutoSignMessageTypes,
+  resolveAutoSignValidationAuthorization,
 } from "./validation"
 
 const findFirstValidGrantee = (
@@ -38,6 +45,10 @@ describe("fetchAutoSignStatus", () => {
         "initia-1": null,
         "initia-2": null,
       },
+      feegrantByChain: {
+        "initia-1": undefined,
+        "initia-2": undefined,
+      },
       isEnabledByChain: {
         "initia-1": false,
         "initia-2": false,
@@ -46,7 +57,101 @@ describe("fetchAutoSignStatus", () => {
         "initia-1": undefined,
         "initia-2": undefined,
       },
+      requestedDurationInMsByChain: {
+        "initia-1": undefined,
+        "initia-2": undefined,
+      },
+      observedAuthorizationByChain: {
+        "initia-1": undefined,
+        "initia-2": undefined,
+      },
+      statusByChain: {
+        "initia-1": "disabled",
+        "initia-2": "disabled",
+      },
     })
+  })
+
+  it("degrades an unavailable identity store to an unknown chain status", async () => {
+    const fetchAllGrants = vi.fn()
+    const result = await fetchAutoSignStatus({
+      initiaAddress: "init1granter",
+      messageTypes: { "initia-1": ["/initia.move.v1.MsgExecute"] },
+      fetchActiveIdentity: vi.fn().mockRejectedValue(new Error("IndexedDB blocked")),
+      fetchAllGrants,
+      fetchFeegrant: vi.fn(),
+    })
+
+    expect(result.statusByChain["initia-1"]).toBe("unknown")
+    expect(result.isEnabledByChain["initia-1"]).toBe(false)
+    expect(fetchAllGrants).not.toHaveBeenCalled()
+  })
+
+  it("reports an RPC failure as unknown rather than a revoked grant", async () => {
+    const result = await fetchAutoSignStatus({
+      initiaAddress: "init1granter",
+      messageTypes: { "initia-1": ["/initia.move.v1.MsgExecute"] },
+      fetchAllGrants: vi.fn().mockRejectedValue(new Error("RPC unavailable")),
+      fetchFeegrant: vi.fn(),
+    })
+
+    expect(result.statusByChain["initia-1"]).toBe("unknown")
+    expect(result.expiredAtByChain["initia-1"]).toBeUndefined()
+    expect(result.isEnabledByChain["initia-1"]).toBe(false)
+  })
+
+  it("does not surface a paused identity as expired while its revoke outcome is unresolved", async () => {
+    const result = await fetchAutoSignStatus({
+      initiaAddress: "init1granter",
+      messageTypes: { "initia-1": ["/initia.move.v1.MsgExecute"] },
+      fetchActiveIdentity: vi.fn().mockResolvedValue(undefined),
+      fetchKnownIdentity: vi.fn().mockResolvedValue({
+        address: "init1paused",
+        observedExpiration: "2020-01-01T00:00:00Z",
+        requestedDurationMs: 86_400_000,
+      }),
+      fetchAllGrants: vi.fn().mockResolvedValue([]),
+      fetchFeegrant: vi.fn(),
+    })
+
+    expect(result.statusByChain["initia-1"]).toBe("disabled")
+    expect(result.granteeByChain["initia-1"]).toBeUndefined()
+    expect(result.expiredAtByChain["initia-1"]).toBeNull()
+  })
+
+  it("includes a finite typed authorization expiry in chain status", async () => {
+    const result = await fetchAutoSignStatus({
+      initiaAddress: "init1granter",
+      messageTypes: { "initia-1": ["/minievm.evm.v1.MsgCall"] },
+      authorizationPolicies: {
+        "initia-1": {
+          kind: "evm",
+          contracts: ["0xabc0000000000000000000000000000000000000"],
+        },
+      },
+      fetchActiveIdentity: vi.fn().mockResolvedValue({ address: "init1agent" }),
+      fetchAllGrants: vi.fn().mockResolvedValue([
+        {
+          grantee: "init1agent",
+          authorization: {
+            "@type": "/minievm.evm.v1.CallAuthorization",
+            contracts: ["0xabc0000000000000000000000000000000000000"],
+          },
+          expiration: "2099-12-31T23:59:59Z",
+        },
+      ]),
+      fetchFeegrant: vi.fn().mockResolvedValue({
+        grantee: "init1agent",
+        allowance: {
+          "@type": "/cosmos.feegrant.v1beta1.AllowedMsgAllowance",
+          allowance: { "@type": "/cosmos.feegrant.v1beta1.BasicAllowance" },
+          allowedMessages: ["/cosmos.authz.v1beta1.MsgExec"],
+        },
+      }),
+    })
+
+    expect(result.statusByChain["initia-1"]).toBe("enabled")
+    expect(result.expiredAtByChain["initia-1"]?.toISOString()).toBe("2099-12-31T23:59:59.000Z")
   })
 
   it("only fetches grants for chains with configured message types", async () => {
@@ -68,6 +173,95 @@ describe("fetchAutoSignStatus", () => {
     expect(fetchFeegrant).not.toHaveBeenCalled()
     expect(result.expiredAtByChain["initia-empty"]).toBeNull()
     expect(result.isEnabledByChain["initia-empty"]).toBe(false)
+  })
+})
+
+describe("resolveAutoSignValidationAuthorization", () => {
+  it("enforces the lower observed Wasm call limit", () => {
+    const configured = {
+      kind: "wasm" as const,
+      grants: [
+        {
+          contract: "init1contract",
+          filter: { kind: "allow-all" as const },
+          limit: { kind: "max-calls" as const, remaining: 2n },
+        },
+      ],
+    }
+    const observed = {
+      ...configured,
+      grants: [{ ...configured.grants[0]!, limit: { kind: "max-calls" as const, remaining: 1n } }],
+    }
+    const policy = resolveAutoSignValidationAuthorization({ configured, observed })
+    expect(policy).toEqual(observed)
+    expect(
+      validateAutoSignMessages(policy!, [
+        {
+          typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
+          value: { contract: "init1contract", msg: new TextEncoder().encode('{"swap":{}}') },
+        },
+        {
+          typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
+          value: { contract: "init1contract", msg: new TextEncoder().encode('{"swap":{}}') },
+        },
+      ]).valid,
+    ).toBe(false)
+  })
+})
+
+describe("current autosign status", () => {
+  it("requires a recent status result and an unexpired current permission", () => {
+    const status = {
+      expiredAtByChain: { "initia-1": new Date(20_000) },
+      feegrantByChain: {},
+      isEnabledByChain: { "initia-1": true },
+      granteeByChain: { "initia-1": "init1agent" },
+      requestedDurationInMsByChain: {},
+      observedAuthorizationByChain: {},
+      statusByChain: { "initia-1": "enabled" as const },
+    }
+
+    expect(
+      isAutoSignStatusEnabledAndFresh({
+        status,
+        dataUpdatedAt: 9_000,
+        chainId: "initia-1",
+        now: 10_000,
+      }),
+    ).toBe(true)
+    expect(
+      isAutoSignStatusEnabledAndFresh({
+        status,
+        dataUpdatedAt: 1,
+        chainId: "initia-1",
+        now: 61_002,
+      }),
+    ).toBe(false)
+    expect(
+      isAutoSignStatusEnabledAndFresh({
+        status: { ...status, expiredAtByChain: { "initia-1": new Date(9_999) } },
+        dataUpdatedAt: 9_000,
+        chainId: "initia-1",
+        now: 10_000,
+      }),
+    ).toBe(false)
+  })
+
+  it("separates status cache entries by registry endpoint and chain RPC endpoints", () => {
+    const configuredChainIds = ["initia-1"]
+    expect(
+      createAutoSignNetworkKey(
+        "https://registry.example",
+        [{ chainId: "initia-1", restUrl: "https://rest.one", rpcUrl: "https://rpc.one" }],
+        configuredChainIds,
+      ),
+    ).not.toBe(
+      createAutoSignNetworkKey(
+        "https://registry.example",
+        [{ chainId: "initia-1", restUrl: "https://rest.two", rpcUrl: "https://rpc.one" }],
+        configuredChainIds,
+      ),
+    )
   })
 })
 
@@ -296,6 +490,32 @@ describe("findValidGranteeCandidates", () => {
   })
 })
 
+describe("canActivatePendingAutoSignIdentity", () => {
+  it("promotes only the exact pending grantee after full verification", () => {
+    expect(
+      canActivatePendingAutoSignIdentity({
+        status: "enabled",
+        matchedGrantee: "init1pending",
+        pendingAddress: "init1pending",
+      }),
+    ).toBe(true)
+    expect(
+      canActivatePendingAutoSignIdentity({
+        status: "needs-permission-update",
+        matchedGrantee: "init1pending",
+        pendingAddress: "init1pending",
+      }),
+    ).toBe(false)
+    expect(
+      canActivatePendingAutoSignIdentity({
+        status: "enabled",
+        matchedGrantee: "init1other",
+        pendingAddress: "init1pending",
+      }),
+    ).toBe(false)
+  })
+})
+
 describe("findValidGranteeWithFeegrant", () => {
   const allowExecFeegrant: FeegrantAllowance = {
     granter: "init1granter",
@@ -308,6 +528,30 @@ describe("findValidGranteeWithFeegrant", () => {
       allowedMessages: ["/cosmos.authz.v1beta1.MsgExec"],
     },
   }
+
+  it("rejects unsupported and depleted fee allowance codecs", () => {
+    expect(
+      isFeegrantEligibleForAutoSign({
+        granter: "init1granter",
+        grantee: "init1candidate",
+        allowance: { "@type": "/cosmos.feegrant.v1beta1.PeriodicAllowance" },
+      }),
+    ).toBe(false)
+    expect(
+      isFeegrantEligibleForAutoSign({
+        granter: "init1granter",
+        grantee: "init1candidate",
+        allowance: {
+          "@type": "/cosmos.feegrant.v1beta1.AllowedMsgAllowance",
+          allowance: {
+            "@type": "/cosmos.feegrant.v1beta1.BasicAllowance",
+            spendLimit: [{ denom: "uinit", amount: "0" }],
+          },
+          allowedMessages: ["/cosmos.authz.v1beta1.MsgExec"],
+        },
+      }),
+    ).toBe(false)
+  })
 
   it("skips candidate without feegrant and selects next eligible candidate", async () => {
     const candidates = [
@@ -585,5 +829,95 @@ describe("findEarliestDate", () => {
     const later = new Date("2025-06-15T00:00:00Z")
 
     expect(findEarliestDate([undefined, later, undefined, earliest])).toBe(earliest)
+  })
+})
+
+describe("resolveAutoSignMessageTypes", () => {
+  const moveType = "/initia.move.v1.MsgExecute"
+  const evmType = "/minievm.evm.v1.MsgCall"
+  const bankType = "/cosmos.bank.v1beta1.MsgSend"
+  const scoped = {
+    move: {
+      authorization: {
+        kind: "move" as const,
+        items: [{ moduleAddress: "0x1", moduleName: "counter", functionNames: ["increment"] }],
+      },
+    },
+    evm: {
+      authorization: {
+        kind: "evm" as const,
+        contracts: ["0x0000000000000000000000000000000000000001"],
+      },
+    },
+  }
+
+  it("infers typed message types and enables scoped chains without the legacy prop", () => {
+    expect(
+      resolveAutoSignMessageTypes({ defaultChainId: "other", autoSignGrantPolicy: scoped }),
+    ).toEqual({ move: [moveType], evm: [evmType] })
+  })
+
+  it("lets explicit false disable all scoped and default chains", async () => {
+    const messageTypes = resolveAutoSignMessageTypes({
+      defaultChainId: "move",
+      enableAutoSign: false,
+      autoSignGrantPolicy: scoped,
+    })
+    expect(messageTypes).toEqual({ move: [] })
+    const fetchAllGrants = vi.fn()
+    const fetchFeegrant = vi.fn()
+    const status = await fetchAutoSignStatus({
+      initiaAddress: "init1owner",
+      messageTypes,
+      fetchAllGrants,
+      fetchFeegrant,
+    })
+    expect(Object.values(status.isEnabledByChain).some(Boolean)).toBe(false)
+    expect(fetchAllGrants).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    [undefined, moveType],
+    ["minievm", evmType],
+    ["miniwasm", "/cosmwasm.wasm.v1.MsgExecuteContract"],
+  ])("preserves legacy true default selection for %s", (chainType, messageType) => {
+    expect(
+      resolveAutoSignMessageTypes({ defaultChainId: "default", enableAutoSign: true }, chainType),
+    ).toEqual({ default: [messageType] })
+  })
+
+  it("keeps fee budgets optional and never treats a budget alone as opt-in", () => {
+    const config = {
+      defaultChainId: "move",
+      autoSignGrantPolicy: { move: { feeBudget: [{ denom: "uinit", amount: "100" }] } },
+    }
+    expect(resolveAutoSignMessageTypes(config)).toEqual({ move: [] })
+    expect(
+      resolveAutoSignMessageTypes({ ...config, enableAutoSign: { move: [bankType] } }),
+    ).toEqual({ move: [bankType] })
+  })
+
+  it("lets explicit scopes replace overlapping legacy types while retaining other chains", () => {
+    const legacy = { move: [bankType], another: [bankType] }
+    expect(
+      resolveAutoSignMessageTypes({
+        defaultChainId: "move",
+        enableAutoSign: legacy,
+        autoSignGrantPolicy: scoped,
+      }),
+    ).toEqual({ move: [moveType], evm: [evmType], another: [bankType] })
+    expect(legacy.move).toEqual([bankType])
+  })
+
+  it("takes explicit generic message types from the policy without enabling an empty policy", () => {
+    expect(
+      resolveAutoSignMessageTypes({
+        defaultChainId: "default",
+        autoSignGrantPolicy: {
+          bank: { authorization: { kind: "generic", messageTypes: [bankType] } },
+          empty: { authorization: { kind: "generic", messageTypes: [] } },
+        },
+      }),
+    ).toEqual({ bank: [bankType], empty: [] })
   })
 })

@@ -1,6 +1,8 @@
 import ky from "ky"
 import type { Chain } from "@initia/initia-registry-types"
+import { TimeoutError } from "@/lib/promise"
 import { normalizeError } from "./http"
+import { isConfirmedTxFailure } from "./tx-errors"
 
 export interface ParsedMoveError {
   moduleAddress: string
@@ -104,6 +106,9 @@ export async function formatMoveError(
   chain: Chain,
   registryUrl: string,
 ): Promise<Error> {
+  // Permission lifecycle callers must distinguish a confirmed failure from an
+  // unknown broadcast outcome before deleting keys or restoring paused grants.
+  if (isConfirmedTxFailure(error) || error instanceof TimeoutError) return error
   if (!chain.metadata?.is_l1 && chain.metadata?.minitia?.type !== "minimove") {
     return await normalizeError(error)
   }

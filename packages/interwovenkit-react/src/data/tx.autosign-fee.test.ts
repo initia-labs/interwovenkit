@@ -66,6 +66,28 @@ describe("buildAutoSignFeeFromSimulation", () => {
     expect(fee.amount[0]?.denom).toBe("uusdc")
   })
 
+  it("selects a fee denomination that fits the remaining on-chain budget", () => {
+    const fee = buildAutoSignFeeFromSimulation({
+      simulatedGas: 100,
+      gasPrices,
+      preferredFeeDenom: "uusdc",
+      remainingBudget: [{ denom: "uinit", amount: "2" }],
+      policy: { gasMultiplier: 1.2, maxGasMultiplierFromSim: 1.5 },
+    })
+    expect(fee.amount).toEqual([{ denom: "uinit", amount: "2" }])
+  })
+
+  it("rejects an exhausted budget before delegated signing", () => {
+    expect(() =>
+      buildAutoSignFeeFromSimulation({
+        simulatedGas: 100,
+        gasPrices,
+        remainingBudget: [{ denom: "uinit", amount: "1" }],
+        policy: { gasMultiplier: 1.2, maxGasMultiplierFromSim: 1.5 },
+      }),
+    ).toThrow("No allowed gas price tokens")
+  })
+
   it("throws when simulated gas is invalid", () => {
     expect(() =>
       buildAutoSignFeeFromSimulation({

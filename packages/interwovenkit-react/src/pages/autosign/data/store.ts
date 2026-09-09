@@ -1,6 +1,7 @@
 import { atom } from "jotai"
 
-interface PendingAutoSignRequest {
+export interface PendingAutoSignRequest {
+  owner: string
   chainId: string
   defaultDuration: number
   resolve: () => void
@@ -32,3 +33,13 @@ export interface PendingDerivationState {
 export const derivedWalletPrivateKeysAtom = atom<Record<string, Uint8Array>>({})
 export const pendingDerivationsAtom = atom<Record<string, PendingDerivationState>>({})
 export const derivationSequenceAtom = atom(0)
+export const walletGenerationAtom = atom(0)
+export const activeWalletOwnerAtom = atom("")
+export interface WalletRevision {
+  owner: string
+  generation: number
+  storageRevision: number
+  keyId: string
+}
+export const walletRevisionsAtom = atom<Record<string, WalletRevision>>({})
+export const walletProvenanceAtom = atom<Record<string, "legacy-derived" | "random">>({})

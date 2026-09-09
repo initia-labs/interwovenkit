@@ -263,22 +263,24 @@ const comet38ClientCache = new Map<string, Comet38Client>()
 const signingStargateClientCache = new Map<string, SigningStargateClient>()
 
 export function clearSigningClientCache(address: string, chainId: string) {
-  const cacheKey = `${address}:${chainId}`
-  signingStargateClientCache.delete(cacheKey)
+  const prefix = `${address}:${chainId}:`
+  for (const key of signingStargateClientCache.keys()) {
+    if (key.startsWith(prefix)) signingStargateClientCache.delete(key)
+  }
 }
 
 export function useCreateComet38Client() {
   const findChain = useFindChain()
 
   return async (chainId: string) => {
-    if (comet38ClientCache.has(chainId)) {
-      return comet38ClientCache.get(chainId)!
-    }
-
     const { rpcUrl } = findChain(chainId)
+    const cacheKey = `${chainId}:${rpcUrl}`
+    if (comet38ClientCache.has(cacheKey)) {
+      return comet38ClientCache.get(cacheKey)!
+    }
     const cometClient = await Comet38Client.create(new HttpClient(rpcUrl))
 
-    comet38ClientCache.set(chainId, cometClient)
+    comet38ClientCache.set(cacheKey, cometClient)
     return cometClient
   }
 }
@@ -288,10 +290,11 @@ export function useCreateSigningStargateClient() {
   const aminoTypes = useAminoTypes()
   const offlineSigner = useOfflineSigner()
   const address = useInitiaAddress()
+  const findChain = useFindChain()
   const createComet38Client = useCreateComet38Client()
 
   return async (chainId: string) => {
-    const cacheKey = `${address}:${chainId}`
+    const cacheKey = `${address}:${chainId}:${findChain(chainId).rpcUrl}`
     if (signingStargateClientCache.has(cacheKey)) {
       return signingStargateClientCache.get(cacheKey)!
     }

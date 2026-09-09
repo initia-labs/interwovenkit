@@ -2,6 +2,7 @@ import type { EncodeObject } from "@cosmjs/proto-signing"
 import type { SigningStargateClient, StdFee } from "@cosmjs/stargate"
 import type { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import { describe, expect, it, vi } from "vitest"
+import { AutoSignCancelledError } from "@/pages/autosign/data/lifecycle"
 import { signTxWithAutoSignFeeWithDeps } from "./tx"
 
 const chainId = "initia-1"
@@ -44,6 +45,7 @@ const createDeps = (
 ): Parameters<typeof signTxWithAutoSignFeeWithDeps>[1] => ({
   validateAutoSign: vi.fn().mockReturnValue(true),
   getWallet: vi.fn().mockReturnValue(cachedDerivedWallet),
+  restoreWallet: vi.fn().mockResolvedValue(undefined),
   deriveWallet: vi.fn().mockResolvedValue(cachedDerivedWallet),
   getSigningClient: vi.fn().mockResolvedValue(signingClient),
   computeAutoSignFee: vi.fn().mockResolvedValue(computedFee),
@@ -54,6 +56,41 @@ const createDeps = (
 })
 
 describe("signTxWithAutoSignFeeWithDeps", () => {
+  it("restores a stored wallet without requesting a derivation signature", async () => {
+    const deps = createDeps({
+      getWallet: vi.fn().mockReturnValue(undefined),
+      restoreWallet: vi.fn().mockResolvedValue(cachedDerivedWallet),
+    })
+
+    expect(await signTxWithAutoSignFeeWithDeps(buildParams(), deps)).toBe(autoSignedTx)
+    expect(deps.restoreWallet).toHaveBeenCalledWith(chainId)
+    expect(deps.deriveWallet).not.toHaveBeenCalled()
+    expect(deps.signWithEthSecp256k1).not.toHaveBeenCalled()
+  })
+
+  it("does not derive over an inaccessible stored identity", async () => {
+    const deps = createDeps({
+      getWallet: vi.fn().mockReturnValue(undefined),
+      restoreWallet: vi.fn().mockRejectedValue(new Error("Storage unavailable")),
+    })
+
+    expect(
+      await signTxWithAutoSignFeeWithDeps(buildParams({ allowWalletDerivation: true }), deps),
+    ).toBe(manualSignedTx)
+    expect(deps.deriveWallet).not.toHaveBeenCalled()
+  })
+
+  it("cancels stale signing without prompting the main wallet", async () => {
+    const deps = createDeps({
+      signWithDerivedWallet: vi.fn().mockRejectedValue(new AutoSignCancelledError()),
+    })
+
+    await expect(signTxWithAutoSignFeeWithDeps(buildParams(), deps)).rejects.toBeInstanceOf(
+      AutoSignCancelledError,
+    )
+    expect(deps.signWithEthSecp256k1).not.toHaveBeenCalled()
+  })
+
   it("falls back to manual signing when auto-sign fee computation fails", async () => {
     const deps = createDeps({
       computeAutoSignFee: vi.fn().mockRejectedValue(new Error("simulate failed")),
@@ -69,6 +106,23 @@ describe("signTxWithAutoSignFeeWithDeps", () => {
       reason: "fee_computation_failed",
       errorMessage: "simulate failed",
     })
+  })
+
+  it("does not fall back to a wallet prompt after account changes during simulation", async () => {
+    let current = true
+    const deps = createDeps({
+      computeAutoSignFee: vi.fn(async () => {
+        current = false
+        throw new Error("simulate failed after account change")
+      }),
+      assertCurrentOperation: () => {
+        if (!current) throw new AutoSignCancelledError()
+      },
+    })
+    await expect(signTxWithAutoSignFeeWithDeps(buildParams(), deps)).rejects.toBeInstanceOf(
+      AutoSignCancelledError,
+    )
+    expect(deps.signWithEthSecp256k1).not.toHaveBeenCalled()
   })
 
   it("falls back to manual signing when derived wallet signing fails", async () => {

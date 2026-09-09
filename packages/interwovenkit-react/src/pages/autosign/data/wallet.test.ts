@@ -6,6 +6,7 @@ import type { TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import { ethers } from "ethers"
 import { describe, expect, it } from "vitest"
 import { createStore } from "jotai/vanilla"
+import { isExactAutoSignPublicIdentity, mergeAutoSignObservation } from "./storage"
 import {
   derivationSequenceAtom,
   type DerivedWallet,
@@ -15,9 +16,12 @@ import {
 } from "./store"
 import {
   clearAllWalletState,
+  clearExpectedAddressFromStorage,
   DerivedWalletSigner,
   getExpectedAddressKey,
+  getMatchingActiveAutoSignIdentity,
   readExpectedAddressFromStorage,
+  shouldBroadcastStorageMode,
   shouldClearWalletsOnAddressChange,
   signWithDerivedWalletWithPrivateKey,
   writeExpectedAddressToStorage,
@@ -312,6 +316,90 @@ describe("expected address storage", () => {
       writeExpectedAddressToStorage(storage, "init1user", "chain-a", "init1grantee"),
     ).not.toThrow()
   })
+
+  it("clears only the exact revoked grantee mirror", () => {
+    const data = new Map<string, string>()
+    const storage = {
+      getItem: (key: string) => data.get(key) ?? null,
+      setItem: (key: string, value: string) => data.set(key, value),
+      removeItem: (key: string) => data.delete(key),
+    }
+    writeExpectedAddressToStorage(storage, "init1user", "chain-a", "init1revoked")
+    writeExpectedAddressToStorage(storage, "init1user", "chain-b", "init1unrelated")
+
+    expect(clearExpectedAddressFromStorage(storage, "init1user", "chain-a", "init1different")).toBe(
+      false,
+    )
+    expect(readExpectedAddressFromStorage(storage, "init1user", "chain-a")).toBe("init1revoked")
+
+    expect(clearExpectedAddressFromStorage(storage, "init1user", "chain-a", "init1revoked")).toBe(
+      true,
+    )
+    expect(readExpectedAddressFromStorage(storage, "init1user", "chain-a")).toBeNull()
+    expect(readExpectedAddressFromStorage(storage, "init1user", "chain-b")).toBe("init1unrelated")
+  })
+})
+
+describe("stored auto-sign identities", () => {
+  const active = {
+    owner: "init1owner",
+    chainId: "initiation-2",
+    bech32Prefix: "init",
+    origin: "https://app.example",
+    address: "init1active",
+    publicKey: "public-key",
+    provenance: "legacy-derived" as const,
+    keyId: "active-key",
+    state: "active" as const,
+    revision: 3,
+    requestedDurationMs: 60_000,
+    observedExpiration: "2026-09-09T12:00:00.000Z",
+  }
+
+  it("preserves a matching active identity including its key and grant metadata", () => {
+    expect(getMatchingActiveAutoSignIdentity(active, "init1active")).toBe(active)
+  })
+
+  it("does not treat forgotten or a different active grantee as a derivation conflict", () => {
+    expect(
+      getMatchingActiveAutoSignIdentity({ ...active, state: "forgotten" }, "init1active"),
+    ).toBeUndefined()
+    expect(getMatchingActiveAutoSignIdentity(active, "init1different")).toBeUndefined()
+  })
+
+  it("allows revocation to delete only the exact public identity", () => {
+    const identity = {
+      owner: active.owner,
+      chainId: active.chainId,
+      bech32Prefix: active.bech32Prefix,
+      origin: active.origin,
+    }
+    expect(isExactAutoSignPublicIdentity(active, identity, active.keyId)).toBe(true)
+    expect(isExactAutoSignPublicIdentity(active, identity, "other-key")).toBe(false)
+    expect(
+      isExactAutoSignPublicIdentity({ ...active, chainId: "other-chain" }, identity, active.keyId),
+    ).toBe(false)
+  })
+})
+
+describe("mergeAutoSignObservation", () => {
+  it("preserves omitted fields but clears fields explicitly set to undefined", () => {
+    const existing = {
+      requestedDurationMs: 60_000,
+      observedExpiration: "2026-09-09T12:00:00.000Z",
+    }
+
+    expect(mergeAutoSignObservation(existing, { requestedDurationMs: 0 })).toEqual({
+      requestedDurationMs: 0,
+      observedExpiration: "2026-09-09T12:00:00.000Z",
+    })
+    expect(
+      mergeAutoSignObservation(existing, {
+        requestedDurationMs: 0,
+        observedExpiration: undefined,
+      }),
+    ).toEqual({ requestedDurationMs: 0, observedExpiration: undefined })
+  })
 })
 
 describe("clearAllWalletState", () => {
@@ -365,5 +453,45 @@ describe("shouldClearWalletsOnAddressChange", () => {
 
   it("returns true when disconnecting after a connected session", () => {
     expect(shouldClearWalletsOnAddressChange("init1old", "")).toBe(true)
+  })
+})
+
+describe("shouldBroadcastStorageMode", () => {
+  it("skips a no-op preference write but reports an unexpected identity replacement", () => {
+    expect(
+      shouldBroadcastStorageMode({
+        previousRevision: 3,
+        nextRevision: 3,
+        previousKeyId: "key-a",
+        nextKeyId: "key-a",
+      }),
+    ).toBe(false)
+    expect(
+      shouldBroadcastStorageMode({
+        previousRevision: 3,
+        nextRevision: 3,
+        previousKeyId: "key-a",
+        nextKeyId: "key-b",
+      }),
+    ).toBe(true)
+  })
+})
+
+describe("refreshOwnerWalletRevisions", () => {
+  it("refreshes every cached chain for the owner without changing another owner", async () => {
+    const { refreshOwnerWalletRevisions } = await import("./wallet")
+    const { walletRevisionsAtom } = await import("./store")
+    const store = createStore()
+    store.set(walletRevisionsAtom, {
+      move: { owner: "init1owner", generation: 4, storageRevision: 1, keyId: "move" },
+      wasm: { owner: "init1owner", generation: 4, storageRevision: 1, keyId: "wasm" },
+      other: { owner: "init1other", generation: 2, storageRevision: 9, keyId: "other" },
+    })
+    refreshOwnerWalletRevisions(store, "init1owner", 2)
+    expect(store.get(walletRevisionsAtom)).toEqual({
+      move: { owner: "init1owner", generation: 4, storageRevision: 2, keyId: "move" },
+      wasm: { owner: "init1owner", generation: 4, storageRevision: 2, keyId: "wasm" },
+      other: { owner: "init1other", generation: 2, storageRevision: 9, keyId: "other" },
+    })
   })
 })

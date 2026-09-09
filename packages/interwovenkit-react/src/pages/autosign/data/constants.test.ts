@@ -3,7 +3,8 @@ import { DEFAULT_DURATION, resolveAutoSignDuration } from "./constants"
 
 describe("resolveAutoSignDuration", () => {
   it("returns the default duration when none is provided", () => {
-    expect(resolveAutoSignDuration()).toBe(DEFAULT_DURATION)
+    expect(DEFAULT_DURATION).toBe(0)
+    expect(resolveAutoSignDuration()).toBe(0)
   })
 
   it("returns the provided duration when it matches a supported option", () => {
