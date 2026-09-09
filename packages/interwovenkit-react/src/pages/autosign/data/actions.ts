@@ -4,9 +4,9 @@ import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-q
 import { MsgRevoke } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import { MsgRevokeAllowance } from "@initia/initia.proto/cosmos/feegrant/v1beta1/tx"
 import { useConfig } from "@/data/config"
+import { isConfirmedTxFailure } from "@/data/errors"
 import { clearSigningClientCache } from "@/data/signer"
 import { useTx } from "@/data/tx"
-import { isConfirmedTxFailure } from "@/data/errors"
 import { useDrawer } from "@/data/ui"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { getFeegrantAllowedMessages, getFeegrantExpiration, useAutoSignApi } from "./fetch"
@@ -525,7 +525,7 @@ export function useRenewAutoSign() {
     createWallet,
     deriveWallet,
     discardPendingIdentity,
-    getActiveIdentity,
+    getWalletIdentities,
     getWalletProvenance,
     getWalletRevision,
     restoreWallet,
@@ -551,7 +551,10 @@ export function useRenewAutoSign() {
             throw new AutoSignCancelledError()
           }
           const expectedGrantee = getExpectedAddress(owner, chainId)
-          const activeIdentity = await getActiveIdentity(chainId)
+          const identitiesBeforeRenewal = await getWalletIdentities(chainId)
+          const activeIdentity = identitiesBeforeRenewal.find(
+            (identity) => identity.state === "active",
+          )
           if (!isOwnerFenceCurrent(store, owner, ownerGeneration)) {
             throw new AutoSignCancelledError()
           }
@@ -607,6 +610,7 @@ export function useRenewAutoSign() {
             currentGrantee: wallet.address,
             expectedGrantee,
             activeGrantee: activeIdentity?.address,
+            knownGrantees: identitiesBeforeRenewal.map((identity) => identity.address),
           })
           const revocations = await Promise.all(
             grantees.map((grantee) => fetchRevokeMessages({ chainId, grantee })),

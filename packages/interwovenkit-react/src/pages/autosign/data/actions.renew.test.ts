@@ -139,9 +139,11 @@ beforeEach(() => {
     address: "init1oldrandom",
     provenance: "random",
   })
+  mocks.getWalletIdentities.mockResolvedValue([
+    { address: "init1oldrandom", provenance: "random", state: "active" },
+  ])
   mocks.restoreWallet.mockResolvedValue(undefined)
   mocks.getStayConnected.mockResolvedValue(true)
-  mocks.getWalletIdentities.mockResolvedValue([])
   mocks.createWallet.mockResolvedValue({
     address: "init1newrandom",
     publicKey: new Uint8Array(),
@@ -210,6 +212,28 @@ describe("useRenewAutoSign random signer recovery", () => {
       mocks.activateWallet.mock.invocationCallOrder[0]!,
     )
     expect(mocks.discardPendingIdentity).not.toHaveBeenCalled()
+  })
+
+  it("also revokes forgotten local grantees during renewal", async () => {
+    mocks.getWalletIdentities.mockResolvedValue([
+      { address: "init1oldrandom", provenance: "random", state: "active" },
+      { address: "init1forgottenrandom", provenance: "random", state: "forgotten" },
+    ])
+    mocks.requestTxBlock.mockResolvedValue({ code: 0, rawLog: "" })
+
+    await useRenewMutationForTest().mutationFn(input)
+
+    const request = mocks.requestTxBlock.mock.calls[0]![0] as {
+      messages: Array<{ typeUrl: string; value: { grantee?: string } }>
+    }
+    expect(request.messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          typeUrl: "/cosmos.authz.v1beta1.MsgRevoke",
+          value: expect.objectContaining({ grantee: "init1forgottenrandom" }),
+        }),
+      ]),
+    )
   })
 
   it("clears the captured legacy mirror after granting a random replacement", async () => {
