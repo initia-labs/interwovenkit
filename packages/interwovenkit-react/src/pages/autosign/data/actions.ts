@@ -229,13 +229,13 @@ export function collectRevokeAuthzMessageTypes(
 ): string[] {
   return [
     ...new Set(
-      grants.flatMap(
-        (grant) =>
-          getRevokeMessageType(grant) ??
-          (!grant.authorization["@type"] && grant.authorization.msg
-            ? [grant.authorization.msg]
-            : []),
-      ),
+      grants.flatMap((grant) => {
+        const messageType = getRevokeMessageType(grant)
+        if (messageType) return [messageType]
+        return !grant.authorization["@type"] && grant.authorization.msg
+          ? [grant.authorization.msg]
+          : []
+      }),
     ),
   ]
 }

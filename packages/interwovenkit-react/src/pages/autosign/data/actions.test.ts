@@ -222,6 +222,24 @@ describe("shouldUpdateStayConnectedOnEnable", () => {
 })
 
 describe("collectRevokeAuthzMessageTypes", () => {
+  it("keeps typed grants as whole message type strings", () => {
+    const result = collectRevokeAuthzMessageTypes([
+      {
+        authorization: {
+          "@type": "/cosmos.authz.v1beta1.GenericAuthorization",
+          msg: "/cosmos.bank.v1beta1.MsgSend",
+        },
+      },
+      {
+        authorization: {
+          "@type": "/initia.move.v1.ExecuteAuthorization",
+        },
+      },
+    ])
+
+    expect(result).toEqual(["/cosmos.bank.v1beta1.MsgSend", "/initia.move.v1.MsgExecute"])
+  })
+
   it("returns all unique grant message types regardless of current config", () => {
     const result = collectRevokeAuthzMessageTypes([
       { authorization: { msg: "/cosmos.bank.v1beta1.MsgSend" } },
