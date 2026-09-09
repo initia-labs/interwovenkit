@@ -18,10 +18,6 @@ import { TimeoutError } from "@/lib/promise"
 import { useNavigate } from "@/lib/router"
 import { getFeegrantSpendLimit } from "@/pages/autosign/data/fetch"
 import { AutoSignCancelledError } from "@/pages/autosign/data/lifecycle"
-import {
-  canonicalizeWasmAcceptedMessage,
-  WASM_EXECUTE_MESSAGE_TYPE,
-} from "@/pages/autosign/data/policy"
 import type { DerivedWalletPublic } from "@/pages/autosign/data/store"
 import { activeWalletOwnerAtom, walletGenerationAtom } from "@/pages/autosign/data/store"
 import { useRequestAutoSignUnlock } from "@/pages/autosign/data/unlock-request"
@@ -43,7 +39,7 @@ import { encodePubkeyInitia } from "./patches/pubkeys"
 import { useAnalyticsTrack } from "./analytics"
 import { useFindChain } from "./chains"
 import { useConfig } from "./config"
-import { formatMoveError, parseMoveError } from "./errors"
+import { formatMoveError, parseMoveError, TxExecutionError } from "./errors"
 import { fetchGasPrices } from "./fee"
 import {
   type AccountSequence,
@@ -55,7 +51,6 @@ import {
   useRegistry,
   useSignWithEthSecp256k1,
 } from "./signer"
-import { TxExecutionError } from "./tx-errors"
 import { useDrawer } from "./ui"
 
 export interface TxParams {
@@ -467,7 +462,7 @@ export async function signTxWithAutoSignFeeWithDeps(
 export function useSignTxWithAutoSignFee() {
   const store = useStore()
   const address = useInitiaAddress()
-  const { autoSignFeePolicy, autoSignGrantPolicy, registryUrl } = useConfig()
+  const { autoSignFeePolicy, registryUrl } = useConfig()
   const findChain = useFindChain()
   const createComet38Client = useCreateComet38Client()
   const createSigningStargateClient = useCreateSigningStargateClient()
@@ -622,24 +617,8 @@ export function useSignTxWithAutoSignFee() {
 
   return (params: Omit<SignTxWithAutoSignFeeParams, "address">): Promise<TxRaw> => {
     const generation = store.get(walletGenerationAtom)
-    const authorization = autoSignGrantPolicy?.[params.chainId]?.authorization
     const messages = params.messages.map((message) => {
       const value = registry.decode(registry.encodeAsAny(message))
-      if (
-        authorization?.kind === "wasm" &&
-        message.typeUrl === WASM_EXECUTE_MESSAGE_TYPE &&
-        authorization.grants.some(
-          (grant) => grant.contract === value.contract && grant.filter.kind === "accepted-messages",
-        )
-      ) {
-        try {
-          value.msg = new TextEncoder().encode(
-            canonicalizeWasmAcceptedMessage(new TextDecoder().decode(value.msg)),
-          )
-        } catch {
-          // Preserve unsupported payloads for normal validation/manual signing.
-        }
-      }
       return { typeUrl: message.typeUrl, value }
     })
     return signTxWithAutoSignFeeWithDeps(

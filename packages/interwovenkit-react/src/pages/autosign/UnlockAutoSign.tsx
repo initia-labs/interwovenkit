@@ -16,9 +16,8 @@ import type { AutoSignPublicIdentity } from "./data/storage"
 import { pendingAutoSignUnlockAtom } from "./data/unlock-request"
 import { useAutoSignStatus } from "./data/validation"
 import { getExpectedAddress, useDeriveWallet } from "./data/wallet"
-import StayConnected from "./StayConnected"
+import StayConnected, { useStayConnectedPreference } from "./StayConnected"
 import enableStyles from "./EnableAutoSign.module.css"
-import styles from "./UnlockAutoSign.module.css"
 
 const UnlockAutoSign = () => {
   const pendingUnlock = useAtomValue(pendingAutoSignUnlockAtom)
@@ -30,7 +29,6 @@ const UnlockAutoSign = () => {
   const navigate = useNavigate()
   const wallet = useDeriveWallet()
   const walletRef = useRef(wallet)
-  const hasChosenPreferenceRef = useRef(false)
 
   useEffect(() => {
     walletRef.current = wallet
@@ -59,52 +57,15 @@ const UnlockAutoSign = () => {
     (matchesActiveLegacyIdentity || matchesLegacyMirror) &&
     (!pendingUnlock || pendingUnlock.owner === initiaAddress)
 
-  const [stayConnected, setStayConnected] = useState(true)
-  const preferenceScope = JSON.stringify([
-    autoSignStorage,
-    chainId,
-    initiaAddress,
-    pendingUnlock?.owner,
-  ])
-  const [loadedPreferenceScope, setLoadedPreferenceScope] = useState<string>()
-  const isLoadingPreference =
-    autoSignStorage !== "memory" && loadedPreferenceScope !== preferenceScope
+  const { stayConnected, setStayConnected, isLoadingPreference, isStorageUnavailable } =
+    useStayConnectedPreference(chainId, initiaAddress)
   const [isPending, setIsPending] = useState(false)
   const [error, setError] = useState("")
-
-  useEffect(() => {
-    hasChosenPreferenceRef.current = false
-    let active = true
-    if (autoSignStorage === "memory") {
-      void Promise.resolve().then(() => {
-        if (!active) return
-        setStayConnected(false)
-        setLoadedPreferenceScope(undefined)
-      })
-      return () => {
-        active = false
-      }
-    }
-    walletRef.current
-      .getStayConnected(chainId)
-      .then((value) => {
-        if (active && !hasChosenPreferenceRef.current) setStayConnected(value)
-      })
-      .catch(() => {
-        if (active) {
-          setStayConnected(false)
-          setError(
-            "Browser storage is unavailable. Auto-signing will stay available only in this tab.",
-          )
-        }
-      })
-      .finally(() => {
-        if (active) setLoadedPreferenceScope(preferenceScope)
-      })
-    return () => {
-      active = false
-    }
-  }, [autoSignStorage, chainId, initiaAddress, pendingUnlock?.owner, preferenceScope])
+  const displayedError =
+    error ||
+    (isStorageUnavailable
+      ? "Browser storage is unavailable. Auto-signing will stay available only in this tab."
+      : "")
 
   useEffect(() => {
     let active = true
@@ -186,7 +147,7 @@ const UnlockAutoSign = () => {
         </section>
 
         {canUnlock ? (
-          <p className={styles.explanation}>
+          <p className={enableStyles.explanation}>
             Use your main wallet to recover the same auto-signing address. This does not create new
             permissions.
           </p>
@@ -214,10 +175,7 @@ const UnlockAutoSign = () => {
           <StayConnected
             checked={stayConnected}
             disabled={isLoadingPreference || isPending}
-            onChange={(checked) => {
-              hasChosenPreferenceRef.current = true
-              setStayConnected(checked)
-            }}
+            onChange={setStayConnected}
           />
         )}
       </Scrollable>
@@ -225,9 +183,9 @@ const UnlockAutoSign = () => {
       <Footer
         className={enableStyles.footer}
         extra={
-          error && (
-            <FormHelp level={error.startsWith("Browser storage") ? "warning" : "error"}>
-              {error}
+          displayedError && (
+            <FormHelp level={displayedError.startsWith("Browser storage") ? "warning" : "error"}>
+              {displayedError}
             </FormHelp>
           )
         }

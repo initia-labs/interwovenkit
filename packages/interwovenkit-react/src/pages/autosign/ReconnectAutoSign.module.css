@@ -3,27 +3,20 @@
   width: 160px;
 }
 
-.explanation {
-  color: var(--gray-1);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.5;
-}
-
-section:has(+ .explanation) > div > div {
+.details > div > div {
   flex-wrap: wrap;
   align-items: flex-start;
 
   column-gap: 16px;
 }
 
-section:has(+ .explanation) > div > div > :first-child {
+.details > div > div > :first-child {
   flex: 0 0 72px;
 
   width: auto;
 }
 
-section:has(+ .explanation) > div > div > :last-child {
+.details > div > div > :last-child {
   flex: 1 1 180px;
 
   min-width: 0;

@@ -6,7 +6,7 @@ import { MsgRevokeAllowance } from "@initia/initia.proto/cosmos/feegrant/v1beta1
 import { useConfig } from "@/data/config"
 import { clearSigningClientCache } from "@/data/signer"
 import { useTx } from "@/data/tx"
-import { isConfirmedTxFailure } from "@/data/tx-errors"
+import { isConfirmedTxFailure } from "@/data/errors"
 import { useDrawer } from "@/data/ui"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { getFeegrantAllowedMessages, getFeegrantExpiration, useAutoSignApi } from "./fetch"

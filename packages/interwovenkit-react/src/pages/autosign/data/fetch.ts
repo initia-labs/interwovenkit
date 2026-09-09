@@ -54,12 +54,6 @@ export function getAutoSignRestOptions(restUrl: string) {
   return { prefixUrl: restUrl, cache: "no-store" as const }
 }
 
-export function normalizeAutoSignGrants(grants: Grant[]): Grant[] {
-  // Management must retain unknown authorizations. They may not be usable for
-  // autosigning, but hiding them makes a partial revoke look complete.
-  return grants
-}
-
 export function getFeegrantSpendLimit(
   allowance: FeegrantAllowance["allowance"],
 ): Coin[] | undefined {
@@ -181,7 +175,7 @@ export function useAutoSignApi() {
       getAutoSignRestOptions(chain.restUrl),
       "grants",
     )
-    return normalizeAutoSignGrants(allGrants)
+    return allGrants
   }
 
   return { fetchFeegrant, fetchGrants, fetchAllGrants }

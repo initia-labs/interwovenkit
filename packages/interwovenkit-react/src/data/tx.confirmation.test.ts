@@ -1,8 +1,8 @@
 import type { IndexedTx, SigningStargateClient } from "@cosmjs/stargate"
 import { describe, expect, it, vi } from "vitest"
 import { TimeoutError } from "@/lib/promise"
+import { TxExecutionError } from "./errors"
 import { waitForTxConfirmationWithClient } from "./tx"
-import { TxExecutionError } from "./tx-errors"
 
 function createMockClient(getTx: SigningStargateClient["getTx"]) {
   return { getTx } as unknown as SigningStargateClient

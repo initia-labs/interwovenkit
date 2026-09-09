@@ -1,5 +1,3 @@
-import { sortedJsonStringify } from "@cosmjs/amino/build/signdoc"
-import { fromBase64, fromUtf8, toBase64, toUtf8 } from "@cosmjs/encoding"
 import type { AminoConverter } from "@cosmjs/stargate"
 import { aminoConverters } from "@initia/amino-converter"
 import { MsgGrant } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
@@ -8,8 +6,6 @@ import { CallAuthorization } from "@initia/initia.proto/minievm/evm/v1/authz"
 
 const MOVE_AUTHORIZATION = "/initia.move.v1.ExecuteAuthorization"
 const EVM_AUTHORIZATION = "/minievm.evm.v1.CallAuthorization"
-const WASM_AUTHORIZATION = "/cosmwasm.wasm.v1.ContractExecutionAuthorization"
-const UPSTREAM_WASM_AUTHORIZATION = "/initia.wasm.v1.ContractExecutionAuthorization"
 const base = aminoConverters["/cosmos.authz.v1beta1.MsgGrant"]!
 
 /** Match Go's RFC3339Nano formatting without changing the represented instant. */
@@ -24,46 +20,12 @@ interface AminoAuthorization {
   value: {
     contracts?: string[]
     items?: Array<{ module_address: string; module_name: string; function_names: string[] }>
-    grants?: Array<{
-      contract: string
-      limit: { type: string; value: Record<string, unknown> }
-      filter: { type: string; value: { messages?: unknown[] } }
-    }>
   }
 }
 interface AminoGrant {
   granter: string
   grantee: string
   grant: { authorization: AminoAuthorization; expiration?: string }
-}
-
-/** The upstream converter uses base64 where wasmd requires inline JSON. */
-function mapAcceptedMessages(msg: AminoGrant, map: (message: unknown) => unknown): AminoGrant {
-  const authorization = msg.grant.authorization
-  if (authorization.type !== "wasm/ContractExecutionAuthorization") return msg
-  return {
-    ...msg,
-    grant: {
-      ...msg.grant,
-      authorization: {
-        ...authorization,
-        value: {
-          ...authorization.value,
-          grants: authorization.value.grants?.map((grant) =>
-            grant.filter.type === "wasm/AcceptedMessagesFilter"
-              ? {
-                  ...grant,
-                  filter: {
-                    ...grant.filter,
-                    value: { messages: grant.filter.value.messages?.map(map) },
-                  },
-                }
-              : grant,
-          ),
-        },
-      },
-    },
-  }
 }
 
 /** Narrow compatibility fixes for typed grants missing from amino-converter 1.0.19. */
@@ -103,21 +65,9 @@ export const typedMsgGrantAminoConverter: AminoConverter = {
         },
       }
     }
-    const amino = base.toAmino(
-      authorization?.typeUrl === WASM_AUTHORIZATION
-        ? {
-            ...msg,
-            grant: {
-              ...msg.grant,
-              authorization: { ...authorization, typeUrl: UPSTREAM_WASM_AUTHORIZATION },
-            },
-          }
-        : msg,
-    ) as AminoGrant
+    const amino = base.toAmino(msg) as AminoGrant
     amino.grant.expiration = formatAminoExpiration(amino.grant.expiration)
-    return mapAcceptedMessages(amino, (message) =>
-      JSON.parse(fromUtf8(fromBase64(String(message)))),
-    )
+    return amino
   },
   fromAmino: (msg: AminoGrant): MsgGrant => {
     const authorization = msg.grant.authorization
@@ -155,12 +105,6 @@ export const typedMsgGrantAminoConverter: AminoConverter = {
         },
       })
     }
-    const converted = base.fromAmino(
-      mapAcceptedMessages(msg, (message) => toBase64(toUtf8(sortedJsonStringify(message)))),
-    ) as MsgGrant
-    if (converted.grant?.authorization?.typeUrl === UPSTREAM_WASM_AUTHORIZATION) {
-      converted.grant.authorization.typeUrl = WASM_AUTHORIZATION
-    }
-    return converted
+    return base.fromAmino(msg) as MsgGrant
   },
 }

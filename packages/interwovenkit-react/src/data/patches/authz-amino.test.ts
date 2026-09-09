@@ -1,10 +1,6 @@
 import { AminoTypes } from "@cosmjs/stargate"
 import { describe, expect, it } from "vitest"
 import { MsgGrant } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
-import {
-  AcceptedMessagesFilter,
-  ContractExecutionAuthorization,
-} from "@initia/initia.proto/cosmwasm/wasm/v1/authz"
 import { buildAutoSignGrantMessages } from "@/pages/autosign/data/grant"
 import type { AutoSignPermissionPolicy } from "@/pages/autosign/data/policy"
 import { patchedAminoConverters } from "./amino"
@@ -18,20 +14,6 @@ const policies: AutoSignPermissionPolicy[] = [
   {
     kind: "evm",
     contracts: ["0x0000000000000000000000000000000000000001"],
-  },
-  {
-    kind: "wasm",
-    grants: [
-      {
-        contract: "init1contract",
-        filter: { kind: "accepted-message-keys", keys: ["swap"] },
-        limit: {
-          kind: "combined",
-          callsRemaining: 5n,
-          amounts: [{ denom: "uinit", amount: "100" }],
-        },
-      },
-    ],
   },
 ]
 
@@ -73,36 +55,6 @@ describe("typed grant wallet signing conversion", () => {
     const restored = aminoTypes.fromAmino(amino)
     expect(restored.typeUrl).toBe(message.typeUrl)
     expect(MsgGrant.encode(restored.value).finish()).toEqual(
-      MsgGrant.encode(message.value as MsgGrant).finish(),
-    )
-  })
-
-  it("writes accepted Wasm messages as inline JSON and preserves canonical protobuf bytes", () => {
-    const message = buildAutoSignGrantMessages({
-      granter: "init1owner",
-      grantee: "init1grantee",
-      messageTypes: [],
-      authorization: {
-        kind: "wasm",
-        grants: [
-          {
-            contract: "init1contract",
-            limit: { kind: "max-calls", remaining: 2n },
-            filter: { kind: "accepted-messages", messages: ['{ "swap": {"z": 1, "a": 2} }'] },
-          },
-        ],
-      },
-    })[1]!
-    const amino = aminoTypes.toAmino(message)
-    expect(amino.value.grant.authorization.value.grants[0].filter.value.messages).toEqual([
-      { swap: { a: 2, z: 1 } },
-    ])
-    const restored = aminoTypes.fromAmino(amino)
-    const grant = restored.value as MsgGrant
-    const authorization = ContractExecutionAuthorization.decode(grant.grant!.authorization!.value)
-    const filter = AcceptedMessagesFilter.decode(authorization.grants[0]!.filter!.value)
-    expect(new TextDecoder().decode(filter.messages[0])).toBe('{"swap":{"a":2,"z":1}}')
-    expect(MsgGrant.encode(grant).finish()).toEqual(
       MsgGrant.encode(message.value as MsgGrant).finish(),
     )
   })

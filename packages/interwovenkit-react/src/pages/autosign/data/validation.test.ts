@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
 import type { FeegrantAllowance } from "./fetch"
-import { validateAutoSignMessages } from "./policy"
 import {
   autoSignQueryKeys,
   canActivatePendingAutoSignIdentity,
@@ -14,7 +13,6 @@ import {
   isFeegrantEligibleForAutoSign,
   resolveAutoSignEnabledForChain,
   resolveAutoSignMessageTypes,
-  resolveAutoSignValidationAuthorization,
 } from "./validation"
 
 const findFirstValidGrantee = (
@@ -59,10 +57,6 @@ describe("fetchAutoSignStatus", () => {
         "initia-2": undefined,
       },
       requestedDurationInMsByChain: {
-        "initia-1": undefined,
-        "initia-2": undefined,
-      },
-      observedAuthorizationByChain: {
         "initia-1": undefined,
         "initia-2": undefined,
       },
@@ -236,39 +230,6 @@ describe("fetchAutoSignStatus", () => {
   })
 })
 
-describe("resolveAutoSignValidationAuthorization", () => {
-  it("enforces the lower observed Wasm call limit", () => {
-    const configured = {
-      kind: "wasm" as const,
-      grants: [
-        {
-          contract: "init1contract",
-          filter: { kind: "allow-all" as const },
-          limit: { kind: "max-calls" as const, remaining: 2n },
-        },
-      ],
-    }
-    const observed = {
-      ...configured,
-      grants: [{ ...configured.grants[0]!, limit: { kind: "max-calls" as const, remaining: 1n } }],
-    }
-    const policy = resolveAutoSignValidationAuthorization({ configured, observed })
-    expect(policy).toEqual(observed)
-    expect(
-      validateAutoSignMessages(policy!, [
-        {
-          typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
-          value: { contract: "init1contract", msg: new TextEncoder().encode('{"swap":{}}') },
-        },
-        {
-          typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
-          value: { contract: "init1contract", msg: new TextEncoder().encode('{"swap":{}}') },
-        },
-      ]).valid,
-    ).toBe(false)
-  })
-})
-
 describe("current autosign status", () => {
   it("requires a recent status result and an unexpired current permission", () => {
     const status = {
@@ -277,7 +238,6 @@ describe("current autosign status", () => {
       isEnabledByChain: { "initia-1": true },
       granteeByChain: { "initia-1": "init1agent" },
       requestedDurationInMsByChain: {},
-      observedAuthorizationByChain: {},
       statusByChain: { "initia-1": "enabled" as const },
     }
 

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import type { FeegrantAllowance, Grant } from "./fetch"
+import type { FeegrantAllowance } from "./fetch"
 import {
   fetchGrantsForParties,
   getAutoSignRestOptions,
@@ -7,7 +7,6 @@ import {
   getFeegrantExpiration,
   getFeegrantSpendLimit,
   isFeegrantNotFoundResponse,
-  normalizeAutoSignGrants,
 } from "./fetch"
 
 afterEach(() => {
@@ -111,39 +110,6 @@ describe("feegrant helpers", () => {
     }
 
     expect(getFeegrantAllowedMessages(allowance)).toEqual(["/cosmos.authz.v1beta1.MsgExec"])
-  })
-})
-
-describe("normalizeAutoSignGrants", () => {
-  it("retains unknown authorizations for explicit management", () => {
-    const grants: Grant[] = [
-      {
-        granter: "init1granter",
-        grantee: "init1grantee",
-        authorization: {
-          "@type": "/cosmos.authz.v1beta1.GenericAuthorization",
-          msg: "/initia.move.v1.MsgExecute",
-        },
-      },
-      {
-        granter: "init1granter",
-        grantee: "init1grantee",
-        authorization: {
-          "@type": "/cosmos.authz.v1beta1.SendAuthorization",
-          msg: "",
-        },
-      },
-      {
-        granter: "init1granter",
-        grantee: "init1grantee",
-        authorization: {
-          "@type": "/cosmos.authz.v1beta1.GenericAuthorization",
-          msg: "",
-        },
-      },
-    ]
-
-    expect(normalizeAutoSignGrants(grants)).toEqual(grants)
   })
 })
 

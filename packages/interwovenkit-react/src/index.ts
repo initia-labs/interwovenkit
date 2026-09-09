@@ -40,9 +40,6 @@ export type {
   EvmPermissionPolicy,
   GenericPermissionPolicy,
   MovePermissionPolicy,
-  WasmLimitPolicy,
-  WasmMessageFilterPolicy,
-  WasmPermissionPolicy,
 } from "./pages/autosign/data/policy"
 export type { AutoSignResult, EnableAutoSignOptions } from "./pages/autosign/data/public"
 export type { AutoSignChainStatus, AutoSignStatusResult } from "./pages/autosign/data/validation"

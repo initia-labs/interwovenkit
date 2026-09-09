@@ -2,9 +2,15 @@ import { BroadcastTxError } from "@cosmjs/stargate"
 import ky from "ky"
 import type { Chain } from "@initia/initia-registry-types"
 import { TimeoutError } from "@/lib/promise"
-import { clearErrorCache, formatMoveError, MoveError, parseMoveError } from "./errors"
+import {
+  clearErrorCache,
+  formatMoveError,
+  isConfirmedTxFailure,
+  MoveError,
+  parseMoveError,
+  TxExecutionError,
+} from "./errors"
 import * as http from "./http"
-import { isConfirmedTxFailure, TxExecutionError } from "./tx-errors"
 
 vi.mock("ky")
 vi.mock("./http", () => ({

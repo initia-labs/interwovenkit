@@ -23,7 +23,6 @@ describe("public autosign status", () => {
 
       const autoSign = useAutoSign()
       expect(autoSign.statusByChain["test-chain"]).toBeUndefined()
-      expect(autoSign.observedAuthorizationByChain["test-chain"]).toBeUndefined()
       expect(autoSign.feegrantByChain["test-chain"]).toBeUndefined()
       expect(autoSign.isLoading).toBe(isLoading)
       expectTypeOf<
@@ -39,7 +38,6 @@ describe("public autosign status", () => {
     const first = useAutoSign()
     const next = useAutoSign()
     expect(next.statusByChain).toBe(first.statusByChain)
-    expect(next.observedAuthorizationByChain).toBe(first.observedAuthorizationByChain)
     expect(next.feegrantByChain).toBe(first.feegrantByChain)
   })
 
@@ -50,7 +48,6 @@ describe("public autosign status", () => {
       isEnabledByChain: { "test-chain": true },
       granteeByChain: { "test-chain": "init1grantee" },
       requestedDurationInMsByChain: { "test-chain": 0 },
-      observedAuthorizationByChain: {},
       statusByChain: { "test-chain": "enabled" },
     }
     vi.mocked(useAutoSignStatus).mockReturnValue({ data, isLoading: false } as ReturnType<

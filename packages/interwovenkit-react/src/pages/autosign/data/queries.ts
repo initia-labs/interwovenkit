@@ -3,29 +3,13 @@ import { useInitiaRegistry } from "@/data/chains"
 import { STALE_TIMES } from "@/data/http"
 import { fetchAllPages } from "@/data/pagination"
 import { useInitiaAddress } from "@/public/data/hooks"
-import {
-  type FeegrantAllowance,
-  getAutoSignRestOptions,
-  type Grant,
-  normalizeAutoSignGrants,
-} from "./fetch"
+import { type FeegrantAllowance, getAutoSignRestOptions, type Grant } from "./fetch"
 import { buildAutoSignGrantInventory, type ExpiredLocalGrantIdentity } from "./inventory"
 import { listLegacyAutoSignIdentities } from "./storage"
 import { autoSignQueryKeys, useAutoSignStatus } from "./validation"
 import { getExpectedAddress, useDeriveWallet } from "./wallet"
 
 export type { Grant } from "./fetch"
-
-export function filterAutoSignGrantsByExpectedAddress(
-  grants: Grant[],
-  expectedAddress: string | null | undefined,
-): Grant[] {
-  if (expectedAddress == null) {
-    return grants
-  }
-
-  return grants.filter((grant) => grant.grantee === expectedAddress)
-}
 
 /* Fetch all owner grants. Attribution stays explicit; matching a message type does not prove ownership. */
 export function useAllGrants() {
@@ -41,7 +25,6 @@ export function useAllGrants() {
           getAutoSignRestOptions(chain.restUrl),
           "grants",
         )
-        const normalizedGrants = normalizeAutoSignGrants(grants)
         // `issued` enumerates all allowances made by the connected owner, including
         // fee-only orphans. Preserve the authz inventory when this optional endpoint
         // fails and surface its result as unknown rather than pretending it is empty.
@@ -55,7 +38,7 @@ export function useAllGrants() {
 
         return {
           chainId: chain.chainId,
-          grants: normalizedGrants,
+          grants,
           feegrants: issuedFeegrants.allowances,
           feegrantsAvailability: issuedFeegrants.availability,
         }

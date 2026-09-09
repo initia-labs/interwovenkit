@@ -23,7 +23,6 @@ const EMPTY_AUTOSIGN_STATUS: AutoSignStatusResult = Object.freeze({
   isEnabledByChain: Object.freeze({}),
   granteeByChain: Object.freeze({}),
   requestedDurationInMsByChain: Object.freeze({}),
-  observedAuthorizationByChain: Object.freeze({}),
   statusByChain: Object.freeze({}),
 })
 

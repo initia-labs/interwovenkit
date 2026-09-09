@@ -17,6 +17,13 @@
   font-weight: 500;
 }
 
+.explanation {
+  color: var(--gray-1);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
 .sectionTitle {
   color: var(--gray-2);
   font-size: 12px;

@@ -22,8 +22,6 @@ import {
   EVM_CALL_MESSAGE_TYPE,
   isAutoSignMessageTypeAllowed,
   MOVE_EXECUTE_MESSAGE_TYPE,
-  observedAuthorizationToPermissionPolicy,
-  parseObservedAuthorization,
   validateAutoSignMessages,
   WASM_EXECUTE_MESSAGE_TYPE,
 } from "./policy"
@@ -62,7 +60,6 @@ export interface AutoSignStatusResult {
   isEnabledByChain: Record<string, boolean>
   granteeByChain: Record<string, string | undefined>
   requestedDurationInMsByChain: Record<string, number | undefined>
-  observedAuthorizationByChain: Record<string, AutoSignPermissionPolicy | undefined>
   statusByChain: Record<string, AutoSignChainStatus>
 }
 
@@ -73,7 +70,6 @@ interface AutoSignChainStatusResult {
   feegrant?: FeegrantAllowance
   grantee: string | undefined
   requestedDurationMs?: number
-  observedAuthorization?: AutoSignPermissionPolicy
   status: AutoSignChainStatus
 }
 
@@ -130,15 +126,6 @@ export function isAutoSignStatusEnabledAndFresh(params: {
   }
   const expiration = status.expiredAtByChain[chainId]
   return expiration === undefined || (expiration instanceof Date && expiration.getTime() > now)
-}
-
-/** A Wasm authorization's limits are stateful. Prefer the decoded on-chain
- * authorization when status verified it against the configured policy. */
-export function resolveAutoSignValidationAuthorization(params: {
-  configured?: AutoSignPermissionPolicy
-  observed?: AutoSignPermissionPolicy
-}): AutoSignPermissionPolicy | undefined {
-  return params.observed ?? params.configured
 }
 
 export function createAutoSignNetworkKey(
@@ -200,9 +187,6 @@ export function resolveAutoSignMessageTypes(
       case "evm":
         messageTypes[chainId] = [EVM_CALL_MESSAGE_TYPE]
         break
-      case "wasm":
-        messageTypes[chainId] = [WASM_EXECUTE_MESSAGE_TYPE]
-        break
     }
   }
   return Object.keys(messageTypes).length ? messageTypes : { [defaultChainId]: [] }
@@ -222,13 +206,7 @@ export function useValidateAutoSign() {
 
   return useEventCallback((chainId: string, messages: EncodeObject[], expectedGrantee?: string) => {
     // Check condition 1: All messages must be in allowed types
-    // Wasm limits are consumed on-chain. Once the exact observed grant has
-    // been decoded, validate against its remaining allowance rather than the
-    // original configured ceiling.
-    const authorization = resolveAutoSignValidationAuthorization({
-      configured: autoSignGrantPolicy?.[chainId]?.authorization,
-      observed: data?.observedAuthorizationByChain[chainId],
-    })
+    const authorization = autoSignGrantPolicy?.[chainId]?.authorization
     const allMessagesAllowed = authorization
       ? validateAutoSignMessages(authorization, messages).valid
       : messages.every((msg) => {
@@ -332,7 +310,6 @@ export async function fetchAutoSignStatus(
       isEnabledByChain: {},
       granteeByChain: {},
       requestedDurationInMsByChain: {},
-      observedAuthorizationByChain: {},
       statusByChain: {},
     }
   }
@@ -343,7 +320,6 @@ export async function fetchAutoSignStatus(
   const isEnabledByChain: Record<string, boolean> = {}
   const statusByChain: Record<string, AutoSignChainStatus> = {}
   const requestedDurationInMsByChain: Record<string, number | undefined> = {}
-  const observedAuthorizationByChain: Record<string, AutoSignPermissionPolicy | undefined> = {}
   const expectedAddressByChain: Record<string, string | null | undefined> = {}
   const chainEntriesToValidate: Array<[string, string[]]> = []
 
@@ -354,7 +330,6 @@ export async function fetchAutoSignStatus(
     granteeByChain[chainId] = undefined
     isEnabledByChain[chainId] = false
     requestedDurationInMsByChain[chainId] = undefined
-    observedAuthorizationByChain[chainId] = undefined
     statusByChain[chainId] = "disabled"
 
     if (msgTypes.length > 0) {
@@ -369,7 +344,6 @@ export async function fetchAutoSignStatus(
       isEnabledByChain,
       granteeByChain,
       requestedDurationInMsByChain,
-      observedAuthorizationByChain,
       statusByChain,
     }
   }
@@ -500,12 +474,6 @@ export async function fetchAutoSignStatus(
             ? ("needs-permission-update" as const)
             : ("enabled" as const),
           feegrant: validGrantee.feegrant,
-          observedAuthorization:
-            authorizationPolicies?.[chainId]?.kind === "wasm"
-              ? observedAuthorizationToPermissionPolicy(
-                  parseObservedAuthorization(validGrantee.grantee.grants[0]!),
-                )
-              : undefined,
         })
       } catch {
         return withIdentity({
@@ -525,7 +493,6 @@ export async function fetchAutoSignStatus(
     feegrantByChain[result.chainId] = result.feegrant
     granteeByChain[result.chainId] = result.grantee
     requestedDurationInMsByChain[result.chainId] = result.requestedDurationMs
-    observedAuthorizationByChain[result.chainId] = result.observedAuthorization
     statusByChain[result.chainId] = result.status
   }
 
@@ -545,7 +512,6 @@ export async function fetchAutoSignStatus(
     isEnabledByChain,
     granteeByChain,
     requestedDurationInMsByChain,
-    observedAuthorizationByChain,
     statusByChain,
   }
 }

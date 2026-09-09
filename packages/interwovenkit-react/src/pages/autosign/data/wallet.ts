@@ -829,10 +829,13 @@ export function useDeriveWallet() {
     const targetKeyId = paused?.keyId ?? keyId
     if (!targetKeyId) return
     const { identity } = getKey(chainId)
-    if (autoSignStorage !== "memory") {
-      await deleteAutoSignWallet(identity, targetKeyId)
+    try {
+      if (autoSignStorage !== "memory") {
+        await deleteAutoSignWallet(identity, targetKeyId)
+      }
+    } finally {
+      discardPausedWallet(paused)
     }
-    discardPausedWallet(paused)
   }
 
   const resumeWallet = async (chainId: string, paused: StoredAutoSignWallet | undefined) => {
@@ -870,8 +873,6 @@ export function useDeriveWallet() {
   const getPendingIdentities = async (chainId: string) => {
     return (await getWalletIdentities(chainId)).filter((candidate) => candidate.state === "pending")
   }
-
-  const getPendingIdentity = async (chainId: string) => (await getPendingIdentities(chainId))[0]
 
   const discardPendingIdentity = async (chainId: string, keyId: string) => {
     if (!userAddress || autoSignStorage === "memory") return
@@ -1048,7 +1049,6 @@ export function useDeriveWallet() {
     resumeWallet,
     getWalletIdentities,
     getActiveIdentity,
-    getPendingIdentity,
     getPendingIdentities,
     discardPendingIdentity,
     updateWalletObservation,

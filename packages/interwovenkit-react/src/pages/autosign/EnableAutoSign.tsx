@@ -1,6 +1,6 @@
 import { formatDuration, intervalToDuration } from "date-fns"
 import ky, { HTTPError } from "ky"
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import { useAtom, useAtomValue } from "jotai"
 import { useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
@@ -18,9 +18,8 @@ import { useInterwovenKit } from "@/public/data/hooks"
 import { useEnableAutoSign } from "./data/actions"
 import { DURATION_OPTIONS } from "./data/constants"
 import { pendingAutoSignRequestAtom } from "./data/store"
-import { useDeriveWallet } from "./data/wallet"
 import { isVerifiedWebsiteHost } from "./data/website"
-import StayConnected from "./StayConnected"
+import StayConnected, { useStayConnectedPreference } from "./StayConnected"
 import styles from "./EnableAutoSign.module.css"
 
 function isAccountNotFoundError(error: unknown): boolean {
@@ -49,23 +48,18 @@ const accountQueries = createQueryKeys("interwovenkit:account", {
 const EnableAutoSignComponent = () => {
   const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
   const { autoSignStorage } = useConfig()
-  const [stayConnected, setStayConnected] = useState(autoSignStorage !== "memory")
-  const [isLoadingPreference, setIsLoadingPreference] = useState(autoSignStorage !== "memory")
-  const [preferenceError, setPreferenceError] = useState("")
   const [warningIgnored, setWarningIgnored] = useState(false)
 
   const findChain = useFindChain()
   const chains = useInitiaRegistry()
   const { address, initiaAddress, username } = useInterwovenKit()
   const { mutate, isPending } = useEnableAutoSign()
-  const { getStayConnected } = useDeriveWallet()
   const { closeDrawer } = useDrawer()
-  const getStayConnectedRef = useRef(getStayConnected)
-  const hasChosenPreferenceRef = useRef(false)
-
-  useEffect(() => {
-    getStayConnectedRef.current = getStayConnected
-  }, [getStayConnected])
+  const { stayConnected, setStayConnected, isLoadingPreference, isStorageUnavailable } =
+    useStayConnectedPreference(pendingRequest?.chainId ?? "", initiaAddress)
+  const preferenceError = isStorageUnavailable
+    ? "Browser storage is unavailable. Restore browser storage access to enable auto-signing."
+    : ""
 
   if (!pendingRequest) throw new Error("Pending request not found")
 
@@ -88,32 +82,6 @@ const EnableAutoSignComponent = () => {
   const isVerified = targetChain?.website
     ? isVerifiedWebsiteHost(targetChain.website, window.location.hostname)
     : false
-
-  useEffect(() => {
-    if (autoSignStorage === "memory") return
-
-    let active = true
-    getStayConnectedRef
-      .current(pendingRequest.chainId)
-      .then((value) => {
-        if (active && !hasChosenPreferenceRef.current) setStayConnected(value)
-      })
-      .catch(() => {
-        if (active) {
-          setStayConnected(false)
-          setPreferenceError(
-            "Browser storage is unavailable. Restore browser storage access to enable auto-signing.",
-          )
-        }
-      })
-      .finally(() => {
-        if (active) setIsLoadingPreference(false)
-      })
-
-    return () => {
-      active = false
-    }
-  }, [autoSignStorage, pendingRequest.chainId])
 
   const configuredDuration = DURATION_OPTIONS.find(
     (option) => option.value === pendingRequest.defaultDuration,
@@ -201,10 +169,7 @@ const EnableAutoSignComponent = () => {
           <StayConnected
             checked={stayConnected}
             disabled={isLoadingPreference}
-            onChange={(checked) => {
-              hasChosenPreferenceRef.current = true
-              setStayConnected(checked)
-            }}
+            onChange={setStayConnected}
           />
         )}
       </Scrollable>

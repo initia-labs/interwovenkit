@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest"
-import {
-  buildAutoSignGrantInventoryForChain,
-  filterAutoSignGrantsByExpectedAddress,
-} from "./queries"
+import { buildAutoSignGrantInventoryForChain } from "./queries"
 
 const grants = [
   {
@@ -22,20 +19,6 @@ const grants = [
     },
   },
 ]
-
-describe("filterAutoSignGrantsByExpectedAddress", () => {
-  it("returns all grants when expected address is undefined", () => {
-    expect(filterAutoSignGrantsByExpectedAddress(grants, undefined)).toEqual(grants)
-  })
-
-  it("returns all grants when expected address key is missing", () => {
-    expect(filterAutoSignGrantsByExpectedAddress(grants, null)).toEqual(grants)
-  })
-
-  it("filters grants when expected address exists", () => {
-    expect(filterAutoSignGrantsByExpectedAddress(grants, "init1granteeB")).toEqual([grants[1]])
-  })
-})
 
 describe("buildAutoSignGrantInventoryForChain", () => {
   it("attributes a durable random status identity as current before the legacy mirror", () => {
