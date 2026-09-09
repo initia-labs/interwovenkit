@@ -30,6 +30,7 @@ import {
 import { getExpectedAddress, useDeriveWallet } from "./wallet"
 
 export const autoSignQueryKeys = createQueryKeys("interwovenkit:autosign", {
+  identities: (chainId: string, address: string | undefined) => [chainId, address],
   expirations: (
     address: string | undefined,
     messageTypesKey: string,
@@ -429,7 +430,7 @@ export async function fetchAutoSignStatus(
               status: "expired" as const,
             })
           }
-          const storedExpired = await getStoredExpiredIdentity(chainId, fetchActiveIdentity)
+          const storedExpired = getStoredExpiredIdentity(activeIdentity)
           if (storedExpired) {
             return withIdentity({
               chainId,
@@ -455,7 +456,7 @@ export async function fetchAutoSignStatus(
           concurrency: FEEGRANT_CANDIDATE_CONCURRENCY,
         })
         if (!validGrantee) {
-          const storedExpired = await getStoredExpiredIdentity(chainId, fetchActiveIdentity)
+          const storedExpired = getStoredExpiredIdentity(activeIdentity)
           if (storedExpired) {
             return withIdentity({
               chainId,
@@ -482,11 +483,12 @@ export async function fetchAutoSignStatus(
         const feegrantExpiration = getFeegrantExpiration(validGrantee.feegrant.allowance)
         const allExpirations = [...grantExpirations, feegrantExpiration]
         const earliestExpiration = findEarliestDate(allExpirations)
+        const policy = authorizationPolicies?.[chainId]
         const hasBroaderGenericGrant =
-          authorizationPolicies?.[chainId]?.kind === "generic" &&
+          !!policy &&
           hasActiveGenericGrantOutsideScope(
             grantsToCheck.filter((grant) => grant.grantee === validGrantee.grantee.grantee),
-            authorizationPolicies[chainId].messageTypes,
+            policy.kind === "generic" ? policy.messageTypes : [],
           )
 
         return withIdentity({
@@ -548,12 +550,9 @@ export async function fetchAutoSignStatus(
   }
 }
 
-async function getStoredExpiredIdentity(
-  chainId: string,
-  fetchActiveIdentity: FetchAutoSignStatusParams["fetchActiveIdentity"],
-): Promise<{ grantee: string; expiration: Date } | undefined> {
-  if (!fetchActiveIdentity) return undefined
-  const identity = await fetchActiveIdentity(chainId)
+function getStoredExpiredIdentity(
+  identity: Awaited<ReturnType<NonNullable<FetchAutoSignStatusParams["fetchActiveIdentity"]>>>,
+): { grantee: string; expiration: Date } | undefined {
   if (!identity?.observedExpiration) return undefined
   const expiration = new Date(identity.observedExpiration)
   return !Number.isNaN(expiration.getTime()) && !isFuture(expiration)
@@ -880,6 +879,7 @@ export function useReconcilePendingAutoSign() {
             continue
           }
           await activatePendingIdentity(chainId, pendingIdentity.keyId)
+          await queryClient.invalidateQueries({ queryKey: autoSignQueryKeys.identities._def })
           await queryClient.invalidateQueries({ queryKey: autoSignQueryKeys.expirations._def })
         }
       }

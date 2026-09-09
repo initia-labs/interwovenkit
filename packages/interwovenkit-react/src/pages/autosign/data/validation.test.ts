@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 import type { FeegrantAllowance } from "./fetch"
 import { validateAutoSignMessages } from "./policy"
 import {
+  autoSignQueryKeys,
   canActivatePendingAutoSignIdentity,
   createAutoSignMessageTypesKey,
   createAutoSignNetworkKey,
@@ -119,6 +120,24 @@ describe("fetchAutoSignStatus", () => {
     expect(result.expiredAtByChain["initia-1"]).toBeNull()
   })
 
+  it("uses one active identity snapshot when reporting its stored expiration", async () => {
+    const fetchActiveIdentity = vi.fn().mockResolvedValue({
+      address: "init1agent",
+      observedExpiration: "2020-01-01T00:00:00Z",
+    })
+    const result = await fetchAutoSignStatus({
+      initiaAddress: "init1granter",
+      messageTypes: { "initia-1": ["/initia.move.v1.MsgExecute"] },
+      fetchActiveIdentity,
+      fetchAllGrants: vi.fn().mockResolvedValue([]),
+      fetchFeegrant: vi.fn(),
+    })
+
+    expect(fetchActiveIdentity).toHaveBeenCalledTimes(1)
+    expect(result.statusByChain["initia-1"]).toBe("expired")
+    expect(result.granteeByChain["initia-1"]).toBe("init1agent")
+  })
+
   it("includes a finite typed authorization expiry in chain status", async () => {
     const result = await fetchAutoSignStatus({
       initiaAddress: "init1granter",
@@ -152,6 +171,47 @@ describe("fetchAutoSignStatus", () => {
 
     expect(result.statusByChain["initia-1"]).toBe("enabled")
     expect(result.expiredAtByChain["initia-1"]?.toISOString()).toBe("2099-12-31T23:59:59.000Z")
+  })
+
+  it("requires a typed permission update while an active generic grant remains", async () => {
+    const result = await fetchAutoSignStatus({
+      initiaAddress: "init1granter",
+      messageTypes: { "initia-1": ["/minievm.evm.v1.MsgCall"] },
+      authorizationPolicies: {
+        "initia-1": {
+          kind: "evm",
+          contracts: ["0xabc0000000000000000000000000000000000000"],
+        },
+      },
+      fetchActiveIdentity: vi.fn().mockResolvedValue({ address: "init1agent" }),
+      fetchAllGrants: vi.fn().mockResolvedValue([
+        {
+          grantee: "init1agent",
+          authorization: {
+            "@type": "/minievm.evm.v1.CallAuthorization",
+            contracts: ["0xabc0000000000000000000000000000000000000"],
+          },
+        },
+        {
+          grantee: "init1agent",
+          authorization: {
+            "@type": "/cosmos.authz.v1beta1.GenericAuthorization",
+            msg: "/cosmos.bank.v1beta1.MsgSend",
+          },
+        },
+      ]),
+      fetchFeegrant: vi.fn().mockResolvedValue({
+        grantee: "init1agent",
+        allowance: {
+          "@type": "/cosmos.feegrant.v1beta1.AllowedMsgAllowance",
+          allowance: { "@type": "/cosmos.feegrant.v1beta1.BasicAllowance" },
+          allowedMessages: ["/cosmos.authz.v1beta1.MsgExec"],
+        },
+      }),
+    })
+
+    expect(result.statusByChain["initia-1"]).toBe("needs-permission-update")
+    expect(result.isEnabledByChain["initia-1"]).toBe(false)
   })
 
   it("only fetches grants for chains with configured message types", async () => {
@@ -919,5 +979,16 @@ describe("resolveAutoSignMessageTypes", () => {
         },
       }),
     ).toEqual({ bank: [bankType], empty: [] })
+  })
+})
+
+describe("autoSignQueryKeys", () => {
+  it("scopes stored identities by chain and owner address", () => {
+    expect(autoSignQueryKeys.identities("initia-1", "init1owner").queryKey).toEqual([
+      "interwovenkit:autosign",
+      "identities",
+      "initia-1",
+      "init1owner",
+    ])
   })
 })

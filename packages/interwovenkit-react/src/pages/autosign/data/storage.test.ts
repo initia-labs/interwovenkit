@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { createRandomWallet } from "./derivation"
 import {
   activatePendingAutoSignWallet,
+  AutoSignCancelledError,
   AutoSignStorageError,
   createPendingRandomAutoSignWallet,
   forgetAutoSignWallet,
@@ -61,7 +62,11 @@ interface FakeObjectStore {
 }
 
 interface FakeTransaction {
+  error?: DOMException | null
+  abort: () => void
+  onabort?: (event: FakeEvent<FakeTransaction>) => unknown
   oncomplete?: (event: FakeEvent<FakeTransaction>) => unknown
+  onerror?: (event: FakeEvent<FakeTransaction>) => unknown
   objectStore: (_name: string) => FakeObjectStore
 }
 
@@ -84,7 +89,16 @@ function installIndexedDb() {
     objectStoreNames: { contains: () => true },
     close: () => undefined,
     transaction: () => {
+      const snapshot = new Map(records)
+      let finished = false
       const transaction: FakeTransaction = {
+        abort: () => {
+          if (finished) throw new DOMException("Transaction already finished", "InvalidStateError")
+          finished = true
+          records.clear()
+          for (const [key, value] of snapshot) records.set(key, value)
+          queueMicrotask(() => transaction.onabort?.({ target: transaction }))
+        },
         objectStore: () => store,
       }
       const store: FakeObjectStore = {
@@ -97,7 +111,11 @@ function installIndexedDb() {
           records.delete(String(key))
         },
       }
-      setTimeout(() => transaction.oncomplete?.({ target: transaction }), 0)
+      setTimeout(() => {
+        if (finished) return
+        finished = true
+        transaction.oncomplete?.({ target: transaction })
+      }, 0)
       return transaction
     },
   }
@@ -249,5 +267,67 @@ describe("stable auto-sign identity", () => {
       expect(await loadAutoSignWallet(changed)).toBeUndefined()
     }
     wallet.privateKey.fill(0)
+  })
+
+  it("migrates every valid owner session after discarding an earlier invalid record", async () => {
+    const records = installIndexedDb()
+    const sessionStorage = new MemoryStorage()
+    vi.stubGlobal("window", { sessionStorage })
+    const firstWallet = await createRandomWallet(identity.bech32Prefix)
+    const siblingIdentity = { ...identity, chainId: "initiation-3" }
+    const siblingWallet = await createRandomWallet(siblingIdentity.bech32Prefix)
+    await saveAutoSignWallet(identity, firstWallet, "session")
+    await saveAutoSignWallet(siblingIdentity, siblingWallet, "session")
+
+    const firstSessionKey = `interwovenkit:autosign:session:${identity.owner}:${identity.chainId}:${identity.bech32Prefix}`
+    const invalid = JSON.parse(sessionStorage.getItem(firstSessionKey)!) as Record<string, unknown>
+    sessionStorage.setItem(firstSessionKey, JSON.stringify({ ...invalid, schemaVersion: 0 }))
+
+    const replacement = await createRandomWallet(identity.bech32Prefix)
+    await saveAutoSignWallet(identity, replacement, "persistent")
+
+    expect(
+      records.has(
+        `wallet:${siblingIdentity.owner}:${siblingIdentity.chainId}:${siblingIdentity.bech32Prefix}`,
+      ),
+    ).toBe(true)
+    expect(sessionStorage.length).toBe(0)
+
+    firstWallet.privateKey.fill(0)
+    siblingWallet.privateKey.fill(0)
+    replacement.privateKey.fill(0)
+  })
+
+  it("aborts durable writes and restores the exact prior session value after cancellation", async () => {
+    const records = installIndexedDb()
+    const sessionStorage = new MemoryStorage()
+    vi.stubGlobal("window", { sessionStorage })
+    const originalWallet = await createRandomWallet(identity.bech32Prefix)
+    await saveAutoSignWallet(identity, originalWallet, "persistent")
+    const preferenceKey = `preference:${identity.owner}`
+    const identityKey = `identity:${identity.owner}:${identity.chainId}:${identity.bech32Prefix}`
+    const originalPreference = records.get(preferenceKey)
+    const originalIdentity = records.get(identityKey)
+    const sessionKey = `interwovenkit:autosign:session:${identity.owner}:${identity.chainId}:${identity.bech32Prefix}`
+    sessionStorage.setItem(sessionKey, "prior-session-value")
+
+    const replacement = await createRandomWallet(identity.bech32Prefix)
+    await expect(
+      saveAutoSignWallet(
+        identity,
+        replacement,
+        "session",
+        () =>
+          (records.get(preferenceKey) as { stayConnected?: boolean } | undefined)?.stayConnected !==
+          false,
+      ),
+    ).rejects.toBeInstanceOf(AutoSignCancelledError)
+
+    expect(records.get(preferenceKey)).toBe(originalPreference)
+    expect(records.get(identityKey)).toBe(originalIdentity)
+    expect(sessionStorage.getItem(sessionKey)).toBe("prior-session-value")
+
+    originalWallet.privateKey.fill(0)
+    replacement.privateKey.fill(0)
   })
 })

@@ -97,6 +97,7 @@ const RESTORE_TIMEOUT_MS = 5_000
 export async function awaitWalletRestore<T>(
   restore: Promise<T>,
   timeoutMs = RESTORE_TIMEOUT_MS,
+  onLateResult?: (result: T) => void,
 ): Promise<T> {
   let timeout: ReturnType<typeof setTimeout> | undefined
   try {
@@ -109,6 +110,11 @@ export async function awaitWalletRestore<T>(
         )
       }),
     ])
+  } catch (error) {
+    if (onLateResult) {
+      void restore.then(onLateResult).catch(() => undefined)
+    }
+    throw error
   } finally {
     if (timeout !== undefined) clearTimeout(timeout)
   }
@@ -540,16 +546,17 @@ export function useDeriveWallet() {
         throw new Error("Stored autosign wallet does not match the expected grantee")
       }
       if (autoSignStorage !== "memory") {
+        let activeIdentity: AutoSignPublicIdentity | undefined
         try {
-          const activeIdentity = await getAutoSignPublicIdentity(identity)
-          if (
-            activeIdentity?.state === "active" &&
-            activeIdentity.address !== currentWallet.address
-          ) {
-            throw new Error("Stored autosign wallet does not match the active grantee")
-          }
+          activeIdentity = await getAutoSignPublicIdentity(identity)
         } catch (error) {
-          if (error instanceof Error && error.message.includes("active grantee")) throw error
+          if (error instanceof AutoSignCancelledError) throw error
+        }
+        if (
+          activeIdentity?.state === "active" &&
+          activeIdentity.address !== currentWallet.address
+        ) {
+          throw new Error("Stored autosign wallet does not match the active grantee")
         }
       }
       if (autoSignStorage !== "memory" && options?.stayConnected !== undefined) {
@@ -608,18 +615,22 @@ export function useDeriveWallet() {
         }
         let matchingActiveIdentity: AutoSignPublicIdentity | undefined
         if (autoSignStorage !== "memory") {
+          let storedIdentity: AutoSignPublicIdentity | undefined
           try {
-            const storedIdentity = await getAutoSignPublicIdentity(identity)
-            matchingActiveIdentity = getMatchingActiveAutoSignIdentity(
-              storedIdentity,
-              publicWallet.address,
-            )
-            if (storedIdentity?.state === "active" && !matchingActiveIdentity) {
-              wallet.privateKey.fill(0)
-              throw new Error("Derived autosign wallet does not match the active grantee")
-            }
+            storedIdentity = await getAutoSignPublicIdentity(identity)
           } catch (error) {
-            if (error instanceof Error && error.message.includes("active grantee")) throw error
+            if (error instanceof AutoSignCancelledError) {
+              wallet.privateKey.fill(0)
+              throw error
+            }
+          }
+          matchingActiveIdentity = getMatchingActiveAutoSignIdentity(
+            storedIdentity,
+            publicWallet.address,
+          )
+          if (storedIdentity?.state === "active" && !matchingActiveIdentity) {
+            wallet.privateKey.fill(0)
+            throw new Error("Derived autosign wallet does not match the active grantee")
           }
         }
 
@@ -713,7 +724,10 @@ export function useDeriveWallet() {
     if (!userAddress || autoSignStorage === "memory") return undefined
     const { identity, key } = getKey(chainId)
     const generation = store.get(walletGenerationAtom)
-    const restored = await awaitWalletRestore(loadAutoSignWallet(identity))
+    const restore = loadAutoSignWallet(identity)
+    const restored = await awaitWalletRestore(restore, RESTORE_TIMEOUT_MS, (late) =>
+      late?.privateKey.fill(0),
+    )
     if (!restored) return undefined
     if (
       store.get(walletGenerationAtom) !== generation ||

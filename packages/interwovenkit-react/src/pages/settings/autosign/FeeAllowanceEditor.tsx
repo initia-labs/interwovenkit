@@ -116,16 +116,16 @@ const FeeAllowanceEditor = ({ chainId, grantee, spendLimit }: Props) => {
               />
               <span>
                 <strong>Limit total fees</strong>
-                <small>Set a cumulative budget for fees paid from your wallet.</small>
+                <small>Set a new budget for future fees paid from your wallet.</small>
               </span>
             </label>
             {limitFees && asset && (
               <label className={styles.field}>
-                <span>Total fee budget</span>
+                <span>New fee budget</span>
                 <div className={styles.inputRow}>
                   <input
                     value={amount}
-                    aria-label="Total fee budget"
+                    aria-label="New fee budget"
                     onChange={(event) => setAmount(event.target.value)}
                     inputMode="decimal"
                     autoComplete="off"

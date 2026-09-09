@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import type { FeegrantAllowance, Grant } from "./fetch"
 import {
+  fetchGrantsForParties,
   getAutoSignRestOptions,
   getFeegrantAllowedMessages,
   getFeegrantExpiration,
@@ -8,6 +9,51 @@ import {
   isFeegrantNotFoundResponse,
   normalizeAutoSignGrants,
 } from "./fetch"
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+describe("fetchGrantsForParties", () => {
+  it("keeps both addresses on every paginated request", async () => {
+    const requests: string[] = []
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = input instanceof Request ? input.url : input.toString()
+        requests.push(url)
+        const isNextPage = new URL(url).searchParams.has("pagination.key")
+        return new Response(
+          JSON.stringify({
+            grants: [
+              {
+                authorization: {
+                  "@type": "/cosmos.authz.v1beta1.GenericAuthorization",
+                  msg: isNextPage ? "/initia.move.v1.MsgExecute" : "/cosmos.bank.v1beta1.MsgSend",
+                },
+              },
+            ],
+            pagination: { next_key: isNextPage ? null : "next", total: "2" },
+          }),
+        )
+      }),
+    )
+
+    const grants = await fetchGrantsForParties("https://rest.example", "init1owner", "init1signer")
+
+    expect(grants).toEqual([
+      expect.objectContaining({ granter: "init1owner", grantee: "init1signer" }),
+      expect.objectContaining({ granter: "init1owner", grantee: "init1signer" }),
+    ])
+    expect(requests).toHaveLength(2)
+    for (const request of requests) {
+      const params = new URL(request).searchParams
+      expect(params.get("granter")).toBe("init1owner")
+      expect(params.get("grantee")).toBe("init1signer")
+    }
+    expect(new URL(requests[1]!).searchParams.get("pagination.key")).toBe("next")
+  })
+})
 
 describe("feegrant helpers", () => {
   it("bypasses stale browser caches for autosign REST reads", () => {

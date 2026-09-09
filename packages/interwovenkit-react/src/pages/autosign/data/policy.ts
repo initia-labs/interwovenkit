@@ -456,7 +456,11 @@ export function validateAutoSignMessages(
       }
     for (const [denom, amount] of total.funds) {
       const maximum = amounts.find((coin) => coin.denom === denom)
-      if (!maximum || amount > BigInt(maximum.amount))
+      if (
+        !maximum ||
+        !/^(?:0|[1-9][0-9]*)$/.test(maximum.amount) ||
+        amount > BigInt(maximum.amount)
+      )
         return {
           valid: false,
           enforcement: "on-chain",

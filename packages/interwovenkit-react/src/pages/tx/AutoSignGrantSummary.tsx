@@ -124,9 +124,11 @@ const AutoSignGrantSummary = ({ message, chainId }: { message: EncodeObject; cha
   const expiration =
     summary.kind === "permission"
       ? summary.expiration
-      : "expiration" in summary.allowance
-        ? summary.allowance.expiration
-        : undefined
+      : summary.allowance.kind === "unknown"
+        ? "Unknown"
+        : "expiration" in summary.allowance
+          ? summary.allowance.expiration
+          : undefined
 
   return (
     <section className={styles.summary} aria-label="Auto-signing approval summary">
@@ -153,7 +155,9 @@ const AutoSignGrantSummary = ({ message, chainId }: { message: EncodeObject; cha
       )}
       <div>
         <div className={styles.key}>Expires</div>
-        <div className={styles.value}>{expiration ? expiration.toLocaleString() : "Never"}</div>
+        <div className={styles.value}>
+          {expiration instanceof Date ? expiration.toLocaleString() : (expiration ?? "Never")}
+        </div>
       </div>
     </section>
   )

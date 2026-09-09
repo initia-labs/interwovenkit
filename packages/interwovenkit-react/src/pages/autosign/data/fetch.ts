@@ -113,6 +113,24 @@ export async function isFeegrantNotFoundResponse(response: Response): Promise<bo
   }
 }
 
+export async function fetchGrantsForParties(
+  restUrl: string,
+  granter: string,
+  grantee: string,
+): Promise<Grant[]> {
+  // QueryGrantsResponse contains bare authorization grants; the requested
+  // addresses live on QueryGrantsRequest rather than each response item.
+  const grants = await fetchAllPages<"grants", Omit<Grant, "granter" | "grantee">>(
+    "cosmos/authz/v1beta1/grants",
+    {
+      ...getAutoSignRestOptions(restUrl),
+      searchParams: { granter, grantee },
+    },
+    "grants",
+  )
+  return grants.map((grant) => ({ ...grant, granter, grantee }))
+}
+
 export function useAutoSignApi() {
   const initiaAddress = useInitiaAddress()
   const findChain = useFindChain()
@@ -142,18 +160,13 @@ export function useAutoSignApi() {
     }
   }
 
-  // Querying the granter endpoint is paginated and avoids trusting a one-page
-  // result for revocation or grant verification.
+  // Query by both parties and paginate so revocation checks do not download
+  // every grant ever issued by the owner.
   const fetchGrants = async (chainId: string, grantee: string): Promise<Grant[]> => {
     if (!initiaAddress) return []
 
     const chain = findChain(chainId)
-    const grants = await fetchAllPages<"grants", Grant>(
-      `cosmos/authz/v1beta1/grants/granter/${initiaAddress}`,
-      getAutoSignRestOptions(chain.restUrl),
-      "grants",
-    )
-    return grants.filter((grant) => grant.grantee === grantee)
+    return fetchGrantsForParties(chain.restUrl, initiaAddress, grantee)
   }
 
   const fetchAllGrants = async (chainId: string) => {

@@ -264,12 +264,21 @@ async function readPersistent<T>(key: string): Promise<T | undefined> {
 async function updatePersistent(
   update: (store: IDBObjectStore) => void | Promise<void>,
 ): Promise<void> {
+  let transaction: IDBTransaction | undefined
+  let done: Promise<void> | undefined
   try {
     const database = await getDatabase()
-    const transaction = database.transaction(STORE_NAME, "readwrite")
+    transaction = database.transaction(STORE_NAME, "readwrite")
+    done = transactionDone(transaction)
     await update(transaction.objectStore(STORE_NAME))
-    await transactionDone(transaction)
+    await done
   } catch (error) {
+    try {
+      transaction?.abort()
+    } catch {
+      // The transaction already finished, so there is nothing left to roll back.
+    }
+    await done?.catch(() => undefined)
     if (error instanceof AutoSignStorageError || error instanceof AutoSignCancelledError)
       throw error
     throw new AutoSignStorageError()
@@ -392,6 +401,7 @@ function writeSessionRecord(identity: AutoSignIdentity, record: SessionWalletRec
   const serialized = JSON.stringify(record)
   storage.setItem(key, serialized)
   if (storage.getItem(key) !== serialized) throw new AutoSignStorageError()
+  return serialized
 }
 
 /** Merges grant observations without treating an explicit undefined as an omission. */
@@ -518,9 +528,12 @@ async function ownerSessionWallets(owner: string, revision: number) {
     wallet: DerivedWallet
   }> = []
   const discard = (key: string) => storage.removeItem(key)
+  const keys: string[] = []
   for (let index = 0; index < storage.length; index += 1) {
     const key = storage.key(index)
-    if (!key?.startsWith(prefix)) continue
+    if (key?.startsWith(prefix)) keys.push(key)
+  }
+  for (const key of keys) {
     let record: SessionWalletRecord
     try {
       record = JSON.parse(storage.getItem(key) ?? "") as SessionWalletRecord
@@ -908,52 +921,57 @@ export async function saveAutoSignWallet(
       ...toSessionRecord(identity, wallet, keyId, "active", preference.revision, grant),
       provenance,
     }
+    const storage = getSessionStorage()
+    const key = sessionKey(identity)
+    const original = storage.getItem(key)
+    let serialized: string | undefined
     try {
       if (previous.stayConnected) {
         await handoffOwnerWalletsToSession(identity.owner, preference.revision, isCurrent)
       }
-      writeSessionRecord(identity, sessionRecord)
-      if (!isCurrent()) {
-        getSessionStorage().removeItem(sessionKey(identity))
-        throw new AutoSignCancelledError()
-      }
+      serialized = writeSessionRecord(identity, sessionRecord)
+      if (!isCurrent()) throw new AutoSignCancelledError()
+      await updatePersistent(async (store) => {
+        await assertUnchangedPreference(store)
+        await preserveReplacedForgottenIdentity(store, identity, sessionRecord.address)
+        store.put(
+          {
+            ...preference,
+            schemaVersion: SCHEMA_VERSION,
+            owner: identity.owner,
+            origin: identity.origin,
+          },
+          preferenceKey(identity.owner),
+        )
+        store.put(
+          {
+            ...identity,
+            address: sessionRecord.address,
+            publicKey: sessionRecord.publicKey,
+            provenance: sessionRecord.provenance,
+            keyId: sessionRecord.keyId,
+            state: sessionRecord.state,
+            revision: sessionRecord.revision,
+            requestedDurationMs: sessionRecord.requestedDurationMs,
+            observedExpiration: sessionRecord.observedExpiration,
+          } satisfies AutoSignPublicIdentity,
+          identityKey(identity),
+        )
+        if (previous.stayConnected) {
+          await markOwnerPendingIdentitiesForgotten(store, identity.owner, isCurrent)
+          if (!isCurrent()) throw new AutoSignCancelledError()
+          await deleteOwnerWallets(store, identity.owner)
+        }
+      })
     } catch (error) {
+      if (serialized && storage.getItem(key) === serialized) {
+        if (original === null) storage.removeItem(key)
+        else storage.setItem(key, original)
+      }
       if (error instanceof AutoSignStorageError || error instanceof AutoSignCancelledError)
         throw error
       throw new AutoSignStorageError()
     }
-    await updatePersistent(async (store) => {
-      await assertUnchangedPreference(store)
-      await preserveReplacedForgottenIdentity(store, identity, sessionRecord.address)
-      store.put(
-        {
-          ...preference,
-          schemaVersion: SCHEMA_VERSION,
-          owner: identity.owner,
-          origin: identity.origin,
-        },
-        preferenceKey(identity.owner),
-      )
-      store.put(
-        {
-          ...identity,
-          address: sessionRecord.address,
-          publicKey: sessionRecord.publicKey,
-          provenance: sessionRecord.provenance,
-          keyId: sessionRecord.keyId,
-          state: sessionRecord.state,
-          revision: sessionRecord.revision,
-          requestedDurationMs: sessionRecord.requestedDurationMs,
-          observedExpiration: sessionRecord.observedExpiration,
-        } satisfies AutoSignPublicIdentity,
-        identityKey(identity),
-      )
-      if (previous.stayConnected) {
-        await markOwnerPendingIdentitiesForgotten(store, identity.owner, isCurrent)
-        if (!isCurrent()) throw new AutoSignCancelledError()
-        await deleteOwnerWallets(store, identity.owner)
-      }
-    })
     return preference
   }
 

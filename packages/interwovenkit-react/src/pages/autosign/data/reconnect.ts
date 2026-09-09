@@ -43,7 +43,9 @@ export function useAutoSignReconnect() {
         chainId,
         durationInMs: data?.requestedDurationInMsByChain[chainId],
       })
+      return true
     }
+    return false
   })
 
   useEffect(() => {
@@ -81,9 +83,9 @@ export function useAutoSignReconnect() {
       // Give an already-open tab a chance to share its session dismissal.
       await new Promise((resolve) => setTimeout(resolve, 100))
       if (cancelled || wasShown(id)) return
+      if (!openReconnect(chainId)) return
       markShown(id)
       broadcastAutoSignEvent({ topic: "reconnect-shown", owner, id })
-      openReconnect(chainId)
     }).catch(() => undefined)
     return () => {
       cancelled = true

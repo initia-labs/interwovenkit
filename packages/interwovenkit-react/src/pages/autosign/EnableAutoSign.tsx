@@ -188,7 +188,7 @@ const EnableAutoSignComponent = () => {
                 <span>{name}</span>
               </div>
             </div>
-            {pendingRequest.defaultDuration !== 0 && durationLabel && (
+            {durationLabel && (
               <div className={styles.infoItem}>
                 <div className={styles.label}>Duration</div>
                 <div className={styles.infoValue}>{durationLabel}</div>

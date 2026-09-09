@@ -120,7 +120,7 @@ export function useAutoSignGrantInventory() {
     : []
   const identityQueries = useQueries({
     queries: registry.map((chain) => ({
-      queryKey: ["interwovenkit:autosign", "identities", initiaAddress, chain.chain_id],
+      queryKey: autoSignQueryKeys.identities(chain.chain_id, initiaAddress).queryKey,
       queryFn: () => getWalletIdentities(chain.chain_id),
       enabled: !!initiaAddress,
       staleTime: STALE_TIMES.SECOND,

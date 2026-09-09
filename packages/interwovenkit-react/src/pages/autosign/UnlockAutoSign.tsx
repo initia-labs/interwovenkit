@@ -60,16 +60,31 @@ const UnlockAutoSign = () => {
     (!pendingUnlock || pendingUnlock.owner === initiaAddress)
 
   const [stayConnected, setStayConnected] = useState(true)
-  const [isLoadingPreference, setIsLoadingPreference] = useState(autoSignStorage !== "memory")
+  const preferenceScope = JSON.stringify([
+    autoSignStorage,
+    chainId,
+    initiaAddress,
+    pendingUnlock?.owner,
+  ])
+  const [loadedPreferenceScope, setLoadedPreferenceScope] = useState<string>()
+  const isLoadingPreference =
+    autoSignStorage !== "memory" && loadedPreferenceScope !== preferenceScope
   const [isPending, setIsPending] = useState(false)
   const [error, setError] = useState("")
 
   useEffect(() => {
-    if (autoSignStorage === "memory") {
-      setStayConnected(false)
-      return
-    }
+    hasChosenPreferenceRef.current = false
     let active = true
+    if (autoSignStorage === "memory") {
+      void Promise.resolve().then(() => {
+        if (!active) return
+        setStayConnected(false)
+        setLoadedPreferenceScope(undefined)
+      })
+      return () => {
+        active = false
+      }
+    }
     walletRef.current
       .getStayConnected(chainId)
       .then((value) => {
@@ -84,15 +99,16 @@ const UnlockAutoSign = () => {
         }
       })
       .finally(() => {
-        if (active) setIsLoadingPreference(false)
+        if (active) setLoadedPreferenceScope(preferenceScope)
       })
     return () => {
       active = false
     }
-  }, [autoSignStorage, chainId, pendingUnlock?.owner])
+  }, [autoSignStorage, chainId, initiaAddress, pendingUnlock?.owner, preferenceScope])
 
   useEffect(() => {
     let active = true
+    setIsLoadingIdentity(true)
     walletRef.current
       .getActiveIdentity(chainId)
       .then((identity) => {

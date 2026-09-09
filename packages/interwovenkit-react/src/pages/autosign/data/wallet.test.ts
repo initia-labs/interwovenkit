@@ -15,6 +15,7 @@ import {
   pendingDerivationsAtom,
 } from "./store"
 import {
+  awaitWalletRestore,
   clearAllWalletState,
   clearExpectedAddressFromStorage,
   DerivedWalletSigner,
@@ -38,6 +39,25 @@ async function createTestWallet(): Promise<DerivedWallet> {
     address: "init1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqpqr5e3d",
   }
 }
+
+describe("awaitWalletRestore", () => {
+  it("zeroizes a restored key that arrives after the timeout", async () => {
+    let resolveRestore!: (wallet: DerivedWallet) => void
+    const restore = new Promise<DerivedWallet>((resolve) => {
+      resolveRestore = resolve
+    })
+    const lateWallet = await createTestWallet()
+
+    await expect(
+      awaitWalletRestore(restore, 0, (wallet) => wallet.privateKey.fill(0)),
+    ).rejects.toThrow("Autosign browser storage timed out")
+    resolveRestore(lateWallet)
+    await restore
+    await Promise.resolve()
+
+    expect(Array.from(lateWallet.privateKey)).toEqual(new Array(32).fill(0))
+  })
+})
 
 function createTestSignDoc(): StdSignDoc {
   return {

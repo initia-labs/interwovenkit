@@ -10,6 +10,7 @@ import { useFindChain } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import { useDrawer } from "@/data/ui"
 import { useLocationState } from "@/lib/router"
+import { useInitiaAddress } from "@/public/data/hooks"
 import { useRenewAutoSign } from "./data/actions"
 import { DURATION_OPTIONS } from "./data/constants"
 import { useDeriveWallet } from "./data/wallet"
@@ -22,13 +23,17 @@ const FINITE_DURATION_OPTIONS = DURATION_OPTIONS.filter((option) => option.value
 const ReconnectAutoSign = () => {
   const state = useLocationState<{ chainId?: string; durationInMs?: number }>()
   const { autoSignStorage, defaultChainId } = useConfig()
+  const owner = useInitiaAddress()
   const chainId = state.chainId ?? defaultChainId
   const hasKnownDuration = !!state.durationInMs && state.durationInMs > 0
   const [durationInMs, setDurationInMs] = useState(
     hasKnownDuration ? state.durationInMs! : FINITE_DURATION_OPTIONS[0]!.value,
   )
   const [stayConnected, setStayConnected] = useState(autoSignStorage !== "memory")
-  const [isLoadingPreference, setIsLoadingPreference] = useState(autoSignStorage !== "memory")
+  const preferenceScope = JSON.stringify([autoSignStorage, chainId, owner])
+  const [loadedPreferenceScope, setLoadedPreferenceScope] = useState<string>()
+  const isLoadingPreference =
+    autoSignStorage !== "memory" && loadedPreferenceScope !== preferenceScope
   const [error, setError] = useState("")
 
   const chain = useFindChain()(chainId)
@@ -42,8 +47,17 @@ const ReconnectAutoSign = () => {
   }, [wallet])
 
   useEffect(() => {
-    if (autoSignStorage === "memory") return
     let active = true
+    if (autoSignStorage === "memory") {
+      void Promise.resolve().then(() => {
+        if (!active) return
+        setStayConnected(false)
+        setLoadedPreferenceScope(undefined)
+      })
+      return () => {
+        active = false
+      }
+    }
     walletRef.current
       .getStayConnected(chainId)
       .then((value) => {
@@ -58,12 +72,12 @@ const ReconnectAutoSign = () => {
         }
       })
       .finally(() => {
-        if (active) setIsLoadingPreference(false)
+        if (active) setLoadedPreferenceScope(preferenceScope)
       })
     return () => {
       active = false
     }
-  }, [autoSignStorage, chainId])
+  }, [autoSignStorage, chainId, owner, preferenceScope])
 
   const handleReconnect = async () => {
     setError("")

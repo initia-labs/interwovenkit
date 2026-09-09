@@ -404,4 +404,37 @@ describe("autosign permission adapters", () => {
       ]),
     ).toMatchObject({ valid: false })
   })
+
+  it("rejects a malformed observed Wasm funds limit without throwing", () => {
+    const observedPolicy = observedAuthorizationToPermissionPolicy(
+      parseObservedAuthorization({
+        authorization: {
+          "@type": "/cosmwasm.wasm.v1.ContractExecutionAuthorization",
+          grants: [
+            {
+              contract: "init1contract",
+              filter: { "@type": "/cosmwasm.wasm.v1.AllowAllMessagesFilter" },
+              limit: {
+                "@type": "/cosmwasm.wasm.v1.MaxFundsLimit",
+                amounts: [{ denom: "uinit", amount: "invalid" }],
+              },
+            },
+          ],
+        },
+      }),
+    )
+
+    expect(
+      validateAutoSignMessages(observedPolicy!, [
+        {
+          typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
+          value: {
+            contract: "init1contract",
+            msg: new TextEncoder().encode('{"swap":{}}'),
+            funds: [{ denom: "uinit", amount: "1" }],
+          },
+        },
+      ]),
+    ).toMatchObject({ valid: false })
+  })
 })
