@@ -80,24 +80,22 @@ const ReconnectAutoSign = () => {
     Promise.allSettled([
       walletRef.current.restoreWallet(chainId),
       walletRef.current.getWalletIdentities(chainId),
-    ])
-      .then(([restored, identities]) => {
-        if (!active) return
-        const matchingIdentities =
-          identities.status === "fulfilled"
-            ? identities.value.filter(
-                (identity) => identity.owner === owner && identity.chainId === chainId,
-              )
-            : []
-        setIdentityState({
-          scope: identityScope,
-          hasWallet:
-            restored.status === "fulfilled" &&
-            (!!restored.value || !!walletRef.current.getWallet(chainId)),
-          identity:
-            matchingIdentities.find((identity) => identity.state === "active"),
-        })
+    ]).then(([restored, identities]) => {
+      if (!active) return
+      const matchingIdentities =
+        identities.status === "fulfilled"
+          ? identities.value.filter(
+              (identity) => identity.owner === owner && identity.chainId === chainId,
+            )
+          : []
+      setIdentityState({
+        scope: identityScope,
+        hasWallet:
+          restored.status === "fulfilled" &&
+          (!!restored.value || !!walletRef.current.getWallet(chainId)),
+        identity: matchingIdentities.find((identity) => identity.state === "active"),
       })
+    })
     return () => {
       active = false
     }
@@ -113,9 +111,7 @@ const ReconnectAutoSign = () => {
       })
       closeDrawer()
     } catch (renewError) {
-      setError(
-        renewError instanceof Error ? renewError.message : "Unable to reconnect autosign.",
-      )
+      setError(renewError instanceof Error ? renewError.message : "Unable to reconnect autosign.")
     }
   }
 

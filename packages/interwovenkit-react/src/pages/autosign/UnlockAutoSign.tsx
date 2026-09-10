@@ -107,9 +107,7 @@ const UnlockAutoSign = () => {
         navigate(-1)
       }
     } catch (unlockError) {
-      setError(
-        unlockError instanceof Error ? unlockError.message : "Unable to continue autosign.",
-      )
+      setError(unlockError instanceof Error ? unlockError.message : "Unable to continue autosign.")
     } finally {
       setIsPending(false)
     }

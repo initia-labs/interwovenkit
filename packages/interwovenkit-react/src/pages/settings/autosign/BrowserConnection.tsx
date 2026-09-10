@@ -7,10 +7,7 @@ import { subscribeAutoSignEvents } from "@/pages/autosign/data/lifecycle"
 import { useAutoSign } from "@/pages/autosign/data/public"
 import type { AutoSignPublicIdentity } from "@/pages/autosign/data/storage"
 import { useAutoSignStatus } from "@/pages/autosign/data/validation"
-import {
-  getExpectedAddress,
-  useDeriveWallet,
-} from "@/pages/autosign/data/wallet"
+import { getExpectedAddress, useDeriveWallet } from "@/pages/autosign/data/wallet"
 import { useInitiaAddress } from "@/public/data/hooks"
 import styles from "./BrowserConnection.module.css"
 
