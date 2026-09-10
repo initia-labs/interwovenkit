@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { TxExecutionError } from "@/data/errors"
 import { activeWalletOwnerAtom, pendingAutoSignRequestAtom, walletGenerationAtom } from "./store"
 
 const mocks = vi.hoisted(() => ({
@@ -229,7 +230,7 @@ describe("useRenewAutoSign random signer recovery", () => {
   })
 
   it("revokes the old grantee and discards the pending key after a confirmed failure", async () => {
-    mocks.requestTxBlock.mockResolvedValue({ code: 5, rawLog: "renewal failed" })
+    mocks.requestTxBlock.mockRejectedValue(new TxExecutionError("renewal failed", 5, "txhash"))
 
     await expect(useRenewMutationForTest().mutationFn(input)).rejects.toThrow("renewal failed")
 

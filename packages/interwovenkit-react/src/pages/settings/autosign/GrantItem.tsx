@@ -13,7 +13,6 @@ import {
 } from "@/pages/autosign/data/inventory"
 import { useAutoSignStatus } from "@/pages/autosign/data/validation"
 import ExpirationCountdown from "./ExpirationCountdown"
-import FeeAllowanceEditor from "./FeeAllowanceEditor"
 import styles from "./GrantItem.module.css"
 
 interface GrantItemProps {
@@ -51,8 +50,6 @@ const GrantItem = ({
     internal: true,
   })
 
-  const isEditableFeeAllowance =
-    feeAllowance.kind === "limited" || feeAllowance.kind === "unlimited"
   const hasUnknownAuthorization = authorizations.some((authorization) => !authorization.known)
   const feeLabel =
     feeAllowance.kind === "unknown"
@@ -151,13 +148,6 @@ const GrantItem = ({
         </div>
       </details>
       {revokeError && <FormHelp level="error">{revokeError.message}</FormHelp>}
-      {attribution === "local-current" && isEditableFeeAllowance && (
-        <FeeAllowanceEditor
-          chainId={chainId}
-          grantee={grantee}
-          spendLimit={feeAllowance.kind === "limited" ? feeAllowance.spendLimit : []}
-        />
-      )}
     </div>
   )
 }

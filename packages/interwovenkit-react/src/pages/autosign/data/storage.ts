@@ -117,6 +117,15 @@ function walletKey(identity: AutoSignIdentity) {
   return `wallet:${identity.owner}:${identity.chainId}:${identity.bech32Prefix}`
 }
 
+function matchesIdentity(value: AutoSignIdentity, identity: AutoSignIdentity) {
+  return (
+    value.owner === identity.owner &&
+    value.chainId === identity.chainId &&
+    value.bech32Prefix === identity.bech32Prefix &&
+    value.origin === identity.origin
+  )
+}
+
 function identityKey(identity: AutoSignIdentity) {
   return `identity:${identity.owner}:${identity.chainId}:${identity.bech32Prefix}`
 }
@@ -175,7 +184,9 @@ function createKeyId() {
   return toBase64(getCrypto().getRandomValues(new Uint8Array(16)))
 }
 
-function toPublicIdentity(record: EncryptedWalletRecord): AutoSignPublicIdentity {
+function toPublicIdentity(
+  record: EncryptedWalletRecord | SessionWalletRecord,
+): AutoSignPublicIdentity {
   return {
     owner: record.owner,
     chainId: record.chainId,
@@ -429,10 +440,7 @@ function isMatchingActiveSessionRecord(
 ): boolean {
   return (
     record.schemaVersion === SCHEMA_VERSION &&
-    record.owner === identity.owner &&
-    record.chainId === identity.chainId &&
-    record.bech32Prefix === identity.bech32Prefix &&
-    record.origin === identity.origin &&
+    matchesIdentity(record, identity) &&
     record.keyId === keyId &&
     record.revision === revision &&
     record.state === "active" &&
@@ -449,14 +457,7 @@ export function isExactAutoSignPublicIdentity(
   identity: AutoSignIdentity,
   keyId: string,
 ): value is AutoSignPublicIdentity {
-  return (
-    !!value &&
-    value.owner === identity.owner &&
-    value.chainId === identity.chainId &&
-    value.bech32Prefix === identity.bech32Prefix &&
-    value.origin === identity.origin &&
-    value.keyId === keyId
-  )
+  return !!value && matchesIdentity(value, identity) && value.keyId === keyId
 }
 
 function isMatchingActivePublicIdentity(
@@ -466,12 +467,7 @@ function isMatchingActivePublicIdentity(
   keyId: string,
 ): value is AutoSignPublicIdentity {
   return (
-    !!value &&
-    value.owner === identity.owner &&
-    value.chainId === identity.chainId &&
-    value.bech32Prefix === identity.bech32Prefix &&
-    value.origin === identity.origin &&
-    value.keyId === keyId &&
+    isExactAutoSignPublicIdentity(value, identity, keyId) &&
     value.revision === revision &&
     value.state === "active" &&
     typeof value.address === "string" &&
@@ -630,23 +626,8 @@ async function handoffOwnerSessionWalletsToPersistent({
     ])
     await updatePersistent(async (store) => {
       if (!isCurrent()) throw new AutoSignCancelledError()
-      const current = currentPreference(
-        (await request(store.get(preferenceKey(identity.owner)))) as StoredPreference | undefined,
-        identity.owner,
-        identity.origin,
-      )
-      if (current.revision !== previous.revision || current.explicit !== previous.explicit) {
-        throw new AutoSignCancelledError()
-      }
-      store.put(
-        {
-          ...preference,
-          schemaVersion: SCHEMA_VERSION,
-          owner: identity.owner,
-          origin: identity.origin,
-        },
-        preferenceKey(identity.owner),
-      )
+      await assertUnchangedPreference(store, identity, previous)
+      writePreference(store, identity, preference)
       for (const record of encrypted) {
         store.put(record, walletKey(record))
         store.put(toPublicIdentity(record), identityKey(record))
@@ -685,6 +666,38 @@ function currentPreference(
     forgotten: value.forgotten,
     explicit: true,
   }
+}
+
+function writePreference(
+  store: IDBObjectStore,
+  identity: AutoSignIdentity,
+  preference: AutoSignPreference,
+) {
+  store.put(
+    {
+      ...preference,
+      schemaVersion: SCHEMA_VERSION,
+      owner: identity.owner,
+      origin: identity.origin,
+    },
+    preferenceKey(identity.owner),
+  )
+}
+
+async function assertUnchangedPreference(
+  store: IDBObjectStore,
+  identity: AutoSignIdentity,
+  previous: AutoSignPreference,
+) {
+  const current = currentPreference(
+    (await request(store.get(preferenceKey(identity.owner)))) as StoredPreference | undefined,
+    identity.owner,
+    identity.origin,
+  )
+  if (current.revision !== previous.revision || current.explicit !== previous.explicit) {
+    throw new AutoSignCancelledError()
+  }
+  return current
 }
 
 export async function getAutoSignPreference(
@@ -815,10 +828,7 @@ function parseSessionWallet(
       record.schemaVersion !== SCHEMA_VERSION ||
       (record.provenance !== "legacy-derived" && record.provenance !== "random") ||
       record.state !== "active" ||
-      record.owner !== identity.owner ||
-      record.chainId !== identity.chainId ||
-      record.bech32Prefix !== identity.bech32Prefix ||
-      record.origin !== identity.origin ||
+      !matchesIdentity(record, identity) ||
       record.revision !== revision
     ) {
       return Promise.resolve(undefined)
@@ -870,12 +880,7 @@ export async function loadAutoSignWallet(
   const record = await readPersistent<EncryptedWalletRecord>(walletKey(identity))
   if (!record || record.revision !== preference.revision || record.state !== "active")
     return undefined
-  if (
-    record.owner !== identity.owner ||
-    record.chainId !== identity.chainId ||
-    record.bech32Prefix !== identity.bech32Prefix ||
-    record.origin !== identity.origin
-  ) {
+  if (!matchesIdentity(record, identity)) {
     return undefined
   }
   return decryptWallet(record)
@@ -904,18 +909,6 @@ export async function saveAutoSignWallet(
     observedExpiration: existing.observedExpiration,
   }
 
-  const assertUnchangedPreference = async (store: IDBObjectStore) => {
-    if (!isCurrent()) throw new AutoSignCancelledError()
-    const current = currentPreference(
-      (await request(store.get(preferenceKey(identity.owner)))) as StoredPreference | undefined,
-      identity.owner,
-      identity.origin,
-    )
-    if (current.revision !== previous.revision || current.explicit !== previous.explicit) {
-      throw new AutoSignCancelledError()
-    }
-  }
-
   if (mode === "session") {
     const sessionRecord = {
       ...toSessionRecord(identity, wallet, keyId, "active", preference.revision, grant),
@@ -932,31 +925,11 @@ export async function saveAutoSignWallet(
       serialized = writeSessionRecord(identity, sessionRecord)
       if (!isCurrent()) throw new AutoSignCancelledError()
       await updatePersistent(async (store) => {
-        await assertUnchangedPreference(store)
+        if (!isCurrent()) throw new AutoSignCancelledError()
+        await assertUnchangedPreference(store, identity, previous)
         await preserveReplacedForgottenIdentity(store, identity, sessionRecord.address)
-        store.put(
-          {
-            ...preference,
-            schemaVersion: SCHEMA_VERSION,
-            owner: identity.owner,
-            origin: identity.origin,
-          },
-          preferenceKey(identity.owner),
-        )
-        store.put(
-          {
-            ...identity,
-            address: sessionRecord.address,
-            publicKey: sessionRecord.publicKey,
-            provenance: sessionRecord.provenance,
-            keyId: sessionRecord.keyId,
-            state: sessionRecord.state,
-            revision: sessionRecord.revision,
-            requestedDurationMs: sessionRecord.requestedDurationMs,
-            observedExpiration: sessionRecord.observedExpiration,
-          } satisfies AutoSignPublicIdentity,
-          identityKey(identity),
-        )
+        writePreference(store, identity, preference)
+        store.put(toPublicIdentity(sessionRecord), identityKey(identity))
         if (previous.stayConnected) {
           await markOwnerPendingIdentitiesForgotten(store, identity.owner, isCurrent)
           if (!isCurrent()) throw new AutoSignCancelledError()
@@ -1006,17 +979,10 @@ export async function saveAutoSignWallet(
       grant,
     )
     await updatePersistent(async (store) => {
-      await assertUnchangedPreference(store)
+      if (!isCurrent()) throw new AutoSignCancelledError()
+      await assertUnchangedPreference(store, identity, previous)
       await preserveReplacedForgottenIdentity(store, identity, encrypted.address)
-      store.put(
-        {
-          ...preference,
-          schemaVersion: SCHEMA_VERSION,
-          owner: identity.owner,
-          origin: identity.origin,
-        },
-        preferenceKey(identity.owner),
-      )
+      writePreference(store, identity, preference)
       store.put(encrypted, walletKey(identity))
       store.put(toPublicIdentity(encrypted), identityKey(identity))
     })
@@ -1031,15 +997,7 @@ export async function getAutoSignPublicIdentity(
   identity: AutoSignIdentity,
 ): Promise<AutoSignPublicIdentity | undefined> {
   const value = await readPersistent<AutoSignPublicIdentity>(identityKey(identity))
-  if (
-    !value ||
-    value.owner !== identity.owner ||
-    value.chainId !== identity.chainId ||
-    value.bech32Prefix !== identity.bech32Prefix ||
-    value.origin !== identity.origin ||
-    !value.address ||
-    !value.keyId
-  ) {
+  if (!value || !matchesIdentity(value, identity) || !value.address || !value.keyId) {
     return undefined
   }
   return value
@@ -1133,24 +1091,9 @@ export async function createPendingRandomAutoSignWallet(
     ])
     await updatePersistent(async (store) => {
       if (!isCurrent()) throw new AutoSignCancelledError()
-      const current = currentPreference(
-        (await request(store.get(preferenceKey(identity.owner)))) as StoredPreference | undefined,
-        identity.owner,
-        identity.origin,
-      )
-      if (current.revision !== previous.revision || current.explicit !== previous.explicit) {
-        throw new AutoSignCancelledError()
-      }
+      const current = await assertUnchangedPreference(store, identity, previous)
       if (!current.stayConnected) {
-        store.put(
-          {
-            ...preference,
-            schemaVersion: SCHEMA_VERSION,
-            owner: identity.owner,
-            origin: identity.origin,
-          },
-          preferenceKey(identity.owner),
-        )
+        writePreference(store, identity, preference)
       }
       for (const migrated of migratedSessions) {
         store.put(migrated, walletKey(migrated))
@@ -1337,16 +1280,8 @@ export async function updateAutoSignWalletObservation(
   try {
     await updatePersistent(async (store) => {
       if (!isCurrent()) throw new AutoSignCancelledError()
-      const latestPreference = currentPreference(
-        (await request(store.get(preferenceKey(identity.owner)))) as StoredPreference | undefined,
-        identity.owner,
-        identity.origin,
-      )
-      if (
-        latestPreference.stayConnected ||
-        latestPreference.revision !== preference.revision ||
-        latestPreference.explicit !== preference.explicit
-      ) {
+      const latestPreference = await assertUnchangedPreference(store, identity, preference)
+      if (latestPreference.stayConnected) {
         throw new AutoSignCancelledError()
       }
       const publicIdentity = (await request(store.get(identityKey(identity)))) as
@@ -1406,30 +1341,13 @@ export async function forgetAutoSignWallet(
   } catch {
     // The durable tombstone remains authoritative even if this tab cannot remove its session copy.
   }
-  await updatePersistent((store) => {
-    return request(store.get(preferenceKey(identity.owner))).then((value) => {
-      const latest = currentPreference(
-        value as StoredPreference | undefined,
-        identity.owner,
-        identity.origin,
-      )
-      if (latest.revision !== current.revision || latest.explicit !== current.explicit) {
-        throw new AutoSignCancelledError()
-      }
-      store.put(
-        {
-          ...preference,
-          schemaVersion: SCHEMA_VERSION,
-          owner: identity.owner,
-          origin: identity.origin,
-        },
-        preferenceKey(identity.owner),
-      )
-      return Promise.all([
-        deleteOwnerWallets(store, identity.owner),
-        markOwnerIdentitiesForgotten(store, identity.owner),
-      ]).then(() => undefined)
-    })
+  await updatePersistent(async (store) => {
+    await assertUnchangedPreference(store, identity, current)
+    writePreference(store, identity, preference)
+    await Promise.all([
+      deleteOwnerWallets(store, identity.owner),
+      markOwnerIdentitiesForgotten(store, identity.owner),
+    ])
   })
   return preference
 }

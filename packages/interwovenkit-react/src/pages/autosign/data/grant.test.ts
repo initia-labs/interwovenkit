@@ -9,31 +9,25 @@ import type { MsgGrantAllowance } from "@initia/initia.proto/cosmos/feegrant/v1b
 import { buildAutoSignGrantMessages } from "./grant"
 
 describe("buildAutoSignGrantMessages", () => {
+  const expiration = new Date("2030-01-02T03:04:05.000Z")
   const params = {
     granter: "init1owner",
     grantee: "init1agent",
     messageTypes: ["/initia.move.v1.MsgExecute"],
+    expiration,
   }
 
-  it("encodes an optional cumulative fee budget in base units", () => {
-    const messages = buildAutoSignGrantMessages({
-      ...params,
-      feeBudget: { spendLimit: [{ denom: "uinit", amount: "1250000" }] },
-    })
-    const feegrant = messages[0]!.value as MsgGrantAllowance
-    const allowed = AllowedMsgAllowance.decode(feegrant.allowance!.value)
-    const basic = BasicAllowance.decode(allowed.allowance!.value)
-
-    expect(basic.spendLimit).toEqual([{ denom: "uinit", amount: "1250000" }])
-  })
-
-  it("keeps the allowance uncapped when no policy is configured", () => {
+  it("creates an uncapped allowance for delegated transaction fees", () => {
     const messages = buildAutoSignGrantMessages(params)
     const feegrant = messages[0]!.value as MsgGrantAllowance
     const allowed = AllowedMsgAllowance.decode(feegrant.allowance!.value)
     const basic = BasicAllowance.decode(allowed.allowance!.value)
 
+    expect(feegrant.allowance?.typeUrl).toBe("/cosmos.feegrant.v1beta1.AllowedMsgAllowance")
+    expect(allowed.allowedMessages).toEqual(["/cosmos.authz.v1beta1.MsgExec"])
+    expect(allowed.allowance?.typeUrl).toBe("/cosmos.feegrant.v1beta1.BasicAllowance")
     expect(basic.spendLimit).toEqual([])
+    expect(basic.expiration).toEqual(expiration)
   })
 
   it("rejects permission-management messages before constructing a grant", () => {

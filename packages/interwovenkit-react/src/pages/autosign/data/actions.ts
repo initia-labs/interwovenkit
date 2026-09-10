@@ -4,17 +4,13 @@ import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-q
 import { MsgRevoke } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import { MsgRevokeAllowance } from "@initia/initia.proto/cosmos/feegrant/v1beta1/tx"
 import { useConfig } from "@/data/config"
+import { isConfirmedTxFailure } from "@/data/errors"
 import { clearSigningClientCache } from "@/data/signer"
 import { useTx } from "@/data/tx"
-import { isConfirmedTxFailure } from "@/data/errors"
 import { useDrawer } from "@/data/ui"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { getFeegrantAllowedMessages, getFeegrantExpiration, useAutoSignApi } from "./fetch"
-import {
-  type AutoSignFeeBudget,
-  buildAutoSignFeegrantMessage,
-  buildAutoSignGrantMessages,
-} from "./grant"
+import { useAutoSignApi } from "./fetch"
+import { buildAutoSignGrantMessages } from "./grant"
 import { withAutoSignOperation } from "./lifecycle"
 import { getRevokeMessageType } from "./policy"
 import { AutoSignCancelledError } from "./storage"
@@ -47,12 +43,6 @@ export interface RenewAutoSignInput {
   chainId: string
   durationInMs: number
   stayConnected?: boolean
-}
-
-export interface UpdateAutoSignFeeAllowanceInput {
-  chainId: string
-  grantee: string
-  feeBudget?: AutoSignFeeBudget["spendLimit"]
 }
 
 export const AUTO_SIGN_GRANT_REVALIDATION_DELAY_MS = 2_000
@@ -161,16 +151,10 @@ export function shouldCreateRenewRandomCandidate(params: {
 
 export function shouldDiscardPendingAutoSignCandidate(params: {
   requestStarted: boolean
-  confirmedFailure: boolean
   confirmedTxFailure: boolean
   explicitUserRejection: boolean
 }): boolean {
-  return (
-    !params.requestStarted ||
-    params.confirmedFailure ||
-    params.confirmedTxFailure ||
-    params.explicitUserRejection
-  )
+  return !params.requestStarted || params.confirmedTxFailure || params.explicitUserRejection
 }
 
 /** A legacy mirror verifies only reproducible signature-derived signers. */
@@ -304,7 +288,6 @@ export function useEnableAutoSign() {
       const ownerGeneration = store.get(walletGenerationAtom)
       let pendingCandidateKeyId: string | undefined
       let requestStarted = false
-      let confirmedFailure = false
 
       try {
         return await withAutoSignOperation(initiaAddress, async () => {
@@ -413,18 +396,13 @@ export function useEnableAutoSign() {
             messageTypes: chainMsgTypes,
             authorization: grantPolicy?.authorization,
             expiration,
-            feeBudget: grantPolicy?.feeBudget ? { spendLimit: grantPolicy.feeBudget } : undefined,
           })
           requestStarted = true
-          const response = await requestTxBlock({
+          await requestTxBlock({
             messages: [...revokeMessages, ...grantMessages],
             chainId,
             internal: true,
           })
-          if (response.code !== 0) {
-            confirmedFailure = true
-            throw new Error(response.rawLog || "Auto-sign enable transaction failed")
-          }
           if (!isOwnerFenceCurrent(store, initiaAddress, ownerGeneration)) {
             throw new AutoSignCancelledError()
           }
@@ -456,7 +434,6 @@ export function useEnableAutoSign() {
           pendingCandidateKeyId &&
           shouldDiscardPendingAutoSignCandidate({
             requestStarted,
-            confirmedFailure,
             confirmedTxFailure: isConfirmedTxFailure(error),
             explicitUserRejection: isExplicitUserRejection(error),
           })
@@ -543,7 +520,6 @@ export function useRenewAutoSign() {
         throw new Error(`No message types configured for chain ${chainId}`)
       let pendingCandidateKeyId: string | undefined
       let requestStarted = false
-      let confirmedFailure = false
 
       try {
         return await withAutoSignOperation(owner, async () => {
@@ -627,18 +603,13 @@ export function useRenewAutoSign() {
             messageTypes: chainMsgTypes,
             authorization: grantPolicy?.authorization,
             expiration,
-            feeBudget: grantPolicy?.feeBudget ? { spendLimit: grantPolicy.feeBudget } : undefined,
           })
           requestStarted = true
-          const response = await requestTxBlock({
+          await requestTxBlock({
             messages: [...revocations.flat(), ...grants],
             chainId,
             internal: true,
           })
-          if (response.code !== 0) {
-            confirmedFailure = true
-            throw new Error(response.rawLog || "Auto-sign renewal transaction failed")
-          }
           if (!isOwnerFenceCurrent(store, owner, ownerGeneration)) {
             throw new AutoSignCancelledError()
           }
@@ -671,7 +642,6 @@ export function useRenewAutoSign() {
           pendingCandidateKeyId &&
           shouldDiscardPendingAutoSignCandidate({
             requestStarted,
-            confirmedFailure,
             confirmedTxFailure: isConfirmedTxFailure(error),
             explicitUserRejection: isExplicitUserRejection(error),
           })
@@ -697,50 +667,6 @@ export function useRenewAutoSign() {
       }
       await invalidateAutoSignQueries(queryClient)
     },
-  })
-}
-
-/** Replaces a verified feegrant on the same grantee without changing authz scope. */
-export function useUpdateAutoSignFeeAllowance() {
-  const initiaAddress = useInitiaAddress()
-  const { requestTxBlock } = useTx()
-  const queryClient = useQueryClient()
-  const { fetchFeegrant } = useAutoSignApi()
-
-  return useMutation({
-    mutationFn: async ({ chainId, grantee, feeBudget }: UpdateAutoSignFeeAllowanceInput) => {
-      if (!initiaAddress) throw new Error("Wallet not connected")
-      return withAutoSignOperation(initiaAddress, async () => {
-        const existing = await fetchFeegrant(chainId, grantee)
-        if (!existing) throw new Error("Cannot update an unknown fee allowance")
-        const allowed = getFeegrantAllowedMessages(existing.allowance)
-        if (allowed && !allowed.includes("/cosmos.authz.v1beta1.MsgExec")) {
-          throw new Error("Cannot update a fee allowance that does not permit autosign execution")
-        }
-        const expirationValue = getFeegrantExpiration(existing.allowance)
-        const expiration = expirationValue ? new Date(expirationValue) : undefined
-        if (expiration && Number.isNaN(expiration.getTime())) {
-          throw new Error("Cannot preserve an invalid fee allowance expiration")
-        }
-        await requestTxBlock({
-          messages: [
-            {
-              typeUrl: "/cosmos.feegrant.v1beta1.MsgRevokeAllowance",
-              value: MsgRevokeAllowance.fromPartial({ granter: initiaAddress, grantee }),
-            },
-            buildAutoSignFeegrantMessage({
-              granter: initiaAddress,
-              grantee,
-              expiration,
-              feeBudget: feeBudget ? { spendLimit: feeBudget } : undefined,
-            }),
-          ],
-          chainId,
-          internal: true,
-        })
-      })
-    },
-    onSuccess: () => invalidateAutoSignQueries(queryClient),
   })
 }
 
@@ -806,15 +732,8 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
         const localGrantee = activeIdentity?.address ?? derivedWallet?.address
         const shouldPauseLocalWallet = !!localGrantee && granteeCandidates.includes(localGrantee)
         const pausedWallet = shouldPauseLocalWallet ? await pauseWallet(chainId) : undefined
-        let requestStarted = false
-        let confirmedFailure = false
         try {
-          requestStarted = true
-          const response = await requestTxBlock({ messages, chainId, internal: options?.internal })
-          if (response.code !== 0) {
-            confirmedFailure = true
-            throw new Error(response.rawLog || "Auto-sign revoke transaction failed")
-          }
+          await requestTxBlock({ messages, chainId, internal: options?.internal })
           await deleteWalletAfterConfirmedRevoke(
             chainId,
             pausedWallet,
@@ -825,13 +744,7 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
           }
           return { chainId, didBroadcast: true, pausedLocalWallet: !!pausedWallet }
         } catch (error) {
-          if (
-            pausedWallet &&
-            (!requestStarted ||
-              confirmedFailure ||
-              isConfirmedTxFailure(error) ||
-              isExplicitUserRejection(error))
-          ) {
+          if (pausedWallet && (isConfirmedTxFailure(error) || isExplicitUserRejection(error))) {
             await resumeWallet(chainId, pausedWallet).catch(() => undefined)
           }
           throw error

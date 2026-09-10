@@ -146,7 +146,6 @@ describe("renew random signer replacement", () => {
     expect(
       shouldDiscardPendingAutoSignCandidate({
         ...failure,
-        confirmedFailure: false,
         confirmedTxFailure: false,
       }),
     ).toBe(true)

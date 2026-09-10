@@ -20,6 +20,7 @@ import {
   type AutoSignPermissionPolicy,
   doesObservedAuthorizationMatchPolicy,
   EVM_CALL_MESSAGE_TYPE,
+  GENERIC_AUTHORIZATION_TYPE,
   isAutoSignMessageTypeAllowed,
   MOVE_EXECUTE_MESSAGE_TYPE,
   validateAutoSignMessages,
@@ -73,27 +74,28 @@ interface AutoSignChainStatusResult {
   status: AutoSignChainStatus
 }
 
+interface AutoSignIdentityMetadata {
+  address: string
+  observedExpiration?: string
+  requestedDurationMs?: number
+}
+
+interface GrantDetails {
+  authorization: { "@type"?: string; msg?: string }
+  expiration?: string
+}
+
+interface ObservedGrant extends GrantDetails {
+  grantee: string
+}
+
 interface FetchAutoSignStatusParams {
   initiaAddress: string | undefined
   messageTypes: Record<string, string[]>
   authorizationPolicies?: Record<string, AutoSignPermissionPolicy | undefined>
-  fetchActiveIdentity?: (
-    chainId: string,
-  ) => Promise<
-    { address: string; observedExpiration?: string; requestedDurationMs?: number } | undefined
-  >
-  fetchKnownIdentity?: (
-    chainId: string,
-  ) => Promise<
-    { address: string; observedExpiration?: string; requestedDurationMs?: number } | undefined
-  >
-  fetchAllGrants: (chainId: string) => Promise<
-    Array<{
-      grantee: string
-      authorization: { "@type"?: string; msg?: string }
-      expiration?: string
-    }>
-  >
+  fetchActiveIdentity?: (chainId: string) => Promise<AutoSignIdentityMetadata | undefined>
+  fetchKnownIdentity?: (chainId: string) => Promise<AutoSignIdentityMetadata | undefined>
+  fetchAllGrants: (chainId: string) => Promise<ObservedGrant[]>
   fetchFeegrant: (chainId: string, grantee: string) => Promise<FeegrantAllowance | null>
 }
 
@@ -156,7 +158,7 @@ function createAuthorizationPoliciesKey(policies: Record<string, unknown>): stri
 }
 
 /** Explicit policies opt a chain in and take precedence over legacy message lists.
- * A fee budget alone does not enable signing. Explicit false disables every chain. */
+ * Explicit false disables every chain. */
 export function resolveAutoSignMessageTypes(
   config: Pick<Config, "enableAutoSign" | "defaultChainId" | "autoSignGrantPolicy">,
   defaultMinitiaType?: string,
@@ -247,17 +249,7 @@ export function useAutoSignStatus() {
       policy.authorization,
     ]),
   )
-  const authorizationPoliciesKey = createAuthorizationPoliciesKey({
-    ...authorizationPolicies,
-    // Fee-budget configuration changes the allowance the signer must honor;
-    // include it so a previous network/policy snapshot cannot remain active.
-    ...Object.fromEntries(
-      Object.entries(config.autoSignGrantPolicy ?? {}).map(([chainId, policy]) => [
-        `${chainId}:fee-budget`,
-        policy.feeBudget,
-      ]),
-    ),
-  })
+  const authorizationPoliciesKey = createAuthorizationPoliciesKey(authorizationPolicies)
 
   return useQuery({
     // Query identity follows user/address + configured message types, not function references.
@@ -517,7 +509,7 @@ export async function fetchAutoSignStatus(
 }
 
 function getStoredExpiredIdentity(
-  identity: Awaited<ReturnType<NonNullable<FetchAutoSignStatusParams["fetchActiveIdentity"]>>>,
+  identity: AutoSignIdentityMetadata | undefined,
 ): { grantee: string; expiration: Date } | undefined {
   if (!identity?.observedExpiration) return undefined
   const expiration = new Date(identity.observedExpiration)
@@ -554,7 +546,17 @@ async function mapWithConcurrency<T, R>(
 
 interface GrantWithGrantee {
   grantee: string
-  grants: Array<{ authorization: { "@type"?: string; msg?: string }; expiration?: string }>
+  grants: GrantDetails[]
+}
+
+function isGenericAuthorization(grant: GrantDetails): boolean {
+  return (
+    !grant.authorization["@type"] || grant.authorization["@type"] === GENERIC_AUTHORIZATION_TYPE
+  )
+}
+
+function isActiveGrant(grant: GrantDetails): boolean {
+  return !grant.expiration || isFuture(new Date(grant.expiration))
 }
 
 export function isFeegrantEligibleForAutoSign(feegrant: FeegrantAllowance): boolean {
@@ -623,21 +625,14 @@ export async function findValidGranteeWithFeegrant(params: {
 }
 
 export function findValidGranteeCandidates(
-  allGrants: Array<{
-    grantee: string
-    authorization: { "@type"?: string; msg?: string }
-    expiration?: string
-  }>,
+  allGrants: ObservedGrant[],
   requiredMsgTypes: string[],
 ): GrantWithGrantee[] {
   if (requiredMsgTypes.length === 0) {
     return []
   }
 
-  const grantsByGrantee = new Map<
-    string,
-    Array<{ authorization: { "@type"?: string; msg?: string }; expiration?: string }>
-  >()
+  const grantsByGrantee = new Map<string, GrantDetails[]>()
 
   for (const grant of allGrants) {
     const existing = grantsByGrantee.get(grant.grantee) || []
@@ -649,11 +644,10 @@ export function findValidGranteeCandidates(
   for (const [grantee, grants] of grantsByGrantee) {
     const validGrants = grants.filter(
       (grant) =>
-        (!grant.authorization["@type"] ||
-          grant.authorization["@type"] === "/cosmos.authz.v1beta1.GenericAuthorization") &&
+        isGenericAuthorization(grant) &&
         !!grant.authorization.msg &&
         isAutoSignMessageTypeAllowed(grant.authorization.msg) &&
-        (!grant.expiration || isFuture(new Date(grant.expiration))),
+        isActiveGrant(grant),
     )
     const grantedMsgTypes = validGrants.flatMap((grant) =>
       grant.authorization.msg ? [grant.authorization.msg] : [],
@@ -668,18 +662,14 @@ export function findValidGranteeCandidates(
 }
 
 export function findValidPolicyGranteeCandidates(
-  allGrants: Array<{
-    grantee: string
-    authorization: { "@type"?: string; msg?: string }
-    expiration?: string
-  }>,
+  allGrants: ObservedGrant[],
   policy: AutoSignPermissionPolicy,
 ): GrantWithGrantee[] {
   if (policy.kind === "generic") return findValidGranteeCandidates(allGrants, policy.messageTypes)
 
   const matchingByGrantee = new Map<string, GrantWithGrantee["grants"]>()
   for (const grant of allGrants) {
-    if (grant.expiration && !isFuture(new Date(grant.expiration))) continue
+    if (!isActiveGrant(grant)) continue
     if (!doesObservedAuthorizationMatchPolicy(grant, policy)) continue
     matchingByGrantee.set(grant.grantee, [...(matchingByGrantee.get(grant.grantee) ?? []), grant])
   }
@@ -687,11 +677,7 @@ export function findValidPolicyGranteeCandidates(
 }
 
 function findExpiredGrantee(
-  grants: Array<{
-    grantee: string
-    authorization: { "@type"?: string; msg?: string }
-    expiration?: string
-  }>,
+  grants: ObservedGrant[],
   requiredMessageTypes: string[],
 ): { grantee: string; expiration: Date } | undefined {
   const byGrantee = new Map<string, typeof grants>()
@@ -700,8 +686,7 @@ function findExpiredGrantee(
   for (const [grantee, candidateGrants] of byGrantee) {
     const matching = candidateGrants.filter(
       (grant) =>
-        (!grant.authorization["@type"] ||
-          grant.authorization["@type"] === "/cosmos.authz.v1beta1.GenericAuthorization") &&
+        isGenericAuthorization(grant) &&
         !!grant.authorization.msg &&
         requiredMessageTypes.includes(grant.authorization.msg),
     )
@@ -721,11 +706,7 @@ function findExpiredGrantee(
 }
 
 function findExpiredPolicyGrantee(
-  grants: Array<{
-    grantee: string
-    authorization: { "@type"?: string; msg?: string }
-    expiration?: string
-  }>,
+  grants: ObservedGrant[],
   policy: AutoSignPermissionPolicy,
 ): { grantee: string; expiration: Date } | undefined {
   for (const grant of grants) {
@@ -738,36 +719,19 @@ function findExpiredPolicyGrantee(
   return undefined
 }
 
-function findActiveGenericGrant(
-  grants: Array<{
-    grantee: string
-    authorization: { "@type"?: string; msg?: string }
-    expiration?: string
-  }>,
-) {
+function findActiveGenericGrant(grants: ObservedGrant[]) {
   return grants.find(
-    (grant) =>
-      (!grant.authorization["@type"] ||
-        grant.authorization["@type"] === "/cosmos.authz.v1beta1.GenericAuthorization") &&
-      !!grant.authorization.msg &&
-      (!grant.expiration || isFuture(new Date(grant.expiration))),
+    (grant) => isGenericAuthorization(grant) && !!grant.authorization.msg && isActiveGrant(grant),
   )
 }
 
-function hasActiveGenericGrantOutsideScope(
-  grants: Array<{
-    authorization: { "@type"?: string; msg?: string }
-    expiration?: string
-  }>,
-  messageTypes: string[],
-) {
+function hasActiveGenericGrantOutsideScope(grants: GrantDetails[], messageTypes: string[]) {
   return grants.some(
     (grant) =>
-      (!grant.authorization["@type"] ||
-        grant.authorization["@type"] === "/cosmos.authz.v1beta1.GenericAuthorization") &&
+      isGenericAuthorization(grant) &&
       !!grant.authorization.msg &&
       !messageTypes.includes(grant.authorization.msg) &&
-      (!grant.expiration || isFuture(new Date(grant.expiration))),
+      isActiveGrant(grant),
   )
 }
 

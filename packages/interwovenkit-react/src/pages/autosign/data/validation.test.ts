@@ -905,17 +905,6 @@ describe("resolveAutoSignMessageTypes", () => {
     ).toEqual({ default: [messageType] })
   })
 
-  it("keeps fee budgets optional and never treats a budget alone as opt-in", () => {
-    const config = {
-      defaultChainId: "move",
-      autoSignGrantPolicy: { move: { feeBudget: [{ denom: "uinit", amount: "100" }] } },
-    }
-    expect(resolveAutoSignMessageTypes(config)).toEqual({ move: [] })
-    expect(
-      resolveAutoSignMessageTypes({ ...config, enableAutoSign: { move: [bankType] } }),
-    ).toEqual({ move: [bankType] })
-  })
-
   it("lets explicit scopes replace overlapping legacy types while retaining other chains", () => {
     const legacy = { move: [bankType], another: [bankType] }
     expect(
