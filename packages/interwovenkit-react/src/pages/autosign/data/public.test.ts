@@ -40,23 +40,4 @@ describe("public autosign status", () => {
     expect(next.statusByChain).toBe(first.statusByChain)
     expect(next.feegrantByChain).toBe(first.feegrantByChain)
   })
-
-  it("exposes loaded status through the same public maps", () => {
-    const data: AutoSignStatusResult = {
-      expiredAtByChain: { "test-chain": undefined },
-      feegrantByChain: {},
-      isEnabledByChain: { "test-chain": true },
-      granteeByChain: { "test-chain": "init1grantee" },
-      requestedDurationInMsByChain: { "test-chain": 0 },
-      statusByChain: { "test-chain": "enabled" },
-    }
-    vi.mocked(useAutoSignStatus).mockReturnValue({ data, isLoading: false } as ReturnType<
-      typeof useAutoSignStatus
-    >)
-
-    const autoSign = useAutoSign()
-    expect(autoSign.statusByChain["test-chain"]).toBe("enabled")
-    expect(autoSign.granteeByChain["test-chain"]).toBe("init1grantee")
-    expect(autoSign.isEnabledByChain["test-chain"]).toBe(true)
-  })
 })

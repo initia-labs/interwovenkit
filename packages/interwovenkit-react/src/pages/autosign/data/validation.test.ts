@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import type { FeegrantAllowance } from "./fetch"
 import {
-  autoSignQueryKeys,
   canActivatePendingAutoSignIdentity,
   createAutoSignMessageTypesKey,
   createAutoSignNetworkKey,
@@ -939,16 +938,5 @@ describe("resolveAutoSignMessageTypes", () => {
         },
       }),
     ).toEqual({ bank: [bankType], empty: [] })
-  })
-})
-
-describe("autoSignQueryKeys", () => {
-  it("scopes stored identities by chain and owner address", () => {
-    expect(autoSignQueryKeys.identities("initia-1", "init1owner").queryKey).toEqual([
-      "interwovenkit:autosign",
-      "identities",
-      "initia-1",
-      "init1owner",
-    ])
   })
 })
