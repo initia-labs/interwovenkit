@@ -17,7 +17,7 @@ interface PendingAutoSignUnlock {
 
 export const pendingAutoSignUnlockAtom = atom<PendingAutoSignUnlock | null>(null)
 
-/** Recovery requires an explicit storage choice before a root-wallet signature. */
+/** Recovery requires explicit confirmation before a root-wallet signature. */
 export function useRequestAutoSignUnlock() {
   const owner = useInitiaAddress()
   const store = useStore()

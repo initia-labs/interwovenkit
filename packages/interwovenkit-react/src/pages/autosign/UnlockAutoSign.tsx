@@ -15,8 +15,7 @@ import { AutoSignCancelledError } from "./data/lifecycle"
 import type { AutoSignPublicIdentity } from "./data/storage"
 import { pendingAutoSignUnlockAtom } from "./data/unlock-request"
 import { useAutoSignStatus } from "./data/validation"
-import { getExpectedAddress, useDeriveWallet } from "./data/wallet"
-import StayConnected, { useStayConnectedPreference } from "./StayConnected"
+import { getExpectedAddress, useAutoSignPreference, useDeriveWallet } from "./data/wallet"
 import enableStyles from "./EnableAutoSign.module.css"
 
 const UnlockAutoSign = () => {
@@ -57,15 +56,25 @@ const UnlockAutoSign = () => {
     (matchesActiveLegacyIdentity || matchesLegacyMirror) &&
     (!pendingUnlock || pendingUnlock.owner === initiaAddress)
 
-  const { stayConnected, setStayConnected, isLoadingPreference, isStorageUnavailable } =
-    useStayConnectedPreference(chainId, initiaAddress)
+  const { stayConnected, isLoadingPreference, isStorageUnavailable } = useAutoSignPreference(
+    chainId,
+    initiaAddress,
+  )
   const [isPending, setIsPending] = useState(false)
   const [error, setError] = useState("")
   const displayedError =
     error ||
     (isStorageUnavailable
-      ? "Browser storage is unavailable. Auto-signing will stay available only in this tab."
+      ? "Browser storage is unavailable. Restore browser storage access to continue autosign."
       : "")
+  const isInitialLegacyMigration =
+    canUnlock && matchesLegacyMirror && autoSignStorage !== "memory" && stayConnected
+  const recoveryDescription =
+    autoSignStorage === "memory"
+      ? "Confirm with your wallet to continue autosign until this tab reloads. Your existing permissions won’t change."
+      : stayConnected
+        ? "Confirm with your wallet to continue autosign on this browser. Your existing permissions won’t change."
+        : "Confirm with your wallet to continue autosign in this tab. Your existing permissions won’t change."
 
   useEffect(() => {
     let active = true
@@ -99,7 +108,7 @@ const UnlockAutoSign = () => {
       }
     } catch (unlockError) {
       setError(
-        unlockError instanceof Error ? unlockError.message : "Unable to unlock auto-signing.",
+        unlockError instanceof Error ? unlockError.message : "Unable to continue autosign.",
       )
     } finally {
       setIsPending(false)
@@ -118,11 +127,15 @@ const UnlockAutoSign = () => {
     <>
       <Scrollable className={enableStyles.container}>
         <header>
-          <h1 className={enableStyles.title}>Unlock auto-signing</h1>
+          <h1 className={enableStyles.title}>
+            {isInitialLegacyMigration ? "Upgrade autosign" : "Continue autosign"}
+          </h1>
           <p className={enableStyles.description}>
-            {canUnlock
-              ? `Your permissions are still active on ${chain.name}.`
-              : `Check your auto-signing permissions on ${chain.name}.`}
+            {isInitialLegacyMigration
+              ? "Autosign can now stay available across browser restarts. Confirm once with your wallet to remember it on this browser. Your existing permissions won’t change."
+              : canUnlock
+                ? recoveryDescription
+                : `Check your autosign permissions on ${chain.name}.`}
           </p>
         </header>
 
@@ -146,12 +159,7 @@ const UnlockAutoSign = () => {
           </div>
         </section>
 
-        {canUnlock ? (
-          <p className={enableStyles.explanation}>
-            Use your main wallet to recover the same auto-signing address. This does not create new
-            permissions.
-          </p>
-        ) : (
+        {!canUnlock && (
           <FormHelp
             level={
               chainStatus === "unknown" || activeIdentity?.provenance === "random"
@@ -160,23 +168,15 @@ const UnlockAutoSign = () => {
             }
           >
             {activeIdentity?.provenance === "random"
-              ? "This browser key cannot be recovered. Cancel this transaction, then enable auto-signing again from Settings."
+              ? "This browser key cannot be recovered. Cancel this transaction, then choose Remember on this browser in Settings."
               : chainStatus === "unknown"
-                ? "Unable to check permissions. Try again before unlocking."
+                ? "Unable to check permissions. Try again before continuing."
                 : chainStatus === "expired"
-                  ? "These permissions expired. Reconnect them from auto-signing settings."
+                  ? "These permissions expired. Reconnect them from autosign settings."
                   : chainStatus === "enabled" && !isLoadingIdentity
-                    ? "The active auto-signing identity cannot be safely recovered on this browser."
-                    : "No active permissions were found for this auto-signing address."}
+                    ? "The active autosign identity cannot be safely recovered on this browser."
+                    : "No active permissions were found for this autosign address."}
           </FormHelp>
-        )}
-
-        {autoSignStorage !== "memory" && (
-          <StayConnected
-            checked={stayConnected}
-            disabled={isLoadingPreference || isPending}
-            onChange={setStayConnected}
-          />
         )}
       </Scrollable>
 
@@ -200,7 +200,7 @@ const UnlockAutoSign = () => {
           }
           loading={isPending}
         >
-          Unlock
+          {isInitialLegacyMigration ? "Confirm" : "Continue"}
         </Button.White>
       </Footer>
     </>

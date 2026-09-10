@@ -351,7 +351,7 @@ export function useEnableAutoSign() {
               derivedWallet = await deriveWallet(chainId, { stayConnected })
             } else if (activeIdentity.provenance === "random") {
               throw new Error(
-                "This tab no longer has the random signing key. Select Stay connected to replace it.",
+                "This tab no longer has the random signing key. Choose Remember on this browser in Settings to replace it.",
               )
             } else {
               throw new Error("Autosign signer needs recovery before renewal")
@@ -557,7 +557,7 @@ export function useRenewAutoSign() {
             wallet = await deriveWallet(chainId, { stayConnected })
           } else if (!wallet && activeIdentity?.provenance === "random") {
             throw new Error(
-              "This tab no longer has the random signing key. Select Stay connected to replace it.",
+              "This tab no longer has the random signing key. Choose Remember on this browser in Settings to replace it.",
             )
           } else if (!wallet && activeIdentity) {
             throw new Error("Autosign signer needs recovery before renewal")

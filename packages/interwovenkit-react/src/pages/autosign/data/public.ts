@@ -9,8 +9,9 @@ import { type AutoSignStatusResult, useAutoSignStatus } from "./validation"
 
 export interface EnableAutoSignOptions {
   defaultDuration?: number
-  /** Uses the app's choice and hides the Enable dialog checkbox when provided.
-   * Omit it to keep the dialog's built-in saved-preference choice. */
+  /** Selects browser persistence when true or tab-only storage when false.
+   * Omit it to use the saved preference, which defaults to browser persistence.
+   * The provider's memory-only mode always takes precedence. */
   stayConnected?: boolean
 }
 

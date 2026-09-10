@@ -17,8 +17,8 @@ import { useInterwovenKit } from "@/public/data/hooks"
 import { useEnableAutoSign } from "./data/actions"
 import { DURATION_OPTIONS } from "./data/constants"
 import { pendingAutoSignRequestAtom } from "./data/store"
+import { useAutoSignPreference } from "./data/wallet"
 import { isVerifiedWebsiteHost } from "./data/website"
-import StayConnected, { useStayConnectedPreference } from "./StayConnected"
 import styles from "./EnableAutoSign.module.css"
 
 function isAccountNotFoundError(error: unknown): boolean {
@@ -54,13 +54,14 @@ const EnableAutoSignComponent = () => {
   const { address, initiaAddress, username } = useInterwovenKit()
   const { mutate, isPending } = useEnableAutoSign()
   const { closeDrawer } = useDrawer()
-  const { stayConnected, setStayConnected, isLoadingPreference, isStorageUnavailable } =
-    useStayConnectedPreference(pendingRequest?.chainId ?? "", initiaAddress)
-  const hasAppStayConnectedPreference = pendingRequest?.stayConnected !== undefined
+  const { stayConnected, isLoadingPreference, isStorageUnavailable } = useAutoSignPreference(
+    pendingRequest?.chainId ?? "",
+    initiaAddress,
+  )
   const effectiveStayConnected =
     autoSignStorage === "memory" ? false : (pendingRequest?.stayConnected ?? stayConnected)
   const preferenceError = isStorageUnavailable
-    ? "Browser storage is unavailable. Restore browser storage access to enable auto-signing."
+    ? "Browser storage is unavailable. Restore browser storage access to enable autosign."
     : ""
 
   if (!pendingRequest) throw new Error("Pending request not found")
@@ -119,8 +120,8 @@ const EnableAutoSignComponent = () => {
     <>
       <Scrollable className={styles.container}>
         <header>
-          <h1 className={styles.title}>Enable auto-signing</h1>
-          <p className={styles.description}>An application is requesting to enable auto-signing</p>
+          <h1 className={styles.title}>Enable autosign</h1>
+          <p className={styles.description}>An application is requesting to enable autosign</p>
         </header>
 
         <section>
@@ -159,14 +160,6 @@ const EnableAutoSignComponent = () => {
             )}
           </div>
         </section>
-
-        {autoSignStorage !== "memory" && !hasAppStayConnectedPreference && (
-          <StayConnected
-            checked={stayConnected}
-            disabled={isLoadingPreference}
-            onChange={setStayConnected}
-          />
-        )}
       </Scrollable>
 
       <Footer

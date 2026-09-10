@@ -13,7 +13,7 @@ import type { EncodeObject } from "@cosmjs/proto-signing"
 import { ethers } from "ethers"
 import type { Hex } from "viem"
 import { useSignMessage } from "wagmi"
-import { useEffect, useRef } from "react"
+import { useEffect, useEffectEvent, useRef, useState } from "react"
 import { useStore } from "jotai"
 import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
@@ -93,6 +93,73 @@ interface SignWithEthSecp256k1Fn {
 }
 
 const RESTORE_TIMEOUT_MS = 5_000
+
+interface AutoSignPreferenceState {
+  scope?: string
+  stayConnected: boolean
+  storageUnavailable: boolean
+}
+
+export function shouldRememberRandomReplacement(params: {
+  identity: AutoSignPublicIdentity | undefined
+  owner: string | undefined
+  chainId: string
+  hasWallet: boolean
+  stayConnected: boolean
+  autoSignStorage: "browser" | "memory" | undefined
+}) {
+  const { identity, owner, chainId, hasWallet, stayConnected, autoSignStorage } = params
+  return (
+    autoSignStorage !== "memory" &&
+    !stayConnected &&
+    !hasWallet &&
+    identity?.owner === owner &&
+    identity?.chainId === chainId &&
+    identity?.provenance === "random" &&
+    identity?.state === "active"
+  )
+}
+
+/** Reads the effective storage preference without exposing a routine UI control. */
+export function useAutoSignPreference(chainId: string, owner: string | undefined) {
+  const { autoSignStorage } = useConfig()
+  const { getStayConnected } = useDeriveWallet()
+  const scope = JSON.stringify([autoSignStorage, chainId, owner])
+  const [preference, setPreference] = useState<AutoSignPreferenceState>({
+    stayConnected: autoSignStorage !== "memory",
+    storageUnavailable: false,
+  })
+  const loadPreference = useEffectEvent(() => getStayConnected(chainId))
+
+  useEffect(() => {
+    let active = true
+
+    if (autoSignStorage === "memory") {
+      void Promise.resolve().then(() => {
+        if (active) setPreference({ scope, stayConnected: false, storageUnavailable: false })
+      })
+    } else {
+      void loadPreference()
+        .then((stayConnected) => {
+          if (active) setPreference({ scope, stayConnected, storageUnavailable: false })
+        })
+        .catch(() => {
+          if (active) setPreference({ scope, stayConnected: false, storageUnavailable: true })
+        })
+    }
+
+    return () => {
+      active = false
+    }
+  }, [autoSignStorage, scope])
+
+  const isCurrent = preference.scope === scope
+  return {
+    stayConnected: autoSignStorage === "memory" ? false : preference.stayConnected,
+    isLoadingPreference: autoSignStorage !== "memory" && !isCurrent,
+    isStorageUnavailable: isCurrent && preference.storageUnavailable,
+  }
+}
 
 export async function awaitWalletRestore<T>(
   restore: Promise<T>,

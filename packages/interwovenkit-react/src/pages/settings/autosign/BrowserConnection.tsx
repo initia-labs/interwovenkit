@@ -5,9 +5,12 @@ import { useConfig } from "@/data/config"
 import { useNavigate } from "@/lib/router"
 import { subscribeAutoSignEvents } from "@/pages/autosign/data/lifecycle"
 import { useAutoSign } from "@/pages/autosign/data/public"
+import type { AutoSignPublicIdentity } from "@/pages/autosign/data/storage"
 import { useAutoSignStatus } from "@/pages/autosign/data/validation"
-import { getExpectedAddress, useDeriveWallet } from "@/pages/autosign/data/wallet"
-import StayConnected from "@/pages/autosign/StayConnected"
+import {
+  getExpectedAddress,
+  useDeriveWallet,
+} from "@/pages/autosign/data/wallet"
 import { useInitiaAddress } from "@/public/data/hooks"
 import styles from "./BrowserConnection.module.css"
 
@@ -31,10 +34,7 @@ const BrowserConnection = () => {
   const [isConfirmingForget, setIsConfirmingForget] = useState(false)
   const [message, setMessage] = useState("")
   const [hasWallet, setHasWallet] = useState(false)
-  const [identityProvenance, setIdentityProvenance] = useState<
-    "legacy-derived" | "random" | undefined
-  >()
-  const [identityDuration, setIdentityDuration] = useState<number>()
+  const [recoveryIdentity, setRecoveryIdentity] = useState<AutoSignPublicIdentity>()
   const [reload, setReload] = useState(0)
 
   useEffect(() => {
@@ -46,8 +46,7 @@ const BrowserConnection = () => {
     setMessage("")
     setIsConfirmingForget(false)
     setHasWallet(!!walletRef.current.getWallet(defaultChainId))
-    setIdentityProvenance(undefined)
-    setIdentityDuration(undefined)
+    setRecoveryIdentity(undefined)
 
     if (autoSignStorage === "memory") {
       setStayConnectedState(false)
@@ -60,9 +59,9 @@ const BrowserConnection = () => {
     Promise.allSettled([
       walletRef.current.restoreWallet(defaultChainId),
       walletRef.current.getStayConnected(defaultChainId),
-      walletRef.current.getActiveIdentity(defaultChainId),
+      walletRef.current.getWalletIdentities(defaultChainId),
     ])
-      .then(([restored, preference, identity]) => {
+      .then(([restored, preference, identities]) => {
         if (!active) return
         setHasWallet(
           restored.status === "fulfilled" &&
@@ -73,9 +72,14 @@ const BrowserConnection = () => {
         } else {
           setMessage("Unable to load the browser connection setting.")
         }
-        if (identity.status === "fulfilled") {
-          setIdentityProvenance(identity.value?.provenance)
-          setIdentityDuration(identity.value?.requestedDurationMs)
+        if (identities.status === "fulfilled") {
+          const matchingIdentities = identities.value.filter(
+            (identity) => identity.owner === owner && identity.chainId === defaultChainId,
+          )
+          const identity =
+            matchingIdentities.find((candidate) => candidate.state === "active") ??
+            matchingIdentities.find((candidate) => candidate.provenance === "random")
+          setRecoveryIdentity(identity)
         }
       })
       .finally(() => {
@@ -99,19 +103,6 @@ const BrowserConnection = () => {
     })
   }, [owner])
 
-  const handleChange = async (checked: boolean) => {
-    setIsSaving(true)
-    setMessage("")
-    try {
-      await walletRef.current.setStayConnected(defaultChainId, checked)
-      setStayConnectedState(checked)
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to update this setting.")
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
   const handleForget = async () => {
     setIsSaving(true)
     setMessage("")
@@ -119,8 +110,9 @@ const BrowserConnection = () => {
       await walletRef.current.forgetWallet(defaultChainId)
       setStayConnectedState(false)
       setHasWallet(false)
-      setIdentityProvenance(undefined)
-      setIdentityDuration(undefined)
+      setRecoveryIdentity((identity) =>
+        identity ? { ...identity, state: "forgotten" } : undefined,
+      )
       setIsConfirmingForget(false)
       setMessage("Saved key removed. On-chain permissions remain active.")
     } catch (error) {
@@ -140,9 +132,12 @@ const BrowserConnection = () => {
     setIsEnablingAgain(true)
     setMessage("")
     try {
-      await autoSign.enable(defaultChainId, { defaultDuration: identityDuration })
+      await autoSign.enable(defaultChainId, {
+        defaultDuration: recoveryIdentity?.requestedDurationMs,
+        stayConnected: true,
+      })
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to enable auto-signing again.")
+      setMessage(error instanceof Error ? error.message : "Unable to remember autosign.")
       setIsEnablingAgain(false)
     }
   }
@@ -150,12 +145,12 @@ const BrowserConnection = () => {
   const canUnlockLegacy =
     !hasWallet &&
     chainStatus === "enabled" &&
-    (identityProvenance === "legacy-derived" ||
-      (!identityProvenance && !!expectedGrantee && expectedGrantee === statusGrantee))
+    (recoveryIdentity?.provenance === "legacy-derived" ||
+      (!recoveryIdentity && !!expectedGrantee && expectedGrantee === statusGrantee))
   const randomKeyMissing =
-    !hasWallet && identityProvenance === "random" && chainStatus !== "unknown"
-  const canReplaceRandom = randomKeyMissing && identityDuration !== undefined
-  const hasSavedKey = hasWallet || !!identityProvenance
+    !hasWallet && recoveryIdentity?.provenance === "random" && chainStatus !== "unknown"
+  const canReplaceRandom = randomKeyMissing && recoveryIdentity.requestedDurationMs !== undefined
+  const hasSavedKey = hasWallet || recoveryIdentity?.state === "active"
   const connectionLabel = isLoading
     ? "Checking..."
     : chainStatus === "unknown"
@@ -185,20 +180,14 @@ const BrowserConnection = () => {
               : "Available in this tab, including reloads. Permissions remain active after it closes."
             : chainStatus === "enabled"
               ? "Permissions are active, but this browser does not have a usable key."
-              : "No usable auto-signing key was found on this browser."
+              : "No usable autosign key was found on this browser."
 
   return (
     <section className={styles.container}>
       <h2>On this browser</h2>
       {autoSignStorage === "memory" ? (
-        <p className={styles.note}>Auto-signing is available only until this tab reloads.</p>
-      ) : (
-        <StayConnected
-          checked={stayConnected}
-          disabled={isLoading || isSaving || !hasWallet}
-          onChange={handleChange}
-        />
-      )}
+        <p className={styles.note}>Autosign is available only until this tab reloads.</p>
+      ) : null}
 
       <div className={styles.mode}>
         <span>Connection</span>
@@ -208,19 +197,19 @@ const BrowserConnection = () => {
 
       {canUnlockLegacy && (
         <Button.Small onClick={() => navigate("/autosign/unlock", { chainId: defaultChainId })}>
-          Unlock
+          Continue autosign
         </Button.Small>
       )}
       {randomKeyMissing && (
         <>
           <p className={styles.note}>
             {canReplaceRandom
-              ? "This key cannot be recovered. Enabling again will replace its permissions with a new auto-signing address."
+              ? "This key cannot be recovered. Remembering this browser will replace its permissions with a new autosign address."
               : "This key cannot be recovered. Revoke its permissions before enabling again."}
           </p>
           {canReplaceRandom && (
             <Button.Small onClick={handleEnableAgain} disabled={isEnablingAgain}>
-              {isEnablingAgain ? "Opening..." : "Enable again"}
+              {isEnablingAgain ? "Opening..." : "Remember on this browser"}
             </Button.Small>
           )}
         </>

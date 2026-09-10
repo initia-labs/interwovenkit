@@ -163,6 +163,22 @@ function useEnableMutationForTest() {
 }
 
 describe("useEnableAutoSign random signer recovery", () => {
+  it("replaces a forgotten random signer through an explicit remembered enable", async () => {
+    mocks.getWalletIdentities.mockResolvedValue([
+      { address: "init1forgotten", provenance: "random", state: "forgotten" },
+    ])
+    mocks.requestTxBlock.mockResolvedValue({ code: 0, rawLog: "" })
+
+    await useEnableMutationForTest().mutationFn(input)
+
+    expect(mocks.createWallet).toHaveBeenCalledWith("initiation-2", {
+      stayConnected: true,
+      random: true,
+    })
+    expect(mocks.fetchGrants).toHaveBeenCalledWith("initiation-2", "init1forgotten")
+    expect(mocks.activateWallet).toHaveBeenCalledWith("initiation-2")
+  })
+
   it("clears the captured legacy mirror after granting a random replacement", async () => {
     mocks.getExpectedAddress.mockReturnValue("init1legacy")
     mocks.getWalletIdentities.mockResolvedValue([
@@ -302,7 +318,7 @@ describe("useRenewAutoSign random signer recovery", () => {
   it("keeps tab-only renewal from replacing an unavailable random signer", async () => {
     await expect(
       useRenewMutationForTest().mutationFn({ ...input, stayConnected: false }),
-    ).rejects.toThrow("Select Stay connected to replace it")
+    ).rejects.toThrow("Choose Remember on this browser in Settings to replace it")
 
     expect(mocks.createWallet).not.toHaveBeenCalled()
     expect(mocks.requestTxBlock).not.toHaveBeenCalled()

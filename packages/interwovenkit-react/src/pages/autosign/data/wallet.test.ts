@@ -24,6 +24,7 @@ import {
   readExpectedAddressFromStorage,
   shouldBroadcastStorageMode,
   shouldClearWalletsOnAddressChange,
+  shouldRememberRandomReplacement,
   signWithDerivedWalletWithPrivateKey,
   writeExpectedAddressToStorage,
 } from "./wallet"
@@ -398,6 +399,32 @@ describe("stored auto-sign identities", () => {
     expect(isExactAutoSignPublicIdentity(active, identity, "other-key")).toBe(false)
     expect(
       isExactAutoSignPublicIdentity({ ...active, chainId: "other-chain" }, identity, active.keyId),
+    ).toBe(false)
+  })
+
+  it("requires an explicit remembered replacement for a missing random key in tab-only mode", () => {
+    const activeRandom = {
+      ...active,
+      provenance: "random" as const,
+    }
+    const params = {
+      identity: activeRandom,
+      owner: active.owner,
+      chainId: active.chainId,
+      hasWallet: false,
+      stayConnected: false,
+      autoSignStorage: "browser" as const,
+    }
+
+    expect(shouldRememberRandomReplacement(params)).toBe(true)
+    expect(shouldRememberRandomReplacement({ ...params, stayConnected: true })).toBe(false)
+    expect(shouldRememberRandomReplacement({ ...params, owner: "init1other" })).toBe(false)
+    expect(shouldRememberRandomReplacement({ ...params, autoSignStorage: "memory" })).toBe(false)
+    expect(
+      shouldRememberRandomReplacement({
+        ...params,
+        identity: { ...activeRandom, state: "forgotten" },
+      }),
     ).toBe(false)
   })
 })
