@@ -24,7 +24,7 @@ const ReconnectAutoSign = () => {
   const { autoSignStorage, defaultChainId } = useConfig()
   const owner = useInitiaAddress()
   const chainId = state.chainId ?? defaultChainId
-  const hasKnownDuration = !!state.durationInMs && state.durationInMs > 0
+  const hasKnownDuration = state.durationInMs !== undefined && state.durationInMs >= 0
   const [durationInMs, setDurationInMs] = useState(
     hasKnownDuration ? state.durationInMs! : FINITE_DURATION_OPTIONS[0]!.value,
   )
@@ -53,9 +53,7 @@ const ReconnectAutoSign = () => {
     }
   }
 
-  const configuredDuration = FINITE_DURATION_OPTIONS.find(
-    (option) => option.value === durationInMs,
-  )?.label
+  const configuredDuration = DURATION_OPTIONS.find((option) => option.value === durationInMs)?.label
   const durationLabel =
     configuredDuration ??
     `for ${formatDuration(intervalToDuration({ start: 0, end: durationInMs }))}`
