@@ -362,16 +362,13 @@ export function useEnableAutoSign() {
           if (!isOwnerFenceCurrent(store, initiaAddress, ownerGeneration)) {
             throw new AutoSignCancelledError()
           }
-          if (
+          const shouldUpdateStayConnected =
             stayConnected !== undefined &&
             shouldUpdateStayConnectedOnEnable({
               hasActiveIdentity: !!activeIdentity,
               createRandomCandidate,
               stayConnected,
             })
-          ) {
-            await setStayConnected(chainId, stayConnected, { alreadyLocked: true })
-          }
           clearSigningClientCache(initiaAddress, chainId)
 
           const granteesToRevoke = resolveEnableAutoSignGranteeCandidates({
@@ -405,6 +402,9 @@ export function useEnableAutoSign() {
           })
           if (!isOwnerFenceCurrent(store, initiaAddress, ownerGeneration)) {
             throw new AutoSignCancelledError()
+          }
+          if (shouldUpdateStayConnected) {
+            await setStayConnected(chainId, stayConnected, { alreadyLocked: true })
           }
           if (createRandomCandidate) {
             if (getWalletRevision(chainId)?.keyId !== pendingCandidateKeyId) {
@@ -567,7 +567,7 @@ export function useRenewAutoSign() {
           if (!isOwnerFenceCurrent(store, owner, ownerGeneration)) {
             throw new AutoSignCancelledError()
           }
-          if (
+          const shouldUpdateStayConnected =
             activeIdentity &&
             stayConnected !== undefined &&
             shouldUpdateStayConnectedOnEnable({
@@ -575,9 +575,6 @@ export function useRenewAutoSign() {
               createRandomCandidate,
               stayConnected,
             })
-          ) {
-            await setStayConnected(chainId, stayConnected, { alreadyLocked: true })
-          }
           if (!isOwnerFenceCurrent(store, owner, ownerGeneration)) {
             throw new AutoSignCancelledError()
           }
@@ -612,6 +609,9 @@ export function useRenewAutoSign() {
           })
           if (!isOwnerFenceCurrent(store, owner, ownerGeneration)) {
             throw new AutoSignCancelledError()
+          }
+          if (shouldUpdateStayConnected) {
+            await setStayConnected(chainId, stayConnected, { alreadyLocked: true })
           }
           if (createRandomCandidate) {
             if (getWalletRevision(chainId)?.keyId !== pendingCandidateKeyId) {

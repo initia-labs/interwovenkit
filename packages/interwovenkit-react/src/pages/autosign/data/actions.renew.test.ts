@@ -180,6 +180,26 @@ describe("useEnableAutoSign random signer recovery", () => {
       "init1legacy",
     )
   })
+
+  it("waits for the owner grant before changing a restored signer's stay-connected mode", async () => {
+    mocks.getWalletIdentities.mockResolvedValue([
+      { address: "init1restored", provenance: "random", state: "active" },
+    ])
+    mocks.restoreWallet.mockResolvedValue({
+      address: "init1restored",
+      publicKey: new Uint8Array(),
+    })
+    mocks.requestTxBlock.mockResolvedValue({ code: 0, rawLog: "" })
+
+    await useEnableMutationForTest().mutationFn({ durationInMs: 60_000, stayConnected: false })
+
+    expect(mocks.setStayConnected).toHaveBeenCalledWith("initiation-2", false, {
+      alreadyLocked: true,
+    })
+    expect(mocks.requestTxBlock.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.setStayConnected.mock.invocationCallOrder[0]!,
+    )
+  })
 })
 
 describe("useRenewAutoSign random signer recovery", () => {
@@ -226,6 +246,26 @@ describe("useRenewAutoSign random signer recovery", () => {
       "init1owner",
       "initiation-2",
       "init1legacy",
+    )
+  })
+
+  it("waits for the owner grant before changing a restored signer's stay-connected mode", async () => {
+    mocks.getWalletIdentities.mockResolvedValue([
+      { address: "init1restored", provenance: "random", state: "active" },
+    ])
+    mocks.restoreWallet.mockResolvedValue({
+      address: "init1restored",
+      publicKey: new Uint8Array(),
+    })
+    mocks.requestTxBlock.mockResolvedValue({ code: 0, rawLog: "" })
+
+    await useRenewMutationForTest().mutationFn({ ...input, stayConnected: false })
+
+    expect(mocks.setStayConnected).toHaveBeenCalledWith("initiation-2", false, {
+      alreadyLocked: true,
+    })
+    expect(mocks.requestTxBlock.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.setStayConnected.mock.invocationCallOrder[0]!,
     )
   })
 
