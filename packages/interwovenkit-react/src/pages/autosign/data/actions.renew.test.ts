@@ -182,6 +182,52 @@ describe("useEnableAutoSign random signer recovery", () => {
   })
 })
 
+describe("restored signer persistence changes", () => {
+  const operations = [
+    [
+      "enable",
+      () => useEnableMutationForTest().mutationFn({ durationInMs: 60_000, stayConnected: false }),
+    ],
+    ["renew", () => useRenewMutationForTest().mutationFn({ ...input, stayConnected: false })],
+  ] as const
+
+  beforeEach(() => {
+    mocks.restoreWallet.mockResolvedValue({
+      address: "init1oldrandom",
+      publicKey: new Uint8Array(),
+    })
+  })
+
+  it.each(operations)(
+    "defers %s persistence changes until the owner transaction succeeds",
+    async (_operation, mutate) => {
+      mocks.requestTxBlock.mockRejectedValue(
+        new TxExecutionError("transaction failed", 5, "txhash"),
+      )
+
+      await expect(mutate()).rejects.toThrow("transaction failed")
+
+      expect(mocks.setStayConnected).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each(operations)(
+    "applies %s persistence changes after transaction confirmation",
+    async (_operation, mutate) => {
+      mocks.requestTxBlock.mockResolvedValue({ code: 0, rawLog: "" })
+
+      await mutate()
+
+      expect(mocks.setStayConnected).toHaveBeenCalledWith("initiation-2", false, {
+        alreadyLocked: true,
+      })
+      expect(mocks.requestTxBlock.mock.invocationCallOrder[0]).toBeLessThan(
+        mocks.setStayConnected.mock.invocationCallOrder[0]!,
+      )
+    },
+  )
+})
+
 describe("useRenewAutoSign random signer recovery", () => {
   it("revokes the old grantee, grants the replacement, then activates it after success", async () => {
     mocks.requestTxBlock.mockResolvedValue({ code: 0, rawLog: "" })
