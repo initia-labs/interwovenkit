@@ -4,6 +4,7 @@ export interface PendingAutoSignRequest {
   owner: string
   chainId: string
   defaultDuration: number
+  stayConnected?: boolean
   resolve: () => void
   reject: (error: Error) => void
 }

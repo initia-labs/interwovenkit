@@ -9,6 +9,9 @@ import { type AutoSignStatusResult, useAutoSignStatus } from "./validation"
 
 export interface EnableAutoSignOptions {
   defaultDuration?: number
+  /** Uses the app's choice and hides the Enable dialog checkbox when provided.
+   * Omit it to keep the dialog's built-in saved-preference choice. */
+  stayConnected?: boolean
 }
 
 export interface AutoSignResult extends AutoSignStatusResult {
@@ -45,6 +48,7 @@ export function useAutoSign(): AutoSignResult {
         owner,
         chainId,
         defaultDuration: resolveAutoSignDuration(options?.defaultDuration),
+        stayConnected: options?.stayConnected,
         resolve,
         reject,
       })

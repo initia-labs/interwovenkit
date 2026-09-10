@@ -56,6 +56,9 @@ const EnableAutoSignComponent = () => {
   const { closeDrawer } = useDrawer()
   const { stayConnected, setStayConnected, isLoadingPreference, isStorageUnavailable } =
     useStayConnectedPreference(pendingRequest?.chainId ?? "", initiaAddress)
+  const hasAppStayConnectedPreference = pendingRequest?.stayConnected !== undefined
+  const effectiveStayConnected =
+    autoSignStorage === "memory" ? false : (pendingRequest?.stayConnected ?? stayConnected)
   const preferenceError = isStorageUnavailable
     ? "Browser storage is unavailable. Restore browser storage access to enable auto-signing."
     : ""
@@ -89,7 +92,7 @@ const EnableAutoSignComponent = () => {
 
   const handleEnable = () => {
     if (ownerMismatch) return
-    mutate({ durationInMs: pendingRequest.defaultDuration, stayConnected })
+    mutate({ durationInMs: pendingRequest.defaultDuration, stayConnected: effectiveStayConnected })
   }
 
   const handleCancel = () => {
@@ -157,7 +160,7 @@ const EnableAutoSignComponent = () => {
           </div>
         </section>
 
-        {autoSignStorage !== "memory" && (
+        {autoSignStorage !== "memory" && !hasAppStayConnectedPreference && (
           <StayConnected
             checked={stayConnected}
             disabled={isLoadingPreference}
