@@ -17,6 +17,13 @@
   font-weight: 500;
 }
 
+.explanation {
+  color: var(--gray-1);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
 .sectionTitle {
   color: var(--gray-2);
   font-size: 12px;
@@ -95,46 +102,6 @@
   display: flex;
   align-items: center;
   gap: 4px;
-}
-
-.durationTrigger,
-.durationItem {
-  width: 140px;
-}
-
-.featureList {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-
-  padding-top: 4px;
-}
-
-.featureItem {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-
-  color: var(--gray-1);
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.checkIcon {
-  color: var(--success);
-}
-
-.learnMoreLink {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-
-  color: var(--gray-2);
-  font-size: 12px;
-  font-weight: 500;
-
-  margin-top: 12px;
-  text-decoration: underline;
 }
 
 .feedbackContainer {

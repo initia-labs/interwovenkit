@@ -1,6 +1,12 @@
 import type { Hex } from "viem"
 import { describe, expect, it } from "vitest"
-import { deriveWalletFromSignature, getAutoSignMessage, getDerivedWalletKey } from "./derivation"
+import {
+  createRandomWallet,
+  deriveWalletFromSignature,
+  getAutoSignMessage,
+  getDerivedWalletKey,
+  walletFromPrivateKey,
+} from "./derivation"
 
 const VALID_SIGNATURE: Hex =
   "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1c"
@@ -68,6 +74,22 @@ describe("deriveWalletFromSignature", () => {
     expect(initWallet.address).not.toBe(cosmosWallet.address)
     expect(initWallet.privateKey).toEqual(cosmosWallet.privateKey)
     expect(initWallet.publicKey).toEqual(cosmosWallet.publicKey)
+  })
+
+  it("rebuilds a stored wallet identity from its private key", async () => {
+    const derived = await deriveWalletFromSignature(VALID_SIGNATURE, "init")
+    const restored = await walletFromPrivateKey(new Uint8Array(derived.privateKey), "init")
+
+    expect(restored.address).toBe(derived.address)
+    expect(restored.publicKey).toEqual(derived.publicKey)
+  })
+
+  it("generates a valid random wallet for persistent credentials", async () => {
+    const wallet = await createRandomWallet("init")
+
+    expect(wallet.privateKey).toHaveLength(32)
+    expect(wallet.publicKey).toHaveLength(33)
+    expect(wallet.address.startsWith("init1")).toBe(true)
   })
 
   it("rejects signatures with an invalid byte length", async () => {

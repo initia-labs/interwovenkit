@@ -29,4 +29,17 @@ export {
 } from "./public/data/testing"
 
 // cosmos wallet types
-export type { CosmosWallet, CosmosWalletProvider } from "./data/config"
+export type {
+  AutoSignFeePolicy,
+  AutoSignGrantPolicy,
+  CosmosWallet,
+  CosmosWalletProvider,
+} from "./data/config"
+export type {
+  AutoSignPermissionPolicy,
+  EvmPermissionPolicy,
+  GenericPermissionPolicy,
+  MovePermissionPolicy,
+} from "./pages/autosign/data/policy"
+export type { AutoSignResult, EnableAutoSignOptions } from "./pages/autosign/data/public"
+export type { AutoSignChainStatus, AutoSignStatusResult } from "./pages/autosign/data/validation"

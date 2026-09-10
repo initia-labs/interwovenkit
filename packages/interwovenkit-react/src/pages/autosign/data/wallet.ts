@@ -13,28 +13,68 @@ import type { EncodeObject } from "@cosmjs/proto-signing"
 import { ethers } from "ethers"
 import type { Hex } from "viem"
 import { useSignMessage } from "wagmi"
-import { useEffect, useRef } from "react"
+import { useEffect, useEffectEvent, useRef, useState } from "react"
 import { useStore } from "jotai"
 import { MsgExec } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import type { TxRaw } from "@initia/initia.proto/cosmos/tx/v1beta1/tx"
 import { useFindChain } from "@/data/chains"
+import { useConfig } from "@/data/config"
 import { encodeEthSecp256k1Signature } from "@/data/patches/signature"
 import { recoverPublicKey, storePublicKey } from "@/data/public-key"
 import { useInitiaAddress } from "@/public/data/hooks"
-import { deriveWalletFromSignature, getAutoSignMessage, getDerivedWalletKey } from "./derivation"
 import {
+  createRandomWallet,
+  deriveWalletFromSignature,
+  getAutoSignMessage,
+  getDerivedWalletKey,
+} from "./derivation"
+import {
+  assertAutoSignRevision,
+  AutoSignCancelledError,
+  broadcastAutoSignEvent,
+  subscribeAutoSignEvents,
+  withAutoSignOperation,
+} from "./lifecycle"
+import {
+  activatePendingAutoSignWallet,
+  type AutoSignIdentity,
+  type AutoSignPublicIdentity,
+  type AutoSignStorageMode,
+  clearAutoSignOwnerSessionWallets,
+  createPendingRandomAutoSignWallet,
+  deleteAutoSignWallet,
+  discardPendingAutoSignWallet,
+  forgetAutoSignWallet,
+  getAutoSignPreference,
+  getAutoSignPublicIdentity,
+  listAutoSignPublicIdentities,
+  loadAutoSignWallet,
+  saveAutoSignWallet,
+  setAutoSignStayConnected,
+  setAutoSignWalletState,
+  type StoredAutoSignWallet,
+  updateAutoSignWalletObservation,
+} from "./storage"
+import {
+  activeWalletOwnerAtom,
   derivationSequenceAtom,
   type DerivedWallet,
   derivedWalletPrivateKeysAtom,
   type DerivedWalletPublic,
   derivedWalletsAtom,
+  pendingAutoSignRequestAtom,
   pendingDerivationsAtom,
   type PendingDerivationState,
+  walletGenerationAtom,
+  walletProvenanceAtom,
+  type WalletRevision,
+  walletRevisionsAtom,
 } from "./store"
 
 export interface KeyValueStorage {
   getItem: (key: string) => string | null
   setItem: (key: string, value: string) => void
+  removeItem?: (key: string) => void
 }
 
 interface MessageEncoder {
@@ -50,6 +90,101 @@ interface SignWithEthSecp256k1Fn {
     memo: string,
     options?: { incrementSequence?: number; customSigner?: OfflineAminoSigner },
   ): Promise<TxRaw>
+}
+
+const RESTORE_TIMEOUT_MS = 5_000
+
+interface AutoSignPreferenceState {
+  scope?: string
+  stayConnected: boolean
+  storageUnavailable: boolean
+}
+
+export function shouldRememberRandomReplacement(params: {
+  identity: AutoSignPublicIdentity | undefined
+  owner: string | undefined
+  chainId: string
+  hasWallet: boolean
+  stayConnected: boolean
+  autoSignStorage: "browser" | "memory" | undefined
+}) {
+  const { identity, owner, chainId, hasWallet, stayConnected, autoSignStorage } = params
+  return (
+    autoSignStorage !== "memory" &&
+    !stayConnected &&
+    !hasWallet &&
+    identity?.owner === owner &&
+    identity?.chainId === chainId &&
+    identity?.provenance === "random" &&
+    identity?.state === "active"
+  )
+}
+
+/** Reads the effective storage preference without exposing a routine UI control. */
+export function useAutoSignPreference(chainId: string, owner: string | undefined) {
+  const { autoSignStorage } = useConfig()
+  const { getStayConnected } = useDeriveWallet()
+  const scope = JSON.stringify([autoSignStorage, chainId, owner])
+  const [preference, setPreference] = useState<AutoSignPreferenceState>({
+    stayConnected: autoSignStorage !== "memory",
+    storageUnavailable: false,
+  })
+  const loadPreference = useEffectEvent(() => getStayConnected(chainId))
+
+  useEffect(() => {
+    let active = true
+
+    if (autoSignStorage === "memory") {
+      void Promise.resolve().then(() => {
+        if (active) setPreference({ scope, stayConnected: false, storageUnavailable: false })
+      })
+    } else {
+      void loadPreference()
+        .then((stayConnected) => {
+          if (active) setPreference({ scope, stayConnected, storageUnavailable: false })
+        })
+        .catch(() => {
+          if (active) setPreference({ scope, stayConnected: false, storageUnavailable: true })
+        })
+    }
+
+    return () => {
+      active = false
+    }
+  }, [autoSignStorage, scope])
+
+  const isCurrent = preference.scope === scope
+  return {
+    stayConnected: autoSignStorage === "memory" ? false : preference.stayConnected,
+    isLoadingPreference: autoSignStorage !== "memory" && !isCurrent,
+    isStorageUnavailable: isCurrent && preference.storageUnavailable,
+  }
+}
+
+export async function awaitWalletRestore<T>(
+  restore: Promise<T>,
+  timeoutMs = RESTORE_TIMEOUT_MS,
+  onLateResult?: (result: T) => void,
+): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      restore,
+      new Promise<T>((_resolve, reject) => {
+        timeout = setTimeout(
+          () => reject(new Error("Autosign browser storage timed out")),
+          timeoutMs,
+        )
+      }),
+    ])
+  } catch (error) {
+    if (onLateResult) {
+      void restore.then(onLateResult).catch(() => undefined)
+    }
+    throw error
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout)
+  }
 }
 
 /* Expected address storage for wallet migration detection.
@@ -132,6 +267,56 @@ function deleteDerivedWalletByKey(store: WalletStore, key: string) {
   })
 }
 
+function setWalletMetadata(
+  store: WalletStore,
+  key: string,
+  revision: WalletRevision,
+  provenance: "legacy-derived" | "random" = "legacy-derived",
+) {
+  store.set(walletRevisionsAtom, (previous) => ({ ...previous, [key]: revision }))
+  store.set(walletProvenanceAtom, (previous) => ({ ...previous, [key]: provenance }))
+}
+
+export function shouldBroadcastStorageMode(params: {
+  previousRevision: number
+  nextRevision: number
+  previousKeyId?: string
+  nextKeyId?: string
+}): boolean {
+  return (
+    params.nextRevision !== params.previousRevision ||
+    (params.nextKeyId !== undefined && params.nextKeyId !== params.previousKeyId)
+  )
+}
+
+export function refreshOwnerWalletRevisions(
+  store: WalletStore,
+  owner: string,
+  storageRevision: number,
+) {
+  store.set(walletRevisionsAtom, (previous) =>
+    Object.fromEntries(
+      Object.entries(previous).map(([key, revision]) => [
+        key,
+        revision.owner === owner ? { ...revision, storageRevision } : revision,
+      ]),
+    ),
+  )
+}
+
+function deleteWalletMetadata(store: WalletStore, key: string) {
+  store.set(walletRevisionsAtom, (previous) => {
+    const next = { ...previous }
+    delete next[key]
+    return next
+  })
+  store.set(walletProvenanceAtom, (previous) => {
+    const next = { ...previous }
+    delete next[key]
+    return next
+  })
+}
+
 export function getExpectedAddressKey(userAddress: string, chainId: string): string {
   return `${AUTOSIGN_STORAGE_PREFIX}${userAddress}:${chainId}`
 }
@@ -161,6 +346,23 @@ export function writeExpectedAddressToStorage(
   }
 }
 
+/** Removes a legacy mirror only when it still identifies the confirmed revoked grantee. */
+export function clearExpectedAddressFromStorage(
+  storage: Pick<KeyValueStorage, "getItem"> & { removeItem: (key: string) => void },
+  userAddress: string,
+  chainId: string,
+  expectedGrantee: string,
+): boolean {
+  try {
+    const key = getExpectedAddressKey(userAddress, chainId)
+    if (storage.getItem(key) !== expectedGrantee) return false
+    storage.removeItem(key)
+    return true
+  } catch {
+    return false
+  }
+}
+
 function getStorage(): KeyValueStorage | null {
   if (typeof window === "undefined") return null
   try {
@@ -185,6 +387,22 @@ export function storeExpectedAddress(userAddress: string, chainId: string, addre
   writeExpectedAddressToStorage(storage, userAddress, chainId, address)
 }
 
+/** Clears only the exact legacy grant mirror after its on-chain revocation is confirmed. */
+export function clearExpectedAddress(
+  userAddress: string,
+  chainId: string,
+  expectedGrantee: string,
+): boolean {
+  const storage = getStorage()
+  if (!storage?.removeItem) return false
+  return clearExpectedAddressFromStorage(
+    storage as Required<KeyValueStorage>,
+    userAddress,
+    chainId,
+    expectedGrantee,
+  )
+}
+
 function toPublicWallet(wallet: DerivedWallet): DerivedWalletPublic {
   return {
     publicKey: wallet.publicKey,
@@ -192,9 +410,21 @@ function toPublicWallet(wallet: DerivedWallet): DerivedWalletPublic {
   }
 }
 
+/** Keeps the complete durable metadata only for the same active grantee. */
+export function getMatchingActiveAutoSignIdentity(
+  identity: AutoSignPublicIdentity | undefined,
+  address: string,
+): AutoSignPublicIdentity | undefined {
+  return identity?.state === "active" && identity.address === address ? identity : undefined
+}
+
 function zeroizePrivateKey(privateKey: Uint8Array | undefined) {
   if (!privateKey) return
   privateKey.fill(0)
+}
+
+function getWalletCacheKey(identity: AutoSignIdentity): string {
+  return `${getDerivedWalletKey(identity.owner, identity.bech32Prefix)}:${identity.chainId}`
 }
 
 export function clearAllWalletState(store: WalletStore) {
@@ -206,6 +436,9 @@ export function clearAllWalletState(store: WalletStore) {
   }
   store.set(derivedWalletPrivateKeysAtom, {})
   store.set(derivedWalletsAtom, {})
+  store.set(walletRevisionsAtom, {})
+  store.set(walletProvenanceAtom, {})
+  store.set(walletGenerationAtom, (generation) => generation + 1)
 }
 
 export function shouldClearWalletsOnAddressChange(
@@ -224,9 +457,17 @@ export function useClearWalletsOnAddressChange() {
 
   useEffect(() => {
     const previousUserAddress = previousAddressRef.current
+    if (previousUserAddress !== userAddress) {
+      const pendingRequest = store.get(pendingAutoSignRequestAtom)
+      if (pendingRequest) {
+        pendingRequest.reject(new AutoSignCancelledError())
+        store.set(pendingAutoSignRequestAtom, null)
+      }
+    }
     if (shouldClearWalletsOnAddressChange(previousUserAddress, userAddress)) {
       clearAllWalletState(store)
     }
+    store.set(activeWalletOwnerAtom, userAddress)
     previousAddressRef.current = userAddress
   }, [store, userAddress])
 }
@@ -270,23 +511,146 @@ export class DerivedWalletSigner implements OfflineAminoSigner {
 
 /* Derive and store wallet from EIP-191 signature for autosign delegation.
  * Uses personal_sign instead of signTypedData for better hardware wallet compatibility.
- * Wallets are cached per user + bech32 prefix to avoid cross-chain prefix mismatches. */
+ * Wallets are cached per owner + chain ID + bech32 prefix, independently of RPC providers. */
 export function useDeriveWallet() {
   const store = useStore()
   const { signMessageAsync } = useSignMessage()
   const findChain = useFindChain()
   const userAddress = useInitiaAddress()
+  const { autoSignStorage } = useConfig()
 
-  const deriveWallet = async (chainId: string): Promise<DerivedWalletPublic> => {
+  useEffect(() => {
+    store.set(activeWalletOwnerAtom, userAddress)
+  }, [store, userAddress])
+
+  useEffect(() => {
+    if (!userAddress) return
+    return subscribeAutoSignEvents((event, isLocal) => {
+      // Local UI listeners still receive the event. This listener only clears
+      // stale key state after a different document changes the storage mode.
+      if (isLocal || event.topic !== "storage-mode" || event.owner !== userAddress) return
+      try {
+        clearAutoSignOwnerSessionWallets(event.owner)
+      } catch {
+        // Durable revision fencing still prevents stale session data from loading.
+      }
+      clearAllWalletState(store)
+      store.set(activeWalletOwnerAtom, userAddress)
+    })
+  }, [store, userAddress])
+
+  const getIdentity = (chainId: string): AutoSignIdentity => {
+    if (!userAddress || typeof window === "undefined") {
+      throw new AutoSignCancelledError()
+    }
+    const chain = findChain(chainId)
+    return {
+      owner: userAddress,
+      chainId,
+      bech32Prefix: chain.bech32_prefix,
+      origin: window.location.origin,
+    }
+  }
+
+  const getKey = (chainId: string) => {
+    const identity = getIdentity(chainId)
+    return { identity, key: getWalletCacheKey(identity) }
+  }
+
+  const setCurrentWallet = (
+    key: string,
+    wallet: DerivedWallet,
+    storageRevision: number,
+    provenance: "legacy-derived" | "random" = "legacy-derived",
+    keyId = `memory:${store.get(walletGenerationAtom)}`,
+  ) => {
+    setWalletPrivateKeyByKey(store, key, wallet.privateKey)
+    setDerivedWalletByKey(store, key, toPublicWallet(wallet))
+    setWalletMetadata(
+      store,
+      key,
+      {
+        owner: userAddress,
+        generation: store.get(walletGenerationAtom),
+        storageRevision,
+        keyId,
+      },
+      provenance,
+    )
+    return toPublicWallet(wallet)
+  }
+
+  const isCurrentWalletOperation = (owner: string, generation: number) =>
+    store.get(activeWalletOwnerAtom) === owner && store.get(walletGenerationAtom) === generation
+
+  const resolveStorageMode = async (
+    identity: AutoSignIdentity,
+    stayConnected?: boolean,
+  ): Promise<AutoSignStorageMode> => {
+    if (autoSignStorage === "memory") return "memory"
+    if (stayConnected !== undefined) return stayConnected ? "persistent" : "session"
+    const preference = await getAutoSignPreference(identity.owner, identity.origin)
+    return preference.stayConnected ? "persistent" : "session"
+  }
+
+  const deriveWallet = async (
+    chainId: string,
+    options?: { stayConnected?: boolean },
+  ): Promise<DerivedWalletPublic> => {
     if (!userAddress) {
       throw new Error("User address not available")
     }
 
-    const chain = findChain(chainId)
-    const key = getDerivedWalletKey(userAddress, chain.bech32_prefix)
+    const { identity, key } = getKey(chainId)
     const currentWallet = store.get(derivedWalletsAtom)[key]
 
     if (currentWallet && getWalletPrivateKeyByKey(store, key)) {
+      if (store.get(walletProvenanceAtom)[key] === "random") {
+        throw new Error("Random autosign signer must be restored instead of derived")
+      }
+      const expectedAddress = getExpectedAddress(identity.owner, identity.chainId)
+      if (expectedAddress && expectedAddress !== currentWallet.address) {
+        throw new Error("Stored autosign wallet does not match the expected grantee")
+      }
+      if (autoSignStorage !== "memory") {
+        let activeIdentity: AutoSignPublicIdentity | undefined
+        try {
+          activeIdentity = await getAutoSignPublicIdentity(identity)
+        } catch (error) {
+          if (error instanceof AutoSignCancelledError) throw error
+        }
+        if (
+          activeIdentity?.state === "active" &&
+          activeIdentity.address !== currentWallet.address
+        ) {
+          throw new Error("Stored autosign wallet does not match the active grantee")
+        }
+      }
+      if (autoSignStorage !== "memory" && options?.stayConnected !== undefined) {
+        const privateKey = getWalletPrivateKeyByKey(store, key)!
+        const generation = store.get(walletGenerationAtom)
+        const preference = await setAutoSignStayConnected(
+          identity,
+          { ...currentWallet, privateKey },
+          options.stayConnected,
+          () => isCurrentWalletOperation(identity.owner, generation),
+        )
+        if (!isCurrentWalletOperation(identity.owner, generation))
+          throw new AutoSignCancelledError()
+        const savedIdentity = await getAutoSignPublicIdentity(identity)
+        if (!savedIdentity) throw new AutoSignCancelledError()
+        setWalletMetadata(
+          store,
+          key,
+          {
+            owner: userAddress,
+            generation: store.get(walletGenerationAtom),
+            storageRevision: preference.revision,
+            keyId: savedIdentity.keyId,
+          },
+          savedIdentity.provenance,
+        )
+      }
       return currentWallet
     }
 
@@ -296,6 +660,7 @@ export function useDeriveWallet() {
     }
 
     const token = createDerivationToken(store, key)
+    const generation = store.get(walletGenerationAtom)
 
     const derivationPromise = (async () => {
       try {
@@ -308,12 +673,72 @@ export function useDeriveWallet() {
         // without an identification signature, which would be a second wallet popup.
         storePublicKey(userAddress, recoverPublicKey(message, signature))
 
-        const wallet = await deriveWalletFromSignature(signature as Hex, chain.bech32_prefix)
+        const wallet = await deriveWalletFromSignature(signature as Hex, identity.bech32Prefix)
         const publicWallet = toPublicWallet(wallet)
+        const expectedAddress = getExpectedAddress(identity.owner, identity.chainId)
+        if (expectedAddress && expectedAddress !== publicWallet.address) {
+          wallet.privateKey.fill(0)
+          throw new Error("Derived autosign wallet does not match the expected grantee")
+        }
+        let matchingActiveIdentity: AutoSignPublicIdentity | undefined
+        if (autoSignStorage !== "memory") {
+          let storedIdentity: AutoSignPublicIdentity | undefined
+          try {
+            storedIdentity = await getAutoSignPublicIdentity(identity)
+          } catch (error) {
+            if (error instanceof AutoSignCancelledError) {
+              wallet.privateKey.fill(0)
+              throw error
+            }
+          }
+          matchingActiveIdentity = getMatchingActiveAutoSignIdentity(
+            storedIdentity,
+            publicWallet.address,
+          )
+          if (storedIdentity?.state === "active" && !matchingActiveIdentity) {
+            wallet.privateKey.fill(0)
+            throw new Error("Derived autosign wallet does not match the active grantee")
+          }
+        }
 
-        if (shouldPersistDerivedWallet(store, key, token)) {
-          setWalletPrivateKeyByKey(store, key, wallet.privateKey)
-          setDerivedWalletByKey(store, key, publicWallet)
+        if (
+          shouldPersistDerivedWallet(store, key, token) &&
+          isCurrentWalletOperation(identity.owner, generation)
+        ) {
+          const mode = await resolveStorageMode(identity, options?.stayConnected)
+          if (mode === "memory") {
+            setCurrentWallet(key, wallet, 0)
+          } else {
+            const isCurrentDerivation = () =>
+              shouldPersistDerivedWallet(store, key, token) &&
+              isCurrentWalletOperation(identity.owner, generation)
+            const preference = await saveAutoSignWallet(
+              identity,
+              wallet,
+              mode,
+              isCurrentDerivation,
+              matchingActiveIdentity,
+            )
+            if (!isCurrentDerivation()) {
+              wallet.privateKey.fill(0)
+              throw new AutoSignCancelledError()
+            }
+            const savedIdentity = await getAutoSignPublicIdentity(identity)
+            if (!savedIdentity || !isCurrentDerivation()) {
+              wallet.privateKey.fill(0)
+              throw new AutoSignCancelledError()
+            }
+            setCurrentWallet(
+              key,
+              wallet,
+              preference.revision,
+              "legacy-derived",
+              savedIdentity.keyId,
+            )
+            // A saved legacy-derived signer is safe to recognize on the next
+            // enable attempt even if its initial grant transaction fails.
+            storeExpectedAddress(identity.owner, identity.chainId, publicWallet.address)
+          }
           return publicWallet
         }
 
@@ -330,24 +755,21 @@ export function useDeriveWallet() {
 
   const getWallet = (chainId: string): DerivedWalletPublic | undefined => {
     if (!userAddress) return undefined
-    const chain = findChain(chainId)
-    const key = getDerivedWalletKey(userAddress, chain.bech32_prefix)
+    const { key } = getKey(chainId)
     if (!getWalletPrivateKeyByKey(store, key)) return undefined
     return store.get(derivedWalletsAtom)[key]
   }
 
   const getWalletPrivateKey = (chainId: string): Uint8Array | undefined => {
     if (!userAddress) return undefined
-    const chain = findChain(chainId)
-    const key = getDerivedWalletKey(userAddress, chain.bech32_prefix)
+    const { key } = getKey(chainId)
     return getWalletPrivateKeyByKey(store, key)
   }
 
   const clearWallet = (chainId: string) => {
     if (!userAddress) return
 
-    const chain = findChain(chainId)
-    const key = getDerivedWalletKey(userAddress, chain.bech32_prefix)
+    const { key } = getKey(chainId)
     const privateKey = getWalletPrivateKeyByKey(store, key)
 
     const pendingDerivation = getPendingDerivation(store, key)
@@ -358,13 +780,351 @@ export function useDeriveWallet() {
     zeroizePrivateKey(privateKey)
     deleteWalletPrivateKeyByKey(store, key)
     deleteDerivedWalletByKey(store, key)
+    deleteWalletMetadata(store, key)
   }
 
   const clearAllWallets = () => {
     clearAllWalletState(store)
   }
 
-  return { deriveWallet, getWallet, getWalletPrivateKey, clearWallet, clearAllWallets }
+  const restoreWallet = async (chainId: string): Promise<DerivedWalletPublic | undefined> => {
+    if (!userAddress || autoSignStorage === "memory") return undefined
+    const { identity, key } = getKey(chainId)
+    const generation = store.get(walletGenerationAtom)
+    const restore = loadAutoSignWallet(identity)
+    const restored = await awaitWalletRestore(restore, RESTORE_TIMEOUT_MS, (late) =>
+      late?.privateKey.fill(0),
+    )
+    if (!restored) return undefined
+    if (
+      store.get(walletGenerationAtom) !== generation ||
+      store.get(activeWalletOwnerAtom) !== identity.owner
+    ) {
+      restored.privateKey.fill(0)
+      throw new AutoSignCancelledError()
+    }
+    const expectedAddress = getExpectedAddress(identity.owner, identity.chainId)
+    if (
+      restored.provenance === "legacy-derived" &&
+      expectedAddress &&
+      expectedAddress !== restored.address
+    ) {
+      restored.privateKey.fill(0)
+      return undefined
+    }
+    setCurrentWallet(key, restored, restored.revision, restored.provenance, restored.keyId)
+    return toPublicWallet(restored)
+  }
+
+  const createWallet = async (
+    chainId: string,
+    options?: { stayConnected?: boolean; random?: boolean },
+  ): Promise<DerivedWalletPublic> => {
+    if (!options?.random) return deriveWallet(chainId, options)
+    if (autoSignStorage === "memory") {
+      throw new Error("Random autosign keys require browser storage")
+    }
+    const { identity, key } = getKey(chainId)
+    const mode = await resolveStorageMode(identity, options.stayConnected)
+    if (mode !== "persistent") throw new Error("Random autosign keys require Stay connected")
+    const generation = store.get(walletGenerationAtom)
+    const wallet = await createRandomWallet(identity.bech32Prefix)
+    const pending = await createPendingRandomAutoSignWallet(identity, wallet, () =>
+      isCurrentWalletOperation(identity.owner, generation),
+    )
+    if (!isCurrentWalletOperation(identity.owner, generation)) {
+      wallet.privateKey.fill(0)
+      throw new AutoSignCancelledError()
+    }
+    setCurrentWallet(key, pending, pending.revision, pending.provenance, pending.keyId)
+    return toPublicWallet(pending)
+  }
+
+  const activatePendingIdentity = async (chainId: string, keyId: string) => {
+    const { identity } = getKey(chainId)
+    const generation = store.get(walletGenerationAtom)
+    await activatePendingAutoSignWallet(identity, keyId, () =>
+      isCurrentWalletOperation(identity.owner, generation),
+    )
+    if (!isCurrentWalletOperation(identity.owner, generation)) throw new AutoSignCancelledError()
+    broadcastAutoSignEvent({ topic: "wallet-active", owner: identity.owner, id: keyId })
+  }
+
+  const activateWallet = async (chainId: string) => {
+    const { key } = getKey(chainId)
+    const revision = store.get(walletRevisionsAtom)[key]
+    if (!revision) throw new AutoSignCancelledError()
+    await activatePendingIdentity(chainId, revision.keyId)
+  }
+
+  const pauseWallet = async (chainId: string): Promise<StoredAutoSignWallet | undefined> => {
+    const { identity, key } = getKey(chainId)
+    const revision = store.get(walletRevisionsAtom)[key]
+    const wallet = getWallet(chainId)
+    const privateKey = getWalletPrivateKey(chainId)
+    if (!revision || !wallet || !privateKey) return undefined
+    const paused: StoredAutoSignWallet = {
+      ...wallet,
+      privateKey: new Uint8Array(privateKey),
+      provenance: store.get(walletProvenanceAtom)[key] ?? "legacy-derived",
+      revision: revision.storageRevision,
+      keyId: revision.keyId,
+      state: "paused",
+    }
+    try {
+      if (autoSignStorage !== "memory" && (await getStorageMode(chainId)) === "persistent") {
+        await setAutoSignWalletState(identity, revision.keyId, "paused")
+      }
+      clearWallet(chainId)
+      broadcastAutoSignEvent({ topic: "wallet-paused", owner: identity.owner, id: revision.keyId })
+      return paused
+    } catch (error) {
+      paused.privateKey.fill(0)
+      throw error
+    }
+  }
+
+  const discardPausedWallet = (paused: StoredAutoSignWallet | undefined) => {
+    paused?.privateKey.fill(0)
+  }
+
+  const deleteWalletAfterConfirmedRevoke = async (
+    chainId: string,
+    paused: StoredAutoSignWallet | undefined,
+    keyId?: string,
+  ) => {
+    const targetKeyId = paused?.keyId ?? keyId
+    if (!targetKeyId) return
+    const { identity } = getKey(chainId)
+    try {
+      if (autoSignStorage !== "memory") {
+        await deleteAutoSignWallet(identity, targetKeyId)
+      }
+    } finally {
+      discardPausedWallet(paused)
+    }
+  }
+
+  const resumeWallet = async (chainId: string, paused: StoredAutoSignWallet | undefined) => {
+    if (!paused) return undefined
+    const { identity, key } = getKey(chainId)
+    const generation = store.get(walletGenerationAtom)
+    try {
+      if (autoSignStorage !== "memory" && (await getStorageMode(chainId)) === "persistent") {
+        await setAutoSignWalletState(identity, paused.keyId, "active")
+      }
+      if (!isCurrentWalletOperation(identity.owner, generation)) throw new AutoSignCancelledError()
+      setCurrentWallet(key, paused, paused.revision, paused.provenance, paused.keyId)
+      broadcastAutoSignEvent({ topic: "wallet-active", owner: identity.owner, id: paused.keyId })
+      return toPublicWallet(paused)
+    } catch (error) {
+      paused.privateKey.fill(0)
+      throw error
+    }
+  }
+
+  const getWalletIdentities = async (chainId: string) => {
+    if (!userAddress || autoSignStorage === "memory") return []
+    const { identity } = getKey(chainId)
+    const identities = await listAutoSignPublicIdentities(identity.owner, identity.origin)
+    return identities.filter(
+      (candidate) =>
+        candidate.chainId === identity.chainId && candidate.bech32Prefix === identity.bech32Prefix,
+    )
+  }
+
+  const getActiveIdentity = async (chainId: string) => {
+    return (await getWalletIdentities(chainId)).find((candidate) => candidate.state === "active")
+  }
+
+  const getPendingIdentities = async (chainId: string) => {
+    return (await getWalletIdentities(chainId)).filter((candidate) => candidate.state === "pending")
+  }
+
+  const discardPendingIdentity = async (chainId: string, keyId: string) => {
+    if (!userAddress || autoSignStorage === "memory") return
+    const { identity, key } = getKey(chainId)
+    const generation = store.get(walletGenerationAtom)
+    await discardPendingAutoSignWallet(identity, keyId)
+    if (!isCurrentWalletOperation(identity.owner, generation)) throw new AutoSignCancelledError()
+    if (store.get(walletRevisionsAtom)[key]?.keyId === keyId) clearWallet(chainId)
+  }
+
+  const updateWalletObservation = async (
+    chainId: string,
+    observation: { requestedDurationMs?: number; observedExpiration?: string },
+  ) => {
+    if (autoSignStorage === "memory") return
+    const { identity, key } = getKey(chainId)
+    const revision = store.get(walletRevisionsAtom)[key]
+    const generation = store.get(walletGenerationAtom)
+    if (!revision) throw new AutoSignCancelledError()
+    const isCurrentObservation = () => {
+      const current = store.get(walletRevisionsAtom)[key]
+      return (
+        isCurrentWalletOperation(identity.owner, generation) &&
+        current?.keyId === revision.keyId &&
+        current.storageRevision === revision.storageRevision
+      )
+    }
+    await updateAutoSignWalletObservation(
+      identity,
+      revision.keyId,
+      observation,
+      isCurrentObservation,
+    )
+    if (!isCurrentObservation()) throw new AutoSignCancelledError()
+  }
+
+  const getWalletRevision = (chainId: string): WalletRevision | undefined => {
+    if (!userAddress) return undefined
+    const { key } = getKey(chainId)
+    return store.get(walletRevisionsAtom)[key]
+  }
+
+  const assertWalletRevision = async (chainId: string, revision: WalletRevision | undefined) => {
+    if (!revision || !userAddress || revision.owner !== userAddress)
+      throw new AutoSignCancelledError()
+    if (store.get(activeWalletOwnerAtom) !== revision.owner) throw new AutoSignCancelledError()
+    if (store.get(walletGenerationAtom) !== revision.generation) throw new AutoSignCancelledError()
+    if (autoSignStorage !== "memory") {
+      const { identity } = getKey(chainId)
+      await assertAutoSignRevision({
+        owner: identity.owner,
+        origin: identity.origin,
+        revision: revision.storageRevision,
+      })
+      const current = await getAutoSignPublicIdentity(identity)
+      if (!current || current.keyId !== revision.keyId || current.state !== "active") {
+        throw new AutoSignCancelledError()
+      }
+      if (store.get(activeWalletOwnerAtom) !== revision.owner) throw new AutoSignCancelledError()
+      if (store.get(walletGenerationAtom) !== revision.generation)
+        throw new AutoSignCancelledError()
+    }
+  }
+
+  const getStayConnected = async (chainId: string): Promise<boolean> => {
+    if (autoSignStorage === "memory") return false
+    const { identity } = getKey(chainId)
+    return (await getAutoSignPreference(identity.owner, identity.origin)).stayConnected
+  }
+
+  const getStorageMode = async (chainId: string): Promise<AutoSignStorageMode> => {
+    if (autoSignStorage === "memory") return "memory"
+    const { identity } = getKey(chainId)
+    return (await getAutoSignPreference(identity.owner, identity.origin)).stayConnected
+      ? "persistent"
+      : "session"
+  }
+
+  const setStayConnected = async (
+    chainId: string,
+    stayConnected: boolean,
+    options?: { alreadyLocked?: boolean },
+  ) => {
+    if (autoSignStorage === "memory") {
+      throw new Error("Autosign is configured for memory-only storage")
+    }
+    const { identity, key } = getKey(chainId)
+    const update = async () => {
+      const wallet = getWallet(chainId)
+      const privateKey = getWalletPrivateKey(chainId)
+      const previousRevision = (await getAutoSignPreference(identity.owner, identity.origin))
+        .revision
+      const previousKeyId = store.get(walletRevisionsAtom)[key]?.keyId
+      const generation = store.get(walletGenerationAtom)
+      const preference = await setAutoSignStayConnected(
+        identity,
+        wallet && privateKey ? { ...wallet, privateKey } : undefined,
+        stayConnected,
+        () => isCurrentWalletOperation(identity.owner, generation),
+      )
+      if (!isCurrentWalletOperation(identity.owner, generation)) throw new AutoSignCancelledError()
+      refreshOwnerWalletRevisions(store, identity.owner, preference.revision)
+      let savedIdentity: AutoSignPublicIdentity | undefined
+      if (wallet && privateKey) {
+        savedIdentity = await getAutoSignPublicIdentity(identity)
+        if (!savedIdentity) throw new AutoSignCancelledError()
+        setWalletMetadata(
+          store,
+          key,
+          {
+            owner: userAddress,
+            generation: store.get(walletGenerationAtom),
+            storageRevision: preference.revision,
+            keyId: savedIdentity.keyId,
+          },
+          savedIdentity.provenance,
+        )
+      }
+      // A redundant preference write should not evict other tabs' in-memory
+      // signers. Still notify them if an unexpected identity replacement did
+      // occur without a revision change.
+      if (
+        shouldBroadcastStorageMode({
+          previousRevision,
+          nextRevision: preference.revision,
+          previousKeyId,
+          nextKeyId: savedIdentity?.keyId,
+        })
+      ) {
+        broadcastAutoSignEvent({
+          topic: "storage-mode",
+          owner: identity.owner,
+          revision: preference.revision,
+        })
+      }
+    }
+    return options?.alreadyLocked ? update() : withAutoSignOperation(identity.owner, update)
+  }
+
+  const forgetWallet = async (chainId: string) => {
+    if (!userAddress || autoSignStorage === "memory") {
+      clearWallet(chainId)
+      return
+    }
+    const { identity } = getKey(chainId)
+    const preference = await forgetAutoSignWallet(identity)
+    clearWallet(chainId)
+    broadcastAutoSignEvent({
+      topic: "storage-mode",
+      owner: identity.owner,
+      revision: preference.revision,
+    })
+  }
+
+  const getWalletProvenance = (chainId: string) => {
+    if (!userAddress) return undefined
+    const { key } = getKey(chainId)
+    return store.get(walletProvenanceAtom)[key]
+  }
+
+  return {
+    deriveWallet,
+    getWallet,
+    getWalletPrivateKey,
+    clearWallet,
+    clearAllWallets,
+    restoreWallet,
+    createWallet,
+    activateWallet,
+    activatePendingIdentity,
+    pauseWallet,
+    deleteWalletAfterConfirmedRevoke,
+    resumeWallet,
+    getWalletIdentities,
+    getActiveIdentity,
+    getPendingIdentities,
+    discardPendingIdentity,
+    updateWalletObservation,
+    getWalletRevision,
+    assertWalletRevision,
+    getStayConnected,
+    setStayConnected,
+    forgetWallet,
+    getWalletProvenance,
+  }
 }
 
 export function buildAuthzExecMessages({

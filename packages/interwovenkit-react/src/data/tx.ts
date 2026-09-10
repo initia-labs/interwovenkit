@@ -13,11 +13,20 @@ import { SignMode } from "cosmjs-types/cosmos/tx/signing/v1beta1/signing"
 import { ServiceClientImpl, SimulateRequest } from "cosmjs-types/cosmos/tx/v1beta1/service"
 import { AuthInfo, Fee, Tx, TxBody, TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import type { Any } from "cosmjs-types/google/protobuf/any"
-import { atom, useAtomValue, useSetAtom } from "jotai"
+import { atom, useAtomValue, useSetAtom, useStore } from "jotai"
+import { useEventCallback } from "usehooks-ts"
 import { TimeoutError } from "@/lib/promise"
 import { useNavigate } from "@/lib/router"
+import { getFeegrantSpendLimit } from "@/pages/autosign/data/fetch"
+import { AutoSignCancelledError } from "@/pages/autosign/data/lifecycle"
 import type { DerivedWalletPublic } from "@/pages/autosign/data/store"
-import { useValidateAutoSign } from "@/pages/autosign/data/validation"
+import { activeWalletOwnerAtom, walletGenerationAtom } from "@/pages/autosign/data/store"
+import { useRequestAutoSignUnlock } from "@/pages/autosign/data/unlock-request"
+import {
+  isFeegrantEligibleForAutoSign,
+  useAutoSignStatus,
+  useValidateAutoSign,
+} from "@/pages/autosign/data/validation"
 import {
   buildAuthzExecMessages,
   signWithDerivedWalletWithPrivateKey,
@@ -31,7 +40,7 @@ import { encodePubkeyInitia } from "./patches/pubkeys"
 import { useAnalyticsTrack } from "./analytics"
 import { useFindChain } from "./chains"
 import { useConfig } from "./config"
-import { formatMoveError, parseMoveError } from "./errors"
+import { formatMoveError, parseMoveError, TxExecutionError } from "./errors"
 import { fetchGasPrices } from "./fee"
 import {
   type AccountSequence,
@@ -86,6 +95,13 @@ export const txStatusAtom = atom<TxStatus | null>(null)
 const DEFAULT_AUTOSIGN_GAS_MULTIPLIER = DEFAULT_GAS_ADJUSTMENT
 const DEFAULT_AUTOSIGN_MAX_GAS_MULTIPLIER = 1.5
 
+// Keep lifecycle checks private and attached to the exact signed transaction.
+const autoSignBroadcastChecks = new WeakMap<TxRaw, () => Promise<void>>()
+
+async function checkAutoSignBeforeBroadcast(tx: TxRaw) {
+  await autoSignBroadcastChecks.get(tx)?.()
+}
+
 interface ResolvedAutoSignFeePolicy {
   gasMultiplier: number
   maxGasMultiplierFromSim: number
@@ -123,12 +139,14 @@ export function buildAutoSignFeeFromSimulation({
   preferredFeeDenom,
   fallbackFeeDenom,
   policy,
+  remainingBudget,
 }: {
   simulatedGas: number
   gasPrices: Coin[]
   preferredFeeDenom?: string
   fallbackFeeDenom?: string
   policy: ResolvedAutoSignFeePolicy
+  remainingBudget?: Coin[]
 }): StdFee {
   if (!Number.isFinite(simulatedGas) || simulatedGas <= 0) {
     throw new Error("Auto-sign gas simulation failed")
@@ -145,8 +163,17 @@ export function buildAutoSignFeeFromSimulation({
 
   const gasLimit = Math.ceil(simulatedGas * gasMultiplier)
 
+  const affordablePrices = remainingBudget?.length
+    ? gasPrices.filter((price) => {
+        const remaining = remainingBudget.find(({ denom }) => denom === price.denom)
+        if (!remaining) return false
+        const fee = calculateFee(gasLimit, GasPrice.fromString(`${price.amount}${price.denom}`))
+        return BigInt(fee.amount[0]!.amount) <= BigInt(remaining.amount)
+      })
+    : gasPrices
+
   const gasPrice = selectAutoSignGasPrice({
-    gasPrices,
+    gasPrices: affordablePrices,
     preferredFeeDenom,
     fallbackFeeDenom,
     allowedFeeDenoms,
@@ -210,9 +237,11 @@ type AutoSignFallbackReason =
   | "derived_wallet_sign_failed"
 
 interface SignTxWithAutoSignFeeDeps {
-  validateAutoSign: (chainId: string, messages: EncodeObject[]) => boolean
+  assertCurrentOperation?: () => void
+  validateAutoSign: (chainId: string, messages: EncodeObject[], expectedGrantee?: string) => boolean
   getWallet: (chainId: string) => DerivedWalletPublic | undefined
-  deriveWallet: (chainId: string) => Promise<DerivedWalletPublic>
+  restoreWallet: (chainId: string) => Promise<DerivedWalletPublic | undefined>
+  deriveWallet: (chainId: string) => Promise<DerivedWalletPublic | undefined>
   getSigningClient: (chainId: string) => Promise<SigningStargateClient>
   computeAutoSignFee: (params: ComputeAutoSignFeeParams) => Promise<StdFee>
   signWithDerivedWallet: (
@@ -336,8 +365,10 @@ export async function signTxWithAutoSignFeeWithDeps(
   }: SignTxWithAutoSignFeeParams,
   deps: SignTxWithAutoSignFeeDeps,
 ): Promise<TxRaw> {
-  const signManually = async () =>
-    deps.signWithEthSecp256k1(chainId, address, messages, fee, memo, { accountSequence })
+  const signManually = async () => {
+    deps.assertCurrentOperation?.()
+    return deps.signWithEthSecp256k1(chainId, address, messages, fee, memo, { accountSequence })
+  }
   const reportFallback = (reason: AutoSignFallbackReason, error?: unknown) => {
     deps.onAutoSignFallback?.({
       chainId,
@@ -356,13 +387,23 @@ export async function signTxWithAutoSignFeeWithDeps(
     return signManually()
   }
 
+  // Restoration is silent; permission to derive still belongs to the caller.
   let derivedWallet = deps.getWallet(chainId)
+  if (!derivedWallet) {
+    try {
+      derivedWallet = await deps.restoreWallet(chainId)
+    } catch (error) {
+      if (error instanceof AutoSignCancelledError) throw error
+      reportFallback("missing_derived_wallet")
+      return signManually()
+    }
+  }
   let hasReportedDeriveFailure = false
   if (!derivedWallet && allowWalletDerivation) {
     try {
       derivedWallet = await deps.deriveWallet(chainId)
     } catch (error) {
-      if (isUserRejectedRequestError(error)) {
+      if (isUserRejectedRequestError(error) || error instanceof AutoSignCancelledError) {
         throw error
       }
       reportFallback("derive_wallet_failed", error)
@@ -413,12 +454,14 @@ export async function signTxWithAutoSignFeeWithDeps(
       derivedWallet,
     )
   } catch (error) {
+    if (error instanceof AutoSignCancelledError) throw error
     reportFallback("derived_wallet_sign_failed", error)
     return signManually()
   }
 }
 
 export function useSignTxWithAutoSignFee() {
+  const store = useStore()
   const address = useInitiaAddress()
   const { autoSignFeePolicy, registryUrl } = useConfig()
   const findChain = useFindChain()
@@ -426,7 +469,16 @@ export function useSignTxWithAutoSignFee() {
   const createSigningStargateClient = useCreateSigningStargateClient()
   const registry = useRegistry()
   const validateAutoSign = useValidateAutoSign()
-  const { getWallet, deriveWallet, getWalletPrivateKey } = useDeriveWallet()
+  const requestAutoSignUnlock = useRequestAutoSignUnlock()
+  const { data: autoSignStatus } = useAutoSignStatus()
+  const {
+    getWallet,
+    restoreWallet,
+    getWalletPrivateKey,
+    getWalletRevision,
+    assertWalletRevision,
+    clearWallet,
+  } = useDeriveWallet()
   const signWithEthSecp256k1 = useSignWithEthSecp256k1()
   const track = useAnalyticsTrack()
 
@@ -461,7 +513,21 @@ export function useSignTxWithAutoSignFee() {
     client: SigningStargateClient
   }): Promise<StdFee> => {
     const chain = findChain(chainId)
+    const feegrant = autoSignStatus?.feegrantByChain[chainId]
+    if (feegrant?.grantee !== derivedWallet.address) {
+      throw new Error("Auto-sign fee allowance does not match the signer")
+    }
     const gasPrices = await fetchGasPrices(chain)
+    if (!feegrant || !isFeegrantEligibleForAutoSign(feegrant)) {
+      throw new Error("Auto-sign fee allowance is unavailable")
+    }
+    const allowance =
+      feegrant.allowance["@type"] === "/cosmos.feegrant.v1beta1.AllowedMsgAllowance"
+        ? feegrant.allowance.allowance
+        : feegrant.allowance
+    if (allowance?.["@type"] !== "/cosmos.feegrant.v1beta1.BasicAllowance") {
+      throw new Error("Auto-sign fee allowance type is unsupported")
+    }
 
     const simulationInput = buildAutoSignSimulationInput({
       derivedAddress: derivedWallet.address,
@@ -496,8 +562,10 @@ export function useSignTxWithAutoSignFee() {
       preferredFeeDenom,
       fallbackFeeDenom,
       policy,
+      remainingBudget: getFeegrantSpendLimit(feegrant.allowance),
     })
   }
+  const latestComputeAutoSignFee = useEventCallback(computeAutoSignFee)
 
   const signWithDerivedWallet: SignTxWithAutoSignFeeDeps["signWithDerivedWallet"] = async (
     chainId,
@@ -507,17 +575,33 @@ export function useSignTxWithAutoSignFee() {
     memo,
     derivedWalletOverride,
   ) => {
-    let derivedWallet = derivedWalletOverride ?? getWallet(chainId)
-    if (!derivedWallet) {
-      derivedWallet = await deriveWallet(chainId)
-    }
+    const derivedWallet = derivedWalletOverride ?? getWallet(chainId)
+    if (!derivedWallet) throw new AutoSignCancelledError()
 
+    const revision = getWalletRevision(chainId)
+    const check = async () => {
+      try {
+        await assertWalletRevision(chainId, revision)
+      } catch (error) {
+        // Evict the stale signer so the next request can restore or use the
+        // owner's wallet. Never clear a newer signer installed during the read.
+        if (getWalletRevision(chainId) === revision) clearWallet(chainId)
+        throw error
+      }
+      if (!validateAutoSign(chainId, messages, derivedWallet.address)) {
+        throw new AutoSignCancelledError()
+      }
+    }
+    await check()
+
+    const currentWallet = getWallet(chainId)
+    if (currentWallet?.address !== derivedWallet.address) throw new AutoSignCancelledError()
     const privateKey = getWalletPrivateKey(chainId)
     if (!privateKey) {
       throw new Error("Derived wallet key not initialized")
     }
 
-    return await signWithDerivedWalletWithPrivateKey({
+    const signedTx = await signWithDerivedWalletWithPrivateKey({
       chainId,
       granterAddress,
       messages,
@@ -528,20 +612,38 @@ export function useSignTxWithAutoSignFee() {
       encoder: registry,
       signWithEthSecp256k1,
     })
+    await check()
+    autoSignBroadcastChecks.set(signedTx, check)
+    return signedTx
   }
 
-  return (params: Omit<SignTxWithAutoSignFeeParams, "address">): Promise<TxRaw> =>
-    signTxWithAutoSignFeeWithDeps(
+  return (params: Omit<SignTxWithAutoSignFeeParams, "address">): Promise<TxRaw> => {
+    const generation = store.get(walletGenerationAtom)
+    const messages = params.messages.map((message) => {
+      const value = registry.decode(registry.encodeAsAny(message))
+      return { typeUrl: message.typeUrl, value }
+    })
+    return signTxWithAutoSignFeeWithDeps(
       {
         ...params,
+        messages,
+        fee: { ...params.fee, amount: params.fee.amount.map((coin) => ({ ...coin })) },
         address,
       },
       {
+        assertCurrentOperation: () => {
+          if (
+            store.get(walletGenerationAtom) !== generation ||
+            (store.get(activeWalletOwnerAtom) && store.get(activeWalletOwnerAtom) !== address)
+          )
+            throw new AutoSignCancelledError()
+        },
         validateAutoSign,
         getWallet,
-        deriveWallet,
+        restoreWallet,
+        deriveWallet: requestAutoSignUnlock,
         getSigningClient: createSigningStargateClient,
-        computeAutoSignFee,
+        computeAutoSignFee: latestComputeAutoSignFee,
         signWithDerivedWallet,
         signWithEthSecp256k1,
         formatError: (chainId, error) => formatMoveError(error, findChain(chainId), registryUrl),
@@ -554,6 +656,7 @@ export function useSignTxWithAutoSignFee() {
         },
       },
     )
+  }
 }
 
 export function useTxRequestHandler() {
@@ -626,6 +729,7 @@ export function useTx() {
         resolve: async (signedTx: TxRaw) => {
           try {
             const client = await createSigningStargateClient(txRequest.chainId)
+            await checkAutoSignBeforeBroadcast(signedTx)
             const response = await broadcaster(client, TxRaw.encode(signedTx).finish())
             resolve(response)
             if (typeof txRequest.internal === "string") {
@@ -705,7 +809,8 @@ export function useTx() {
       broadcaster: async (client, signedTxBytes) => {
         const response = await client.broadcastTx(signedTxBytes, timeoutMs, intervalMs)
         invalidateAccountSequence()
-        if (response.code !== 0) throw new Error(response.rawLog)
+        if (response.code !== 0)
+          throw new TxExecutionError(response.rawLog, response.code, response.transactionHash)
         return response
       },
     })
@@ -732,8 +837,7 @@ export function useTx() {
       fee,
       preferredFeeDenom,
       client,
-      // Re-derive once per page session when auto-sign is enabled so direct
-      // signing continues to work after reload.
+      // Restore silently first; explicit direct signing may recover a legacy key.
       allowWalletDerivation: true,
     })
 
@@ -748,6 +852,7 @@ export function useTx() {
         chainId,
       })
 
+      await checkAutoSignBeforeBroadcast(signedTx)
       return await client.broadcastTxSync(TxRaw.encode(signedTx).finish())
     } catch (error) {
       throw await formatMoveError(error as Error, findChain(chainId), registryUrl)
@@ -766,13 +871,15 @@ export function useTx() {
         chainId,
       })
 
+      await checkAutoSignBeforeBroadcast(signedTx)
       const response = await client.broadcastTx(
         TxRaw.encode(signedTx).finish(),
         timeoutMs,
         intervalMs,
       )
       invalidateAccountSequence()
-      if (response.code !== 0) throw new Error(response.rawLog)
+      if (response.code !== 0)
+        throw new TxExecutionError(response.rawLog, response.code, response.transactionHash)
       return response
     } catch (error) {
       throw await formatMoveError(error as Error, findChain(chainId), registryUrl)
@@ -830,7 +937,7 @@ export async function waitForTxConfirmationWithClient({
     const tx = await client.getTx(txHash)
 
     if (tx) {
-      if (tx.code !== 0) throw new Error(tx.rawLog)
+      if (tx.code !== 0) throw new TxExecutionError(tx.rawLog, tx.code, tx.hash)
       return tx
     }
 

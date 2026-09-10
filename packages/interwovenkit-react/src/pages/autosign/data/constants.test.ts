@@ -1,9 +1,9 @@
 import { DAY_IN_MS, HOUR_IN_MS, MINUTE_IN_MS } from "@/data/constants"
-import { DEFAULT_DURATION, resolveAutoSignDuration } from "./constants"
+import { resolveAutoSignDuration } from "./constants"
 
 describe("resolveAutoSignDuration", () => {
   it("returns the default duration when none is provided", () => {
-    expect(resolveAutoSignDuration()).toBe(DEFAULT_DURATION)
+    expect(resolveAutoSignDuration()).toBe(0)
   })
 
   it("returns the provided duration when it matches a supported option", () => {
@@ -12,7 +12,9 @@ describe("resolveAutoSignDuration", () => {
     expect(resolveAutoSignDuration(0)).toBe(0)
   })
 
-  it("falls back to the default duration for unsupported values", () => {
-    expect(resolveAutoSignDuration(5 * MINUTE_IN_MS)).toBe(DEFAULT_DURATION)
+  it("rejects unsupported durations instead of silently widening them", () => {
+    expect(() => resolveAutoSignDuration(5 * MINUTE_IN_MS)).toThrow(
+      "Auto-sign duration must match a supported option",
+    )
   })
 })

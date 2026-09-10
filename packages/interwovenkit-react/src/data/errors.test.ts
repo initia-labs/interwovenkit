@@ -1,6 +1,16 @@
+import { BroadcastTxError } from "@cosmjs/stargate"
 import ky from "ky"
 import type { Chain } from "@initia/initia-registry-types"
-import { clearErrorCache, formatMoveError, MoveError, parseMoveError } from "./errors"
+import { TimeoutError } from "@/lib/promise"
+import { AutoSignCancelledError } from "@/pages/autosign/data/storage"
+import {
+  clearErrorCache,
+  formatMoveError,
+  isConfirmedTxFailure,
+  MoveError,
+  parseMoveError,
+  TxExecutionError,
+} from "./errors"
 import * as http from "./http"
 
 vi.mock("ky")
@@ -95,6 +105,35 @@ describe("Move Error Handling", () => {
     } as Chain
 
     const registryUrl = "https://registry.initia.xyz"
+
+    test("preserves definite transaction failures and unknown timeouts through formatting", async () => {
+      const failures = [
+        new BroadcastTxError(4, "authz", "unauthorized"),
+        new TxExecutionError("execution failed", 4, "TXHASH"),
+      ]
+      for (const error of failures) {
+        const formatted = await formatMoveError(error, mockChainL1, registryUrl)
+        expect(formatted).toBe(error)
+        expect(isConfirmedTxFailure(formatted)).toBe(true)
+      }
+      const timeout = new TimeoutError("confirmation pending")
+      expect(await formatMoveError(timeout, mockChainL1, registryUrl)).toBe(timeout)
+      expect(isConfirmedTxFailure(timeout)).toBe(false)
+
+      const cancelled = new AutoSignCancelledError()
+      expect(await formatMoveError(cancelled, mockChainL1, registryUrl)).toBe(cancelled)
+      expect(isConfirmedTxFailure(cancelled)).toBe(false)
+    })
+
+    test("formats a confirmed Move failure without losing definite-failure classification", async () => {
+      const error = new TxExecutionError("VM aborted: location=1::coin, code=65537", 4, "TXHASH")
+
+      const formatted = await formatMoveError(error, mockChainL1, registryUrl)
+
+      expect(formatted).toBeInstanceOf(MoveError)
+      expect((formatted as MoveError).originalError).toBe(error)
+      expect(isConfirmedTxFailure(formatted)).toBe(true)
+    })
 
     test("should return MoveError unchanged without reformatting", async () => {
       const originalError = new Error("VM aborted: location=1::module, code=1")
