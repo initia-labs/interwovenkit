@@ -140,8 +140,8 @@ describe("enable storage preference", () => {
 
 describe("renew random signer replacement", () => {
   it.each([
-    { requestStarted: false, explicitUserRejection: false },
-    { requestStarted: true, explicitUserRejection: true },
+    { requestStarted: false, notBroadcast: false },
+    { requestStarted: true, notBroadcast: true },
   ])("discards an ungranted replacement before broadcast or after rejection", (failure) => {
     expect(
       shouldDiscardPendingAutoSignCandidate({
@@ -178,6 +178,16 @@ describe("shouldUpdateStayConnectedOnEnable", () => {
     expect(
       shouldUpdateStayConnectedOnEnable({
         hasActiveIdentity: true,
+        createRandomCandidate: false,
+        stayConnected: false,
+      }),
+    ).toBe(true)
+  })
+
+  it("applies an explicit preference after a newly derived legacy grant is confirmed", () => {
+    expect(
+      shouldUpdateStayConnectedOnEnable({
+        hasActiveIdentity: false,
         createRandomCandidate: false,
         stayConnected: false,
       }),

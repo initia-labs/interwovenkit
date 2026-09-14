@@ -17,6 +17,17 @@ export class TxExecutionError extends Error {
   }
 }
 
+const txNotBroadcastErrors = new WeakSet<Error>()
+
+export function markTxNotBroadcast(error: Error): Error {
+  txNotBroadcastErrors.add(error)
+  return error
+}
+
+export function isTxNotBroadcast(error: unknown): boolean {
+  return error instanceof Error && txNotBroadcastErrors.has(error)
+}
+
 export interface ParsedMoveError {
   moduleAddress: string
   moduleName: string

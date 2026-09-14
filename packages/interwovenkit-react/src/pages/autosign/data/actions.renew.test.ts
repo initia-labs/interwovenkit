@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { TxExecutionError } from "@/data/errors"
+import { markTxNotBroadcast, TxExecutionError } from "@/data/errors"
+import { AutoSignPendingResolutionError, AutoSignStorageError } from "./storage"
 import { activeWalletOwnerAtom, pendingAutoSignRequestAtom, walletGenerationAtom } from "./store"
 
 const mocks = vi.hoisted(() => ({
@@ -12,10 +13,16 @@ const mocks = vi.hoisted(() => ({
   fetchGrants: vi.fn(),
   getExpectedAddress: vi.fn(),
   getStayConnected: vi.fn(),
+  getOwnerPendingIdentities: vi.fn(),
+  getWallet: vi.fn(),
   getWalletIdentities: vi.fn(),
   getWalletProvenance: vi.fn(),
   getWalletRevision: vi.fn(),
   invalidateQueries: vi.fn(),
+  deleteWalletAfterConfirmedRevoke: vi.fn(),
+  pauseWallet: vi.fn(),
+  resumeWallet: vi.fn(),
+  refetchAutoSignStatus: vi.fn(),
   requestTxBlock: vi.fn(),
   restoreWallet: vi.fn(),
   setPendingRequest: vi.fn(),
@@ -28,6 +35,8 @@ const mocks = vi.hoisted(() => ({
     resolve: vi.fn(),
     reject: vi.fn(),
   },
+  activeOwner: "init1owner",
+  generation: 7,
 }))
 
 vi.mock("jotai", async (importOriginal) => {
@@ -37,8 +46,8 @@ vi.mock("jotai", async (importOriginal) => {
     useAtom: () => [mocks.pendingRequest, mocks.setPendingRequest],
     useStore: () => ({
       get: (atom: unknown) => {
-        if (atom === activeWalletOwnerAtom) return "init1owner"
-        if (atom === walletGenerationAtom) return 7
+        if (atom === activeWalletOwnerAtom) return mocks.activeOwner
+        if (atom === walletGenerationAtom) return mocks.generation
         if (atom === pendingAutoSignRequestAtom) return mocks.pendingRequest
         return undefined
       },
@@ -55,6 +64,7 @@ vi.mock("@/data/config", () => ({
   useConfig: () => ({
     autoSignStorage: "browser",
     autoSignGrantPolicy: {},
+    defaultChainId: "initiation-2",
   }),
 }))
 
@@ -87,7 +97,10 @@ vi.mock("./validation", () => ({
   useAutoSignMessageTypes: () => ({
     "initiation-2": ["/cosmos.bank.v1beta1.MsgSend"],
   }),
-  useAutoSignStatus: vi.fn(),
+  useAutoSignStatus: () => ({
+    data: undefined,
+    refetch: mocks.refetchAutoSignStatus,
+  }),
 }))
 
 vi.mock("./wallet", () => ({
@@ -99,21 +112,32 @@ vi.mock("./wallet", () => ({
     createWallet: mocks.createWallet,
     deriveWallet: mocks.deriveWallet,
     discardPendingIdentity: mocks.discardPendingIdentity,
+    deleteWalletAfterConfirmedRevoke: mocks.deleteWalletAfterConfirmedRevoke,
+    getOwnerPendingIdentities: mocks.getOwnerPendingIdentities,
     getStayConnected: mocks.getStayConnected,
+    getWallet: mocks.getWallet,
     getWalletProvenance: mocks.getWalletProvenance,
     getWalletRevision: mocks.getWalletRevision,
     getWalletIdentities: mocks.getWalletIdentities,
     restoreWallet: mocks.restoreWallet,
+    pauseWallet: mocks.pauseWallet,
+    resumeWallet: mocks.resumeWallet,
     setStayConnected: mocks.setStayConnected,
     updateWalletObservation: mocks.updateWalletObservation,
   }),
 }))
 
-import { useEnableAutoSign, useRenewAutoSign } from "./actions"
+import { useDisableAutoSign, useEnableAutoSign, useRenewAutoSign } from "./actions"
 
 interface EnableMutation {
   mutationFn: (input: { durationInMs: number; stayConnected?: boolean }) => Promise<unknown>
   onSuccess: (result: unknown) => Promise<void>
+  onMutate: () => { request: typeof mocks.pendingRequest }
+  onError: (
+    error: Error,
+    input: { durationInMs: number; stayConnected?: boolean },
+    context: { request: typeof mocks.pendingRequest },
+  ) => void
 }
 
 interface RenewMutation {
@@ -125,6 +149,11 @@ interface RenewMutation {
   onSuccess: (result: unknown) => Promise<void>
 }
 
+interface DisableMutation {
+  mutationFn: (chainId?: string) => Promise<unknown>
+  onSuccess: (result: unknown) => Promise<void>
+}
+
 const input = {
   chainId: "initiation-2",
   durationInMs: 60_000,
@@ -133,9 +162,12 @@ const input = {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.activeOwner = "init1owner"
+  mocks.generation = 7
   mocks.getExpectedAddress.mockReturnValue(undefined)
   mocks.restoreWallet.mockResolvedValue(undefined)
   mocks.getStayConnected.mockResolvedValue(true)
+  mocks.getOwnerPendingIdentities.mockResolvedValue([])
   mocks.getWalletIdentities.mockResolvedValue([
     { address: "init1oldrandom", provenance: "random", state: "active" },
     { address: "init1forgotten", provenance: "random", state: "forgotten" },
@@ -144,7 +176,7 @@ beforeEach(() => {
     address: "init1newrandom",
     publicKey: new Uint8Array(),
   })
-  mocks.getWalletRevision.mockReturnValue({ keyId: "replacement-key" })
+  mocks.getWalletRevision.mockReturnValue({ keyId: "replacement-key", storageRevision: 11 })
   mocks.getWalletProvenance.mockReturnValue("random")
   mocks.fetchFeegrant.mockResolvedValue(undefined)
   mocks.fetchGrants.mockResolvedValue([{ authorization: { msg: "/cosmos.bank.v1beta1.MsgSend" } }])
@@ -152,6 +184,11 @@ beforeEach(() => {
   mocks.discardPendingIdentity.mockResolvedValue(undefined)
   mocks.setStayConnected.mockResolvedValue(undefined)
   mocks.updateWalletObservation.mockResolvedValue(undefined)
+  mocks.invalidateQueries.mockResolvedValue(undefined)
+  mocks.refetchAutoSignStatus.mockResolvedValue({ data: undefined })
+  mocks.deleteWalletAfterConfirmedRevoke.mockResolvedValue(undefined)
+  mocks.pauseWallet.mockResolvedValue(undefined)
+  mocks.resumeWallet.mockResolvedValue(undefined)
 })
 
 function useRenewMutationForTest() {
@@ -160,6 +197,10 @@ function useRenewMutationForTest() {
 
 function useEnableMutationForTest() {
   return useEnableAutoSign() as unknown as EnableMutation
+}
+
+function useDisableMutationForTest() {
+  return useDisableAutoSign() as unknown as DisableMutation
 }
 
 describe("useEnableAutoSign random signer recovery", () => {
@@ -176,7 +217,7 @@ describe("useEnableAutoSign random signer recovery", () => {
       random: true,
     })
     expect(mocks.fetchGrants).toHaveBeenCalledWith("initiation-2", "init1forgotten")
-    expect(mocks.activateWallet).toHaveBeenCalledWith("initiation-2")
+    expect(mocks.activateWallet).toHaveBeenCalledWith("initiation-2", { mode: "persistent" })
   })
 
   it("clears the captured legacy mirror after granting a random replacement", async () => {
@@ -195,6 +236,99 @@ describe("useEnableAutoSign random signer recovery", () => {
       "initiation-2",
       "init1legacy",
     )
+  })
+
+  it("settles the accepted request after success even when its owner fence changes later", async () => {
+    mocks.getWalletIdentities.mockResolvedValue([])
+    mocks.deriveWallet.mockResolvedValue({
+      address: "init1legacy",
+      publicKey: new Uint8Array(),
+    })
+    mocks.getWalletProvenance.mockReturnValue("legacy-derived")
+    mocks.requestTxBlock.mockResolvedValue({ transactionHash: "ENABLE123", code: 0, rawLog: "" })
+    const mutation = useEnableMutationForTest()
+    const result = await mutation.mutationFn({ durationInMs: 60_000 })
+    mocks.activeOwner = "init1other"
+    mocks.invalidateQueries.mockRejectedValue(new Error("cache unavailable"))
+
+    await mutation.onSuccess(result)
+
+    expect(mocks.pendingRequest.resolve).toHaveBeenCalledOnce()
+  })
+
+  it("rejects the accepted request with the confirmed-chain local-pending outcome", async () => {
+    mocks.requestTxBlock.mockResolvedValue({
+      code: 0,
+      rawLog: "",
+      transactionHash: "ENABLE123",
+    })
+    mocks.activateWallet.mockRejectedValue(
+      new AutoSignStorageError(
+        "Change Stay connected from the original tab or Forget the old signer in Settings",
+      ),
+    )
+    const mutation = useEnableMutationForTest()
+    const context = mutation.onMutate()
+    const input = { durationInMs: 60_000, stayConnected: true }
+    const error = (await mutation.mutationFn(input).catch((cause) => cause)) as Error
+
+    mutation.onError(error, input, context)
+
+    expect(error).toMatchObject({
+      name: "AutoSignConfirmedLocalPendingError",
+      transactionHash: "ENABLE123",
+    })
+    expect(error.message).toContain(
+      "Change Stay connected from the original tab or Forget the old signer in Settings",
+    )
+    expect(mocks.pendingRequest.reject).toHaveBeenCalledWith(error)
+    expect(mocks.discardPendingIdentity).not.toHaveBeenCalled()
+    expect(mocks.invalidateQueries).toHaveBeenCalledTimes(2)
+  })
+
+  it("waits for a successful status refresh before resolving the accepted request", async () => {
+    mocks.getWalletIdentities.mockResolvedValue([])
+    mocks.deriveWallet.mockResolvedValue({
+      address: "init1legacy",
+      publicKey: new Uint8Array(),
+    })
+    mocks.getWalletProvenance.mockReturnValue("legacy-derived")
+    mocks.requestTxBlock.mockResolvedValue({ transactionHash: "ENABLE123", code: 0, rawLog: "" })
+    let finishRefresh!: () => void
+    mocks.invalidateQueries.mockReturnValue(
+      new Promise<void>((resolve) => {
+        finishRefresh = resolve
+      }),
+    )
+    const mutation = useEnableMutationForTest()
+    const result = await mutation.mutationFn({ durationInMs: 60_000 })
+    const success = mutation.onSuccess(result)
+    await Promise.resolve()
+
+    expect(mocks.pendingRequest.resolve).not.toHaveBeenCalled()
+    finishRefresh()
+    await success
+    expect(mocks.pendingRequest.resolve).toHaveBeenCalledOnce()
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["autosign", "expirations"],
+    })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ["autosign", "grants"] })
+  })
+
+  it("rejects the originally accepted request from mutation context after hook options rerender", () => {
+    const firstRequest = mocks.pendingRequest
+    const originalMutation = useEnableMutationForTest()
+    const context = originalMutation.onMutate()
+    const newerReject = vi.fn()
+    mocks.pendingRequest = { ...mocks.pendingRequest, reject: newerReject }
+    const rerenderedMutation = useEnableMutationForTest()
+    const error = new Error("approval failed")
+
+    rerenderedMutation.onError(error, { durationInMs: 60_000 }, context)
+
+    expect(firstRequest.reject).toHaveBeenCalledWith(error)
+    expect(newerReject).not.toHaveBeenCalled()
+    mocks.pendingRequest = firstRequest
   })
 })
 
@@ -236,12 +370,48 @@ describe("restored signer persistence changes", () => {
 
       expect(mocks.setStayConnected).toHaveBeenCalledWith("initiation-2", false, {
         alreadyLocked: true,
+        expectedRevision: 11,
       })
       expect(mocks.requestTxBlock.mock.invocationCallOrder[0]).toBeLessThan(
         mocks.setStayConnected.mock.invocationCallOrder[0]!,
       )
     },
   )
+
+  it("fails a session downgrade before opening the transaction when pending keys need resolution", async () => {
+    mocks.getOwnerPendingIdentities.mockResolvedValue([
+      { chainId: "pending-chain", keyId: "pending-key", state: "pending" },
+    ])
+
+    await expect(
+      useRenewMutationForTest().mutationFn({ ...input, stayConnected: false }),
+    ).rejects.toBeInstanceOf(AutoSignPendingResolutionError)
+
+    expect(mocks.requestTxBlock).not.toHaveBeenCalled()
+    expect(mocks.setStayConnected).not.toHaveBeenCalled()
+  })
+
+  it("derives a legacy signer in the saved mode and applies the requested mode only after confirmation", async () => {
+    mocks.getExpectedAddress.mockReturnValue("init1legacy")
+    mocks.getWalletIdentities.mockResolvedValue([])
+    mocks.deriveWallet.mockResolvedValue({
+      address: "init1legacy",
+      publicKey: new Uint8Array(),
+    })
+    mocks.getWalletProvenance.mockReturnValue("legacy-derived")
+    mocks.requestTxBlock.mockResolvedValue({ transactionHash: "LEGACY123", code: 0, rawLog: "" })
+
+    await useEnableMutationForTest().mutationFn({ durationInMs: 60_000, stayConnected: false })
+
+    expect(mocks.deriveWallet).toHaveBeenCalledWith("initiation-2")
+    expect(mocks.requestTxBlock.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.setStayConnected.mock.invocationCallOrder[0]!,
+    )
+    expect(mocks.setStayConnected).toHaveBeenCalledWith("initiation-2", false, {
+      alreadyLocked: true,
+      expectedRevision: 11,
+    })
+  })
 })
 
 describe("useRenewAutoSign random signer recovery", () => {
@@ -269,7 +439,7 @@ describe("useRenewAutoSign random signer recovery", () => {
         }),
       ]),
     )
-    expect(mocks.activateWallet).toHaveBeenCalledWith("initiation-2")
+    expect(mocks.activateWallet).toHaveBeenCalledWith("initiation-2", { mode: "persistent" })
     expect(mocks.requestTxBlock.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.activateWallet.mock.invocationCallOrder[0]!,
     )
@@ -301,6 +471,7 @@ describe("useRenewAutoSign random signer recovery", () => {
     expect(mocks.activateWallet).not.toHaveBeenCalled()
     expect(mocks.discardPendingIdentity).toHaveBeenCalledWith("initiation-2", "replacement-key")
     expect(mocks.setStayConnected).not.toHaveBeenCalled()
+    expect(mocks.invalidateQueries).toHaveBeenCalledTimes(2)
   })
 
   it("retains the pending key when the broadcast outcome is unknown", async () => {
@@ -313,6 +484,53 @@ describe("useRenewAutoSign random signer recovery", () => {
     expect(mocks.fetchGrants).toHaveBeenCalledWith("initiation-2", "init1oldrandom")
     expect(mocks.activateWallet).not.toHaveBeenCalled()
     expect(mocks.discardPendingIdentity).not.toHaveBeenCalled()
+    expect(mocks.invalidateQueries).toHaveBeenCalledTimes(2)
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["autosign", "expirations"],
+      refetchType: "none",
+    })
+  })
+
+  it("does not discard a pending key from a spoofable post-broadcast rejection message", async () => {
+    mocks.requestTxBlock.mockRejectedValue(new Error("RPC says user rejected after forwarding"))
+
+    await expect(useRenewMutationForTest().mutationFn(input)).rejects.toThrow("user rejected")
+
+    expect(mocks.discardPendingIdentity).not.toHaveBeenCalled()
+    expect(mocks.invalidateQueries).toHaveBeenCalledTimes(2)
+  })
+
+  it("discards a pending key when the transaction boundary proves it was not broadcast", async () => {
+    const rejection = markTxNotBroadcast(Object.assign(new Error("User rejected"), { code: 4001 }))
+    mocks.requestTxBlock.mockRejectedValue(rejection)
+
+    await expect(useRenewMutationForTest().mutationFn(input)).rejects.toBe(rejection)
+
+    expect(mocks.discardPendingIdentity).toHaveBeenCalledWith("initiation-2", "replacement-key")
+    expect(mocks.invalidateQueries).not.toHaveBeenCalled()
+  })
+
+  it("reports confirmed-chain local activation failure with the transaction hash", async () => {
+    mocks.requestTxBlock.mockResolvedValue({
+      code: 0,
+      rawLog: "",
+      transactionHash: "ABC123",
+    })
+    const storageError = new AutoSignStorageError("activation failed")
+    mocks.activateWallet.mockRejectedValue(storageError)
+    mocks.invalidateQueries.mockRejectedValue(new Error("query cache unavailable"))
+
+    const error = await useRenewMutationForTest()
+      .mutationFn(input)
+      .catch((cause) => cause)
+
+    expect(error).toMatchObject({
+      name: "AutoSignConfirmedLocalPendingError",
+      transactionHash: "ABC123",
+      cause: storageError,
+    })
+    expect(mocks.discardPendingIdentity).not.toHaveBeenCalled()
+    expect(mocks.invalidateQueries).toHaveBeenCalledTimes(2)
   })
 
   it("keeps tab-only renewal from replacing an unavailable random signer", async () => {
@@ -323,5 +541,107 @@ describe("useRenewAutoSign random signer recovery", () => {
     expect(mocks.createWallet).not.toHaveBeenCalled()
     expect(mocks.requestTxBlock).not.toHaveBeenCalled()
     expect(mocks.activateWallet).not.toHaveBeenCalled()
+  })
+})
+
+describe("useDisableAutoSign local identity lifecycle", () => {
+  const identities = [
+    { address: "init1active", keyId: "active-key", provenance: "random", state: "active" },
+    { address: "init1paused", keyId: "paused-key", provenance: "random", state: "paused" },
+    { address: "init1pending", keyId: "pending-key", provenance: "random", state: "pending" },
+    {
+      address: "init1forgotten",
+      keyId: "forgotten-key",
+      provenance: "random",
+      state: "forgotten",
+    },
+  ]
+
+  beforeEach(() => {
+    mocks.getWallet.mockReturnValue(undefined)
+    mocks.getWalletIdentities.mockResolvedValue(identities)
+    mocks.fetchGrants.mockResolvedValue([
+      { authorization: { msg: "/cosmos.bank.v1beta1.MsgSend" } },
+    ])
+    mocks.pauseWallet.mockResolvedValue({ keyId: "active-key", privateKey: new Uint8Array() })
+  })
+
+  it("revokes and deletes exact active, paused, pending, and forgotten local identities", async () => {
+    mocks.requestTxBlock.mockResolvedValue({ transactionHash: "REVOKE123", code: 0, rawLog: "" })
+
+    await useDisableMutationForTest().mutationFn("initiation-2")
+
+    expect(mocks.requestTxBlock).toHaveBeenCalledOnce()
+    expect(mocks.pauseWallet).toHaveBeenCalledWith("initiation-2", "active-key")
+    expect(mocks.deleteWalletAfterConfirmedRevoke).toHaveBeenCalledTimes(4)
+    expect(mocks.deleteWalletAfterConfirmedRevoke).toHaveBeenCalledWith(
+      "initiation-2",
+      expect.objectContaining({ keyId: "active-key" }),
+      "active-key",
+    )
+    for (const identity of identities.slice(1)) {
+      expect(mocks.deleteWalletAfterConfirmedRevoke).toHaveBeenCalledWith(
+        "initiation-2",
+        undefined,
+        identity.keyId,
+      )
+    }
+  })
+
+  it("retains all local identities stopped when the revoke broadcast is ambiguous", async () => {
+    mocks.requestTxBlock.mockRejectedValue(new Error("confirmation timed out"))
+
+    await expect(useDisableMutationForTest().mutationFn("initiation-2")).rejects.toThrow(
+      "confirmation timed out",
+    )
+
+    expect(mocks.deleteWalletAfterConfirmedRevoke).not.toHaveBeenCalled()
+    expect(mocks.resumeWallet).not.toHaveBeenCalled()
+    expect(mocks.invalidateQueries).toHaveBeenCalledTimes(2)
+  })
+
+  it("resumes only a newly paused active identity when broadcast never started", async () => {
+    const rejection = markTxNotBroadcast(Object.assign(new Error("User rejected"), { code: 4001 }))
+    mocks.requestTxBlock.mockRejectedValue(rejection)
+
+    await expect(useDisableMutationForTest().mutationFn("initiation-2")).rejects.toBe(rejection)
+
+    expect(mocks.resumeWallet).toHaveBeenCalledWith(
+      "initiation-2",
+      expect.objectContaining({ keyId: "active-key" }),
+      "active-key",
+    )
+    expect(mocks.invalidateQueries).not.toHaveBeenCalled()
+  })
+
+  it("does not erase a pending identity when the indexer reports no revoke messages", async () => {
+    mocks.getWalletIdentities.mockResolvedValue([identities[2]])
+    mocks.fetchGrants.mockResolvedValue([])
+
+    await useDisableMutationForTest().mutationFn("initiation-2")
+
+    expect(mocks.requestTxBlock).not.toHaveBeenCalled()
+    expect(mocks.deleteWalletAfterConfirmedRevoke).not.toHaveBeenCalled()
+  })
+
+  it("passes a paused cached pending copy to confirmed cleanup for zeroization", async () => {
+    const pending = identities[2]
+    const pausedPending = {
+      address: pending.address,
+      keyId: pending.keyId,
+      privateKey: new Uint8Array([1, 2, 3]),
+    }
+    mocks.getWalletIdentities.mockResolvedValue([pending])
+    mocks.getWallet.mockReturnValue({ address: pending.address })
+    mocks.pauseWallet.mockResolvedValue(pausedPending)
+    mocks.requestTxBlock.mockResolvedValue({ transactionHash: "REVOKE123", code: 0, rawLog: "" })
+
+    await useDisableMutationForTest().mutationFn("initiation-2")
+
+    expect(mocks.deleteWalletAfterConfirmedRevoke).toHaveBeenCalledWith(
+      "initiation-2",
+      pausedPending,
+      pending.keyId,
+    )
   })
 })

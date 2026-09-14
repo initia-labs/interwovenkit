@@ -5,7 +5,10 @@ import { useConfig } from "@/data/config"
 import { useNavigate } from "@/lib/router"
 import { subscribeAutoSignEvents } from "@/pages/autosign/data/lifecycle"
 import { useAutoSign } from "@/pages/autosign/data/public"
-import type { AutoSignPublicIdentity } from "@/pages/autosign/data/storage"
+import {
+  type AutoSignPublicIdentity,
+  listAutoSignPublicIdentities,
+} from "@/pages/autosign/data/storage"
 import { useAutoSignStatus } from "@/pages/autosign/data/validation"
 import { getExpectedAddress, useDeriveWallet } from "@/pages/autosign/data/wallet"
 import { useInitiaAddress } from "@/public/data/hooks"
@@ -31,6 +34,7 @@ const BrowserConnection = () => {
   const [isConfirmingForget, setIsConfirmingForget] = useState(false)
   const [message, setMessage] = useState("")
   const [hasWallet, setHasWallet] = useState(false)
+  const [hasStoredKeys, setHasStoredKeys] = useState(false)
   const [recoveryIdentity, setRecoveryIdentity] = useState<AutoSignPublicIdentity>()
   const [reload, setReload] = useState(0)
 
@@ -44,6 +48,7 @@ const BrowserConnection = () => {
     setIsConfirmingForget(false)
     setHasWallet(!!walletRef.current.getWallet(defaultChainId))
     setRecoveryIdentity(undefined)
+    setHasStoredKeys(false)
 
     if (autoSignStorage === "memory") {
       setStayConnectedState(false)
@@ -56,7 +61,7 @@ const BrowserConnection = () => {
     Promise.allSettled([
       walletRef.current.restoreWallet(defaultChainId),
       walletRef.current.getStayConnected(defaultChainId),
-      walletRef.current.getWalletIdentities(defaultChainId),
+      owner ? listAutoSignPublicIdentities(owner, window.location.origin) : Promise.resolve([]),
     ])
       .then(([restored, preference, identities]) => {
         if (!active) return
@@ -70,11 +75,14 @@ const BrowserConnection = () => {
           setMessage("Unable to load the browser connection setting.")
         }
         if (identities.status === "fulfilled") {
+          setHasStoredKeys(identities.value.some((identity) => identity.state !== "forgotten"))
           const matchingIdentities = identities.value.filter(
             (identity) => identity.owner === owner && identity.chainId === defaultChainId,
           )
           const identity =
             matchingIdentities.find((candidate) => candidate.state === "active") ??
+            matchingIdentities.find((candidate) => candidate.state === "pending") ??
+            matchingIdentities.find((candidate) => candidate.state === "paused") ??
             matchingIdentities.find((candidate) => candidate.provenance === "random")
           setRecoveryIdentity(identity)
         }
@@ -107,11 +115,14 @@ const BrowserConnection = () => {
       await walletRef.current.forgetWallet(defaultChainId)
       setStayConnectedState(false)
       setHasWallet(false)
+      setHasStoredKeys(false)
       setRecoveryIdentity((identity) =>
         identity ? { ...identity, state: "forgotten" } : undefined,
       )
       setIsConfirmingForget(false)
-      setMessage("Saved key removed. On-chain permissions remain active.")
+      setMessage(
+        "Saved keys removed for this wallet on all chains. On-chain permissions remain active.",
+      )
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to forget this browser.")
     } finally {
@@ -142,12 +153,18 @@ const BrowserConnection = () => {
   const canUnlockLegacy =
     !hasWallet &&
     chainStatus === "enabled" &&
+    recoveryIdentity?.state !== "paused" &&
     (recoveryIdentity?.provenance === "legacy-derived" ||
       (!recoveryIdentity && !!expectedGrantee && expectedGrantee === statusGrantee))
+  const isRecoveryPending =
+    recoveryIdentity?.state === "pending" || recoveryIdentity?.state === "paused"
   const randomKeyMissing =
-    !hasWallet && recoveryIdentity?.provenance === "random" && chainStatus !== "unknown"
+    !hasWallet &&
+    !isRecoveryPending &&
+    recoveryIdentity?.provenance === "random" &&
+    chainStatus !== "unknown"
   const canReplaceRandom = randomKeyMissing && recoveryIdentity.requestedDurationMs !== undefined
-  const hasSavedKey = hasWallet || recoveryIdentity?.state === "active"
+  const hasSavedKey = hasWallet || hasStoredKeys
   const connectionLabel = isLoading
     ? "Checking..."
     : chainStatus === "unknown"
@@ -166,7 +183,9 @@ const BrowserConnection = () => {
 
   const note =
     chainStatus === "unknown"
-      ? "Unable to verify current permissions. Your saved key has been kept."
+      ? hasSavedKey
+        ? "Unable to verify current permissions. Your saved keys have been kept."
+        : "Unable to verify current permissions."
       : chainStatus === "expired"
         ? "The saved permissions expired. Reconnect them from the permission card below."
         : chainStatus === "needs-permission-update"
@@ -190,7 +209,11 @@ const BrowserConnection = () => {
         <span>Connection</span>
         <span>{connectionLabel}</span>
       </div>
-      <p className={styles.note}>{note}</p>
+      <p className={styles.note}>
+        {isRecoveryPending
+          ? "Autosign is stopped while the transaction outcome is checked. The saved key has been kept."
+          : note}
+      </p>
 
       {canUnlockLegacy && (
         <Button.Small onClick={() => navigate("/autosign/unlock", { chainId: defaultChainId })}>
@@ -217,7 +240,7 @@ const BrowserConnection = () => {
         </Button.Small>
       )}
       {message && (
-        <FormHelp level={message.startsWith("Saved key removed") ? "info" : "error"}>
+        <FormHelp level={message.startsWith("Saved keys removed") ? "info" : "error"}>
           {message}
         </FormHelp>
       )}
@@ -226,7 +249,10 @@ const BrowserConnection = () => {
         hasSavedKey &&
         (isConfirmingForget ? (
           <div className={styles.confirmation}>
-            <p>Remove this browser&apos;s saved key? On-chain permissions will remain active.</p>
+            <p>
+              Remove this wallet&apos;s saved keys from this browser on all chains? On-chain
+              permissions will remain active.
+            </p>
             <div className={styles.actions}>
               <Button.Small onClick={() => setIsConfirmingForget(false)} disabled={isSaving}>
                 Cancel

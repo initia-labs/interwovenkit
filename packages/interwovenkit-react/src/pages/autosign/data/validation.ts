@@ -26,6 +26,7 @@ import {
   validateAutoSignMessages,
   WASM_EXECUTE_MESSAGE_TYPE,
 } from "./policy"
+import { AutoSignCancelledError } from "./storage"
 import { getExpectedAddress, useDeriveWallet } from "./wallet"
 
 export const autoSignQueryKeys = createQueryKeys("interwovenkit:autosign", {
@@ -762,6 +763,18 @@ export function canActivatePendingAutoSignIdentity(params: {
   return params.status === "enabled" && params.matchedGrantee === params.pendingAddress
 }
 
+export async function tryActivatePendingAutoSignIdentity(
+  activate: () => Promise<unknown>,
+): Promise<boolean> {
+  try {
+    await activate()
+    return true
+  } catch (error) {
+    if (error instanceof AutoSignCancelledError) return false
+    throw error
+  }
+}
+
 /**
  * Recovers the narrow window where the owner transaction reached the chain but
  * the browser reloaded before a pending random key could be promoted. This
@@ -808,7 +821,10 @@ export function useReconcilePendingAutoSign() {
           ) {
             continue
           }
-          await activatePendingIdentity(chainId, pendingIdentity.keyId)
+          const activated = await tryActivatePendingAutoSignIdentity(() =>
+            activatePendingIdentity(chainId, pendingIdentity.keyId),
+          )
+          if (!activated) continue
           await queryClient.invalidateQueries({ queryKey: autoSignQueryKeys.identities._def })
           await queryClient.invalidateQueries({ queryKey: autoSignQueryKeys.expirations._def })
         }

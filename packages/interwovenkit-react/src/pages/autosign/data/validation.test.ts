@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import type { FeegrantAllowance } from "./fetch"
+import { AutoSignCancelledError } from "./storage"
 import {
   canActivatePendingAutoSignIdentity,
   createAutoSignMessageTypesKey,
@@ -12,6 +13,7 @@ import {
   isFeegrantEligibleForAutoSign,
   resolveAutoSignEnabledForChain,
   resolveAutoSignMessageTypes,
+  tryActivatePendingAutoSignIdentity,
 } from "./validation"
 
 const findFirstValidGrantee = (
@@ -532,6 +534,22 @@ describe("canActivatePendingAutoSignIdentity", () => {
         pendingAddress: "init1pending",
       }),
     ).toBe(false)
+  })
+})
+
+describe("tryActivatePendingAutoSignIdentity", () => {
+  it("skips a superseded pending candidate and allows reconciliation to continue", async () => {
+    const activate = vi.fn().mockRejectedValue(new AutoSignCancelledError())
+
+    await expect(tryActivatePendingAutoSignIdentity(activate)).resolves.toBe(false)
+  })
+
+  it("propagates storage and network failures instead of treating them as stale candidates", async () => {
+    const failure = new Error("IndexedDB unavailable")
+
+    await expect(
+      tryActivatePendingAutoSignIdentity(vi.fn().mockRejectedValue(failure)),
+    ).rejects.toBe(failure)
   })
 })
 

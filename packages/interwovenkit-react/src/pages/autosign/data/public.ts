@@ -1,10 +1,11 @@
-import { useSetAtom } from "jotai"
+import { useStore } from "jotai"
 import { useConfig } from "@/data/config"
 import { useDrawer } from "@/data/ui"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { useDisableAutoSign } from "./actions"
 import { resolveAutoSignDuration } from "./constants"
-import { pendingAutoSignRequestAtom } from "./store"
+import { AutoSignCancelledError } from "./storage"
+import { type PendingAutoSignRequest, pendingAutoSignRequestAtom } from "./store"
 import { type AutoSignStatusResult, useAutoSignStatus } from "./validation"
 
 export interface EnableAutoSignOptions {
@@ -35,7 +36,7 @@ export function useAutoSign(): AutoSignResult {
   const { defaultChainId } = useConfig()
   const owner = useInitiaAddress()
   const { openDrawer } = useDrawer()
-  const setPendingAutoSignRequest = useSetAtom(pendingAutoSignRequestAtom)
+  const store = useStore()
   const disableAutoSign = useDisableAutoSign()
   const { data = EMPTY_AUTOSIGN_STATUS, isLoading } = useAutoSignStatus()
 
@@ -45,15 +46,37 @@ export function useAutoSign(): AutoSignResult {
         reject(new Error("Wallet not connected"))
         return
       }
-      setPendingAutoSignRequest({
+      if (store.get(pendingAutoSignRequestAtom)) {
+        reject(new AutoSignCancelledError("Another autosign approval is already in progress"))
+        return
+      }
+
+      let settled = false
+      const request: PendingAutoSignRequest = {
         owner,
         chainId,
         defaultDuration: resolveAutoSignDuration(options?.defaultDuration),
         stayConnected: options?.stayConnected,
-        resolve,
-        reject,
-      })
-      openDrawer("/autosign/enable")
+        resolve: () => {
+          if (settled) return
+          settled = true
+          resolve()
+        },
+        reject: (error) => {
+          if (settled) return
+          settled = true
+          reject(error)
+        },
+      }
+      store.set(pendingAutoSignRequestAtom, request)
+      try {
+        openDrawer("/autosign/enable")
+      } catch (error) {
+        request.reject(error instanceof Error ? error : new Error(String(error)))
+        if (store.get(pendingAutoSignRequestAtom) === request) {
+          store.set(pendingAutoSignRequestAtom, null)
+        }
+      }
     })
   }
 

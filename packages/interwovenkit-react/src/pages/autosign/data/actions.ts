@@ -4,7 +4,7 @@ import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-q
 import { MsgRevoke } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import { MsgRevokeAllowance } from "@initia/initia.proto/cosmos/feegrant/v1beta1/tx"
 import { useConfig } from "@/data/config"
-import { isConfirmedTxFailure } from "@/data/errors"
+import { isConfirmedTxFailure, isTxNotBroadcast } from "@/data/errors"
 import { clearSigningClientCache } from "@/data/signer"
 import { useTx } from "@/data/tx"
 import { useDrawer } from "@/data/ui"
@@ -13,7 +13,7 @@ import { useAutoSignApi } from "./fetch"
 import { buildAutoSignGrantMessages } from "./grant"
 import { withAutoSignOperation } from "./lifecycle"
 import { getRevokeMessageType } from "./policy"
-import { AutoSignCancelledError } from "./storage"
+import { AutoSignCancelledError, AutoSignPendingResolutionError } from "./storage"
 import { activeWalletOwnerAtom, pendingAutoSignRequestAtom, walletGenerationAtom } from "./store"
 import { autoSignQueryKeys, useAutoSignMessageTypes, useAutoSignStatus } from "./validation"
 import {
@@ -47,6 +47,18 @@ export interface RenewAutoSignInput {
 
 export const AUTO_SIGN_GRANT_REVALIDATION_DELAY_MS = 2_000
 
+export class AutoSignConfirmedLocalPendingError extends Error {
+  constructor(
+    readonly transactionHash: string,
+    readonly cause: unknown,
+  ) {
+    super(
+      `The autosign transaction ${transactionHash} was confirmed, but the browser could not finish updating the local signer${cause instanceof Error ? `. ${cause.message}` : ""}`,
+    )
+    this.name = "AutoSignConfirmedLocalPendingError"
+  }
+}
+
 const scheduledGrantRevalidations = new WeakMap<QueryClient, ReturnType<typeof setTimeout>>()
 
 /**
@@ -60,8 +72,12 @@ export function scheduleAutoSignGrantRevalidation(queryClient: QueryClient) {
 
   const timer = setTimeout(() => {
     scheduledGrantRevalidations.delete(queryClient)
-    void queryClient.invalidateQueries({ queryKey: autoSignQueryKeys.expirations._def })
-    void queryClient.invalidateQueries({ queryKey: autoSignQueryKeys.grants._def })
+    void queryClient
+      .invalidateQueries({ queryKey: autoSignQueryKeys.expirations._def })
+      .catch(() => undefined)
+    void queryClient
+      .invalidateQueries({ queryKey: autoSignQueryKeys.grants._def })
+      .catch(() => undefined)
   }, AUTO_SIGN_GRANT_REVALIDATION_DELAY_MS)
   scheduledGrantRevalidations.set(queryClient, timer)
 }
@@ -70,6 +86,7 @@ export function resolveDisableAutoSignGranteeCandidates(params: {
   explicitGrantee?: string
   cachedDerivedAddress?: string
   activeIdentityAddress?: string
+  localIdentityAddresses?: Iterable<string>
   statusGrantee?: string
   refetchedStatusGrantee?: string
 }): string[] {
@@ -80,6 +97,7 @@ export function resolveDisableAutoSignGranteeCandidates(params: {
   const candidates = [
     params.cachedDerivedAddress,
     params.activeIdentityAddress,
+    ...(params.localIdentityAddresses ?? []),
     params.statusGrantee,
     params.refetchedStatusGrantee,
   ].filter((value): value is string => !!value)
@@ -108,9 +126,7 @@ export function shouldUpdateStayConnectedOnEnable(params: {
   createRandomCandidate: boolean
   stayConnected: boolean | undefined
 }): boolean {
-  return (
-    params.hasActiveIdentity && !params.createRandomCandidate && params.stayConnected !== undefined
-  )
+  return !params.createRandomCandidate && params.stayConnected !== undefined
 }
 
 /** Legacy callers may omit the checkbox value; honor the saved preference. */
@@ -152,9 +168,9 @@ export function shouldCreateRenewRandomCandidate(params: {
 export function shouldDiscardPendingAutoSignCandidate(params: {
   requestStarted: boolean
   confirmedTxFailure: boolean
-  explicitUserRejection: boolean
+  notBroadcast: boolean
 }): boolean {
-  return !params.requestStarted || params.confirmedTxFailure || params.explicitUserRejection
+  return !params.requestStarted || params.confirmedTxFailure || params.notBroadcast
 }
 
 /** A legacy mirror verifies only reproducible signature-derived signers. */
@@ -164,16 +180,6 @@ export function getLegacyExpectedAddressAction(
   if (provenance === "legacy-derived") return "store"
   if (provenance === "random") return "clear"
   return undefined
-}
-
-function isExplicitUserRejection(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false
-  const value = error as { code?: unknown; message?: unknown }
-  return (
-    value.code === 4001 ||
-    value.code === "ACTION_REJECTED" ||
-    (typeof value.message === "string" && /user rejected/i.test(value.message))
-  )
 }
 
 function isOwnerFenceCurrent(
@@ -202,12 +208,37 @@ export function collectRevokeAuthzMessageTypes(
   ]
 }
 
-async function invalidateAutoSignQueries(queryClient: QueryClient) {
+function invalidateAutoSignQueriesWithoutMasking(queryClient: QueryClient) {
   const queryKeys = [autoSignQueryKeys.expirations._def, autoSignQueryKeys.grants._def]
   for (const queryKey of queryKeys) {
-    await queryClient.invalidateQueries({ queryKey })
+    try {
+      void queryClient.invalidateQueries({ queryKey, refetchType: "none" }).catch(() => undefined)
+    } catch {
+      // Cache refresh failures must never replace a confirmed or ambiguous transaction outcome.
+    }
   }
   scheduleAutoSignGrantRevalidation(queryClient)
+}
+
+async function refreshAutoSignQueriesWithoutMasking(queryClient: QueryClient) {
+  const queryKeys = [autoSignQueryKeys.expirations._def, autoSignQueryKeys.grants._def]
+  await Promise.allSettled(
+    queryKeys.map((queryKey) =>
+      Promise.resolve().then(() => queryClient.invalidateQueries({ queryKey })),
+    ),
+  )
+  scheduleAutoSignGrantRevalidation(queryClient)
+}
+
+async function assertSessionDowngradeHasNoPendingIdentities(
+  stayConnected: boolean | undefined,
+  getOwnerPendingIdentities: () => Promise<Array<{ chainId: string }>>,
+) {
+  if (stayConnected !== false) return
+  const pending = await getOwnerPendingIdentities()
+  if (pending.length) {
+    throw new AutoSignPendingResolutionError(pending.map(({ chainId }) => chainId))
+  }
 }
 
 /* Hook to fetch existing grants and generate revoke messages for a specific grantee */
@@ -261,6 +292,7 @@ export function useEnableAutoSign() {
     createWallet,
     discardPendingIdentity,
     deriveWallet,
+    getOwnerPendingIdentities,
     getStayConnected,
     getWalletProvenance,
     getWalletRevision,
@@ -288,6 +320,8 @@ export function useEnableAutoSign() {
       const ownerGeneration = store.get(walletGenerationAtom)
       let pendingCandidateKeyId: string | undefined
       let requestStarted = false
+      let chainConfirmed = false
+      let transactionHash: string | undefined
 
       try {
         return await withAutoSignOperation(initiaAddress, async () => {
@@ -348,7 +382,7 @@ export function useEnableAutoSign() {
               // A legacy identity is reproducible. If no encrypted copy can
               // be restored, ask for the derivation signature and verify it
               // against the active public identity.
-              derivedWallet = await deriveWallet(chainId, { stayConnected })
+              derivedWallet = await deriveWallet(chainId)
             } else if (activeIdentity.provenance === "random") {
               throw new Error(
                 "This tab no longer has the random signing key. Choose Remember on this browser in Settings to replace it.",
@@ -357,18 +391,22 @@ export function useEnableAutoSign() {
               throw new Error("Autosign signer needs recovery before renewal")
             }
           } else {
-            derivedWallet = await deriveWallet(chainId, { stayConnected })
+            derivedWallet = await deriveWallet(chainId)
           }
           if (!isOwnerFenceCurrent(store, initiaAddress, ownerGeneration)) {
             throw new AutoSignCancelledError()
           }
           const shouldUpdateStayConnected =
-            stayConnected !== undefined &&
+            config.autoSignStorage !== "memory" &&
             shouldUpdateStayConnectedOnEnable({
               hasActiveIdentity: !!activeIdentity,
               createRandomCandidate,
               stayConnected,
             })
+          const expectedRevision = getWalletRevision(chainId)?.storageRevision
+          if (shouldUpdateStayConnected && expectedRevision === undefined) {
+            throw new AutoSignCancelledError()
+          }
           clearSigningClientCache(initiaAddress, chainId)
 
           const granteesToRevoke = resolveEnableAutoSignGranteeCandidates({
@@ -394,17 +432,28 @@ export function useEnableAutoSign() {
             authorization: grantPolicy?.authorization,
             expiration,
           })
+          if (shouldUpdateStayConnected) {
+            await assertSessionDowngradeHasNoPendingIdentities(
+              stayConnected,
+              getOwnerPendingIdentities,
+            )
+          }
           requestStarted = true
-          await requestTxBlock({
+          const response = await requestTxBlock({
             messages: [...revokeMessages, ...grantMessages],
             chainId,
             internal: true,
           })
+          chainConfirmed = true
+          transactionHash = response.transactionHash
           if (!isOwnerFenceCurrent(store, initiaAddress, ownerGeneration)) {
             throw new AutoSignCancelledError()
           }
           if (shouldUpdateStayConnected) {
-            await setStayConnected(chainId, stayConnected, { alreadyLocked: true })
+            await setStayConnected(chainId, stayConnected!, {
+              alreadyLocked: true,
+              expectedRevision,
+            })
             if (!isOwnerFenceCurrent(store, initiaAddress, ownerGeneration)) {
               throw new AutoSignCancelledError()
             }
@@ -413,7 +462,7 @@ export function useEnableAutoSign() {
             if (getWalletRevision(chainId)?.keyId !== pendingCandidateKeyId) {
               throw new AutoSignCancelledError()
             }
-            await activateWallet(chainId)
+            await activateWallet(chainId, { mode: "persistent" })
           }
           await updateWalletObservation(chainId, {
             requestedDurationMs: durationInMs,
@@ -433,15 +482,23 @@ export function useEnableAutoSign() {
           }
         })
       } catch (error) {
+        if (chainConfirmed) {
+          await invalidateAutoSignQueriesWithoutMasking(queryClient)
+          throw new AutoSignConfirmedLocalPendingError(transactionHash!, error)
+        }
+        const notBroadcast = isTxNotBroadcast(error)
         if (
           pendingCandidateKeyId &&
           shouldDiscardPendingAutoSignCandidate({
             requestStarted,
             confirmedTxFailure: isConfirmedTxFailure(error),
-            explicitUserRejection: isExplicitUserRejection(error),
+            notBroadcast,
           })
         ) {
           await discardPendingIdentity(chainId, pendingCandidateKeyId).catch(() => undefined)
+        }
+        if (requestStarted && !notBroadcast) {
+          await invalidateAutoSignQueriesWithoutMasking(queryClient)
         }
         throw error
       }
@@ -455,35 +512,24 @@ export function useEnableAutoSign() {
       legacyExpectedAddress,
       legacyExpectedAddressAction,
     }) => {
-      if (
-        !isOwnerFenceCurrent(store, owner, ownerGeneration) ||
-        store.get(pendingAutoSignRequestAtom) !== request
-      ) {
-        return
-      }
-      if (legacyExpectedAddressAction === "store") {
-        storeExpectedAddress(owner, chainId, derivedWallet.address)
-      } else if (legacyExpectedAddressAction === "clear" && legacyExpectedAddress) {
-        clearExpectedAddress(owner, chainId, legacyExpectedAddress)
+      if (isOwnerFenceCurrent(store, owner, ownerGeneration)) {
+        if (legacyExpectedAddressAction === "store") {
+          storeExpectedAddress(owner, chainId, derivedWallet.address)
+        } else if (legacyExpectedAddressAction === "clear" && legacyExpectedAddress) {
+          clearExpectedAddress(owner, chainId, legacyExpectedAddress)
+        }
       }
 
-      await invalidateAutoSignQueries(queryClient)
-
-      if (
-        !isOwnerFenceCurrent(store, owner, ownerGeneration) ||
-        store.get(pendingAutoSignRequestAtom) !== request
-      ) {
-        return
-      }
+      await refreshAutoSignQueriesWithoutMasking(queryClient)
       request.resolve()
     },
-    onError: (error: Error) => {
-      if (pendingRequest && store.get(pendingAutoSignRequestAtom) === pendingRequest) {
-        pendingRequest.reject(error)
-      }
+    onMutate: () => ({ request: pendingRequest }),
+    onError: (error: Error, _input, context) => {
+      context?.request?.reject(error)
     },
-    onSettled: () => {
-      if (pendingRequest && store.get(pendingAutoSignRequestAtom) === pendingRequest) {
+    onSettled: (_data, _error, _input, context) => {
+      const request = context?.request
+      if (request && store.get(pendingAutoSignRequestAtom) === request) {
         setPendingRequest(null)
         closeDrawer()
       }
@@ -505,6 +551,7 @@ export function useRenewAutoSign() {
     createWallet,
     deriveWallet,
     discardPendingIdentity,
+    getOwnerPendingIdentities,
     getWalletIdentities,
     getWalletProvenance,
     getWalletRevision,
@@ -523,6 +570,8 @@ export function useRenewAutoSign() {
         throw new Error(`No message types configured for chain ${chainId}`)
       let pendingCandidateKeyId: string | undefined
       let requestStarted = false
+      let chainConfirmed = false
+      let transactionHash: string | undefined
 
       try {
         return await withAutoSignOperation(owner, async () => {
@@ -554,7 +603,7 @@ export function useRenewAutoSign() {
             pendingCandidateKeyId = getWalletRevision(chainId)?.keyId
             if (!pendingCandidateKeyId) throw new AutoSignCancelledError()
           } else if (!wallet && activeIdentity?.provenance === "legacy-derived") {
-            wallet = await deriveWallet(chainId, { stayConnected })
+            wallet = await deriveWallet(chainId)
           } else if (!wallet && activeIdentity?.provenance === "random") {
             throw new Error(
               "This tab no longer has the random signing key. Choose Remember on this browser in Settings to replace it.",
@@ -562,7 +611,7 @@ export function useRenewAutoSign() {
           } else if (!wallet && activeIdentity) {
             throw new Error("Autosign signer needs recovery before renewal")
           } else if (!wallet && expectedGrantee) {
-            wallet = await deriveWallet(chainId, { stayConnected })
+            wallet = await deriveWallet(chainId)
           } else if (!wallet) {
             throw new Error("No known autosign signer available for renewal")
           }
@@ -571,13 +620,15 @@ export function useRenewAutoSign() {
             throw new AutoSignCancelledError()
           }
           const shouldUpdateStayConnected =
-            !!activeIdentity &&
-            stayConnected !== undefined &&
             shouldUpdateStayConnectedOnEnable({
-              hasActiveIdentity: true,
+              hasActiveIdentity: !!activeIdentity,
               createRandomCandidate,
               stayConnected,
-            })
+            }) && config.autoSignStorage !== "memory"
+          const expectedRevision = getWalletRevision(chainId)?.storageRevision
+          if (shouldUpdateStayConnected && expectedRevision === undefined) {
+            throw new AutoSignCancelledError()
+          }
 
           const grantees = resolveEnableAutoSignGranteeCandidates({
             currentGrantee: wallet.address,
@@ -601,17 +652,28 @@ export function useRenewAutoSign() {
             authorization: grantPolicy?.authorization,
             expiration,
           })
+          if (shouldUpdateStayConnected) {
+            await assertSessionDowngradeHasNoPendingIdentities(
+              stayConnected,
+              getOwnerPendingIdentities,
+            )
+          }
           requestStarted = true
-          await requestTxBlock({
+          const response = await requestTxBlock({
             messages: [...revocations.flat(), ...grants],
             chainId,
             internal: true,
           })
+          chainConfirmed = true
+          transactionHash = response.transactionHash
           if (!isOwnerFenceCurrent(store, owner, ownerGeneration)) {
             throw new AutoSignCancelledError()
           }
           if (shouldUpdateStayConnected) {
-            await setStayConnected(chainId, stayConnected, { alreadyLocked: true })
+            await setStayConnected(chainId, stayConnected!, {
+              alreadyLocked: true,
+              expectedRevision,
+            })
             if (!isOwnerFenceCurrent(store, owner, ownerGeneration)) {
               throw new AutoSignCancelledError()
             }
@@ -620,7 +682,7 @@ export function useRenewAutoSign() {
             if (getWalletRevision(chainId)?.keyId !== pendingCandidateKeyId) {
               throw new AutoSignCancelledError()
             }
-            await activateWallet(chainId)
+            await activateWallet(chainId, { mode: "persistent" })
           }
           await updateWalletObservation(chainId, {
             requestedDurationMs: durationInMs,
@@ -641,15 +703,23 @@ export function useRenewAutoSign() {
           }
         })
       } catch (error) {
+        if (chainConfirmed) {
+          await invalidateAutoSignQueriesWithoutMasking(queryClient)
+          throw new AutoSignConfirmedLocalPendingError(transactionHash!, error)
+        }
+        const notBroadcast = isTxNotBroadcast(error)
         if (
           pendingCandidateKeyId &&
           shouldDiscardPendingAutoSignCandidate({
             requestStarted,
             confirmedTxFailure: isConfirmedTxFailure(error),
-            explicitUserRejection: isExplicitUserRejection(error),
+            notBroadcast,
           })
         ) {
           await discardPendingIdentity(chainId, pendingCandidateKeyId).catch(() => undefined)
+        }
+        if (requestStarted && !notBroadcast) {
+          await invalidateAutoSignQueriesWithoutMasking(queryClient)
         }
         throw error
       }
@@ -662,13 +732,14 @@ export function useRenewAutoSign() {
       legacyExpectedAddress,
       legacyExpectedAddressAction,
     }) => {
-      if (!isOwnerFenceCurrent(store, owner, ownerGeneration)) return
-      if (legacyExpectedAddressAction === "store") {
-        storeExpectedAddress(owner, chainId, derivedWallet.address)
-      } else if (legacyExpectedAddressAction === "clear" && legacyExpectedAddress) {
-        clearExpectedAddress(owner, chainId, legacyExpectedAddress)
+      if (isOwnerFenceCurrent(store, owner, ownerGeneration)) {
+        if (legacyExpectedAddressAction === "store") {
+          storeExpectedAddress(owner, chainId, derivedWallet.address)
+        } else if (legacyExpectedAddressAction === "clear" && legacyExpectedAddress) {
+          clearExpectedAddress(owner, chainId, legacyExpectedAddress)
+        }
       }
-      await invalidateAutoSignQueries(queryClient)
+      await refreshAutoSignQueriesWithoutMasking(queryClient)
     },
   })
 }
@@ -679,8 +750,8 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
   const initiaAddress = useInitiaAddress()
   const {
     deleteWalletAfterConfirmedRevoke,
-    getActiveIdentity,
     getWallet,
+    getWalletIdentities,
     pauseWallet,
     resumeWallet,
   } = useDeriveWallet()
@@ -695,7 +766,7 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
 
       return withAutoSignOperation(initiaAddress, async () => {
         const derivedWallet = getWallet(chainId)
-        const activeIdentity = await getActiveIdentity(chainId)
+        const localIdentities = await getWalletIdentities(chainId)
         const statusGrantee = autoSignStatus?.granteeByChain[chainId]
         const expectedGrantee = getExpectedAddress(initiaAddress, chainId)
         let refetchedStatusGrantee: string | undefined
@@ -708,7 +779,8 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
         const granteeCandidates = resolveDisableAutoSignGranteeCandidates({
           explicitGrantee: options?.grantee,
           cachedDerivedAddress: derivedWallet?.address,
-          activeIdentityAddress: activeIdentity?.address,
+          activeIdentityAddress: localIdentities.find(({ state }) => state === "active")?.address,
+          localIdentityAddresses: localIdentities.map(({ address }) => address),
           // A query match alone cannot prove an app owns a grantee. The
           // non-explicit disable flow only adopts status data that matches the
           // locally recorded deterministic identity.
@@ -724,38 +796,76 @@ export function useDisableAutoSign(options?: { grantee: string; internal: boolea
           throw new Error("No grantee address available")
         }
 
-        const messagesByGrantee = await Promise.all(
-          granteeCandidates.map((grantee) => fetchRevokeMessages({ chainId, grantee })),
+        const revocationsByGrantee = await Promise.all(
+          granteeCandidates.map(async (grantee) => ({
+            grantee,
+            messages: await fetchRevokeMessages({ chainId, grantee }),
+          })),
         )
-        const messages = messagesByGrantee.flat()
+        const messages = revocationsByGrantee.flatMap(({ messages }) => messages)
 
         if (messages.length === 0) {
           return { chainId, didBroadcast: false }
         }
-        const localGrantee = activeIdentity?.address ?? derivedWallet?.address
-        const shouldPauseLocalWallet = !!localGrantee && granteeCandidates.includes(localGrantee)
-        const pausedWallet = shouldPauseLocalWallet ? await pauseWallet(chainId) : undefined
+        const granteesWithRevocations = new Set(
+          revocationsByGrantee
+            .filter(({ messages }) => messages.length > 0)
+            .map(({ grantee }) => grantee),
+        )
+        const localTargets = localIdentities.filter(({ address }) =>
+          granteesWithRevocations.has(address),
+        )
+        const activeTarget = localTargets.find(({ state }) => state === "active")
+        const shouldPauseCachedWallet =
+          !activeTarget && !!derivedWallet && granteesWithRevocations.has(derivedWallet.address)
+        const pausedKeyId = activeTarget?.keyId
+        const pausedWallet =
+          activeTarget || shouldPauseCachedWallet
+            ? await pauseWallet(chainId, pausedKeyId)
+            : undefined
+        let chainConfirmed = false
+        let transactionHash: string | undefined
         try {
-          await requestTxBlock({ messages, chainId, internal: options?.internal })
-          await deleteWalletAfterConfirmedRevoke(
-            chainId,
-            pausedWallet,
-            shouldPauseLocalWallet ? activeIdentity?.keyId : undefined,
-          )
-          for (const grantee of granteeCandidates) {
+          const response = await requestTxBlock({ messages, chainId, internal: options?.internal })
+          chainConfirmed = true
+          transactionHash = response.transactionHash
+          for (const target of localTargets) {
+            await deleteWalletAfterConfirmedRevoke(
+              chainId,
+              target.keyId === (pausedKeyId ?? pausedWallet?.keyId) ? pausedWallet : undefined,
+              target.keyId,
+            )
+          }
+          if (localTargets.length === 0 && pausedWallet) {
+            await deleteWalletAfterConfirmedRevoke(chainId, pausedWallet)
+          }
+          for (const grantee of granteesWithRevocations) {
             clearExpectedAddress(initiaAddress, chainId, grantee)
           }
-          return { chainId, didBroadcast: true, pausedLocalWallet: !!pausedWallet }
+          return {
+            chainId,
+            didBroadcast: true,
+            pausedLocalWallet: !!pausedWallet || !!pausedKeyId,
+            transactionHash,
+          }
         } catch (error) {
-          if (pausedWallet && (isConfirmedTxFailure(error) || isExplicitUserRejection(error))) {
-            await resumeWallet(chainId, pausedWallet).catch(() => undefined)
+          if (chainConfirmed) {
+            await invalidateAutoSignQueriesWithoutMasking(queryClient)
+            throw new AutoSignConfirmedLocalPendingError(transactionHash!, error)
+          }
+          const notBroadcast = isTxNotBroadcast(error)
+          if ((pausedWallet || pausedKeyId) && (isConfirmedTxFailure(error) || notBroadcast)) {
+            await resumeWallet(chainId, pausedWallet, pausedKeyId).catch(() => undefined)
+          }
+          if (!notBroadcast) {
+            await invalidateAutoSignQueriesWithoutMasking(queryClient)
           }
           throw error
         }
       })
     },
     onSuccess: async () => {
-      await invalidateAutoSignQueries(queryClient)
+      await refreshAutoSignQueriesWithoutMasking(queryClient)
     },
   })
 }

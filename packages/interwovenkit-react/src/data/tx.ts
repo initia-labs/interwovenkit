@@ -40,7 +40,7 @@ import { encodePubkeyInitia } from "./patches/pubkeys"
 import { useAnalyticsTrack } from "./analytics"
 import { useFindChain } from "./chains"
 import { useConfig } from "./config"
-import { formatMoveError, parseMoveError, TxExecutionError } from "./errors"
+import { formatMoveError, markTxNotBroadcast, parseMoveError, TxExecutionError } from "./errors"
 import { fetchGasPrices } from "./fee"
 import {
   type AccountSequence,
@@ -98,6 +98,29 @@ const DEFAULT_AUTOSIGN_MAX_GAS_MULTIPLIER = 1.5
 // Keep lifecycle checks private and attached to the exact signed transaction.
 const autoSignBroadcastChecks = new WeakMap<TxRaw, () => Promise<void>>()
 
+interface MessageRegistry {
+  encodeAsAny(message: EncodeObject): Any
+  decode(message: Any): unknown
+}
+
+export function snapshotMessages(
+  messages: readonly EncodeObject[],
+  registry: MessageRegistry,
+): EncodeObject[] {
+  const snapshot = new Array<EncodeObject>(messages.length)
+  for (let index = 0; index < messages.length; index++) {
+    const encoded = registry.encodeAsAny(messages[index]!)
+    snapshot[index] = { typeUrl: encoded.typeUrl, value: registry.decode(encoded) }
+  }
+  return snapshot
+}
+
+function snapshotCoins(coins: readonly Coin[]): Coin[] {
+  const snapshot = new Array<Coin>(coins.length)
+  for (let index = 0; index < coins.length; index++) snapshot[index] = { ...coins[index]! }
+  return snapshot
+}
+
 async function checkAutoSignBeforeBroadcast(tx: TxRaw) {
   await autoSignBroadcastChecks.get(tx)?.()
 }
@@ -119,9 +142,10 @@ export function selectAutoSignGasPrice({
   fallbackFeeDenom?: string
   allowedFeeDenoms?: string[]
 }): Coin {
-  const filteredGasPrices = allowedFeeDenoms?.length
-    ? gasPrices.filter(({ denom }) => allowedFeeDenoms.includes(denom))
-    : gasPrices
+  const filteredGasPrices =
+    allowedFeeDenoms !== undefined
+      ? gasPrices.filter(({ denom }) => allowedFeeDenoms.includes(denom))
+      : gasPrices
 
   if (filteredGasPrices.length === 0) {
     throw new Error("No allowed gas price tokens available for auto-sign")
@@ -488,7 +512,9 @@ export function useSignTxWithAutoSignFee() {
       gasMultiplier: policy?.gasMultiplier ?? DEFAULT_AUTOSIGN_GAS_MULTIPLIER,
       maxGasMultiplierFromSim:
         policy?.maxGasMultiplierFromSim ?? DEFAULT_AUTOSIGN_MAX_GAS_MULTIPLIER,
-      allowedFeeDenoms: policy?.allowedFeeDenoms,
+      allowedFeeDenoms: policy?.allowedFeeDenoms
+        ? Array.from(policy.allowedFeeDenoms)
+        : policy?.allowedFeeDenoms,
     }
   }
 
@@ -619,15 +645,12 @@ export function useSignTxWithAutoSignFee() {
 
   return (params: Omit<SignTxWithAutoSignFeeParams, "address">): Promise<TxRaw> => {
     const generation = store.get(walletGenerationAtom)
-    const messages = params.messages.map((message) => {
-      const value = registry.decode(registry.encodeAsAny(message))
-      return { typeUrl: message.typeUrl, value }
-    })
+    const messages = snapshotMessages(params.messages, registry)
     return signTxWithAutoSignFeeWithDeps(
       {
         ...params,
         messages,
-        fee: { ...params.fee, amount: params.fee.amount.map((coin) => ({ ...coin })) },
+        fee: { ...params.fee, amount: snapshotCoins(params.fee.amount) },
         address,
       },
       {
@@ -709,41 +732,67 @@ export function useTx() {
     txRequest: TxRequest
     broadcaster: Broadcaster<T>
   }): Promise<T> => {
-    // Fill unspecified fields with sane defaults so that the rest of the
-    // request logic can assume they exist.
-    const defaultTxRequest = {
-      memo: "",
-      chainId: defaultChainId,
-      gas: rawTxRequest.gas || (await estimateGas(rawTxRequest)),
-      gasAdjustment: DEFAULT_GAS_ADJUSTMENT,
-      gasPrices: null,
-      spendCoins: [],
-      internal: false,
+    let txRequest: Required<TxRequest>
+    try {
+      const snapshot: TxRequest = {
+        ...rawTxRequest,
+        messages: snapshotMessages(rawTxRequest.messages, registry),
+        ...(rawTxRequest.gasPrices === undefined
+          ? {}
+          : {
+              gasPrices:
+                rawTxRequest.gasPrices === null ? null : snapshotCoins(rawTxRequest.gasPrices),
+            }),
+        ...(rawTxRequest.spendCoins === undefined
+          ? {}
+          : { spendCoins: snapshotCoins(rawTxRequest.spendCoins) }),
+      }
+      const gas = snapshot.gas || (await estimateGas(snapshot))
+      txRequest = {
+        memo: "",
+        chainId: defaultChainId,
+        gasAdjustment: DEFAULT_GAS_ADJUSTMENT,
+        gasPrices: null,
+        spendCoins: [],
+        internal: false,
+        ...snapshot,
+        gas,
+      }
+    } catch (error) {
+      const chainId = rawTxRequest.chainId ?? defaultChainId
+      const formatted = await formatMoveError(error as Error, findChain(chainId), registryUrl)
+      throw markTxNotBroadcast(formatted)
     }
 
-    const txRequest = { ...defaultTxRequest, ...rawTxRequest }
-
     return new Promise<T>((resolve, reject) => {
+      let broadcastStarted = false
       setTxRequestHandler({
         txRequest,
         resolve: async (signedTx: TxRaw) => {
           try {
             const client = await createSigningStargateClient(txRequest.chainId)
             await checkAutoSignBeforeBroadcast(signedTx)
-            const response = await broadcaster(client, TxRaw.encode(signedTx).finish())
+            const signedTxBytes = TxRaw.encode(signedTx).finish()
+            broadcastStarted = true
+            const response = await broadcaster(client, signedTxBytes)
             resolve(response)
             if (typeof txRequest.internal === "string") {
               // Internal requests can redirect to a different route after signing.
               navigate(txRequest.internal)
             }
           } catch (error) {
-            reject(await formatMoveError(error as Error, findChain(txRequest.chainId), registryUrl))
+            const formatted = await formatMoveError(
+              error as Error,
+              findChain(txRequest.chainId),
+              registryUrl,
+            )
+            reject(broadcastStarted ? formatted : markTxNotBroadcast(formatted))
           } finally {
             finalize()
           }
         },
         reject: (error: Error) => {
-          reject(error)
+          reject(broadcastStarted ? error : markTxNotBroadcast(error))
           finalize()
         },
       })

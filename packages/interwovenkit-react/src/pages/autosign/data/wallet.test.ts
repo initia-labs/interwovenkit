@@ -541,4 +541,21 @@ describe("refreshOwnerWalletRevisions", () => {
       other: { owner: "init1other", generation: 2, storageRevision: 9, keyId: "other" },
     })
   })
+
+  it("keeps the captured revision object when the storage revision is unchanged", async () => {
+    const { refreshOwnerWalletRevisions } = await import("./wallet")
+    const { walletRevisionsAtom } = await import("./store")
+    const store = createStore()
+    const captured = {
+      owner: "init1owner",
+      generation: 4,
+      storageRevision: 2,
+      keyId: "move",
+    }
+    store.set(walletRevisionsAtom, { move: captured })
+
+    refreshOwnerWalletRevisions(store, "init1owner", 2)
+
+    expect(store.get(walletRevisionsAtom).move).toBe(captured)
+  })
 })

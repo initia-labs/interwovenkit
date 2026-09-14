@@ -7,6 +7,7 @@ import {
   getFeegrantExpiration,
   getFeegrantSpendLimit,
   isFeegrantNotFoundResponse,
+  validateFeegrantAllowanceParties,
 } from "./fetch"
 
 afterEach(() => {
@@ -110,6 +111,42 @@ describe("feegrant helpers", () => {
     }
 
     expect(getFeegrantAllowedMessages(allowance)).toEqual(["/cosmos.authz.v1beta1.MsgExec"])
+  })
+
+  it("accepts a matching legacy allowance without requiring @type", () => {
+    expect(
+      validateFeegrantAllowanceParties(
+        {
+          granter: "init1owner",
+          grantee: "init1signer",
+          allowance: {},
+        },
+        "init1owner",
+        "init1signer",
+      ),
+    ).toEqual({ granter: "init1owner", grantee: "init1signer", allowance: {} })
+  })
+
+  it("rejects malformed or mismatched feegrant parties as an unknown response", () => {
+    expect(() =>
+      validateFeegrantAllowanceParties(
+        {
+          granter: "init1other",
+          grantee: "init1signer",
+          allowance: { "@type": "/cosmos.feegrant.v1beta1.BasicAllowance" },
+        },
+        "init1owner",
+        "init1signer",
+      ),
+    ).toThrow("Fee allowance response does not match the requested parties")
+
+    expect(() =>
+      validateFeegrantAllowanceParties(
+        { granter: "init1owner", grantee: "init1signer" },
+        "init1owner",
+        "init1signer",
+      ),
+    ).toThrow("Fee allowance response is malformed")
   })
 })
 

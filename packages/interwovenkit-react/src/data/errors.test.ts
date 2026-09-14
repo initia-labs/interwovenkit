@@ -7,6 +7,8 @@ import {
   clearErrorCache,
   formatMoveError,
   isConfirmedTxFailure,
+  isTxNotBroadcast,
+  markTxNotBroadcast,
   MoveError,
   parseMoveError,
   TxExecutionError,
@@ -123,6 +125,15 @@ describe("Move Error Handling", () => {
       const cancelled = new AutoSignCancelledError()
       expect(await formatMoveError(cancelled, mockChainL1, registryUrl)).toBe(cancelled)
       expect(isConfirmedTxFailure(cancelled)).toBe(false)
+    })
+
+    test("marks pre-broadcast errors without changing their identity or wallet code", () => {
+      const rejected = Object.assign(new Error("User rejected the request"), { code: 4001 })
+
+      expect(markTxNotBroadcast(rejected)).toBe(rejected)
+      expect(rejected.code).toBe(4001)
+      expect(isTxNotBroadcast(rejected)).toBe(true)
+      expect(isTxNotBroadcast(new Error(rejected.message))).toBe(false)
     })
 
     test("formats a confirmed Move failure without losing definite-failure classification", async () => {

@@ -37,6 +37,29 @@ export interface FeegrantResponse {
   allowance: FeegrantAllowance
 }
 
+export function validateFeegrantAllowanceParties(
+  allowance: unknown,
+  granter: string,
+  grantee: string,
+): FeegrantAllowance {
+  if (
+    !allowance ||
+    typeof allowance !== "object" ||
+    !("allowance" in allowance) ||
+    !allowance.allowance ||
+    typeof allowance.allowance !== "object"
+  ) {
+    throw new Error("Fee allowance response is malformed")
+  }
+
+  const parties = allowance as { granter?: unknown; grantee?: unknown }
+  if (parties.granter !== granter || parties.grantee !== grantee) {
+    throw new Error("Fee allowance response does not match the requested parties")
+  }
+
+  return allowance as FeegrantAllowance
+}
+
 /**
  * Grant endpoints on some registry REST hosts advertise multi-hour HTTP cache
  * lifetimes. These queries drive owner-approved revoke and reconnect flows, so
@@ -137,7 +160,7 @@ export function useAutoSignApi() {
         .get(`cosmos/feegrant/v1beta1/allowance/${initiaAddress}/${grantee}`)
         .json<FeegrantResponse>()
 
-      return allowance
+      return validateFeegrantAllowanceParties(allowance, initiaAddress, grantee)
     } catch (error) {
       if (error instanceof HTTPError && (await isFeegrantNotFoundResponse(error.response))) {
         return null

@@ -1,7 +1,7 @@
 import clsx from "clsx"
 import { type PropsWithChildren, useCallback, useContext } from "react"
 import type { FallbackProps } from "react-error-boundary"
-import { useAtomValue } from "jotai"
+import { useAtomValue, useSetAtom } from "jotai"
 import { Dialog } from "@base-ui/react/dialog"
 import { useIsMutating, useQueryClient } from "@tanstack/react-query"
 import AsyncBoundary from "@/components/AsyncBoundary"
@@ -46,6 +46,7 @@ const Drawer = ({ children }: PropsWithChildren) => {
   const txRequest = useAtomValue(txRequestHandlerAtom)
   const pendingUnlock = useAtomValue(pendingAutoSignUnlockAtom)
   const pendingAutoSignRequest = useAtomValue(pendingAutoSignRequestAtom)
+  const setPendingAutoSignRequest = useSetAtom(pendingAutoSignRequestAtom)
   const isPendingTransaction = useIsMutating({ mutationKey: [TX_APPROVAL_MUTATION_KEY] })
   const handleCloseDrawer = () => {
     const errorMessage = isPendingTransaction
@@ -56,6 +57,7 @@ const Drawer = ({ children }: PropsWithChildren) => {
     closeDrawer()
     txRequest?.reject(new Error(errorMessage))
     pendingAutoSignRequest?.reject(new Error("User rejected"))
+    setPendingAutoSignRequest((current) => (current === pendingAutoSignRequest ? null : current))
     pendingUnlock?.reject(new AutoSignCancelledError("User rejected auto-signing unlock"))
   }
 

@@ -4,6 +4,7 @@ import {
   buildAutoSignFeeFromSimulation,
   buildAutoSignSimulationInput,
   selectAutoSignGasPrice,
+  snapshotMessages,
 } from "./tx"
 
 const gasPrices: Coin[] = [
@@ -47,6 +48,53 @@ describe("selectAutoSignGasPrice", () => {
         allowedFeeDenoms: ["uatom"],
       }),
     ).toThrow("No allowed gas price tokens available for auto-sign")
+  })
+
+  it("treats an empty allowlist as denying delegated fee tokens", () => {
+    expect(() =>
+      selectAutoSignGasPrice({
+        gasPrices,
+        allowedFeeDenoms: [],
+      }),
+    ).toThrow("No allowed gas price tokens available for auto-sign")
+  })
+})
+
+describe("transaction snapshots", () => {
+  const registry = {
+    encodeAsAny: vi.fn(
+      (message: { typeUrl: string; value: { amount: bigint; bytes: Uint8Array } }) => ({
+        typeUrl: message.typeUrl,
+        value: new Uint8Array([Number(message.value.amount), ...message.value.bytes]),
+      }),
+    ),
+    decode: vi.fn((message: { value: Uint8Array }) => ({
+      amount: BigInt(message.value[0]!),
+      bytes: message.value.slice(1),
+    })),
+  }
+
+  it("snapshots protobuf messages with indexed traversal and preserves protobuf values", () => {
+    const source = [
+      {
+        typeUrl: "/example.Msg",
+        value: { amount: 7n, bytes: new Uint8Array([8, 9]) },
+      },
+    ]
+    source.map = () => {
+      throw new Error("caller map must not run")
+    }
+
+    const snapshot = snapshotMessages(source, registry)
+    source[0]!.value.amount = 99n
+    source[0]!.value.bytes[0] = 42
+
+    expect(snapshot).toEqual([
+      {
+        typeUrl: "/example.Msg",
+        value: { amount: 7n, bytes: new Uint8Array([8, 9]) },
+      },
+    ])
   })
 })
 
