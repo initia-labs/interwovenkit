@@ -1,8 +1,10 @@
+import { fromBech32 } from "@cosmjs/encoding"
 import type { EncodeObject } from "@cosmjs/proto-signing"
-import { getAddress } from "viem"
+import { bytesToHex, getAddress } from "viem"
 import { GenericAuthorization } from "@initia/initia.proto/cosmos/authz/v1beta1/authz"
 import { ExecuteAuthorization } from "@initia/initia.proto/initia/move/v1/authz"
 import { CallAuthorization } from "@initia/initia.proto/minievm/evm/v1/authz"
+import { InitiaAddress } from "@initia/utils"
 
 export const GENERIC_AUTHORIZATION_TYPE = "/cosmos.authz.v1beta1.GenericAuthorization"
 export const MOVE_EXECUTE_AUTHORIZATION_TYPE = "/initia.move.v1.ExecuteAuthorization"
@@ -75,11 +77,34 @@ function assertNonEmpty(values: readonly string[], label: string) {
 function isMoveIdentifier(value: string) {
   return /^[A-Za-z_][A-Za-z0-9_]*$/.test(value)
 }
+/** MiniEVM accepts a contract address as 20-byte hex or as its bech32 form. */
 function normalizeEvmAddress(value: string) {
-  if (!/^0x[0-9a-fA-F]{40}$/.test(value))
-    throw new Error("AutoSign EVM targets must be 20-byte hex addresses")
+  const hex = value.startsWith("0x") ? value : bech32ToEvmHex(value)
+  if (!hex || !/^0x[0-9a-fA-F]{40}$/.test(hex))
+    throw new Error("AutoSign EVM targets must be 20-byte hex or bech32 addresses")
   // MiniEVM validates checksummed Ethereum addresses in CallAuthorization.
-  return getAddress(value)
+  return getAddress(hex)
+}
+function bech32ToEvmHex(value: string) {
+  try {
+    const { prefix, data } = fromBech32(value)
+    return prefix === "init" && data.length === 20 ? bytesToHex(data) : undefined
+  } catch {
+    return undefined
+  }
+}
+/** Move account addresses compare in their 32-byte form, so `0x1` and its zero-padded form match. */
+function normalizeMoveAddress(value: string) {
+  try {
+    return InitiaAddress(value, 32).rawHex
+  } catch {
+    return undefined
+  }
+}
+function isSameMoveAddress(value: unknown, expected: string) {
+  if (typeof value !== "string") return false
+  const normalized = normalizeMoveAddress(value)
+  return normalized !== undefined && normalized === normalizeMoveAddress(expected)
 }
 /** Typed policies are fail-closed: they never silently become a broad GenericAuthorization. */
 export function encodeAutoSignAuthorizations(
@@ -103,7 +128,7 @@ export function encodeAutoSignAuthorizations(
         !policy.items.length ||
         policy.items.some(
           (item) =>
-            !/^0x[0-9a-fA-F]+$/.test(item.moduleAddress) ||
+            !/^0x[0-9a-fA-F]{1,64}$/.test(item.moduleAddress) ||
             !isMoveIdentifier(item.moduleName) ||
             !item.functionNames.length ||
             item.functionNames.some((functionName) => !isMoveIdentifier(functionName)),
@@ -111,8 +136,11 @@ export function encodeAutoSignAuthorizations(
       )
         throw new Error("AutoSign Move permissions require exact modules and functions")
       if (
-        new Set(policy.items.map((item) => `${item.moduleAddress}:${item.moduleName}`)).size !==
-        policy.items.length
+        new Set(
+          policy.items.map(
+            (item) => `${normalizeMoveAddress(item.moduleAddress)}:${item.moduleName}`,
+          ),
+        ).size !== policy.items.length
       )
         throw new Error("AutoSign Move permissions cannot repeat a module")
       return [
@@ -167,7 +195,7 @@ export function validateAutoSignMessage(
       message.typeUrl === MOVE_EXECUTE_MESSAGE_TYPE &&
       policy.items.some(
         (item) =>
-          item.moduleAddress === value.moduleAddress &&
+          isSameMoveAddress(value.moduleAddress, item.moduleAddress) &&
           item.moduleName === value.moduleName &&
           !!value.functionName &&
           item.functionNames.includes(value.functionName),
@@ -372,12 +400,14 @@ function sameMoveItemSet(value: unknown, expected: MovePermissionPolicy["items"]
     const moduleAddress = record.moduleAddress
     const moduleName = record.moduleName
     if (typeof moduleAddress !== "string" || typeof moduleName !== "string") return false
-    const key = `${moduleAddress}:${moduleName}`
+    const normalizedAddress = normalizeMoveAddress(moduleAddress)
+    if (normalizedAddress === undefined) return false
+    const key = `${normalizedAddress}:${moduleName}`
     if (observedKeys.has(key)) return false
     observedKeys.add(key)
     const matchingExpected = expected.find(
       (candidate) =>
-        candidate.moduleAddress === moduleAddress &&
+        isSameMoveAddress(moduleAddress, candidate.moduleAddress) &&
         candidate.moduleName === moduleName &&
         sameStringSet(record.functionNames, candidate.functionNames),
     )
