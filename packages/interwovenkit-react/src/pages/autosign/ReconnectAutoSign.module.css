@@ -1,0 +1,23 @@
+.duration-trigger,
+.duration-item {
+  width: 160px;
+}
+
+.details > div > div {
+  flex-wrap: wrap;
+  align-items: flex-start;
+
+  column-gap: 16px;
+}
+
+.details > div > div > :first-child {
+  flex: 0 0 72px;
+
+  width: auto;
+}
+
+.details > div > div > :last-child {
+  flex: 1 1 180px;
+
+  min-width: 0;
+}
