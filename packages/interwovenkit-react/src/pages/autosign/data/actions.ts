@@ -290,6 +290,7 @@ export function useEnableAutoSign() {
   const {
     activateWallet,
     createWallet,
+    deleteWalletAfterConfirmedRevoke,
     discardPendingIdentity,
     deriveWallet,
     getOwnerPendingIdentities,
@@ -319,6 +320,7 @@ export function useEnableAutoSign() {
       }
       const ownerGeneration = store.get(walletGenerationAtom)
       let pendingCandidateKeyId: string | undefined
+      let newTabOnlyKeyId: string | undefined
       let requestStarted = false
       let chainConfirmed = false
       let transactionHash: string | undefined
@@ -391,7 +393,12 @@ export function useEnableAutoSign() {
               throw new Error("Autosign signer needs recovery before renewal")
             }
           } else {
-            derivedWallet = await deriveWallet(chainId)
+            // A new signer has no saved mode to defer, so derive it directly in
+            // the requested mode. A tab-only key must never reach durable storage.
+            derivedWallet = await deriveWallet(chainId, { stayConnected })
+            if (!effectiveStayConnected && config.autoSignStorage !== "memory") {
+              newTabOnlyKeyId = getWalletRevision(chainId)?.keyId
+            }
           }
           if (!isOwnerFenceCurrent(store, initiaAddress, ownerGeneration)) {
             throw new AutoSignCancelledError()
@@ -487,15 +494,19 @@ export function useEnableAutoSign() {
           throw new AutoSignConfirmedLocalPendingError(transactionHash!, error)
         }
         const notBroadcast = isTxNotBroadcast(error)
-        if (
-          pendingCandidateKeyId &&
-          shouldDiscardPendingAutoSignCandidate({
-            requestStarted,
-            confirmedTxFailure: isConfirmedTxFailure(error),
-            notBroadcast,
-          })
-        ) {
+        const definiteFailure = shouldDiscardPendingAutoSignCandidate({
+          requestStarted,
+          confirmedTxFailure: isConfirmedTxFailure(error),
+          notBroadcast,
+        })
+        if (pendingCandidateKeyId && definiteFailure) {
           await discardPendingIdentity(chainId, pendingCandidateKeyId).catch(() => undefined)
+        }
+        // A tab-only key that never received its grant has nothing to restore.
+        if (newTabOnlyKeyId && definiteFailure) {
+          await deleteWalletAfterConfirmedRevoke(chainId, undefined, newTabOnlyKeyId).catch(
+            () => undefined,
+          )
         }
         if (requestStarted && !notBroadcast) {
           await invalidateAutoSignQueriesWithoutMasking(queryClient)

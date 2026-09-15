@@ -391,7 +391,7 @@ describe("restored signer persistence changes", () => {
     expect(mocks.setStayConnected).not.toHaveBeenCalled()
   })
 
-  it("derives a legacy signer in the saved mode and applies the requested mode only after confirmation", async () => {
+  it("derives a new legacy signer in the requested mode and confirms the preference after the transaction", async () => {
     mocks.getExpectedAddress.mockReturnValue("init1legacy")
     mocks.getWalletIdentities.mockResolvedValue([])
     mocks.deriveWallet.mockResolvedValue({
@@ -403,7 +403,7 @@ describe("restored signer persistence changes", () => {
 
     await useEnableMutationForTest().mutationFn({ durationInMs: 60_000, stayConnected: false })
 
-    expect(mocks.deriveWallet).toHaveBeenCalledWith("initiation-2")
+    expect(mocks.deriveWallet).toHaveBeenCalledWith("initiation-2", { stayConnected: false })
     expect(mocks.requestTxBlock.mock.invocationCallOrder[0]).toBeLessThan(
       mocks.setStayConnected.mock.invocationCallOrder[0]!,
     )
@@ -411,6 +411,90 @@ describe("restored signer persistence changes", () => {
       alreadyLocked: true,
       expectedRevision: 11,
     })
+    expect(mocks.deleteWalletAfterConfirmedRevoke).not.toHaveBeenCalled()
+  })
+})
+
+describe("useEnableAutoSign new tab-only signer", () => {
+  beforeEach(() => {
+    mocks.getWalletIdentities.mockResolvedValue([])
+    mocks.deriveWallet.mockResolvedValue({
+      address: "init1legacy",
+      publicKey: new Uint8Array(),
+    })
+    mocks.getWalletProvenance.mockReturnValue("legacy-derived")
+    mocks.getWalletRevision.mockReturnValue({ keyId: "fresh-key", storageRevision: 11 })
+  })
+
+  it("discards the new key when the grant is rejected before broadcast", async () => {
+    const rejection = markTxNotBroadcast(Object.assign(new Error("User rejected"), { code: 4001 }))
+    mocks.requestTxBlock.mockRejectedValue(rejection)
+
+    await expect(
+      useEnableMutationForTest().mutationFn({ durationInMs: 60_000, stayConnected: false }),
+    ).rejects.toBe(rejection)
+
+    expect(mocks.deriveWallet).toHaveBeenCalledWith("initiation-2", { stayConnected: false })
+    expect(mocks.deleteWalletAfterConfirmedRevoke).toHaveBeenCalledWith(
+      "initiation-2",
+      undefined,
+      "fresh-key",
+    )
+    expect(mocks.setStayConnected).not.toHaveBeenCalled()
+  })
+
+  it("discards the new key after a confirmed transaction failure", async () => {
+    mocks.requestTxBlock.mockRejectedValue(new TxExecutionError("grant failed", 5, "txhash"))
+
+    await expect(
+      useEnableMutationForTest().mutationFn({ durationInMs: 60_000, stayConnected: false }),
+    ).rejects.toThrow("grant failed")
+
+    expect(mocks.deleteWalletAfterConfirmedRevoke).toHaveBeenCalledWith(
+      "initiation-2",
+      undefined,
+      "fresh-key",
+    )
+  })
+
+  it("follows the saved tab-only preference when the caller omits the mode", async () => {
+    mocks.getStayConnected.mockResolvedValue(false)
+    const rejection = markTxNotBroadcast(Object.assign(new Error("User rejected"), { code: 4001 }))
+    mocks.requestTxBlock.mockRejectedValue(rejection)
+
+    await expect(useEnableMutationForTest().mutationFn({ durationInMs: 60_000 })).rejects.toBe(
+      rejection,
+    )
+
+    expect(mocks.deriveWallet).toHaveBeenCalledWith("initiation-2", { stayConnected: undefined })
+    expect(mocks.deleteWalletAfterConfirmedRevoke).toHaveBeenCalledWith(
+      "initiation-2",
+      undefined,
+      "fresh-key",
+    )
+  })
+
+  it("retains the new key when the broadcast outcome is unknown", async () => {
+    mocks.requestTxBlock.mockRejectedValue(new Error("confirmation timed out"))
+
+    await expect(
+      useEnableMutationForTest().mutationFn({ durationInMs: 60_000, stayConnected: false }),
+    ).rejects.toThrow("confirmation timed out")
+
+    expect(mocks.deleteWalletAfterConfirmedRevoke).not.toHaveBeenCalled()
+  })
+
+  it("keeps a new remembered key after a definite failure", async () => {
+    mocks.getExpectedAddress.mockReturnValue("init1legacy")
+    const rejection = markTxNotBroadcast(Object.assign(new Error("User rejected"), { code: 4001 }))
+    mocks.requestTxBlock.mockRejectedValue(rejection)
+
+    await expect(
+      useEnableMutationForTest().mutationFn({ durationInMs: 60_000, stayConnected: true }),
+    ).rejects.toBe(rejection)
+
+    expect(mocks.deriveWallet).toHaveBeenCalledWith("initiation-2", { stayConnected: true })
+    expect(mocks.deleteWalletAfterConfirmedRevoke).not.toHaveBeenCalled()
   })
 })
 
