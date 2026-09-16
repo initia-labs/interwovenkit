@@ -119,18 +119,39 @@ describe("selectResumableSessions", () => {
   const draft = session({ id: "draft", phase: "prepared" })
   const done = session({ id: "done", phase: "terminal" })
 
+  const match = {
+    recipient: "init1recipient",
+    dstChainId: mine.destination.chainId,
+    dstDenom: mine.destination.denom,
+    remoteOptions: [],
+  }
+
   it("offers only in-flight sessions credited to the connected account", () => {
-    expect(
-      selectResumableSessions([mine, theirs, draft, done], "init1recipient").map(({ id }) => id),
-    ).toEqual(["mine"])
+    expect(selectResumableSessions([mine, theirs, draft, done], match).map(({ id }) => id)).toEqual(
+      ["mine"],
+    )
   })
 
   it("matches the recipient case-insensitively", () => {
-    expect(selectResumableSessions([mine], "INIT1RECIPIENT").map(({ id }) => id)).toEqual(["mine"])
+    expect(
+      selectResumableSessions([mine], { ...match, recipient: "INIT1RECIPIENT" }).map(
+        ({ id }) => id,
+      ),
+    ).toEqual(["mine"])
   })
 
   it("offers nothing when no account is connected", () => {
-    expect(selectResumableSessions([mine], "")).toEqual([])
+    expect(selectResumableSessions([mine], { ...match, recipient: "" })).toEqual([])
+  })
+
+  it("hides sessions for another destination or a source the host excluded", () => {
+    expect(selectResumableSessions([mine], { ...match, dstChainId: "other-1" })).toEqual([])
+    const excluded = [{ chainId: "1", denom: "0x0000000000000000000000000000000000000001" }]
+    expect(selectResumableSessions([mine], { ...match, remoteOptions: excluded })).toEqual([])
+    const allowed = [{ chainId: mine.source.chainId, denom: mine.source.denom }]
+    expect(
+      selectResumableSessions([mine], { ...match, remoteOptions: allowed }).map(({ id }) => id),
+    ).toEqual(["mine"])
   })
 })
 

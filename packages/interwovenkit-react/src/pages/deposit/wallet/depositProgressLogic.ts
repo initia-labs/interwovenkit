@@ -1,3 +1,5 @@
+import type { AssetOption } from "../data/assetOptions"
+import { normalizeDenom } from "../data/assetOptions"
 import { BridgeStatusConflictError } from "../data/bridges"
 import type { WalletDepositBucket } from "../data/deposits"
 import type { BridgeStatusState } from "../data/types"
@@ -194,16 +196,40 @@ export function isResumableDepositSession(session: DepositSession): boolean {
  * (listDepositSessions takes the base URL), because a staging deposit address
  * and a production one are indistinguishable by shape.
  */
+/** What the hub is currently depositing; a saved session must match all of it to be offered. */
+export interface ResumeMatch {
+  /** Final recipient of the current request (host-provided or connected), bech32. */
+  recipient: string
+  dstChainId: string
+  dstDenom: string
+  /** Host source allowlist; empty means unconstrained. */
+  remoteOptions: AssetOption[]
+}
+
+/**
+ * Sessions the hub may offer for the current request. Recipient, destination
+ * and the host's source allowlist all have to agree: a session created for a
+ * different recipient or a source the host excluded would reopen inside a
+ * request whose contract it violates.
+ */
 export function selectResumableSessions(
   sessions: DepositSession[],
-  recipient: string,
+  match: ResumeMatch,
 ): DepositSession[] {
-  if (!recipient) return []
-  const normalized = recipient.toLowerCase()
+  if (!match.recipient) return []
+  const recipient = match.recipient.toLowerCase()
   return sessions.filter(
     (session) =>
       isResumableDepositSession(session) &&
-      session.destination.recipient.toLowerCase() === normalized,
+      session.destination.recipient.toLowerCase() === recipient &&
+      session.destination.chainId === match.dstChainId &&
+      normalizeDenom(session.destination.denom) === normalizeDenom(match.dstDenom) &&
+      (match.remoteOptions.length === 0 ||
+        match.remoteOptions.some(
+          (option) =>
+            option.chainId === session.source.chainId &&
+            normalizeDenom(option.denom) === normalizeDenom(session.source.denom),
+        )),
   )
 }
 

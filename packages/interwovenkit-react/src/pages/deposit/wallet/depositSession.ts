@@ -625,7 +625,16 @@ export function useDepositSessionStore() {
         volatileSessions.set(session.id, session)
         notifyDepositSessions()
       },
-      list: (apiUrl: string) => listDepositSessions(localStorage, apiUrl),
+      // A record the browser could not persist is still a transfer in flight,
+      // so the hub lists it alongside the stored ones for as long as this tab lives.
+      list: (apiUrl: string) => {
+        const stored = listDepositSessions(localStorage, apiUrl)
+        const ids = new Set(stored.map(({ id }) => id))
+        const volatile = [...volatileSessions.values()].filter(
+          (session) => session.apiUrl === apiUrl && !ids.has(session.id),
+        )
+        return [...stored, ...volatile].sort((a, b) => b.updatedAt - a.updatedAt)
+      },
       subscribe: subscribeDepositSessions,
     }),
     [revision],

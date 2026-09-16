@@ -434,7 +434,7 @@ const TransferFields = () => {
         </>
       )}
 
-      {(chainsError || balancesError) && (
+      {isRouterTransport && (chainsError || balancesError) && (
         <DepositStatus error>Failed to load balances</DepositStatus>
       )}
       {isDepositApiTransport ? (

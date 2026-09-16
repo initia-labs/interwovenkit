@@ -15,7 +15,9 @@ Architecture guide for the deposit and withdrawal flows. Keep cross-cutting inva
 ```mermaid
 flowchart LR
   W[Wallet] --> R[Router] --> D[Destination wallet]
-  A[External address] --> DA[Deposit address]
+  W -- Ethereum USDC --> DA[Deposit address]
+  W -- Base / Arbitrum USDC --> L[LI.FI bridge] --> DA
+  A[External address] --> DA
   O[Onramper] --> DA
   DA --> API[Deposit API] --> D
 ```

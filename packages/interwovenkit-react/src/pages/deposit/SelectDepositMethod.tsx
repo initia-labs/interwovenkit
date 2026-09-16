@@ -21,6 +21,7 @@ import {
   pruneDepositSessions,
   useDepositSessionStore,
 } from "./wallet/depositSession"
+import { resolveDepositRecipient } from "./wallet/depositTransferLogic"
 import { useDepositForm, useDepositNavigate, useSelectDepositMethod } from "./context"
 import DepositMethodList, { type DepositMethodSection } from "./DepositMethodList"
 import DepositSubpage from "./DepositSubpage"
@@ -50,9 +51,20 @@ function useResumeSection(): DepositMethodSection<HubSelection> | undefined {
   const { depositApiUrl, registryUrl } = useConfig()
   const store = useDepositSessionStore()
   const initiaAddress = useInitiaAddress()
+  const { watch } = useDepositForm()
+  const { remoteOptions = [], recipientAddress } = useLocationState<DepositLocationState>()
 
   if (!depositApiUrl || !initiaAddress) return undefined
-  const sessions = selectResumableSessions(store.list(depositApiUrl), initiaAddress)
+  // The same recipient rule the wallet flow applies, so a session is only
+  // offered inside a request it could have been created by.
+  const resolved = resolveDepositRecipient(recipientAddress, initiaAddress)
+  if (!("recipient" in resolved)) return undefined
+  const sessions = selectResumableSessions(store.list(depositApiUrl), {
+    recipient: resolved.recipient,
+    dstChainId: watch("receiveChainId"),
+    dstDenom: watch("receiveDenom"),
+    remoteOptions,
+  })
   if (sessions.length === 0) return undefined
 
   return {

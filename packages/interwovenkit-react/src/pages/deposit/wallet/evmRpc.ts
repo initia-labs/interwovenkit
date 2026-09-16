@@ -7,7 +7,7 @@ import {
   Signature,
   TransactionResponse,
 } from "ethers"
-import { useMemo } from "react"
+import { useEffect, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import type { RouterChainJson } from "@/pages/bridge/data/chains"
 import { useFindSkipChain } from "@/pages/bridge/data/chains"
@@ -325,7 +325,7 @@ export async function watchSourceTransaction(
  */
 export function useSourceChainProvider(chainId: string): JsonRpcProvider | null {
   const findSkipChain = useFindSkipChain()
-  return useMemo(() => {
+  const provider = useMemo(() => {
     if (!chainId) return null
     // A supported source chain needs no registry read: its endpoint is in the
     // catalog, so tracking a transfer in flight does not depend on the Router.
@@ -339,6 +339,11 @@ export function useSourceChainProvider(chainId: string): JsonRpcProvider | null 
     // findSkipChain is a fresh closure every render; the chain id is the identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chainId])
+
+  // ethers keeps a polling loop alive once `wait()` subscribed to blocks;
+  // release it when the chain changes or the screen goes away.
+  useEffect(() => () => provider?.destroy(), [provider])
+  return provider
 }
 
 /** Token and native balances from the source chain itself, not from the aggregated balance service. */

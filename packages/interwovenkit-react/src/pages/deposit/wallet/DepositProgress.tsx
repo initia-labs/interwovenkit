@@ -19,6 +19,7 @@ import {
   useWalletDeposit,
 } from "../data/deposits"
 import { findDestinationNetwork, formatSourceMin } from "../data/source"
+import type { BridgeStatusResponse, Deposit } from "../data/types"
 import { formatCompletedAmount } from "../completedAmount"
 import { DepositTrackingView } from "../DepositTracking"
 import styles from "../DepositTracking.module.css"
@@ -363,14 +364,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     applyPatch({ phase: persistPhase, lastState: persistLastState })
   }, [persistPhase, persistLastState, applyPatch])
 
-  // Explorer preference, in evidence order: the fast-delivery submission, the
-  // ordinary bridge submission, then the bridge provider's own links. A link is
-  // never a claim that the flow completed.
-  const explorerUrl = (() => {
-    const fromDeposit = deposit?.advance_tx_explorer_url || deposit?.bot_tx_explorer_url
-    const raw = fromDeposit || bridgeStatus?.dst_tx_link || bridgeStatus?.src_tx_link
-    return raw ? xss(sanitizeLink(raw)) : undefined
-  })()
+  const explorerUrl = resolveExplorerUrl(deposit, bridgeStatus)
 
   const refresh = () => {
     void sourceQuery.refetch()
@@ -425,6 +419,20 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
       extra={showRecovery ? <RecoveryReference session={session} /> : undefined}
     />
   )
+}
+
+/**
+ * Explorer link in evidence order: the fast-delivery submission, the ordinary
+ * bridge submission, then the bridge provider's own links. Never a claim that
+ * the flow completed.
+ */
+function resolveExplorerUrl(
+  deposit: Deposit | null,
+  bridgeStatus: BridgeStatusResponse | undefined,
+): string | undefined {
+  const fromDeposit = deposit?.advance_tx_explorer_url || deposit?.bot_tx_explorer_url
+  const raw = fromDeposit || bridgeStatus?.dst_tx_link || bridgeStatus?.src_tx_link
+  return raw ? xss(sanitizeLink(raw)) : undefined
 }
 
 /** Copyable support reference for a transfer this browser could not save. */
