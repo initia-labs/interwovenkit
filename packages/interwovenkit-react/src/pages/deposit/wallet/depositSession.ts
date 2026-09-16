@@ -13,13 +13,8 @@ import {
   required,
 } from "../data/parse"
 
-/**
- * The slice of `Storage` this module uses. Injected so the pure functions can
- * be exercised against an in-memory map, and so a caller can pass
- * `sessionStorage` or a stub when `localStorage` is unavailable (Safari private
- * mode throws on write, which these functions surface as a write failure rather
- * than a silent no-op).
- */
+// Injected so the pure functions can run against an in-memory map, and so a caller can
+// pass a stub when `localStorage` is unavailable (Safari private mode throws on write).
 export type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem" | "key" | "length">
 
 export const DEPOSIT_SESSION_VERSION = 1
@@ -34,14 +29,8 @@ export type DepositSessionPhase =
   | "deposit_indexed"
   | "terminal"
 
-/**
- * Monotonic phase order. `submission_unknown` sits between `send_prompt` and
- * `source_sent` on purpose: a wallet call that never returned a hash is strictly
- * more advanced than "about to prompt" (funds may already be moving) and
- * strictly less than "we hold the hash". Ordering it this way makes the
- * monotonic guard refuse to walk an ambiguous submission back to a state the UI
- * would treat as safe to re-sign.
- */
+// Monotonic phase order. `submission_unknown` sits between `send_prompt` and `source_sent`
+// so the guard cannot walk an ambiguous submission back to a phase the UI treats as re-signable.
 export const DEPOSIT_SESSION_PHASES: readonly DepositSessionPhase[] = [
   "prepared",
   "approval_prompt",
@@ -78,7 +67,6 @@ export interface DepositSession {
     amount: string
     symbol: string
     chainName: string
-    /** Captured at form time so progress renders identity with no registry dependency. */
     chainLogoUrl?: string
   }
   destination: {
@@ -114,7 +102,6 @@ export class DepositSessionWriteError extends Error {}
 /** Raised when the per-session Web Lock cannot be taken. Fail closed: no wallet prompt without exclusion. */
 export class DepositSessionLockError extends Error {}
 
-/** `${LocalStorageKey.DEPOSIT_SESSION_PREFIX}${id}` — one record per session. */
 export function depositSessionStorageKey(id: string): string {
   return `${LocalStorageKey.DEPOSIT_SESSION_PREFIX}${id}`
 }
@@ -124,12 +111,7 @@ function canonicalize(session: DepositSession): DepositSession {
   return JSON.parse(JSON.stringify(session)) as DepositSession
 }
 
-/**
- * Creates a `prepared` session. The id comes from `crypto.randomUUID`, which
- * needs a secure context (HTTPS or localhost) — the same requirement the Web
- * Locks helpers below carry, so the two fail together rather than leaving a
- * session that cannot be serialized against a prompt.
- */
+/** `crypto.randomUUID` needs a secure context (HTTPS or localhost), the same requirement as the Web Locks helpers below. */
 export function createDepositSession(
   input: Omit<DepositSession, "version" | "id" | "createdAt" | "updatedAt" | "phase">,
 ): DepositSession {
@@ -155,9 +137,8 @@ const isTransport = (value: unknown): value is DepositSession["transport"] =>
 const isPhase = (value: unknown): value is DepositSessionPhase =>
   DEPOSIT_SESSION_PHASES.includes(value as DepositSessionPhase)
 
-// The stored record, field by field. Everything the resume path needs in order
-// to describe the transfer is required; the fields written later in the
-// lifecycle are optional, but a present one is never allowed to be malformed.
+// Everything the resume path needs is required; a present optional field is still never
+// allowed to be malformed.
 const SESSION_FIELDS = {
   id: required(isNonEmptyString),
   apiUrl: required(isNonEmptyString),
@@ -167,8 +148,7 @@ const SESSION_FIELDS = {
   phase: required(isPhase),
   depositAddress: required(isNonEmptyString),
   cursor: required(isString),
-  // The lower bound for the replacement scan: a fractional or negative block
-  // would silently widen or invalidate it.
+  // A fractional or negative block would silently widen or invalidate the replacement scan.
   preSubmitBlock: optional(isBlockNumber),
   currentSourceHash: optional(isNonEmptyString),
   originalSourceHash: optional(isNonEmptyString),
@@ -238,14 +218,8 @@ function optionalRecord<S extends FieldSpec>(
   return value === undefined ? undefined : parseFields(value, spec)
 }
 
-/**
- * Boundary parser for a stored record, held to the same standard as
- * assertDepositAddress: this is the only description of an in-flight transfer
- * that survives a reload, so a half-readable record must not be resumed. Any
- * version drift, missing field or wrong type returns null (fail closed), and the
- * result carries only the spec'd fields, so a foreign key written by another
- * version cannot ride along into a later write.
- */
+// Fail closed: version drift, a missing field or a wrong type returns null, and the result
+// carries only spec'd fields, so a foreign key cannot ride along into a later write.
 export function parseDepositSession(raw: unknown): DepositSession | null {
   if (!isRecord(raw) || raw.version !== DEPOSIT_SESSION_VERSION) return null
 
@@ -279,11 +253,8 @@ export function isPhaseAdvance(from: DepositSessionPhase, to: DepositSessionPhas
   return DEPOSIT_SESSION_PHASES.indexOf(to) >= DEPOSIT_SESSION_PHASES.indexOf(from)
 }
 
-// Facts that identify *which transfer* this is. They are fixed once the record
-// exists, so a disagreement means two different intents are colliding on one id
-// — merging them would attach one transfer's hash to another's recipient.
-// The amount, deposit address and transaction stay mutable: the form rewrites
-// them while the session is still `prepared` and a refreshed quote lands.
+// Facts that identify *which transfer* this is; a disagreement means two intents are
+// colliding on one id. Amount, deposit address and transaction stay mutable.
 function assertSameIntent(current: DepositSession, next: DepositSession): void {
   const mismatch = (
     [
@@ -306,16 +277,9 @@ function assertSameIntent(current: DepositSession, next: DepositSession): void {
   }
 }
 
-/**
- * Last-writer-wins on values, but never on the phase and never by omission.
- *
- * Two rules protect a transfer in flight: the phase only moves forward, so a
- * tab holding a stale snapshot cannot walk `source_sent` back to a state the
- * form treats as re-signable; and an optional field that `next` leaves
- * `undefined` keeps the stored value, so a short status update cannot erase a
- * recorded hash it did not know about. Replacing a hash with a *different*
- * hash is still allowed — that is exactly what a repriced transaction does.
- */
+// The phase only moves forward and an `undefined` in `next` keeps the stored value, so a
+// stale tab cannot walk `source_sent` back to a re-signable state or erase a hash it did
+// not know about. A *different* hash still wins: that is what repricing does.
 export function mergeDepositSession(
   current: DepositSession | null,
   next: DepositSession,
@@ -342,7 +306,6 @@ export function mergeDepositSession(
   })
 }
 
-/** Reads and parses one session. Unreadable or malformed JSON is null, never a partial object. */
 export function readDepositSession(storage: StorageLike, id: string): DepositSession | null {
   let raw: string | null
   try {
@@ -358,16 +321,9 @@ export function readDepositSession(storage: StorageLike, id: string): DepositSes
   }
 }
 
-/**
- * Read → merge → write → read back. The read-back is the point: a quota error,
- * a private-mode stub that accepts writes and returns null, or a competing tab
- * clobbering the key all end with the caller believing a transfer is recorded
- * when it is not. Callers block signing on the throw, and after a send they
- * fall back to in-memory tracking plus `recoveryReference`.
- *
- * Hold the session's Web Lock around this call whenever the write precedes or
- * follows a wallet prompt.
- */
+// Read → merge → write → read back: a quota error, a private-mode stub or a competing tab
+// all end with the caller believing a transfer is recorded when it is not. Hold the
+// session Web Lock whenever this write precedes or follows a wallet prompt.
 export function writeDepositSession(storage: StorageLike, session: DepositSession): DepositSession {
   const merged = mergeDepositSession(readDepositSession(storage, session.id), session)
   try {
@@ -387,13 +343,9 @@ export function writeDepositSession(storage: StorageLike, session: DepositSessio
   return merged
 }
 
-/**
- * The wallet rejected the prompt, so the session goes back to `prepared` and the
- * form reopens. This is the one sanctioned phase regression, and it deliberately
- * bypasses the monotonic merge — but only from a prompt phase and only while no
- * hash has been recorded. A rejection after a hash exists is not a rejection of
- * that transaction. Call it under the session's Web Lock.
- */
+// The one sanctioned phase regression, deliberately bypassing the monotonic merge: only
+// from a prompt phase and only while no hash exists, because a rejection after a hash is
+// not a rejection of that transaction. Call it under the session Web Lock.
 export function rollbackDepositSessionPrompt(
   storage: StorageLike,
   id: string,
@@ -443,12 +395,7 @@ function readAllDepositSessions(storage: StorageLike): DepositSession[] {
     .filter((session): session is DepositSession => !!session)
 }
 
-/**
- * Sessions issued against `apiUrl`, newest first. The environment fingerprint is
- * part of the filter because a staging deposit address and a production one look
- * identical; resuming across environments would poll the wrong backend for a
- * transfer it never saw.
- */
+/** Newest first, filtered by environment: a staging deposit address and a production one are indistinguishable by shape. */
 export function listDepositSessions(storage: StorageLike, apiUrl: string): DepositSession[] {
   return readAllDepositSessions(storage)
     .filter((session) => session.apiUrl === apiUrl)
@@ -458,12 +405,8 @@ export function listDepositSessions(storage: StorageLike, apiUrl: string): Depos
 const TERMINAL_RETENTION_MS = 30 * DAY_IN_MS
 const TERMINAL_RETENTION_COUNT = 20
 
-/**
- * Housekeeping only. A non-terminal session is never removed no matter how old —
- * age is not evidence that a transfer settled, and the record holds the only
- * copy of the source hash. Terminal records are kept for 30 days, and the newest
- * 20 survive regardless of age so a quiet month still leaves a support trail.
- */
+// A non-terminal session is never removed no matter how old: age is not evidence that a
+// transfer settled. Terminal records last 30 days, and the newest 20 survive regardless.
 export function pruneDepositSessions(storage: StorageLike, now: number): void {
   const terminal = readAllDepositSessions(storage)
     .filter((session) => session.phase === "terminal")
@@ -475,11 +418,7 @@ export function pruneDepositSessions(storage: StorageLike, now: number): void {
   }
 }
 
-/**
- * Copyable text for the "we could not save this" screen. Support can resolve a
- * transfer from these five facts alone, so it stays plain and stable — there is
- * no recovery-import UI in this slice.
- */
+/** Copyable text for the "we could not save this" screen; there is no recovery-import UI in this slice. */
 export function recoveryReference(session: DepositSession): string {
   const sourceHash =
     session.currentSourceHash ?? session.originalSourceHash ?? session.submitted?.hash ?? "unknown"
@@ -494,13 +433,8 @@ export function recoveryReference(session: DepositSession): string {
   ].join("\n")
 }
 
-/**
- * Web Locks is the only real mutual exclusion available here: a localStorage
- * compare-and-read-back lease is not atomic and must not be described as one.
- * `navigator.locks` requires a secure context (HTTPS, or localhost in
- * development); on plain HTTP it is `undefined` and every helper below throws so
- * the caller fails closed before a prompt rather than signing twice.
- */
+// `navigator.locks` requires a secure context; on plain HTTP it is undefined and every
+// helper below throws, so the caller fails closed before a prompt rather than signing twice.
 function getLockManager(): LockManager | null {
   if (typeof navigator === "undefined") return null
   return navigator.locks ?? null
@@ -515,14 +449,8 @@ const UNAVAILABLE =
 
 const HELD_ELSEWHERE = "This deposit is already running in another tab."
 
-/**
- * Takes the session's lock and keeps it until `release()`. The executing tab
- * acquires this once the form is ready — ahead of the wallet click — so the
- * click path itself contains no await other than the wallet calls, and holds it
- * for the active life of the session. The lock lives inside the request callback
- * as a deferred promise: it resolves only when `release` is called (or the tab
- * goes away, which the browser handles for us).
- */
+// Taken once the form is ready — ahead of the wallet click, so the click path itself
+// contains no await other than the wallet calls — and held until `release()`.
 export function holdDepositSessionLock(id: string): Promise<{ release: () => void }> {
   const locks = getLockManager()
   if (!locks) return Promise.reject(new DepositSessionLockError(UNAVAILABLE))
@@ -546,9 +474,8 @@ export function holdDepositSessionLock(id: string): Promise<{ release: () => voi
   })
 }
 
-// Same-tab writes do not raise a `storage` event — the spec fires it only in
-// *other* documents — so the hook needs both sources: the event for a second
-// tab, and this emitter for the tab doing the writing.
+// Same-tab writes do not raise a `storage` event (the spec fires it only in *other*
+// documents), so the hook needs both the event and this emitter.
 let storeRevision = 0
 const listeners = new Set<() => void>()
 
@@ -575,23 +502,16 @@ function subscribeDepositSessions(listener: () => void): () => void {
 
 const getRevision = () => storeRevision
 
-// Records the browser could not persist. A failed
-// write after a broadcast must not lose the evidence, so the store keeps the
-// newest merged copy here and reports it as volatile; a later successful write
-// promotes it back to localStorage.
+// Records the browser could not persist. A failed write after a broadcast must not lose
+// the evidence; a later successful write promotes it back to localStorage.
 const volatileSessions = new Map<string, DepositSession>()
 
 function readStoredOrVolatile(id: string): DepositSession | null {
   return readDepositSession(localStorage, id) ?? volatileSessions.get(id) ?? null
 }
 
-/**
- * Writes through localStorage, falling back to the in-memory copy when storage
- * itself fails. Identity conflicts (see assertSameIntent) still throw: those are
- * programming errors, not a browser that cannot save. Never call this for the
- * pre-prompt write that must block signing — use writeDepositSession directly
- * so a non-durable record is an error there.
- */
+// Falls back to the in-memory copy when storage itself fails. Never call this for the
+// pre-prompt write that must block signing — writeDepositSession makes that an error.
 function writeStoredOrVolatile(session: DepositSession): DepositSession {
   const stamped = { ...session, updatedAt: Date.now() }
   // Merging first surfaces an identity conflict before any storage attempt.
@@ -609,7 +529,6 @@ function writeStoredOrVolatile(session: DepositSession): DepositSession {
   }
 }
 
-/** localStorage-backed session access that re-renders on writes from this tab and from others. */
 export function useDepositSessionStore() {
   const revision = useSyncExternalStore(subscribeDepositSessions, getRevision, getRevision)
   return useMemo(
@@ -625,8 +544,8 @@ export function useDepositSessionStore() {
         volatileSessions.set(session.id, session)
         notifyDepositSessions()
       },
-      // A record the browser could not persist is still a transfer in flight,
-      // so the hub lists it alongside the stored ones for as long as this tab lives.
+      // A record the browser could not persist is still a transfer in flight, so the hub
+      // lists it alongside the stored ones for as long as this tab lives.
       list: (apiUrl: string) => {
         const stored = listDepositSessions(localStorage, apiUrl)
         const ids = new Set(stored.map(({ id }) => id))

@@ -67,11 +67,7 @@ interface RowProps extends AriaAttributes {
   onClick: () => void
   /** Highlights the row as the current selection (e.g. the chosen provider). */
   isActive?: boolean
-  /**
-   * Renders the row as an unusable option (e.g. a bridge route below the
-   * Ethereum minimum). Kept visible rather than filtered out so the reason the
-   * caller puts in the row still explains why it cannot be chosen.
-   */
+  /** Unusable option kept visible, so the reason in the row still explains itself. */
   disabled?: boolean
 }
 
@@ -79,9 +75,6 @@ interface RowProps extends AriaAttributes {
  * Option row inside a DepositSubpage.List: full-width button with a divider,
  * a hover/active background, and the shared row padding. Content (icon, name,
  * trailing check or amounts) is composed by the caller.
- *
- * ARIA attributes pass straight through, so a caller can name a row whose
- * visible content is a set of amounts rather than a label.
  */
 const DepositSubpageRow = ({
   onClick,

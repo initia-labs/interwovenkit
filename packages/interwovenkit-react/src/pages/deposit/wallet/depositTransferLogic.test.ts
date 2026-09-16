@@ -556,7 +556,6 @@ describe("deriveDepositReadiness", () => {
   })
 
   it("stays ready after a failed attempt so the user can retry", () => {
-    // A rejected prompt is reported by the footer, not by taking the action away.
     expect(deriveDepositReadiness(readinessInput())).toEqual({ status: "ready" })
   })
 })

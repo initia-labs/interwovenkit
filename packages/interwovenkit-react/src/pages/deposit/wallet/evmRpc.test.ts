@@ -12,8 +12,7 @@ import {
   watchSourceTransaction,
 } from "./evmRpc"
 
-// The Router chain type is a runtime enum in @skip-go/client; importing it here
-// would pull the whole client into a unit test, so cast the literal instead.
+// The Router chain type is a runtime enum in @skip-go/client; casting the literal keeps the whole client out of a unit test.
 const chainType = (value: string) => value as RouterChainJson["chain_type"]
 
 const SENDER = "0x4e3d1f2a6b5c8d9e0f1a2b3c4d5e6f7a8b9c0d1e"
@@ -310,8 +309,7 @@ describe("watchSourceTransaction", () => {
     })
   })
 
-  // ethers' own `reason` never checks the chain, so a payload-identical
-  // replacement from another chain id would read as "repriced" if we trusted it.
+  // ethers' own `reason` never checks the chain, so trusting it would read a payload-identical replacement from another chain as "repriced".
   it("does not adopt a payload-identical replacement from another chain", async () => {
     const { provider } = createFakeProvider()
     const replacement = buildResponse(provider, {

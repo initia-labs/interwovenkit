@@ -67,10 +67,6 @@ function stubApi(result: unknown) {
   return { api: { get: respond, post: respond } as unknown as KyInstance, calls }
 }
 
-// ---------------------------------------------------------------------------
-// parseBridgeOptions
-// ---------------------------------------------------------------------------
-
 const optionsPayload = (options: unknown[]) => ({
   deposit_address: DEPOSIT_ADDRESS,
   required_min_received: "4900000",
@@ -110,8 +106,6 @@ describe("parseBridgeOptions", () => {
     expect(() => parseBridgeOptions([], REQUEST)).toThrow(/is not an object/)
   })
 
-  // The address every option delivers to. A malformed value would be shown as
-  // the destination of a real transfer.
   it("rejects a malformed deposit address", () => {
     expect(() =>
       parseBridgeOptions({ ...optionsPayload([wireOption()]), deposit_address: "0x1234" }, REQUEST),
@@ -144,8 +138,6 @@ describe("parseBridgeOptions", () => {
     )
   })
 
-  // The key is the form's selection value, so two rows sharing one would make
-  // the executed route ambiguous.
   it("rejects duplicate bridge keys, including casing variants", () => {
     expect(() => parseBridgeOptions(optionsPayload([wireOption(), wireOption()]), REQUEST)).toThrow(
       /repeats the bridge key/,
@@ -173,8 +165,6 @@ describe("parseBridgeOptions", () => {
     ).toThrow(/non-boolean eligible/)
   })
 
-  // Unknown must stay unknown: a route with no duration estimate is not
-  // instantaneous, and one with no gas estimate is not free.
   it("keeps missing optional estimates undefined rather than zero", () => {
     const [option] = parseBridgeOptions(optionsPayload([wireOption()]), REQUEST).options
     expect(option.execution_duration_seconds).toBeUndefined()
@@ -208,10 +198,6 @@ describe("parseBridgeOptions", () => {
     expect(() => parseBridgeOptions(null, REQUEST)).toThrow(/8453:.*-> interwoven-1:uusdc/)
   })
 })
-
-// ---------------------------------------------------------------------------
-// rankBridgeOptions
-// ---------------------------------------------------------------------------
 
 const option = (overrides: Partial<BridgeOption> & { bridge: string }): BridgeOption => ({
   amount_out: "1000",
@@ -264,8 +250,7 @@ describe("rankBridgeOptions", () => {
   })
 
   it("nets the quoted gas out of the output before comparing", () => {
-    // 1.00 USDC out minus $0.05 gas < 0.96 USDC out with free gas is outside
-    // the tolerance, so output alone would have ranked these the other way.
+    // 1.00 USDC out minus $0.05 gas ranks below 0.96 USDC with free gas, so output alone would have ordered these the other way.
     expect(
       keys([
         option({ bridge: "gassy", amount_out: "1000000", gas_cost_usd: "0.05" }),
@@ -318,8 +303,6 @@ describe("rankBridgeOptions", () => {
     ])
   })
 
-  // A malformed value must sort last rather than throw: the picker still has to
-  // render while the parser's rejection surfaces through the query.
   it("sorts unparseable values last without throwing", () => {
     expect(
       keys([
@@ -353,10 +336,6 @@ describe("percentDifference", () => {
     expect(percentDifference("1", "0")).toBe("")
   })
 })
-
-// ---------------------------------------------------------------------------
-// parseBridgeQuote
-// ---------------------------------------------------------------------------
 
 const quotePayload = (overrides: Record<string, unknown> = {}) => ({
   provider: "lifi",
@@ -424,8 +403,6 @@ describe("parseBridgeQuote", () => {
     )
   })
 
-  // Executing a different bridge than the one whose minimum and duration were
-  // reviewed is a silent route substitution.
   it("rejects a tool that is not the selected bridge", () => {
     expect(() => parseBridgeQuote(quotePayload({ tool: "relay" }), QUOTE_REQUEST)).toThrow(
       /tool mismatch/,
@@ -465,7 +442,6 @@ describe("parseBridgeQuote", () => {
     )
   })
 
-  // The recipient the issued address is bound to: a mismatch credits someone else.
   it("rejects a wallet_address that is not the resolved recipient", () => {
     expect(() =>
       parseBridgeQuote(quotePayload({ wallet_address: "init1someoneelse" }), QUOTE_REQUEST),
@@ -540,8 +516,7 @@ describe("parseBridgeQuote", () => {
       ).toBe("0x")
     })
 
-    // A dropped protocol fee makes the bridge call revert; the nonzero value has
-    // to survive the hex-to-decimal normalization intact.
+    // A dropped protocol fee makes the bridge call revert, so a nonzero value has to survive the hex-to-decimal normalization intact.
     it("normalizes a hex value to a decimal string", () => {
       expect(
         parseBridgeQuote(withTransaction({ value: "0x2386f26fc10000" }), QUOTE_REQUEST).transaction
@@ -593,8 +568,6 @@ describe("parseBridgeQuote", () => {
   })
 
   describe("approval", () => {
-    // Signing an ERC-20 bridge call with no allowance in place reverts after the
-    // user has already paid gas.
     it("rejects a null approval for an ERC-20 source", () => {
       expect(() => parseBridgeQuote(withApproval(null), QUOTE_REQUEST)).toThrow(
         /missing the ERC-20 approval/,
@@ -611,8 +584,6 @@ describe("parseBridgeQuote", () => {
       expect(parseBridgeQuote(payload, native).approval).toBeNull()
     })
 
-    // An approval for a different token grants a spender allowance over an asset
-    // the user never chose to bridge.
     it("rejects an approval for another token", () => {
       expect(() =>
         parseBridgeQuote(
@@ -655,10 +626,6 @@ describe("parseBridgeQuote", () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// bridgeQuoteSignature / meetsRequiredMinimum
-// ---------------------------------------------------------------------------
-
 describe("bridgeQuoteSignature", () => {
   const signatureOf = (overrides: Record<string, unknown> = {}) =>
     bridgeQuoteSignature(parseBridgeQuote(quotePayload(overrides), QUOTE_REQUEST))
@@ -671,8 +638,7 @@ describe("bridgeQuoteSignature", () => {
     expect(signatureOf({ tool: "Across" })).toBe(signatureOf())
   })
 
-  // LI.FI re-encodes calldata and re-estimates gas on every quote; neither is
-  // something the user reviews, so neither may force a second click.
+  // LI.FI re-encodes calldata and re-estimates gas on every quote, so neither may force a second click.
   it("ignores re-encoded calldata and a new gas estimate", () => {
     for (const overrides of [{ data: "0xcafe" }, { gas_limit: "300000" }]) {
       expect(
@@ -681,8 +647,6 @@ describe("bridgeQuoteSignature", () => {
     }
   })
 
-  // Each of these changes what the user is being asked to sign, so an already
-  // granted review must not carry over.
   it("changes when the contract or native value changes", () => {
     const base = signatureOf()
     for (const overrides of [
@@ -731,7 +695,6 @@ describe("meetsRequiredMinimum", () => {
     expect(meetsRequiredMinimum({ min_received: "10000000" }, "9000000", "0")).toBe(true)
   })
 
-  // Fail closed: an unparseable input must block the send, never pass the gate.
   it("answers false for any unparseable input", () => {
     expect(meetsRequiredMinimum({ min_received: "" }, "1", "1")).toBe(false)
     expect(meetsRequiredMinimum({ min_received: "0" }, "0", "0")).toBe(false)
@@ -739,10 +702,6 @@ describe("meetsRequiredMinimum", () => {
     expect(meetsRequiredMinimum({ min_received: "1000" }, "1", "1.5")).toBe(false)
   })
 })
-
-// ---------------------------------------------------------------------------
-// parseBridgeStatus
-// ---------------------------------------------------------------------------
 
 const deposit = (overrides: Partial<Deposit> = {}) =>
   ({
@@ -771,8 +730,7 @@ const statusPayload = (overrides: Record<string, unknown> = {}) => ({
 })
 
 describe("parseBridgeStatus", () => {
-  // The wire sends a JSON integer; `8453 !== "8453"` in JavaScript, so skipping
-  // the normalization would reject every legitimate response.
+  // The wire sends a JSON integer; `8453 !== "8453"` in JavaScript.
   it("normalizes the integer src_chain_id to a string before comparing", () => {
     const parsed = parseBridgeStatus(statusPayload(), EXPECTED)
     expect(parsed.src_chain_id).toBe("8453")
@@ -790,8 +748,6 @@ describe("parseBridgeStatus", () => {
     )
   })
 
-  // A status for somebody else's transfer would advance this screen on evidence
-  // that has nothing to do with the user's funds.
   it("rejects a status for another transaction", () => {
     expect(() =>
       parseBridgeStatus(statusPayload({ src_tx_hash: `0x${"c".repeat(64)}` }), EXPECTED),
@@ -829,8 +785,6 @@ describe("parseBridgeStatus", () => {
     }
   })
 
-  // The deposit/state pairing is the handoff signal: a deposit alongside a
-  // pending or refunded state would complete a flow that has not delivered.
   it("rejects a deposit outside deposit_indexed", () => {
     expect(() =>
       parseBridgeStatus(statusPayload({ state: "bridge_pending", deposit: deposit() }), EXPECTED),
@@ -873,8 +827,6 @@ describe("parseBridgeStatus", () => {
     ).toBeUndefined()
   })
 
-  // Explorer links are cosmetic: a missing one must not stop tracking a transfer
-  // that is already in flight.
   it("degrades a missing explorer link instead of throwing", () => {
     expect(parseBridgeStatus(statusPayload({ src_tx_link: undefined }), EXPECTED).src_tx_link).toBe(
       "",
@@ -890,14 +842,8 @@ describe("parseBridgeStatus", () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// classifyBridgeStatusError
-// ---------------------------------------------------------------------------
-
 describe("classifyBridgeStatusError", () => {
-  // This endpoint answers `{ error, message }` instead of the API-wide
-  // `{ message }`; losing the code would turn a hard conflict into an ordinary
-  // retryable failure.
+  // This endpoint answers `{ error, message }` instead of the API-wide `{ message }`.
   it("throws a coded conflict for a coded body", async () => {
     await expect(
       classifyBridgeStatusError(
@@ -960,10 +906,6 @@ describe("classifyBridgeStatusError", () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// bridgeStatusPollInterval
-// ---------------------------------------------------------------------------
-
 describe("bridgeStatusPollInterval", () => {
   it("polls fast while the user is watching and backs off once idle", () => {
     expect(bridgeStatusPollInterval("bridge_pending", null, 0)).toBe(3000)
@@ -1016,8 +958,6 @@ describe("bridgeStatusPollInterval", () => {
     expect(bridgeStatusPollInterval("bridge_pending", new RateLimitedError("x"), 0)).toBe(3000)
   })
 
-  // Nothing about delivery may be inferred from a conflict, and retrying into it
-  // only reproduces it — the screen switches to manual recovery.
   it("hard-stops on upstream_conflict", () => {
     expect(
       bridgeStatusPollInterval(
@@ -1038,10 +978,6 @@ describe("bridgeStatusPollInterval", () => {
     ).toBe(3000)
   })
 })
-
-// ---------------------------------------------------------------------------
-// Query option builders
-// ---------------------------------------------------------------------------
 
 describe("createBridgeOptionsQueryOptions", () => {
   it("posts the request identity to the relative options path", async () => {
@@ -1104,8 +1040,6 @@ describe("createBridgeQuoteQueryOptions", () => {
     expect(options.queryKey).toContain("across")
   })
 
-  // A quote is the transaction to sign: holding the previous identity's quote on
-  // screen mid-fetch would present a stale transaction as executable.
   it("never keeps previous data", () => {
     const { api } = stubApi(null)
     expect(createBridgeQuoteQueryOptions(api, QUOTE_REQUEST, true).placeholderData).toBeUndefined()
@@ -1128,9 +1062,7 @@ describe("createBridgeStatusQueryOptions", () => {
     depositAddress: DEPOSIT_ADDRESS,
   }
 
-  // The endpoint answers 502 upstream_conflict for a missing or mismatched
-  // hinted tool, including for not-found results, so the saved tool must stay
-  // out of the request.
+  // The endpoint answers 502 upstream_conflict for a missing or mismatched hinted tool, including for not-found results.
   it("omits the bridge hint from the request", async () => {
     const { api, calls } = stubApi(statusPayload())
     const { queryFn } = createBridgeStatusQueryOptions(api, PARAMS, true)
@@ -1154,8 +1086,6 @@ describe("createBridgeStatusQueryOptions", () => {
     )
   })
 
-  // Responses are Cache-Control: no-store, and a failed read must wait for the
-  // classified backoff rather than burst against a rate limit.
   it("never caches and never retries in place", () => {
     const { api } = stubApi(null)
     const options = createBridgeStatusQueryOptions(api, PARAMS, true)

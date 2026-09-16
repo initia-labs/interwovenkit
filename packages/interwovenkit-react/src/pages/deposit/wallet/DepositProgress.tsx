@@ -35,23 +35,14 @@ import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM, findDepositApiSource } from "./
 import { type SourceTxOutcome, useSourceChainProvider, watchSourceTransaction } from "./evmRpc"
 import { useTransferForm } from "./transferFlowConfig"
 
-// One watch window per poll. Long enough that most confirmations resolve inside
-// a single call, short enough that a stuck window still re-renders the screen —
-// the timeout is reported as `pending`, never as a failure.
+// A watch window that times out is reported as `pending`, never as a failure.
 const SOURCE_WATCH_TIMEOUT = 20_000
 const SOURCE_WATCH_INTERVAL = 5_000
 // Same per-stage stall budget the address tracker uses.
 const TAKING_LONGER_DELAY = 60 * 1000
 
-/**
- * Progress controller for a saved Deposit API session.
- *
- * Everything it decides lives in `deriveDepositProgress`; this file only runs
- * the reads that feed it, persists what the derivation says to persist, and
- * renders the shared tracking body. The split is deliberate: the screen reports
- * on funds that have already left the wallet, so every "this failed" / "this
- * completed" judgment has to be unit-testable without a browser.
- */
+// Every "failed" / "completed" judgment lives in `deriveDepositProgress`, which
+// keeps it unit-testable; this file only runs the reads that feed it.
 const DepositProgress = () => {
   const { watch } = useTransferForm()
   const sessionId = watch("depositSessionId")
@@ -59,9 +50,8 @@ const DepositProgress = () => {
   const store = useDepositSessionStore()
   const { closeModal } = useModal()
 
-  // The form's in-memory copy only applies when the post-send storage write
-  // failed for *this* session. Adopting it into the
-  // store's volatile map keeps one read path: stored, else volatile, else none.
+  // Adopting the form's in-memory copy into the store keeps one read path:
+  // stored, else volatile, else none.
   const adoptable = fallback && fallback.id === sessionId ? fallback : undefined
   useEffect(() => {
     if (adoptable) store.remember(adoptable)
@@ -87,12 +77,10 @@ const DepositProgress = () => {
     )
   }
 
-  // Remounts on a session switch so every stage timer below starts from the new
-  // session's own state.
+  // Keyed remount on a session switch so every stage timer below restarts.
   return <DepositProgressTracker key={base.id} session={base} />
 }
 
-/** Placeholder inputs for the "no session" branch, which reads none of them. */
 const EMPTY_INPUTS: DepositProgressInputs = {
   source: { isError: false, hasProvider: false },
   bridge: {},
@@ -102,7 +90,6 @@ const EMPTY_INPUTS: DepositProgressInputs = {
 }
 
 interface TrackerProps {
-  /** The current record: storage first, else the store's in-memory copy. */
   session: DepositSession
 }
 
@@ -123,12 +110,8 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     storeRef.current = store
   })
 
-  /**
-   * Writes a field patch through the session store, which keeps it in memory
-   * when storage cannot hold it (the store re-renders us either way). Takes its
-   * current state from a ref: every caller is an effect keyed on primitives, so
-   * a fresh session object per render cannot re-arm them into a write loop.
-   */
+  // Reads current state from a ref: a fresh session object per render must not
+  // re-arm the effects that call this into a write loop.
   const applyPatch = useCallback((patch: Partial<DepositSession>) => {
     const current = sessionRef.current
     const fields = Object.fromEntries(
@@ -149,10 +132,8 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   const provider = useSourceChainProvider(sourceChainId)
 
   const sourceQuery = useQuery({
-    // The remaining inputs are the session's own immutable intent (the exact
-    // call saved before signing) and the provider derived from its source
-    // chain. Session id + watched hash already identify them; listing them
-    // again would only re-key the watch on a field that cannot change.
+    // Session id + watched hash already identify the remaining inputs, which are
+    // the session's own immutable intent.
     // eslint-disable-next-line @tanstack/query/exhaustive-deps
     queryKey: depositQueryKeys.sourceWatch(session.id, sourceHash).queryKey,
     queryFn: async (): Promise<SourceTxOutcome> => {
@@ -181,9 +162,8 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   })
   const sourceOutcome = sourceQuery.data
 
-  // A repriced replacement is the same intent at a new hash (watchSourceTransaction
-  // proves equivalence before reporting it), so tracking follows it and the
-  // original is kept for history and support.
+  // A repriced replacement is the same intent at a new hash, so tracking follows
+  // it and keeps the original for support.
   const replacementHash =
     sourceOutcome?.status === "replaced" && sourceOutcome.reason === "repriced"
       ? sourceOutcome.hash
@@ -197,7 +177,6 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     })
   }, [replacementHash, applyPatch])
 
-  // --- LI.FI: bridge status until the backend indexes the Ethereum deposit ---
   const [bridgeStartedAt] = useState(() => Date.now())
   const bridgeQuery = useQuery(
     createBridgeStatusQueryOptions(
@@ -207,17 +186,16 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
         srcTxHash: sourceHash,
         depositAddress: session.depositAddress,
       },
-      // Polled alongside the receipt watch: the backend's own observation of
-      // the source transaction must not wait on a third-party RPC.
+      // Polled alongside the receipt watch: the backend's own view of the source
+      // transaction must not wait on a third-party RPC.
       session.transport === "lifi" && !depositId && !!sourceHash,
       bridgeStartedAt,
     ),
   )
   const bridgeStatus = bridgeQuery.data
 
-  // The handoff gate. A deposit that cannot be proven to be this user's is a
-  // tracking problem, never a completion — so the assertion result is carried
-  // as either a record or a conflict message, and nothing in between.
+  // A deposit that cannot be proven to be this user's is a tracking conflict,
+  // never a completion.
   const lifiHandoff = useMemo(() => {
     if (bridgeStatus?.state !== "deposit_indexed" || !bridgeStatus.deposit) return undefined
     try {
@@ -236,7 +214,6 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     }
   }, [bridgeStatus, session.depositAddress, session.destination])
 
-  // --- Direct Ethereum: exact source-hash correlation ---
   const directQuery = useQuery(
     createDepositBySourceTxQueryOptions(
       api,
@@ -278,14 +255,12 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     })
   }, [handoffId, handoffEthereumHash, applyPatch])
 
-  // --- Deposit id: the authoritative lifecycle ---
   const depositQuery = useWalletDeposit(depositId)
   const deposit = depositQuery.data ?? null
   const bucket = classifyWalletBucket(deposit)
 
-  // Non-suspending catalog read: the below-minimum copy needs the Ethereum
-  // route's decimals, and suspending here would blank a screen that is already
-  // reporting on money in flight.
+  // Non-suspending catalog read: suspending here would blank a screen that is
+  // already reporting on money in flight.
   const assetsQuery = useQuery({
     ...createDepositAssetsQueryOptions(api),
     enabled: !!depositApiUrl,
@@ -343,9 +318,8 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     },
   }
 
-  // The stall budget is armed per stage, so each leg gets its own minute. The
-  // stage key is taken from the undelayed derivation, which the flag cannot
-  // influence — otherwise arming the timer would change its own trigger.
+  // The stage key comes from the undelayed derivation: letting the flag reach it
+  // would make arming the timer change its own trigger.
   const baseView = deriveDepositProgress(session, { ...inputs, isDelayed: false })
   const stageKey = `${baseView.stage}:${baseView.persist?.lastState ?? ""}`
   const [delayedStage, setDelayedStage] = useState<string | null>(null)
@@ -401,8 +375,8 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     view.message
   )
 
-  // Storage could not hold this transfer, so the reference is the only durable
-  // copy the user has. Shown alongside live progress, never instead of it.
+  // Storage could not hold this transfer, so the reference is the user's only
+  // durable copy.
   const showRecovery = store.isVolatile(session.id)
 
   return (
@@ -421,11 +395,8 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   )
 }
 
-/**
- * Explorer link in evidence order: the fast-delivery submission, the ordinary
- * bridge submission, then the bridge provider's own links. Never a claim that
- * the flow completed.
- */
+// Explorer link in evidence order: fast delivery, bridge submission, then the
+// provider's own links. Never a claim that the flow completed.
 function resolveExplorerUrl(
   deposit: Deposit | null,
   bridgeStatus: BridgeStatusResponse | undefined,
@@ -445,8 +416,7 @@ const RecoveryReference = ({ session }: { session: DepositSession }) => {
       await navigator.clipboard.writeText(reference)
       setCopied(true)
     } catch {
-      // Clipboard permission denied: the text is on screen and selectable, so
-      // there is nothing to recover from beyond leaving the button as it was.
+      // Clipboard permission denied: the text is on screen and selectable.
       setCopied(false)
     }
   }
@@ -460,12 +430,8 @@ const RecoveryReference = ({ session }: { session: DepositSession }) => {
   )
 }
 
-/**
- * Source and destination chips from the saved identity alone. The chain logos
- * were captured when the session was created and the token art comes from the
- * registry CDN by symbol, so a transfer in flight can always be watched without
- * a Router or registry read succeeding first.
- */
+// Chips render from the saved session identity alone, so a transfer in flight can
+// be watched without a Router or registry read succeeding first.
 const ProgressChips = ({ session }: { session: DepositSession }) => {
   const { registryUrl } = useConfig()
   const { source, destination } = session

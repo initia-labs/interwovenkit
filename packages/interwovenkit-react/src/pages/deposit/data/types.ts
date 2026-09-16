@@ -48,13 +48,7 @@ export interface Asset {
   /** Minimum deposit in the source denom base unit (not destination). A backend
    * route setting that can change; always read it from here, never hardcode. */
   min_deposit_amount: string
-  /**
-   * Inclusive fast-advance cap in source base units; "" when unset. Required on
-   * staging v0.0.32 but typed optional so a backend that predates it still
-   * parses. Display only: fast vs ordinary delivery is backend policy decided
-   * after the funds land on Ethereum, so gating a send on this value would
-   * block deposits the backend would happily process the ordinary way.
-   */
+  /** Fast-advance cap in source base units, "" when unset. Display only: gating a send on it would block deposits the backend accepts the ordinary way. */
   advance_max_amount?: string
   /**
    * Backend route-policy slippage tolerance as a percent string (e.g. "0.5";
@@ -166,25 +160,12 @@ export interface Deposit {
   bot_tx_hash: string
   /** Explorer URL for the bridge tx; empty string before submission. */
   bot_tx_explorer_url: string
-  /**
-   * Fast-delivery lifecycle: "none" | "pending" | "completed" | "failed".
-   * Opaque `string` like `status` — the wire set can grow, and only `bucket`
-   * decides terminal judgment. `failed` here is not a financial outcome: the
-   * backend still falls back to ordinary delivery, so nothing terminal may be
-   * rendered from this field alone.
-   */
+  /** Fast-delivery lifecycle, opaque like `status`. "failed" is not a financial outcome — the backend still falls back to ordinary delivery. */
   advance_status?: string
-  /**
-   * Latest fast-delivery L1 submission hash; "" until recorded. Recording
-   * precedes broadcast, so this proves neither inclusion nor success.
-   */
+  /** Latest fast-delivery L1 submission hash, recorded before broadcast — it proves neither inclusion nor success. */
   advance_tx_hash?: string
-  /** Explorer URL for `advance_tx_hash`; "" until recorded. */
   advance_tx_explorer_url?: string
-  /**
-   * Backend treasury recovery lifecycle. Never rendered: it describes the
-   * operator's internal reclaim, not the user's deposit.
-   */
+  /** Operator's internal treasury reclaim; never rendered, it is not the user's deposit. */
   reclaim_status?: string
 }
 
@@ -202,22 +183,17 @@ export interface ListDepositsResponse {
   next_cursor?: string
 }
 
-// ---------------------------------------------------------------------------
-// Pre-deposit bridge leg (Base/Arbitrum USDC -> Ethereum USDC via LI.FI).
-// The Deposit API fronts LI.FI; the client never calls LI.FI directly. Every
-// shape below is parsed at the boundary (see data/bridges.ts) before a wallet
-// prompt is opened, so these interfaces describe validated values, not casts.
-// ---------------------------------------------------------------------------
+// Pre-deposit bridge leg (Base/Arbitrum USDC -> Ethereum USDC via LI.FI). The
+// Deposit API fronts LI.FI; the client never calls LI.FI directly. Every shape
+// below is parsed at the boundary (data/bridges.ts) before a wallet prompt.
 
 /** One executable LI.FI route from the source chain to the Ethereum deposit address. */
 export interface BridgeOption {
-  /** LI.FI tool key (e.g. "across", "stargateV2"); display metadata in BRIDGE_TOOLS. */
   bridge: string
   /** Expected Ethereum USDC delivered, in Ethereum base units. */
   amount_out: string
   /** Guaranteed Ethereum USDC after LI.FI slippage; the value every minimum gate compares. */
   min_received: string
-  /** Whether the backend will accept this route's output as a deposit. Only eligible routes are executable. */
   eligible: boolean
   /** Absent when LI.FI supplied no estimate — unknown, never zero. */
   execution_duration_seconds?: number
@@ -234,7 +210,6 @@ export interface BridgeOptionsResponse {
   options: BridgeOption[]
 }
 
-/** The ERC-20 allowance the source transaction needs before it can be sent. */
 export interface BridgeQuoteApproval {
   token_address: string
   spender_address: string
@@ -246,16 +221,10 @@ export interface BridgeQuoteTransaction {
   chain_id: string
   from: string
   to: string
-  /**
-   * Native value in base units as a decimal string (normalized from the wire's
-   * hex). Nonzero on ERC-20 sources when the bridge charges a messaging fee,
-   * so it is forwarded as-is rather than zeroed.
-   */
+  /** Native base units as a decimal string (normalized from the wire's hex). Nonzero on ERC-20 sources when the bridge charges a messaging fee, so it is forwarded as-is. */
   value: string
-  /** 0x-prefixed calldata. */
   data: string
   gas_limit?: string
-  /** Legacy price hint; deliberately not forwarded — the wallet prices the transaction. */
   gas_price?: string
 }
 
@@ -286,12 +255,8 @@ export interface BridgeQuoteResponse {
   transaction: BridgeQuoteTransaction
 }
 
-/**
- * Closed state set for GET /v1/bridges/status. Unlike `Deposit.bucket` this
- * really is closed on the wire (an OpenAPI enum), so an unrecognized value is a
- * tracking-contract problem the wallet controller surfaces as such — never a
- * financial outcome.
- */
+// Closed on the wire (an OpenAPI enum), unlike `Deposit.bucket`: an unrecognized
+// value is a tracking-contract problem, never a financial outcome.
 export const BRIDGE_STATUS_STATES = [
   "deposit_indexed",
   "deposit_pending",
@@ -313,10 +278,8 @@ export interface BridgeStatusResponse {
   src_chain_id: string
   src_tx_hash: string
   src_tx_link: string
-  /** The Ethereum receiving transaction, once LI.FI reports one. */
   dst_tx_hash?: string
   dst_tx_link?: string
-  /** Tool LI.FI reported; diagnostic only. */
   bridge?: string
   /** Non-null only for `deposit_indexed`; validated by assertLifiDeposit before handoff. */
   deposit: Deposit | null

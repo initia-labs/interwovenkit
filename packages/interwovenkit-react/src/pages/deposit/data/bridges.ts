@@ -39,12 +39,8 @@ const eqAddress = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
 const eqAmount = (a: string, b: string) =>
   isIntegerString(a) && isIntegerString(b) && BigInt(a) === BigInt(b)
 
-/**
- * Optional estimate fields. Missing means the upstream had no estimate, which
- * must stay distinguishable from a real zero: a route with unknown duration is
- * not instantaneous and a route with unknown gas is not free, so both sort last
- * rather than winning the comparison.
- */
+// A missing estimate must stay distinguishable from a real zero: unknown
+// duration is not instantaneous and unknown gas is not free, so both sort last.
 function parseOptionalDuration(value: unknown, context: string): number | undefined {
   if (value === undefined || value === null) return undefined
   assertField(
@@ -68,7 +64,6 @@ export interface BridgeRequestIdentity {
   dstDenom: string
   /** Source base units, integer string. */
   amount: string
-  /** Connected EVM sender. */
   fromAddress: string
   /** Final credited recipient (init bech32, lowercase) — not the sender. */
   walletAddress: string
@@ -91,17 +86,8 @@ function toBridgeRequestBody(request: BridgeRequestIdentity & { bridge?: string 
 const describeRequest = (request: BridgeRequestIdentity) =>
   `${request.srcChainId}:${request.srcDenom} -> ${request.dstChainId}:${request.dstDenom}`
 
-/**
- * Boundary parser for POST /v1/bridges/options. The response carries no echo of
- * the request, so there is nothing to bind here; what it must guarantee is that
- * every value the route picker ranks on and the minimum gate compares is a
- * number this client can compare safely. A malformed `min_received` silently
- * losing a comparison would let the user pick a route that strands the deposit
- * below the Ethereum minimum, with no refund — so it throws instead.
- *
- * Duplicate bridge keys are rejected: the key is the form's selection value, so
- * two rows sharing one key would make the executed route ambiguous.
- */
+// A malformed min_received silently losing a comparison would let the user pick
+// a route that strands the deposit below the Ethereum minimum, with no refund.
 export function parseBridgeOptions(
   response: unknown,
   request: BridgeRequestIdentity,
@@ -170,11 +156,6 @@ const knownGasCost = (option: BridgeOption): BigNumber | undefined =>
 // two can be netted in USDC base units with USDC taken as one dollar.
 const USDC_DECIMALS = 6
 
-/**
- * Expected USDC out net of the quoted gas, in base units. An absent gas
- * estimate counts as zero (the route still competes on its output); a
- * malformed one makes the value unknown, so it sorts last instead of winning.
- */
 /** Output minus quoted gas; unknown without a gas estimate, so a route with an unstated fee never ranks best. */
 function netValue(option: BridgeOption): BigNumber | undefined {
   if (!isIntegerString(option.amount_out)) return undefined
@@ -195,17 +176,12 @@ function compareUnknownLast<T>(
   return compare(a, b)
 }
 
-/**
- * Routes whose net value is within this share of the best are "competitive"
- * and ordered by speed instead of output. 0.5% is the backend's own slippage
- * tolerance, so the ranking never trades more than a quote already may move.
- */
+// Routes within this share of the best net value are "competitive" and ordered
+// by speed instead of output; 0.5% is the backend's own slippage tolerance.
 export const COMPETITIVE_VALUE_TOLERANCE = 0.005
 
-/**
- * Gaps under this many dollars count as competitive regardless of the share,
- * so on a small deposit a few tenths of a cent of gas never outrank minutes.
- */
+// Gaps under this many dollars count as competitive regardless of the share, so
+// tenths of a cent of gas never outrank minutes.
 export const COMPETITIVE_VALUE_FLOOR_USD = 0.01
 
 function bestNetValue(options: BridgeOption[]): BigNumber | undefined {
@@ -219,20 +195,9 @@ function bestNetValue(options: BridgeOption[]): BigNumber | undefined {
     )
 }
 
-/**
- * Deterministic route order, weighing cost and speed the way bridge aggregators
- * present it: eligible routes first; among them, every route within
- * COMPETITIVE_VALUE_TOLERANCE (or COMPETITIVE_VALUE_FLOOR_USD, whichever is
- * looser) of the best net value (expected output minus gas) is ordered by
- * shorter known duration, then lower gas; the remaining eligible routes follow
- * by net value; ineligible routes come last. A 20-minute route that pays 0.3%
- * more therefore never outranks a 4-second one, while a route paying
- * materially more still wins.
- *
- * Pure and total: it copies the input and never throws on a malformed value
- * (those sort last), so the picker still renders while the parser's rejection
- * surfaces through the query.
- */
+// Eligible routes first; among them, routes competitive on net value (output
+// minus gas) order by duration, then gas, then value. Total and never throws:
+// malformed values sort last so the picker still renders.
 export function rankBridgeOptions(options: BridgeOption[]): BridgeOption[] {
   const nets = new Map(options.map((option) => [option.bridge, netValue(option)]))
   const best = bestNetValue(options)
@@ -281,9 +246,8 @@ function parseApproval(
   request: { sourceToken: string },
   context: string,
 ): BridgeQuoteApproval | null {
-  // Only ERC-20 sources need an allowance. The three supported pairs are all
-  // USDC contracts, so a null approval there means the quote would be signed
-  // with no allowance in place and revert after the user paid gas.
+  // Only ERC-20 sources need an allowance; a null approval there means the quote
+  // would be signed with no allowance in place and revert after the user paid gas.
   const needsApproval = request.sourceToken.startsWith("0x")
   if (value === null || value === undefined) {
     assertField(!needsApproval, `${context} is missing the ERC-20 approval`)
@@ -363,14 +327,9 @@ function parseTransaction(
   }
 }
 
-/**
- * Boundary parser for POST /v1/bridges/quote — the last check before a wallet
- * prompt. Everything here binds the response to the request identity the form
- * still holds, because the response *is* the transaction the user is about to
- * sign: a quote echoing a different chain, denom, amount, recipient or sender
- * would move real funds somewhere the user never chose, with no refund path.
- * Anything unrecognized throws; nothing is coerced or defaulted.
- */
+// The response *is* the transaction the user signs, so every field is bound to
+// the request identity the form still holds: a quote echoing a different chain,
+// denom, amount, recipient or sender would move real funds, with no refund path.
 export function parseBridgeQuote(
   response: unknown,
   request: BridgeRequestIdentity & { bridge: string; sourceToken: string },
@@ -406,9 +365,8 @@ export function parseBridgeQuote(
     isString(wallet_address) && eqAddress(wallet_address, request.walletAddress),
     `${context} wallet_address mismatch: ${String(wallet_address)}`,
   )
-  // Case-insensitive, matching the backend's own tool normalization: the key is
-  // the user's selection, and executing a different bridge than the one whose
-  // minimum and duration were reviewed is a silent route substitution.
+  // Case-insensitive, matching the backend's own tool normalization: executing a
+  // different bridge than the one reviewed is a silent route substitution.
   assertField(
     isString(tool) && tool.toLowerCase() === request.bridge.toLowerCase(),
     `${context} tool mismatch: ${String(tool)} (selected ${request.bridge})`,
@@ -458,17 +416,9 @@ export function parseBridgeQuote(
   }
 }
 
-/**
- * Stable fingerprint of what the user reviewed and that can change under a
- * refresh: the route, the contract and native value they are sending to, the
- * approval they grant, the issued address and the promised amounts. The form
- * compares it to decide whether an already-granted review still applies, the
- * same way the Router preview reconfirms on a changed route. Calldata and the
- * gas estimate are deliberately excluded: LI.FI re-encodes both on every quote
- * (deadlines, salts), so including them would demand a second click on every
- * refresh without telling the user anything they can review. Addresses are
- * lowercased so casing alone never fakes a change.
- */
+// Fingerprint of what the user reviewed and what can change under a refresh, so
+// an already-granted review can be reconfirmed. Calldata and gas are excluded:
+// LI.FI re-encodes both on every quote, which would force a click per refresh.
 export function bridgeQuoteSignature(quote: BridgeQuoteResponse): string {
   const { transaction, approval } = quote
   return JSON.stringify([
@@ -485,14 +435,9 @@ export function bridgeQuoteSignature(quote: BridgeQuoteResponse): string {
   ])
 }
 
-/**
- * Whether the quote's guaranteed Ethereum delivery clears both minimums: the
- * options response's `required_min_received` and the Ethereum route's live
- * `min_deposit_amount`. The backend enforces the same comparison, so a client
- * that skipped it would only send a transfer the backend then refuses — leaving
- * USDC at the deposit address below the minimum, with no automatic refund.
- * Fails closed: an unparseable input answers false rather than passing the gate.
- */
+// Both minimums must clear. The backend enforces the same comparison, so
+// skipping it only sends a transfer it then refuses — leaving USDC at the
+// deposit address below the minimum, with no automatic refund. Fails closed.
 export function meetsRequiredMinimum(
   quote: Pick<BridgeQuoteResponse, "min_received">,
   requiredMinReceived: string,
@@ -512,11 +457,8 @@ const isBridgeStatusState = (value: unknown): value is BridgeStatusState =>
 // must never stop tracking a transfer that is already in flight.
 const asDisplayString = (value: unknown): string => (isString(value) ? value : "")
 
-/**
- * The nested Deposit, checked only far enough that the transport-specific
- * identity assertions (assertLifiDeposit) can compare its fields without
- * reading `undefined` as a match. The financial identity check stays there.
- */
+// Checked only far enough that assertLifiDeposit can compare its fields without
+// reading `undefined` as a match; the financial identity check stays there.
 function asDepositRecord(value: unknown, context: string): Deposit {
   assertField(isRecord(value), `${context} deposit is not an object`)
   for (const field of [
@@ -539,19 +481,10 @@ function asDepositRecord(value: unknown, context: string): Deposit {
   return value as unknown as Deposit
 }
 
-/**
- * Boundary parser for GET /v1/bridges/status. The envelope must echo the exact
- * source transaction this session sent: a status for someone else's transfer
- * would advance this screen (and hand off a foreign Deposit) on evidence that
- * has nothing to do with the user's funds. The wire sends `src_chain_id` as a
- * JSON integer, so it is normalized to a string before comparison — `8453`
- * never equals `"8453"` in JavaScript, and a skipped normalization would fail
- * every legitimate response instead.
- *
- * `deposit` is required for `deposit_indexed` and must be null otherwise: that
- * pairing is the handoff signal, and accepting a deposit alongside a pending or
- * refunded state would complete a flow that has not delivered.
- */
+// The envelope must echo the exact source transaction this session sent: a
+// status for someone else's transfer would hand off a foreign Deposit. The wire
+// sends `src_chain_id` as a JSON integer, so it is normalized before comparing.
+// `deposit` is present only for `deposit_indexed` — that pairing is the handoff.
 export function parseBridgeStatus(
   response: unknown,
   expected: { srcChainId: string; srcTxHash: string },
@@ -598,12 +531,9 @@ export function parseBridgeStatus(
   }
 }
 
-/**
- * A coded bridge-status failure (`{ error, message }`). Typed so the controller
- * can branch on `code`: `upstream_conflict` is the hard-recovery case — the
- * provider's evidence disagrees with what was requested, so nothing about
- * delivery may be inferred and automatic polling must stop.
- */
+// `upstream_conflict` is the hard-recovery code: the provider's evidence
+// disagrees with what was requested, so nothing about delivery may be inferred
+// and automatic polling must stop.
 export class BridgeStatusConflictError extends Error {
   constructor(
     readonly code: string,
@@ -632,14 +562,9 @@ function parseRetryAfterMs(header: string | null): number | undefined {
   return Number.parseInt(header.trim(), 10) * 1000
 }
 
-/**
- * Always throws — the classifier for the bridge-status query's `queryFn`. This
- * endpoint is the one that answers `{ error, message }` instead of the API-wide
- * `{ message }`, and the distinction is load-bearing: an `upstream_conflict`
- * must stop polling for manual recovery, while a 429 must be honored with the
- * server's own delay instead of hammering a rate limit the whole flow depends on.
- * Everything else takes the normal normalizeError path.
- */
+// Always throws. This endpoint answers `{ error, message }` instead of the
+// API-wide `{ message }`: an `upstream_conflict` must stop polling, and a 429
+// must be honored with the server's own delay.
 export async function classifyBridgeStatusError(error: unknown): Promise<never> {
   if (error instanceof HTTPError) {
     const { response } = error
@@ -674,22 +599,16 @@ async function readCodedBody(
 const BRIDGE_STATUS_STOP_STATES: readonly BridgeStatusState[] = [
   // Handoff complete: the deposit id takes over (see walletPollUntilTerminal).
   "deposit_indexed",
-  // Terminal provider outcomes. Each has its own screen; none may later turn
-  // into a delivery without fresh `deposit_indexed` evidence.
+  // Terminal provider outcomes; none may later turn into a delivery.
   "bridge_partial",
   "bridge_refunded",
   "bridge_refund_required",
   "bridge_failed",
 ]
 
-/**
- * Poll cadence for bridge status, mirroring deposits.ts (3 s while the user is
- * watching, 15 s once the screen has been open a while) with three stops layered
- * on: an `upstream_conflict` is a hard recovery state that must not be retried
- * into, terminal and handed-off states have nothing left to report, and a 429
- * is honored with the server's own delay. Returning `false` never means the
- * transfer failed — the session and its hashes are preserved for manual refresh.
- */
+// Stops on a hard conflict and on terminal or handed-off states, and honors a
+// 429 with the server's delay. `false` never means the transfer failed — the
+// session and its hashes are preserved for manual refresh.
 export function bridgeStatusPollInterval(
   state: BridgeStatusState | undefined,
   error: Error | null,
@@ -708,18 +627,13 @@ export function bridgeStatusPollInterval(
   return pollInterval(elapsedMs)
 }
 
-// Options and quotes are re-priced upstream continuously. Like the Router
-// preview, they are refreshed when the user acts on a quote older than this,
-// never in the background: a polling refetch re-keys the downstream preflight
-// and disables the action every cycle, and would demand a re-review for a
-// change the user never saw.
+// Quotes are refreshed when the user acts on one older than this, never in the
+// background: a background refetch re-keys the downstream preflight and would
+// demand a re-review for a change the user never saw.
 export const BRIDGE_QUOTE_MAX_AGE = 10_000
 
-/**
- * POST /v1/bridges/options. Takes the ky instance so the request body, cache key
- * and cadence are testable without React. `keepPreviousData` is safe here — the
- * route list is comparative information, not something the user signs.
- */
+// `keepPreviousData` is safe here — the route list is comparative information,
+// not something the user signs.
 export function createBridgeOptionsQueryOptions(
   api: KyInstance,
   request: BridgeRequestIdentity,
@@ -755,12 +669,8 @@ export function createBridgeOptionsQueryOptions(
   })
 }
 
-/**
- * POST /v1/bridges/quote. Deliberately without `keepPreviousData`: unlike the
- * options list this response *is* the transaction to sign, and holding the
- * previous identity's quote on screen mid-fetch would present a stale
- * transaction as executable.
- */
+// No `keepPreviousData`: this response *is* the transaction to sign, and holding
+// the previous identity's quote mid-fetch would present it as executable.
 export function createBridgeQuoteQueryOptions(
   api: KyInstance,
   request: BridgeRequestIdentity & { bridge: string; sourceToken: string },
@@ -800,21 +710,11 @@ interface BridgeStatusParams {
   depositAddress: string
 }
 
-/**
- * GET /v1/bridges/status, deliberately without the `bridge` hint: the endpoint
- * answers 502 `upstream_conflict` for a missing or mismatched hinted tool —
- * including for not-found results — so sending the saved tool would turn the
- * normal "not indexed yet" window into a hard conflict. The saved tool stays
- * display context.
- *
- * The response is `Cache-Control: no-store`, so `staleTime` is 0 and the
- * interval is the only cadence. `retry` is off for the same reason: a failed
- * read must wait for the classified backoff rather than burst against a rate
- * limit, and it never justifies re-sending anything.
- *
- * `startedAt` is injectable so the backoff curve is testable; it defaults to the
- * call site's clock the way deposits.ts uses its mount time.
- */
+// Deliberately without the `bridge` hint: the endpoint answers 502
+// `upstream_conflict` for a missing or mismatched hinted tool — including for
+// not-found results — turning the normal "not indexed yet" window into a hard
+// conflict. Responses are `Cache-Control: no-store`, so the interval is the only
+// cadence and `retry` is off.
 export function createBridgeStatusQueryOptions(
   api: KyInstance,
   params: BridgeStatusParams,

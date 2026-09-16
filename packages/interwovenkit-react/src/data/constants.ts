@@ -40,11 +40,9 @@ export const LocalStorageKey = {
   BRIDGE_HISTORY: `${NAMESPACE}:bridge:history`,
 
   // deposit
-  // Prefix, not a key: one localStorage record per in-flight deposit session
-  // (`${PREFIX}${sessionId}`). An aggregate array would force a
-  // read-modify-write across every write, so two tabs settling two legitimate
-  // sessions could drop one of them — and a dropped record is a lost source
-  // transaction hash.
+  // Prefix, not a key: one record per in-flight session (`${PREFIX}${sessionId}`).
+  // An aggregate array would need a read-modify-write, so two tabs settling two
+  // sessions could drop one — and a dropped record is a lost source transaction hash.
   DEPOSIT_SESSION_PREFIX: `${NAMESPACE}:deposit:session:`,
 
   // onramp

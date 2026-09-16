@@ -8,23 +8,10 @@ import type { DepositSessionTransaction } from "./depositSession"
 import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM } from "./depositSources"
 import { encodeErc20Transfer } from "./evmRpc"
 
-/**
- * Every decision the Deposit API form makes, kept out of the hook so it can be
- * exercised without React. `useDepositTransfer` only wires queries and mutations
- * to these functions — the money-relevant branches all live here.
- */
-
-/**
- * The wallet that is finally credited. The host's `recipientAddress` wins when
- * present (a dApp depositing on behalf of one of its own accounts), otherwise the
- * connected wallet. Normalizing to canonical lowercase bech32 is what lets the
- * issued deposit address, the LI.FI quote echo and the indexed Deposit record all
- * be compared as the same string.
- *
- * A malformed host recipient is an error, never a silent fall back to the
- * connected wallet: crediting the user's own wallet when the host asked for a
- * different one is an irreversible misdelivery.
- */
+// Normalized to canonical lowercase bech32 so the issued deposit address, the LI.FI quote
+// echo and the indexed Deposit record all compare as the same string. A malformed host
+// recipient is an error, never a silent fall back to the connected wallet: crediting the
+// wrong wallet is an irreversible misdelivery.
 export function resolveDepositRecipient(
   recipientAddress: string | undefined,
   initiaAddress: string,
@@ -42,14 +29,8 @@ export function resolveDepositRecipient(
   }
 }
 
-/**
- * Which route the form executes. The user's pick (`selectedKey`) wins while it is
- * still eligible in the *current* options; otherwise the ranked default takes
- * over and the caller clears the stale selection, because silently executing a
- * route the user did not choose — or refusing to deposit at all because their
- * earlier pick went ineligible — are both worse than falling back to the best
- * available one and saying so through the picker.
- */
+// The user's pick wins while it is still eligible in the *current* options; otherwise the
+// ranked default takes over and the caller clears the stale selection.
 export function selectBridgeOption(
   ranked: BridgeOption[],
   selectedKey: string,
@@ -62,20 +43,14 @@ export function selectBridgeOption(
   )
   if (selected) return { option: selected, clearSelection: false }
 
-  // Only clear once a list is actually loaded: an empty `ranked` is "not fetched
-  // yet", and dropping the selection then would lose the user's pick on every
-  // amount keystroke.
+  // Only clear once a list is actually loaded: an empty `ranked` is "not fetched yet", and
+  // dropping the selection then would lose the pick on every amount keystroke.
   return { option: fallback, clearSelection: ranked.length > 0 }
 }
 
-/**
- * Is this quote the one the displayed options describe? The options response
- * echoes nothing about the request, so the issued deposit address is the only
- * shared identity between the two calls. A mismatch means the ranked list, the
- * minimum the user reviewed and the transaction about to be signed came from
- * different backend states, and the required-minimum gate would be comparing the
- * wrong numbers.
- */
+// The options response echoes nothing about the request, so the issued deposit address is
+// the only shared identity between the two calls. A mismatch means the minimum the user
+// reviewed and the transaction about to be signed came from different backend states.
 export function isQuoteBoundToOptions(
   quoteDepositAddress: string | undefined,
   optionsDepositAddress: string | undefined,
@@ -84,18 +59,13 @@ export function isQuoteBoundToOptions(
   return quoteDepositAddress.toLowerCase() === optionsDepositAddress.toLowerCase()
 }
 
-/** A quote that has not been re-read within the freshness window must refresh before it can be signed. */
 export function isQuoteStale(dataUpdatedAt: number, now: number): boolean {
   if (!dataUpdatedAt) return true
   return now - dataUpdatedAt > BRIDGE_QUOTE_MAX_AGE
 }
 
-/**
- * The direct path has no bridge leg, so the Ethereum minimum applies to the
- * transferred amount itself. Fails closed on unparseable input rather than
- * letting a transfer land below the minimum, where it is neither delivered nor
- * automatically refunded.
- */
+// Direct has no bridge leg, so the Ethereum minimum applies to the transferred amount
+// itself. Fails closed: below the minimum is neither delivered nor automatically refunded.
 export function meetsDirectMinimum(amount: string, routeMinDeposit: string): boolean {
   if (!isIntegerString(amount) || !isIntegerString(routeMinDeposit)) return false
   return BigInt(amount) >= BigInt(routeMinDeposit)
@@ -107,12 +77,7 @@ export function coversAmount(balance: string | undefined, amount: string): boole
   return BigInt(balance) >= BigInt(amount)
 }
 
-/**
- * Fingerprint of the direct path's reviewable identity. LI.FI has
- * `bridgeQuoteSignature`; direct's equivalent is the issued address plus the
- * amount and destination, which is everything a reissued address or a re-quote
- * could change under the user.
- */
+/** Direct's equivalent of `bridgeQuoteSignature`: everything a reissued address or a re-quote could change under the user. */
 export function directDepositSignature(params: {
   depositAddress: string
   amount: string
@@ -137,12 +102,8 @@ export interface QuoteAcknowledgement {
   signature: string
 }
 
-/**
- * Tracks the "review after refresh" gate. Readiness is granted against one exact
- * quote signature; when a background refresh changes it, the form says so and
- * waits for another deliberate click instead of signing a transaction the user
- * never saw. Removing the separate review page did not remove this gate.
- */
+// Readiness is granted against one exact quote signature; when a background refresh changes
+// it, the form waits for another deliberate click instead of signing a quote the user never saw.
 export function deriveQuoteAcknowledgement(params: {
   acknowledgement: QuoteAcknowledgement | null
   identityKey: string
@@ -162,41 +123,26 @@ export function deriveQuoteAcknowledgement(params: {
   return { next: acknowledgement, quoteUpdated: acknowledgement.signature !== signature }
 }
 
-/**
- * Source-gas copy. An absent estimate is displayed as unknown, never as zero or
- * as "insufficient": the wallet prices the transaction and shows the real number
- * at signing time.
- */
+/** An absent estimate displays as unknown, never as zero or "insufficient": the wallet prices the transaction at signing time. */
 export function formatNetworkFee(gasCostUsd: string | undefined): string {
-  // Guarded before BigNumber(): strict mode throws on unparseable input, and a
-  // fee label must never take down the form (same guard as knownGasCost in
-  // bridges.ts).
+  // Guarded before BigNumber(): strict mode throws on unparseable input, and a fee label
+  // must never take down the form (same guard as knownGasCost in bridges.ts).
   if (!isDecimalString(gasCostUsd)) return "Shown in wallet"
   const value = BigNumber(gasCostUsd || 0)
   return `$${value.toFixed(value.lt(0.01) && value.gt(0) ? 4 : 2)}`
 }
 
-/**
- * Total wait, or unknown. Every leg must be known: reporting a partial sum as
- * the estimate would promise a delivery time that leaves out a whole bridge or
- * settlement leg.
- */
+/** Every leg must be known: a partial sum would promise a delivery time that leaves out a whole bridge or settlement leg. */
 export function combineEstimatedSeconds(parts: (number | undefined)[]): number | undefined {
   if (parts.some((part) => part === undefined)) return undefined
   return parts.reduce<number>((total, part) => total + (part ?? 0), 0)
 }
 
-/**
- * Gas limit for the direct USDC transfer. A wallet's estimate is taken against
- * the current state, and the issued deposit address is swept by the backend
- * between deposits: a transfer estimated while its balance was nonzero (≈45k)
- * lands after the sweep, where the fresh storage slot needs ≈65k, and reverts
- * out of gas with the fee spent (observed on staging, 2026-09-16). Unused gas
- * is refunded, so the headroom costs nothing when the estimate was right.
- */
+// The issued deposit address is swept by the backend between deposits: a transfer estimated
+// while its balance was nonzero (≈45k) lands after the sweep, where the fresh storage slot
+// needs ≈65k, and reverts out of gas with the fee spent. Unused gas is refunded.
 export const DIRECT_TRANSFER_GAS_LIMIT = "90000"
 
-/** The exact call to sign, built once and persisted before any prompt. */
 export function buildDepositTransaction(
   params:
     | { transport: "lifi"; quote: BridgeQuoteResponse }
@@ -223,11 +169,8 @@ export function buildDepositTransaction(
   }
 }
 
-/**
- * Native base units a call needs before the wallet prices it: its own `value`
- * plus the gas limit at the pinned fee read. Either unknown → undefined, so the
- * readiness gate only compares numbers it actually has.
- */
+// Native base units a call needs before the wallet prices it: its own `value` plus the gas
+// limit at the pinned fee read. Either unknown → undefined.
 export function requiredNativeAmount(params: {
   value?: string
   gasLimit?: string
@@ -240,12 +183,9 @@ export function requiredNativeAmount(params: {
   return (BigInt(value) + BigInt(gasLimit) * BigInt(maxFeePerGas)).toString()
 }
 
-/**
- * The hash ethers attaches when `eth_sendTransaction` succeeded but the
- * follow-up `eth_getTransactionByHash` failed (`error.info.sendTransactionHash`).
- * A transfer with a hash is on chain and must be tracked, never locked as an
- * ambiguous send.
- */
+// The hash ethers attaches when `eth_sendTransaction` succeeded but the follow-up
+// `eth_getTransactionByHash` failed (`error.info.sendTransactionHash`). A transfer with a
+// hash is on chain and must be tracked, never locked as an ambiguous send.
 export function sendTransactionHashOf(error: unknown): string | undefined {
   const info = (error as { info?: { sendTransactionHash?: unknown } } | null)?.info
   const hash = info?.sendTransactionHash
@@ -260,13 +200,8 @@ export function isWalletRejection(message: string): boolean {
   return message === USER_REJECTED_MESSAGE
 }
 
-/**
- * Node-side refusals that happen before anything enters the mempool. These are
- * the only send failures besides a rejection that may reopen the form: the
- * transaction was provably never accepted, so retrying cannot double-send.
- * Anything else without a hash (timeouts, dropped connections, unknown wallet
- * errors) stays ambiguous.
- */
+// Node-side refusals that happen before anything enters the mempool: provably never
+// accepted, so retrying cannot double-send. Anything else without a hash stays ambiguous.
 export function isKnownNotSent(message: string): boolean {
   const text = message.toLowerCase()
   return text.includes("insufficient funds") || text.includes("intrinsic gas too low")
@@ -276,19 +211,14 @@ export function isKnownNotSent(message: string): boolean {
 export const UNKNOWN_SEND_MESSAGE =
   "The wallet did not confirm whether this transfer was sent. Do not send it again — open the progress view to check its status."
 
-/** The record of the intended transfer could not be proven durable, so the prompt must not open. */
 export const STORAGE_BLOCKED_MESSAGE =
   "This deposit could not be saved in your browser, so it cannot be sent safely. Free up storage or try another browser."
 
 /** Downstream /v1/quote at the worst-case Ethereum amount, as the readiness gate reads it. */
 export type PreflightStatus = "idle" | "loading" | "quoted" | "declined" | "error"
 
-/**
- * The preflight verdict for the amount currently on screen. Only a *settled*
- * result may be read as this amount's: `keepPreviousData` holds the previous
- * amount's verdict while the new one fetches, and a held decline must not speak
- * for an amount it was never quoted for.
- */
+// Only a *settled* result may be read as this amount's: `keepPreviousData` holds the
+// previous verdict, which must not speak for an amount it was never quoted for.
 export function derivePreflight(params: {
   /** "" when there is nothing to quote yet. */
   amountIn: string
@@ -332,14 +262,9 @@ export interface DepositReadinessInput {
   tokenBalance?: string
   nativeBalance?: string
   nativeSymbol: string
-  /**
-   * Native base units the call itself needs: the quote's `value` (a bridge's
-   * messaging or protocol fee, paid in ETH even for USDC) plus the gas limit
-   * priced at the pinned fee read when both are known. Undefined while unknown.
-   */
+  /** Native base units the call itself needs: the quote's `value` (a bridge fee, paid in ETH even for USDC) plus priced gas when both are known. */
   requiredNative?: string
 
-  /** The Ethereum route minimum as "{amount} USDC" (rounded up for display). */
   optionsError?: string
   hasOptions: boolean
   hasEligibleOption: boolean
@@ -351,27 +276,19 @@ export interface DepositReadinessInput {
   approvalChecking: boolean
   approvalError?: string
 
-  /** direct */
   depositAddressError?: string
   hasDepositAddress: boolean
 
-  /** Downstream /v1/quote at the worst-case Ethereum amount. */
   preflight: PreflightStatus
   preflightReason?: string
 
-  /** The source-pinned block for replacement detection must exist before the action is enabled. */
   hasPreSubmitBlock: boolean
   pinnedRpcAvailable: boolean
 }
 
-/**
- * The single readiness decision, ordered so the most consequential blocker wins.
- * Unrecoverable states come first (an ambiguous send must never be overwritten by
- * a cheerful "Fetching route…"), then identity, then the user's own inputs, then
- * the backend evidence each transport needs, and only last the pre-send
- * capabilities. `loading` and `blocked` are distinct so the footer can show a
- * spinner for "not yet" and a reason for "not at all".
- */
+// Ordered so the most consequential blocker wins: unrecoverable states first (an ambiguous
+// send must never be overwritten by "Fetching route…"), then identity, the user's inputs,
+// the backend evidence, and last the pre-send capabilities.
 export function deriveDepositReadiness(input: DepositReadinessInput): DepositReadiness {
   const blocked = (message: string, level: ReadinessLevel = "error"): DepositReadiness => ({
     status: "blocked",
@@ -385,24 +302,21 @@ export function deriveDepositReadiness(input: DepositReadinessInput): DepositRea
   if (input.lockError) return blocked(input.lockError)
   if (input.recipientError) return blocked(input.recipientError)
 
-  // Input prompts, not failures: the footer renders an `info` blocker as the
-  // disabled button's own label (today's behavior), and only an `error` as a
-  // FormHelp message.
+  // Input prompts, not failures: the footer renders an `info` blocker as the disabled
+  // button's own label, and only an `error` as a FormHelp message.
   if (!input.quantityEntered) return blocked("Enter amount", "info")
   if (!input.amount) return blocked("Enter a valid amount", "info")
   if (!input.isAmountSettled) return loading("Updating amount...")
 
   if (input.balancesError) return blocked("Failed to load balance")
   if (!input.pinnedRpcAvailable) return blocked("This source chain cannot be verified right now")
-  // The pinned read is the single authority for a Deposit API pair: until it
-  // resolves there is no verified balance, so MAX and Deposit stay closed even
-  // when Skip's aggregate snapshot already showed a number.
+  // The pinned read is the single authority for a Deposit API pair: no verified balance
+  // until it resolves, even when Skip's aggregate snapshot already showed a number.
   if (input.tokenBalance === undefined) return loading("Loading balance...")
   if (!coversAmount(input.tokenBalance, input.amount))
     return blocked("Insufficient balance", "info")
-  // Fees are read, never simulated. A zero native balance, or one short of the
-  // call's own native value plus priced gas, is a verdict the client can state
-  // before the wallet does — the node would refuse the broadcast anyway.
+  // Fees are read, never simulated. A native balance short of the call's own value plus
+  // priced gas is a verdict the client can state before the node refuses the broadcast.
   if (input.nativeBalance !== undefined) {
     const native = BigInt(input.nativeBalance || "0")
     if (native === 0n) return blocked(`Not enough ${input.nativeSymbol} for gas`)
@@ -445,9 +359,7 @@ export function deriveDepositReadiness(input: DepositReadinessInput): DepositRea
   if (input.approvalChecking) return loading("Checking approvals...")
   if (!input.hasPreSubmitBlock) return loading("Preparing...")
 
-  // A failed *attempt* (a rejected prompt, a chain-switch refusal) deliberately
-  // does not land here: the form stays ready so the user can try again, and the
-  // footer shows the error alongside the action. Only the unrecoverable states
-  // at the top of this function take the action away.
+  // A failed *attempt* (a rejected prompt, a chain-switch refusal) deliberately does not
+  // land here: the form stays ready and the footer shows the error alongside the action.
   return { status: "ready" }
 }

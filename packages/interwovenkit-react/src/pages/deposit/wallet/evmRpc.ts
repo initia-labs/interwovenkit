@@ -17,18 +17,13 @@ import { depositApiRpcUrl } from "./depositSources"
 // `ChainTypeJson` is a type-only enum from the Router client; the wire value is the string.
 const EVM_CHAIN_TYPE = "evm" as RouterChainJson["chain_type"]
 
-/** The source chain has no usable RPC in the Router registry, so no pinned read is possible. A capability gap — never evidence about a transaction. */
+/** No usable RPC for the source chain: a capability gap, never evidence about a transaction. */
 export class PinnedRpcUnavailableError extends Error {}
 
 /**
- * A provider pinned to one source chain, built from the Router registry entry
- * rather than the wallet's BrowserProvider. The wallet's provider follows
- * whatever network the user switches to, so a receipt read through it can come
- * from the wrong chain — or fail — while a transfer is in flight.
- *
- * `staticNetwork: true` with an explicit chain id stops ethers from re-detecting
- * the network on every call: the pin is the point, and a silent re-detect would
- * reintroduce exactly the drift we are avoiding.
+ * Pinned to one source chain: the wallet's provider follows whatever network the user switches
+ * to, so a receipt read through it can come from the wrong chain while a transfer is in flight.
+ * `staticNetwork` stops ethers from silently re-detecting and reintroducing that drift.
  */
 export function createPinnedProvider(
   chain: Pick<RouterChainJson, "chain_id" | "rpc" | "chain_type">,
@@ -54,13 +49,8 @@ const ERC20 = new Interface([
   "function approve(address spender, uint256 amount) returns (bool)",
 ])
 
-/**
- * One `eth_call` decoded to a base-unit decimal string. An empty response means
- * the address holds no contract (wrong chain, wrong token) — decoding it would
- * silently yield zero, and a zero allowance reads as "approval needed" while a
- * zero balance reads as "insufficient funds". Both are guesses about money, so
- * this throws instead.
- */
+// An empty response means the address holds no contract (wrong chain, wrong token). Decoding it
+// would yield zero, which reads as "approval needed" or "insufficient funds" — guesses about money.
 async function readErc20Uint(
   provider: JsonRpcProvider,
   token: string,
@@ -81,7 +71,6 @@ export interface SourceBalances {
   native: string
 }
 
-/** Token balance and native (gas) balance for one owner, both read through the pinned provider. */
 export async function readSourceBalances(
   provider: JsonRpcProvider,
   params: { owner: string; token: string },
@@ -94,7 +83,6 @@ export async function readSourceBalances(
   return { token: tokenBalance, native: nativeBalance.toString() }
 }
 
-/** Current ERC-20 allowance in base units. */
 export async function readAllowance(
   provider: JsonRpcProvider,
   params: { owner: string; token: string; spender: string },
@@ -103,18 +91,15 @@ export async function readAllowance(
   return readErc20Uint(provider, token, "allowance", [owner, spender])
 }
 
-// ethers rejects a mixed-case address whose EIP-55 checksum does not match, but
-// accepts all-lowercase. The API validates issued addresses by shape only, so
-// lowercase before encoding: the bytes are identical, and a bad checksum must
-// surface as a readiness problem, not a throw during render.
+// ethers rejects a mixed-case address whose EIP-55 checksum does not match, but accepts
+// all-lowercase. The API validates issued addresses by shape only, so lowercase before encoding.
 const addressArg = (address: string) => address.toLowerCase()
 
-/** `transfer(to, amount)` calldata. `amount` is base units; a non-integer input throws rather than truncating. */
+/** `transfer(to, amount)` calldata; a non-integer `amount` throws rather than truncating. */
 export function encodeErc20Transfer(to: string, amount: string): string {
   return ERC20.encodeFunctionData("transfer", [addressArg(to), BigInt(amount)])
 }
 
-/** `approve(spender, amount)` calldata. */
 export function encodeErc20Approve(spender: string, amount: string): string {
   return ERC20.encodeFunctionData("approve", [addressArg(spender), BigInt(amount)])
 }
@@ -124,7 +109,6 @@ export async function readBlockNumber(provider: JsonRpcProvider): Promise<number
   return provider.getBlockNumber()
 }
 
-/** The chain's current max fee per gas as a base-unit string, or undefined when the node reports none. */
 export async function readMaxFeePerGas(provider: JsonRpcProvider): Promise<string | undefined> {
   const { maxFeePerGas, gasPrice } = await provider.getFeeData()
   return (maxFeePerGas ?? gasPrice)?.toString()
@@ -169,18 +153,10 @@ function toBigIntOrNull(value: string): bigint | null {
   }
 }
 
-/**
- * Is the mined replacement the same intent, only repriced? Compared against what
- * we persisted before signing, not against anything the replacement asserts
- * about itself. ethers computes its own `reason`, but it never checks the chain
- * and compares `to`/`data` by exact string, so a repriced transaction is only
- * adopted here after this check passes.
- *
- * `chainId` is checked only when the node reported one: some backends omit it on
- * legacy transactions and ethers then leaves it null. The provider is pinned to
- * the source chain and the scan walks that chain's blocks, so a missing field is
- * not a chain mismatch.
- */
+// ethers computes its own `reason` but never checks the chain and compares `to`/`data` by exact
+// string, so a repriced transaction is only adopted after this check against what we persisted
+// before signing. `chainId` is compared only when the node reported one: some backends omit it
+// on legacy transactions, and the provider is already pinned to the source chain.
 function isEquivalentPayload(
   replacement: TransactionResponse,
   params: WatchSourceTransactionParams,
@@ -222,12 +198,8 @@ function fromReceipt(receipt: TransactionReceipt): SourceTxOutcome {
 
 const isBlockNumber = (value: number) => Number.isInteger(value) && value >= 0
 
-/**
- * Rebuilds the response we lost so ethers' own replacement scan can still run.
- * `wait()` only needs hash, from, nonce, to, data, value and chain id — the
- * fields we persisted before signing — plus a start block. Everything else is a
- * placeholder, including the signature: it is never verified, only carried.
- */
+// Rebuilds the response we lost so ethers' replacement scan can still run: `wait()` reads only
+// hash, from, nonce, to, data, value and chain id, plus a start block. The rest is placeholder.
 function reconstructTransactionResponse(
   provider: JsonRpcProvider,
   params: WatchSourceTransactionParams,
@@ -239,8 +211,7 @@ function reconstructTransactionResponse(
       hash: params.hash,
       index: 0,
       type: 0,
-      // Checksummed: ethers compares the scanned block's `from` to this one by
-      // exact string, and formatted responses are always checksummed.
+      // ethers compares the scanned block's addresses to these by exact string, and formatted responses are checksummed.
       to: getAddress(params.to.toLowerCase()),
       from: getAddress(params.from.toLowerCase()),
       nonce: params.nonce,
@@ -261,21 +232,10 @@ function reconstructTransactionResponse(
   )
 }
 
-/**
- * Watches one source transaction on the pinned provider until it is decided or
- * the window elapses.
- *
- * Replacement detection is ethers' own: `replaceableTransaction(startBlock)`
- * arms the nonce-advance check inside `wait()`, which scans from that block for
- * the sender's nonce and throws `TRANSACTION_REPLACED` when another transaction
- * took it. Plain receipt polling cannot see that, which is why the start block
- * is captured before every prompt.
- *
- * Every ambiguous outcome resolves to `pending`. A timeout, a missing start
- * block and a missing nonce are all gaps in our evidence, and none of them
- * proves a transfer was not broadcast — `cancelled` is reported only for a mined
- * cancellation that replaced this exact nonce.
- */
+// Replacement detection is ethers' own: `replaceableTransaction(startBlock)` arms the
+// nonce-advance check inside `wait()`, which plain receipt polling cannot see.
+// Every ambiguous outcome resolves to `pending` — no gap in our evidence proves a transfer was
+// not broadcast, and `cancelled` is reported only for a mined cancellation at this exact nonce.
 export async function watchSourceTransaction(
   provider: JsonRpcProvider,
   params: WatchSourceTransactionParams,
@@ -287,9 +247,7 @@ export async function watchSourceTransaction(
     return receipt ? fromReceipt(receipt) : { status: "pending" }
   }
 
-  // A mined transaction comes back fully populated; a dropped one does not come
-  // back at all, and then the persisted intent is the only thing left to scan
-  // with.
+  // A dropped transaction does not come back at all; then the persisted intent is the only thing left to scan with.
   const known = await provider.getTransaction(hash)
   const response = known ?? reconstructTransactionResponse(provider, params)
 
@@ -315,20 +273,13 @@ export async function watchSourceTransaction(
   }
 }
 
-/**
- * One pinned provider per source chain, kept across renders so sequential reads
- * reuse the same connection. The Deposit API catalog's receipt-capable endpoint
- * wins over the Router entry (see DepositApiSource.rpcUrl). Returns null for any
- * failure — no RPC, a chain the Router does not list — because that is a
- * capability gap the caller renders as "cannot verify", never a reason to unmount
- * a screen that reports on funds in flight.
- */
+// One pinned provider per source chain. The Deposit API catalog's receipt-capable endpoint wins
+// over the Router entry (see DepositApiSource.rpcUrl). Null means "cannot verify" — a capability
+// gap, never a reason to unmount a screen that reports on funds in flight.
 export function useSourceChainProvider(chainId: string): JsonRpcProvider | null {
   const findSkipChain = useFindSkipChain()
   const provider = useMemo(() => {
     if (!chainId) return null
-    // A supported source chain needs no registry read: its endpoint is in the
-    // catalog, so tracking a transfer in flight does not depend on the Router.
     const rpc = depositApiRpcUrl(chainId)
     if (rpc) return createPinnedProvider({ chain_id: chainId, chain_type: EVM_CHAIN_TYPE, rpc })
     try {
@@ -340,10 +291,8 @@ export function useSourceChainProvider(chainId: string): JsonRpcProvider | null 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chainId])
 
-  // ethers keeps a polling loop alive once `wait()` subscribed to blocks;
-  // stop it when the chain changes or the screen goes away. Dropping the
-  // listeners (not `destroy()`) keeps the memoized provider usable after
-  // StrictMode's mount → cleanup → mount, which would otherwise leave a
+  // ethers keeps a polling loop alive once `wait()` subscribed to blocks. Drop the listeners
+  // rather than `destroy()`: StrictMode's mount → cleanup → mount would otherwise leave a
   // permanently dead provider whose every read rejects before reaching the network.
   useEffect(() => () => void provider?.removeAllListeners(), [provider])
   return provider

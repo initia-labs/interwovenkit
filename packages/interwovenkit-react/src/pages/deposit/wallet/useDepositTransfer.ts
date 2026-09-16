@@ -70,18 +70,13 @@ import type { TransferLocationState } from "./transferNavigation"
 
 export type DepositTransfer = Extract<DepositTransportResolution, { transport: "direct" | "lifi" }>
 
-/**
- * The controlled view model the Deposit API details and footer render directly.
- * Everything here is already decided: the footer has no branching left to do
- * beyond picking which of the two actions to show.
- */
+/** The controlled view model the details and footer render directly; no branching left in the view. */
 export interface DepositTransferModel {
   transport: "direct" | "lifi"
   route: Asset
   destination: DestinationNetwork
   /** bech32 lowercase, from resolveDepositRecipient. */
   recipient: string
-  /** True when the recipient came from the host rather than the connected wallet. */
   isHostRecipient: boolean
   /** The bound LI.FI quote whose details are on screen; undefined on the direct path. */
   quote?: BridgeQuoteResponse
@@ -98,7 +93,6 @@ export interface DepositTransferModel {
   submit: () => void
   isSubmitting: boolean
   submitError?: string
-  /** Symbol of the source chain's gas token, for fee copy. */
   nativeSymbol: string
   /** Chains the funds pass through, in order, for the route row. */
   legs: { name: string; logoUrl: string }[]
@@ -108,30 +102,19 @@ export interface DepositTransferModel {
   isRefreshingQuote: boolean
   /** A wallet call returned no hash: the form is locked and the only action is to watch the session. */
   unknownSend: boolean
-  /** Opens the progress view for the current session (the saved intent and any later evidence). */
   openProgress: () => void
-  /** Opens the provider picker; undefined on the direct path, which has no route choice. */
   openRouteSelection?: () => void
 }
 
-// The pinned pre-submit block is the lower bound for replacement detection, so
-// it must be recent but need not be per-render fresh.
+// Lower bound for replacement detection: must be recent, need not be per-render fresh.
 const SOURCE_BLOCK_REFRESH_MS = 15_000
 // One retry for a lock that this tab's previous mount is still handing back.
 const LOCK_RETRY_MS = 300
-// An approval is a plain ERC-20 write on a fast chain; past this the receipt
-// watch is handed to the progress view rather than blocking the form forever.
+// Past this the receipt watch is handed to the progress view rather than blocking the form.
 const APPROVAL_RECEIPT_TIMEOUT_MS = 120_000
 
-/**
- * Transport for the current form selection, plus the catalog retry the
- * `unavailable` footer offers. Shared by TransferFields and SelectDepositRoute so
- * both read one decision and one cache entry.
- *
- * Non-suspense by design: the wallet flow must never mount the suspense-only
- * assets hooks (a Deposit API outage would then suspend the whole transfer form,
- * including Router pairs that have nothing to do with it).
- */
+// Non-suspense by design: mounting the suspense-only assets hooks would let a Deposit API
+// outage suspend the whole transfer form, including Router pairs unrelated to it.
 export function useDepositTransportResolution() {
   const { mode } = useTransferFlow()
   const { depositApiUrl } = useConfig()
@@ -176,12 +159,8 @@ export interface DepositRequestState {
   isComplete: boolean
 }
 
-/**
- * The retained request identity every Deposit API response is bound to. Exported
- * so SelectDepositRoute assembles the exact same key and reads the options the
- * form already fetched, instead of issuing a second request whose ranking could
- * disagree with the one the footer is gating on.
- */
+// Exported so SelectDepositRoute assembles the same request key and reads the options the form
+// already fetched; a second request could rank differently than the footer is gating on.
 export function useDepositRequest(resolution: DepositTransportResolution): DepositRequestState {
   const { watch } = useTransferForm()
   const { quantity = "" } = watch()
@@ -189,8 +168,7 @@ export function useDepositRequest(resolution: DepositTransportResolution): Depos
   const initiaAddress = useInitiaAddress()
   const hexAddress = useHexAddress()
 
-  // Same 300 ms window the Router route query uses: options and quotes are POSTs
-  // per keystroke otherwise.
+  // Same 300 ms window as the Router route query: otherwise options and quotes are POSTs per keystroke.
   const [debouncedQuantity] = useDebounceValue(quantity, 300)
 
   const resolved = resolveDepositRecipient(recipientAddress, initiaAddress)
@@ -223,16 +201,10 @@ export function useDepositRequest(resolution: DepositTransportResolution): Depos
   }
 }
 
-/**
- * The Deposit API execution controller: composes the bridge/quote/balance reads
- * into one readiness verdict and owns the two wallet actions.
- *
- * Ordering is the point of this hook. The session is written and read back
- * before any prompt, the per-session Web Lock is taken while the form is merely
- * ready (so the click path holds no await but the wallet calls — see the Safari
- * popup rule in AGENTS.md), and the returned hash is persisted before anything
- * navigates. A failure after the prompt is never treated as "not sent".
- */
+// Ordering is the point of this hook: the session is written and read back before any prompt,
+// the per-session Web Lock is taken while the form is merely ready (so the click path holds no
+// await but the wallet calls — see the Safari popup rule in AGENTS.md), and the returned hash is
+// persisted before anything navigates. A failure after the prompt is never treated as "not sent".
 export function useDepositTransfer(resolution: DepositTransfer): DepositTransferModel {
   const { transport, source, route, destination } = resolution
   const api = useDepositApi()
@@ -252,8 +224,7 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
   const [storageBlocked, setStorageBlocked] = useState(false)
   const [unknownSend, setUnknownSend] = useState(false)
   const [acknowledgement, setAcknowledgement] = useState<QuoteAcknowledgement | null>(null)
-  // When the user's click hit a stale or in-flight quote. Compared against the
-  // query's own timestamp, so it clears by itself once a newer read lands.
+  // Compared against the query's own timestamp, so it clears by itself once a newer read lands.
   const [refreshRequestedAt, setRefreshRequestedAt] = useState(0)
 
   // --- Source-chain-pinned reads: the single authority for this pair ---------
@@ -274,8 +245,7 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
     refetchInterval: SOURCE_BLOCK_REFRESH_MS,
   })
 
-  // Priced gas for the fee gate. Same cadence as the head block; a missing
-  // read only narrows the gate to the call's own native value.
+  // Priced gas for the fee gate; a missing read only narrows the gate to the call's own native value.
   const feeQuery = useQuery({
     // eslint-disable-next-line @tanstack/query/exhaustive-deps -- the provider is derived from chainId, already in the key
     queryKey: depositQueryKeys.maxFeePerGas(source.chainId).queryKey,
@@ -297,8 +267,7 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
   const { option: selectedBridge, clearSelection } = selectBridgeOption(ranked, selectedBridgeKey)
 
   useEffect(() => {
-    // The user's pick is no longer executable; the ranked default takes over and
-    // the picker stops showing a selection the backend refuses.
+    // The user's pick is no longer executable; the ranked default takes over.
     if (clearSelection) setValue("selectedBridge", "")
   }, [clearSelection, setValue])
 
@@ -309,19 +278,16 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
   )
   const quoteQuery = useQuery(quoteQueryOptions)
   const quote = transport === "lifi" ? quoteQuery.data : undefined
-  // The options response echoes nothing, so the issued address is the only shared
-  // identity between the ranked list and the quote about to be signed.
+  // The options response echoes nothing back, so the issued address is the only shared identity with the ranked list.
   const quoteBound =
     transport === "direct" ||
     isQuoteBoundToOptions(quote?.deposit_address, optionsData?.deposit_address)
-  // The only quote the rest of this hook may read: an unbound one describes a
-  // different backend state than the ranked list the user reviewed.
+  // The only quote the rest of this hook may read: an unbound one describes a different backend state.
   const boundQuote = quote && quoteBound ? quote : undefined
 
   // --- Issued address (direct) ----------------------------------------------
   const depositAddressQuery = useDepositAddress({
-    // Empty walletAddress keeps the query disabled on the LI.FI path, where the
-    // address comes from the quote instead.
+    // Empty walletAddress keeps the query disabled on the LI.FI path, where the address comes from the quote.
     walletAddress: transport === "direct" ? recipient : "",
     chainId: destination.chain_id,
     assetDenom: destination.denom,
@@ -350,8 +316,7 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
     dstChainId: destination.chain_id,
     dstDenom: destination.denom,
   }
-  // Worst case: what the route *guarantees* reaches Ethereum. Quoting the
-  // expected output instead would clear a gate the guaranteed amount fails.
+  // Worst case: quoting the expected output instead would clear a gate the guaranteed amount fails.
   const preflightAmount = transport === "lifi" ? (boundQuote?.min_received ?? "") : amount
   const displayAmount = transport === "lifi" ? (boundQuote?.amount_out ?? "") : amount
   const preflightQuery = useQuery(
@@ -361,8 +326,7 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
       !!depositApiUrl && !!preflightAmount,
     ),
   )
-  // Both queries key on `amountIn`, so an equal display amount already shares the
-  // preflight's cache entry; disabling the observer avoids the duplicate fetch.
+  // An equal display amount already shares the preflight's cache entry; disabling the observer avoids a duplicate fetch.
   const needsDisplayQuote = !!displayAmount && displayAmount !== preflightAmount
   const displayQuery = useQuery(
     createQuoteQueryOptions(
@@ -405,21 +369,17 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
     allowanceQuery.data !== undefined &&
     BigInt(allowanceQuery.data) < BigInt(approval.amount)
   const approvalChecking = !!approval && allowanceQuery.data === undefined && !allowanceQuery.error
-  // An unreadable allowance is not "no approval needed": sending without one
-  // reverts after the user pays gas, so it blocks instead.
+  // An unreadable allowance is not "no approval needed": sending without one reverts after the user pays gas.
   const allowanceError =
     approval && allowanceQuery.error ? "Could not check the USDC allowance" : undefined
-  // A failed approval attempt is reported alongside the allowance verdict; the
-  // unreadable-allowance error outranks it, because it blocks the send outright.
+  // The unreadable-allowance error outranks a failed attempt, because it blocks the send outright.
   const approvalMessage = allowanceError ?? approvalError
 
   // --- Freshness and review gate --------------------------------------------
-  // The transaction the user reviews is the bridge quote on LI.FI and the issued
-  // address + preflight on direct, so each path ages against its own read.
+  // Each path ages against the read the user actually reviewed.
   const freshnessQuery = transport === "lifi" ? quoteQuery : preflightQuery
   const freshnessUpdatedAt = freshnessQuery.dataUpdatedAt
-  // A click-triggered refresh is over when the query settles either way; a
-  // failed re-read must surface its error, not leave the button spinning.
+  // A failed re-read must surface its error rather than leave the button spinning, so settle on either result.
   const freshnessSettledAt = Math.max(freshnessQuery.dataUpdatedAt, freshnessQuery.errorUpdatedAt)
   const isRefreshing = transport === "lifi" ? quoteQuery.isFetching : preflightQuery.isFetching
   const signature =
@@ -442,8 +402,7 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
     selectedBridge?.bridge ?? "",
   ].join(":")
 
-  // Display identity captured now so the progress screen needs no registry or
-  // Router read: a saved session must render its chips even when those fail.
+  // Captured now so the progress screen renders a saved session without a registry or Router read.
   const lookupChain = (chainId: string) => {
     try {
       return findSkipChain(chainId)
@@ -579,8 +538,7 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
   }, [nextAcknowledgement, acknowledgement])
 
   // --- Session identity -----------------------------------------------------
-  // The facts a session may never change (see assertSameIntent). A different
-  // intent is a different transfer and gets its own record and lock.
+  // The facts a session may never change (see assertSameIntent): a different intent gets its own record and lock.
   const intentKey = [
     depositApiUrl,
     transport,
@@ -598,21 +556,18 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
     if (sessionRef.current?.intentKey === intentKey) return
     const session = createDepositSession(sessionDraft)
     sessionRef.current = { intentKey, session }
-    // The id lives in the form so a wallet rejection reuses the same record
-    // rather than orphaning it and minting a second one.
+    // The id lives in the form so a wallet rejection reuses the same record instead of minting a second one.
     setValue("depositSessionId", session.id)
   }, [sessionDraft, intentKey, setValue])
 
   // --- Per-session Web Lock -------------------------------------------------
-  // Taken as soon as the session exists, i.e. well before the click, so the
-  // click path itself contains no await other than the wallet calls.
+  // Taken well before the click, so the click path holds no await other than the wallet calls.
   const lockRef = useRef<{ release: () => void } | null>(null)
   useEffect(() => {
     if (!depositSessionId) return
     let cancelled = false
-    // The previous mount of this form (e.g. before the route picker) releases
-    // the same lock in its cleanup, and the browser hands it back a tick later;
-    // one short retry keeps that hand-off from reading as another tab.
+    // The previous mount releases the same lock in its cleanup and the browser hands it back a
+    // tick later; one short retry keeps that hand-off from reading as another tab.
     const acquire = (attempt: number): Promise<{ release: () => void }> =>
       holdDepositSessionLock(depositSessionId).catch((error: unknown) => {
         if (attempt > 0 || cancelled || !(error instanceof DepositSessionLockError)) throw error
@@ -629,8 +584,7 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
       })
       .catch((error: unknown) => {
         if (cancelled) return
-        // Fail closed: without exclusion two tabs could each open a prompt for
-        // the same session.
+        // Fail closed: without exclusion two tabs could each open a prompt for the same session.
         setLockError(
           error instanceof DepositSessionLockError
             ? error.message
@@ -646,8 +600,7 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
 
   // --- Persistence ----------------------------------------------------------
   const persist = useCallback((session: DepositSession): DepositSession => {
-    // Read-back is inside writeDepositSession; a throw here means the record of
-    // an intended transfer is not durable, which blocks signing.
+    // Read-back is inside writeDepositSession; a non-durable record of an intended transfer blocks signing.
     return writeDepositSession(localStorage, session)
   }, [])
 
@@ -705,8 +658,7 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
       setApprovalError(undefined)
     },
     onSuccess: () => {
-      // A fresh quote may carry a different spender or amount, which returns the
-      // footer to approval; the allowance read must not answer from cache.
+      // A fresh quote may carry a different spender or amount; the allowance read must not answer from cache.
       void queryClient.invalidateQueries({ queryKey: quoteQueryOptions.queryKey })
       void queryClient.invalidateQueries({ queryKey: allowanceKey })
     },
@@ -727,16 +679,14 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
   // --- Send -----------------------------------------------------------------
   const sendMutation = useMutation({
     mutationFn: async () => {
-      // Written and read back *before* the prompt: if this record does not
-      // survive, an in-flight transfer would have nothing describing it.
+      // Written and read back *before* the prompt: an in-flight transfer must never go undescribed.
       const prepared = persistPhase("prepared")
 
       const provider = await getProvider()
       const signer = await provider.getSigner()
       await switchEthereumChain(provider, findSkipChain(prepared.transaction.chainId))
 
-      // Immediately before the wallet call, so a tab that disappears mid-prompt
-      // leaves evidence that a send may already be in flight.
+      // Immediately before the wallet call, so a tab that disappears mid-prompt leaves evidence of a possible send.
       persistPhase("send_prompt")
 
       let response: { hash: string; nonce?: number; from: string }
@@ -751,19 +701,16 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
         })
       } catch (error) {
         const message = await normalizeErrorMessage(error)
-        // A rejected prompt or a node refusal before the mempool are the only
-        // failures that provably did not send; the form reopens for those.
+        // A rejected prompt or a node refusal before the mempool are the only failures that provably did not send.
         if (isWalletRejection(message) || isKnownNotSent(message)) {
           rollbackDepositSessionPrompt(localStorage, prepared.id)
           throw new NotSentError(message)
         }
-        // ethers takes the hash from eth_sendTransaction and then reads the
-        // transaction back; when that read fails it rejects with the hash
-        // attached. The transfer is on chain, so it is tracked, not "unknown".
+        // ethers takes the hash from eth_sendTransaction and then reads the transaction back;
+        // when that read fails it rejects with the hash attached. The transfer is on chain.
         const sentHash = sendTransactionHashOf(error)
         if (!sentHash) {
-          // No hash came back, so nothing here proves the transfer was not
-          // broadcast. The form locks; it never re-enables send.
+          // No hash came back, so nothing here proves the transfer was not broadcast.
           throw new UnknownSendError(message)
         }
         response = { hash: sentHash, from: hexAddress }
@@ -777,14 +724,11 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
       try {
         persist(sent)
       } catch {
-        // The broadcast already happened; losing the write must not lose the
-        // transfer. The in-memory copy travels with the navigation and the
-        // progress view keeps it in the store's volatile map, showing the
-        // recovery reference instead of claiming it will survive a reload.
+        // The broadcast already happened; losing the write must not lose the transfer. The
+        // in-memory copy travels with the navigation and the progress view keeps it in memory.
       }
 
-      // The source hash is recorded (or carried in memory): the exclusive claim
-      // on this session has done its job.
+      // The source hash is recorded (or carried in memory): the exclusive claim has done its job.
       lockRef.current?.release()
       lockRef.current = null
       return { session: sent }
@@ -807,8 +751,7 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
         try {
           persist(session)
         } catch {
-          // Already unrecoverable for storage purposes; the locked form and the
-          // recovery reference are what the user acts on.
+          // Already unrecoverable for storage; the locked form and recovery reference are what the user acts on.
           setStorageBlocked(true)
         }
         return
@@ -829,8 +772,7 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
   const { refetch: refetchPreflight } = preflightQuery
   const { refetch: refetchDepositAddress } = depositAddressQuery
   const refetchFreshness = useCallback(() => {
-    // refetch() ignores `enabled`, so the address query is only re-read on the
-    // path that owns it; on LI.FI it has no wallet address to post.
+    // refetch() ignores `enabled`, so re-read the address query only on the path that owns it.
     if (transport === "lifi") void refetchQuote()
     else {
       void refetchPreflight()
@@ -845,17 +787,13 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
     if (isSending || isApproving) return
     if (readiness.status !== "ready") return
     if (isQuoteStale(freshnessUpdatedAt, Date.now()) || isRefreshing) {
-      // Never an awaited network refresh between the click and the wallet popup:
-      // refresh, show it, and require another click once the new quote is in.
+      // Never an awaited network refresh between the click and the wallet popup; require another click.
       setRefreshRequestedAt(Date.now())
       refetchFreshness()
       return
     }
-    // A click on a fresh quote signs exactly what is on screen. When the quote
-    // changed under a refresh the notice has been showing since, so this click
-    // is the deliberate confirmation of the new numbers; a separate
-    // acknowledge-only click would push a slow reader back past the freshness
-    // window and into another refresh, forever.
+    // A click on a fresh quote signs exactly what is on screen; the changed-quote notice has been
+    // showing since the refresh, so this click is the deliberate confirmation of the new numbers.
     setAcknowledgement({ identityKey, signature })
     send()
   }, [
@@ -893,8 +831,7 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
     readiness,
     submit,
     isSubmitting: isSending,
-    // The unrecoverable storage case is already a readiness blocker; this is
-    // only a failed attempt the user may retry.
+    // The unrecoverable storage case is already a readiness blocker; this is a retryable attempt.
     submitError,
     nativeSymbol,
     legs,

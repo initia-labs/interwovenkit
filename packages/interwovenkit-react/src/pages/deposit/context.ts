@@ -50,13 +50,8 @@ export interface DepositFormValues {
   method: DepositMethod
   // Exact record detected before entering the shared tracking screen.
   trackedDepositId: string
-  /**
-   * Saved Deposit API session picked from the hub's "Continue deposit" section.
-   * Handed to the wallet flow as its `initialSessionId`, which opens straight on
-   * the progress page. Cleared when that flow exits, so leaving progress and
-   * re-entering "Deposit via wallet" starts a new transfer rather than silently
-   * reopening the old one.
-   */
+  // Saved session picked from the hub's "Continue deposit" section, handed to the wallet
+  // flow as `initialSessionId`. Cleared on exit so re-entering starts a new transfer.
   resumeSessionId: string
   // Onramp path (Onramper). `fiatId` holds the Onramper fiat id (lowercase, e.g.
   // "usd") — never the uppercase ISO code, which lives on `OnramperFiat.code`

@@ -82,9 +82,8 @@ describe("classifyWalletBucket", () => {
     expect(classifyWalletBucket(null)).toBe("waiting")
   })
 
-  // Direction-pinning test, and deliberately the opposite of displayBucket: the
-  // user has just signed a real transfer, so a bucket this client does not
-  // recognize is a tracking-contract problem, never a financial failure.
+  // Deliberately the opposite of displayBucket: the user has just signed a real
+  // transfer, so an unrecognized bucket is a contract problem, not a failure.
   it("keeps an unknown bucket unknown instead of calling it failed", () => {
     expect(classifyWalletBucket(deposit({ bucket: "refunding" }))).toBe("unknown")
     expect(classifyWalletBucket(deposit({ bucket: "" }))).toBe("unknown")
@@ -108,9 +107,6 @@ describe("walletPollUntilTerminal", () => {
     }
   })
 
-  // Automatic reads cannot resolve a bucket this client does not understand, so
-  // the screen switches to manual refresh rather than polling a contract
-  // mismatch forever.
   it("stops routine polling on an unknown bucket", () => {
     expect(walletPollUntilTerminal(deposit({ bucket: "refunding" }), 0)).toBe(false)
   })
@@ -141,8 +137,6 @@ describe("createDepositBySourceTxQueryOptions", () => {
     expect(calls[0].options?.searchParams).toEqual({ src_chain_id: "1" })
   })
 
-  // Telling a user whose funds are already in flight that something went wrong
-  // would be false: the indexer simply has not observed the transfer yet.
   it("treats a 404 as an indexing delay, not an error", async () => {
     const { api } = stubApi(httpError(404, { message: "not found" }))
     const { queryFn } = createDepositBySourceTxQueryOptions(api, PARAMS, true)
@@ -205,9 +199,8 @@ describe("assertDirectDeposit", () => {
     )
   })
 
-  // The direct executor sends exactly one transfer of a known size, so an
-  // amount or hash disagreement means this is somebody else's deposit at the
-  // same reused address.
+  // The direct executor sends exactly one transfer of a known size, so an amount
+  // or hash disagreement means somebody else's deposit at the same reused address.
   it("rejects another transaction or another amount", () => {
     expect(() =>
       assertDirectDeposit(deposit({ src_tx_hash: ETH_TX_HASH }), DIRECT_IDENTITY),
@@ -247,8 +240,7 @@ const LIFI_IDENTITY = {
   ethereumUsdc: ETHEREUM_USDC,
 }
 
-// The deposit records the Ethereum leg, so its hash and amount belong to the
-// receiving transaction — not the Base/Arbitrum transfer the user signed.
+// The deposit records the Ethereum leg, so its hash and amount belong to the receiving transaction.
 const lifiDeposit = (overrides: Partial<Deposit> = {}) =>
   deposit({ src_tx_hash: ETH_TX_HASH, amount: "4950000", ...overrides })
 

@@ -25,8 +25,7 @@ interface Props {
   /** The local asset chosen upstream (the deposit hub). Presets it and starts
    * the flow at select-external — the select-local page is never shown. */
   initialAsset?: AssetOption
-  /** A saved Deposit API session to resume (from the method hub). Opens the
-   * flow on deposit-progress for that session; no form input is needed. */
+  /** A saved Deposit API session to resume; opens the flow on deposit-progress. */
   initialSessionId?: string
   /** Exit backward out of this flow (to the deposit hub). When set, the flow is
    * embedded: back boundaries that would otherwise go to select-local call this

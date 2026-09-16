@@ -7,8 +7,7 @@ export type TransferPage =
   | "select-local"
   | "select-external"
   | "fields"
-  // Deposit API (direct Ethereum / LI.FI) pages; unreachable for Router pairs
-  // and Withdraw, which keep `completed` as their only post-fields page.
+  // Deposit API pages; unreachable for Router pairs and Withdraw.
   | "select-route"
   | "deposit-progress"
   | "completed"
@@ -22,11 +21,8 @@ export interface TransferFormValues {
   dstChainId: string
   /** LI.FI bridge key picked on select-route; "" keeps the ranked default. */
   selectedBridge: string
-  /** Saved Deposit API session rendered by deposit-progress. */
   depositSessionId: string
-  /** In-memory copy of the session that was just sent, so progress can still
-   * render (with the recovery reference) when the post-send storage write
-   * failed. Never read in preference to a stored record. */
+  /** In-memory copy of the just-sent session; never read in preference to a stored one. */
   depositSessionFallback?: DepositSession
   // TX completion data
   result?: BridgeTxResult

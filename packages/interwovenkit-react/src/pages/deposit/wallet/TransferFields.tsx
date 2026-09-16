@@ -118,18 +118,14 @@ const TransferFields = () => {
   const localAsset = useLocalTransferAsset()
   const externalAsset = useExternalTransferAsset()
 
-  // One transport decision for the whole form. Everything below selects the
-  // route/details/footer conditional from it *before* any Router status is read,
-  // so a deliberately disabled Router query can never leave the Deposit API
-  // branch stuck on "Fetching route...".
+  // The transport is decided before any Router status is read, so a deliberately
+  // disabled Router query cannot leave the Deposit API branch on "Fetching route...".
   const { resolution, retryCatalog, isCatalogFetching } = useDepositTransportResolution()
   const isRouterTransport = resolution.transport === "router"
   const isDepositApiTransport = resolution.transport === "direct" || resolution.transport === "lifi"
 
-  // For a Deposit API pair the source-chain-pinned read is the single authority
-  // for the displayed balance, MAX and the amount gate. Skip's aggregate snapshot
-  // is not shown provisionally: a number the user can act on must be one that
-  // MAX and the send gate agree with.
+  // The source-chain-pinned read is the single authority for a Deposit API pair's
+  // balance, MAX and amount gate; Skip's aggregate snapshot is never shown here.
   const pinnedBalances = usePinnedSourceBalances({
     chainId: isDepositApiTransport ? srcChainId : "",
     owner: hexAddress,
@@ -231,8 +227,7 @@ const TransferFields = () => {
     error: routeError,
     dataUpdatedAt: routeUpdatedAt,
   } = useRouteQuery(debouncedQuantity, {
-    // A Deposit API pair (and an unavailable one) owns its own execution path;
-    // the Router query must not run, refetch, or report status for it.
+    // A Deposit API pair owns its own execution path; the Router query must not run.
     disabled: isRouteQueryDisabled || !isRouterTransport,
   })
 
@@ -262,9 +257,8 @@ const TransferFields = () => {
   // Depend on the specific primitives that can change the derived location state
   // without depending on the full `state` object, which would loop after navigate().
   useIsomorphicLayoutEffect(() => {
-    // Router-only: the Deposit API controller keeps its identity in form state
-    // and the session record, and writing an undefined route into location state
-    // would clear the Router preview the flow may come back to.
+    // Router-only: writing an undefined route here would clear the Router preview
+    // the flow may come back to.
     if (!isRouterTransport) return
 
     const nextState = buildTransferLocationState({
@@ -440,10 +434,8 @@ const TransferFields = () => {
       {isDepositApiTransport ? (
         <DepositTransferFooter resolution={resolution} />
       ) : resolution.transport === "unavailable" ? (
-        /* The Deposit API owns this pair, so a catalog outage makes it
-           temporarily unusable rather than silently handing it to Router with
-           different fees, minimums and recipient semantics. Other pairs and
-           Withdraw are unaffected. */
+        /* A catalog outage makes this pair temporarily unusable rather than
+           silently handing it to Router with different fees and minimums. */
         <Footer
           extra={
             resolution.reason === "error" && (

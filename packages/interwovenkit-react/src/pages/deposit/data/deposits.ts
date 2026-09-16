@@ -58,17 +58,14 @@ function useMountedAt() {
 export const pollUntilTerminal = (deposit: Deposit | null | undefined, elapsedMs: number) =>
   deposit && isTerminalBucket(deposit.bucket) ? false : pollInterval(elapsedMs)
 
-/** Poll cadence for the single-deposit read, by record and screen age. */
 type DepositPollPolicy = (deposit: Deposit | null | undefined, elapsedMs: number) => number | false
 
 /**
  * GET /v1/deposits/{id}. Authoritative single-deposit lifecycle polling.
  * The id came from the backend itself, so a 404 is a contract violation and
  * throws instead of silently polling a null forever.
- *
- * `poll` is the cadence policy. It is a parameter only so the wallet controller
- * can stop on a bucket this client does not recognize (see useWalletDeposit);
- * the address and onramp trackers keep the default and are unaffected.
+ * `poll` is a parameter only so the wallet controller can stop on a bucket this
+ * client does not recognize (see useWalletDeposit).
  */
 export function useDeposit(id: string, poll: DepositPollPolicy = pollUntilTerminal) {
   const { depositApiUrl } = useConfig()
@@ -239,20 +236,9 @@ export function useTrackedDeposit({
   return resolveTrackedDeposit(detail.data, depositAddress, detail.error ?? null)
 }
 
-// ---------------------------------------------------------------------------
-// Deposit-via-wallet additions. Scoped to the new wallet controller: the shared
-// displayBucket/isTerminalBucket contract above is unchanged, because the
-// address and onramp screens depend on its fail-closed mapping.
-// ---------------------------------------------------------------------------
-
-/**
- * The wallet controller's bucket domain. Unlike `displayBucket`, an unknown wire
- * value keeps its own name instead of collapsing onto "failed": the user has
- * just signed a real transfer, so labelling a bucket this client does not
- * recognize as a financial failure would be a false statement about their
- * funds. It is a tracking-contract problem — preserve the evidence, stop
- * guessing, offer a refresh.
- */
+// An unknown wire bucket keeps its own name instead of collapsing onto "failed"
+// like displayBucket: the user has just signed a real transfer, so this is a
+// tracking-contract problem, not a financial failure.
 export type WalletDepositBucket = DepositBucket | "unknown"
 
 /** Null is the pre-discovery frame (waiting); an unrecognized wire bucket stays "unknown". */
@@ -261,12 +247,8 @@ export function classifyWalletBucket(deposit: Deposit | null): WalletDepositBuck
   return isDepositBucket(deposit.bucket) ? deposit.bucket : "unknown"
 }
 
-/**
- * Poll cadence for the wallet controller's deposit tracking. Same curve as
- * pollUntilTerminal, with "unknown" added to the stops: automatic reads cannot
- * resolve a bucket this client does not understand, so the screen switches to
- * manual refresh instead of polling indefinitely against a contract mismatch.
- */
+// Same curve as pollUntilTerminal, plus a stop on "unknown": automatic reads
+// cannot resolve a bucket this client does not understand.
 export function walletPollUntilTerminal(
   deposit: Deposit | null | undefined,
   elapsedMs: number,
@@ -276,17 +258,11 @@ export function walletPollUntilTerminal(
   return isTerminalBucket(bucket) ? false : pollInterval(elapsedMs)
 }
 
-// The correlation read runs against a record the indexer may not have written
-// yet, and every open tab polls the same endpoint. The jitter spreads reloaded
-// sessions instead of synchronizing them into a burst.
+// The jitter spreads reloaded sessions instead of synchronizing every open tab
+// into a burst against the same endpoint.
 const BY_SOURCE_TX_POLL_INTERVAL = 5000
 const BY_SOURCE_TX_POLL_JITTER = 1000
 
-/**
- * Poll interval for the direct-Ethereum correlation read. Stops once the record
- * exists (the deposit id takes over); `random` is injected so the jitter is
- * testable.
- */
 export function bySourceTxPollInterval(
   deposit: Deposit | null | undefined,
   random: number,
@@ -295,17 +271,10 @@ export function bySourceTxPollInterval(
   return BY_SOURCE_TX_POLL_INTERVAL + Math.round(random * BY_SOURCE_TX_POLL_JITTER)
 }
 
-/**
- * GET /v1/deposits/by-source-tx/{hash}?src_chain_id=1 — the direct-Ethereum
- * correlation read. It returns the single deposit for one source transaction,
- * so nothing here falls back to address or cursor discovery: a list scan could
- * attach an unrelated transfer at the same reused address to this session.
- *
- * A 404 is data, not an error: the indexer simply has not observed the transfer
- * yet, and surfacing it as a failure would tell a user whose funds are already
- * in flight that something went wrong. Every other status is normalized and
- * surfaced; a read failure never justifies re-sending.
- */
+// Correlates by source transaction hash, never by address or cursor discovery:
+// a list scan could attach an unrelated transfer at the same reused address to
+// this session. A 404 is data, not an error — the indexer simply has not
+// observed the transfer yet.
 export function createDepositBySourceTxQueryOptions(
   api: KyInstance,
   params: { srcChainId: "1"; srcTxHash: string },
@@ -349,14 +318,9 @@ function assertDepositField(condition: boolean, message: string): void {
   if (!condition) throw new Error(`Deposit record ${message}`)
 }
 
-/**
- * Handoff guard for direct Ethereum. Everything the user's transfer committed to
- * is compared: an off-by-one field here means the screen would track — and
- * eventually declare complete — somebody else's deposit at the same reused
- * address. Amount is included because the direct executor sends exactly one
- * transfer of a known size; hashes and addresses compare case-insensitively,
- * denoms through normalizeDenom.
- */
+// An off-by-one field here would track — and eventually declare complete —
+// somebody else's deposit at the same reused address. Amount is compared because
+// the direct executor sends exactly one transfer of a known size.
 export function assertDirectDeposit(deposit: Deposit, identity: DirectDepositIdentity): Deposit {
   assertDepositField(
     deposit.src_chain_id === "1",
@@ -386,21 +350,13 @@ export interface LifiDepositIdentity {
   recipient: string
   /** Canonical Ethereum USDC: the asset that actually lands at the deposit address. */
   ethereumUsdc: string
-  /** Envelope `dst_tx_hash` when the provider supplied one. */
   dstTxHash?: string
 }
 
-/**
- * Handoff guard for the LI.FI path. The deposit records the *Ethereum* leg, so
- * its source chain, denom and hash belong to the receiving transaction — not the
- * Base/Arbitrum transfer the user signed. Comparing against the source hash, or
- * requiring the original amount, would reject every legitimate handoff: the
- * bridge delivers post-slippage. Identity therefore rests on the issued address,
- * the canonical Ethereum asset, the destination and the recipient, plus the
- * exact receiving hash whenever the envelope supplies one. An absent
- * `dst_tx_hash` is optional on the wire and does not block an otherwise valid
- * indexed handoff.
- */
+// The deposit records the *Ethereum* leg: its chain, denom and hash belong to
+// the receiving transaction, not the transfer the user signed, and the bridge
+// delivers post-slippage. So identity rests on the issued address, Ethereum
+// USDC, destination and recipient, plus the receiving hash when one is given.
 export function assertLifiDeposit(deposit: Deposit, identity: LifiDepositIdentity): Deposit {
   assertDepositField(
     deposit.src_chain_id === "1",
@@ -442,12 +398,8 @@ function assertCommonDepositIdentity(
   )
 }
 
-/**
- * The same read for the wallet controller, with one difference that matters: a
- * bucket this client does not recognize stops routine polling instead of
- * hammering a contract mismatch forever. The screen offers a manual refresh
- * there (see DepositProgress).
- */
+// Same read, but an unrecognized bucket stops routine polling; the screen offers
+// a manual refresh (see DepositProgress).
 export function useWalletDeposit(id: string) {
   return useDeposit(id, walletPollUntilTerminal)
 }

@@ -18,7 +18,6 @@ interface Call {
   options?: { searchParams?: Record<string, string> }
 }
 
-/** Minimal ky stub recording the single `get().json()` chain the fetcher touches. */
 function stubApi(result: unknown | Error) {
   const calls: Call[] = []
   const api = {
@@ -62,11 +61,8 @@ describe("fetchQuote", () => {
     await expect(fetchQuote(api, PARAMS)).resolves.toEqual({ status: "quoted", quote })
   })
 
-  // The wallet flow's worst-case Ethereum preflight gates on this exact verdict,
-  // so the 400-is-a-decline contract must survive the extraction out of
-  // minReceived.ts: a decline leaking into the error channel would look like a
-  // transient outage and silently drop the last minimum gate before a no-refund
-  // transfer.
+  // A decline leaking into the error channel would look like a transient outage
+  // and silently drop the last minimum gate before a no-refund transfer.
   it("promotes a 400 to a decline carrying the backend's message", async () => {
     const { api } = stubApi(httpError(400, { message: "amount below minimum" }))
     await expect(fetchQuote(api, PARAMS)).resolves.toEqual({

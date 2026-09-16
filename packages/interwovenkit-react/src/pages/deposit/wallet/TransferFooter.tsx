@@ -245,17 +245,9 @@ const TransferFooterWithFee = ({
   )
 }
 
-/**
- * The Deposit API footer: exactly one primary action, plus whatever the model
- * has to say about why it is or is not available.
- *
- * Only two things can be clicked here — Approve, when the spender's allowance is
- * short of the quote's, and Deposit. There is no separate review page, so the
- * "review after refresh" gate lives on this button: a click while the quote has
- * gone stale refreshes and returns, and a click while it has materially changed
- * acknowledges the new one. Neither ever reaches the wallet, so a user never
- * signs something they have not seen.
- */
+// There is no separate review page, so the "review after refresh" gate lives on
+// this button: a stale or materially changed quote is shown again before it can
+// reach the wallet.
 export const DepositTransferFooter = ({ resolution }: { resolution: DepositTransfer }) => {
   const model = useDepositTransfer(resolution)
   const { approval, readiness, quoteUpdated } = model
@@ -265,9 +257,7 @@ export const DepositTransferFooter = ({ resolution }: { resolution: DepositTrans
   const needsApproval = approval.required && !!approval.approve
   const actionLabel = needsApproval ? "Approve USDC" : "Deposit"
 
-  // A blocked `info` reason is an input prompt, so it reads as the button's own
-  // label the way the Router footer already does; an `error` is a real failure
-  // and belongs in a message the disabled action sits under.
+  // A blocked `info` reason is an input prompt, so it reads as the button's label.
   const isPrompt = readiness.status === "blocked" && readiness.level === "info"
   const errorMessage =
     readiness.status === "blocked" && readiness.level !== "info" ? readiness.message : undefined
@@ -287,8 +277,7 @@ export const DepositTransferFooter = ({ resolution }: { resolution: DepositTrans
       <DepositTransferTxDetails model={model} />
       <Footer
         extra={
-          // Sentences, not hashes: the shared help style breaks anywhere so raw
-          // RPC errors fit; these messages must wrap on words.
+          // Sentences, not hashes: overrides the shared help style's break-all.
           <div className={styles.prose}>
             <FormHelp.Stack>
               {errorMessage && (
@@ -303,8 +292,7 @@ export const DepositTransferFooter = ({ resolution }: { resolution: DepositTrans
         }
       >
         {model.unknownSend ? (
-          // Nothing may re-enter the wallet from here; the session's progress
-          // view is where the ambiguous send gets resolved.
+          // Nothing may re-enter the wallet here; progress resolves the ambiguous send.
           <Button.White type="button" onClick={model.openProgress} fullWidth>
             View progress
           </Button.White>

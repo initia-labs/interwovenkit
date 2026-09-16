@@ -28,7 +28,7 @@ import styles from "./SelectDepositRoute.module.css"
 const USDC_DECIMALS = 6
 const UNKNOWN = "—"
 
-/** Cost and total time to the destination on one line. Unknown values are dropped rather than shown as free or instant. */
+/** Cost and total time on one line; unknown values are dropped rather than shown as free or instant. */
 function describeRoute(option: BridgeOption, destination: DestinationNetwork | undefined): string {
   const gas = option.gas_cost_usd ? `Gas ${formatNetworkFee(option.gas_cost_usd)}` : undefined
   const seconds = combineEstimatedSeconds([
@@ -39,16 +39,8 @@ function describeRoute(option: BridgeOption, destination: DestinationNetwork | u
   return [gas, duration].filter((part): part is string => !!part).join(" · ")
 }
 
-/**
- * The provider picker. It is a view over the options the form already fetched:
- * the request identity comes from the same `useDepositRequest`, so this query
- * resolves the identical cache entry and cannot rank against a different backend
- * state than the footer is gating on.
- *
- * Choosing an eligible route returns straight to the form — there is no separate
- * "use route" or review step, because the form plus its transaction details is
- * the review.
- */
+// The request identity comes from the same `useDepositRequest` as the form, so
+// this ranks the identical cache entry the footer is gating on.
 const SelectDepositRoute = () => {
   const { setValue, watch } = useTransferForm()
   const { selectedBridge: selectedBridgeKey = "" } = watch()
@@ -70,8 +62,7 @@ const SelectDepositRoute = () => {
     ? formatSourceMin(data.required_min_received, USDC_DECIMALS, "USDC")
     : ""
 
-  // What each route finally delivers on the destination, quoted from the USDC
-  // it lands on Ethereum; the form's "Estimated received" uses the same query.
+  // What each route finally delivers, quoted from the USDC it lands on Ethereum.
   // Keyed by amount, since routes quoting the same output share one entry.
   const destination = isLifi ? resolution.destination : undefined
   const route = isLifi ? resolution.route : undefined

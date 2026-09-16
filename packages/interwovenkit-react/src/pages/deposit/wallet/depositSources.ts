@@ -6,7 +6,6 @@ import { isIntegerString } from "../data/parse"
 import { findDestinationNetwork } from "../data/source"
 import type { Asset, DestinationNetwork } from "../data/types"
 
-/** Canonical Ethereum mainnet chain id, Router/Deposit API string form. */
 export const ETHEREUM_CHAIN_ID = "1"
 /** Canonical Ethereum USDC contract; the only asset the Deposit API's Ethereum route accepts. */
 export const ETHEREUM_USDC_DENOM = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
@@ -15,49 +14,29 @@ const BASE_USDC_DENOM = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
 const ARBITRUM_CHAIN_ID = "42161"
 const ARBITRUM_USDC_DENOM = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
 
-// LI.FI publishes bridge and chain artwork at a stable raw-content path. Hot-linked
-// (never vendored) so the icons follow LI.FI's own updates, and only ever used as a
-// fallback: a broken image is a rendering detail and must never change route
-// eligibility, minimum gates or signing.
+// Hot-linked LI.FI artwork (never vendored), fallback only: a broken image must never
+// change route eligibility, minimum gates or signing.
 const LIFI_ICON_BASE = "https://raw.githubusercontent.com/lifinance/types/main/src/assets/icons"
 
 const lifiIcon = (path: string) => `${LIFI_ICON_BASE}/${path}.svg`
 
-/**
- * One canonical Deposit API source pair. The token logo is deliberately absent:
- * the caller resolves USDC artwork from the Initia registry / Skip enrichment it
- * already loads, and duplicating a second token URL here would let the two
- * drift. Only the chain logo needs a built-in fallback, because a backend-supported
- * source must stay selectable even when Skip has no entry for its chain.
- */
+/** The token logo is deliberately absent: callers resolve USDC artwork from the registry they already load, so only the chain logo needs a built-in fallback. */
 export interface DepositApiSource {
   chainId: "1" | "8453" | "42161"
   denom: string
   symbol: "USDC"
   decimals: 6
   chainName: "Ethereum" | "Base" | "Arbitrum"
-  /**
-   * How the source reaches the issued Ethereum address: "direct" is one ERC-20
-   * transfer, "lifi" is the Deposit API's bridge options/quote leg first.
-   */
+  /** How the source reaches the issued Ethereum address: "direct" is one ERC-20 transfer, "lifi" goes through the bridge options/quote leg first. */
   transport: "direct" | "lifi"
   fallbackChainLogoUrl: string
-  /**
-   * Receipt-capable JSON-RPC endpoint for the pinned reads. The Router registry's
-   * `rpc` for Base and Arbitrum (publicnode) refuses `eth_getTransactionReceipt`
-   * without a paid token, even for a transaction mined seconds earlier, so a
-   * confirmation could never be observed there. The chains' own public endpoints
-   * serve receipts with permissive CORS. Verified 2026-09-16.
-   */
+  // Receipt-capable JSON-RPC for the pinned reads: the Router registry's publicnode `rpc`
+  // for Base and Arbitrum refuses `eth_getTransactionReceipt` without a paid token.
   rpcUrl?: string
 }
 
-/**
- * The exact three pairs the backend allowlists. Not a preference list — the
- * Deposit API rejects anything else (native ETH is out of scope, and legacy
- * Arbitrum USDC.e is refused outright), so a source missing from this table
- * must keep its existing Router behavior rather than reach the Deposit API.
- */
+// The exact three pairs the backend allowlists: it rejects anything else (native ETH,
+// legacy Arbitrum USDC.e), so an unlisted source must keep its existing Router behavior.
 export const DEPOSIT_API_SOURCES: readonly DepositApiSource[] = [
   {
     chainId: ETHEREUM_CHAIN_ID,
@@ -67,8 +46,8 @@ export const DEPOSIT_API_SOURCES: readonly DepositApiSource[] = [
     chainName: "Ethereum",
     transport: "direct",
     fallbackChainLogoUrl: lifiIcon("chains/ethereum"),
-    // The Router entry serves receipts here; pinned anyway so tracking a
-    // transfer in flight never depends on the Router registry being reachable.
+    // Pinned even though the Router entry serves receipts, so tracking a transfer in
+    // flight never depends on the Router registry being reachable.
     rpcUrl: "https://ethereum-rpc.publicnode.com",
   },
   {
@@ -93,7 +72,6 @@ export const DEPOSIT_API_SOURCES: readonly DepositApiSource[] = [
   },
 ]
 
-/** The canonical source for a (chain, denom) selection, or undefined when the pair is not Deposit API-supported. */
 export function findDepositApiSource(chainId: string, denom: string): DepositApiSource | undefined {
   // host vs Skip vs Deposit API casing — see normalizeDenom
   return DEPOSIT_API_SOURCES.find(
@@ -102,20 +80,14 @@ export function findDepositApiSource(chainId: string, denom: string): DepositApi
   )
 }
 
-/** The receipt-capable RPC for a supported source chain, or undefined to use the Router entry. */
 export function depositApiRpcUrl(chainId: string): string | undefined {
   return DEPOSIT_API_SOURCES.find((source) => source.chainId === chainId)?.rpcUrl
 }
 
 export type DepositTransport = "router" | "direct" | "lifi"
 
-/**
- * Which executor owns a transfer. `unavailable` is deliberately distinct from
- * `router`: once the Deposit API owns a source pair, a catalog outage must not
- * silently hand the transfer to a different executor with different fees,
- * minimums and recipient semantics. The three USDC pairs go temporarily
- * unusable with a reason and a retry instead.
- */
+// `unavailable` is deliberately distinct from `router`: once the Deposit API owns a source
+// pair, a catalog outage must not hand it to an executor with different fees and minimums.
 export type DepositTransportResolution =
   | { transport: "router" }
   | {
@@ -139,17 +111,9 @@ interface ResolveDepositTransportParams {
   catalogError: boolean
 }
 
-/**
- * The single transport decision point. Ordered so the safe answer wins early:
- * Withdraw and an unconfigured Deposit API keep today's Router behavior with no
- * API catalog consulted at all, and a source outside the allowlist is Router's
- * as before. Only then does catalog availability matter, and only for the three
- * candidate pairs — an outage never degrades an unrelated asset or Withdraw.
- *
- * A *successful* catalog that has no Ethereum USDC route to this destination is
- * a confirmed unsupported pair, not an outage: Router keeps it, which is what
- * the user sees today.
- */
+// Ordered so the safe answer wins early: Withdraw and an unconfigured Deposit API consult
+// no catalog at all, and a source outside the allowlist stays Router's. A *successful*
+// catalog with no Ethereum USDC route is a confirmed unsupported pair, not an outage.
 export function resolveDepositTransport(
   params: ResolveDepositTransportParams,
 ): DepositTransportResolution {
@@ -165,9 +129,8 @@ export function resolveDepositTransport(
     return { transport: "unavailable", source, reason: catalogError ? "error" : "loading" }
   }
 
-  // Every transport delivers to the issued Ethereum address, so the Ethereum
-  // USDC route is the one whose minimum and destination support govern — even
-  // for a Base or Arbitrum send.
+  // Every transport delivers to the issued Ethereum address, so the Ethereum USDC route's
+  // minimum and destination support govern — even for a Base or Arbitrum send.
   const route = catalog.find(
     (asset) =>
       asset.src_chain_id === ETHEREUM_CHAIN_ID &&
@@ -181,12 +144,7 @@ export function resolveDepositTransport(
   return { transport: source.transport, source, route, destination }
 }
 
-/**
- * Applies the host's `srcOptions` allowlist to the canonical sources. An empty
- * allowlist means the host set none (the public API's "no constraint"), not
- * "permit nothing". A host that allows only Base USDC must never see Ethereum
- * or Arbitrum offered as alternatives.
- */
+/** An empty allowlist means the host set none (the public API's "no constraint"), not "permit nothing". */
 export function intersectHostSources(
   sources: readonly DepositApiSource[],
   remoteOptions: AssetOption[],
@@ -201,21 +159,14 @@ export function intersectHostSources(
   )
 }
 
-/** Display-only identity for a LI.FI bridge key. */
 export interface BridgeToolDisplay {
   name: string
   logoUrl: string
 }
 
-/**
- * LI.FI's own tools metadata, checked in because the Deposit API's options
- * response carries a bridge *key* and no name or logo. Generated from
- * `https://li.quest/v1/tools` (`bridges[]`, key → name/logoURI) on 2026-09-15.
- *
- * Display only, never an execution allowlist: the backend decides which routes
- * are eligible, so a key added by LI.FI after this snapshot must still be
- * selectable — see getBridgeToolDisplay.
- */
+// LI.FI's own tools metadata, checked in because the Deposit API's options response carries
+// a bridge key only. Generated from `https://li.quest/v1/tools` (bridges[], key → name/logoURI).
+// Display only, never an execution allowlist — see getBridgeToolDisplay.
 export const BRIDGE_TOOLS: Record<string, BridgeToolDisplay> = {
   arbitrum: { name: "Arbitrum Bridge", logoUrl: lifiIcon("bridges/arbitrum") },
   across: { name: "AcrossV4", logoUrl: lifiIcon("bridges/across") },
@@ -255,27 +206,16 @@ export const BRIDGE_TOOLS: Record<string, BridgeToolDisplay> = {
   frax: { name: "Frax Bridge", logoUrl: lifiIcon("bridges/frax") },
 }
 
-/**
- * Display identity for a bridge key. An unknown key keeps its raw readable name
- * and an empty logo (the Image component's placeholder), because refusing to
- * render a route the backend called eligible would hide a working deposit path
- * behind stale client-side metadata.
- */
+// An unknown key keeps its raw readable name and an empty logo: refusing to render a route
+// the backend called eligible would hide a working deposit path behind stale metadata.
 export function getBridgeToolDisplay(key: string): BridgeToolDisplay {
-  // Own-property check, not a plain lookup: a bridge key such as "constructor"
-  // or "toString" would otherwise resolve to an inherited Object member and
-  // render a function where a route name belongs.
+  // Own-property check: a bridge key such as "constructor" would otherwise resolve to an
+  // inherited Object member and render a function where a route name belongs.
   return Object.hasOwn(BRIDGE_TOOLS, key) ? BRIDGE_TOOLS[key] : { name: key, logoUrl: "" }
 }
 
-/**
- * Converts a typed token quantity to integer base units, or "" when the input
- * cannot be represented (empty, non-numeric, negative). `toBaseUnit` already
- * floors to an integer and returns "" on invalid input; the explicit digit test
- * is what keeps a negative or exponent-formatted result from reaching an amount
- * comparison or a transaction. No JavaScript `Number` touches the value at any
- * point — a USDC amount past 2^53 base units would silently lose precision.
- */
+// "" when the input cannot be represented (empty, non-numeric, negative). No JavaScript
+// `Number` touches the value: a USDC amount past 2^53 base units would lose precision.
 export function toBaseUnitString(quantity: string, decimals: number): string {
   const base = toBaseUnit(quantity, { decimals })
   return isIntegerString(base) ? base : ""

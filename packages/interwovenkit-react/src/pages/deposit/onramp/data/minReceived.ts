@@ -8,10 +8,8 @@ import { createQuoteQueryOptions } from "../../data/quote"
 import { findDestinationNetwork } from "../../data/source"
 import { useOnramperSourceRoute } from "./onramper"
 
-// The downstream pre-quote contract (request shape, 400-is-a-decline
-// classification, cadence) lives in data/quote.ts so the wallet flow's
-// worst-case Ethereum preflight gates on exactly the same verdict. Re-exported
-// because this module has been the import site since before that split.
+// Re-exported from data/quote.ts, which the wallet flow also gates on; this
+// module has been the import site since before that split.
 export type { QuoteResult } from "../../data/quote"
 export { classifyQuoteFailure } from "../../data/quote"
 

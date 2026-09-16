@@ -40,10 +40,8 @@
   border-radius: 50%;
 }
 
-/* Post-send recovery reference (DepositProgress): the transfer was broadcast
-   but this browser could not save it, so these identifiers are the only copy
-   the user has. Kept selectable and monospaced — it is support input, not
-   decoration. */
+/* Recovery reference (DepositProgress): the transfer was broadcast but could not be
+   saved, so these identifiers are the user's only copy — support input, not decoration. */
 .recovery {
   display: flex;
   flex-direction: column;

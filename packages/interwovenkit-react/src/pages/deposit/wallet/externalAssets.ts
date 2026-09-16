@@ -43,15 +43,8 @@ const EXTERNAL_SOURCE_OVERRIDES: Record<string, ExternalSourceOverride> = {
   },
 }
 
-/**
- * Whether a source row survives the deposit-mode filter. Deposit normally hides
- * assets the user has no balance in, but a Deposit API source must stay
- * selectable on an unknown balance: its authoritative balance comes from a
- * source-chain-pinned read (evmRpc), not from Skip's aggregate snapshot, and
- * dropping a backend-supported source because that snapshot lagged (or omits the
- * chain entirely) would hide a working deposit path. Withdraw and every Router
- * pair keep today's rule.
- */
+// A Deposit API source stays selectable on an unknown balance: its authoritative balance is a
+// source-chain-pinned read (evmRpc), and Skip's aggregate snapshot may lag or omit the chain.
 export function shouldShowTransferSource({
   mode,
   hasPositiveBalance,
@@ -65,13 +58,8 @@ export function shouldShowTransferSource({
   return isDepositApiSource || hasPositiveBalance
 }
 
-/**
- * Minimal Skip-shaped records for a backend-supported source Skip does not list.
- * Live Router data currently carries all three USDC pairs, so this is a fallback
- * rather than the normal path — but the Deposit API's support cannot depend on
- * another aggregator's catalog, and a missing record would otherwise break the
- * asset row, the form's early return and the chain lookup all at once.
- */
+// Minimal Skip-shaped records for a backend-supported source Skip does not list: a missing
+// record would break the asset row, the form's early return and the chain lookup all at once.
 export function synthesizeDepositApiAsset(
   source: DepositApiSource,
   assetLogoUrl: string,
@@ -93,8 +81,7 @@ export function synthesizeDepositApiChain(source: DepositApiSource): RouterChain
     pretty_name: source.chainName,
     chain_type: "evm",
     logo_uri: source.fallbackChainLogoUrl,
-    // No RPC: a synthesized chain cannot back a pinned read, and readiness
-    // reports that as "cannot be verified" rather than letting a send proceed.
+    // No RPC: readiness reports "cannot be verified" rather than letting a send proceed.
     rpc: "",
     rest: "",
   } as RouterChainJson
@@ -149,11 +136,7 @@ const EMPTY_EXTERNAL_ASSET_OPTIONS_RESULT: ExternalAssetOptionsResult = {
   localSymbol: "",
 }
 
-/**
- * The canonical Deposit API sources this host permits, with their display
- * records resolved. Empty when the Deposit API is not configured, so a host
- * without it sees exactly today's Router-only source list.
- */
+// Empty when the Deposit API is not configured, so such a host sees exactly the Router-only source list.
 function useDepositApiSourceOptions(): ExternalAssetOptionItem[] {
   const { depositApiUrl, registryUrl } = useConfig()
   const { remoteOptions = [] } = useLocationState<DepositLocationState>()
@@ -207,20 +190,13 @@ export function useExternalTransferAsset() {
   )
   if (skipAsset) return skipAsset
 
-  // A Deposit API source Skip does not list must still resolve: the form's early
-  // return keys on this value, so returning null would render nothing at all for
-  // a pair the backend supports.
+  // The form's early return keys on this value: null would render nothing for a pair the backend supports.
   const source = depositApiUrl ? findDepositApiSource(chainId, denom) : undefined
   if (!source) return null
   return synthesizeDepositApiAsset(source, `${registryUrl}/images/${source.symbol}.png`)
 }
 
-/**
- * Chain lookup for the transfer form that tolerates a Deposit API source Skip
- * has no entry for. `useFindSkipChain` throws in that case, which would take
- * down the whole form; here the canonical fallback record renders the name and
- * logo instead.
- */
+/** Chain lookup that tolerates a source Skip has no entry for; `useFindSkipChain` would throw and take down the form. */
 export function useFindTransferChain() {
   const skipChains = useSkipChains()
   const { depositApiUrl } = useConfig()
@@ -249,8 +225,7 @@ export function useExternalAssetOptions(): ExternalAssetOptionsResult {
   if (!localAsset) return { ...EMPTY_EXTERNAL_ASSET_OPTIONS_RESULT, isLoading, balancesError }
 
   const sourceOverride = getExternalSourceOverride(localAsset.symbol)
-  // The Deposit API's USDC catalog only extends the override that already offers
-  // USDC as a source (iUSD); it never widens an unrelated asset's source list.
+  // Only the override that already offers USDC as a source (iUSD) is extended, never an unrelated asset's list.
   const depositApiSources = sourceOverride ? depositApiSourceOptions : []
   const externalSourceSymbols = sourceOverride?.externalSourceSymbols ?? [localAsset.symbol]
   const hasRemoteOptions = remoteOptions.length > 0

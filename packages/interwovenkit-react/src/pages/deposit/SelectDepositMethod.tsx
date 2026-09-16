@@ -38,12 +38,8 @@ type CryptoAvailability =
  * `address`/`onramp` select the deposit method (see useSelectDepositMethod). */
 type HubMethodId = "wallet" | "address" | "onramp"
 
-/**
- * What a row in the hub list selects. The saved-session rows share the list with
- * the fixed methods (one list keeps the section spacing and hover behavior), so
- * their ids are namespaced: the template literal keeps the three fixed ids
- * exhaustively checked while letting a session id ride in the same union.
- */
+// Saved-session rows share one list with the fixed methods, so their ids are namespaced:
+// the template literal keeps the three fixed ids exhaustively checked.
 type HubSelection = HubMethodId | `resume:${string}`
 
 /** Non-terminal deposits credited to the connected account, as list rows. */
@@ -55,8 +51,8 @@ function useResumeSection(): DepositMethodSection<HubSelection> | undefined {
   const { remoteOptions = [], recipientAddress } = useLocationState<DepositLocationState>()
 
   if (!depositApiUrl || !initiaAddress) return undefined
-  // The same recipient rule the wallet flow applies, so a session is only
-  // offered inside a request it could have been created by.
+  // The same recipient rule the wallet flow applies, so a session is only offered
+  // inside a request it could have been created by.
   const resolved = resolveDepositRecipient(recipientAddress, initiaAddress)
   if (!("recipient" in resolved)) return undefined
   const sessions = selectResumableSessions(store.list(depositApiUrl), {
@@ -72,8 +68,6 @@ function useResumeSection(): DepositMethodSection<HubSelection> | undefined {
     methods: sessions.map((session) => ({
       id: `resume:${session.id}` as const,
       title: resumeRowTitle(session),
-      // The stage is the whole point of the row: it tells the user whether the
-      // transfer still needs watching before they start another one.
       subtext: resumeStageLabel(session),
       Icon: IconWallet,
       iconUrl: `${registryUrl}/images/${session.source.symbol}.png`,
@@ -102,9 +96,8 @@ const MethodSections = ({ availability, onrampUnavailableReason }: MethodSection
   const { setValue } = useDepositForm()
   const hexAddress = useHexAddress()
   const walletIcon = useConnectedWalletIcon()
-  // Saved sessions are local state, not a Deposit API read, so they render in
-  // every availability state — a catalog outage must not hide a transfer that
-  // is already in flight.
+  // Saved sessions are local state, not a Deposit API read, so they render in every
+  // availability state — a catalog outage must not hide a transfer already in flight.
   const resumeSection = useResumeSection()
 
   // The Buy form suspends on the geo-defaults lookup; warming it here (the
@@ -132,8 +125,8 @@ const MethodSections = ({ availability, onrampUnavailableReason }: MethodSection
     (availability.status === "unavailable" ? availability.reason : undefined)
 
   const sections: DepositMethodSection<HubSelection>[] = [
-    // Above Crypto, but never in place of it: existing work in progress does not
-    // remove the ability to start a separate, deliberate deposit.
+    // Above Crypto, but never in place of it: work in progress must not remove the
+    // ability to start a separate deposit.
     ...(resumeSection ? [resumeSection] : []),
     {
       label: "Crypto",
@@ -205,9 +198,8 @@ const MethodSections = ({ availability, onrampUnavailableReason }: MethodSection
             selectMethod(id)
             break
           default:
-            // A saved session opens the same wallet flow, but on its progress
-            // page. Only an explicit tap gets here: the hub never navigates on
-            // its own, however urgent a pending transfer looks.
+            // Only an explicit tap resumes: the hub never navigates on its own,
+            // however urgent a pending transfer looks.
             setValue("resumeSessionId", id.slice("resume:".length))
             navigate("wallet")
         }
@@ -267,15 +259,13 @@ const SelectDepositMethod = () => {
   const queryClient = useQueryClient()
   const receiveSymbol = watch("receiveSymbol")
 
-  // Housekeeping on the one screen that lists saved sessions. Only long-settled
-  // terminal records are dropped; a non-terminal session is never removed, no
-  // matter how old, because age is not evidence that a transfer settled.
+  // Only long-settled terminal records are dropped; a non-terminal session is never
+  // removed, no matter how old, because age is not evidence that a transfer settled.
   useEffect(() => {
     try {
       pruneDepositSessions(localStorage, Date.now())
     } catch {
-      // Storage unavailable (private mode, blocked cookies). Pruning is
-      // optional; nothing downstream depends on it having run.
+      // Storage unavailable (private mode). Nothing downstream depends on pruning.
     }
   }, [])
 

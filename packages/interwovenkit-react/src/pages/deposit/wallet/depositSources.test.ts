@@ -37,8 +37,6 @@ const ethereumRoute = (overrides: Partial<Asset> = {}): Asset => ({
 })
 
 describe("DEPOSIT_API_SOURCES", () => {
-  // Not a preference list: the backend rejects anything outside these pairs
-  // (native ETH is out of scope and legacy Arbitrum USDC.e is refused outright).
   it("is exactly the three canonical USDC pairs", () => {
     expect(DEPOSIT_API_SOURCES.map(({ chainId, symbol }) => `${chainId}:${symbol}`)).toEqual([
       "1:USDC",
@@ -74,7 +72,6 @@ describe("findDepositApiSource", () => {
     expect(findDepositApiSource("1", BASE_USDC)).toBeUndefined()
   })
 
-  // Explicitly out of scope; each must keep its existing Router behavior.
   it("does not match native ETH, Optimism or Arbitrum USDC.e", () => {
     expect(findDepositApiSource("1", "ethereum-native")).toBeUndefined()
     expect(findDepositApiSource("10", "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85")).toBeUndefined()
@@ -101,8 +98,6 @@ describe("resolveDepositTransport", () => {
     expect(resolution.transport).toBe("lifi")
     if (resolution.transport !== "lifi") throw new Error("expected lifi")
     expect(resolution.source.chainName).toBe("Base")
-    // Every transport delivers to the issued Ethereum address, so the Ethereum
-    // route's minimum is the one that governs — even for a Base send.
     expect(resolution.route.src_chain_id).toBe(ETHEREUM_CHAIN_ID)
     expect(resolution.destination.decimals).toBe(6)
   })
@@ -116,8 +111,6 @@ describe("resolveDepositTransport", () => {
     expect(resolution.transport).toBe("direct")
   })
 
-  // Withdraw and an unconfigured Deposit API keep today's behavior with no API
-  // catalog consulted at all.
   it("keeps Router for withdraw and when no Deposit API is configured", () => {
     expect(resolveDepositTransport({ ...params, mode: "withdraw" }).transport).toBe("router")
     expect(resolveDepositTransport({ ...params, hasDepositApi: false }).transport).toBe("router")
@@ -130,8 +123,6 @@ describe("resolveDepositTransport", () => {
     ).toBe("router")
   })
 
-  // Once the Deposit API owns a source pair, an outage must not silently hand
-  // the transfer to a different executor with different fees and minimums.
   it("reports the candidate sources unavailable while the catalog is unresolved", () => {
     const loading = resolveDepositTransport({ ...params, catalog: undefined })
     expect(loading).toMatchObject({ transport: "unavailable", reason: "loading" })
@@ -149,8 +140,6 @@ describe("resolveDepositTransport", () => {
     expect(resolution.source.chainName).toBe("Base")
   })
 
-  // A successful catalog with no matching destination is a confirmed
-  // unsupported pair, not an outage: Router keeps it, as today.
   it("keeps Router when the catalog has no Ethereum USDC route", () => {
     expect(
       resolveDepositTransport({ ...params, catalog: [ethereumRoute({ src_denom: "other" })] })
@@ -176,12 +165,10 @@ describe("resolveDepositTransport", () => {
 })
 
 describe("intersectHostSources", () => {
-  // An empty allowlist is the public API's "no constraint", not "permit nothing".
   it("returns every source when the host set no allowlist", () => {
     expect(intersectHostSources(DEPOSIT_API_SOURCES, [])).toHaveLength(3)
   })
 
-  // A host that permits only Base USDC must never reveal Ethereum or Arbitrum.
   it("keeps only the permitted pairs", () => {
     expect(
       intersectHostSources(DEPOSIT_API_SOURCES, [
@@ -219,9 +206,6 @@ describe("BRIDGE_TOOLS", () => {
     expect(getBridgeToolDisplay("relaydepository").name).toBe("Relay")
   })
 
-  // Display only, never an execution allowlist: refusing to render a route the
-  // backend called eligible would hide a working deposit path behind stale
-  // client-side metadata.
   it("keeps an unknown key readable instead of dropping the route", () => {
     expect(getBridgeToolDisplay("brandNewBridge")).toEqual({
       name: "brandNewBridge",
@@ -245,8 +229,7 @@ describe("toBaseUnitString", () => {
     expect(toBaseUnitString("1.2345678", 6)).toBe("1234567")
   })
 
-  // A USDC amount past 2^53 base units would silently lose precision through
-  // JavaScript `Number`; the string path keeps it exact.
+  // A USDC amount past 2^53 base units would lose precision through JavaScript `Number`.
   it("keeps large amounts exact", () => {
     expect(toBaseUnitString("9007199254740993", 6)).toBe("9007199254740993000000")
   })

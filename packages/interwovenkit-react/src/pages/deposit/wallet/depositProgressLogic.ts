@@ -10,18 +10,6 @@ import {
 } from "./depositSession"
 import type { SourceTxOutcome } from "./evmRpc"
 
-/**
- * Every decision the deposit-progress screen makes, as one pure function.
- *
- * The screen reports on money that has already left the user's wallet, so the
- * rules that matter are negative ones: an unread RPC is not a failed transfer,
- * an unrecognized status is not a failure, and nothing but `bucket=completed`
- * on an exactly correlated deposit completes the flow. Keeping the whole
- * mapping here (rather than spread across query callbacks) is what makes those
- * rules testable — DepositProgress.tsx only runs queries and renders the result.
- */
-
-/** Which screen family renders, matching DepositTrackingView's variants. */
 export type DepositProgressVariant =
   | "in-flight"
   | "completed"
@@ -29,45 +17,28 @@ export type DepositProgressVariant =
   | "below-minimum"
   | "problem"
 
-/**
- * The read the controller should be running. `none` stops automatic reads
- * without discarding anything: the session, its hashes and the last verified
- * evidence stay exactly as they are, and the user gets a manual refresh.
- */
+/** The read the controller should be running; "none" stops automatic reads without discarding the session. */
 export type DepositProgressStage = "source" | "bridge" | "correlate" | "deposit" | "none"
 
 export interface DepositProgressView {
   stage: DepositProgressStage
   title: string
   variant: DepositProgressVariant
-  /** Bold line above the message. */
   heading?: string
-  /** Main copy; empty only when there is deliberately nothing to say yet. */
   message: string
-  /** Secondary line under the message (evidence gaps, replacement lineage). */
   note?: string
-  /** Renders the shared "Connection lost. Retrying…" notice. */
   isRetrying: boolean
-  /** Terminal and problem screens offer Close; in flight there is nothing to close out of. */
   showClose: boolean
-  /** Manual refresh, offered exactly where automatic reads have stopped. */
   showRefresh: boolean
   showChips: boolean
-  /**
-   * What the controller must write back to the session. Derived here so the
-   * persisted trail matches the rendered claim: a screen that says "delivered"
-   * and a record that says "pending" would disagree after a reload.
-   */
+  /** What the controller must write back to the session, so the persisted trail matches the rendered claim. */
   persist?: { phase?: DepositSessionPhase; lastState?: string }
 }
 
 export interface DepositProgressInputs {
   source: {
-    /** Last resolved watch outcome; undefined while the first read is in flight. */
     outcome?: SourceTxOutcome
-    /** The pinned read threw (node down, CORS, rate limit). An evidence gap. */
     isError: boolean
-    /** A pinned provider exists for the source chain. */
     hasProvider: boolean
   }
   bridge: {
@@ -88,11 +59,8 @@ export interface DepositProgressInputs {
     /** Opaque wire value; only "pending"/"completed" change copy, never terminal judgment. */
     advanceStatus?: string
     isError: boolean
-    /** Formatted required minimum, "" when the route is gone from `config/assets`. */
     minLabel?: string
-    /** Amount phrase from formatCompletedAmount. */
     completedAmount?: string
-    /** The recipient is the connected wallet, not a host-provided custom address. */
     isSelfRecipient: boolean
   }
   /** The current stage has been running for the stall budget (60 s). */
@@ -105,19 +73,11 @@ const NEUTRAL_TITLE = "Deposit status"
 /** No automatic refund exists at any stage, so no screen may imply one. */
 const NO_REFUND = "Your funds remain at the deposit address with no automatic refund."
 
-/**
- * Heading for the post-send recovery block. The
- * transfer was sent; only the local record of it was lost, and the copy must
- * never walk that back into "not sent".
- */
+/** Heading for the post-send recovery block: the transfer was sent, only the local record of it was lost. */
 export const recoveryHeading = "Save your transfer details"
 
 const phaseIndex = (phase: DepositSessionPhase) => DEPOSIT_SESSION_PHASES.indexOf(phase)
 
-// The three screen families, so each branch below states only what makes it
-// different. They are constructors rather than spread-able constants because the
-// defaults are the safety rules: an in-flight screen offers no exit, a terminal
-// one is done reading, and a problem screen always leaves a way to look again.
 type ViewParts = Partial<DepositProgressView>
 
 /** Still watching. Nothing to press: closing the widget does not stop the transfer. */
@@ -133,7 +93,6 @@ function inFlight(view: Pick<DepositProgressView, "stage" | "message"> & ViewPar
   } satisfies DepositProgressView
 }
 
-/** A settled outcome. There is nothing left to read, so the screen closes out. */
 function terminal(view: Pick<DepositProgressView, "variant" | "message"> & ViewParts) {
   return {
     stage: "none",
@@ -146,11 +105,7 @@ function terminal(view: Pick<DepositProgressView, "variant" | "message"> & ViewP
   } satisfies DepositProgressView
 }
 
-/**
- * Automatic tracking stopped without a financial verdict — evidence is missing
- * or disagrees with the session. Never a claim about the funds, always a manual
- * refresh unless there is nothing left to re-read.
- */
+/** Tracking stopped without a financial verdict. Never a claim about the funds, always a manual refresh unless there is nothing left to re-read. */
 function problem(view: Pick<DepositProgressView, "message"> & ViewParts) {
   return {
     stage: "none",
@@ -164,41 +119,21 @@ function problem(view: Pick<DepositProgressView, "message"> & ViewParts) {
   } satisfies DepositProgressView
 }
 
-/**
- * The hash currently being tracked. `currentSourceHash` wins because a repriced
- * replacement supersedes the hash the wallet first returned; `submitted.hash`
- * covers the window between the wallet's response and the first session write.
- */
+// `currentSourceHash` wins because a repriced replacement supersedes the hash the wallet
+// first returned; `submitted.hash` covers the window before the first session write.
 export function trackedSourceHash(session: DepositSession): string {
   return session.currentSourceHash ?? session.submitted?.hash ?? ""
 }
 
-/**
- * Whether the session describes a transfer that is (or may be) in flight — the
- * gate for offering "Continue deposit". A `prepared` or `approval_*` session is
- * an abandoned form draft: nothing was broadcast, so resuming it would open a
- * progress screen with no transaction to report on. From `send_prompt` onward a
- * send may have happened, and the plan is explicit that a started prompt without
- * a result is ambiguous, never safe to dismiss.
- */
+// Gate for "Continue deposit": a `prepared` or `approval_*` session is an abandoned draft
+// with nothing broadcast; from `send_prompt` onward a send may have happened.
 export function isResumableDepositSession(session: DepositSession): boolean {
   if (session.phase === "terminal") return false
   return phaseIndex(session.phase) >= phaseIndex("send_prompt")
 }
 
-/**
- * The sessions the hub may offer as "Continue deposit": in flight, and credited
- * to the connected account. The recipient filter is not cosmetic — a saved
- * session records where the funds land, and offering someone else's transfer
- * would show one account's amounts under another account's session.
- *
- * The caller has already scoped the list to the current API environment
- * (listDepositSessions takes the base URL), because a staging deposit address
- * and a production one are indistinguishable by shape.
- */
 /** What the hub is currently depositing; a saved session must match all of it to be offered. */
 export interface ResumeMatch {
-  /** Final recipient of the current request (host-provided or connected), bech32. */
   recipient: string
   dstChainId: string
   dstDenom: string
@@ -206,12 +141,8 @@ export interface ResumeMatch {
   remoteOptions: AssetOption[]
 }
 
-/**
- * Sessions the hub may offer for the current request. Recipient, destination
- * and the host's source allowlist all have to agree: a session created for a
- * different recipient or a source the host excluded would reopen inside a
- * request whose contract it violates.
- */
+// Recipient, destination and the host's source allowlist all have to agree: a session for
+// another recipient or an excluded source would reopen inside a request it violates.
 export function selectResumableSessions(
   sessions: DepositSession[],
   match: ResumeMatch,
@@ -233,11 +164,7 @@ export function selectResumableSessions(
   )
 }
 
-/**
- * Short stage label for the resume row, from the last persisted evidence. Falls
- * back to the phase, which is written before every wallet prompt and therefore
- * always present.
- */
+/** Falls back to the phase, which is written before every wallet prompt and therefore always present. */
 export function resumeStageLabel(session: DepositSession): string {
   switch (session.lastState) {
     case "source_pending":
@@ -271,11 +198,7 @@ export function resumeStageLabel(session: DepositSession): string {
   }
 }
 
-/**
- * The single decision point for the progress screen. `session` is null only when
- * neither storage nor the in-memory fallback holds a record — the one case where
- * there is genuinely nothing to report.
- */
+/** `session` is null only when neither storage nor the in-memory fallback holds a record. */
 export function deriveDepositProgress(
   session: DepositSession | null,
   inputs: DepositProgressInputs,
@@ -291,11 +214,8 @@ export function deriveDepositProgress(
 
   const view = resolve(session, inputs)
 
-  // The stall reassurance is armed per stage, so each leg of the pipeline gets
-  // its own budget. It replaces the heading rather than the copy: the user still
-  // needs to know which leg is slow, and "your funds are safe at your deposit
-  // address" (the address tracker's wording) is false while a bridge still holds
-  // them.
+  // Armed per stage so each leg gets its own budget. It replaces the heading, not the copy:
+  // "your funds are safe at your deposit address" is false while a bridge still holds them.
   if (view.variant === "in-flight" && inputs.isDelayed) {
     return {
       ...view,
@@ -315,9 +235,8 @@ function resolve(session: DepositSession, inputs: DepositProgressInputs): Deposi
   // identity the backend can speak about authoritatively.
   if (session.depositId) return depositStage(session, inputs)
 
-  // The backend's own observation of the source transaction is at least as
-  // strong as a pinned receipt, so a lagging or failing RPC read never hides
-  // progress the API already reports.
+  // The backend's own observation of the source transaction is at least as strong as a
+  // pinned receipt, so a lagging or failing RPC read never hides progress the API reports.
   const backendSawSource =
     (inputs.bridge.state !== undefined && inputs.bridge.state !== "bridge_not_found") ||
     inputs.direct.found === true
@@ -328,15 +247,11 @@ function resolve(session: DepositSession, inputs: DepositProgressInputs): Deposi
   return session.transport === "lifi" ? bridgeStage(inputs) : correlateStage(inputs)
 }
 
-/**
- * No hash to track. Either the wallet call never returned one (ambiguous — the
- * transfer may be on chain), or the session never reached a prompt at all.
- * The two must not share copy: one may not be resent, the other never happened.
- */
+// No hash to track: either the wallet call never returned one (the transfer may be on
+// chain) or the session never reached a prompt. The two must not share copy.
 function withoutHash(session: DepositSession): DepositProgressView {
   if (phaseIndex(session.phase) >= phaseIndex("send_prompt")) {
-    // No backend read is possible without a hash, and a nonce hint is not
-    // evidence: staging v1 deliberately does not scan for the transaction.
+    // No backend read is possible without a hash, and a nonce hint is not evidence.
     return problem({
       title: "Checking your transaction",
       heading: "Checking your transaction",
@@ -354,11 +269,8 @@ function withoutHash(session: DepositSession): DepositProgressView {
   })
 }
 
-/**
- * The transfer provably never reached the mempool, or was replaced by a
- * cancellation. Gas was still spent and an earlier approval may still stand, so
- * it never reads as "nothing happened".
- */
+// Provably never reached the mempool, or replaced by a cancellation. Gas was still spent
+// and an earlier approval may still stand.
 const notSent = (lastState: string) =>
   terminal({
     variant: "failed",
@@ -379,8 +291,7 @@ function sourceStage(session: DepositSession, inputs: DepositProgressInputs): De
   }
 
   if (outcome?.status === "replaced" && outcome.reason === "replaced") {
-    // Same nonce, different payload. That is not this transfer, and it is not a
-    // proven cancellation either — stop mapping and keep both hashes.
+    // Same nonce, different payload: not this transfer, and not a proven cancellation either.
     return problem({
       heading: "Couldn't verify this transfer",
       message:
@@ -402,8 +313,7 @@ function sourceStage(session: DepositSession, inputs: DepositProgressInputs): De
   })
 
   if (!hasProvider) {
-    // Missing RPC metadata is a capability gap on our side. The transfer is
-    // unaffected, so the screen keeps waiting rather than claiming anything.
+    // Missing RPC metadata is a capability gap on our side; the transfer is unaffected.
     return {
       ...base,
       note: `Cannot verify on ${chainName} right now. We'll keep trying.`,
@@ -461,22 +371,19 @@ const BRIDGE_COPY: Record<BridgeStatusState, { heading?: string; message: string
 function bridgeStage(inputs: DepositProgressInputs): DepositProgressView {
   const { state, error, conflict } = inputs.bridge
 
-  // The provider's evidence disagrees with what we asked about. Nothing about
-  // delivery may be inferred from a disagreement, in either direction.
+  // Evidence that disagrees with what we asked about supports no inference about delivery,
+  // in either direction.
   if (error instanceof BridgeStatusConflictError && error.code === "upstream_conflict") {
     return conflictView(
       "The tracking details don't match this deposit. Your submitted transaction is still saved.",
     )
   }
-  // A deterministic rejection of the request itself will not change on the
-  // next poll; stop and keep the evidence rather than "retrying" forever.
+  // A deterministic rejection of the request itself will not change on the next poll.
   if (error instanceof BridgeStatusConflictError && error.code === "invalid_request") {
     return conflictView("The tracking request was rejected. Your transaction details are saved.")
   }
 
-  // An indexed envelope that fails identity validation is the same class of
-  // problem: a deposit that is not provably this user's must never complete
-  // this flow.
+  // A deposit that is not provably this user's must never complete this flow.
   if (conflict) return conflictView(conflict)
 
   const copy = state ? BRIDGE_COPY[state] : BRIDGE_COPY.bridge_not_found
@@ -504,8 +411,7 @@ function bridgeStage(inputs: DepositProgressInputs): DepositProgressView {
     stage: "bridge",
     heading: copy.heading,
     message: copy.message,
-    // Every remaining error is transient by construction: the conflict case
-    // returned above, so a 429 or a 5xx only means the next poll has not landed.
+    // Every remaining error is transient: the conflict cases returned above.
     isRetrying: !!error,
     persist: state ? { lastState: state } : undefined,
   })
@@ -518,8 +424,8 @@ function correlateStage(inputs: DepositProgressInputs): DepositProgressView {
 
   return inFlight({
     stage: "correlate",
-    // A 404 here is an indexing delay, never a missing transfer: the receipt is
-    // already confirmed on Ethereum at this point.
+    // A 404 here is an indexing delay, never a missing transfer: the receipt is already
+    // confirmed on Ethereum at this point.
     message: "Your USDC reached Ethereum. We're waiting for the deposit to be detected.",
     isRetrying: isError,
     persist: { lastState: "deposit_pending" },
@@ -536,8 +442,7 @@ function depositStage(session: DepositSession, inputs: DepositProgressInputs): D
       return inFlight({
         stage: "deposit",
         title: "Confirming your deposit…",
-        // Both transports reach the issued address on Ethereum, so this leg is
-        // always an Ethereum confirmation.
+        // Both transports reach the issued address on Ethereum.
         message: "Your deposit is confirming on Ethereum.",
         isRetrying: isError,
         persist: { lastState: "waiting" },
@@ -546,8 +451,8 @@ function depositStage(session: DepositSession, inputs: DepositProgressInputs): D
       return inFlight({
         stage: "deposit",
         title: "Transferring…",
-        // "pending" says the backend picked fast delivery; it carries no
-        // different timeout, retry or terminal meaning, so it is a heading only.
+        // "pending" only means the backend picked fast delivery; it carries no different
+        // timeout, retry or terminal meaning.
         heading: advanceStatus === "pending" ? "Fast delivery is processing" : undefined,
         message: `Your deposit is being delivered to ${destination}.`,
         isRetrying: isError,
@@ -559,8 +464,7 @@ function depositStage(session: DepositSession, inputs: DepositProgressInputs): D
         variant: "completed",
         message: isSelfRecipient
           ? `${completedAmount} was delivered to your wallet on ${destination}. It may take a moment to appear in your activity.`
-          : // A host-provided recipient means the sender did not receive the
-            // funds; claiming otherwise would be false.
+          : // A host-provided recipient means the sender did not receive the funds.
             `${completedAmount} was delivered to the recipient on ${destination}.`,
         showChips: true,
         persist: { phase: "terminal", lastState: "completed" },
@@ -580,9 +484,8 @@ function depositStage(session: DepositSession, inputs: DepositProgressInputs): D
         persist: { phase: "terminal", lastState: "failed" },
       })
     case "unknown":
-      // A bucket this client cannot recognize is a contract problem, not a
-      // financial outcome. It is deliberately not terminal: the session stays
-      // open so a fixed client (or a corrected response) can resolve it.
+      // A bucket this client cannot recognize is a contract problem, not a financial
+      // outcome, so the session deliberately stays open rather than going terminal.
       return problem({
         heading: "Status unavailable",
         message: "We couldn't read the latest deposit status. Your transfer details are saved.",

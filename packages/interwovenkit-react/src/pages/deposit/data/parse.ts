@@ -1,9 +1,5 @@
-/**
- * Primitives for the Deposit API boundary parsers. There is no schema library
- * here by design: every parser still states its own checks and its own error
- * message. This file only holds what they all need, so one parser's idea of
- * "an integer string" cannot drift from another's.
- */
+// Shared primitives for the Deposit API boundary parsers, so one parser's idea
+// of "an integer string" cannot drift from another's.
 
 /** A keyed JSON object. Arrays are excluded: every wire record this API sends is keyed. */
 export function isRecord(value: unknown): value is Record<string, unknown> {
@@ -23,7 +19,6 @@ export function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean"
 }
 
-/** A real JS number: JSON `null`, NaN and Infinity are not. */
 export function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value)
 }
@@ -58,7 +53,6 @@ export function isEvmTxHash(value: unknown): value is string {
   return typeof value === "string" && EVM_TX_HASH_PATTERN.test(value)
 }
 
-/** 0x calldata, whole bytes. */
 export function isHexData(value: unknown): value is string {
   return typeof value === "string" && HEX_DATA_PATTERN.test(value)
 }
@@ -68,7 +62,6 @@ export function isHexQuantity(value: unknown): value is string {
   return typeof value === "string" && HEX_QUANTITY_PATTERN.test(value)
 }
 
-/** Throws `message` unless `condition` holds: the fail-closed spine of the throwing parsers. */
 export function assertField(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message)
 }
@@ -97,13 +90,8 @@ export type ParsedFields<S extends FieldSpec> = {
     : never
 }
 
-/**
- * Reads exactly the spec'd fields out of a wire record, or null if any of them
- * is missing or the wrong shape. Two properties matter for the callers that
- * return null rather than throwing: it never half-builds a result, and the
- * result carries only spec'd keys — a foreign key written by another version
- * cannot ride along into a later write.
- */
+// Never half-builds a result, and the result carries only spec'd keys — a
+// foreign key written by another version cannot ride along into a later write.
 export function parseFields<S extends FieldSpec>(value: unknown, spec: S): ParsedFields<S> | null {
   if (!isRecord(value)) return null
   const parsed: Record<string, unknown> = {}

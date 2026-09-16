@@ -34,8 +34,7 @@ import type { ReactNode } from "react"
 // reassurance replaces the normal status copy.
 const TAKING_LONGER_DELAY = 60 * 1000
 
-/** Which screen family renders. Selects the icon and the status color; the
- * copy is entirely the controller's. */
+// Selects the icon and the status color; the copy is entirely the controller's.
 export type DepositTrackingVariant =
   | "in-flight"
   | "completed"
@@ -44,37 +43,24 @@ export type DepositTrackingVariant =
   | "problem"
 
 export interface DepositTrackingViewProps {
-  /** Page title above the body. */
   title: string
   variant: DepositTrackingVariant
-  /** Bold line between the icon and the status copy. On an in-flight screen it
-   * is the smaller stall reassurance; elsewhere it is the outcome heading. */
+  /** On an in-flight screen this is the stall reassurance; elsewhere the outcome heading. */
   heading?: string
-  /** Status copy. Omitted renders no status block at all, for the transient
-   * frames that have nothing to say yet. */
+  /** Omitted renders no status block, for transient frames that have nothing to say yet. */
   message?: ReactNode
-  /** Source → destination chips. */
   chips?: ReactNode
-  /** External explorer link; empty or absent renders no link. */
   explorerUrl?: string
-  /** In-widget history navigation. */
   onHistoryClick?: () => void
-  /** Footer actions; absent leaves the screen actionless (funds keep moving). */
   footer?: ReactNode
-  /** Renders the shared transient-error notice under the body. */
   isRetrying?: boolean
-  /** Extra body content between the chips and the links (e.g. a recovery
-   * reference the user must be able to copy). */
+  /** Extra body content between the chips and the links. */
   extra?: ReactNode
 }
 
-/**
- * The deposit tracking body, as a controlled presentational screen. Both
- * controllers render through it: the address/onramp tracker below, and the
- * wallet flow's DepositProgress, which reports on stages that exist before any
- * Deposit record has been discovered. Keeping one body is what stops the two
- * paths from drifting into two visual languages for the same waiting state.
- */
+// Shared body for both tracking controllers: the address/onramp tracker below and
+// the wallet flow's DepositProgress, which reports on stages that exist before any
+// Deposit record has been discovered.
 export const DepositTrackingView = ({
   title,
   variant,
@@ -87,8 +73,7 @@ export const DepositTrackingView = ({
   isRetrying,
   extra,
 }: DepositTrackingViewProps) => {
-  // Completion is the only green outcome; every non-completed, non-in-flight
-  // screen is an outcome the user has to read carefully, so they share the
+  // Completion is the only green outcome; every other terminal screen shares the
   // error treatment.
   const isError = variant !== "in-flight" && variant !== "completed"
 
@@ -355,13 +340,11 @@ const DepositTracking = () => {
     }
     switch (bucket) {
       case "completed":
-        // The activity indexer can lag delivery by a few seconds, so "Go to
-        // history" may land on a list still missing this record; the caveat
-        // keeps that from reading as a failed transfer.
+        // The activity indexer can lag delivery, so "Go to history" may land on a
+        // list still missing this record; the caveat keeps it from reading as a failure.
         return `${completedAmount} was delivered to your wallet on ${receiveAsset.chainName}. It may take a moment to appear in your activity.`
       case "failed":
-        // No support channel exists in the widget or config, so the copy must
-        // not point at one.
+        // No support channel exists in the widget or config, so the copy must not point at one.
         return "This deposit could not be completed. Your funds remain at the deposit address with no automatic refund."
       case "below_minimum":
         return `${minLabel ? `Deposits below ${minLabel} can't be processed. ` : ""}Your funds remain at the deposit address with no automatic refund.`

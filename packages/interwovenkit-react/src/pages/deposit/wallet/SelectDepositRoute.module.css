@@ -1,5 +1,4 @@
-/* Route row content. The row frame (padding, divider, hover, disabled) belongs
- * to DepositSubpage.Row; only the two text columns live here. */
+/* The row frame (padding, divider, hover, disabled) belongs to DepositSubpage.Row. */
 .identity {
   flex: 1;
 

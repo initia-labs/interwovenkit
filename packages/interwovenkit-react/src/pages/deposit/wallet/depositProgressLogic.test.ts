@@ -54,7 +54,6 @@ const inputs = (overrides: Partial<DepositProgressInputs> = {}): DepositProgress
   ...overrides,
 })
 
-/** Source confirmed, so the derivation reaches the transport-specific stage. */
 const confirmedSource = {
   source: {
     isError: false,
@@ -436,8 +435,7 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
     expect(view.heading).toBe(heading)
     expect(view.showRefresh).toBe(true)
     expect(view.note).toContain("Don't send a replacement deposit")
-    // Needs attention, not settled: the session must stay resumable so later
-    // exact evidence (or support) can resolve it.
+    // Needs attention, not settled: the session must stay resumable so later evidence can resolve it.
     expect(view.persist).toEqual({ lastState: state })
   })
 

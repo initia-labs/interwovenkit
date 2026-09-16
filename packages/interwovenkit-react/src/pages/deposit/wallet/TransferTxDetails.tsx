@@ -21,7 +21,6 @@ import styles from "./TransferTxDetails.module.css"
 import type { CSSProperties, ReactNode } from "react"
 
 interface BodyProps {
-  /** Rows inside the collapsible "Transaction details" section. */
   children: ReactNode
   /** Rows that stay visible above the collapsible (the provider choice). */
   before?: ReactNode
@@ -31,12 +30,8 @@ interface BodyProps {
   estimatedReceived: ReactNode
 }
 
-/**
- * The details block's presentation, with no opinion about where the numbers come
- * from. Both the Router preview and the Deposit API controller feed it, so the
- * two paths cannot drift into different hierarchies: the estimate rows stay
- * outside the collapsible, where they are the one thing always visible.
- */
+// Shared by the Router preview and the Deposit API controller: the estimate rows
+// stay outside the collapsible so both paths keep them always visible.
 export const TransferTxDetailsBody = ({
   children,
   before,
@@ -61,7 +56,6 @@ export const TransferTxDetailsBody = ({
   )
 }
 
-/** Value unknown: shown as a dash, never as zero or "instant". */
 const UNKNOWN = "—"
 
 const LONG_DURATION_SECONDS = 60
@@ -121,15 +115,8 @@ const TransferTxDetails = ({ renderFee }: Props) => {
   )
 }
 
-/**
- * Deposit API details. The provider is the one choice the user makes here, so
- * it stays visible above the collapsible with the bridge's own duration and
- * opens the picker. Inside the details there is exactly one fee row, labeled as
- * the source network fee: the quoted `amount_out` is already net of the
- * bridge's effects, so a "bridge fee" row would count the same cost twice. The
- * route row names the chains funds pass through; how the Deposit API moves the
- * later hops is its own concern and is not surfaced.
- */
+// One fee row only: the quoted `amount_out` is already net of the bridge's own
+// effects, so a "bridge fee" row would count the same cost twice.
 export const DepositTransferTxDetails = ({ model }: { model: DepositTransferModel }) => {
   const { registryUrl } = useConfig()
   const walletIcon = useConnectedWalletIcon()
@@ -199,16 +186,14 @@ export const DepositTransferTxDetails = ({ model }: { model: DepositTransferMode
       <DetailRow label="Network fee">{formatNetworkFee(quote?.estimate.gas_cost_usd)}</DetailRow>
 
       {/* A bridge's messaging fee travels as the call's native value, in ETH even
-          for a USDC deposit. It is not part of the quoted output, so it gets its
-          own row; the fee gate blocks when the balance cannot cover it. */}
+          for a USDC deposit, and is not part of the quoted output. */}
       {quote && BigInt(quote.transaction.value) > 0n && (
         <DetailRow label="Protocol fee">
           {formatAmount(quote.transaction.value, { decimals: 18 })} {model.nativeSymbol}
         </DetailRow>
       )}
 
-      {/* A host-set recipient is not the connected wallet, so it neither shows
-          the wallet icon nor lets the label imply "yours". */}
+      {/* A host-set recipient is not the connected wallet, so no wallet icon. */}
       <DetailRow label={isHostRecipient ? "Recipient (set by app)" : "Receiving address"}>
         {!isHostRecipient && <img src={walletIcon} alt="Wallet" height={12} width={12} />}{" "}
         {truncate(recipient)}

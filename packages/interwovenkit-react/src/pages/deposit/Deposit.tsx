@@ -143,8 +143,7 @@ const WalletFlow = () => {
   const navigate = useDepositNavigate()
   const receiveDenom = watch("receiveDenom")
   const receiveChainId = watch("receiveChainId")
-  // Set by the hub's "Continue deposit" rows; opens the flow on the saved
-  // session's progress page instead of a blank form.
+  // Set by the hub's "Continue deposit" rows; opens the flow on the saved session's progress page.
   const resumeSessionId = watch("resumeSessionId")
 
   return (
@@ -154,9 +153,8 @@ const WalletFlow = () => {
       initialAsset={{ denom: receiveDenom, chainId: receiveChainId }}
       initialSessionId={resumeSessionId}
       onExit={() => {
-        // Cleared on the way out: the flow's defaults are read once at mount,
-        // so a stale id would reopen the same progress screen the next time the
-        // user picks "Deposit via wallet".
+        // The flow reads its defaults once at mount, so a stale id would reopen the
+        // same progress screen instead of starting a new transfer.
         setValue("resumeSessionId", "")
         navigate("select-method")
       }}
