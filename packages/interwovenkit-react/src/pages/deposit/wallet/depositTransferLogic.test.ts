@@ -17,6 +17,7 @@ import {
   isQuoteStale,
   isWalletRejection,
   meetsDirectMinimum,
+  OUTDATED_QUOTE_MESSAGE,
   requiredNativeAmount,
   resolveDepositRecipient,
   selectBridgeOption,
@@ -512,7 +513,7 @@ describe("deriveDepositReadiness", () => {
 
   it("blocks an unbound quote", () => {
     expect(deriveDepositReadiness(readinessInput({ quoteBound: false })).message).toBe(
-      "The quote is out of date. Refresh to continue.",
+      OUTDATED_QUOTE_MESSAGE,
     )
   })
 

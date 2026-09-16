@@ -313,6 +313,8 @@ export interface DepositReadiness {
   level?: ReadinessLevel
 }
 
+export const OUTDATED_QUOTE_MESSAGE = "The quote is out of date. Refresh to continue."
+
 export interface DepositReadinessInput {
   transport: "direct" | "lifi"
   /** Hard locks, checked before anything else; none of them can be cleared by refreshing data. */
@@ -423,7 +425,7 @@ export function deriveDepositReadiness(input: DepositReadinessInput): DepositRea
     }
     if (input.quoteError) return blocked(input.quoteError)
     if (!input.hasQuote) return loading("Fetching quote...")
-    if (!input.quoteBound) return blocked("The quote is out of date. Refresh to continue.")
+    if (!input.quoteBound) return blocked(OUTDATED_QUOTE_MESSAGE)
     if (!input.meetsMinimum) {
       return blocked(
         `This route would deliver less than ${input.minimumLabel} to Ethereum. Try a larger amount or another provider.`,

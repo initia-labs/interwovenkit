@@ -263,7 +263,11 @@ export const DepositTransferFooter = ({ resolution }: { resolution: DepositTrans
   const isApproving = approval.isApproving
   const isSending = model.isSubmitting
   const needsApproval = approval.required && !!approval.approve
-  const actionLabel = needsApproval ? "Approve USDC" : "Deposit"
+  const actionLabel = model.canRefresh
+    ? "Refresh quote"
+    : needsApproval
+      ? "Approve USDC"
+      : "Deposit"
 
   // A blocked `info` reason is an input prompt, so it reads as the button's own
   // label the way the Router footer already does; an `error` is a real failure
@@ -311,9 +315,11 @@ export const DepositTransferFooter = ({ resolution }: { resolution: DepositTrans
         ) : (
           <Button.White
             type="button"
-            onClick={needsApproval ? approval.approve : model.submit}
+            onClick={
+              model.canRefresh ? model.refresh : needsApproval ? approval.approve : model.submit
+            }
             loading={loadingText}
-            disabled={readiness.status !== "ready"}
+            disabled={!model.canRefresh && readiness.status !== "ready"}
             fullWidth
           >
             {isPrompt ? readiness.message : actionLabel}

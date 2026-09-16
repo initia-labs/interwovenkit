@@ -28,6 +28,7 @@ import {
   DepositSessionLockError,
   DepositSessionWriteError,
   holdDepositSessionLock,
+  readDepositSession,
   rollbackDepositSessionPrompt,
   writeDepositSession,
 } from "./depositSession"
@@ -51,6 +52,7 @@ import {
   isQuoteStale,
   isWalletRejection,
   meetsDirectMinimum,
+  OUTDATED_QUOTE_MESSAGE,
   type QuoteAcknowledgement,
   requiredNativeAmount,
   resolveDepositRecipient,
@@ -95,6 +97,10 @@ export interface DepositTransferModel {
     approve?: () => void
   }
   readiness: DepositReadiness
+  /** Refreshes the reviewable quote/address data without opening the wallet. */
+  refresh: () => void
+  /** The current blocker can be cleared by refreshing the reviewed data. */
+  canRefresh: boolean
   submit: () => void
   isSubmitting: boolean
   submitError?: string
@@ -122,6 +128,38 @@ const LOCK_RETRY_MS = 300
 // An approval is a plain ERC-20 write on a fast chain; past this the receipt
 // watch is handed to the progress view rather than blocking the form forever.
 const APPROVAL_RECEIPT_TIMEOUT_MS = 120_000
+
+function depositIntentKey(params: {
+  apiUrl: string
+  transport: DepositSession["transport"]
+  sourceChainId: string
+  sourceDenom: string
+  sender: string
+  destinationChainId: string
+  destinationDenom: string
+  recipient: string
+}) {
+  const {
+    apiUrl,
+    transport,
+    sourceChainId,
+    sourceDenom,
+    sender,
+    destinationChainId,
+    destinationDenom,
+    recipient,
+  } = params
+  return [
+    apiUrl,
+    transport,
+    sourceChainId,
+    sourceDenom,
+    sender,
+    destinationChainId,
+    destinationDenom,
+    recipient,
+  ].join("|")
+}
 
 /**
  * Transport for the current form selection, plus the catalog retry the
@@ -420,8 +458,19 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
   const freshnessUpdatedAt = freshnessQuery.dataUpdatedAt
   // A click-triggered refresh is over when the query settles either way; a
   // failed re-read must surface its error, not leave the button spinning.
-  const freshnessSettledAt = Math.max(freshnessQuery.dataUpdatedAt, freshnessQuery.errorUpdatedAt)
-  const isRefreshing = transport === "lifi" ? quoteQuery.isFetching : preflightQuery.isFetching
+  const freshnessSettledAt =
+    transport === "lifi"
+      ? Math.max(
+          quoteQuery.dataUpdatedAt,
+          quoteQuery.errorUpdatedAt,
+          optionsQuery.dataUpdatedAt,
+          optionsQuery.errorUpdatedAt,
+        )
+      : Math.max(freshnessQuery.dataUpdatedAt, freshnessQuery.errorUpdatedAt)
+  const isRefreshing =
+    transport === "lifi"
+      ? quoteQuery.isFetching || optionsQuery.isFetching
+      : preflightQuery.isFetching
   const signature =
     transport === "lifi"
       ? boundQuote
@@ -581,27 +630,46 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
   // --- Session identity -----------------------------------------------------
   // The facts a session may never change (see assertSameIntent). A different
   // intent is a different transfer and gets its own record and lock.
-  const intentKey = [
-    depositApiUrl,
+  const intentKey = depositIntentKey({
+    apiUrl: depositApiUrl,
     transport,
-    source.chainId,
-    source.denom,
-    hexAddress,
-    destination.chain_id,
-    destination.denom,
+    sourceChainId: source.chainId,
+    sourceDenom: source.denom,
+    sender: hexAddress,
+    destinationChainId: destination.chain_id,
+    destinationDenom: destination.denom,
     recipient,
-  ].join("|")
+  })
 
   const sessionRef = useRef<{ intentKey: string; session: DepositSession } | null>(null)
   useEffect(() => {
     if (!sessionDraft) return
     if (sessionRef.current?.intentKey === intentKey) return
+    const storedSession = depositSessionId
+      ? readDepositSession(localStorage, depositSessionId)
+      : null
+    if (
+      storedSession &&
+      depositIntentKey({
+        apiUrl: storedSession.apiUrl,
+        transport: storedSession.transport,
+        sourceChainId: storedSession.source.chainId,
+        sourceDenom: storedSession.source.denom,
+        sender: storedSession.source.sender,
+        destinationChainId: storedSession.destination.chainId,
+        destinationDenom: storedSession.destination.denom,
+        recipient: storedSession.destination.recipient,
+      }) === intentKey
+    ) {
+      sessionRef.current = { intentKey, session: storedSession }
+      return
+    }
     const session = createDepositSession(sessionDraft)
     sessionRef.current = { intentKey, session }
     // The id lives in the form so a wallet rejection reuses the same record
     // rather than orphaning it and minting a second one.
     setValue("depositSessionId", session.id)
-  }, [sessionDraft, intentKey, setValue])
+  }, [depositSessionId, sessionDraft, intentKey, setValue])
 
   // --- Per-session Web Lock -------------------------------------------------
   // Taken as soon as the session exists, i.e. well before the click, so the
@@ -825,21 +893,32 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
     },
   })
 
+  const { refetch: refetchOptions } = optionsQuery
   const { refetch: refetchQuote } = quoteQuery
   const { refetch: refetchPreflight } = preflightQuery
   const { refetch: refetchDepositAddress } = depositAddressQuery
   const refetchFreshness = useCallback(() => {
     // refetch() ignores `enabled`, so the address query is only re-read on the
     // path that owns it; on LI.FI it has no wallet address to post.
-    if (transport === "lifi") void refetchQuote()
-    else {
+    if (transport === "lifi") {
+      void refetchOptions()
+      void refetchQuote()
+    } else {
       void refetchPreflight()
       void refetchDepositAddress()
     }
-  }, [transport, refetchQuote, refetchPreflight, refetchDepositAddress])
+  }, [transport, refetchOptions, refetchQuote, refetchPreflight, refetchDepositAddress])
 
   const { mutate: send, isPending: isSending } = sendMutation
   const { mutate: startApproval, isPending: isApproving } = approveMutation
+
+  const refresh = useCallback(() => {
+    if (isSending || isApproving) return
+    // Refreshes still stay outside the wallet path: the user must click again
+    // once the updated quote or address has landed and been reviewed.
+    setRefreshRequestedAt(Date.now())
+    refetchFreshness()
+  }, [isApproving, isSending, refetchFreshness])
 
   const submit = useCallback(() => {
     if (isSending || isApproving) return
@@ -847,8 +926,7 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
     if (isQuoteStale(freshnessUpdatedAt, Date.now()) || isRefreshing) {
       // Never an awaited network refresh between the click and the wallet popup:
       // refresh, show it, and require another click once the new quote is in.
-      setRefreshRequestedAt(Date.now())
-      refetchFreshness()
+      refresh()
       return
     }
     // A click on a fresh quote signs exactly what is on screen. When the quote
@@ -864,8 +942,8 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
     freshnessUpdatedAt,
     identityKey,
     isRefreshing,
+    refresh,
     readiness.status,
-    refetchFreshness,
     send,
     signature,
   ])
@@ -891,6 +969,11 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
       approve: approvalRequired ? approve : undefined,
     },
     readiness,
+    canRefresh:
+      transport === "lifi" &&
+      readiness.status === "blocked" &&
+      readiness.message === OUTDATED_QUOTE_MESSAGE,
+    refresh,
     submit,
     isSubmitting: isSending,
     // The unrecoverable storage case is already a readiness blocker; this is
