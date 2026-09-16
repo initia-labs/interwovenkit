@@ -267,16 +267,13 @@ export function rankBridgeOptions(options: BridgeOption[]): BridgeOption[] {
   })
 }
 
-/**
- * How a route's net value compares to the best eligible one, as a signed
- * percentage string ("-0.02%"); "" when either side is unknown. Display only.
- */
-export function netValueDifference(option: BridgeOption, options: BridgeOption[]): string {
-  const net = netValue(option)
-  const best = bestNetValue(options)
-  if (!net || !best || best.lte(0)) return ""
-  const percent = net.minus(best).div(best).times(100)
-  return `${percent.isNegative() ? "" : "+"}${percent.toFixed(2)}%`
+/** Signed percentage of `value` against `best` ("-1.00%"); "" when either is unknown. Display only. */
+export function percentDifference(value: string | undefined, best: string | undefined): string {
+  if (!value || !best || !isIntegerString(value) || !isIntegerString(best)) return ""
+  if (BigNumber(best).lte(0)) return ""
+  const percent = BigNumber(value).minus(best).div(best).times(100).toFixed(2)
+  if (BigNumber(percent).isZero()) return "0.00%"
+  return `${percent.startsWith("-") ? "" : "+"}${percent}%`
 }
 
 function parseApproval(

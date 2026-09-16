@@ -25,7 +25,8 @@ interface BodyProps {
   children: ReactNode
   /** Rows that stay visible above the collapsible (the provider choice). */
   before?: ReactNode
-  estimatedTime: ReactNode
+  /** Omitted when another row (the provider) already carries the total. */
+  estimatedTime?: ReactNode
   estimatedTimeStyle?: CSSProperties
   estimatedReceived: ReactNode
 }
@@ -48,9 +49,11 @@ export const TransferTxDetailsBody = ({
       {before}
       <Collapsible title="Transaction details">{children}</Collapsible>
 
-      <DetailRow label="Estimated time" valueStyle={estimatedTimeStyle}>
-        {estimatedTime}
-      </DetailRow>
+      {estimatedTime !== undefined && (
+        <DetailRow label="Estimated time" valueStyle={estimatedTimeStyle}>
+          {estimatedTime}
+        </DetailRow>
+      )}
       <DetailRow label="Estimated received" emphasized>
         {estimatedReceived}
       </DetailRow>
@@ -135,38 +138,35 @@ export const DepositTransferTxDetails = ({ model }: { model: DepositTransferMode
 
   const tool = quote ? getBridgeToolDisplay(quote.tool) : undefined
   const destinationLogo = `${registryUrl}/images/${route.dst_symbol}.png`
-  const bridgeSeconds = quote?.estimate.execution_duration_seconds
   // Every leg must be known for the total to mean anything (combineEstimatedSeconds).
   const estimatedSeconds = combineEstimatedSeconds(
     transport === "lifi"
-      ? [bridgeSeconds, destination.processing_time_seconds]
+      ? [quote?.estimate.execution_duration_seconds, destination.processing_time_seconds]
       : [destination.processing_time_seconds],
   )
   const estimatedTime = estimatedSeconds ? formatDuration(estimatedSeconds) : undefined
+  const estimatedTimeStyle =
+    estimatedSeconds && estimatedSeconds > LONG_DURATION_SECONDS
+      ? { color: "var(--warning)" }
+      : undefined
+  const providerRow = transport === "lifi" && tool && model.openRouteSelection && (
+    <DetailRow label="Provider">
+      <button type="button" className={styles.provider} onClick={model.openRouteSelection}>
+        <Image src={tool.logoUrl} alt={tool.name} width={14} height={14} logo /> {tool.name}
+        <span className={styles.muted} style={estimatedTimeStyle}>
+          {" "}
+          · {estimatedTime || UNKNOWN}
+        </span>
+        <IconChevronRight size={12} aria-hidden="true" />
+      </button>
+    </DetailRow>
+  )
 
   return (
     <TransferTxDetailsBody
-      before={
-        transport === "lifi" &&
-        tool &&
-        model.openRouteSelection && (
-          <DetailRow label="Provider">
-            <button type="button" className={styles.provider} onClick={model.openRouteSelection}>
-              <Image src={tool.logoUrl} alt={tool.name} width={14} height={14} logo /> {tool.name}
-              {bridgeSeconds ? (
-                <span className={styles.muted}> · {formatDuration(bridgeSeconds)}</span>
-              ) : null}
-              <IconChevronRight size={12} aria-hidden="true" />
-            </button>
-          </DetailRow>
-        )
-      }
-      estimatedTime={estimatedTime || UNKNOWN}
-      estimatedTimeStyle={
-        estimatedSeconds && estimatedSeconds > LONG_DURATION_SECONDS
-          ? { color: "var(--warning)" }
-          : undefined
-      }
+      before={providerRow}
+      estimatedTime={providerRow ? undefined : estimatedTime || UNKNOWN}
+      estimatedTimeStyle={estimatedTimeStyle}
       estimatedReceived={
         estimatedAmountOut ? (
           <>

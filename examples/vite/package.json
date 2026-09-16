@@ -7,8 +7,7 @@
     "watch": "vite",
     "typecheck": "tsc",
     "lint": "eslint src --fix",
-    "test:e2e": "playwright test",
-    "test:e2e:mock": "playwright test --config playwright.mock.config.ts"
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@cosmjs/stargate": "^0.36.2",

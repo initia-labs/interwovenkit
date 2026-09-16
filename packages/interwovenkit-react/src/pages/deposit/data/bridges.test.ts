@@ -11,10 +11,10 @@ import {
   createBridgeQuoteQueryOptions,
   createBridgeStatusQueryOptions,
   meetsRequiredMinimum,
-  netValueDifference,
   parseBridgeOptions,
   parseBridgeQuote,
   parseBridgeStatus,
+  percentDifference,
   rankBridgeOptions,
   RateLimitedError,
 } from "./bridges"
@@ -342,16 +342,15 @@ describe("rankBridgeOptions", () => {
   })
 })
 
-describe("netValueDifference", () => {
-  it("reports the signed percentage against the best eligible route", () => {
-    const options = [
-      option({ bridge: "best", amount_out: "1000000" }),
-      option({ bridge: "worse", amount_out: "990000" }),
-      option({ bridge: "out", eligible: false, amount_out: "2000000" }),
-    ]
-    expect(netValueDifference(options[0], options)).toBe("+0.00%")
-    expect(netValueDifference(options[1], options)).toBe("-1.00%")
-    expect(netValueDifference(option({ bridge: "x", amount_out: "nope" }), options)).toBe("")
+describe("percentDifference", () => {
+  it("reports the signed percentage against the best value", () => {
+    expect(percentDifference("1000000", "1000000")).toBe("0.00%")
+    expect(percentDifference("999999", "1000000")).toBe("0.00%")
+    expect(percentDifference("1010000", "1000000")).toBe("+1.00%")
+    expect(percentDifference("990000", "1000000")).toBe("-1.00%")
+    expect(percentDifference("nope", "1000000")).toBe("")
+    expect(percentDifference(undefined, "1000000")).toBe("")
+    expect(percentDifference("1", "0")).toBe("")
   })
 })
 

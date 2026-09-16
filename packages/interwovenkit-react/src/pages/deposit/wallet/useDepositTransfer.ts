@@ -800,10 +800,12 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
     onError: async (error: unknown) => {
       if (error instanceof UnknownSendError) {
         setUnknownSend(true)
+        const session = composeSession("submission_unknown", {
+          failure: { code: "unknown_send", message: error.message },
+        })
+        setValue("depositSessionFallback", session)
         try {
-          persistPhase("submission_unknown", {
-            failure: { code: "unknown_send", message: error.message },
-          })
+          persist(session)
         } catch {
           // Already unrecoverable for storage purposes; the locked form and the
           // recovery reference are what the user acts on.

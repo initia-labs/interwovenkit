@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query"
+import BigNumber from "bignumber.js"
+import { useQueries, useQuery } from "@tanstack/react-query"
 import { formatAmount } from "@initia/utils"
 import Image from "@/components/Image"
 import { useConfig } from "@/data/config"
@@ -6,27 +7,35 @@ import { formatDuration } from "@/pages/bridge/data/format"
 import { useDepositApi } from "../data/api"
 import {
   createBridgeOptionsQueryOptions,
-  netValueDifference,
+  percentDifference,
   rankBridgeOptions,
 } from "../data/bridges"
+import { createQuoteQueryOptions } from "../data/quote"
 import { formatSourceMin } from "../data/source"
-import type { BridgeOption } from "../data/types"
+import type { BridgeOption, DestinationNetwork } from "../data/types"
 import DepositStatus from "../DepositStatus"
 import DepositSubpage from "../DepositSubpage"
-import { getBridgeToolDisplay } from "./depositSources"
-import { formatNetworkFee, selectBridgeOption } from "./depositTransferLogic"
+import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM, getBridgeToolDisplay } from "./depositSources"
+import {
+  combineEstimatedSeconds,
+  formatNetworkFee,
+  selectBridgeOption,
+} from "./depositTransferLogic"
 import { useTransferForm } from "./transferFlowConfig"
 import { useDepositRequest, useDepositTransportResolution } from "./useDepositTransfer"
 import styles from "./SelectDepositRoute.module.css"
 
 const USDC_DECIMALS = 6
+const UNKNOWN = "—"
 
-/** Cost and speed on one line. Unknown values are dropped rather than shown as free or instant. */
-function describeRoute(option: BridgeOption): string {
+/** Cost and total time to the destination on one line. Unknown values are dropped rather than shown as free or instant. */
+function describeRoute(option: BridgeOption, destination: DestinationNetwork | undefined): string {
   const gas = option.gas_cost_usd ? `Gas ${formatNetworkFee(option.gas_cost_usd)}` : undefined
-  const duration = option.execution_duration_seconds
-    ? formatDuration(option.execution_duration_seconds)
-    : undefined
+  const seconds = combineEstimatedSeconds([
+    option.execution_duration_seconds,
+    destination?.processing_time_seconds,
+  ])
+  const duration = seconds ? formatDuration(seconds) : undefined
   return [gas, duration].filter((part): part is string => !!part).join(" · ")
 }
 
@@ -61,6 +70,39 @@ const SelectDepositRoute = () => {
     ? formatSourceMin(data.required_min_received, USDC_DECIMALS, "USDC")
     : ""
 
+  // What each route finally delivers on the destination, quoted from the USDC
+  // it lands on Ethereum; the form's "Estimated received" uses the same query.
+  // Keyed by amount, since routes quoting the same output share one entry.
+  const destination = isLifi ? resolution.destination : undefined
+  const route = isLifi ? resolution.route : undefined
+  const amounts = [
+    ...new Set(ranked.filter((option) => option.eligible).map((option) => option.amount_out)),
+  ]
+  const finalQuotes = useQueries({
+    queries: amounts.map((amountIn) =>
+      createQuoteQueryOptions(
+        api,
+        {
+          srcChainId: ETHEREUM_CHAIN_ID,
+          srcDenom: ETHEREUM_USDC_DENOM,
+          dstChainId: destination?.chain_id ?? "",
+          dstDenom: destination?.denom ?? "",
+          amountIn,
+        },
+        !!destination,
+      ),
+    ),
+  })
+  const finalAmounts = new Map(
+    amounts.map((amountIn, index) => {
+      const { data } = finalQuotes[index]
+      return [amountIn, data?.status === "quoted" ? data.quote.amount_out : undefined]
+    }),
+  )
+  const bestFinal = [...finalAmounts.values()]
+    .filter((amount): amount is string => !!amount)
+    .sort((a, b) => (BigNumber(a).gt(b) ? -1 : 1))[0]
+
   const selectRoute = (option: BridgeOption) => {
     setValue("selectedBridge", option.bridge)
     setValue("page", "fields")
@@ -76,7 +118,8 @@ const SelectDepositRoute = () => {
       <DepositSubpage.List>
         {ranked.map((option) => {
           const { name, logoUrl } = getBridgeToolDisplay(option.bridge)
-          const difference = option.eligible ? netValueDifference(option, ranked) : ""
+          const finalAmount = finalAmounts.get(option.amount_out)
+          const difference = option.eligible ? percentDifference(finalAmount, bestFinal) : ""
           return (
             <DepositSubpage.Row
               key={option.bridge}
@@ -92,19 +135,23 @@ const SelectDepositRoute = () => {
                   {option.bridge === best?.bridge && <span className={styles.best}>Best</span>}
                 </p>
                 <p className={styles.meta}>
-                  {option.eligible ? describeRoute(option) : `Below the ${requiredMinimum} minimum`}
+                  {option.eligible
+                    ? describeRoute(option, destination)
+                    : `Below the ${requiredMinimum} minimum`}
                 </p>
               </div>
               <div className={styles.amount}>
                 <p className={styles.out}>
                   <Image
-                    src={`${registryUrl}/images/USDC.png`}
-                    alt="USDC"
+                    src={`${registryUrl}/images/${route?.dst_symbol}.png`}
+                    alt={route?.dst_symbol}
                     width={14}
                     height={14}
                     logo
                   />
-                  {formatAmount(option.amount_out, { decimals: USDC_DECIMALS })}
+                  {finalAmount && destination
+                    ? formatAmount(finalAmount, { decimals: destination.decimals })
+                    : UNKNOWN}
                 </p>
                 {difference && <p className={styles.meta}>{difference}</p>}
               </div>
