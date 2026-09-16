@@ -86,8 +86,9 @@ const SelectDepositRoute = () => {
   })
   const finalAmounts = new Map(
     amounts.map((amountIn, index) => {
-      const { data } = finalQuotes[index]
-      return [amountIn, data?.status === "quoted" ? data.quote.amount_out : undefined]
+      const { data, isPlaceholderData } = finalQuotes[index]
+      const quoted = !isPlaceholderData && data?.status === "quoted"
+      return [amountIn, quoted ? data.quote.amount_out : undefined]
     }),
   )
   const bestFinal = [...finalAmounts.values()]

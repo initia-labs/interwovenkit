@@ -255,10 +255,11 @@ export function isPhaseAdvance(from: DepositSessionPhase, to: DepositSessionPhas
 
 // Facts that identify *which transfer* this is; a disagreement means two intents are
 // colliding on one id. Amount, deposit address and transaction stay mutable.
-function assertSameIntent(current: DepositSession, next: DepositSession): void {
-  const mismatch = (
+type DepositIntent = Pick<DepositSession, "apiUrl" | "transport" | "source" | "destination">
+
+function intentMismatch(current: DepositIntent, next: DepositIntent) {
+  return (
     [
-      ["id", current.id, next.id],
       ["apiUrl", current.apiUrl, next.apiUrl],
       ["transport", current.transport, next.transport],
       ["source.chainId", current.source.chainId, next.source.chainId],
@@ -269,7 +270,16 @@ function assertSameIntent(current: DepositSession, next: DepositSession): void {
       ["destination.recipient", current.destination.recipient, next.destination.recipient],
     ] as const
   ).find(([, a, b]) => a !== b)
+}
 
+/** Whether two records describe the same transfer (amount, address and transaction may differ). */
+export function isSameIntent(current: DepositIntent, next: DepositIntent): boolean {
+  return !intentMismatch(current, next)
+}
+
+function assertSameIntent(current: DepositSession, next: DepositSession): void {
+  const mismatch =
+    current.id !== next.id ? (["id", current.id, next.id] as const) : intentMismatch(current, next)
   if (mismatch) {
     throw new DepositSessionWriteError(
       `Deposit session ${current.id} identity changed (${mismatch[0]}): ${String(mismatch[1])} vs ${String(mismatch[2])}`,

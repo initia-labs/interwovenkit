@@ -21,6 +21,7 @@ import {
   resolveDepositRecipient,
   selectBridgeOption,
   sendTransactionHashOf,
+  SESSION_IN_FLIGHT_MESSAGE,
   STORAGE_BLOCKED_MESSAGE,
   UNKNOWN_SEND_MESSAGE,
 } from "./depositTransferLogic"
@@ -343,6 +344,7 @@ function readinessInput(overrides: Partial<DepositReadinessInput> = {}): Deposit
   return {
     transport: "lifi",
     unknownSend: false,
+    sessionInFlight: false,
     isAmountSettled: true,
     storageBlocked: false,
     quantityEntered: true,
@@ -355,6 +357,7 @@ function readinessInput(overrides: Partial<DepositReadinessInput> = {}): Deposit
     hasEligibleOption: true,
     hasQuote: true,
     quoteBound: true,
+    isRefreshing: false,
     meetsMinimum: true,
     minimumLabel: "1 USDC",
     approvalChecking: false,
@@ -511,8 +514,14 @@ describe("deriveDepositReadiness", () => {
   })
 
   it("blocks an unbound quote", () => {
+    expect(
+      deriveDepositReadiness(readinessInput({ quoteBound: false, isRefreshing: true })),
+    ).toEqual({ status: "loading", message: "Refreshing quote..." })
+    expect(deriveDepositReadiness(readinessInput({ sessionInFlight: true })).message).toBe(
+      SESSION_IN_FLIGHT_MESSAGE,
+    )
     expect(deriveDepositReadiness(readinessInput({ quoteBound: false })).message).toBe(
-      "The quote is out of date. Refresh to continue.",
+      "The issued deposit address changed. Change the amount or provider for a fresh quote.",
     )
   })
 

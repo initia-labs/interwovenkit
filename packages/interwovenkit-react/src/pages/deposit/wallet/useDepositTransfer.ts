@@ -28,7 +28,11 @@ import {
   DepositSessionLockError,
   DepositSessionWriteError,
   holdDepositSessionLock,
+  isPhaseAdvance,
+  isSameIntent,
+  readDepositSession,
   rollbackDepositSessionPrompt,
+  useDepositSessionStore,
   writeDepositSession,
 } from "./depositSession"
 import type { DepositTransportResolution } from "./depositSources"
@@ -273,7 +277,12 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
 
   const quoteQueryOptions = createBridgeQuoteQueryOptions(
     api,
-    { ...identity, bridge: selectedBridge?.bridge ?? "", sourceToken: source.denom },
+    {
+      ...identity,
+      bridge: selectedBridge?.bridge ?? "",
+      sourceToken: source.denom,
+      depositAddress: optionsData?.deposit_address,
+    },
     optionsEnabled && !!selectedBridge,
   )
   const quoteQuery = useQuery(quoteQueryOptions)
@@ -282,6 +291,16 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
   const quoteBound =
     transport === "direct" ||
     isQuoteBoundToOptions(quote?.deposit_address, optionsData?.deposit_address)
+  // A quote issued for a newer address than the options: re-read the options once per pair
+  // so the quote key above follows, instead of leaving the form blocked on a stale list.
+  const unboundPair =
+    quote && optionsData && !quoteBound
+      ? `${quote.deposit_address}|${optionsData.deposit_address}`
+      : ""
+  const refetchOptions = optionsQuery.refetch
+  useEffect(() => {
+    if (unboundPair) void refetchOptions()
+  }, [unboundPair, refetchOptions])
   // The only quote the rest of this hook may read: an unbound one describes a different backend state.
   const boundQuote = quote && quoteBound ? quote : undefined
 
@@ -491,9 +510,18 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
   ])
 
   const nativeSymbol = sourceChain?.evm_fee_asset?.symbol || "ETH"
+  // A record that already reached the send prompt on another mount must not be re-signed here.
+  const store = useDepositSessionStore()
+  const storedSession = depositSessionId ? store.read(depositSessionId) : undefined
+  const sessionInFlight =
+    !!storedSession &&
+    storedSession.phase !== "terminal" &&
+    isPhaseAdvance("send_prompt", storedSession.phase)
+
   const readiness = deriveDepositReadiness({
     transport,
     unknownSend,
+    sessionInFlight,
     storageBlocked,
     lockError,
     recipientError,
@@ -515,6 +543,7 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
     quoteError: quoteQuery.error?.message,
     hasQuote: !!quote,
     quoteBound,
+    isRefreshing: optionsQuery.isFetching || quoteQuery.isFetching,
     meetsMinimum,
     minimumLabel,
     approvalChecking,
@@ -554,11 +583,15 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
   useEffect(() => {
     if (!sessionDraft) return
     if (sessionRef.current?.intentKey === intentKey) return
-    const session = createDepositSession(sessionDraft)
+    // The id lives in the form so a wallet rejection, or a remount (the provider picker, a
+    // source change and back), reuses the same record while it is still re-signable.
+    const stored = depositSessionId ? readDepositSession(localStorage, depositSessionId) : null
+    const reusable =
+      !!stored && isSameIntent(stored, sessionDraft) && !isPhaseAdvance("send_prompt", stored.phase)
+    const session = reusable ? stored : createDepositSession(sessionDraft)
     sessionRef.current = { intentKey, session }
-    // The id lives in the form so a wallet rejection reuses the same record instead of minting a second one.
-    setValue("depositSessionId", session.id)
-  }, [sessionDraft, intentKey, setValue])
+    if (session.id !== depositSessionId) setValue("depositSessionId", session.id)
+  }, [sessionDraft, intentKey, setValue, depositSessionId])
 
   // --- Per-session Web Lock -------------------------------------------------
   // Taken well before the click, so the click path holds no await other than the wallet calls.
@@ -837,7 +870,7 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
     legs,
     quoteUpdated,
     isRefreshingQuote: refreshRequestedAt > 0 && freshnessSettledAt <= refreshRequestedAt,
-    unknownSend,
+    unknownSend: unknownSend || sessionInFlight,
     openProgress: () => setValue("page", "deposit-progress"),
     openRouteSelection: transport === "lifi" ? () => setValue("page", "select-route") : undefined,
   }

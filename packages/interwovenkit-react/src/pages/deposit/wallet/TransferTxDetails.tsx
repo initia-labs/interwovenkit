@@ -138,7 +138,12 @@ export const DepositTransferTxDetails = ({ model }: { model: DepositTransferMode
       : undefined
   const providerRow = transport === "lifi" && tool && model.openRouteSelection && (
     <DetailRow label="Provider">
-      <button type="button" className={styles.provider} onClick={model.openRouteSelection}>
+      <button
+        type="button"
+        className={styles.provider}
+        onClick={model.openRouteSelection}
+        disabled={model.isSubmitting}
+      >
         <Image src={tool.logoUrl} alt={tool.name} width={14} height={14} logo /> {tool.name}
         <span className={styles.muted} style={estimatedTimeStyle}>
           {" "}

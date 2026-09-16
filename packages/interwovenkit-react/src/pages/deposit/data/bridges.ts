@@ -673,7 +673,9 @@ export function createBridgeOptionsQueryOptions(
 // the previous identity's quote mid-fetch would present it as executable.
 export function createBridgeQuoteQueryOptions(
   api: KyInstance,
-  request: BridgeRequestIdentity & { bridge: string; sourceToken: string },
+  // `depositAddress` is the one the options were issued for: keyed (not sent) so a
+  // reissued address fetches a quote bound to it instead of serving the cached one.
+  request: BridgeRequestIdentity & { bridge: string; sourceToken: string; depositAddress?: string },
   enabled: boolean,
 ) {
   const { srcChainId, srcDenom, dstChainId, dstDenom, amount, fromAddress, walletAddress } = request
@@ -687,6 +689,7 @@ export function createBridgeQuoteQueryOptions(
       fromAddress,
       walletAddress,
       request.bridge,
+      request.depositAddress ?? "",
     ).queryKey,
     queryFn: async (): Promise<BridgeQuoteResponse> => {
       try {

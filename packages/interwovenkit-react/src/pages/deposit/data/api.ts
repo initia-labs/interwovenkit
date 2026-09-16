@@ -59,7 +59,18 @@ export const depositQueryKeys = createQueryKeys("interwovenkit:deposit", {
     fromAddress: string,
     walletAddress: string,
     bridge: string,
-  ) => [srcChainId, srcDenom, dstChainId, dstDenom, amount, fromAddress, walletAddress, bridge],
+    depositAddress: string,
+  ) => [
+    srcChainId,
+    srcDenom,
+    dstChainId,
+    dstDenom,
+    amount,
+    fromAddress,
+    walletAddress,
+    bridge,
+    depositAddress,
+  ],
   // Keyed without the tool: the `bridge` hint is omitted from the request
   // (a mismatched hint answers 502 upstream_conflict, see bridges.ts).
   bridgeStatus: (srcChainId: string, srcTxHash: string, depositAddress: string) => [

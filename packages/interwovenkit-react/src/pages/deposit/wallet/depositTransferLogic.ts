@@ -211,6 +211,9 @@ export function isKnownNotSent(message: string): boolean {
 export const UNKNOWN_SEND_MESSAGE =
   "The wallet did not confirm whether this transfer was sent. Do not send it again — open the progress view to check its status."
 
+export const SESSION_IN_FLIGHT_MESSAGE =
+  "A transfer for this deposit is already in progress. Open the progress view to follow it."
+
 export const STORAGE_BLOCKED_MESSAGE =
   "This deposit could not be saved in your browser, so it cannot be sent safely. Free up storage or try another browser."
 
@@ -247,6 +250,8 @@ export interface DepositReadinessInput {
   transport: "direct" | "lifi"
   /** Hard locks, checked before anything else; none of them can be cleared by refreshing data. */
   unknownSend: boolean
+  /** The stored record already reached the send prompt on another mount. */
+  sessionInFlight: boolean
   storageBlocked: boolean
   lockError?: string
   recipientError?: string
@@ -271,6 +276,8 @@ export interface DepositReadinessInput {
   quoteError?: string
   hasQuote: boolean
   quoteBound: boolean
+  /** Options or quote are being re-read; an unbound quote is then a transient state. */
+  isRefreshing: boolean
   meetsMinimum: boolean
   minimumLabel: string
   approvalChecking: boolean
@@ -298,6 +305,7 @@ export function deriveDepositReadiness(input: DepositReadinessInput): DepositRea
   const loading = (message?: string): DepositReadiness => ({ status: "loading", message })
 
   if (input.unknownSend) return blocked(UNKNOWN_SEND_MESSAGE)
+  if (input.sessionInFlight) return blocked(SESSION_IN_FLIGHT_MESSAGE)
   if (input.storageBlocked) return blocked(STORAGE_BLOCKED_MESSAGE)
   if (input.lockError) return blocked(input.lockError)
   if (input.recipientError) return blocked(input.recipientError)
@@ -337,7 +345,13 @@ export function deriveDepositReadiness(input: DepositReadinessInput): DepositRea
     }
     if (input.quoteError) return blocked(input.quoteError)
     if (!input.hasQuote) return loading("Fetching quote...")
-    if (!input.quoteBound) return blocked("The quote is out of date. Refresh to continue.")
+    if (!input.quoteBound) {
+      return input.isRefreshing
+        ? loading("Refreshing quote...")
+        : blocked(
+            "The issued deposit address changed. Change the amount or provider for a fresh quote.",
+          )
+    }
     if (!input.meetsMinimum) {
       return blocked(
         `This route would deliver less than ${input.minimumLabel} to Ethereum. Try a larger amount or another provider.`,
