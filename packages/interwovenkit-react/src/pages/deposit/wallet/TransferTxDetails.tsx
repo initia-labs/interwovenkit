@@ -131,11 +131,9 @@ export const DepositTransferTxDetails = ({ model }: { model: DepositTransferMode
       ? [quote?.estimate.execution_duration_seconds, destination.processing_time_seconds]
       : [destination.processing_time_seconds],
   )
+  // Every route carries the Ethereum → Initia leg, so the Router path's long-duration
+  // warning color would apply to all of them and is not used here.
   const estimatedTime = estimatedSeconds ? formatDuration(estimatedSeconds) : undefined
-  const estimatedTimeStyle =
-    estimatedSeconds && estimatedSeconds > LONG_DURATION_SECONDS
-      ? { color: "var(--warning)" }
-      : undefined
   const providerRow = transport === "lifi" && tool && model.openRouteSelection && (
     <DetailRow label="Provider">
       <button
@@ -145,10 +143,7 @@ export const DepositTransferTxDetails = ({ model }: { model: DepositTransferMode
         disabled={model.isSubmitting}
       >
         <Image src={tool.logoUrl} alt={tool.name} width={14} height={14} logo /> {tool.name}
-        <span className={styles.muted} style={estimatedTimeStyle}>
-          {" "}
-          · {estimatedTime || UNKNOWN}
-        </span>
+        <span className={styles.muted}> · {estimatedTime || UNKNOWN}</span>
         <IconChevronRight size={12} aria-hidden="true" />
       </button>
     </DetailRow>
@@ -158,7 +153,6 @@ export const DepositTransferTxDetails = ({ model }: { model: DepositTransferMode
     <TransferTxDetailsBody
       before={providerRow}
       estimatedTime={providerRow ? undefined : estimatedTime || UNKNOWN}
-      estimatedTimeStyle={estimatedTimeStyle}
       estimatedReceived={
         estimatedAmountOut ? (
           <>
