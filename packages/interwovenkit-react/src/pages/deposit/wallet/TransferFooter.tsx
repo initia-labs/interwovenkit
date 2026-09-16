@@ -260,10 +260,11 @@ export const DepositTransferFooter = ({ resolution }: { resolution: DepositTrans
   // A blocked `info` reason is an input prompt, so it reads as the button's label.
   const isPrompt = readiness.status === "blocked" && readiness.level === "info"
   // While this footer's own send is pending, the button's sending state is the whole story.
-  const errorMessage =
-    !isSending && readiness.status === "blocked" && readiness.level !== "info"
+  const errorMessage = !isSending
+    ? readiness.status === "blocked" && readiness.level !== "info"
       ? readiness.message
-      : undefined
+      : approval.error
+    : undefined
 
   const loadingText = isSending
     ? "Sending deposit..."

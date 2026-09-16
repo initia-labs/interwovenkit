@@ -281,7 +281,7 @@ export interface DepositReadinessInput {
   meetsMinimum: boolean
   minimumLabel: string
   approvalChecking: boolean
-  approvalError?: string
+  allowanceError?: string
 
   depositAddressError?: string
   hasDepositAddress: boolean
@@ -369,7 +369,7 @@ export function deriveDepositReadiness(input: DepositReadinessInput): DepositRea
   if (input.preflight === "error") return blocked("Could not verify the destination estimate")
   if (input.preflight !== "quoted") return loading("Checking destination...")
 
-  if (input.approvalError) return blocked(input.approvalError)
+  if (input.allowanceError) return blocked(input.allowanceError)
   if (input.approvalChecking) return loading("Checking approvals...")
   if (!input.hasPreSubmitBlock) return loading("Preparing...")
 

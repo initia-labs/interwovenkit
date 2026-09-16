@@ -564,7 +564,19 @@ describe("deriveDepositReadiness", () => {
     })
   })
 
-  it("stays ready after a failed attempt so the user can retry", () => {
+  it("blocks when the allowance cannot be verified", () => {
+    expect(
+      deriveDepositReadiness(
+        readinessInput({ allowanceError: "Could not check the USDC allowance" }),
+      ),
+    ).toEqual({
+      status: "blocked",
+      message: "Could not check the USDC allowance",
+      level: "error",
+    })
+  })
+
+  it("is ready once the blocking gates clear", () => {
     expect(deriveDepositReadiness(readinessInput())).toEqual({ status: "ready" })
   })
 })
