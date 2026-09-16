@@ -212,7 +212,7 @@ describe("deriveDepositProgress: no source hash", () => {
       expect(view.stage).toBe("none")
       expect(view.variant).toBe("problem")
       expect(view.heading).toBe("Checking your transaction")
-      expect(view.message).toContain("may have been submitted")
+      expect(view.message).toContain("may have submitted")
       expect(view.showClose).toBe(true)
       // Nothing to refresh: no hash means no backend read exists.
       expect(view.showRefresh).toBe(false)
@@ -235,7 +235,7 @@ describe("deriveDepositProgress: source stage", () => {
     const view = deriveDepositProgress(session(), inputs())
     expect(view.stage).toBe("source")
     expect(view.variant).toBe("in-flight")
-    expect(view.message).toBe("Waiting for your Base transaction to confirm.")
+    expect(view.message).toBe("Confirming on Base.")
     expect(view.showChips).toBe(true)
     expect(view.showClose).toBe(false)
     expect(view.persist).toEqual({ lastState: "source_pending" })
@@ -270,7 +270,7 @@ describe("deriveDepositProgress: source stage", () => {
     )
     expect(view.stage).toBe("source")
     expect(view.variant).toBe("in-flight")
-    expect(view.note).toBe("Cannot verify on Base right now. We'll keep trying.")
+    expect(view.note).toBe("Cannot verify on Base right now. Retrying.")
   })
 
   it("a repriced replacement keeps tracking under the replacement copy", () => {
@@ -377,27 +377,27 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
     const view = bridgeView({ state: "bridge_not_found" })
     expect(view.stage).toBe("bridge")
     expect(view.variant).toBe("in-flight")
-    expect(view.message).toContain("waiting for the bridge to pick it up")
+    expect(view.message).toContain("Waiting for the bridge provider")
     expect(view.persist).toEqual({ lastState: "bridge_not_found" })
   })
 
   it("an unread first poll uses the not-indexed copy rather than nothing", () => {
     const view = bridgeView({})
     expect(view.stage).toBe("bridge")
-    expect(view.message).toContain("waiting for the bridge to pick it up")
+    expect(view.message).toContain("Waiting for the bridge provider")
     expect(view.persist).toBeUndefined()
   })
 
   it("bridge_pending reports the leg in progress", () => {
     const view = bridgeView({ state: "bridge_pending" })
     expect(view.variant).toBe("in-flight")
-    expect(view.message).toBe("Your USDC is being bridged to Ethereum.")
+    expect(view.message).toBe("Bridging USDC to Ethereum.")
   })
 
   it("deposit_pending means the bridge finished and detection is pending", () => {
     const view = bridgeView({ state: "deposit_pending" })
     expect(view.variant).toBe("in-flight")
-    expect(view.message).toContain("reached Ethereum")
+    expect(view.message).toContain("arrived on Ethereum")
     expect(view.persist).toEqual({ lastState: "deposit_pending" })
   })
 
@@ -459,7 +459,7 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
     expect(view.stage).toBe("bridge")
     expect(view.variant).toBe("in-flight")
     expect(view.isRetrying).toBe(true)
-    expect(view.message).toBe("Your USDC is being bridged to Ethereum.")
+    expect(view.message).toBe("Bridging USDC to Ethereum.")
   })
 
   it("any other coded or transport error is also transient", () => {
@@ -496,7 +496,7 @@ describe("deriveDepositProgress: direct Ethereum correlation", () => {
     )
     expect(view.stage).toBe("correlate")
     expect(view.variant).toBe("in-flight")
-    expect(view.message).toContain("waiting for the deposit to be detected")
+    expect(view.message).toContain("Waiting for the deposit to be detected")
     expect(view.persist).toEqual({ lastState: "deposit_pending" })
   })
 
@@ -536,20 +536,20 @@ describe("deriveDepositProgress: deposit id stage", () => {
   it("waiting confirms on Ethereum for both transports", () => {
     const view = depositView({ bucket: "waiting" })
     expect(view.title).toBe("Confirming your deposit…")
-    expect(view.message).toBe("Your deposit is confirming on Ethereum.")
+    expect(view.message).toBe("Confirming on Ethereum.")
     expect(view.persist).toEqual({ lastState: "waiting" })
   })
 
   it("processing names the destination", () => {
     const view = depositView({ bucket: "processing" })
     expect(view.title).toBe("Transferring…")
-    expect(view.message).toBe("Your deposit is being delivered to Initia.")
+    expect(view.message).toBe("Delivering to Initia.")
     expect(view.heading).toBeUndefined()
   })
 
   it("advance_status pending adds a heading without changing the outcome", () => {
     const view = depositView({ bucket: "processing", advanceStatus: "pending" })
-    expect(view.heading).toBe("Fast delivery is processing")
+    expect(view.message).toBe("Fast delivery to Initia in progress.")
     expect(view.variant).toBe("in-flight")
     expect(view.stage).toBe("deposit")
   })
@@ -568,9 +568,7 @@ describe("deriveDepositProgress: deposit id stage", () => {
     expect(view.stage).toBe("none")
     expect(view.variant).toBe("completed")
     expect(view.title).toBe("Transfer complete")
-    expect(view.message).toBe(
-      "5 iUSD was delivered to your wallet on Initia. It may take a moment to appear in your activity.",
-    )
+    expect(view.message).toBe("5 iUSD delivered to your wallet on Initia.")
     expect(view.persist).toEqual({ phase: "terminal", lastState: "completed" })
   })
 
@@ -580,7 +578,7 @@ describe("deriveDepositProgress: deposit id stage", () => {
       completedAmount: "5 iUSD",
       isSelfRecipient: false,
     })
-    expect(view.message).toBe("5 iUSD was delivered to the recipient on Initia.")
+    expect(view.message).toBe("5 iUSD delivered to the recipient on Initia.")
     expect(view.message).not.toContain("your wallet")
   })
 
@@ -627,9 +625,9 @@ describe("deriveDepositProgress: deposit id stage", () => {
 describe("deriveDepositProgress: stall reassurance", () => {
   it("replaces the heading but keeps the stage copy", () => {
     const view = deriveDepositProgress(session(), inputs({ isDelayed: true }))
-    expect(view.heading).toBe("This is taking a little longer")
-    expect(view.message).toBe("Waiting for your Base transaction to confirm.")
-    expect(view.note).toBe("We're still checking. Your transfer stays saved.")
+    expect(view.heading).toBe("Taking longer than usual")
+    expect(view.message).toBe("Confirming on Base.")
+    expect(view.note).toBeUndefined()
   })
 
   it("keeps a more specific note when one exists", () => {
@@ -637,7 +635,7 @@ describe("deriveDepositProgress: stall reassurance", () => {
       session(),
       inputs({ isDelayed: true, source: { isError: true, hasProvider: true } }),
     )
-    expect(view.heading).toBe("This is taking a little longer")
+    expect(view.heading).toBe("Taking longer than usual")
     expect(view.note).toBe("Still checking…")
   })
 

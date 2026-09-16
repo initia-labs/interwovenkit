@@ -94,14 +94,18 @@ export const DepositTrackingView = ({
           </p>
         )}
 
-        {message && <DepositStatus error={isError}>{message}</DepositStatus>}
+        {message && (
+          <DepositStatus error={isError} className={styles.message}>
+            {message}
+          </DepositStatus>
+        )}
 
         {chips}
         {extra}
 
         <ExplorerLinks explorerUrl={explorerUrl} onHistoryClick={onHistoryClick} />
 
-        {isRetrying && <DepositStatus error>Connection lost. Retrying…</DepositStatus>}
+        {isRetrying && <DepositStatus className={styles.note}>Reconnecting…</DepositStatus>}
       </div>
 
       {footer}

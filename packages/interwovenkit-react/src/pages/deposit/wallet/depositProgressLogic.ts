@@ -217,11 +217,7 @@ export function deriveDepositProgress(
   // Armed per stage so each leg gets its own budget. It replaces the heading, not the copy:
   // "your funds are safe at your deposit address" is false while a bridge still holds them.
   if (view.variant === "in-flight" && inputs.isDelayed) {
-    return {
-      ...view,
-      heading: "This is taking a little longer",
-      note: view.note ?? "We're still checking. Your transfer stays saved.",
-    }
+    return { ...view, heading: "Taking longer than usual" }
   }
   return view
 }
@@ -255,9 +251,8 @@ function withoutHash(session: DepositSession): DepositProgressView {
     return problem({
       title: "Checking your transaction",
       heading: "Checking your transaction",
-      message:
-        "Your wallet request may have been submitted. We're checking before you can send again.",
-      note: "Check your wallet's activity for a transfer from this account. Don't send again until you know.",
+      message: "Your wallet may have submitted this transfer. Checking before you can send again.",
+      note: "Check your wallet activity for a transfer from this account. Don't send again until you know.",
       showRefresh: false,
     })
   }
@@ -275,8 +270,7 @@ const notSent = (lastState: string) =>
   terminal({
     variant: "failed",
     heading: "Deposit not sent",
-    message:
-      "The source transaction was cancelled or reverted. Review the transaction details before starting again.",
+    message: "The source transaction was cancelled or reverted.",
     note: "Network fees were still spent, and any token approval you granted remains.",
     persist: { phase: "terminal", lastState },
   })
@@ -308,7 +302,7 @@ function sourceStage(session: DepositSession, inputs: DepositProgressInputs): De
 
   const base = inFlight({
     stage: "source",
-    message: `Waiting for your ${chainName} transaction to confirm.`,
+    message: `Confirming on ${chainName}.`,
     persist: { lastState: hasReplacement ? "source_replaced" : "source_pending" },
   })
 
@@ -316,14 +310,14 @@ function sourceStage(session: DepositSession, inputs: DepositProgressInputs): De
     // Missing RPC metadata is a capability gap on our side; the transfer is unaffected.
     return {
       ...base,
-      note: `Cannot verify on ${chainName} right now. We'll keep trying.`,
+      note: `Cannot verify on ${chainName} right now. Retrying.`,
     }
   }
 
   if (hasReplacement) {
     return {
       ...base,
-      note: "Your wallet replaced the transaction. We're tracking the updated transaction.",
+      note: "Your wallet replaced the transaction. Tracking the new one.",
     }
   }
 
@@ -332,39 +326,36 @@ function sourceStage(session: DepositSession, inputs: DepositProgressInputs): De
   return base
 }
 
+const ARRIVED_ON_ETHEREUM = "USDC arrived on Ethereum. Waiting for the deposit to be detected."
+
 const BRIDGE_COPY: Record<BridgeStatusState, { heading?: string; message: string }> = {
   bridge_not_found: {
-    message: "Your transaction was sent. We're waiting for the bridge to pick it up.",
+    message: "Transaction broadcast. Waiting for the bridge provider to pick it up.",
   },
-  bridge_pending: { message: "Your USDC is being bridged to Ethereum." },
-  deposit_pending: {
-    message: "Your USDC reached Ethereum. We're waiting for the deposit to be detected.",
-  },
-  deposit_indexed: { message: "Your deposit was detected. Delivering it now." },
+  bridge_pending: { message: "Bridging USDC to Ethereum." },
+  deposit_pending: { message: ARRIVED_ON_ETHEREUM },
+  deposit_indexed: { message: "Deposit detected. Delivering now." },
   bridge_refunding: {
     heading: "Refund in progress",
-    message:
-      "The bridge is returning your funds. We'll keep checking until the refund is confirmed.",
+    message: "The bridge is returning your funds. Checking until the refund confirms.",
   },
   bridge_refunded: {
     heading: "Refund confirmed",
-    message:
-      "The bridge reports that your funds were refunded. Review the transaction details for the refund.",
+    message: "The bridge refunded this transfer. See the transaction for details.",
   },
   bridge_partial: {
     heading: "Deposit needs attention",
     message:
-      "The bridge reports a partial delivery. Review the transfer details or contact support.",
+      "The bridge delivered only part of this transfer. Check the details or contact support.",
   },
   bridge_refund_required: {
     heading: "Refund needs attention",
-    message:
-      "The bridge reports that a refund requires action. Check the details for help completing it.",
+    message: "This refund needs your action. Check the details to complete it.",
   },
   bridge_failed: {
     heading: "Bridge failed",
     message:
-      "The bridge couldn't complete this transfer. Review the details to check the status of your funds.",
+      "The bridge could not complete this transfer. Check the details for the status of your funds.",
   },
 }
 
@@ -411,8 +402,9 @@ function bridgeStage(inputs: DepositProgressInputs): DepositProgressView {
     stage: "bridge",
     heading: copy.heading,
     message: copy.message,
-    // Every remaining error is transient: the conflict cases returned above.
-    isRetrying: !!error,
+    // Every remaining error is transient: the conflict cases returned above. Before any
+    // state is known a failed read is indistinguishable from "not picked up yet".
+    isRetrying: !!error && !!state,
     persist: state ? { lastState: state } : undefined,
   })
 }
@@ -426,7 +418,7 @@ function correlateStage(inputs: DepositProgressInputs): DepositProgressView {
     stage: "correlate",
     // A 404 here is an indexing delay, never a missing transfer: the receipt is already
     // confirmed on Ethereum at this point.
-    message: "Your USDC reached Ethereum. We're waiting for the deposit to be detected.",
+    message: ARRIVED_ON_ETHEREUM,
     isRetrying: isError,
     persist: { lastState: "deposit_pending" },
   })
@@ -443,7 +435,7 @@ function depositStage(session: DepositSession, inputs: DepositProgressInputs): D
         stage: "deposit",
         title: "Confirming your deposit…",
         // Both transports reach the issued address on Ethereum.
-        message: "Your deposit is confirming on Ethereum.",
+        message: "Confirming on Ethereum.",
         isRetrying: isError,
         persist: { lastState: "waiting" },
       })
@@ -453,8 +445,10 @@ function depositStage(session: DepositSession, inputs: DepositProgressInputs): D
         title: "Transferring…",
         // "pending" only means the backend picked fast delivery; it carries no different
         // timeout, retry or terminal meaning.
-        heading: advanceStatus === "pending" ? "Fast delivery is processing" : undefined,
-        message: `Your deposit is being delivered to ${destination}.`,
+        message:
+          advanceStatus === "pending"
+            ? `Fast delivery to ${destination} in progress.`
+            : `Delivering to ${destination}.`,
         isRetrying: isError,
         persist: { lastState: "processing" },
       })
@@ -463,9 +457,9 @@ function depositStage(session: DepositSession, inputs: DepositProgressInputs): D
         title: "Transfer complete",
         variant: "completed",
         message: isSelfRecipient
-          ? `${completedAmount} was delivered to your wallet on ${destination}. It may take a moment to appear in your activity.`
+          ? `${completedAmount} delivered to your wallet on ${destination}.`
           : // A host-provided recipient means the sender did not receive the funds.
-            `${completedAmount} was delivered to the recipient on ${destination}.`,
+            `${completedAmount} delivered to the recipient on ${destination}.`,
         showChips: true,
         persist: { phase: "terminal", lastState: "completed" },
       })
@@ -488,7 +482,7 @@ function depositStage(session: DepositSession, inputs: DepositProgressInputs): D
       // outcome, so the session deliberately stays open rather than going terminal.
       return problem({
         heading: "Status unavailable",
-        message: "We couldn't read the latest deposit status. Your transfer details are saved.",
+        message: "Couldn't read the latest deposit status. Your transfer details are saved.",
         persist: { lastState: "unknown" },
       })
   }
