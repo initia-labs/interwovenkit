@@ -217,6 +217,7 @@ const option = (overrides: Partial<BridgeOption> & { bridge: string }): BridgeOp
   amount_out: "1000",
   min_received: "1000",
   eligible: true,
+  gas_cost_usd: "0",
   ...overrides,
 })
 
@@ -271,6 +272,25 @@ describe("rankBridgeOptions", () => {
         option({ bridge: "lean", amount_out: "960000", gas_cost_usd: "0" }),
       ]),
     ).toEqual(["lean", "gassy"])
+  })
+
+  it("never ranks a route without a gas estimate ahead of one with a known estimate", () => {
+    expect(
+      keys([
+        option({
+          bridge: "unpriced",
+          amount_out: "1000000",
+          execution_duration_seconds: 4,
+          gas_cost_usd: undefined,
+        }),
+        option({
+          bridge: "priced",
+          amount_out: "990000",
+          execution_duration_seconds: 600,
+          gas_cost_usd: "0.02",
+        }),
+      ]),
+    ).toEqual(["priced", "unpriced"])
   })
 
   it("sorts an unknown duration after every known one among competitive routes", () => {

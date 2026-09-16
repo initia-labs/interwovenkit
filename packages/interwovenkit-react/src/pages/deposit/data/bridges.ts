@@ -175,9 +175,10 @@ const USDC_DECIMALS = 6
  * estimate counts as zero (the route still competes on its output); a
  * malformed one makes the value unknown, so it sorts last instead of winning.
  */
+/** Output minus quoted gas; unknown without a gas estimate, so a route with an unstated fee never ranks best. */
 function netValue(option: BridgeOption): BigNumber | undefined {
   if (!isIntegerString(option.amount_out)) return undefined
-  const gas = option.gas_cost_usd === undefined ? BigNumber(0) : knownGasCost(option)
+  const gas = knownGasCost(option)
   if (!gas) return undefined
   return BigNumber(option.amount_out).minus(gas.shiftedBy(USDC_DECIMALS))
 }
