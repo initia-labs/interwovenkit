@@ -235,7 +235,8 @@ describe("toBaseUnitString", () => {
   })
 
   it("answers empty for anything that is not a usable amount", () => {
-    for (const value of ["", " ", "abc", "-1", "1e6x"]) {
+    // Partial keystrokes included: BigNumber strict mode must never throw mid-edit.
+    for (const value of ["", " ", ".", "-", "1..2", "1e", "abc", "-1", "1e6x"]) {
       expect(toBaseUnitString(value, 6)).toBe("")
     }
   })
