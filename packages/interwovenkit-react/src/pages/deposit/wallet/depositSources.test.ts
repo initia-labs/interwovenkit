@@ -235,7 +235,7 @@ describe("toBaseUnitString", () => {
   })
 
   it("answers empty for anything that is not a usable amount", () => {
-    for (const value of ["", " ", "abc", "-1", "1e6x"]) {
+    for (const value of ["", " ", ".", "abc", "-1", "1e6x"]) {
       expect(toBaseUnitString(value, 6)).toBe("")
     }
   })

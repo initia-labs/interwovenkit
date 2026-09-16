@@ -1,4 +1,5 @@
 import { toBaseUnit } from "@initia/utils"
+import { parseQuantity } from "@/lib/amountValidation"
 import type { AssetOption } from "../data/assetOptions"
 import { normalizeDenom } from "../data/assetOptions"
 import { routeFeedsDestination } from "../data/assets"
@@ -217,6 +218,9 @@ export function getBridgeToolDisplay(key: string): BridgeToolDisplay {
 // "" when the input cannot be represented (empty, non-numeric, negative). No JavaScript
 // `Number` touches the value: a USDC amount past 2^53 base units would lose precision.
 export function toBaseUnitString(quantity: string, decimals: number): string {
-  const base = toBaseUnit(quantity, { decimals })
+  const parsed = parseQuantity(quantity)
+  if (!parsed || parsed.lt(0)) return ""
+
+  const base = toBaseUnit(parsed.toString(), { decimals })
   return isIntegerString(base) ? base : ""
 }
