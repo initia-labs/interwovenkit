@@ -42,6 +42,16 @@ const SOURCE_WATCH_INTERVAL = 5_000
 // Same per-stage stall budget the address tracker uses.
 const TAKING_LONGER_DELAY = 60 * 1000
 
+function getExplorerUrl(
+  advanceExplorerUrl?: string | null,
+  botExplorerUrl?: string | null,
+  destinationTxLink?: string | null,
+  sourceTxLink?: string | null,
+): string | undefined {
+  const raw = advanceExplorerUrl || botExplorerUrl || destinationTxLink || sourceTxLink
+  return raw ? xss(sanitizeLink(raw)) : undefined
+}
+
 /**
  * Progress controller for a saved Deposit API session.
  *
@@ -366,11 +376,12 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   // Explorer preference, in evidence order: the fast-delivery submission, the
   // ordinary bridge submission, then the bridge provider's own links. A link is
   // never a claim that the flow completed.
-  const explorerUrl = (() => {
-    const fromDeposit = deposit?.advance_tx_explorer_url || deposit?.bot_tx_explorer_url
-    const raw = fromDeposit || bridgeStatus?.dst_tx_link || bridgeStatus?.src_tx_link
-    return raw ? xss(sanitizeLink(raw)) : undefined
-  })()
+  const explorerUrl = getExplorerUrl(
+    deposit?.advance_tx_explorer_url,
+    deposit?.bot_tx_explorer_url,
+    bridgeStatus?.dst_tx_link,
+    bridgeStatus?.src_tx_link,
+  )
 
   const refresh = () => {
     void sourceQuery.refetch()
@@ -445,8 +456,8 @@ const RecoveryReference = ({ session }: { session: DepositSession }) => {
 
   return (
     <div className={styles.recovery}>
-      <p className={styles.recoveryHeading}>{recoveryHeading}</p>
-      <pre className={styles.recoveryText}>{reference}</pre>
+      <p className={styles["recovery-heading"]}>{recoveryHeading}</p>
+      <pre className={styles["recovery-text"]}>{reference}</pre>
       <Button.Small onClick={copy}>{copied ? "Copied" : "Copy recovery details"}</Button.Small>
     </div>
   )

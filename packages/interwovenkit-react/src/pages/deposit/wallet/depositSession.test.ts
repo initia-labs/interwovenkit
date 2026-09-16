@@ -8,10 +8,12 @@ import {
   holdDepositSessionLock,
   isPhaseAdvance,
   listDepositSessions,
+  listStoredOrVolatileSessions,
   mergeDepositSession,
   parseDepositSession,
   pruneDepositSessions,
   readDepositSession,
+  readStoredOrVolatileSession,
   recoveryReference,
   rollbackDepositSessionPrompt,
   writeDepositSession,
@@ -277,6 +279,60 @@ describe("listDepositSessions", () => {
     store(storage, buildSession({ id: "a" }))
     storage.setItem(depositSessionStorageKey("broken"), "{not json")
     expect(listDepositSessions(storage, "https://deposit.staging.example")).toHaveLength(1)
+  })
+})
+
+describe("readStoredOrVolatileSession", () => {
+  it("merges the volatile copy over stale storage", () => {
+    const storage = createMemoryStorage()
+    store(storage, buildSession({ phase: "send_prompt", updatedAt: 1_000 }))
+
+    const session = readStoredOrVolatileSession(
+      storage,
+      new Map([
+        [
+          "session-1",
+          buildSession({
+            phase: "source_sent",
+            updatedAt: 2_000,
+            currentSourceHash: "0xabc",
+            originalSourceHash: "0xabc",
+            submitted: { hash: "0xabc", from: SENDER },
+          }),
+        ],
+      ]),
+      "session-1",
+    )
+
+    expect(session).toMatchObject({
+      phase: "source_sent",
+      currentSourceHash: "0xabc",
+      originalSourceHash: "0xabc",
+      submitted: { hash: "0xabc", from: SENDER },
+    })
+  })
+})
+
+describe("listStoredOrVolatileSessions", () => {
+  it("includes volatile sessions in the resume list", () => {
+    const storage = createMemoryStorage()
+    store(storage, buildSession({ id: "stored", updatedAt: 1_000 }))
+
+    const sessions = listStoredOrVolatileSessions(
+      storage,
+      [
+        buildSession({
+          id: "volatile",
+          phase: "source_sent",
+          updatedAt: 3_000,
+          currentSourceHash: "0xdef",
+        }),
+        buildSession({ id: "other-api", apiUrl: "https://deposit.example", updatedAt: 4_000 }),
+      ],
+      "https://deposit.staging.example",
+    )
+
+    expect(sessions.map(({ id }) => id)).toEqual(["volatile", "stored"])
   })
 })
 

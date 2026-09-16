@@ -581,8 +581,43 @@ const getRevision = () => storeRevision
 // promotes it back to localStorage.
 const volatileSessions = new Map<string, DepositSession>()
 
+function mergeSessionCopies(
+  stored: DepositSession | null,
+  volatile: DepositSession | undefined,
+): DepositSession | null {
+  return volatile ? mergeDepositSession(stored, volatile) : stored
+}
+
+export function readStoredOrVolatileSession(
+  storage: StorageLike,
+  volatile: ReadonlyMap<string, DepositSession>,
+  id: string,
+): DepositSession | null {
+  return mergeSessionCopies(readDepositSession(storage, id), volatile.get(id))
+}
+
+export function listStoredOrVolatileSessions(
+  storage: StorageLike,
+  volatile: Iterable<DepositSession>,
+  apiUrl: string,
+): DepositSession[] {
+  const sessions = new Map<string, DepositSession>(
+    listDepositSessions(storage, apiUrl).map((session) => [session.id, session]),
+  )
+
+  for (const session of volatile) {
+    if (session.apiUrl !== apiUrl) continue
+    sessions.set(
+      session.id,
+      mergeSessionCopies(sessions.get(session.id) ?? null, session) ?? session,
+    )
+  }
+
+  return Array.from(sessions.values()).sort((a, b) => b.updatedAt - a.updatedAt)
+}
+
 function readStoredOrVolatile(id: string): DepositSession | null {
-  return readDepositSession(localStorage, id) ?? volatileSessions.get(id) ?? null
+  return readStoredOrVolatileSession(localStorage, volatileSessions, id)
 }
 
 /**
@@ -619,13 +654,17 @@ export function useDepositSessionStore() {
       write: writeStoredOrVolatile,
       /** The record exists only in this tab's memory; a reload will not find it. */
       isVolatile: (id: string) => volatileSessions.has(id),
-      /** Adopts an in-memory record (the form's post-send fallback) when storage has none. */
+      /** Adopts an in-memory record when it adds evidence storage still lacks. */
       remember: (session: DepositSession) => {
-        if (readStoredOrVolatile(session.id)) return
-        volatileSessions.set(session.id, session)
+        const stored = readDepositSession(localStorage, session.id)
+        const merged = mergeSessionCopies(stored, session)
+        if (stored && equals(stored, merged)) return
+        if (equals(volatileSessions.get(session.id), merged)) return
+        volatileSessions.set(session.id, merged ?? session)
         notifyDepositSessions()
       },
-      list: (apiUrl: string) => listDepositSessions(localStorage, apiUrl),
+      list: (apiUrl: string) =>
+        listStoredOrVolatileSessions(localStorage, volatileSessions.values(), apiUrl),
       subscribe: subscribeDepositSessions,
     }),
     [revision],
