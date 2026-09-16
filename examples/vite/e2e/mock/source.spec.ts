@@ -84,8 +84,8 @@ test("Base selects the LI.FI executor and ranks a default provider @mobile", asy
   // "across" carries the greatest min_received, so it is the ranked default.
   await expect(page.getByRole("button", { name: /AcrossV4/ })).toBeVisible()
   // The aggregator is attribution, never a substitute for the chosen tool.
-  await expect(page.getByText("LI.FI", { exact: true })).toBeVisible()
-  await expect(page.getByText("Minimum on Ethereum")).toBeVisible()
+  await expect(page.getByText("Provider", { exact: true })).toBeVisible()
+  await expect(page.getByText("Route", { exact: true })).toBeVisible()
 
   const optionsRequest = net.api.requests.find((request) => request.path === "v1/bridges/options")
   expect(optionsRequest?.json.src_chain_id).toBe("8453")

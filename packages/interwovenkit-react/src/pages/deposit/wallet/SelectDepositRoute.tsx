@@ -1,9 +1,15 @@
 import { useQuery } from "@tanstack/react-query"
 import { formatAmount } from "@initia/utils"
 import Image from "@/components/Image"
+import { useConfig } from "@/data/config"
 import { formatDuration } from "@/pages/bridge/data/format"
 import { useDepositApi } from "../data/api"
-import { createBridgeOptionsQueryOptions, rankBridgeOptions } from "../data/bridges"
+import {
+  createBridgeOptionsQueryOptions,
+  netValueDifference,
+  rankBridgeOptions,
+} from "../data/bridges"
+import { formatSourceMin } from "../data/source"
 import type { BridgeOption } from "../data/types"
 import DepositStatus from "../DepositStatus"
 import DepositSubpage from "../DepositSubpage"
@@ -15,23 +21,13 @@ import styles from "./SelectDepositRoute.module.css"
 
 const USDC_DECIMALS = 6
 
-/** Amounts on this screen are all Ethereum USDC, the leg every route competes on. */
-const formatUsdc = (amount: string) => `${formatAmount(amount, { decimals: USDC_DECIMALS })} USDC`
-
-/**
- * Secondary line for an executable route: what it guarantees, how long it takes
- * and what it costs. Unknown values are dropped rather than rendered as zero — a
- * route with no duration estimate is not instant and one with no gas estimate is
- * not free.
- */
+/** Cost and speed on one line. Unknown values are dropped rather than shown as free or instant. */
 function describeRoute(option: BridgeOption): string {
+  const gas = option.gas_cost_usd ? `Gas ${formatNetworkFee(option.gas_cost_usd)}` : undefined
   const duration = option.execution_duration_seconds
     ? formatDuration(option.execution_duration_seconds)
     : undefined
-  const gas = option.gas_cost_usd ? formatNetworkFee(option.gas_cost_usd) : undefined
-  return [`Min ${formatUsdc(option.min_received)}`, duration, gas]
-    .filter((part): part is string => !!part)
-    .join(" · ")
+  return [gas, duration].filter((part): part is string => !!part).join(" · ")
 }
 
 /**
@@ -42,11 +38,12 @@ function describeRoute(option: BridgeOption): string {
  *
  * Choosing an eligible route returns straight to the form — there is no separate
  * "use route" or review step, because the form plus its transaction details is
- * the review (see the plan's accepted selection-view revision).
+ * the review.
  */
 const SelectDepositRoute = () => {
   const { setValue, watch } = useTransferForm()
   const { selectedBridge: selectedBridgeKey = "" } = watch()
+  const { registryUrl } = useConfig()
   const api = useDepositApi()
   const { resolution } = useDepositTransportResolution()
   const request = useDepositRequest(resolution)
@@ -59,7 +56,10 @@ const SelectDepositRoute = () => {
   const goBack = () => setValue("page", "fields")
   const ranked = rankBridgeOptions(data?.options ?? [])
   const { option: activeOption } = selectBridgeOption(ranked, selectedBridgeKey)
-  const requiredMinimum = data ? formatUsdc(data.required_min_received) : ""
+  const best = ranked.find((option) => option.eligible)
+  const requiredMinimum = data
+    ? formatSourceMin(data.required_min_received, USDC_DECIMALS, "USDC")
+    : ""
 
   const selectRoute = (option: BridgeOption) => {
     setValue("selectedBridge", option.bridge)
@@ -76,6 +76,7 @@ const SelectDepositRoute = () => {
       <DepositSubpage.List>
         {ranked.map((option) => {
           const { name, logoUrl } = getBridgeToolDisplay(option.bridge)
+          const difference = option.eligible ? netValueDifference(option, ranked) : ""
           return (
             <DepositSubpage.Row
               key={option.bridge}
@@ -86,16 +87,26 @@ const SelectDepositRoute = () => {
             >
               <Image src={logoUrl} alt={name} width={24} height={24} logo />
               <div className={styles.identity}>
-                <p className={styles.name}>{name}</p>
+                <p className={styles.name}>
+                  {name}
+                  {option.bridge === best?.bridge && <span className={styles.best}>Best</span>}
+                </p>
                 <p className={styles.meta}>
-                  {option.eligible
-                    ? describeRoute(option)
-                    : `Below the ${requiredMinimum} Ethereum minimum`}
+                  {option.eligible ? describeRoute(option) : `Below the ${requiredMinimum} minimum`}
                 </p>
               </div>
               <div className={styles.amount}>
-                <p className={styles.out}>{formatUsdc(option.amount_out)}</p>
-                <p className={styles.meta}>on Ethereum</p>
+                <p className={styles.out}>
+                  <Image
+                    src={`${registryUrl}/images/USDC.png`}
+                    alt="USDC"
+                    width={14}
+                    height={14}
+                    logo
+                  />
+                  {formatAmount(option.amount_out, { decimals: USDC_DECIMALS })}
+                </p>
+                {difference && <p className={styles.meta}>{difference}</p>}
               </div>
             </DepositSubpage.Row>
           )

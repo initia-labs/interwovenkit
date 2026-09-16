@@ -35,6 +35,7 @@ import type { DepositTransportResolution } from "./depositSources"
 import {
   ETHEREUM_CHAIN_ID,
   ETHEREUM_USDC_DENOM,
+  findDepositApiSource,
   resolveDepositTransport,
   toBaseUnitString,
 } from "./depositSources"
@@ -99,6 +100,8 @@ export interface DepositTransferModel {
   submitError?: string
   /** Symbol of the source chain's gas token, for fee copy. */
   nativeSymbol: string
+  /** Chains the funds pass through, in order, for the route row. */
+  legs: { name: string; logoUrl: string }[]
   /** The reviewed quote changed under a refresh; a fresh deliberate click is required. */
   quoteUpdated: boolean
   /** A click landed on a stale or refreshing quote: it is being re-read, and the next click sends. */
@@ -450,6 +453,24 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
   }
   const sourceChain = lookupChain(source.chainId)
   const destinationChain = lookupChain(destination.chain_id)
+  const ethereumChain = lookupChain(ETHEREUM_CHAIN_ID)
+  const ethereumLeg = {
+    name: "Ethereum",
+    logoUrl:
+      ethereumChain?.logo_uri ||
+      findDepositApiSource(ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM)?.fallbackChainLogoUrl ||
+      "",
+  }
+  const legs = [
+    ...(transport === "lifi"
+      ? [{ name: source.chainName, logoUrl: sourceChain?.logo_uri || source.fallbackChainLogoUrl }]
+      : []),
+    ethereumLeg,
+    {
+      name: destinationChain?.pretty_name || destination.chain_name,
+      logoUrl: destinationChain?.logo_uri ?? "",
+    },
+  ]
 
   const sessionDraft = useMemo((): DepositSessionDraft | undefined => {
     if (!recipient || !hexAddress || !amount || !depositAddress || !cursor) return undefined
@@ -874,6 +895,7 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
     // only a failed attempt the user may retry.
     submitError,
     nativeSymbol,
+    legs,
     quoteUpdated,
     isRefreshingQuote: refreshRequestedAt > 0 && freshnessSettledAt <= refreshRequestedAt,
     unknownSend,

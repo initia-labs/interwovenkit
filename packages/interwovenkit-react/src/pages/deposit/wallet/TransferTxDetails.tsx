@@ -1,3 +1,4 @@
+import { Fragment } from "react"
 import { IconChevronRight } from "@initia/icons-react"
 import { formatAmount, truncate } from "@initia/utils"
 import Collapsible from "@/components/Collapsible"
@@ -22,6 +23,8 @@ import type { CSSProperties, ReactNode } from "react"
 interface BodyProps {
   /** Rows inside the collapsible "Transaction details" section. */
   children: ReactNode
+  /** Rows that stay visible above the collapsible (the provider choice). */
+  before?: ReactNode
   estimatedTime: ReactNode
   estimatedTimeStyle?: CSSProperties
   estimatedReceived: ReactNode
@@ -35,12 +38,14 @@ interface BodyProps {
  */
 export const TransferTxDetailsBody = ({
   children,
+  before,
   estimatedTime,
   estimatedTimeStyle,
   estimatedReceived,
 }: BodyProps) => {
   return (
     <div className={styles.container}>
+      {before}
       <Collapsible title="Transaction details">{children}</Collapsible>
 
       <DetailRow label="Estimated time" valueStyle={estimatedTimeStyle}>
@@ -114,15 +119,13 @@ const TransferTxDetails = ({ renderFee }: Props) => {
 }
 
 /**
- * Deposit API details. Two things separate it from the Router adapter above.
- *
- * There is exactly one fee row, labeled as the source network fee: the quoted
- * `amount_out` is already net of the bridge's own effects, so a second "bridge
- * fee" row would count the same cost twice. When the upstream supplies no gas
- * estimate the row says the wallet will price it, rather than showing zero.
- *
- * And the provider row is a control: it is the only way into the route picker,
- * which is why it renders as a pressable row rather than a static value.
+ * Deposit API details. The provider is the one choice the user makes here, so
+ * it stays visible above the collapsible with the bridge's own duration and
+ * opens the picker. Inside the details there is exactly one fee row, labeled as
+ * the source network fee: the quoted `amount_out` is already net of the
+ * bridge's effects, so a "bridge fee" row would count the same cost twice. The
+ * route row names the chains funds pass through; how the Deposit API moves the
+ * later hops is its own concern and is not surfaced.
  */
 export const DepositTransferTxDetails = ({ model }: { model: DepositTransferModel }) => {
   const { registryUrl } = useConfig()
@@ -132,16 +135,32 @@ export const DepositTransferTxDetails = ({ model }: { model: DepositTransferMode
 
   const tool = quote ? getBridgeToolDisplay(quote.tool) : undefined
   const destinationLogo = `${registryUrl}/images/${route.dst_symbol}.png`
+  const bridgeSeconds = quote?.estimate.execution_duration_seconds
   // Every leg must be known for the total to mean anything (combineEstimatedSeconds).
   const estimatedSeconds = combineEstimatedSeconds(
     transport === "lifi"
-      ? [quote?.estimate.execution_duration_seconds, destination.processing_time_seconds]
+      ? [bridgeSeconds, destination.processing_time_seconds]
       : [destination.processing_time_seconds],
   )
   const estimatedTime = estimatedSeconds ? formatDuration(estimatedSeconds) : undefined
 
   return (
     <TransferTxDetailsBody
+      before={
+        transport === "lifi" &&
+        tool &&
+        model.openRouteSelection && (
+          <DetailRow label="Provider">
+            <button type="button" className={styles.provider} onClick={model.openRouteSelection}>
+              <Image src={tool.logoUrl} alt={tool.name} width={14} height={14} logo /> {tool.name}
+              {bridgeSeconds ? (
+                <span className={styles.muted}> · {formatDuration(bridgeSeconds)}</span>
+              ) : null}
+              <IconChevronRight size={12} aria-hidden="true" />
+            </button>
+          </DetailRow>
+        )
+      }
       estimatedTime={estimatedTime || UNKNOWN}
       estimatedTimeStyle={
         estimatedSeconds && estimatedSeconds > LONG_DURATION_SECONDS
@@ -166,14 +185,16 @@ export const DepositTransferTxDetails = ({ model }: { model: DepositTransferMode
         )
       }
     >
-      {transport === "lifi" && tool && model.openRouteSelection && (
-        <DetailRow label="Provider">
-          <button type="button" className={styles.provider} onClick={model.openRouteSelection}>
-            <Image src={tool.logoUrl} alt={tool.name} width={14} height={14} logo /> {tool.name}
-            <IconChevronRight size={12} aria-hidden="true" />
-          </button>
-        </DetailRow>
-      )}
+      <DetailRow label="Route">
+        <span className={styles.route}>
+          {model.legs.map((leg, index) => (
+            <Fragment key={leg.name}>
+              {index > 0 && <IconChevronRight size={10} aria-hidden="true" />}
+              <Image src={leg.logoUrl} alt={leg.name} width={14} height={14} logo /> {leg.name}
+            </Fragment>
+          ))}
+        </span>
+      </DetailRow>
 
       <DetailRow label="Network fee">{formatNetworkFee(quote?.estimate.gas_cost_usd)}</DetailRow>
 
@@ -192,16 +213,6 @@ export const DepositTransferTxDetails = ({ model }: { model: DepositTransferMode
         {!isHostRecipient && <img src={walletIcon} alt="Wallet" height={12} width={12} />}{" "}
         {truncate(recipient)}
       </DetailRow>
-
-      {transport === "lifi" && quote && (
-        <DetailRow label="Minimum on Ethereum">
-          {formatAmount(quote.min_received, { decimals: 6 })} USDC
-        </DetailRow>
-      )}
-
-      {/* Aggregator attribution. The bridge the user picked is the Provider row
-          above; `provider: "lifi"` is who routed to it. */}
-      {transport === "lifi" && <DetailRow label="Via">LI.FI</DetailRow>}
     </TransferTxDetailsBody>
   )
 }

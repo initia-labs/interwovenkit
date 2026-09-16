@@ -341,8 +341,11 @@ export function useSourceChainProvider(chainId: string): JsonRpcProvider | null 
   }, [chainId])
 
   // ethers keeps a polling loop alive once `wait()` subscribed to blocks;
-  // release it when the chain changes or the screen goes away.
-  useEffect(() => () => provider?.destroy(), [provider])
+  // stop it when the chain changes or the screen goes away. Dropping the
+  // listeners (not `destroy()`) keeps the memoized provider usable after
+  // StrictMode's mount → cleanup → mount, which would otherwise leave a
+  // permanently dead provider whose every read rejects before reaching the network.
+  useEffect(() => () => void provider?.removeAllListeners(), [provider])
   return provider
 }
 

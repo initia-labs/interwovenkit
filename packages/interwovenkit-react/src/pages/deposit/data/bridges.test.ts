@@ -11,6 +11,7 @@ import {
   createBridgeQuoteQueryOptions,
   createBridgeStatusQueryOptions,
   meetsRequiredMinimum,
+  netValueDifference,
   parseBridgeOptions,
   parseBridgeQuote,
   parseBridgeStatus,
@@ -225,40 +226,54 @@ describe("rankBridgeOptions", () => {
   it("puts every eligible route ahead of every ineligible one", () => {
     expect(
       keys([
-        option({ bridge: "a", eligible: false, min_received: "9000" }),
-        option({ bridge: "b", min_received: "1000" }),
+        option({ bridge: "a", eligible: false, amount_out: "9000" }),
+        option({ bridge: "b", amount_out: "1000" }),
       ]),
     ).toEqual(["b", "a"])
   })
 
-  it("orders by greatest min_received, not amount_out", () => {
+  it("prefers the fastest route among those within 0.5% of the best net value", () => {
     expect(
       keys([
-        option({ bridge: "low", min_received: "1000", amount_out: "9999" }),
-        option({ bridge: "high", min_received: "2000", amount_out: "2001" }),
+        option({ bridge: "slow", amount_out: "1000000", execution_duration_seconds: 1200 }),
+        option({ bridge: "fast", amount_out: "996000", execution_duration_seconds: 4 }),
+        option({ bridge: "mid", amount_out: "999000", execution_duration_seconds: 60 }),
       ]),
-    ).toEqual(["high", "low"])
+    ).toEqual(["fast", "mid", "slow"])
   })
 
-  it("compares minimums as integers, not lexically", () => {
+  it("keeps a route paying materially more ahead of a faster one outside the tolerance", () => {
     expect(
       keys([
-        option({ bridge: "nine", min_received: "9000000" }),
-        option({ bridge: "ten", min_received: "10000000" }),
+        option({ bridge: "rich", amount_out: "10000000", execution_duration_seconds: 1200 }),
+        option({ bridge: "fast", amount_out: "9900000", execution_duration_seconds: 4 }),
       ]),
-    ).toEqual(["ten", "nine"])
+    ).toEqual(["rich", "fast"])
   })
 
-  it("breaks a minimum tie by the shorter known duration", () => {
+  it("treats a gap under a cent as competitive even when it exceeds 0.5% of a small deposit", () => {
+    // 0.5 USDC: $0.004 of extra gas is 0.8% of the output but not worth 9 minutes.
     expect(
       keys([
-        option({ bridge: "slow", execution_duration_seconds: 300 }),
-        option({ bridge: "fast", execution_duration_seconds: 30 }),
+        option({ bridge: "slow", amount_out: "500000", execution_duration_seconds: 628 }),
+        option({ bridge: "fast", amount_out: "496000", execution_duration_seconds: 106 }),
+        option({ bridge: "far", amount_out: "480000", execution_duration_seconds: 3 }),
       ]),
-    ).toEqual(["fast", "slow"])
+    ).toEqual(["fast", "slow", "far"])
   })
 
-  it("sorts an unknown duration after every known one", () => {
+  it("nets the quoted gas out of the output before comparing", () => {
+    // 1.00 USDC out minus $0.05 gas < 0.96 USDC out with free gas is outside
+    // the tolerance, so output alone would have ranked these the other way.
+    expect(
+      keys([
+        option({ bridge: "gassy", amount_out: "1000000", gas_cost_usd: "0.05" }),
+        option({ bridge: "lean", amount_out: "960000", gas_cost_usd: "0" }),
+      ]),
+    ).toEqual(["lean", "gassy"])
+  })
+
+  it("sorts an unknown duration after every known one among competitive routes", () => {
     expect(
       keys([
         option({ bridge: "unknown" }),
@@ -270,19 +285,10 @@ describe("rankBridgeOptions", () => {
   it("breaks a duration tie by the lower known gas cost", () => {
     expect(
       keys([
-        option({ bridge: "pricey", execution_duration_seconds: 30, gas_cost_usd: "1.20" }),
-        option({ bridge: "cheap", execution_duration_seconds: 30, gas_cost_usd: "0.90" }),
+        option({ bridge: "pricey", execution_duration_seconds: 30, gas_cost_usd: "0.0012" }),
+        option({ bridge: "cheap", execution_duration_seconds: 30, gas_cost_usd: "0.0009" }),
       ]),
     ).toEqual(["cheap", "pricey"])
-  })
-
-  it("sorts an unknown gas cost after every known one", () => {
-    expect(
-      keys([
-        option({ bridge: "unknown", execution_duration_seconds: 30 }),
-        option({ bridge: "pricey", execution_duration_seconds: 30, gas_cost_usd: "9.99" }),
-      ]),
-    ).toEqual(["pricey", "unknown"])
   })
 
   it("falls back to the bridge key so the order is deterministic", () => {
@@ -297,8 +303,8 @@ describe("rankBridgeOptions", () => {
   it("sorts unparseable values last without throwing", () => {
     expect(
       keys([
-        option({ bridge: "broken", min_received: "not-a-number" }),
-        option({ bridge: "ok", min_received: "1" }),
+        option({ bridge: "broken", amount_out: "not-a-number" }),
+        option({ bridge: "ok", amount_out: "1" }),
       ]),
     ).toEqual(["ok", "broken"])
     expect(
@@ -313,6 +319,19 @@ describe("rankBridgeOptions", () => {
     const input = [option({ bridge: "b" }), option({ bridge: "a" })]
     rankBridgeOptions(input)
     expect(input.map(({ bridge }) => bridge)).toEqual(["b", "a"])
+  })
+})
+
+describe("netValueDifference", () => {
+  it("reports the signed percentage against the best eligible route", () => {
+    const options = [
+      option({ bridge: "best", amount_out: "1000000" }),
+      option({ bridge: "worse", amount_out: "990000" }),
+      option({ bridge: "out", eligible: false, amount_out: "2000000" }),
+    ]
+    expect(netValueDifference(options[0], options)).toBe("+0.00%")
+    expect(netValueDifference(options[1], options)).toBe("-1.00%")
+    expect(netValueDifference(option({ bridge: "x", amount_out: "nope" }), options)).toBe("")
   })
 })
 

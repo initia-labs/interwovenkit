@@ -98,7 +98,7 @@ test("opens the picker, chooses an alternate route, and keeps it on back @mobile
   // Ineligible routes stay visible with their reason, and cannot be chosen.
   const ineligible = pickerRow(page, "Symbiosis")
   await expect(ineligible).toBeDisabled()
-  await expect(page.getByText(/Below the .* Ethereum minimum/)).toBeVisible()
+  await expect(page.getByText(/Below the .* minimum/)).toBeVisible()
   await shot(page, info, "route-picker")
 
   await pickerRow(page, "StargateV2 (Fast mode)").click()

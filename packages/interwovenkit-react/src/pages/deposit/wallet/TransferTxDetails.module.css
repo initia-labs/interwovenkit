@@ -31,3 +31,13 @@
 .provider:hover {
   color: var(--gray-1);
 }
+
+.muted {
+  color: var(--gray-3);
+}
+
+.route {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}

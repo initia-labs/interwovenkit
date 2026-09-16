@@ -156,9 +156,6 @@ export function parseBridgeOptions(
   return { deposit_address, required_min_received, options: parsed }
 }
 
-const knownMinReceived = (option: BridgeOption): bigint | undefined =>
-  isIntegerString(option.min_received) ? BigInt(option.min_received) : undefined
-
 const knownDuration = (option: BridgeOption): number | undefined => {
   const value = option.execution_duration_seconds
   return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : undefined
@@ -168,6 +165,22 @@ const knownGasCost = (option: BridgeOption): BigNumber | undefined =>
   // Guarded before BigNumber(): strict mode throws on unparseable input, and a
   // ranking helper must never take down the route list.
   isDecimalString(option.gas_cost_usd) ? BigNumber(option.gas_cost_usd) : undefined
+
+// Every supported source is canonical USDC, and gas is quoted in USD, so the
+// two can be netted in USDC base units with USDC taken as one dollar.
+const USDC_DECIMALS = 6
+
+/**
+ * Expected USDC out net of the quoted gas, in base units. An absent gas
+ * estimate counts as zero (the route still competes on its output); a
+ * malformed one makes the value unknown, so it sorts last instead of winning.
+ */
+function netValue(option: BridgeOption): BigNumber | undefined {
+  if (!isIntegerString(option.amount_out)) return undefined
+  const gas = option.gas_cost_usd === undefined ? BigNumber(0) : knownGasCost(option)
+  if (!gas) return undefined
+  return BigNumber(option.amount_out).minus(gas.shiftedBy(USDC_DECIMALS))
+}
 
 /** Unknown sorts after every known value, so a missing estimate can never win a tie-break. */
 function compareUnknownLast<T>(
@@ -182,40 +195,87 @@ function compareUnknownLast<T>(
 }
 
 /**
- * Deterministic route order: eligible first, then the greatest guaranteed
- * Ethereum `min_received`, then shorter known duration, then lower known gas,
- * then the bridge key. Ranking on the *minimum* rather than the expected output
- * matches the backend's own ordering and is the conservative choice — the
- * minimum is what the deposit gate compares, so the top route is the one least
- * likely to land below it.
+ * Routes whose net value is within this share of the best are "competitive"
+ * and ordered by speed instead of output. 0.5% is the backend's own slippage
+ * tolerance, so the ranking never trades more than a quote already may move.
+ */
+export const COMPETITIVE_VALUE_TOLERANCE = 0.005
+
+/**
+ * Gaps under this many dollars count as competitive regardless of the share,
+ * so on a small deposit a few tenths of a cent of gas never outrank minutes.
+ */
+export const COMPETITIVE_VALUE_FLOOR_USD = 0.01
+
+function bestNetValue(options: BridgeOption[]): BigNumber | undefined {
+  return options
+    .filter((option) => option.eligible)
+    .map(netValue)
+    .filter((value): value is BigNumber => value !== undefined)
+    .reduce<BigNumber | undefined>(
+      (best, value) => (best && best.gte(value) ? best : value),
+      undefined,
+    )
+}
+
+/**
+ * Deterministic route order, weighing cost and speed the way bridge aggregators
+ * present it: eligible routes first; among them, every route within
+ * COMPETITIVE_VALUE_TOLERANCE (or COMPETITIVE_VALUE_FLOOR_USD, whichever is
+ * looser) of the best net value (expected output minus gas) is ordered by
+ * shorter known duration, then lower gas; the remaining eligible routes follow
+ * by net value; ineligible routes come last. A 20-minute route that pays 0.3%
+ * more therefore never outranks a 4-second one, while a route paying
+ * materially more still wins.
  *
  * Pure and total: it copies the input and never throws on a malformed value
  * (those sort last), so the picker still renders while the parser's rejection
  * surfaces through the query.
  */
 export function rankBridgeOptions(options: BridgeOption[]): BridgeOption[] {
+  const nets = new Map(options.map((option) => [option.bridge, netValue(option)]))
+  const best = bestNetValue(options)
+  const floor =
+    best &&
+    BigNumber.min(
+      best.times(1 - COMPETITIVE_VALUE_TOLERANCE),
+      best.minus(BigNumber(COMPETITIVE_VALUE_FLOOR_USD).shiftedBy(USDC_DECIMALS)),
+    )
+  const isCompetitive = (option: BridgeOption) => {
+    const net = nets.get(option.bridge)
+    return option.eligible && !!floor && !!net && net.gte(floor)
+  }
+
+  const byKey = (a: BridgeOption, b: BridgeOption) =>
+    a.bridge < b.bridge ? -1 : a.bridge > b.bridge ? 1 : 0
+  // comparedTo answers null only for NaN operands, which the decimal guards
+  // above exclude; `?? 0` keeps the sort total.
+  const byNet = (a: BridgeOption, b: BridgeOption) =>
+    compareUnknownLast(nets.get(a.bridge), nets.get(b.bridge), (x, y) => y.comparedTo(x) ?? 0)
+  const byDuration = (a: BridgeOption, b: BridgeOption) =>
+    compareUnknownLast(knownDuration(a), knownDuration(b), (x, y) => x - y)
+  const byGas = (a: BridgeOption, b: BridgeOption) =>
+    compareUnknownLast(knownGasCost(a), knownGasCost(b), (x, y) => x.comparedTo(y) ?? 0)
+
+  const tier = (option: BridgeOption) => (!option.eligible ? 2 : isCompetitive(option) ? 0 : 1)
   return [...options].sort((a, b) => {
-    if (a.eligible !== b.eligible) return a.eligible ? -1 : 1
-
-    const byMinReceived = compareUnknownLast(knownMinReceived(a), knownMinReceived(b), (x, y) =>
-      x === y ? 0 : x > y ? -1 : 1,
-    )
-    if (byMinReceived !== 0) return byMinReceived
-
-    const byDuration = compareUnknownLast(knownDuration(a), knownDuration(b), (x, y) => x - y)
-    if (byDuration !== 0) return byDuration
-
-    // comparedTo answers null only for NaN operands, which the DECIMAL_PATTERN
-    // guard in knownGasCost already excludes; `?? 0` keeps the sort total.
-    const byGas = compareUnknownLast(
-      knownGasCost(a),
-      knownGasCost(b),
-      (x, y) => x.comparedTo(y) ?? 0,
-    )
-    if (byGas !== 0) return byGas
-
-    return a.bridge < b.bridge ? -1 : a.bridge > b.bridge ? 1 : 0
+    const byTier = tier(a) - tier(b)
+    if (byTier !== 0) return byTier
+    if (tier(a) === 0) return byDuration(a, b) || byGas(a, b) || byNet(a, b) || byKey(a, b)
+    return byNet(a, b) || byDuration(a, b) || byKey(a, b)
   })
+}
+
+/**
+ * How a route's net value compares to the best eligible one, as a signed
+ * percentage string ("-0.02%"); "" when either side is unknown. Display only.
+ */
+export function netValueDifference(option: BridgeOption, options: BridgeOption[]): string {
+  const net = netValue(option)
+  const best = bestNetValue(options)
+  if (!net || !best || best.lte(0)) return ""
+  const percent = net.minus(best).div(best).times(100)
+  return `${percent.isNegative() ? "" : "+"}${percent.toFixed(2)}%`
 }
 
 function parseApproval(
