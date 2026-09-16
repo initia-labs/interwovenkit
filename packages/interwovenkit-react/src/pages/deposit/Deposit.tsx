@@ -139,16 +139,27 @@ const DepositRoutes = () => {
  * starts at select-external; leaving backward returns to the method hub.
  */
 const WalletFlow = () => {
-  const { watch } = useDepositForm()
+  const { watch, setValue } = useDepositForm()
   const navigate = useDepositNavigate()
   const receiveDenom = watch("receiveDenom")
   const receiveChainId = watch("receiveChainId")
+  // Set by the hub's "Continue deposit" rows; opens the flow on the saved
+  // session's progress page instead of a blank form.
+  const resumeSessionId = watch("resumeSessionId")
 
   return (
     <TransferFlow
+      key={resumeSessionId}
       mode="deposit"
       initialAsset={{ denom: receiveDenom, chainId: receiveChainId }}
-      onExit={() => navigate("select-method")}
+      initialSessionId={resumeSessionId}
+      onExit={() => {
+        // Cleared on the way out: the flow's defaults are read once at mount,
+        // so a stale id would reopen the same progress screen the next time the
+        // user picks "Deposit via wallet".
+        setValue("resumeSessionId", "")
+        navigate("select-method")
+      }}
     />
   )
 }

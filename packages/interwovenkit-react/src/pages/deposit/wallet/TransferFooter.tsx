@@ -4,7 +4,10 @@ import type { TxJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
 import { useState } from "react"
 import { formatAmount } from "@initia/utils"
+import Button from "@/components/Button"
 import Dropdown, { type DropdownOption } from "@/components/Dropdown"
+import Footer from "@/components/Footer"
+import FormHelp from "@/components/form/FormHelp"
 import { useBalances } from "@/data/account"
 import { useFindAsset } from "@/data/assets"
 import { useChain } from "@/data/chains"
@@ -19,7 +22,9 @@ import { DEFAULT_GAS_ADJUSTMENT } from "@/public/data/constants"
 import { hasSufficientTransferBalance } from "./transferBalanceGate"
 import { useTransferFlow, useTransferForm } from "./transferFlowConfig"
 import { getTransferFeeWarning, getTransferFooterStatus } from "./transferFooterLogic"
-import TransferTxDetails from "./TransferTxDetails"
+import TransferTxDetails, { DepositTransferTxDetails } from "./TransferTxDetails"
+import type { DepositTransfer } from "./useDepositTransfer"
+import { useDepositTransfer } from "./useDepositTransfer"
 import styles from "./TransferFooter.module.css"
 
 interface Props {
@@ -236,6 +241,85 @@ const TransferFooterWithFee = ({
     <>
       <TransferTxDetails renderFee={feeOptions.length > 0 ? renderFee : undefined} />
       {renderWithApprovalGate(tx, footer, loadingStateProps)}
+    </>
+  )
+}
+
+/**
+ * The Deposit API footer: exactly one primary action, plus whatever the model
+ * has to say about why it is or is not available.
+ *
+ * Only two things can be clicked here — Approve, when the spender's allowance is
+ * short of the quote's, and Deposit. There is no separate review page, so the
+ * "review after refresh" gate lives on this button: a click while the quote has
+ * gone stale refreshes and returns, and a click while it has materially changed
+ * acknowledges the new one. Neither ever reaches the wallet, so a user never
+ * signs something they have not seen.
+ */
+export const DepositTransferFooter = ({ resolution }: { resolution: DepositTransfer }) => {
+  const model = useDepositTransfer(resolution)
+  const { approval, readiness, quoteUpdated } = model
+
+  const isApproving = approval.isApproving
+  const isSending = model.isSubmitting
+  const needsApproval = approval.required && !!approval.approve
+  const actionLabel = needsApproval ? "Approve USDC" : "Deposit"
+
+  // A blocked `info` reason is an input prompt, so it reads as the button's own
+  // label the way the Router footer already does; an `error` is a real failure
+  // and belongs in a message the disabled action sits under.
+  const isPrompt = readiness.status === "blocked" && readiness.level === "info"
+  const errorMessage =
+    readiness.status === "blocked" && readiness.level !== "info" ? readiness.message : undefined
+
+  const loadingText = isSending
+    ? "Sending deposit..."
+    : isApproving
+      ? "Approving USDC..."
+      : model.isRefreshingQuote
+        ? "Refreshing quote..."
+        : readiness.status === "loading"
+          ? readiness.message || "Preparing..."
+          : false
+
+  return (
+    <>
+      <DepositTransferTxDetails model={model} />
+      <Footer
+        extra={
+          // Sentences, not hashes: the shared help style breaks anywhere so raw
+          // RPC errors fit; these messages must wrap on words.
+          <div className={styles.prose}>
+            <FormHelp.Stack>
+              {errorMessage && (
+                <FormHelp level={readiness.level ?? "error"}>{errorMessage}</FormHelp>
+              )}
+              {model.submitError && <FormHelp level="error">{model.submitError}</FormHelp>}
+              {quoteUpdated && (
+                <FormHelp level="info">Quote updated. Review and confirm again.</FormHelp>
+              )}
+            </FormHelp.Stack>
+          </div>
+        }
+      >
+        {model.unknownSend ? (
+          // Nothing may re-enter the wallet from here; the session's progress
+          // view is where the ambiguous send gets resolved.
+          <Button.White type="button" onClick={model.openProgress} fullWidth>
+            View progress
+          </Button.White>
+        ) : (
+          <Button.White
+            type="button"
+            onClick={needsApproval ? approval.approve : model.submit}
+            loading={loadingText}
+            disabled={readiness.status !== "ready"}
+            fullWidth
+          >
+            {isPrompt ? readiness.message : actionLabel}
+          </Button.White>
+        )}
+      </Footer>
     </>
   )
 }

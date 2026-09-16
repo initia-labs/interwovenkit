@@ -38,6 +38,56 @@ export const depositQueryKeys = createQueryKeys("interwovenkit:deposit", {
     dstDenom: string,
     amountIn: string,
   ) => [srcChainId, srcDenom, dstChainId, dstDenom, amountIn],
+  // Pre-deposit bridge leg (deposit-via-wallet on Base/Arbitrum). Every field
+  // the request is bound to is in the key: a quote is only executable for the
+  // exact identity it was requested with, so a changed sender, recipient or
+  // amount must miss the cache rather than reuse a transaction built for the
+  // previous one.
+  bridgeOptions: (
+    srcChainId: string,
+    srcDenom: string,
+    dstChainId: string,
+    dstDenom: string,
+    amount: string,
+    fromAddress: string,
+    walletAddress: string,
+  ) => [srcChainId, srcDenom, dstChainId, dstDenom, amount, fromAddress, walletAddress],
+  bridgeQuote: (
+    srcChainId: string,
+    srcDenom: string,
+    dstChainId: string,
+    dstDenom: string,
+    amount: string,
+    fromAddress: string,
+    walletAddress: string,
+    bridge: string,
+  ) => [srcChainId, srcDenom, dstChainId, dstDenom, amount, fromAddress, walletAddress, bridge],
+  // Bridge status is keyed by the observed source transaction plus the issued
+  // address, never by the tool: the `bridge` hint is omitted from the request
+  // (a mismatched hint answers 502 upstream_conflict, see bridges.ts).
+  bridgeStatus: (srcChainId: string, srcTxHash: string, depositAddress: string) => [
+    srcChainId,
+    srcTxHash,
+    depositAddress,
+  ],
+  // Direct Ethereum correlation: the exact transfer hash the user just sent.
+  depositBySourceTx: (srcChainId: string, srcTxHash: string) => [srcChainId, srcTxHash],
+  // Source-chain-pinned ERC-20 + native balances (see wallet/evmRpc.ts). Keyed
+  // by chain so a wallet network switch cannot serve another chain's balance.
+  sourceBalances: (chainId: string, owner: string, token: string) => [chainId, owner, token],
+  // Pinned head block (the replacement-scan lower bound) and ERC-20 allowance
+  // for the LI.FI spender, read on the source chain before a prompt.
+  sourceBlock: (chainId: string) => [chainId],
+  maxFeePerGas: (chainId: string) => [chainId],
+  allowance: (chainId: string, owner: string, token: string, spender: string) => [
+    chainId,
+    owner,
+    token,
+    spender,
+  ],
+  // Pinned receipt/replacement watch on the source transaction, keyed by the
+  // hash actually being watched so adopting a replacement re-keys it.
+  sourceWatch: (sessionId: string, txHash: string) => [sessionId, txHash],
 })
 
 /**

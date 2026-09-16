@@ -1,3 +1,4 @@
+import { useConfig } from "@/data/config"
 import { IUSD_SYMBOL } from "@/data/constants"
 import { useLocationState } from "@/lib/router"
 import { type RouterAsset, useAllSkipAssets } from "@/pages/bridge/data/assets"
@@ -10,10 +11,17 @@ import {
 } from "@/pages/bridge/data/chains"
 import { type AssetOption, type DepositLocationState, normalizeDenom } from "../data/assetOptions"
 import { type Balance, useAllBalancesQuery } from "./balances"
+import type { DepositApiSource } from "./depositSources"
+import {
+  DEPOSIT_API_SOURCES,
+  ETHEREUM_CHAIN_ID,
+  ETHEREUM_USDC_DENOM,
+  findDepositApiSource,
+  intersectHostSources,
+} from "./depositSources"
+import type { TransferMode } from "./transferFlowConfig"
 import { useTransferFlow, useTransferForm, useTransferMode } from "./transferFlowConfig"
 
-const ETHEREUM_CHAIN_ID = "1"
-const ETHEREUM_USDC_DENOM = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 const ETHEREUM_AUSD_DENOM = "0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a"
 
 interface ExternalSourceOverride {
@@ -33,6 +41,63 @@ const EXTERNAL_SOURCE_OVERRIDES: Record<string, ExternalSourceOverride> = {
     extraInitiaSourceSymbols: ["USDC"],
     externalChainListSource: "extra-options",
   },
+}
+
+/**
+ * Whether a source row survives the deposit-mode filter. Deposit normally hides
+ * assets the user has no balance in, but a Deposit API source must stay
+ * selectable on an unknown balance: its authoritative balance comes from a
+ * source-chain-pinned read (evmRpc), not from Skip's aggregate snapshot, and
+ * dropping a backend-supported source because that snapshot lagged (or omits the
+ * chain entirely) would hide a working deposit path. Withdraw and every Router
+ * pair keep today's rule.
+ */
+export function shouldShowTransferSource({
+  mode,
+  hasPositiveBalance,
+  isDepositApiSource,
+}: {
+  mode: TransferMode
+  hasPositiveBalance: boolean
+  isDepositApiSource: boolean
+}): boolean {
+  if (mode !== "deposit") return true
+  return isDepositApiSource || hasPositiveBalance
+}
+
+/**
+ * Minimal Skip-shaped records for a backend-supported source Skip does not list.
+ * Live Router data currently carries all three USDC pairs, so this is a fallback
+ * rather than the normal path — but the Deposit API's support cannot depend on
+ * another aggregator's catalog, and a missing record would otherwise break the
+ * asset row, the form's early return and the chain lookup all at once.
+ */
+export function synthesizeDepositApiAsset(
+  source: DepositApiSource,
+  assetLogoUrl: string,
+): RouterAsset {
+  return {
+    denom: source.denom,
+    chain_id: source.chainId,
+    symbol: source.symbol,
+    name: source.symbol,
+    decimals: source.decimals,
+    logo_uri: assetLogoUrl,
+  } as RouterAsset
+}
+
+export function synthesizeDepositApiChain(source: DepositApiSource): RouterChainJson {
+  return {
+    chain_id: source.chainId,
+    chain_name: source.chainName,
+    pretty_name: source.chainName,
+    chain_type: "evm",
+    logo_uri: source.fallbackChainLogoUrl,
+    // No RPC: a synthesized chain cannot back a pinned read, and readiness
+    // reports that as "cannot be verified" rather than letting a send proceed.
+    rpc: "",
+    rest: "",
+  } as RouterChainJson
 }
 
 function matchesAssetOption(option: AssetOption, chainId: string, denom: string): boolean {
@@ -84,6 +149,33 @@ const EMPTY_EXTERNAL_ASSET_OPTIONS_RESULT: ExternalAssetOptionsResult = {
   localSymbol: "",
 }
 
+/**
+ * The canonical Deposit API sources this host permits, with their display
+ * records resolved. Empty when the Deposit API is not configured, so a host
+ * without it sees exactly today's Router-only source list.
+ */
+function useDepositApiSourceOptions(): ExternalAssetOptionItem[] {
+  const { depositApiUrl, registryUrl } = useConfig()
+  const { remoteOptions = [] } = useLocationState<DepositLocationState>()
+  const skipAssets = useAllSkipAssets()
+  const skipChains = useSkipChains()
+
+  if (!depositApiUrl) return []
+
+  return intersectHostSources(DEPOSIT_API_SOURCES, remoteOptions).map((source) => {
+    const asset =
+      skipAssets.find(
+        (candidate) =>
+          candidate.chain_id === source.chainId &&
+          normalizeDenom(candidate.denom) === normalizeDenom(source.denom),
+      ) ?? synthesizeDepositApiAsset(source, `${registryUrl}/images/${source.symbol}.png`)
+    const chain =
+      skipChains.find((candidate) => candidate.chain_id === source.chainId) ??
+      synthesizeDepositApiChain(source)
+    return { asset, chain, balance: undefined }
+  })
+}
+
 // host vs Skip casing — see normalizeDenom
 export function useLocalTransferAsset() {
   const { local } = useTransferMode()
@@ -104,17 +196,42 @@ export function useLocalTransferAsset() {
 export function useExternalTransferAsset() {
   const { external } = useTransferMode()
   const skipAssets = useAllSkipAssets()
+  const { depositApiUrl, registryUrl } = useConfig()
   const { watch } = useTransferForm()
   const values = watch()
   const chainId = values[external.chainIdKey]
   const denom = values[external.denomKey]
 
-  return (
-    skipAssets.find(
-      ({ denom: d, chain_id }) =>
-        normalizeDenom(denom) === normalizeDenom(d) && chain_id === chainId,
-    ) || null
+  const skipAsset = skipAssets.find(
+    ({ denom: d, chain_id }) => normalizeDenom(denom) === normalizeDenom(d) && chain_id === chainId,
   )
+  if (skipAsset) return skipAsset
+
+  // A Deposit API source Skip does not list must still resolve: the form's early
+  // return keys on this value, so returning null would render nothing at all for
+  // a pair the backend supports.
+  const source = depositApiUrl ? findDepositApiSource(chainId, denom) : undefined
+  if (!source) return null
+  return synthesizeDepositApiAsset(source, `${registryUrl}/images/${source.symbol}.png`)
+}
+
+/**
+ * Chain lookup for the transfer form that tolerates a Deposit API source Skip
+ * has no entry for. `useFindSkipChain` throws in that case, which would take
+ * down the whole form; here the canonical fallback record renders the name and
+ * logo instead.
+ */
+export function useFindTransferChain() {
+  const skipChains = useSkipChains()
+  const { depositApiUrl } = useConfig()
+  return (chainId: string): RouterChainJson | null => {
+    const chain = skipChains.find((candidate) => candidate.chain_id === chainId)
+    if (chain) return chain
+    const source = depositApiUrl
+      ? DEPOSIT_API_SOURCES.find((candidate) => candidate.chainId === chainId)
+      : undefined
+    return source ? synthesizeDepositApiChain(source) : null
+  }
 }
 
 export function useExternalAssetOptions(): ExternalAssetOptionsResult {
@@ -126,14 +243,28 @@ export function useExternalAssetOptions(): ExternalAssetOptionsResult {
   const { data: balances, error, chainsError, isLoading } = useAllBalancesQuery()
   const { remoteOptions = [] } = useLocationState<DepositLocationState>()
   const localAsset = useLocalTransferAsset()
+  const depositApiSourceOptions = useDepositApiSourceOptions()
   const balancesError = error ?? chainsError ?? null
 
   if (!localAsset) return { ...EMPTY_EXTERNAL_ASSET_OPTIONS_RESULT, isLoading, balancesError }
 
   const sourceOverride = getExternalSourceOverride(localAsset.symbol)
+  // The Deposit API's USDC catalog only extends the override that already offers
+  // USDC as a source (iUSD); it never widens an unrelated asset's source list.
+  const depositApiSources = sourceOverride ? depositApiSourceOptions : []
   const externalSourceSymbols = sourceOverride?.externalSourceSymbols ?? [localAsset.symbol]
   const hasRemoteOptions = remoteOptions.length > 0
-  const extraExternalOptions = sourceOverride?.extraExternalOptions ?? []
+  const extraExternalOptions: AssetOption[] = [
+    ...(sourceOverride?.extraExternalOptions ?? []),
+    ...depositApiSources
+      .map(({ asset }) => ({ chainId: asset.chain_id, denom: asset.denom }))
+      .filter(
+        (option) =>
+          !(sourceOverride?.extraExternalOptions ?? []).some((existing) =>
+            matchesAssetOption(existing, option.chainId, option.denom),
+          ),
+      ),
+  ]
   const extraInitiaSourceSymbols = sourceOverride?.extraInitiaSourceSymbols ?? []
   const externalChainListSource = sourceOverride?.externalChainListSource ?? "supported-assets"
   const skipChainMap = new Map(skipChains.map((chain) => [chain.chain_id, chain]))
@@ -170,14 +301,39 @@ export function useExternalAssetOptions(): ExternalAssetOptionsResult {
     })
     .filter((item): item is NonNullable<typeof item> => item !== null)
 
-  const data = supportedAssets.filter(
-    ({ balance }) => mode !== "deposit" || (!!balance && Number(balance.amount) > 0),
+  // A backend-supported source Skip omits entirely still belongs in the list.
+  const listedAssets = [
+    ...supportedAssets,
+    ...depositApiSources.filter(
+      ({ asset }) =>
+        !supportedAssets.some(
+          (item) =>
+            item.chain.chain_id === asset.chain_id &&
+            normalizeDenom(item.asset.denom) === normalizeDenom(asset.denom),
+        ),
+    ),
+  ]
+
+  const isDepositApiOption = (chainId: string, denom: string) =>
+    depositApiSources.some(
+      ({ asset }) =>
+        asset.chain_id === chainId && normalizeDenom(asset.denom) === normalizeDenom(denom),
+    )
+
+  const data = listedAssets.filter(({ asset, chain, balance }) =>
+    shouldShowTransferSource({
+      mode,
+      hasPositiveBalance: !!balance && Number(balance.amount) > 0,
+      isDepositApiSource: isDepositApiOption(chain.chain_id, asset.denom),
+    }),
   )
 
   const supportedExternalChainMap = new Map<string, RouterChainJson>()
   if (externalChainListSource === "extra-options") {
     for (const { chainId } of extraExternalOptions) {
-      const chain = skipChainMap.get(chainId)
+      const chain =
+        skipChainMap.get(chainId) ??
+        depositApiSources.find(({ chain }) => chain.chain_id === chainId)?.chain
       if (!chain) continue
       if (!isSupportedExternalChain(chain)) continue
       if (getIsInitiaChain(chain.chain_id)) continue
@@ -198,7 +354,7 @@ export function useExternalAssetOptions(): ExternalAssetOptionsResult {
   )
   const appchainSourceSymbols = [
     ...new Set(
-      supportedAssets
+      listedAssets
         .filter(({ chain }) => isInitiaAppchain(chain, getIsInitiaChain))
         .map(({ asset }) => asset.symbol),
     ),

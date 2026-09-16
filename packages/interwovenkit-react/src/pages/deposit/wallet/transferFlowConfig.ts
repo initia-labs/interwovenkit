@@ -1,8 +1,17 @@
 import { createContext, useContext } from "react"
 import { useFormContext } from "react-hook-form"
 import type { BridgeTxResult } from "@/pages/bridge/data/tx"
+import type { DepositSession } from "./depositSession"
 
-export type TransferPage = "select-local" | "select-external" | "fields" | "completed"
+export type TransferPage =
+  | "select-local"
+  | "select-external"
+  | "fields"
+  // Deposit API (direct Ethereum / LI.FI) pages; unreachable for Router pairs
+  // and Withdraw, which keep `completed` as their only post-fields page.
+  | "select-route"
+  | "deposit-progress"
+  | "completed"
 
 export interface TransferFormValues {
   page: TransferPage
@@ -11,6 +20,14 @@ export interface TransferFormValues {
   srcChainId: string
   dstDenom: string
   dstChainId: string
+  /** LI.FI bridge key picked on select-route; "" keeps the ranked default. */
+  selectedBridge: string
+  /** Saved Deposit API session rendered by deposit-progress. */
+  depositSessionId: string
+  /** In-memory copy of the session that was just sent, so progress can still
+   * render (with the recovery reference) when the post-send storage write
+   * failed. Never read in preference to a stored record. */
+  depositSessionFallback?: DepositSession
   // TX completion data
   result?: BridgeTxResult
 }

@@ -4,11 +4,11 @@ Architecture guide for the deposit and withdrawal flows. Keep cross-cutting inva
 
 ## Flows
 
-| Method              | Transaction sender                          | Implementation |
-| ------------------- | ------------------------------------------- | -------------- |
-| Deposit via wallet  | Connected wallet signs a Router transaction | `wallet/`      |
-| Deposit via address | User sends from a wallet or exchange        | `address/`     |
-| Buy with cash/card  | Onramper provider sends the purchased asset | `onramp/`      |
+| Method              | Transaction sender                                                                                    | Implementation |
+| ------------------- | ----------------------------------------------------------------------------------------------------- | -------------- |
+| Deposit via wallet  | Connected wallet signs a Router transaction, or a Deposit API transfer for canonical USDC (see below) | `wallet/`      |
+| Deposit via address | User sends from a wallet or exchange                                                                  | `address/`     |
+| Buy with cash/card  | Onramper provider sends the purchased asset                                                           | `onramp/`      |
 
 `/deposit` is the method hub. `/withdraw` uses the same `TransferFlow` engine as the wallet method, which is why that directory uses transfer-oriented names.
 
@@ -33,6 +33,17 @@ The Deposit API derives a reusable address from `(wallet_address, dst_chain_id, 
 - API amounts are integer base-unit strings. Decimals are network-specific, even for the same asset.
 
 The backend repository is the source of truth for the HTTP contract. Wire statuses are opaque to the client; UI and polling decisions use the server-provided `bucket`. `amount_out` is a routing estimate, not a measured receipt.
+
+## Deposit API wallet transports
+
+`wallet/` resolves exactly one executor per form selection (`depositSources.ts`, `resolveDepositTransport`). Withdraw, an unconfigured `depositApiUrl`, and every source outside the three canonical USDC pairs (Ethereum `1`, Base `8453`, Arbitrum `42161`) keep the Router path unchanged. A supported pair whose destination the Ethereum USDC route feeds (`config/assets`) is executed by the Deposit API; while that catalog is loading or failing only those three sources are unavailable, never silently handed to Router.
+
+- **Direct (Ethereum):** one ERC-20 `transfer` to the address issued for the _final recipient_ (host `recipientAddress` or the connected wallet, canonical bech32). Correlated by the exact source hash through `GET /v1/deposits/by-source-tx`, then tracked by deposit id.
+- **LI.FI (Base, Arbitrum):** `POST /v1/bridges/options` ranks routes (eligible, greatest `min_received`), `POST /v1/bridges/quote` returns the exact call; parsers in `data/bridges.ts` bind every response to the retained request before it can be signed. Tracking polls `GET /v1/bridges/status` without the `bridge` hint until `deposit_indexed`, validates the nested deposit against the issued address, recipient and destination (its `src_tx_hash` is the Ethereum receiving transaction, never the source hash), then tracks by deposit id.
+- **Quotes** go stale after 10 s and are re-read when the user acts, like the Router preview; a materially changed quote (route, contract, native value, approval, amounts) needs a fresh click. Calldata and gas estimates change on every quote and are not part of that review.
+- **Sessions** (`depositSession.ts`): one versioned localStorage record per transfer, written and read back before any wallet prompt, with monotonic phases and a per-session Web Lock held by the executing tab. A wallet call that returns neither a hash nor a provable refusal locks the form as an ambiguous send; nothing is ever re-sent automatically. Non-terminal sessions are offered as "Continue deposit" on the hub.
+- **Chain reads** (`evmRpc.ts`) use a JSON-RPC provider pinned to the source chain, never the wallet's provider: balances, allowance, the pre-submit block, and receipt/replacement detection through ethers' `replaceableTransaction`. The catalog overrides the Router RPC for Base and Arbitrum because those registry endpoints refuse `eth_getTransactionReceipt`.
+- **Buckets:** the wallet controller classifies an unknown wire bucket as a tracking problem (`classifyWalletBucket`), not a failure; the shared `displayBucket`/`isTerminalBucket` used by the address and onramp screens are unchanged. Only `bucket=completed` completes a flow. Fast versus ordinary delivery is backend policy surfaced through `advance_status`.
 
 ## Onramper boundary
 

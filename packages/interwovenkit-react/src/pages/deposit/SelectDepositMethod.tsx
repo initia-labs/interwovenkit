@@ -1,19 +1,26 @@
+import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { IconBuy, IconQrCode, IconWallet } from "@initia/icons-react"
-import { truncate } from "@initia/utils"
+import { formatAmount, truncate } from "@initia/utils"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import { useConfig } from "@/data/config"
 import { useConnectedWalletIcon } from "@/hooks/useConnectedWalletIcon"
 import { useLocationState } from "@/lib/router"
-import { useHexAddress } from "@/public/data/hooks"
+import { useHexAddress, useInitiaAddress } from "@/public/data/hooks"
 import { depositQueryKeys, useOnramperEnabled } from "./data/api"
 import type { DepositLocationState } from "./data/assetOptions"
 import { useDepositRoutes } from "./data/assets"
 import CashMethodSubtext, { CASH_SUBTEXT_FALLBACK } from "./onramp/CashMethodSubtext"
 import { useOnramperCryptos, usePrefetchOnramperGeoDefaults } from "./onramp/data/onramper"
 import { matchOnramperCrypto } from "./onramp/data/onramperLogic"
+import { resumeStageLabel, selectResumableSessions } from "./wallet/depositProgressLogic"
+import {
+  type DepositSession,
+  pruneDepositSessions,
+  useDepositSessionStore,
+} from "./wallet/depositSession"
 import { useDepositForm, useDepositNavigate, useSelectDepositMethod } from "./context"
 import DepositMethodList, { type DepositMethodSection } from "./DepositMethodList"
 import DepositSubpage from "./DepositSubpage"
@@ -30,6 +37,44 @@ type CryptoAvailability =
  * `address`/`onramp` select the deposit method (see useSelectDepositMethod). */
 type HubMethodId = "wallet" | "address" | "onramp"
 
+/**
+ * What a row in the hub list selects. The saved-session rows share the list with
+ * the fixed methods (one list keeps the section spacing and hover behavior), so
+ * their ids are namespaced: the template literal keeps the three fixed ids
+ * exhaustively checked while letting a session id ride in the same union.
+ */
+type HubSelection = HubMethodId | `resume:${string}`
+
+/** Non-terminal deposits credited to the connected account, as list rows. */
+function useResumeSection(): DepositMethodSection<HubSelection> | undefined {
+  const { depositApiUrl, registryUrl } = useConfig()
+  const store = useDepositSessionStore()
+  const initiaAddress = useInitiaAddress()
+
+  if (!depositApiUrl || !initiaAddress) return undefined
+  const sessions = selectResumableSessions(store.list(depositApiUrl), initiaAddress)
+  if (sessions.length === 0) return undefined
+
+  return {
+    label: "Continue deposit",
+    methods: sessions.map((session) => ({
+      id: `resume:${session.id}` as const,
+      title: resumeRowTitle(session),
+      // The stage is the whole point of the row: it tells the user whether the
+      // transfer still needs watching before they start another one.
+      subtext: resumeStageLabel(session),
+      Icon: IconWallet,
+      iconUrl: `${registryUrl}/images/${session.source.symbol}.png`,
+    })),
+  }
+}
+
+/** "5 USDC from Base" — the saved identity, never a live quote. */
+function resumeRowTitle(session: DepositSession): string {
+  const { amount, decimals, symbol, chainName } = session.source
+  return `${formatAmount(amount, { decimals })} ${symbol} from ${chainName}`
+}
+
 interface MethodSectionsProps {
   availability: CryptoAvailability
   /** Cash-only unavailability on top of `availability` (e.g. no route maps to
@@ -42,8 +87,13 @@ const MethodSections = ({ availability, onrampUnavailableReason }: MethodSection
   const onramperEnabled = useOnramperEnabled()
   const navigate = useDepositNavigate()
   const selectMethod = useSelectDepositMethod()
+  const { setValue } = useDepositForm()
   const hexAddress = useHexAddress()
   const walletIcon = useConnectedWalletIcon()
+  // Saved sessions are local state, not a Deposit API read, so they render in
+  // every availability state — a catalog outage must not hide a transfer that
+  // is already in flight.
+  const resumeSection = useResumeSection()
 
   // The Buy form suspends on the geo-defaults lookup; warming it here (the
   // screen the user reads before picking cash) keeps that entry instant.
@@ -69,7 +119,10 @@ const MethodSections = ({ availability, onrampUnavailableReason }: MethodSection
     hostConstraintReason ??
     (availability.status === "unavailable" ? availability.reason : undefined)
 
-  const sections: DepositMethodSection<HubMethodId>[] = [
+  const sections: DepositMethodSection<HubSelection>[] = [
+    // Above Crypto, but never in place of it: existing work in progress does not
+    // remove the ability to start a separate, deliberate deposit.
+    ...(resumeSection ? [resumeSection] : []),
     {
       label: "Crypto",
       methods: [
@@ -139,6 +192,12 @@ const MethodSections = ({ availability, onrampUnavailableReason }: MethodSection
           case "onramp":
             selectMethod(id)
             break
+          default:
+            // A saved session opens the same wallet flow, but on its progress
+            // page. Only an explicit tap gets here: the hub never navigates on
+            // its own, however urgent a pending transfer looks.
+            setValue("resumeSessionId", id.slice("resume:".length))
+            navigate("wallet")
         }
       }}
     />
@@ -195,6 +254,18 @@ const SelectDepositMethod = () => {
   const navigate = useDepositNavigate()
   const queryClient = useQueryClient()
   const receiveSymbol = watch("receiveSymbol")
+
+  // Housekeeping on the one screen that lists saved sessions. Only long-settled
+  // terminal records are dropped; a non-terminal session is never removed, no
+  // matter how old, because age is not evidence that a transfer settled.
+  useEffect(() => {
+    try {
+      pruneDepositSessions(localStorage, Date.now())
+    } catch {
+      // Storage unavailable (private mode, blocked cookies). Pruning is
+      // optional; nothing downstream depends on it having run.
+    }
+  }, [])
 
   return (
     <DepositSubpage

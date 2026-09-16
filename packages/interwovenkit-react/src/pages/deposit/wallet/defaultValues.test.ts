@@ -57,3 +57,34 @@ describe("buildTransferDefaultValues", () => {
     expect(values.dstDenom).toBe(USDC.denom)
   })
 })
+
+describe("buildTransferDefaultValues with a resumed session", () => {
+  test("deposit with initialSessionId: opens deposit-progress for that session", () => {
+    const values = buildTransferDefaultValues({
+      mode: "deposit",
+      initialAsset: INIT,
+      initialSessionId: "session-1",
+      localOptions: [],
+    })
+    expect(values.page).toBe("deposit-progress")
+    expect(values.depositSessionId).toBe("session-1")
+    expect(values.dstDenom).toBe(INIT.denom)
+  })
+
+  test("withdraw ignores initialSessionId", () => {
+    const values = buildTransferDefaultValues({
+      mode: "withdraw",
+      initialAsset: INIT,
+      initialSessionId: "session-1",
+      localOptions: [],
+    })
+    expect(values.page).toBe("fields")
+    expect(values.depositSessionId).toBe("")
+  })
+
+  test("defaults leave selectedBridge and depositSessionId empty", () => {
+    const values = buildTransferDefaultValues({ mode: "deposit", localOptions: [INIT, USDC] })
+    expect(values.selectedBridge).toBe("")
+    expect(values.depositSessionId).toBe("")
+  })
+})

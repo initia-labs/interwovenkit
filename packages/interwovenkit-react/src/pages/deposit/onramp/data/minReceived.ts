@@ -1,25 +1,19 @@
 import BigNumber from "bignumber.js"
-import { HTTPError } from "ky"
-import { keepPreviousData, useQuery } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { formatNumber, fromBaseUnit, toBaseUnit } from "@initia/utils"
 import { useConfig } from "@/data/config"
-import { normalizeError, normalizeErrorMessage, STALE_TIMES } from "@/data/http"
-import { depositQueryKeys, useDepositApi } from "../../data/api"
+import { useDepositApi } from "../../data/api"
+import type { QuoteResult } from "../../data/quote"
+import { createQuoteQueryOptions } from "../../data/quote"
 import { findDestinationNetwork } from "../../data/source"
-import type { QuoteResponse } from "../../data/types"
 import { useOnramperSourceRoute } from "./onramper"
 
-// Matches the Onramper quotes cadence (QUOTE_STALE_TIME) so the route estimate
-// refreshes in step with the payout it is derived from.
-const ROUTE_QUOTE_STALE_TIME = STALE_TIMES.SECOND * 30
-
-// The pre-quote outcome kept as query data, not query error: a 400 is the
-// endpoint's deliberate refusal to quote this request (route unconfigured or
-// paused, or payout below the backend's live `min_deposit_amount`) — a signal
-// the form must gate on, not the error channel transient failures flow through.
-type QuoteResult =
-  | { status: "quoted"; quote: QuoteResponse }
-  | { status: "declined"; reason: string }
+// The downstream pre-quote contract (request shape, 400-is-a-decline
+// classification, cadence) lives in data/quote.ts so the wallet flow's
+// worst-case Ethereum preflight gates on exactly the same verdict. Re-exported
+// because this module has been the import site since before that split.
+export type { QuoteResult } from "../../data/quote"
+export { classifyQuoteFailure } from "../../data/quote"
 
 export interface MinReceived {
   /** Formatted token-unit string; "" when unavailable (the row shows its "—" placeholder). */
@@ -73,19 +67,6 @@ export function deriveSettlement(params: {
 }): Pick<MinReceived, "isSettled" | "isFailed"> {
   const isSettled = !params.enabled || (params.hasData && !params.isPlaceholderData)
   return { isSettled, isFailed: !isSettled && params.isError }
-}
-
-/**
- * Classifies a pre-quote failure. A 400 is the endpoint's contract for refusing
- * to quote this request (see QuoteResult): a deliberate outcome, promoted to
- * data with the backend's message kept for the footer, not flowed through the
- * error channel transient failures use. Any other status is treated as transient.
- */
-export async function classifyQuoteFailure(error: unknown): Promise<QuoteResult> {
-  if (error instanceof HTTPError && error.response.status === 400) {
-    return { status: "declined", reason: await normalizeErrorMessage(error) }
-  }
-  throw await normalizeError(error)
 }
 
 /**
@@ -171,39 +152,19 @@ export function useMinReceived(
 
   const enabled = !!depositApiUrl && !!route && !!network && !!amountIn && BigNumber(amountIn).gt(0)
 
-  const { data, isPlaceholderData, isError } = useQuery({
-    queryKey: depositQueryKeys.minReceived(
-      route?.src_chain_id ?? "",
-      route?.src_denom ?? "",
-      chainId,
-      denom,
-      amountIn,
-    ).queryKey,
-    queryFn: async (): Promise<QuoteResult> => {
-      try {
-        const quote = await api
-          .get("v1/quote", {
-            searchParams: {
-              src_chain_id: route?.src_chain_id ?? "",
-              src_denom: route?.src_denom ?? "",
-              dst_chain_id: chainId,
-              dst_denom: denom,
-              amount_in: amountIn,
-            },
-          })
-          .json<QuoteResponse>()
-        return { status: "quoted", quote }
-      } catch (error) {
-        return await classifyQuoteFailure(error)
-      }
-    },
-    enabled,
-    staleTime: ROUTE_QUOTE_STALE_TIME,
-    refetchInterval: ROUTE_QUOTE_STALE_TIME,
-    // Keep the previous estimate on screen while the amount changes, so the
-    // row doesn't flash its placeholder on every quote refresh.
-    placeholderData: keepPreviousData,
-  })
+  const { data, isPlaceholderData, isError } = useQuery(
+    createQuoteQueryOptions(
+      api,
+      {
+        srcChainId: route?.src_chain_id ?? "",
+        srcDenom: route?.src_denom ?? "",
+        dstChainId: chainId,
+        dstDenom: denom,
+        amountIn,
+      },
+      enabled,
+    ),
+  )
 
   // A persistent quote outage keeps isSettled false and the form blocked (fail
   // closed for a no-refund purchase); isFailed additionally surfaces it as a

@@ -48,3 +48,14 @@
 .activeRow {
   background-color: var(--gray-8);
 }
+
+/* Disabled option: still readable (the row content carries the reason it cannot
+ * be chosen) but visibly inert, and without the hover affordance. */
+.row:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.row:disabled:hover {
+  background-color: transparent;
+}

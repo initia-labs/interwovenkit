@@ -7,6 +7,8 @@ import DepositPageTransition from "../DepositPageTransition"
 import DepositSurface from "../DepositSurface"
 import { useAllBalancesQuery } from "./balances"
 import { buildTransferDefaultValues } from "./defaultValues"
+import DepositProgress from "./DepositProgress"
+import SelectDepositRoute from "./SelectDepositRoute"
 import SelectExternalAsset from "./SelectExternalAsset"
 import SelectLocalAsset from "./SelectLocalAsset"
 import { TransferCompleted } from "./TransferCompleted"
@@ -23,6 +25,9 @@ interface Props {
   /** The local asset chosen upstream (the deposit hub). Presets it and starts
    * the flow at select-external — the select-local page is never shown. */
   initialAsset?: AssetOption
+  /** A saved Deposit API session to resume (from the method hub). Opens the
+   * flow on deposit-progress for that session; no form input is needed. */
+  initialSessionId?: string
   /** Exit backward out of this flow (to the deposit hub). When set, the flow is
    * embedded: back boundaries that would otherwise go to select-local call this
    * instead, and the outer AnimatedHeight is skipped (the hub already animates
@@ -30,11 +35,16 @@ interface Props {
   onExit?: () => void
 }
 
-const TransferFlow = ({ mode, initialAsset, onExit }: Props) => {
+const TransferFlow = ({ mode, initialAsset, initialSessionId, onExit }: Props) => {
   const { localOptions = [] } = useLocationState<DepositLocationState>()
   const form = useForm<TransferFormValues>({
     mode: "onChange",
-    defaultValues: buildTransferDefaultValues({ mode, initialAsset, localOptions }),
+    defaultValues: buildTransferDefaultValues({
+      mode,
+      initialAsset,
+      initialSessionId,
+      localOptions,
+    }),
   })
 
   // prefetch balances
@@ -64,6 +74,10 @@ const TransferFlowRoutes = () => {
         return <SelectExternalAsset />
       case "fields":
         return <TransferFields />
+      case "select-route":
+        return <SelectDepositRoute />
+      case "deposit-progress":
+        return <DepositProgress />
       case "completed":
         return <TransferCompleted />
     }
