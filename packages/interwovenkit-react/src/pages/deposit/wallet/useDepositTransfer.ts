@@ -391,8 +391,6 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
   // An unreadable allowance is not "no approval needed": sending without one reverts after the user pays gas.
   const allowanceError =
     approval && allowanceQuery.error ? "Could not check the USDC allowance" : undefined
-  // The unreadable-allowance error outranks a failed attempt, because it blocks the send outright.
-  const approvalMessage = allowanceError ?? approvalError
 
   // --- Freshness and review gate --------------------------------------------
   // Each path ages against the read the user actually reviewed.
@@ -547,7 +545,7 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
     meetsMinimum,
     minimumLabel,
     approvalChecking,
-    approvalError: approvalMessage,
+    approvalError: allowanceError,
     depositAddressError: depositAddressQuery.error?.message,
     hasDepositAddress: !!depositAddress,
     preflight: preflight.status,
@@ -858,7 +856,7 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
       required: approvalRequired,
       isChecking: approvalChecking,
       isApproving,
-      error: approvalMessage,
+      error: approvalError,
       approve: approvalRequired ? approve : undefined,
     },
     readiness,

@@ -287,6 +287,7 @@ export const DepositTransferFooter = ({ resolution }: { resolution: DepositTrans
                 <FormHelp level={readiness.level ?? "error"}>{errorMessage}</FormHelp>
               )}
               {model.submitError && <FormHelp level="error">{model.submitError}</FormHelp>}
+              {approval.error && <FormHelp level="error">{approval.error}</FormHelp>}
               {quoteUpdated && (
                 <FormHelp level="info">Quote updated. Review and confirm again.</FormHelp>
               )}
