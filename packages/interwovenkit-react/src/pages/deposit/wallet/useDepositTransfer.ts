@@ -764,7 +764,12 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
         if (!sentHash) {
           // No hash came back, so nothing here proves the transfer was not
           // broadcast. The form locks; it never re-enables send.
-          throw new UnknownSendError(message)
+          throw new UnknownSendError(
+            message,
+            composeSession("submission_unknown", {
+              failure: { code: "unknown_send", message },
+            }),
+          )
         }
         response = { hash: sentHash, from: hexAddress }
       }
@@ -801,12 +806,11 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
       if (error instanceof UnknownSendError) {
         setUnknownSend(true)
         try {
-          persistPhase("submission_unknown", {
-            failure: { code: "unknown_send", message: error.message },
-          })
+          persist(error.session)
         } catch {
           // Already unrecoverable for storage purposes; the locked form and the
           // recovery reference are what the user acts on.
+          setValue("depositSessionFallback", error.session)
           setStorageBlocked(true)
         }
         return
@@ -908,7 +912,14 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
 class NotSentError extends Error {}
 
 /** Marker for a wallet call that returned no hash. The form locks and never re-enables send. */
-class UnknownSendError extends Error {}
+class UnknownSendError extends Error {
+  constructor(
+    message: string,
+    readonly session: DepositSession,
+  ) {
+    super(message)
+  }
+}
 
 type DepositSessionDraft = Omit<
   DepositSession,
