@@ -233,12 +233,24 @@ describe("rankBridgeOptions", () => {
   })
 
   it("breaks a duration tie by the lower known gas cost", () => {
+    // Same duration and the same net value (output minus gas), so only gas can decide;
+    // the key order would put "alpha" first.
     expect(
       keys([
-        option({ bridge: "pricey", execution_duration_seconds: 30, gas_cost_usd: "0.0012" }),
-        option({ bridge: "cheap", execution_duration_seconds: 30, gas_cost_usd: "0.0009" }),
+        option({
+          bridge: "alpha",
+          amount_out: "1001200",
+          execution_duration_seconds: 30,
+          gas_cost_usd: "0.0012",
+        }),
+        option({
+          bridge: "zeta",
+          amount_out: "1000900",
+          execution_duration_seconds: 30,
+          gas_cost_usd: "0.0009",
+        }),
       ]),
-    ).toEqual(["cheap", "pricey"])
+    ).toEqual(["zeta", "alpha"])
   })
 
   it("falls back to the bridge key so the order is deterministic", () => {
