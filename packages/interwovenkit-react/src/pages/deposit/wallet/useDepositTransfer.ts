@@ -773,13 +773,16 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     if (transport === "lifi" && (isQuoteStale(quoteUpdatedAt, Date.now()) || isFetchingQuote)) {
       setIsRefreshingQuote(true)
       try {
-        // refetch() reports a failure as an absent result, which decides as "review" (an
-        // unverified or unbound quote is never signed); readiness then shows the query's error.
-        const { data } = await refetchQuote()
+        // A failed re-read keeps the previous data on the result, so the error flag, not the
+        // data, says whether anything was verified; a failed or unbound read decides as
+        // "review" (never signed) and readiness then shows the query's error.
+        const { data, isError } = await refetchQuote()
         if (!mountedRef.current) return
-        const bound =
-          data && isQuoteBoundToOptions(data.deposit_address, optionsData?.deposit_address)
-        const refreshedSignature = bound ? bridgeQuoteSignature(data) : ""
+        const verified =
+          !isError &&
+          data &&
+          isQuoteBoundToOptions(data.deposit_address, optionsData?.deposit_address)
+        const refreshedSignature = verified ? bridgeQuoteSignature(data) : ""
         if (
           decideRefreshedQuote({ reviewedSignature: quoteSignature, refreshedSignature }) ===
           "review"
