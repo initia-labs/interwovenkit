@@ -2,7 +2,7 @@
    and the picker typography it shares with onramp/SelectProvider is composed
    from DepositSubpage.module.css. Only this picker's own layout lives here. */
 .identity {
-  composes: pickerIdentity from "../DepositSubpage.module.css";
+  composes: picker-identity from "../DepositSubpage.module.css";
 }
 
 .amount {
@@ -19,7 +19,7 @@
 }
 
 .name {
-  composes: pickerName from "../DepositSubpage.module.css";
+  composes: picker-name from "../DepositSubpage.module.css";
 }
 
 .out {
@@ -34,11 +34,11 @@
 
   border-radius: 4px;
   color: var(--info);
-  composes: pickerBadge from "../DepositSubpage.module.css";
+  composes: picker-badge from "../DepositSubpage.module.css";
   padding: 1px 6px;
 }
 
 .meta {
   color: var(--gray-3);
-  composes: pickerMeta from "../DepositSubpage.module.css";
+  composes: picker-meta from "../DepositSubpage.module.css";
 }

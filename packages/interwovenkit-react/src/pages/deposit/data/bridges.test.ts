@@ -241,6 +241,25 @@ describe("rankBridgeOptions", () => {
     ).toEqual(["cheap", "pricey"])
   })
 
+  it("uses gas before net or the bridge key when duration ties inside the competitive tier", () => {
+    expect(
+      keys([
+        option({
+          bridge: "zcheap",
+          amount_out: "900",
+          execution_duration_seconds: 30,
+          gas_cost_usd: "0.0001",
+        }),
+        option({
+          bridge: "apricey",
+          amount_out: "1000",
+          execution_duration_seconds: 30,
+          gas_cost_usd: "0.0002",
+        }),
+      ]),
+    ).toEqual(["zcheap", "apricey"])
+  })
+
   it("falls back to the bridge key so the order is deterministic", () => {
     expect(keys([option({ bridge: "relay" }), option({ bridge: "across" })])).toEqual([
       "across",

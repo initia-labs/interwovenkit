@@ -20,11 +20,11 @@
   align-items: center;
   gap: 10px;
 
-  composes: pickerIdentity from "../DepositSubpage.module.css";
+  composes: picker-identity from "../DepositSubpage.module.css";
 }
 
 .name {
-  composes: pickerName from "../DepositSubpage.module.css";
+  composes: picker-name from "../DepositSubpage.module.css";
 }
 
 /* The only badge this screen shows: the best payout on offer. */
@@ -33,7 +33,7 @@
 
   border-radius: 6px;
   color: var(--success);
-  composes: pickerBadge from "../DepositSubpage.module.css";
+  composes: picker-badge from "../DepositSubpage.module.css";
   padding: 2px 6px;
 }
 
@@ -52,7 +52,7 @@
 
 .diff {
   color: var(--error);
-  composes: pickerMeta from "../DepositSubpage.module.css";
+  composes: picker-meta from "../DepositSubpage.module.css";
   font-family: var(--monospace);
   font-weight: 500;
 }

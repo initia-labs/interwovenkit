@@ -71,12 +71,12 @@ p.note {
   padding: 12px;
 }
 
-.recoveryHeading {
+.recovery-heading {
   font-size: 14px;
   font-weight: 600;
 }
 
-.recoveryText {
+.recovery-text {
   width: 100%;
 
   color: var(--gray-3);

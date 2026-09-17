@@ -390,8 +390,8 @@ const RecoveryReference = ({ session }: { session: DepositSession }) => {
 
   return (
     <div className={styles.recovery}>
-      <p className={styles.recoveryHeading}>{recoveryHeading}</p>
-      <pre className={styles.recoveryText}>{reference}</pre>
+      <p className={styles["recovery-heading"]}>{recoveryHeading}</p>
+      <pre className={styles["recovery-text"]}>{reference}</pre>
       <Button.Small onClick={copy}>{copied ? "Copied" : "Copy recovery details"}</Button.Small>
     </div>
   )

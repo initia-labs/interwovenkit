@@ -60,20 +60,20 @@
  * parts the two render identically; each composes them and adds its own
  * structure and colors. The right-hand column is deliberately not here — the
  * two stack their amounts differently. */
-.pickerIdentity {
+.picker-identity {
   flex: 1;
 
   min-width: 0;
   text-align: left;
 }
 
-.pickerName {
+.picker-name {
   font-size: 14px;
   font-weight: 600;
 }
 
 /* Never shrinks or wraps: the badge is the row's one-word verdict. */
-.pickerBadge {
+.picker-badge {
   flex: none;
 
   font-size: 11px;
@@ -82,6 +82,6 @@
 }
 
 /* Secondary line under (or beside) the name: cost, duration, or the gap to the best row. */
-.pickerMeta {
+.picker-meta {
   font-size: 12px;
 }
