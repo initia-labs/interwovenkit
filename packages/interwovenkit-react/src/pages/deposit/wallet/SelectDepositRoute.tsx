@@ -3,6 +3,7 @@ import { useQueries, useQuery } from "@tanstack/react-query"
 import { formatAmount } from "@initia/utils"
 import Image from "@/components/Image"
 import { useConfig } from "@/data/config"
+import { UNKNOWN_VALUE, USDC_DECIMALS } from "@/data/constants"
 import { formatDuration } from "@/pages/bridge/data/format"
 import { useDepositApi } from "../data/api"
 import {
@@ -24,9 +25,6 @@ import {
 import { useTransferForm } from "./transferFlowConfig"
 import { useDepositRequest, useDepositTransportResolution } from "./useDepositTransfer"
 import styles from "./SelectDepositRoute.module.css"
-
-const USDC_DECIMALS = 6
-const UNKNOWN = "—"
 
 /** Cost and total time on one line; unknown values are dropped rather than shown as free or instant. */
 function describeRoute(option: BridgeOption, destination: DestinationNetwork | undefined): string {
@@ -143,7 +141,7 @@ const SelectDepositRoute = () => {
                   />
                   {finalAmount && destination
                     ? formatAmount(finalAmount, { decimals: destination.decimals })
-                    : UNKNOWN}
+                    : UNKNOWN_VALUE}
                 </p>
                 {difference && <p className={styles.meta}>{difference}</p>}
               </div>

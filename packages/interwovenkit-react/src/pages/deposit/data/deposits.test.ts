@@ -8,7 +8,7 @@ import {
   pollUntilTerminal,
   resolveTrackedDeposit,
 } from "./deposits"
-import type { Deposit } from "./types"
+import { deposit, DEPOSIT_ADDRESS } from "./testing"
 import { ACTIVE_DEPOSIT_BUCKETS, DEPOSIT_BUCKETS, TERMINAL_DEPOSIT_BUCKETS } from "./types"
 
 // Completeness guard: if the bucket contract gains a value, this fails until
@@ -36,32 +36,6 @@ describe("isTerminalBucket", () => {
     expect(isTerminalBucket("")).toBe(true)
     expect(isTerminalBucket(undefined as unknown as string)).toBe(true)
   })
-})
-
-const DEPOSIT_ADDRESS = "0xAbCd000000000000000000000000000000000001"
-
-const deposit = (overrides: Partial<Deposit>): Deposit => ({
-  id: "1",
-  src_chain_id: "1",
-  src_tx_hash: "0xhash",
-  src_log_index: 0,
-  src_denom: "ethereum-native",
-  amount: "1",
-  deposit_address: DEPOSIT_ADDRESS,
-  wallet_address: "init1wallet",
-  dst_chain_id: "interwoven-1",
-  dst_denom: "uusdc",
-  dst_address: "init1wallet",
-  observed_height: 1,
-  observed_at: "",
-  status: "detected",
-  bucket: "waiting",
-  status_updated_at: "",
-  created_at: "",
-  updated_at: "",
-  bot_tx_hash: "",
-  bot_tx_explorer_url: "",
-  ...overrides,
 })
 
 describe("pollInterval", () => {
@@ -157,7 +131,7 @@ describe("assertDepositsAtAddress", () => {
       id: "foreign",
       deposit_address: "0x0000000000000000000000000000000000000bad",
     })
-    const call = () => assertDepositsAtAddress([deposit({}), foreign], DEPOSIT_ADDRESS)
+    const call = () => assertDepositsAtAddress([deposit(), foreign], DEPOSIT_ADDRESS)
     expect(call).toThrow(/foreign/)
     // Typed so the tracking screen can route it to the hard-error path instead
     // of the transient "retrying" notice.

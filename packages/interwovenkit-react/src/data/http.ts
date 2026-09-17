@@ -7,6 +7,9 @@ export const STALE_TIMES = {
   INFINITY: /* HOUR, just in case */ 1000 * 60 * 60,
 } as const
 
+/** What `normalizeErrorMessage` maps both `code: 4001` and ethers' `ACTION_REJECTED` to. Callers that treat a refusal as "provably not sent" compare against this exact string. */
+export const USER_REJECTED_MESSAGE = "User rejected"
+
 export async function normalizeErrorMessage(error: unknown): Promise<string> {
   if (error instanceof HTTPError) {
     const { response } = error
@@ -29,8 +32,8 @@ export async function normalizeErrorMessage(error: unknown): Promise<string> {
   }
 
   if (error instanceof Error) {
-    if (path(["code"], error) === 4001) return "User rejected"
-    if (path(["code"], error) === "ACTION_REJECTED") return "User rejected"
+    if (path(["code"], error) === 4001) return USER_REJECTED_MESSAGE
+    if (path(["code"], error) === "ACTION_REJECTED") return USER_REJECTED_MESSAGE
     const errorMessage = path<string>(["error", "message"], error)
     const causeMessage = path<string>(["cause", "message"], error)
     const shortMessage = path<string>(["shortMessage"], error)

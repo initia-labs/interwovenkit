@@ -6,11 +6,10 @@ import {
   buildDepositTransaction,
   combineEstimatedSeconds,
   coversAmount,
+  decideRefreshedQuote,
   type DepositReadinessInput,
   deriveDepositReadiness,
   derivePreflight,
-  deriveQuoteAcknowledgement,
-  directDepositSignature,
   formatNetworkFee,
   isKnownNotSent,
   isQuoteBoundToOptions,
@@ -148,47 +147,39 @@ describe("minimum and balance gates", () => {
   })
 })
 
-describe("deriveQuoteAcknowledgement", () => {
-  const identityKey = "8453:1000000:across"
+// The single-click send, at the level `submit` decides it: `isQuoteStale` chooses whether the
+// click re-reads at all, and `decideRefreshedQuote` chooses whether that same click goes on to
+// the wallet. Both halves are pure, so the flow is testable without React.
+describe("submit's quote gate", () => {
+  const now = 1_000_000
+  const fresh = now - 1
+  const stale = now - BRIDGE_QUOTE_MAX_AGE - 1
 
-  it("records the reviewed signature once the form is reviewable", () => {
-    const result = deriveQuoteAcknowledgement({
-      acknowledgement: null,
-      identityKey,
-      signature: "sig-a",
-      isReviewable: true,
-    })
-    expect(result).toEqual({ next: { identityKey, signature: "sig-a" }, quoteUpdated: false })
+  it("sends in the same click when the re-read describes the same transaction", () => {
+    expect(isQuoteStale(stale, now)).toBe(true)
+    expect(decideRefreshedQuote({ reviewedSignature: "sig-a", refreshedSignature: "sig-a" })).toBe(
+      "send",
+    )
   })
 
-  it("does not record anything before the form is reviewable", () => {
-    const result = deriveQuoteAcknowledgement({
-      acknowledgement: null,
-      identityKey,
-      signature: "sig-a",
-      isReviewable: false,
-    })
-    expect(result).toEqual({ next: null, quoteUpdated: false })
+  it("asks for a second click when the re-read changed the quote", () => {
+    expect(isQuoteStale(stale, now)).toBe(true)
+    expect(decideRefreshedQuote({ reviewedSignature: "sig-a", refreshedSignature: "sig-b" })).toBe(
+      "review",
+    )
   })
 
-  it("flags a changed signature as an updated quote", () => {
-    const result = deriveQuoteAcknowledgement({
-      acknowledgement: { identityKey, signature: "sig-a" },
-      identityKey,
-      signature: "sig-b",
-      isReviewable: true,
-    })
-    expect(result.quoteUpdated).toBe(true)
+  it("never signs an unverified quote: a re-read without a result reviews", () => {
+    expect(decideRefreshedQuote({ reviewedSignature: "sig-a", refreshedSignature: "" })).toBe(
+      "review",
+    )
+    expect(decideRefreshedQuote({ reviewedSignature: "", refreshedSignature: "sig-a" })).toBe(
+      "review",
+    )
   })
 
-  it("resets instead of re-confirming when the request identity changed", () => {
-    const result = deriveQuoteAcknowledgement({
-      acknowledgement: { identityKey, signature: "sig-a" },
-      identityKey: "8453:2000000:across",
-      signature: "sig-b",
-      isReviewable: true,
-    })
-    expect(result).toEqual({ next: null, quoteUpdated: false })
+  it("does not re-read a quote that is still fresh", () => {
+    expect(isQuoteStale(fresh, now)).toBe(false)
   })
 })
 
@@ -258,32 +249,6 @@ describe("buildDepositTransaction", () => {
         "0000000000000000000000001111111111111111111111111111111111111111" +
         "00000000000000000000000000000000000000000000000000000000000f4240",
     )
-  })
-})
-
-describe("directDepositSignature", () => {
-  const base = {
-    depositAddress: DEPOSIT_ADDRESS,
-    amount: "1000000",
-    recipient: INITIA_ADDRESS,
-    dstChainId: "interwoven-1",
-    dstDenom: "l2/iusd",
-  }
-
-  it("is stable across address casing", () => {
-    expect(directDepositSignature({ ...base, depositAddress: DEPOSIT_ADDRESS.toUpperCase() })).toBe(
-      directDepositSignature(base),
-    )
-  })
-
-  it("changes when the issued address or amount changes", () => {
-    expect(directDepositSignature({ ...base, amount: "2000000" })).not.toBe(
-      directDepositSignature(base),
-    )
-  })
-
-  it("is empty until an address is issued", () => {
-    expect(directDepositSignature({ ...base, depositAddress: "" })).toBe("")
   })
 })
 
@@ -363,8 +328,6 @@ function readinessInput(overrides: Partial<DepositReadinessInput> = {}): Deposit
     approvalChecking: false,
     hasDepositAddress: true,
     preflight: "quoted",
-    hasPreSubmitBlock: true,
-    pinnedRpcAvailable: true,
     ...overrides,
   }
 }
@@ -446,10 +409,9 @@ describe("deriveDepositReadiness", () => {
     )
   })
 
-  it("blocks on a lock held by another tab", () => {
-    expect(deriveDepositReadiness(readinessInput({ lockError: "already running" })).message).toBe(
-      "already running",
-    )
+  it("reports an input prompt as `info` and a failure as `error`", () => {
+    expect(deriveDepositReadiness(readinessInput({ tokenBalance: "0" })).level).toBe("info")
+    expect(deriveDepositReadiness(readinessInput({ balancesError: true })).level).toBe("error")
   })
 
   it("blocks on an invalid host recipient before touching backend state", () => {
@@ -485,57 +447,56 @@ describe("deriveDepositReadiness", () => {
     })
   })
 
-  it("blocks on a zero native balance with the chain's gas symbol", () => {
-    expect(deriveDepositReadiness(readinessInput({ nativeBalance: "0" })).message).toBe(
-      "Not enough ETH for gas",
+  it("blocks on a zero native balance, naming the chain's gas symbol", () => {
+    const readiness = deriveDepositReadiness(
+      readinessInput({ nativeBalance: "0", nativeSymbol: "ETH" }),
     )
+    expect(readiness.status).toBe("blocked")
+    expect(readiness.message).toContain("ETH")
   })
 
   it("blocks when the native balance cannot cover the call's value plus priced gas", () => {
     const short = readinessInput({ nativeBalance: "500", requiredNative: "669" })
-    expect(deriveDepositReadiness(short).message).toBe(
-      "Not enough ETH for this route's fee and gas",
-    )
+    expect(deriveDepositReadiness(short).status).toBe("blocked")
     const enough = readinessInput({ nativeBalance: "700", requiredNative: "669" })
     expect(deriveDepositReadiness(enough).status).toBe("ready")
   })
 
-  it("blocks when the source chain has no pinned RPC", () => {
-    expect(deriveDepositReadiness(readinessInput({ pinnedRpcAvailable: false })).status).toBe(
-      "blocked",
-    )
-  })
-
   it("loads while routes are unknown and blocks when none is eligible", () => {
     expect(deriveDepositReadiness(readinessInput({ hasOptions: false })).status).toBe("loading")
-    expect(deriveDepositReadiness(readinessInput({ hasEligibleOption: false })).message).toBe(
-      "No route can bring at least 1 USDC to Ethereum after fees. Try a larger amount.",
-    )
+    const ineligible = deriveDepositReadiness(readinessInput({ hasEligibleOption: false }))
+    expect(ineligible.status).toBe("blocked")
+    // The minimum is stated in the user's own terms, not as raw base units.
+    expect(ineligible.message).toContain("1 USDC")
   })
 
-  it("blocks an unbound quote", () => {
+  it("blocks an unbound quote, but only once the re-read has settled", () => {
     expect(
-      deriveDepositReadiness(readinessInput({ quoteBound: false, isRefreshing: true })),
-    ).toEqual({ status: "loading", message: "Refreshing quote..." })
+      deriveDepositReadiness(readinessInput({ quoteBound: false, isRefreshing: true })).status,
+    ).toBe("loading")
+    expect(deriveDepositReadiness(readinessInput({ quoteBound: false })).status).toBe("blocked")
+  })
+
+  it("locks a session that already reached the prompt on another mount", () => {
     expect(deriveDepositReadiness(readinessInput({ sessionInFlight: true })).message).toBe(
       SESSION_IN_FLIGHT_MESSAGE,
-    )
-    expect(deriveDepositReadiness(readinessInput({ quoteBound: false })).message).toBe(
-      "The issued deposit address changed. Change the amount or provider for a fresh quote.",
     )
   })
 
   it("blocks a route that cannot clear the Ethereum minimum", () => {
-    expect(deriveDepositReadiness(readinessInput({ meetsMinimum: false })).message).toBe(
-      "This route would deliver less than 1 USDC to Ethereum. Try a larger amount or another provider.",
-    )
+    const readiness = deriveDepositReadiness(readinessInput({ meetsMinimum: false }))
+    expect(readiness.status).toBe("blocked")
+    expect(readiness.level).toBe("error")
+    expect(readiness.message).toContain("1 USDC")
   })
 
+  // Direct has no bridge to blame, so the same failure is an input prompt, not an error.
   it("asks a direct deposit for the route minimum in its own terms", () => {
     const readiness = deriveDepositReadiness(
       readinessInput({ transport: "direct", meetsMinimum: false }),
     )
-    expect(readiness.message).toBe("Enter at least 1 USDC")
+    expect(readiness.level).toBe("info")
+    expect(readiness.message).toContain("1 USDC")
   })
 
   it("waits for the issued address on the direct path", () => {
@@ -545,7 +506,7 @@ describe("deriveDepositReadiness", () => {
     expect(readiness).toEqual({ status: "loading", message: "Preparing deposit address..." })
   })
 
-  it("blocks on a declined downstream preflight and keeps the backend reason", () => {
+  it("blocks on a declined downstream preflight and keeps the backend reason verbatim", () => {
     const readiness = deriveDepositReadiness(
       readinessInput({ preflight: "declined", preflightReason: "amount below minimum" }),
     )
@@ -556,12 +517,9 @@ describe("deriveDepositReadiness", () => {
     })
   })
 
-  it("waits for the preflight and for the pinned pre-submit block", () => {
+  it("waits for the destination preflight", () => {
     expect(deriveDepositReadiness(readinessInput({ preflight: "loading" })).status).toBe("loading")
-    expect(deriveDepositReadiness(readinessInput({ hasPreSubmitBlock: false }))).toEqual({
-      status: "loading",
-      message: "Preparing...",
-    })
+    expect(deriveDepositReadiness(readinessInput({ preflight: "error" })).status).toBe("blocked")
   })
 
   it("stays ready after a failed attempt so the user can retry", () => {

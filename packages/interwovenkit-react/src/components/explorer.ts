@@ -1,4 +1,5 @@
 import { path } from "ramda"
+import xss from "xss"
 import { InitiaAddress } from "@initia/utils"
 import type { NormalizedChain } from "@/data/chains"
 
@@ -28,6 +29,11 @@ export function buildExplorerUrl(
   }
 
   return undefined
+}
+
+/** An explorer link taken from an API response: scheme-checked, then escaped. Empty in, undefined out, so a caller can pass it straight through. */
+export function safeExplorerUrl(href: string | undefined): string | undefined {
+  return href ? xss(sanitizeLink(href)) : undefined
 }
 
 export function sanitizeLink(href: string): string {

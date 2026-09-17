@@ -8,11 +8,6 @@ import { createQuoteQueryOptions } from "../../data/quote"
 import { findDestinationNetwork } from "../../data/source"
 import { useOnramperSourceRoute } from "./onramper"
 
-// Re-exported from data/quote.ts, which the wallet flow also gates on; this
-// module has been the import site since before that split.
-export type { QuoteResult } from "../../data/quote"
-export { classifyQuoteFailure } from "../../data/quote"
-
 export interface MinReceived {
   /** Formatted token-unit string; "" when unavailable (the row shows its "—" placeholder). */
   value: string

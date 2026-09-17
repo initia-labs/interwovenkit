@@ -82,7 +82,6 @@ export const depositQueryKeys = createQueryKeys("interwovenkit:deposit", {
   // Keyed by chain so a wallet network switch cannot serve another chain's
   // balance (see wallet/evmRpc.ts).
   sourceBalances: (chainId: string, owner: string, token: string) => [chainId, owner, token],
-  // Pinned head block: the replacement-scan lower bound.
   sourceBlock: (chainId: string) => [chainId],
   maxFeePerGas: (chainId: string) => [chainId],
   allowance: (chainId: string, owner: string, token: string, spender: string) => [

@@ -19,11 +19,8 @@
 /* The provider value is the only entry to the route picker: it reads as pressable
  * while sitting on the same baseline as every other detail value. */
 .provider {
-  display: inline-flex;
-  align-items: center;
   gap: 6px;
 
-  color: inherit;
   transition: color var(--transition) ease;
 }
 
@@ -33,10 +30,4 @@
 
 .muted {
   color: var(--gray-3);
-}
-
-.route {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
 }

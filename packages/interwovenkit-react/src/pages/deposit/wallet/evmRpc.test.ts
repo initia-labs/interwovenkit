@@ -1,19 +1,13 @@
 import type { JsonRpcProvider } from "ethers"
 import { getAddress, Signature, TransactionResponse } from "ethers"
-import type { RouterChainJson } from "@/pages/bridge/data/chains"
 import {
-  createPinnedProvider,
   encodeErc20Approve,
   encodeErc20Transfer,
-  PinnedRpcUnavailableError,
+  getPinnedProvider,
   readAllowance,
-  readBlockNumber,
   readSourceBalances,
   watchSourceTransaction,
 } from "./evmRpc"
-
-// The Router chain type is a runtime enum in @skip-go/client; casting the literal keeps the whole client out of a unit test.
-const chainType = (value: string) => value as RouterChainJson["chain_type"]
 
 const SENDER = "0x4e3d1f2a6b5c8d9e0f1a2b3c4d5e6f7a8b9c0d1e"
 const BRIDGE = "0x2222222222222222222222222222222222222222"
@@ -112,41 +106,20 @@ function createBlock(replacement: TransactionResponse) {
   }
 }
 
-describe("createPinnedProvider", () => {
-  it("pins the provider to the chain id from the registry entry", () => {
-    const provider = createPinnedProvider({
-      chain_id: "8453",
-      rpc: "https://base.example/rpc",
-      chain_type: chainType("evm"),
-    })
+describe("getPinnedProvider", () => {
+  it("pins the provider to the source chain's own endpoint and chain id", () => {
+    const provider = getPinnedProvider("8453")
     expect(provider._network.chainId).toBe(8453n)
-    provider.destroy()
   })
 
-  it("refuses a chain with no RPC endpoint", () => {
-    expect(() =>
-      createPinnedProvider({ chain_id: "8453", rpc: "", chain_type: chainType("evm") }),
-    ).toThrow(PinnedRpcUnavailableError)
+  it("reuses one provider per chain: ethers keeps a polling loop on each", () => {
+    expect(getPinnedProvider("42161")).toBe(getPinnedProvider("42161"))
+    expect(getPinnedProvider("42161")).not.toBe(getPinnedProvider("1"))
   })
 
-  it("refuses a non-EVM chain", () => {
-    expect(() =>
-      createPinnedProvider({
-        chain_id: "interwoven-1",
-        rpc: "https://rpc",
-        chain_type: chainType("cosmos"),
-      }),
-    ).toThrow(PinnedRpcUnavailableError)
-  })
-
-  it("refuses a chain id that is not an EVM chain id", () => {
-    expect(() =>
-      createPinnedProvider({
-        chain_id: "interwoven-1",
-        rpc: "https://rpc",
-        chain_type: chainType("evm"),
-      }),
-    ).toThrow(PinnedRpcUnavailableError)
+  it("refuses a chain the Deposit API does not source from", () => {
+    expect(() => getPinnedProvider("10")).toThrow(/not a Deposit API source/)
+    expect(() => getPinnedProvider("")).toThrow(/not a Deposit API source/)
   })
 })
 
@@ -200,13 +173,6 @@ describe("encodeErc20Approve", () => {
     expect(encodeErc20Approve("0x1111111111111111111111111111111111111111", "2500000")).toBe(
       "0x095ea7b3000000000000000000000000111111111111111111111111111111111111111100000000000000000000000000000000000000000000000000000000002625a0",
     )
-  })
-})
-
-describe("readBlockNumber", () => {
-  it("reads the pinned head block", async () => {
-    const { provider } = createFakeProvider({ blockNumber: 100 })
-    await expect(readBlockNumber(provider)).resolves.toBe(100)
   })
 })
 

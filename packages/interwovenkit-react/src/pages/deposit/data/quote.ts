@@ -16,7 +16,7 @@ export type QuoteResult =
   | { status: "quoted"; quote: QuoteResponse }
   | { status: "declined"; reason: string }
 
-export interface QuoteParams {
+interface QuoteParams {
   srcChainId: string
   srcDenom: string
   dstChainId: string

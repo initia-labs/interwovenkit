@@ -81,7 +81,8 @@ export function synthesizeDepositApiChain(source: DepositApiSource): RouterChain
     pretty_name: source.chainName,
     chain_type: "evm",
     logo_uri: source.fallbackChainLogoUrl,
-    // No RPC: readiness reports "cannot be verified" rather than letting a send proceed.
+    // Display-only stand-in for a chain Skip does not list. The pinned reads never come from
+    // here; they use the source's own endpoint (DepositApiSource.rpcUrl).
     rpc: "",
     rest: "",
   } as RouterChainJson

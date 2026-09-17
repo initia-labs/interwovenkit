@@ -2,7 +2,7 @@ import clsx from "clsx"
 import DepositBackButton from "./DepositBackButton"
 import styles from "./DepositSubpage.module.css"
 
-import type { AriaAttributes, PropsWithChildren } from "react"
+import type { PropsWithChildren } from "react"
 
 interface Props {
   /** Screens pass their own copy. Method pages derive it from the hub button
@@ -63,12 +63,14 @@ const DepositSubpageList = (props: PropsWithChildren<ListProps>) => {
 
 DepositSubpage.List = DepositSubpageList
 
-interface RowProps extends AriaAttributes {
+interface RowProps {
   onClick: () => void
   /** Highlights the row as the current selection (e.g. the chosen provider). */
   isActive?: boolean
   /** Unusable option kept visible, so the reason in the row still explains itself. */
   disabled?: boolean
+  /** Names the row when its content alone does not (e.g. a logo plus amounts). */
+  "aria-label"?: string
 }
 
 /**
@@ -81,11 +83,11 @@ const DepositSubpageRow = ({
   isActive,
   disabled,
   children,
-  ...aria
+  "aria-label": ariaLabel,
 }: PropsWithChildren<RowProps>) => {
   return (
     <button
-      {...aria}
+      aria-label={ariaLabel}
       type="button"
       className={clsx(styles.row, isActive && styles.activeRow)}
       onClick={onClick}

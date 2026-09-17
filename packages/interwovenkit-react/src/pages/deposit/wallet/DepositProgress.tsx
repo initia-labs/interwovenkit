@@ -1,8 +1,7 @@
-import xss from "xss"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import Button from "@/components/Button"
-import { sanitizeLink } from "@/components/explorer"
+import { safeExplorerUrl } from "@/components/explorer"
 import Footer from "@/components/Footer"
 import { useConfig } from "@/data/config"
 import { useDrawer, useModal } from "@/data/ui"
@@ -16,12 +15,13 @@ import {
   assertLifiDeposit,
   classifyWalletBucket,
   createDepositBySourceTxQueryOptions,
-  useWalletDeposit,
+  useDeposit,
 } from "../data/deposits"
+import { eqAddress } from "../data/parse"
 import { findDestinationNetwork, formatSourceMin } from "../data/source"
 import type { BridgeStatusResponse, Deposit } from "../data/types"
 import { formatCompletedAmount } from "../completedAmount"
-import { DepositTrackingView } from "../DepositTracking"
+import { DepositTrackingView, TAKING_LONGER_DELAY } from "../DepositTracking"
 import styles from "../DepositTracking.module.css"
 import FlowChips from "../FlowChips"
 import {
@@ -32,40 +32,31 @@ import {
 } from "./depositProgressLogic"
 import { type DepositSession, recoveryReference, useDepositSessionStore } from "./depositSession"
 import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM, findDepositApiSource } from "./depositSources"
-import { type SourceTxOutcome, useSourceChainProvider, watchSourceTransaction } from "./evmRpc"
+import { findPinnedProvider, type SourceTxOutcome, watchSourceTransaction } from "./evmRpc"
 import { useTransferForm } from "./transferFlowConfig"
 
 // A watch window that times out is reported as `pending`, never as a failure.
 const SOURCE_WATCH_TIMEOUT = 20_000
 const SOURCE_WATCH_INTERVAL = 5_000
-// Same per-stage stall budget the address tracker uses.
-const TAKING_LONGER_DELAY = 60 * 1000
 
 // Every "failed" / "completed" judgment lives in `deriveDepositProgress`, which
 // keeps it unit-testable; this file only runs the reads that feed it.
 const DepositProgress = () => {
   const { watch } = useTransferForm()
   const sessionId = watch("depositSessionId")
-  const fallback = watch("depositSessionFallback")
   const store = useDepositSessionStore()
   const { closeModal } = useModal()
 
-  // Adopting the form's in-memory copy into the store keeps one read path:
-  // stored, else volatile, else none.
-  const adoptable = fallback && fallback.id === sessionId ? fallback : undefined
-  useEffect(() => {
-    if (adoptable) store.remember(adoptable)
-  }, [adoptable, store])
-  const base = sessionId ? (store.read(sessionId) ?? adoptable ?? null) : null
+  const session = sessionId ? store.read(sessionId) : null
 
-  if (!base) {
-    const view = deriveDepositProgress(null, EMPTY_INPUTS)
+  if (!session) {
+    // Nothing left to read or refresh, and no claim to make about the transfer itself.
     return (
       <DepositTrackingView
-        title={view.title}
-        variant={view.variant}
-        heading={view.heading}
-        message={view.message}
+        title="Deposit status"
+        variant="problem"
+        heading="Deposit not found"
+        message="This deposit is no longer saved in this browser. Any transfer already sent is unaffected."
         footer={
           <Footer>
             <Button.Outline fullWidth onClick={closeModal}>
@@ -78,15 +69,7 @@ const DepositProgress = () => {
   }
 
   // Keyed remount on a session switch so every stage timer below restarts.
-  return <DepositProgressTracker key={base.id} session={base} />
-}
-
-const EMPTY_INPUTS: DepositProgressInputs = {
-  source: { isError: false, hasProvider: false },
-  bridge: {},
-  direct: { isError: false },
-  deposit: { bucket: "waiting", isError: false, isSelfRecipient: false },
-  isDelayed: false,
+  return <DepositProgressTracker key={session.id} session={session} />
 }
 
 interface TrackerProps {
@@ -126,19 +109,16 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   const sourceHash = trackedSourceHash(session)
   const depositId = session.depositId ?? ""
 
-  // Source-chain-pinned reads, never the wallet's own provider (null when the
-  // chain cannot be read: rendered as "cannot verify", never thrown).
-  const sourceChainId = session.source.chainId
-  const provider = useSourceChainProvider(sourceChainId)
+  // Source-chain-pinned reads, never the wallet's own provider.
+  const provider = findPinnedProvider(session.source.chainId)
 
   const sourceQuery = useQuery({
     // Session id + watched hash already identify the remaining inputs, which are
     // the session's own immutable intent.
     // eslint-disable-next-line @tanstack/query/exhaustive-deps
     queryKey: depositQueryKeys.sourceWatch(session.id, sourceHash).queryKey,
-    queryFn: async (): Promise<SourceTxOutcome> => {
-      if (!provider) throw new Error(`No pinned RPC for chain ${sourceChainId}`)
-      return watchSourceTransaction(provider, {
+    queryFn: (): Promise<SourceTxOutcome> =>
+      watchSourceTransaction(provider!, {
         hash: sourceHash,
         from: session.submitted?.from ?? session.source.sender,
         // Missing nonce/start-block evidence degrades the watch to a plain
@@ -150,8 +130,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
         chainId: session.transaction.chainId,
         startBlock: session.preSubmitBlock ?? -1,
         timeoutMs: SOURCE_WATCH_TIMEOUT,
-      })
-    },
+      }),
     enabled: !!provider && !!sourceHash && !depositId,
     // The interval is the retry: a thrown RPC error is an evidence gap the
     // screen renders as "still checking", not a query that should give up.
@@ -177,7 +156,8 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     })
   }, [replacementHash, applyPatch])
 
-  const [bridgeStartedAt] = useState(() => Date.now())
+  // One clock for both backend polls: the tracker remounts per session (keyed above).
+  const [startedAt] = useState(() => Date.now())
   const bridgeQuery = useQuery(
     createBridgeStatusQueryOptions(
       api,
@@ -189,7 +169,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
       // Polled alongside the receipt watch: the backend's own view of the source
       // transaction must not wait on a third-party RPC.
       session.transport === "lifi" && !depositId && !!sourceHash,
-      bridgeStartedAt,
+      startedAt,
     ),
   )
   const bridgeStatus = bridgeQuery.data
@@ -217,8 +197,9 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   const directQuery = useQuery(
     createDepositBySourceTxQueryOptions(
       api,
-      { srcChainId: "1", srcTxHash: sourceHash },
+      sourceHash,
       session.transport === "direct" && !depositId && !!sourceHash,
+      startedAt,
     ),
   )
   const directRecord = directQuery.data
@@ -243,19 +224,12 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   }, [directRecord, sourceHash, session.source, session.depositAddress, session.destination])
 
   const handoffId = lifiHandoff?.deposit?.id ?? directHandoff?.deposit?.id ?? ""
-  // LI.FI's nested Deposit identifies the Ethereum receiving transaction, not
-  // the Base/Arbitrum one the user signed.
-  const handoffEthereumHash = lifiHandoff?.deposit?.src_tx_hash ?? ""
   useEffect(() => {
     if (!handoffId) return
-    applyPatch({
-      depositId: handoffId,
-      ethereumTxHash: handoffEthereumHash || undefined,
-      phase: "deposit_indexed",
-    })
-  }, [handoffId, handoffEthereumHash, applyPatch])
+    applyPatch({ depositId: handoffId, phase: "deposit_indexed" })
+  }, [handoffId, applyPatch])
 
-  const depositQuery = useWalletDeposit(depositId)
+  const depositQuery = useDeposit(depositId)
   const deposit = depositQuery.data ?? null
   const bucket = classifyWalletBucket(deposit)
 
@@ -291,11 +265,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   })
 
   const inputs: Omit<DepositProgressInputs, "isDelayed"> = {
-    source: {
-      outcome: sourceOutcome,
-      isError: sourceQuery.isError,
-      hasProvider: !!provider,
-    },
+    source: { outcome: sourceOutcome, isError: sourceQuery.isError },
     bridge: {
       state: bridgeStatus?.state,
       error: bridgeQuery.error,
@@ -312,9 +282,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
       isError: depositQuery.isError,
       minLabel,
       completedAmount,
-      isSelfRecipient:
-        !!initiaAddress &&
-        session.destination.recipient.toLowerCase() === initiaAddress.toLowerCase(),
+      isSelfRecipient: !!initiaAddress && eqAddress(session.destination.recipient, initiaAddress),
     },
   }
 
@@ -402,8 +370,7 @@ function resolveExplorerUrl(
   bridgeStatus: BridgeStatusResponse | undefined,
 ): string | undefined {
   const fromDeposit = deposit?.advance_tx_explorer_url || deposit?.bot_tx_explorer_url
-  const raw = fromDeposit || bridgeStatus?.dst_tx_link || bridgeStatus?.src_tx_link
-  return raw ? xss(sanitizeLink(raw)) : undefined
+  return safeExplorerUrl(fromDeposit || bridgeStatus?.dst_tx_link || bridgeStatus?.src_tx_link)
 }
 
 /** Copyable support reference for a transfer this browser could not save. */

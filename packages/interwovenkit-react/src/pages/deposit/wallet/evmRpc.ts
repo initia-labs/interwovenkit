@@ -7,39 +7,40 @@ import {
   Signature,
   TransactionResponse,
 } from "ethers"
-import { useEffect, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
-import type { RouterChainJson } from "@/pages/bridge/data/chains"
-import { useFindSkipChain } from "@/pages/bridge/data/chains"
 import { depositQueryKeys } from "../data/api"
+import { eqAddress } from "../data/parse"
 import { depositApiRpcUrl } from "./depositSources"
 
-// `ChainTypeJson` is a type-only enum from the Router client; the wire value is the string.
-const EVM_CHAIN_TYPE = "evm" as RouterChainJson["chain_type"]
-
-/** No usable RPC for the source chain: a capability gap, never evidence about a transaction. */
-export class PinnedRpcUnavailableError extends Error {}
+// One provider per source chain for the tab's lifetime. ethers keeps a polling loop alive once
+// `wait()` subscribed to blocks, so a per-mount provider would need tearing down — and
+// StrictMode's mount → cleanup → mount would leave a destroyed one behind, rejecting every read.
+const pinnedProviders = new Map<string, JsonRpcProvider>()
 
 /**
  * Pinned to one source chain: the wallet's provider follows whatever network the user switches
  * to, so a receipt read through it can come from the wrong chain while a transfer is in flight.
  * `staticNetwork` stops ethers from silently re-detecting and reintroducing that drift.
+ *
+ * Only Deposit API sources are readable here, and every one of them carries its own endpoint
+ * (`DepositApiSource.rpcUrl`) — never the Router registry, whose Base and Arbitrum entries
+ * refuse `eth_getTransactionReceipt`.
  */
-export function createPinnedProvider(
-  chain: Pick<RouterChainJson, "chain_id" | "rpc" | "chain_type">,
-): JsonRpcProvider {
-  const { chain_id, rpc, chain_type } = chain
-  if (chain_type !== "evm") {
-    throw new PinnedRpcUnavailableError(`Chain ${chain_id} is not an EVM chain`)
-  }
-  if (!rpc) {
-    throw new PinnedRpcUnavailableError(`Chain ${chain_id} has no RPC endpoint`)
-  }
-  const chainId = Number(chain_id)
-  if (!Number.isInteger(chainId) || chainId <= 0) {
-    throw new PinnedRpcUnavailableError(`Chain id is not an EVM chain id: ${chain_id}`)
-  }
-  return new JsonRpcProvider(rpc, chainId, { staticNetwork: true })
+export function getPinnedProvider(chainId: string): JsonRpcProvider {
+  const provider = findPinnedProvider(chainId)
+  if (!provider) throw new Error(`Chain ${chainId} is not a Deposit API source`)
+  return provider
+}
+
+/** Null for a chain outside the catalog: a stored record may name a source that was since delisted. */
+export function findPinnedProvider(chainId: string): JsonRpcProvider | null {
+  const existing = pinnedProviders.get(chainId)
+  if (existing) return existing
+  const rpcUrl = depositApiRpcUrl(chainId)
+  if (!rpcUrl) return null
+  const provider = new JsonRpcProvider(rpcUrl, Number(chainId), { staticNetwork: true })
+  pinnedProviders.set(chainId, provider)
+  return provider
 }
 
 const ERC20 = new Interface([
@@ -66,7 +67,7 @@ async function readErc20Uint(
 }
 
 /** Token and native balances in base units. Decimal strings, never JavaScript numbers. */
-export interface SourceBalances {
+interface SourceBalances {
   token: string
   native: string
 }
@@ -104,11 +105,6 @@ export function encodeErc20Approve(spender: string, amount: string): string {
   return ERC20.encodeFunctionData("approve", [addressArg(spender), BigInt(amount)])
 }
 
-/** The pinned head block. Captured before each wallet prompt as the lower bound for replacement scanning. */
-export async function readBlockNumber(provider: JsonRpcProvider): Promise<number> {
-  return provider.getBlockNumber()
-}
-
 export async function readMaxFeePerGas(provider: JsonRpcProvider): Promise<string | undefined> {
   const { maxFeePerGas, gasPrice } = await provider.getFeeData()
   return (maxFeePerGas ?? gasPrice)?.toString()
@@ -127,7 +123,7 @@ export type SourceTxOutcome =
   /** The watch window elapsed without a decision. Not a failure: the caller keeps waiting. */
   | { status: "pending" }
 
-export interface WatchSourceTransactionParams {
+interface WatchSourceTransactionParams {
   hash: string
   from: string
   nonce: number
@@ -140,9 +136,10 @@ export interface WatchSourceTransactionParams {
   timeoutMs: number
 }
 
+// ethers reports `to` as null for a contract creation, and an absent address must never
+// compare equal to another absent one.
 function sameAddress(a: string | null | undefined, b: string | null | undefined): boolean {
-  if (!a || !b) return false
-  return a.toLowerCase() === b.toLowerCase()
+  return !!a && !!b && eqAddress(a, b)
 }
 
 function toBigIntOrNull(value: string): bigint | null {
@@ -273,29 +270,9 @@ export async function watchSourceTransaction(
   }
 }
 
-// One pinned provider per source chain. The Deposit API catalog's receipt-capable endpoint wins
-// over the Router entry (see DepositApiSource.rpcUrl). Null means "cannot verify" — a capability
-// gap, never a reason to unmount a screen that reports on funds in flight.
-export function useSourceChainProvider(chainId: string): JsonRpcProvider | null {
-  const findSkipChain = useFindSkipChain()
-  const provider = useMemo(() => {
-    if (!chainId) return null
-    const rpc = depositApiRpcUrl(chainId)
-    if (rpc) return createPinnedProvider({ chain_id: chainId, chain_type: EVM_CHAIN_TYPE, rpc })
-    try {
-      return createPinnedProvider(findSkipChain(chainId))
-    } catch {
-      return null
-    }
-    // findSkipChain is a fresh closure every render; the chain id is the identity.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chainId])
-
-  // ethers keeps a polling loop alive once `wait()` subscribed to blocks. Drop the listeners
-  // rather than `destroy()`: StrictMode's mount → cleanup → mount would otherwise leave a
-  // permanently dead provider whose every read rejects before reaching the network.
-  useEffect(() => () => void provider?.removeAllListeners(), [provider])
-  return provider
+// A plain lookup, stable across renders without memoization and with nothing to clean up.
+export function useSourceChainProvider(chainId: string): JsonRpcProvider {
+  return getPinnedProvider(chainId)
 }
 
 /** Token and native balances from the source chain itself, not from the aggregated balance service. */
@@ -306,12 +283,12 @@ export function usePinnedSourceBalances(params: {
   enabled: boolean
 }) {
   const { chainId, owner, token, enabled } = params
-  const provider = useSourceChainProvider(chainId)
+  // Callers disable this by passing an empty chain id, so the provider is resolved inside the
+  // query function rather than during render, where an unknown chain would throw.
   return useQuery({
-    // eslint-disable-next-line @tanstack/query/exhaustive-deps -- the provider is derived from chainId, already in the key
     queryKey: depositQueryKeys.sourceBalances(chainId, owner, token).queryKey,
-    queryFn: () => readSourceBalances(provider!, { owner, token }),
-    enabled: enabled && !!provider && !!owner && !!token,
+    queryFn: () => readSourceBalances(getPinnedProvider(chainId), { owner, token }),
+    enabled: enabled && !!depositApiRpcUrl(chainId) && !!owner && !!token,
     staleTime: 10_000,
     refetchInterval: 15_000,
   })

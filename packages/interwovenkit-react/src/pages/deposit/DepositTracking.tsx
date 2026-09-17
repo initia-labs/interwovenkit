@@ -1,8 +1,7 @@
-import xss from "xss"
 import { useEffect, useState } from "react"
 import { IconCheckCircleFilled, IconCloseCircleFilled } from "@initia/icons-react"
 import Button from "@/components/Button"
-import { sanitizeLink } from "@/components/explorer"
+import { safeExplorerUrl } from "@/components/explorer"
 import Footer from "@/components/Footer"
 import Image from "@/components/Image"
 import Loader from "@/components/Loader"
@@ -29,10 +28,10 @@ import styles from "./DepositTracking.module.css"
 
 import type { ReactNode } from "react"
 
-// Per-status stall budget: the pipeline spans several statuses (~5 min
-// end-to-end), so each gets its own minute before the "taking a little longer"
-// reassurance replaces the normal status copy.
-const TAKING_LONGER_DELAY = 60 * 1000
+// Per-stage stall budget, shared with the wallet flow's DepositProgress: the pipeline
+// spans several statuses (~5 min end-to-end), so each gets its own minute before the
+// "taking a little longer" reassurance replaces the normal status copy.
+export const TAKING_LONGER_DELAY = 60 * 1000
 
 // Selects the icon and the status color; the copy is entirely the controller's.
 export type DepositTrackingVariant =
@@ -42,7 +41,7 @@ export type DepositTrackingVariant =
   | "below-minimum"
   | "problem"
 
-export interface DepositTrackingViewProps {
+interface DepositTrackingViewProps {
   title: string
   variant: DepositTrackingVariant
   /** On an in-flight screen this is the stall reassurance; elsewhere the outcome heading. */
@@ -203,9 +202,7 @@ const DepositTracking = () => {
     ? (srcChain?.pretty_name ?? fallbackChainName(deposit.src_chain_id))
     : ""
 
-  const explorerUrl = deposit?.bot_tx_explorer_url
-    ? xss(sanitizeLink(deposit.bot_tx_explorer_url))
-    : ""
+  const explorerUrl = safeExplorerUrl(deposit?.bot_tx_explorer_url)
 
   // `src_decimals` comes from the deposit's route in the Deposit API's
   // `config/assets`; when the route has since been removed, the minimum cannot

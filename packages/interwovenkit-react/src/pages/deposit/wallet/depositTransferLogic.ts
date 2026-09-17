@@ -1,7 +1,8 @@
 import BigNumber from "bignumber.js"
 import { InitiaAddress } from "@initia/utils"
+import { USER_REJECTED_MESSAGE } from "@/data/http"
 import { BRIDGE_QUOTE_MAX_AGE } from "../data/bridges"
-import { isDecimalString, isEvmTxHash, isIntegerString } from "../data/parse"
+import { eqAddress, isDecimalString, isEvmTxHash, isIntegerString } from "../data/parse"
 import type { QuoteResult } from "../data/quote"
 import type { BridgeOption, BridgeQuoteResponse } from "../data/types"
 import type { DepositSessionTransaction } from "./depositSession"
@@ -19,9 +20,7 @@ export function resolveDepositRecipient(
   const candidate = recipientAddress || initiaAddress
   if (!candidate) return { error: "Connect a wallet to continue" }
   try {
-    const recipient = InitiaAddress(candidate).bech32.toLowerCase()
-    if (!recipient) throw new Error("empty address")
-    return { recipient }
+    return { recipient: InitiaAddress(candidate).bech32.toLowerCase() }
   } catch {
     return recipientAddress
       ? { error: `The app provided an invalid recipient address: ${recipientAddress}` }
@@ -56,7 +55,7 @@ export function isQuoteBoundToOptions(
   optionsDepositAddress: string | undefined,
 ): boolean {
   if (!quoteDepositAddress || !optionsDepositAddress) return false
-  return quoteDepositAddress.toLowerCase() === optionsDepositAddress.toLowerCase()
+  return eqAddress(quoteDepositAddress, optionsDepositAddress)
 }
 
 export function isQuoteStale(dataUpdatedAt: number, now: number): boolean {
@@ -77,50 +76,18 @@ export function coversAmount(balance: string | undefined, amount: string): boole
   return BigInt(balance) >= BigInt(amount)
 }
 
-/** Direct's equivalent of `bridgeQuoteSignature`: everything a reissued address or a re-quote could change under the user. */
-export function directDepositSignature(params: {
-  depositAddress: string
-  amount: string
-  recipient: string
-  dstChainId: string
-  dstDenom: string
-}): string {
-  const { depositAddress, amount, recipient, dstChainId, dstDenom } = params
-  if (!depositAddress) return ""
-  return JSON.stringify([
-    depositAddress.toLowerCase(),
-    amount,
-    recipient,
-    dstChainId,
-    dstDenom.toLowerCase(),
-  ])
-}
-
-export interface QuoteAcknowledgement {
-  /** The request identity the acknowledgement belongs to; a new identity is a new review. */
-  identityKey: string
-  signature: string
-}
-
-// Readiness is granted against one exact quote signature; when a background refresh changes
-// it, the form waits for another deliberate click instead of signing a quote the user never saw.
-export function deriveQuoteAcknowledgement(params: {
-  acknowledgement: QuoteAcknowledgement | null
-  identityKey: string
-  signature: string
-  /** Everything except this gate is satisfied, i.e. the user is looking at a reviewable quote. */
-  isReviewable: boolean
-}): { next: QuoteAcknowledgement | null; quoteUpdated: boolean } {
-  const { acknowledgement, identityKey, signature, isReviewable } = params
-
-  // A changed identity (amount, source, route) is a new review, not an updated
-  // quote: the form was never ready for it, so there is nothing to re-confirm.
-  if (acknowledgement && acknowledgement.identityKey !== identityKey) {
-    return { next: null, quoteUpdated: false }
-  }
-  if (!isReviewable || !signature) return { next: acknowledgement, quoteUpdated: false }
-  if (!acknowledgement) return { next: { identityKey, signature }, quoteUpdated: false }
-  return { next: acknowledgement, quoteUpdated: acknowledgement.signature !== signature }
+// The click-time review gate, after `submit` awaited a re-read of a stale quote. An identical
+// signature means the numbers on screen are the numbers that would be signed, so that same
+// click still sends — the Router preview's refresh-on-click rule. Anything else (a materially
+// changed quote, or a re-read that produced none) is numbers nobody has reviewed, so the form
+// shows them and waits for another deliberate click.
+export function decideRefreshedQuote(params: {
+  reviewedSignature: string
+  refreshedSignature: string
+}): "send" | "review" {
+  const { reviewedSignature, refreshedSignature } = params
+  if (!reviewedSignature || !refreshedSignature) return "review"
+  return reviewedSignature === refreshedSignature ? "send" : "review"
 }
 
 /** An absent estimate displays as unknown, never as zero or "insufficient": the wallet prices the transaction at signing time. */
@@ -128,14 +95,15 @@ export function formatNetworkFee(gasCostUsd: string | undefined): string {
   // Guarded before BigNumber(): strict mode throws on unparseable input, and a fee label
   // must never take down the form (same guard as knownGasCost in bridges.ts).
   if (!isDecimalString(gasCostUsd)) return "Shown in wallet"
-  const value = BigNumber(gasCostUsd || 0)
+  const value = BigNumber(gasCostUsd)
   return `$${value.toFixed(value.lt(0.01) && value.gt(0) ? 4 : 2)}`
 }
 
 /** Every leg must be known: a partial sum would promise a delivery time that leaves out a whole bridge or settlement leg. */
 export function combineEstimatedSeconds(parts: (number | undefined)[]): number | undefined {
-  if (parts.some((part) => part === undefined)) return undefined
-  return parts.reduce<number>((total, part) => total + (part ?? 0), 0)
+  const known = parts.filter((part) => part !== undefined)
+  if (known.length !== parts.length) return undefined
+  return known.reduce((total, part) => total + part, 0)
 }
 
 // The issued deposit address is swept by the backend between deposits: a transfer estimated
@@ -192,9 +160,6 @@ export function sendTransactionHashOf(error: unknown): string | undefined {
   return typeof hash === "string" && isEvmTxHash(hash) ? hash : undefined
 }
 
-/** normalizeErrorMessage maps both `code: 4001` and ethers' `ACTION_REJECTED` to this string. */
-export const USER_REJECTED_MESSAGE = "User rejected"
-
 /** A rejected prompt is one failure that leaves the form re-signable; see isKnownNotSent for the other. */
 export function isWalletRejection(message: string): boolean {
   return message === USER_REJECTED_MESSAGE
@@ -218,7 +183,7 @@ export const STORAGE_BLOCKED_MESSAGE =
   "This deposit could not be saved in your browser, so it cannot be sent safely. Free up storage or try another browser."
 
 /** Downstream /v1/quote at the worst-case Ethereum amount, as the readiness gate reads it. */
-export type PreflightStatus = "idle" | "loading" | "quoted" | "declined" | "error"
+type PreflightStatus = "idle" | "loading" | "quoted" | "declined" | "error"
 
 // Only a *settled* result may be read as this amount's: `keepPreviousData` holds the
 // previous verdict, which must not speak for an amount it was never quoted for.
@@ -238,7 +203,7 @@ export function derivePreflight(params: {
   return { status: "quoted" }
 }
 
-export type ReadinessLevel = "error" | "warning" | "info"
+type ReadinessLevel = "error" | "warning" | "info"
 
 export interface DepositReadiness {
   status: "loading" | "blocked" | "ready"
@@ -253,7 +218,6 @@ export interface DepositReadinessInput {
   /** The stored record already reached the send prompt on another mount. */
   sessionInFlight: boolean
   storageBlocked: boolean
-  lockError?: string
   recipientError?: string
 
   quantityEntered: boolean
@@ -288,9 +252,6 @@ export interface DepositReadinessInput {
 
   preflight: PreflightStatus
   preflightReason?: string
-
-  hasPreSubmitBlock: boolean
-  pinnedRpcAvailable: boolean
 }
 
 // Ordered so the most consequential blocker wins: unrecoverable states first (an ambiguous
@@ -307,7 +268,6 @@ export function deriveDepositReadiness(input: DepositReadinessInput): DepositRea
   if (input.unknownSend) return blocked(UNKNOWN_SEND_MESSAGE)
   if (input.sessionInFlight) return blocked(SESSION_IN_FLIGHT_MESSAGE)
   if (input.storageBlocked) return blocked(STORAGE_BLOCKED_MESSAGE)
-  if (input.lockError) return blocked(input.lockError)
   if (input.recipientError) return blocked(input.recipientError)
 
   // Input prompts, not failures: the footer renders an `info` blocker as the disabled
@@ -317,7 +277,6 @@ export function deriveDepositReadiness(input: DepositReadinessInput): DepositRea
   if (!input.isAmountSettled) return loading("Updating amount...")
 
   if (input.balancesError) return blocked("Failed to load balance")
-  if (!input.pinnedRpcAvailable) return blocked("This source chain cannot be verified right now")
   // The pinned read is the single authority for a Deposit API pair: no verified balance
   // until it resolves, even when Skip's aggregate snapshot already showed a number.
   if (input.tokenBalance === undefined) return loading("Loading balance...")
@@ -326,7 +285,7 @@ export function deriveDepositReadiness(input: DepositReadinessInput): DepositRea
   // Fees are read, never simulated. A native balance short of the call's own value plus
   // priced gas is a verdict the client can state before the node refuses the broadcast.
   if (input.nativeBalance !== undefined) {
-    const native = BigInt(input.nativeBalance || "0")
+    const native = BigInt(input.nativeBalance)
     if (native === 0n) return blocked(`Not enough ${input.nativeSymbol} for gas`)
     if (input.requiredNative && native < BigInt(input.requiredNative)) {
       return blocked(`Not enough ${input.nativeSymbol} for this route's fee and gas`)
@@ -371,7 +330,6 @@ export function deriveDepositReadiness(input: DepositReadinessInput): DepositRea
 
   if (input.approvalError) return blocked(input.approvalError)
   if (input.approvalChecking) return loading("Checking approvals...")
-  if (!input.hasPreSubmitBlock) return loading("Preparing...")
 
   // A failed *attempt* (a rejected prompt, a chain-switch refusal) deliberately does not
   // land here: the form stays ready and the footer shows the error alongside the action.

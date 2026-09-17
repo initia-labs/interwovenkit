@@ -13,11 +13,3 @@
 .itemText {
   font-family: var(--monospace);
 }
-
-/* Deposit API footer messages are sentences; override the help style's
-   hash-friendly break-all so they wrap on words. */
-.prose [role="alert"],
-.prose [role="status"] {
-  overflow-wrap: anywhere;
-  word-break: normal;
-}

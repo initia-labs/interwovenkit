@@ -10,7 +10,6 @@ import {
   getBridgeToolDisplay,
   intersectHostSources,
   resolveDepositTransport,
-  toBaseUnitString,
 } from "./depositSources"
 
 const BASE_USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
@@ -190,8 +189,25 @@ describe("intersectHostSources", () => {
 })
 
 describe("BRIDGE_TOOLS", () => {
-  it("covers every bridge key LI.FI published at generation time", () => {
-    expect(Object.keys(BRIDGE_TOOLS)).toHaveLength(36)
+  // The table is narrowed to the tools that can rank for Base/Arbitrum → Ethereum USDC. It is
+  // display metadata, so a missing key costs a logo (see the degradation test below), never a route.
+  it("covers the families the supported pairs route through", () => {
+    for (const key of [
+      "across",
+      "cctp",
+      "celercircle",
+      "glacis",
+      "layerswap",
+      "lifiIntents",
+      "mayan",
+      "polymer",
+      "relaydepository",
+      "squid",
+      "stargateV2",
+      "symbiosis",
+    ]) {
+      expect(BRIDGE_TOOLS, key).toHaveProperty(key)
+    }
   })
 
   it("carries a readable name and a hot-linked logo for each key", () => {
@@ -215,34 +231,6 @@ describe("BRIDGE_TOOLS", () => {
 
   it("does not resolve inherited Object properties as bridges", () => {
     expect(getBridgeToolDisplay("toString")).toEqual({ name: "toString", logoUrl: "" })
-  })
-})
-
-describe("toBaseUnitString", () => {
-  it("converts a typed token amount to integer base units", () => {
-    expect(toBaseUnitString("1", 6)).toBe("1000000")
-    expect(toBaseUnitString("0.5", 6)).toBe("500000")
-    expect(toBaseUnitString("1.234567", 6)).toBe("1234567")
-  })
-
-  it("floors sub-base-unit dust rather than rounding up", () => {
-    expect(toBaseUnitString("1.2345678", 6)).toBe("1234567")
-  })
-
-  // A USDC amount past 2^53 base units would lose precision through JavaScript `Number`.
-  it("keeps large amounts exact", () => {
-    expect(toBaseUnitString("9007199254740993", 6)).toBe("9007199254740993000000")
-  })
-
-  it("answers empty for anything that is not a usable amount", () => {
-    // Partial keystrokes included: BigNumber strict mode must never throw mid-edit.
-    for (const value of ["", " ", ".", "-", "1..2", "1e", "abc", "-1", "1e6x"]) {
-      expect(toBaseUnitString(value, 6)).toBe("")
-    }
-  })
-
-  it("allows an explicit zero", () => {
-    expect(toBaseUnitString("0", 6)).toBe("0")
   })
 })
 

@@ -1,8 +1,6 @@
-import { toBaseUnit } from "@initia/utils"
 import type { AssetOption } from "../data/assetOptions"
 import { normalizeDenom } from "../data/assetOptions"
 import { routeFeedsDestination } from "../data/assets"
-import { isIntegerString } from "../data/parse"
 import { findDestinationNetwork } from "../data/source"
 import type { Asset, DestinationNetwork } from "../data/types"
 
@@ -30,9 +28,10 @@ export interface DepositApiSource {
   /** How the source reaches the issued Ethereum address: "direct" is one ERC-20 transfer, "lifi" goes through the bridge options/quote leg first. */
   transport: "direct" | "lifi"
   fallbackChainLogoUrl: string
-  // Receipt-capable JSON-RPC for the pinned reads: the Router registry's publicnode `rpc`
-  // for Base and Arbitrum refuses `eth_getTransactionReceipt` without a paid token.
-  rpcUrl?: string
+  // Receipt-capable JSON-RPC for the pinned reads, required: the Router registry's publicnode
+  // `rpc` for Base and Arbitrum refuses `eth_getTransactionReceipt` without a paid token, and
+  // a source with no endpoint of its own could not be verified at all.
+  rpcUrl: string
 }
 
 // The exact three pairs the backend allowlists: it rejects anything else (native ETH,
@@ -83,8 +82,6 @@ export function findDepositApiSource(chainId: string, denom: string): DepositApi
 export function depositApiRpcUrl(chainId: string): string | undefined {
   return DEPOSIT_API_SOURCES.find((source) => source.chainId === chainId)?.rpcUrl
 }
-
-export type DepositTransport = "router" | "direct" | "lifi"
 
 // `unavailable` is deliberately distinct from `router`: once the Deposit API owns a source
 // pair, a catalog outage must not hand it to an executor with different fees and minimums.
@@ -159,51 +156,36 @@ export function intersectHostSources(
   )
 }
 
-export interface BridgeToolDisplay {
+interface BridgeToolDisplay {
   name: string
   logoUrl: string
 }
 
 // LI.FI's own tools metadata, checked in because the Deposit API's options response carries
-// a bridge key only. Generated from `https://li.quest/v1/tools` (bridges[], key → name/logoURI).
-// Display only, never an execution allowlist — see getBridgeToolDisplay.
+// a bridge key only. Taken from `https://li.quest/v1/tools` (bridges[], key → name/logoURI) and
+// narrowed to the tools that can rank for Base/Arbitrum → Ethereum USDC; anything else only
+// ever cost a lookup. Display only, never an execution allowlist — see getBridgeToolDisplay.
 export const BRIDGE_TOOLS: Record<string, BridgeToolDisplay> = {
-  arbitrum: { name: "Arbitrum Bridge", logoUrl: lifiIcon("bridges/arbitrum") },
   across: { name: "AcrossV4", logoUrl: lifiIcon("bridges/across") },
-  gnosis: { name: "Gnosis Bridge", logoUrl: lifiIcon("bridges/gnosis") },
-  omni: { name: "Omni Bridge", logoUrl: lifiIcon("bridges/omni") },
+  arbitrum: { name: "Arbitrum Bridge", logoUrl: lifiIcon("bridges/arbitrum") },
+  cctp: { name: "Circle CCTP", logoUrl: lifiIcon("bridges/circle") },
   celercircle: { name: "CCTP + Celer (Standard)", logoUrl: lifiIcon("bridges/circle") },
   celercirclefast: { name: "CCTP + Celer (Fast)", logoUrl: lifiIcon("bridges/circle") },
-  allbridge: { name: "Allbridge", logoUrl: lifiIcon("bridges/allbridge") },
-  squid: { name: "Squid", logoUrl: lifiIcon("bridges/squid") },
+  gasZipBridge: { name: "GasZip", logoUrl: lifiIcon("bridges/gaszip") },
+  glacis: { name: "Glacis", logoUrl: lifiIcon("bridges/glacis") },
+  layerswap: { name: "Layerswap", logoUrl: lifiIcon("bridges/layerswap") },
+  lifiIntents: { name: "LI.FI Intents", logoUrl: lifiIcon("bridges/lifi") },
   mayan: { name: "Mayan (Swift)", logoUrl: lifiIcon("bridges/mayan") },
-  mayanWH: { name: "Mayan (Wormhole)", logoUrl: lifiIcon("bridges/mayan") },
+  mayanFastMCTP: { name: "CCTPv2 + Mayan", logoUrl: lifiIcon("bridges/mayan") },
   mayanMCTP: { name: "CCTP + Mayan", logoUrl: lifiIcon("bridges/mayan") },
+  mayanWH: { name: "Mayan (Wormhole)", logoUrl: lifiIcon("bridges/mayan") },
+  polymer: { name: "Polymer (Fast)", logoUrl: lifiIcon("bridges/polymer") },
+  polymerStandard: { name: "Polymer (Standard)", logoUrl: lifiIcon("bridges/polymer") },
+  relaydepository: { name: "Relay", logoUrl: lifiIcon("bridges/relay") },
+  squid: { name: "Squid", logoUrl: lifiIcon("bridges/squid") },
   stargateV2: { name: "StargateV2 (Fast mode)", logoUrl: lifiIcon("bridges/stargate") },
   stargateV2Bus: { name: "StargateV2 (Economy mode)", logoUrl: lifiIcon("bridges/stargate") },
   symbiosis: { name: "Symbiosis", logoUrl: lifiIcon("bridges/symbiosis") },
-  polygon: { name: "Polygon Bridge (PoS)", logoUrl: lifiIcon("bridges/polygon") },
-  glacis: { name: "Glacis", logoUrl: lifiIcon("bridges/glacis") },
-  chainflip: { name: "Chainflip", logoUrl: lifiIcon("bridges/chainflip") },
-  gasZipBridge: { name: "GasZip", logoUrl: lifiIcon("bridges/gaszip") },
-  relaydepository: { name: "Relay", logoUrl: lifiIcon("bridges/relay") },
-  mayanFastMCTP: { name: "CCTPv2 + Mayan", logoUrl: lifiIcon("bridges/mayan") },
-  unit: { name: "Unit", logoUrl: lifiIcon("bridges/unit") },
-  polymer: { name: "Polymer (Fast)", logoUrl: lifiIcon("bridges/polymer") },
-  polymerStandard: { name: "Polymer (Standard)", logoUrl: lifiIcon("bridges/polymer") },
-  cctp: { name: "Circle CCTP", logoUrl: lifiIcon("bridges/circle") },
-  eco: { name: "Eco", logoUrl: lifiIcon("bridges/eco") },
-  near: { name: "NearIntents", logoUrl: lifiIcon("bridges/near") },
-  hyperliquidSA: { name: "Hyperliquid", logoUrl: lifiIcon("chains/hyperliquid") },
-  lifiIntents: { name: "LI.FI Intents", logoUrl: lifiIcon("bridges/lifi") },
-  garden: { name: "Garden", logoUrl: lifiIcon("bridges/garden") },
-  megaeth: { name: "MegaETH Gateway", logoUrl: lifiIcon("bridges/megaeth") },
-  hyperliquidNative: { name: "Hyperliquid Native", logoUrl: lifiIcon("chains/hyperliquid") },
-  superset: { name: "Superset", logoUrl: lifiIcon("bridges/superset") },
-  paxos: { name: "Paxos Labs Transit", logoUrl: lifiIcon("bridges/paxos") },
-  smartDeposits: { name: "Smart Deposits", logoUrl: lifiIcon("bridges/lifi") },
-  layerswap: { name: "Layerswap", logoUrl: lifiIcon("bridges/layerswap") },
-  frax: { name: "Frax Bridge", logoUrl: lifiIcon("bridges/frax") },
 }
 
 // An unknown key keeps its raw readable name and an empty logo: refusing to render a route
@@ -212,11 +194,4 @@ export function getBridgeToolDisplay(key: string): BridgeToolDisplay {
   // Own-property check: a bridge key such as "constructor" would otherwise resolve to an
   // inherited Object member and render a function where a route name belongs.
   return Object.hasOwn(BRIDGE_TOOLS, key) ? BRIDGE_TOOLS[key] : { name: key, logoUrl: "" }
-}
-
-// "" when the input cannot be represented (empty, non-numeric, negative). No JavaScript
-// `Number` touches the value: a USDC amount past 2^53 base units would lose precision.
-export function toBaseUnitString(quantity: string, decimals: number): string {
-  const base = toBaseUnit(quantity, { decimals })
-  return isIntegerString(base) ? base : ""
 }

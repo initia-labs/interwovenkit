@@ -1,7 +1,6 @@
 import { createContext, useContext } from "react"
 import { useFormContext } from "react-hook-form"
 import type { BridgeTxResult } from "@/pages/bridge/data/tx"
-import type { DepositSession } from "./depositSession"
 
 export type TransferPage =
   | "select-local"
@@ -22,8 +21,6 @@ export interface TransferFormValues {
   /** LI.FI bridge key picked on select-route; "" keeps the ranked default. */
   selectedBridge: string
   depositSessionId: string
-  /** In-memory copy of the just-sent session; never read in preference to a stored one. */
-  depositSessionFallback?: DepositSession
   // TX completion data
   result?: BridgeTxResult
 }

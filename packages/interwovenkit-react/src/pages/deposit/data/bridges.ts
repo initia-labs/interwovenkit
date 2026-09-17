@@ -2,12 +2,14 @@ import BigNumber from "bignumber.js"
 import type { KyInstance } from "ky"
 import { HTTPError } from "ky"
 import { keepPreviousData, queryOptions } from "@tanstack/react-query"
+import { USDC_DECIMALS } from "@/data/constants"
 import { normalizeError } from "@/data/http"
 import { depositQueryKeys } from "./api"
 import { normalizeDenom } from "./assetOptions"
 import { pollInterval } from "./deposits"
 import {
   assertField,
+  eqAddress,
   isBoolean,
   isDecimalString,
   isEvmAddress,
@@ -26,6 +28,7 @@ import type {
   BridgeQuoteApproval,
   BridgeQuoteResponse,
   BridgeQuoteTransaction,
+  BridgeStatusErrorCode,
   BridgeStatusResponse,
   BridgeStatusState,
   Deposit,
@@ -33,8 +36,6 @@ import type {
 import { BRIDGE_STATUS_STATES } from "./types"
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
-
-const eqAddress = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
 
 const eqAmount = (a: string, b: string) =>
   isIntegerString(a) && isIntegerString(b) && BigInt(a) === BigInt(b)
@@ -142,26 +143,17 @@ export function parseBridgeOptions(
   return { deposit_address, required_min_received, options: parsed }
 }
 
-const knownDuration = (option: BridgeOption): number | undefined => {
-  const value = option.execution_duration_seconds
-  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : undefined
-}
-
+// Ranking runs on parsed options only (parseBridgeOptions), so the amounts are
+// already known-numeric here and these read the fields directly.
 const knownGasCost = (option: BridgeOption): BigNumber | undefined =>
-  // Guarded before BigNumber(): strict mode throws on unparseable input, and a
-  // ranking helper must never take down the route list.
-  isDecimalString(option.gas_cost_usd) ? BigNumber(option.gas_cost_usd) : undefined
-
-// Every supported source is canonical USDC, and gas is quoted in USD, so the
-// two can be netted in USDC base units with USDC taken as one dollar.
-const USDC_DECIMALS = 6
+  option.gas_cost_usd ? BigNumber(option.gas_cost_usd) : undefined
 
 /** Output minus quoted gas; unknown without a gas estimate, so a route with an unstated fee never ranks best. */
 function netValue(option: BridgeOption): BigNumber | undefined {
-  if (!isIntegerString(option.amount_out)) return undefined
   const gas = knownGasCost(option)
-  if (!gas) return undefined
-  return BigNumber(option.amount_out).minus(gas.shiftedBy(USDC_DECIMALS))
+  // Gas is quoted in USD and every supported source is canonical USDC, so the
+  // two net out in USDC base units with USDC taken as one dollar.
+  return gas && BigNumber(option.amount_out).minus(gas.shiftedBy(USDC_DECIMALS))
 }
 
 /** Unknown sorts after every known value, so a missing estimate can never win a tie-break. */
@@ -178,11 +170,11 @@ function compareUnknownLast<T>(
 
 // Routes within this share of the best net value are "competitive" and ordered
 // by speed instead of output; 0.5% is the backend's own slippage tolerance.
-export const COMPETITIVE_VALUE_TOLERANCE = 0.005
+const COMPETITIVE_VALUE_TOLERANCE = 0.005
 
 // Gaps under this many dollars count as competitive regardless of the share, so
 // tenths of a cent of gas never outrank minutes.
-export const COMPETITIVE_VALUE_FLOOR_USD = 0.01
+const COMPETITIVE_VALUE_FLOOR_USD = 0.01
 
 function bestNetValue(options: BridgeOption[]): BigNumber | undefined {
   return options
@@ -214,12 +206,12 @@ export function rankBridgeOptions(options: BridgeOption[]): BridgeOption[] {
 
   const byKey = (a: BridgeOption, b: BridgeOption) =>
     a.bridge < b.bridge ? -1 : a.bridge > b.bridge ? 1 : 0
-  // comparedTo answers null only for NaN operands, which the decimal guards
-  // above exclude; `?? 0` keeps the sort total.
+  // comparedTo answers null only for NaN operands, which the parser excludes;
+  // `?? 0` keeps the sort total regardless.
   const byNet = (a: BridgeOption, b: BridgeOption) =>
     compareUnknownLast(nets.get(a.bridge), nets.get(b.bridge), (x, y) => y.comparedTo(x) ?? 0)
   const byDuration = (a: BridgeOption, b: BridgeOption) =>
-    compareUnknownLast(knownDuration(a), knownDuration(b), (x, y) => x - y)
+    compareUnknownLast(a.execution_duration_seconds, b.execution_duration_seconds, (x, y) => x - y)
   const byGas = (a: BridgeOption, b: BridgeOption) =>
     compareUnknownLast(knownGasCost(a), knownGasCost(b), (x, y) => x.comparedTo(y) ?? 0)
 
@@ -536,7 +528,7 @@ export function parseBridgeStatus(
 // and automatic polling must stop.
 export class BridgeStatusConflictError extends Error {
   constructor(
-    readonly code: string,
+    readonly code: BridgeStatusErrorCode,
     message: string,
   ) {
     super(message)
@@ -544,38 +536,13 @@ export class BridgeStatusConflictError extends Error {
   }
 }
 
-/** Server-directed backoff. `retryAfterMs` is absent when the server sent no usable header. */
-export class RateLimitedError extends Error {
-  constructor(
-    message: string,
-    readonly retryAfterMs?: number,
-  ) {
-    super(message)
-    this.name = "RateLimitedError"
-  }
-}
-
-function parseRetryAfterMs(header: string | null): number | undefined {
-  // The endpoint documents delta-seconds; the HTTP-date form is ignored rather
-  // than guessed at, and the caller falls back to its own backoff.
-  if (!header || !isIntegerString(header.trim())) return undefined
-  return Number.parseInt(header.trim(), 10) * 1000
-}
-
 // Always throws. This endpoint answers `{ error, message }` instead of the
-// API-wide `{ message }`: an `upstream_conflict` must stop polling, and a 429
-// must be honored with the server's own delay.
+// API-wide `{ message }`, and the code decides whether polling may continue
+// (see bridgeStatusPollInterval) — including `rate_limited` on a 429.
 export async function classifyBridgeStatusError(error: unknown): Promise<never> {
   if (error instanceof HTTPError) {
-    const { response } = error
     // Cloned so the fallback normalizeError below can still read the body.
-    const coded = await readCodedBody(response)
-    if (response.status === 429) {
-      throw new RateLimitedError(
-        coded?.message || "Bridge status is rate limited",
-        parseRetryAfterMs(response.headers.get("Retry-After")),
-      )
-    }
+    const coded = await readCodedBody(error.response)
     if (coded) throw new BridgeStatusConflictError(coded.code, coded.message)
   }
   throw await normalizeError(error)
@@ -583,12 +550,14 @@ export async function classifyBridgeStatusError(error: unknown): Promise<never> 
 
 async function readCodedBody(
   response: Response,
-): Promise<{ code: string; message: string } | undefined> {
+): Promise<{ code: BridgeStatusErrorCode; message: string } | undefined> {
   try {
     const body: unknown = await response.clone().json()
     if (!isRecord(body) || !isNonEmptyString(body.error)) return undefined
+    // Codes outside the documented set are kept verbatim: nothing branches on
+    // an unrecognized one, and both call sites only ever compare it.
     return {
-      code: body.error,
+      code: body.error as BridgeStatusErrorCode,
       message: isNonEmptyString(body.message) ? body.message : body.error,
     }
   } catch {
@@ -596,8 +565,15 @@ async function readCodedBody(
   }
 }
 
+// Deterministic rejections of this exact request: upstream_conflict is the hard
+// recovery state, invalid_request is a permanent refusal. Neither changes on retry.
+const BRIDGE_STATUS_STOP_ERROR_CODES: readonly BridgeStatusErrorCode[] = [
+  "upstream_conflict",
+  "invalid_request",
+]
+
 const BRIDGE_STATUS_STOP_STATES: readonly BridgeStatusState[] = [
-  // Handoff complete: the deposit id takes over (see walletPollUntilTerminal).
+  // Handoff complete: the deposit id takes over (see useDeposit).
   "deposit_indexed",
   // Terminal provider outcomes; none may later turn into a delivery.
   "bridge_partial",
@@ -606,24 +582,22 @@ const BRIDGE_STATUS_STOP_STATES: readonly BridgeStatusState[] = [
   "bridge_failed",
 ]
 
-// Stops on a hard conflict and on terminal or handed-off states, and honors a
-// 429 with the server's delay. `false` never means the transfer failed — the
-// session and its hashes are preserved for manual refresh.
+// Stops on a deterministic coded failure and on terminal or handed-off states;
+// every other error (including `rate_limited`) keeps the screen's own cadence.
+// `false` never means the transfer failed — the session and its hashes are
+// preserved for manual refresh.
 export function bridgeStatusPollInterval(
   state: BridgeStatusState | undefined,
   error: Error | null,
   elapsedMs: number,
 ): number | false {
-  // upstream_conflict is the hard recovery state; invalid_request is a
-  // deterministic rejection of this exact request. Neither changes on retry.
   if (
     error instanceof BridgeStatusConflictError &&
-    (error.code === "upstream_conflict" || error.code === "invalid_request")
+    BRIDGE_STATUS_STOP_ERROR_CODES.includes(error.code)
   ) {
     return false
   }
   if (state && BRIDGE_STATUS_STOP_STATES.includes(state)) return false
-  if (error instanceof RateLimitedError) return error.retryAfterMs ?? pollInterval(elapsedMs)
   return pollInterval(elapsedMs)
 }
 
@@ -631,6 +605,43 @@ export function bridgeStatusPollInterval(
 // background: a background refetch re-keys the downstream preflight and would
 // demand a re-review for a change the user never saw.
 export const BRIDGE_QUOTE_MAX_AGE = 10_000
+
+// The two planning requests differ only in path, key and parser: both POST the
+// retained identity and both hold their result for BRIDGE_QUOTE_MAX_AGE without
+// ever refetching in the background — focus returns from the wallet popup, and a
+// refetch there would surprise the user with a change they never asked for.
+function createBridgeQueryOptions<T>(config: {
+  api: KyInstance
+  path: string
+  queryKey: readonly unknown[]
+  request: BridgeRequestIdentity & { bridge?: string }
+  parse: (response: unknown) => T
+  enabled: boolean
+  /** Only for the comparative options list; see each factory. */
+  keepPrevious?: boolean
+}) {
+  const { api, path, queryKey, request, parse, enabled, keepPrevious } = config
+  return queryOptions({
+    // Each caller keys every field its request is bound to (see depositQueryKeys):
+    // a changed sender, recipient or amount must miss the cache, never reuse a
+    // response built for the previous identity.
+    queryKey,
+    queryFn: async (): Promise<T> => {
+      try {
+        const response = await api
+          .post(path, { json: toBridgeRequestBody(request) })
+          .json<unknown>()
+        return parse(response)
+      } catch (error) {
+        throw await normalizeError(error)
+      }
+    },
+    enabled,
+    staleTime: BRIDGE_QUOTE_MAX_AGE,
+    refetchOnWindowFocus: false,
+    ...(keepPrevious ? { placeholderData: keepPreviousData } : {}),
+  })
+}
 
 // `keepPreviousData` is safe here — the route list is comparative information,
 // not something the user signs.
@@ -640,7 +651,9 @@ export function createBridgeOptionsQueryOptions(
   enabled: boolean,
 ) {
   const { srcChainId, srcDenom, dstChainId, dstDenom, amount, fromAddress, walletAddress } = request
-  return queryOptions({
+  return createBridgeQueryOptions({
+    api,
+    path: "v1/bridges/options",
     queryKey: depositQueryKeys.bridgeOptions(
       srcChainId,
       srcDenom,
@@ -650,22 +663,10 @@ export function createBridgeOptionsQueryOptions(
       fromAddress,
       walletAddress,
     ).queryKey,
-    queryFn: async (): Promise<BridgeOptionsResponse> => {
-      try {
-        const response = await api
-          .post("v1/bridges/options", { json: toBridgeRequestBody(request) })
-          .json<unknown>()
-        return parseBridgeOptions(response, request)
-      } catch (error) {
-        throw await normalizeError(error)
-      }
-    },
+    request,
+    parse: (response): BridgeOptionsResponse => parseBridgeOptions(response, request),
     enabled,
-    staleTime: BRIDGE_QUOTE_MAX_AGE,
-    // Focus returns from the wallet popup; a refetch then would surprise the
-    // user with "Quote updated" for a change they did not ask for.
-    refetchOnWindowFocus: false,
-    placeholderData: keepPreviousData,
+    keepPrevious: true,
   })
 }
 
@@ -679,7 +680,9 @@ export function createBridgeQuoteQueryOptions(
   enabled: boolean,
 ) {
   const { srcChainId, srcDenom, dstChainId, dstDenom, amount, fromAddress, walletAddress } = request
-  return queryOptions({
+  return createBridgeQueryOptions({
+    api,
+    path: "v1/bridges/quote",
     queryKey: depositQueryKeys.bridgeQuote(
       srcChainId,
       srcDenom,
@@ -691,19 +694,9 @@ export function createBridgeQuoteQueryOptions(
       request.bridge,
       request.depositAddress ?? "",
     ).queryKey,
-    queryFn: async (): Promise<BridgeQuoteResponse> => {
-      try {
-        const response = await api
-          .post("v1/bridges/quote", { json: toBridgeRequestBody(request) })
-          .json<unknown>()
-        return parseBridgeQuote(response, request)
-      } catch (error) {
-        throw await normalizeError(error)
-      }
-    },
+    request,
+    parse: (response): BridgeQuoteResponse => parseBridgeQuote(response, request),
     enabled,
-    staleTime: BRIDGE_QUOTE_MAX_AGE,
-    refetchOnWindowFocus: false,
   })
 }
 
@@ -722,7 +715,7 @@ export function createBridgeStatusQueryOptions(
   api: KyInstance,
   params: BridgeStatusParams,
   enabled: boolean,
-  startedAt: number = Date.now(),
+  startedAt: number,
 ) {
   const { srcChainId, srcTxHash, depositAddress } = params
   return queryOptions({

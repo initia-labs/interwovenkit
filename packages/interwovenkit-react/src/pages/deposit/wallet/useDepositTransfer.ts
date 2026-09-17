@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useConfig } from "@/data/config"
 import { normalizeErrorMessage } from "@/data/http"
 import { useGetProvider } from "@/data/signer"
+import { toBaseUnitString } from "@/lib/amountValidation"
 import { useLocationState } from "@/lib/router"
 import { useFindSkipChain } from "@/pages/bridge/data/chains"
 import { switchEthereumChain } from "@/pages/bridge/data/evm"
@@ -22,12 +23,11 @@ import { useDepositAddress } from "../data/depositAddress"
 import { createQuoteQueryOptions } from "../data/quote"
 import { formatSourceMin } from "../data/source"
 import type { Asset, BridgeQuoteResponse, DestinationNetwork } from "../data/types"
-import type { DepositSession } from "./depositSession"
+import type { DepositIntent, DepositSession } from "./depositSession"
 import {
   createDepositSession,
-  DepositSessionLockError,
   DepositSessionWriteError,
-  holdDepositSessionLock,
+  findInFlightSession,
   isPhaseAdvance,
   isSameIntent,
   readDepositSession,
@@ -41,21 +41,18 @@ import {
   ETHEREUM_USDC_DENOM,
   findDepositApiSource,
   resolveDepositTransport,
-  toBaseUnitString,
 } from "./depositSources"
 import {
   buildDepositTransaction,
+  decideRefreshedQuote,
   type DepositReadiness,
   deriveDepositReadiness,
   derivePreflight,
-  deriveQuoteAcknowledgement,
-  directDepositSignature,
   isKnownNotSent,
   isQuoteBoundToOptions,
   isQuoteStale,
   isWalletRejection,
   meetsDirectMinimum,
-  type QuoteAcknowledgement,
   requiredNativeAmount,
   resolveDepositRecipient,
   selectBridgeOption,
@@ -64,7 +61,6 @@ import {
 import {
   encodeErc20Approve,
   readAllowance,
-  readBlockNumber,
   readMaxFeePerGas,
   usePinnedSourceBalances,
   useSourceChainProvider,
@@ -72,7 +68,11 @@ import {
 import { useTransferFlow, useTransferForm } from "./transferFlowConfig"
 import type { TransferLocationState } from "./transferNavigation"
 
-export type DepositTransfer = Extract<DepositTransportResolution, { transport: "direct" | "lifi" }>
+/** The two resolutions the Deposit API executes itself; Router and `unavailable` never reach this hook. */
+export type DepositTransportSelection = Extract<
+  DepositTransportResolution,
+  { transport: "direct" | "lifi" }
+>
 
 /** The controlled view model the details and footer render directly; no branching left in the view. */
 export interface DepositTransferModel {
@@ -100,20 +100,16 @@ export interface DepositTransferModel {
   nativeSymbol: string
   /** Chains the funds pass through, in order, for the route row. */
   legs: { name: string; logoUrl: string }[]
-  /** The reviewed quote changed under a refresh; a fresh deliberate click is required. */
+  /** The click's own re-read produced a materially different quote; the next click sends it. */
   quoteUpdated: boolean
-  /** A click landed on a stale or refreshing quote: it is being re-read, and the next click sends. */
-  isRefreshingQuote: boolean
   /** A wallet call returned no hash: the form is locked and the only action is to watch the session. */
   unknownSend: boolean
   openProgress: () => void
   openRouteSelection?: () => void
 }
 
-// Lower bound for replacement detection: must be recent, need not be per-render fresh.
-const SOURCE_BLOCK_REFRESH_MS = 15_000
-// One retry for a lock that this tab's previous mount is still handing back.
-const LOCK_RETRY_MS = 300
+// Gas price and allowance: must be recent, need not be per-render fresh.
+const SOURCE_READ_REFRESH_MS = 15_000
 // Past this the receipt watch is handed to the progress view rather than blocking the form.
 const APPROVAL_RECEIPT_TIMEOUT_MS = 120_000
 
@@ -151,7 +147,7 @@ export function useDepositTransportResolution() {
   return { resolution, retryCatalog: refetch, isCatalogFetching: isFetching }
 }
 
-export interface DepositRequestState {
+interface DepositRequestState {
   identity: BridgeRequestIdentity
   /** bech32 lowercase. */
   recipient: string
@@ -206,10 +202,9 @@ export function useDepositRequest(resolution: DepositTransportResolution): Depos
 }
 
 // Ordering is the point of this hook: the session is written and read back before any prompt,
-// the per-session Web Lock is taken while the form is merely ready (so the click path holds no
-// await but the wallet calls — see the Safari popup rule in AGENTS.md), and the returned hash is
-// persisted before anything navigates. A failure after the prompt is never treated as "not sent".
-export function useDepositTransfer(resolution: DepositTransfer): DepositTransferModel {
+// and the returned hash is persisted before anything navigates. A failure after the prompt is
+// never treated as "not sent".
+export function useDepositTransfer(resolution: DepositTransportSelection): DepositTransferModel {
   const { transport, source, route, destination } = resolution
   const api = useDepositApi()
   const { depositApiUrl = "" } = useConfig()
@@ -224,12 +219,14 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
 
   const [submitError, setSubmitError] = useState<string | undefined>(undefined)
   const [approvalError, setApprovalError] = useState<string | undefined>(undefined)
-  const [lockError, setLockError] = useState<string | undefined>(undefined)
   const [storageBlocked, setStorageBlocked] = useState(false)
   const [unknownSend, setUnknownSend] = useState(false)
-  const [acknowledgement, setAcknowledgement] = useState<QuoteAcknowledgement | null>(null)
-  // Compared against the query's own timestamp, so it clears by itself once a newer read lands.
-  const [refreshRequestedAt, setRefreshRequestedAt] = useState(0)
+  // The signature a click's own re-read produced when it differed from the reviewed one. Held
+  // as the signature rather than a boolean so the notice clears itself once the quote moves on,
+  // without an effect comparing it back to the query.
+  const [reviewRequiredSignature, setReviewRequiredSignature] = useState("")
+  // The awaited re-read inside a click: re-entrancy guard and the button's pending state.
+  const [isRefreshingQuote, setIsRefreshingQuote] = useState(false)
 
   // --- Source-chain-pinned reads: the single authority for this pair ---------
   const balancesQuery = usePinnedSourceBalances({
@@ -240,23 +237,22 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
   })
   const pinnedProvider = useSourceChainProvider(source.chainId)
 
+  // The lower bound for ethers' replacement scan, kept warm so nothing but the wallet call sits
+  // between the send prompt and the click (Safari drops user activation across a real await).
   const blockQuery = useQuery({
-    // eslint-disable-next-line @tanstack/query/exhaustive-deps -- the provider is derived from chainId, already in the key
     queryKey: depositQueryKeys.sourceBlock(source.chainId).queryKey,
-    queryFn: () => readBlockNumber(pinnedProvider!),
-    enabled: !!pinnedProvider,
-    staleTime: SOURCE_BLOCK_REFRESH_MS,
-    refetchInterval: SOURCE_BLOCK_REFRESH_MS,
+    queryFn: () => pinnedProvider.getBlockNumber(),
+    staleTime: SOURCE_READ_REFRESH_MS,
+    refetchInterval: SOURCE_READ_REFRESH_MS,
   })
 
   // Priced gas for the fee gate; a missing read only narrows the gate to the call's own native value.
   const feeQuery = useQuery({
     // eslint-disable-next-line @tanstack/query/exhaustive-deps -- the provider is derived from chainId, already in the key
     queryKey: depositQueryKeys.maxFeePerGas(source.chainId).queryKey,
-    queryFn: () => readMaxFeePerGas(pinnedProvider!),
-    enabled: !!pinnedProvider,
-    staleTime: SOURCE_BLOCK_REFRESH_MS,
-    refetchInterval: SOURCE_BLOCK_REFRESH_MS,
+    queryFn: () => readMaxFeePerGas(pinnedProvider),
+    staleTime: SOURCE_READ_REFRESH_MS,
+    refetchInterval: SOURCE_READ_REFRESH_MS,
   })
 
   // --- Bridge options and quote (LI.FI only) --------------------------------
@@ -313,7 +309,6 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
   })
   const issuedAddress = transport === "direct" ? depositAddressQuery.data : boundQuote
   const depositAddress = issuedAddress?.deposit_address
-  const cursor = issuedAddress?.cursor ?? ""
 
   // --- Minimums -------------------------------------------------------------
   const meetsMinimum =
@@ -379,9 +374,9 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
     // eslint-disable-next-line @tanstack/query/exhaustive-deps -- the provider is derived from chainId, already in the key
     queryKey: allowanceKey,
     queryFn: () =>
-      readAllowance(pinnedProvider!, { owner: hexAddress, token: source.denom, spender }),
-    enabled: !!pinnedProvider && !!hexAddress && !!approval,
-    staleTime: SOURCE_BLOCK_REFRESH_MS,
+      readAllowance(pinnedProvider, { owner: hexAddress, token: source.denom, spender }),
+    enabled: !!hexAddress && !!approval,
+    staleTime: SOURCE_READ_REFRESH_MS,
   })
   const approvalRequired =
     !!approval &&
@@ -392,32 +387,11 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
   const allowanceError =
     approval && allowanceQuery.error ? "Could not check the USDC allowance" : undefined
 
-  // --- Freshness and review gate --------------------------------------------
-  // Each path ages against the read the user actually reviewed.
-  const freshnessQuery = transport === "lifi" ? quoteQuery : preflightQuery
-  const freshnessUpdatedAt = freshnessQuery.dataUpdatedAt
-  // A failed re-read must surface its error rather than leave the button spinning, so settle on either result.
-  const freshnessSettledAt = Math.max(freshnessQuery.dataUpdatedAt, freshnessQuery.errorUpdatedAt)
-  const isRefreshing = transport === "lifi" ? quoteQuery.isFetching : preflightQuery.isFetching
-  const signature =
-    transport === "lifi"
-      ? boundQuote
-        ? bridgeQuoteSignature(boundQuote)
-        : ""
-      : directDepositSignature({
-          depositAddress: depositAddress ?? "",
-          amount,
-          recipient,
-          dstChainId: destination.chain_id,
-          dstDenom: destination.denom,
-        })
-  const identityKey = [
-    source.chainId,
-    source.denom,
-    amount,
-    recipient,
-    selectedBridge?.bridge ?? "",
-  ].join(":")
+  // --- Freshness (LI.FI only) -----------------------------------------------
+  // Only the LI.FI quote is signed material that ages; the direct path's call is built from the
+  // issued address and the typed amount, and its preflight is information about the destination.
+  const quoteSignature = boundQuote ? bridgeQuoteSignature(boundQuote) : ""
+  const quoteUpdated = !!reviewRequiredSignature && reviewRequiredSignature === quoteSignature
 
   // Captured now so the progress screen renders a saved session without a registry or Router read.
   const lookupChain = (chainId: string) => {
@@ -448,80 +422,88 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
     },
   ]
 
-  const sessionDraft = useMemo((): DepositSessionDraft | undefined => {
-    if (!recipient || !hexAddress || !amount || !depositAddress || !cursor) return undefined
-    const transaction =
-      transport === "lifi"
-        ? boundQuote && buildDepositTransaction({ transport: "lifi", quote: boundQuote })
-        : buildDepositTransaction({ transport: "direct", depositAddress, amount })
-    if (!transaction) return undefined
+  // Parameterized by the quote so the send can build from the quote it just re-read, not
+  // from whatever render committed before the click's awaited refresh.
+  const buildDraft = useCallback(
+    (quote: BridgeQuoteResponse | undefined): DepositSessionDraft | undefined => {
+      const issued = transport === "direct" ? depositAddressQuery.data : quote
+      const depositAddress = issued?.deposit_address
+      const cursor = issued?.cursor ?? ""
+      if (!recipient || !hexAddress || !amount || !depositAddress || !cursor) return undefined
+      const transaction =
+        transport === "lifi"
+          ? quote && buildDepositTransaction({ transport: "lifi", quote })
+          : buildDepositTransaction({ transport: "direct", depositAddress, amount })
+      if (!transaction) return undefined
 
-    return {
-      apiUrl: depositApiUrl,
+      return {
+        apiUrl: depositApiUrl,
+        transport,
+        source: {
+          chainId: source.chainId,
+          denom: source.denom,
+          decimals: source.decimals,
+          sender: hexAddress,
+          amount,
+          symbol: source.symbol,
+          chainName: source.chainName,
+          chainLogoUrl: sourceChain?.logo_uri || source.fallbackChainLogoUrl,
+        },
+        destination: {
+          chainId: destination.chain_id,
+          denom: destination.denom,
+          recipient,
+          symbol: route.dst_symbol,
+          chainName: destinationChain?.pretty_name || destination.chain_name,
+          chainLogoUrl: destinationChain?.logo_uri ?? "",
+        },
+        depositAddress,
+        cursor,
+        transaction,
+      }
+    },
+    [
+      amount,
+      depositAddressQuery.data,
+      depositApiUrl,
+      destination,
+      hexAddress,
+      recipient,
+      route.dst_symbol,
+      source,
+      sourceChain,
+      destinationChain,
       transport,
-      source: {
-        chainId: source.chainId,
-        denom: source.denom,
-        decimals: source.decimals,
-        sender: hexAddress,
-        amount,
-        symbol: source.symbol,
-        chainName: source.chainName,
-        chainLogoUrl: sourceChain?.logo_uri || source.fallbackChainLogoUrl,
-      },
-      destination: {
-        chainId: destination.chain_id,
-        denom: destination.denom,
-        recipient,
-        symbol: route.dst_symbol,
-        chainName: destinationChain?.pretty_name || destination.chain_name,
-        chainLogoUrl: destinationChain?.logo_uri ?? "",
-      },
-      depositAddress,
-      cursor,
-      ...(boundQuote
-        ? {
-            bridge: {
-              tool: boundQuote.tool,
-              ...(boundQuote.quote_id ? { quoteId: boundQuote.quote_id } : {}),
-              minReceived: boundQuote.min_received,
-              amountOut: boundQuote.amount_out,
-            },
-          }
-        : {}),
-      transaction,
-    }
-  }, [
-    amount,
-    boundQuote,
-    cursor,
-    depositAddress,
-    depositApiUrl,
-    destination,
-    hexAddress,
-    recipient,
-    route.dst_symbol,
-    source,
-    sourceChain,
-    destinationChain,
-    transport,
-  ])
+    ],
+  )
+  const sessionDraft = useMemo(() => buildDraft(boundQuote), [buildDraft, boundQuote])
 
   const nativeSymbol = sourceChain?.evm_fee_asset?.symbol || "ETH"
-  // A record that already reached the send prompt on another mount must not be re-signed here.
+
+  // A record for this same transfer whose prompt is open or whose send is ambiguous, on any
+  // mount (a remount, a closed and reopened widget, another tab), must not be signed again here.
   const store = useDepositSessionStore()
-  const storedSession = depositSessionId ? store.read(depositSessionId) : undefined
-  const sessionInFlight =
-    !!storedSession &&
-    storedSession.phase !== "terminal" &&
-    isPhaseAdvance("send_prompt", storedSession.phase)
+  const intent = useMemo(
+    (): DepositIntent => ({
+      apiUrl: depositApiUrl,
+      transport,
+      source: { chainId: source.chainId, denom: source.denom, sender: hexAddress },
+      destination: { chainId: destination.chain_id, denom: destination.denom, recipient },
+    }),
+    [depositApiUrl, transport, source.chainId, source.denom, hexAddress, destination, recipient],
+  )
+  const inFlightSession = useMemo(
+    () =>
+      hexAddress && recipient ? findInFlightSession(store.list(depositApiUrl), intent) : undefined,
+    [store, depositApiUrl, intent, hexAddress, recipient],
+  )
+  const sessionInFlight = !!inFlightSession
 
   const readiness = deriveDepositReadiness({
     transport,
     unknownSend,
     sessionInFlight,
     storageBlocked,
-    lockError,
     recipientError,
     quantityEntered: !!quantity,
     isAmountSettled: toBaseUnitString(quantity, source.decimals) === amount,
@@ -550,19 +532,7 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
     hasDepositAddress: !!depositAddress,
     preflight: preflight.status,
     preflightReason: preflight.reason,
-    hasPreSubmitBlock: blockQuery.data !== undefined,
-    pinnedRpcAvailable: !!pinnedProvider,
   })
-
-  const { next: nextAcknowledgement, quoteUpdated } = deriveQuoteAcknowledgement({
-    acknowledgement,
-    identityKey,
-    signature,
-    isReviewable: readiness.status === "ready",
-  })
-  useEffect(() => {
-    if (nextAcknowledgement !== acknowledgement) setAcknowledgement(nextAcknowledgement)
-  }, [nextAcknowledgement, acknowledgement])
 
   // --- Session identity -----------------------------------------------------
   // The facts a session may never change (see assertSameIntent): a different intent gets its own record and lock.
@@ -579,8 +549,14 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
 
   const sessionRef = useRef<{ intentKey: string; session: DepositSession } | null>(null)
   useEffect(() => {
-    if (!sessionDraft) return
     if (sessionRef.current?.intentKey === intentKey) return
+    // An in-flight record is adopted so "View progress" opens it; readiness blocks the send.
+    if (inFlightSession) {
+      sessionRef.current = { intentKey, session: inFlightSession }
+      if (inFlightSession.id !== depositSessionId) setValue("depositSessionId", inFlightSession.id)
+      return
+    }
+    if (!sessionDraft) return
     // The id lives in the form so a wallet rejection, or a remount (the provider picker, a
     // source change and back), reuses the same record while it is still re-signable.
     const stored = depositSessionId ? readDepositSession(localStorage, depositSessionId) : null
@@ -589,72 +565,53 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
     const session = reusable ? stored : createDepositSession(sessionDraft)
     sessionRef.current = { intentKey, session }
     if (session.id !== depositSessionId) setValue("depositSessionId", session.id)
-  }, [sessionDraft, intentKey, setValue, depositSessionId])
+  }, [sessionDraft, intentKey, setValue, depositSessionId, inFlightSession])
 
-  // --- Per-session Web Lock -------------------------------------------------
-  // Taken well before the click, so the click path holds no await other than the wallet calls.
-  const lockRef = useRef<{ release: () => void } | null>(null)
+  // A refresh awaited inside the click must not raise the wallet over a screen the user left.
+  const mountedRef = useRef(true)
   useEffect(() => {
-    if (!depositSessionId) return
-    let cancelled = false
-    // The previous mount releases the same lock in its cleanup and the browser hands it back a
-    // tick later; one short retry keeps that hand-off from reading as another tab.
-    const acquire = (attempt: number): Promise<{ release: () => void }> =>
-      holdDepositSessionLock(depositSessionId).catch((error: unknown) => {
-        if (attempt > 0 || cancelled || !(error instanceof DepositSessionLockError)) throw error
-        return new Promise((resolve) => setTimeout(resolve, LOCK_RETRY_MS)).then(() => acquire(1))
-      })
-    acquire(0)
-      .then((handle) => {
-        if (cancelled) {
-          handle.release()
-          return
-        }
-        lockRef.current = handle
-        setLockError(undefined)
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return
-        // Fail closed: without exclusion two tabs could each open a prompt for the same session.
-        setLockError(
-          error instanceof DepositSessionLockError
-            ? error.message
-            : "This deposit could not be locked for sending.",
-        )
-      })
+    mountedRef.current = true
     return () => {
-      cancelled = true
-      lockRef.current?.release()
-      lockRef.current = null
+      mountedRef.current = false
     }
-  }, [depositSessionId])
+  }, [])
 
   // --- Persistence ----------------------------------------------------------
+  // Pre-prompt writes must be durable, post-prompt writes must not be lost: `writeSession` is
+  // the store's write, which falls back to an in-memory record this tab keeps serving.
+  const { write: writeSession } = store
   const persist = useCallback((session: DepositSession): DepositSession => {
     // Read-back is inside writeDepositSession; a non-durable record of an intended transfer blocks signing.
     return writeDepositSession(localStorage, session)
   }, [])
 
   const composeSession = useCallback(
-    (phase: DepositSession["phase"], extra: Partial<DepositSession> = {}): DepositSession => {
+    (
+      phase: DepositSession["phase"],
+      extra: Partial<DepositSession> = {},
+      draft: DepositSessionDraft | undefined = sessionDraft,
+    ): DepositSession => {
       const current = sessionRef.current?.session
-      if (!current || !sessionDraft) throw new Error("This deposit is not ready to send")
+      if (!current || !draft) throw new Error("This deposit is not ready to send")
       return {
         ...current,
-        ...sessionDraft,
+        ...draft,
         phase,
         updatedAt: Date.now(),
-        ...(blockQuery.data !== undefined ? { preSubmitBlock: blockQuery.data } : {}),
         ...extra,
       }
     },
-    [blockQuery.data, sessionDraft],
+    [sessionDraft],
   )
 
   /** Compose and durably record one phase, returning what was written. Throws when the write is not durable. */
   const persistPhase = useCallback(
-    (phase: DepositSession["phase"], extra?: Partial<DepositSession>): DepositSession => {
-      const session = composeSession(phase, extra)
+    (
+      phase: DepositSession["phase"],
+      extra?: Partial<DepositSession>,
+      draft?: DepositSessionDraft,
+    ): DepositSession => {
+      const session = composeSession(phase, extra, draft)
       persist(session)
       return session
     },
@@ -665,10 +622,6 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
   const approveMutation = useMutation({
     mutationFn: async () => {
       if (!approval) throw new Error("No approval is required")
-      if (!pinnedProvider) throw new Error("This source chain cannot be verified right now")
-      const approvalRecord = { spender: approval.spender_address, amount: approval.amount }
-
-      persistPhase("approval_prompt", { approval: approvalRecord })
 
       const provider = await getProvider()
       const signer = await provider.getSigner()
@@ -679,11 +632,9 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
         data: encodeErc20Approve(approval.spender_address, approval.amount),
       })
 
-      persistPhase("approval_sent", { approval: { ...approvalRecord, hash: response.hash } })
+      // Nothing to record: an approval moves no funds, and a lost one is re-derived from the
+      // next allowance read rather than from a session.
       await pinnedProvider.waitForTransaction(response.hash, 1, APPROVAL_RECEIPT_TIMEOUT_MS)
-      persistPhase("approval_sent", {
-        approval: { ...approvalRecord, hash: response.hash, confirmed: true },
-      })
     },
     onMutate: () => {
       setApprovalError(undefined)
@@ -694,31 +645,33 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
       void queryClient.invalidateQueries({ queryKey: allowanceKey })
     },
     onError: async (error: unknown) => {
-      if (error instanceof DepositSessionWriteError) {
-        setStorageBlocked(true)
-        return
-      }
-      const message = await normalizeErrorMessage(error)
-      const sessionId = sessionRef.current?.session.id
-      if (isWalletRejection(message) && sessionId) {
-        rollbackDepositSessionPrompt(localStorage, sessionId)
-      }
-      setApprovalError(message)
+      setApprovalError(await normalizeErrorMessage(error))
     },
   })
 
   // --- Send -----------------------------------------------------------------
   const sendMutation = useMutation({
-    mutationFn: async () => {
+    // `quote` is the one the click just re-read (LI.FI); the draft is built from it here
+    // because a render with the refreshed quote is not guaranteed to have committed yet.
+    mutationFn: async ({ quote }: { quote?: BridgeQuoteResponse }) => {
+      const draft = transport === "lifi" && quote ? buildDraft(quote) : sessionDraft
       // Written and read back *before* the prompt: an in-flight transfer must never go undescribed.
-      const prepared = persistPhase("prepared")
+      const prepared = persistPhase("prepared", undefined, draft)
 
       const provider = await getProvider()
       const signer = await provider.getSigner()
       await switchEthereumChain(provider, findSkipChain(prepared.transaction.chainId))
 
+      // Any recent head precedes this prompt; a missing read is a missing hint (the scan degrades
+      // to a plain receipt watch), never a reason to refuse a transfer the user asked for.
+      const preSubmitBlock = blockQuery.data
+
       // Immediately before the wallet call, so a tab that disappears mid-prompt leaves evidence of a possible send.
-      persistPhase("send_prompt")
+      persistPhase(
+        "send_prompt",
+        preSubmitBlock === undefined ? undefined : { preSubmitBlock },
+        draft,
+      )
 
       let response: { hash: string; nonce?: number; from: string }
       try {
@@ -741,50 +694,50 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
         // when that read fails it rejects with the hash attached. The transfer is on chain.
         const sentHash = sendTransactionHashOf(error)
         if (!sentHash) {
-          // No hash came back, so nothing here proves the transfer was not broadcast.
-          throw new UnknownSendError(message)
+          // No hash came back, so nothing here proves the transfer was not broadcast. Recorded
+          // here, from the draft that was signed; the same volatile fallback as a sent transfer.
+          let recorded = true
+          try {
+            writeSession(composeSession("submission_unknown", undefined, draft))
+          } catch {
+            recorded = false
+          }
+          throw new UnknownSendError(message, recorded)
         }
         response = { hash: sentHash, from: hexAddress }
       }
 
-      const sent = composeSession("source_sent", {
-        submitted: { hash: response.hash, nonce: response.nonce, from: response.from },
-        currentSourceHash: response.hash,
-        originalSourceHash: response.hash,
-      })
+      let sent = composeSession(
+        "source_sent",
+        {
+          submitted: { hash: response.hash, nonce: response.nonce, from: response.from },
+          currentSourceHash: response.hash,
+          originalSourceHash: response.hash,
+        },
+        draft,
+      )
       try {
-        persist(sent)
+        // Post-prompt, so the store's volatile fallback applies: the broadcast already happened
+        // and losing the write must not lose the transfer. `write` merges over the send_prompt
+        // record, keeping the pre-submit block, and hands back what the progress view reads.
+        sent = writeSession(sent)
       } catch {
-        // The broadcast already happened; losing the write must not lose the transfer. The
-        // in-memory copy travels with the navigation and the progress view keeps it in memory.
+        // Nothing here may turn a broadcast transfer into a reported failure.
       }
-
-      // The source hash is recorded (or carried in memory): the exclusive claim has done its job.
-      lockRef.current?.release()
-      lockRef.current = null
       return { session: sent }
     },
     onMutate: () => {
       setSubmitError(undefined)
     },
     onSuccess: ({ session }) => {
-      setValue("depositSessionFallback", session)
       setValue("depositSessionId", session.id)
       setValue("page", "deposit-progress")
     },
     onError: async (error: unknown) => {
       if (error instanceof UnknownSendError) {
         setUnknownSend(true)
-        const session = composeSession("submission_unknown", {
-          failure: { code: "unknown_send", message: error.message },
-        })
-        setValue("depositSessionFallback", session)
-        try {
-          persist(session)
-        } catch {
-          // Already unrecoverable for storage; the locked form and recovery reference are what the user acts on.
-          setStorageBlocked(true)
-        }
+        // The locked form and the recovery reference are what the user acts on from here.
+        if (!error.recorded) setStorageBlocked(true)
         return
       }
       if (error instanceof NotSentError) {
@@ -799,44 +752,65 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
     },
   })
 
-  const { refetch: refetchQuote } = quoteQuery
-  const { refetch: refetchPreflight } = preflightQuery
-  const { refetch: refetchDepositAddress } = depositAddressQuery
-  const refetchFreshness = useCallback(() => {
-    // refetch() ignores `enabled`, so re-read the address query only on the path that owns it.
-    if (transport === "lifi") void refetchQuote()
-    else {
-      void refetchPreflight()
-      void refetchDepositAddress()
-    }
-  }, [transport, refetchQuote, refetchPreflight, refetchDepositAddress])
+  const {
+    refetch: refetchQuote,
+    dataUpdatedAt: quoteUpdatedAt,
+    isFetching: isFetchingQuote,
+  } = quoteQuery
 
   const { mutate: send, isPending: isSending } = sendMutation
   const { mutate: startApproval, isPending: isApproving } = approveMutation
 
-  const submit = useCallback(() => {
-    if (isSending || isApproving) return
+  // One click sends, like the Router preview: a stale quote is re-read inside the click and, when
+  // it comes back describing the same transaction, that same click goes on to the wallet. Only a
+  // materially changed quote costs a second click, and nothing is ever re-sent automatically.
+  // The direct path has no gate at all — its call is the issued address and the typed amount, and
+  // readiness already required the destination preflight to be quoted.
+  const submit = useCallback(async () => {
+    if (isSending || isApproving || isRefreshingQuote) return
     if (readiness.status !== "ready") return
-    if (isQuoteStale(freshnessUpdatedAt, Date.now()) || isRefreshing) {
-      // Never an awaited network refresh between the click and the wallet popup; require another click.
-      setRefreshRequestedAt(Date.now())
-      refetchFreshness()
-      return
+
+    if (transport === "lifi" && (isQuoteStale(quoteUpdatedAt, Date.now()) || isFetchingQuote)) {
+      setIsRefreshingQuote(true)
+      try {
+        // refetch() reports a failure as an absent result, which decides as "review" (an
+        // unverified or unbound quote is never signed); readiness then shows the query's error.
+        const { data } = await refetchQuote()
+        if (!mountedRef.current) return
+        const bound =
+          data && isQuoteBoundToOptions(data.deposit_address, optionsData?.deposit_address)
+        const refreshedSignature = bound ? bridgeQuoteSignature(data) : ""
+        if (
+          decideRefreshedQuote({ reviewedSignature: quoteSignature, refreshedSignature }) ===
+          "review"
+        ) {
+          setReviewRequiredSignature(refreshedSignature)
+          return
+        }
+        setReviewRequiredSignature("")
+        send({ quote: data })
+        return
+      } finally {
+        setIsRefreshingQuote(false)
+      }
     }
-    // A click on a fresh quote signs exactly what is on screen; the changed-quote notice has been
-    // showing since the refresh, so this click is the deliberate confirmation of the new numbers.
-    setAcknowledgement({ identityKey, signature })
-    send()
+
+    setReviewRequiredSignature("")
+    // The reviewed quote travels with the call rather than through the mutation's closure.
+    send({ quote: boundQuote })
   }, [
+    boundQuote,
     isApproving,
+    isFetchingQuote,
+    isRefreshingQuote,
     isSending,
-    freshnessUpdatedAt,
-    identityKey,
-    isRefreshing,
+    optionsData?.deposit_address,
+    quoteSignature,
+    quoteUpdatedAt,
     readiness.status,
-    refetchFreshness,
+    refetchQuote,
     send,
-    signature,
+    transport,
   ])
 
   const approve = useCallback(() => {
@@ -861,13 +835,13 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
     },
     readiness,
     submit,
-    isSubmitting: isSending,
+    // One busy state: the click's own re-read is part of sending, not a separate action.
+    isSubmitting: isSending || isRefreshingQuote,
     // The unrecoverable storage case is already a readiness blocker; this is a retryable attempt.
     submitError,
     nativeSymbol,
     legs,
     quoteUpdated,
-    isRefreshingQuote: refreshRequestedAt > 0 && freshnessSettledAt <= refreshRequestedAt,
     unknownSend: unknownSend || sessionInFlight,
     openProgress: () => setValue("page", "deposit-progress"),
     openRouteSelection: transport === "lifi" ? () => setValue("page", "select-route") : undefined,
@@ -878,7 +852,15 @@ export function useDepositTransfer(resolution: DepositTransfer): DepositTransfer
 class NotSentError extends Error {}
 
 /** Marker for a wallet call that returned no hash. The form locks and never re-enables send. */
-class UnknownSendError extends Error {}
+class UnknownSendError extends Error {
+  constructor(
+    message: string,
+    /** False when the ambiguous state could not be written anywhere. */
+    readonly recorded: boolean,
+  ) {
+    super(message)
+  }
+}
 
 type DepositSessionDraft = Omit<
   DepositSession,

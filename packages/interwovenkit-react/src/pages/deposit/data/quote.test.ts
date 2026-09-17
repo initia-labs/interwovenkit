@@ -1,43 +1,37 @@
-import type { KyInstance } from "ky"
-import { HTTPError, type NormalizedOptions } from "ky"
 import { describe, expect, it } from "vitest"
-import { createQuoteQueryOptions, fetchQuote, QUOTE_STALE_TIME } from "./quote"
-
-const httpError = (status: number, body?: object) =>
-  new HTTPError(
-    new Response(body ? JSON.stringify(body) : null, {
-      status,
-      headers: body ? { "content-type": "application/json" } : undefined,
-    }),
-    new Request("https://deposit.test/v1/quote"),
-    {} as NormalizedOptions,
-  )
-
-interface Call {
-  url: string
-  options?: { searchParams?: Record<string, string> }
-}
-
-function stubApi(result: unknown | Error) {
-  const calls: Call[] = []
-  const api = {
-    get: (url: string, options?: Call["options"]) => {
-      calls.push({ url, options })
-      return {
-        json: () => (result instanceof Error ? Promise.reject(result) : Promise.resolve(result)),
-      }
-    },
-  } as unknown as KyInstance
-  return { api, calls }
-}
+import {
+  classifyQuoteFailure,
+  createQuoteQueryOptions,
+  fetchQuote,
+  QUOTE_STALE_TIME,
+} from "./quote"
+import { ETHEREUM_USDC, httpError, stubApi } from "./testing"
 
 const PARAMS = {
   srcChainId: "1",
-  srcDenom: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+  srcDenom: ETHEREUM_USDC,
   dstChainId: "interwoven-1",
   dstDenom: "uusdc",
   amountIn: "10000000",
 }
+
+// The layer-4 submit gate keys on this: a 400 leaking into the error channel
+// silently loses the backend-signaled minimum gate (the UI looks identical, "—").
+describe("classifyQuoteFailure", () => {
+  it("promotes a 400 to declined, keeping the backend's message", async () => {
+    await expect(
+      classifyQuoteFailure(httpError(400, { message: "amount below minimum" })),
+    ).resolves.toEqual({ status: "declined", reason: "amount below minimum" })
+  })
+
+  it("rethrows server errors as transient failures", async () => {
+    await expect(classifyQuoteFailure(httpError(500))).rejects.toThrow()
+  })
+
+  it("rethrows non-HTTP failures as transient failures", async () => {
+    await expect(classifyQuoteFailure(new Error("network down"))).rejects.toThrow("network down")
+  })
+})
 
 describe("fetchQuote", () => {
   it("sends the route identity as relative-path search params", async () => {
@@ -48,7 +42,7 @@ describe("fetchQuote", () => {
     expect(calls[0].url).toBe("v1/quote")
     expect(calls[0].options?.searchParams).toEqual({
       src_chain_id: "1",
-      src_denom: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      src_denom: ETHEREUM_USDC,
       dst_chain_id: "interwoven-1",
       dst_denom: "uusdc",
       amount_in: "10000000",
@@ -61,19 +55,12 @@ describe("fetchQuote", () => {
     await expect(fetchQuote(api, PARAMS)).resolves.toEqual({ status: "quoted", quote })
   })
 
-  // A decline leaking into the error channel would look like a transient outage
-  // and silently drop the last minimum gate before a no-refund transfer.
-  it("promotes a 400 to a decline carrying the backend's message", async () => {
+  it("routes a failure through classifyQuoteFailure rather than the error channel", async () => {
     const { api } = stubApi(httpError(400, { message: "amount below minimum" }))
     await expect(fetchQuote(api, PARAMS)).resolves.toEqual({
       status: "declined",
       reason: "amount below minimum",
     })
-  })
-
-  it("rethrows other statuses as transient failures", async () => {
-    const { api } = stubApi(httpError(503, { message: "unavailable" }))
-    await expect(fetchQuote(api, PARAMS)).rejects.toThrow("unavailable")
   })
 })
 
@@ -85,18 +72,11 @@ describe("createQuoteQueryOptions", () => {
       "interwovenkit:deposit",
       "minReceived",
       "1",
-      "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      ETHEREUM_USDC,
       "interwoven-1",
       "uusdc",
       "10000000",
     ])
-  })
-
-  it("keeps a changed amount on a different cache entry", () => {
-    const { api } = stubApi({})
-    const a = createQuoteQueryOptions(api, PARAMS, true).queryKey
-    const b = createQuoteQueryOptions(api, { ...PARAMS, amountIn: "20000000" }, true).queryKey
-    expect(a).not.toEqual(b)
   })
 
   it("refreshes on the 30 s cadence and holds the previous estimate", () => {

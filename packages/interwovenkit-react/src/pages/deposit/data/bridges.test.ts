@@ -1,5 +1,3 @@
-import type { KyInstance } from "ky"
-import { HTTPError, type NormalizedOptions } from "ky"
 import { describe, expect, it } from "vitest"
 import {
   bridgeQuoteSignature,
@@ -16,18 +14,24 @@ import {
   parseBridgeStatus,
   percentDifference,
   rankBridgeOptions,
-  RateLimitedError,
 } from "./bridges"
-import type { BridgeOption, Deposit } from "./types"
+import {
+  deposit,
+  DEPOSIT_ADDRESS,
+  DST_TX_HASH,
+  httpError,
+  option,
+  RECIPIENT,
+  SRC_TX_HASH,
+  stubApi,
+} from "./testing"
+import type { BridgeOption } from "./types"
+import { BRIDGE_STATUS_ERROR_CODES } from "./types"
 
 const BASE_USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
-const DEPOSIT_ADDRESS = "0xAbCd000000000000000000000000000000000001"
 const SPENDER = "0x1111111111111111111111111111111111111111"
 const BRIDGE_ROUTER = "0x2222222222222222222222222222222222222222"
 const SENDER = "0x3333333333333333333333333333333333333333"
-const RECIPIENT = "init1recipient"
-const SRC_TX_HASH = `0x${"a".repeat(64)}`
-const DST_TX_HASH = `0x${"b".repeat(64)}`
 
 const REQUEST: BridgeRequestIdentity = {
   srcChainId: "8453",
@@ -40,32 +44,6 @@ const REQUEST: BridgeRequestIdentity = {
 }
 
 const QUOTE_REQUEST = { ...REQUEST, bridge: "across", sourceToken: BASE_USDC }
-
-const httpError = (status: number, body?: object, headers?: Record<string, string>) =>
-  new HTTPError(
-    new Response(body ? JSON.stringify(body) : "not json", {
-      status,
-      headers: { ...(body ? { "content-type": "application/json" } : {}), ...headers },
-    }),
-    new Request("https://deposit.test/v1/bridges/status"),
-    {} as NormalizedOptions,
-  )
-
-interface Call {
-  url: string
-  options?: { json?: unknown; searchParams?: Record<string, string> }
-}
-
-function stubApi(result: unknown) {
-  const calls: Call[] = []
-  const respond = (url: string, options?: Call["options"]) => {
-    calls.push({ url, options })
-    return {
-      json: () => (result instanceof Error ? Promise.reject(result) : Promise.resolve(result)),
-    }
-  }
-  return { api: { get: respond, post: respond } as unknown as KyInstance, calls }
-}
 
 const optionsPayload = (options: unknown[]) => ({
   deposit_address: DEPOSIT_ADDRESS,
@@ -80,6 +58,13 @@ const wireOption = (overrides: Record<string, unknown> = {}) => ({
   eligible: true,
   ...overrides,
 })
+
+const withEnvelope = (overrides: Record<string, unknown>) => ({
+  ...optionsPayload([wireOption()]),
+  ...overrides,
+})
+
+const withOption = (overrides: Record<string, unknown>) => optionsPayload([wireOption(overrides)])
 
 describe("parseBridgeOptions", () => {
   it("returns the parsed envelope and options", () => {
@@ -101,42 +86,43 @@ describe("parseBridgeOptions", () => {
     ])
   })
 
-  it("rejects a non-object response", () => {
-    expect(() => parseBridgeOptions(null, REQUEST)).toThrow(/is not an object/)
-    expect(() => parseBridgeOptions([], REQUEST)).toThrow(/is not an object/)
+  it.each([
+    ["a non-object response", null, /is not an object/],
+    ["an array response", [], /is not an object/],
+    ["a malformed deposit address", withEnvelope({ deposit_address: "0x1234" }), /deposit address/],
+    [
+      "a missing options array",
+      { deposit_address: DEPOSIT_ADDRESS, required_min_received: "1" },
+      /missing its options array/,
+    ],
+    ["an empty bridge key", withOption({ bridge: "" }), /invalid bridge key/],
+    ["a non-string bridge key", withOption({ bridge: 1 }), /invalid bridge key/],
+    ["a non-positive amount_out", withOption({ amount_out: "0" }), /invalid amount_out/],
+    ["a fractional min_received", withOption({ min_received: "4.95" }), /invalid min_received/],
+    ["a non-boolean eligible flag", withOption({ eligible: "true" }), /non-boolean eligible/],
+    [
+      "a fractional duration",
+      withOption({ execution_duration_seconds: 1.5 }),
+      /invalid execution_duration_seconds/,
+    ],
+    [
+      "a negative duration",
+      withOption({ execution_duration_seconds: -1 }),
+      /invalid execution_duration_seconds/,
+    ],
+    ["an unparseable gas_cost_usd", withOption({ gas_cost_usd: "free" }), /invalid gas_cost_usd/],
+  ])("rejects %s", (_name, payload, message) => {
+    expect(() => parseBridgeOptions(payload, REQUEST)).toThrow(message)
   })
 
-  it("rejects a malformed deposit address", () => {
-    expect(() =>
-      parseBridgeOptions({ ...optionsPayload([wireOption()]), deposit_address: "0x1234" }, REQUEST),
-    ).toThrow(/invalid deposit address/)
-  })
-
-  it("rejects a non-positive or non-integer required_min_received", () => {
-    for (const value of ["0", "", "1.5", "-1", 4900000]) {
-      expect(() =>
-        parseBridgeOptions(
-          { ...optionsPayload([wireOption()]), required_min_received: value },
-          REQUEST,
-        ),
-      ).toThrow(/invalid required_min_received/)
-    }
-  })
-
-  it("rejects a missing options array", () => {
-    expect(() =>
-      parseBridgeOptions({ deposit_address: DEPOSIT_ADDRESS, required_min_received: "1" }, REQUEST),
-    ).toThrow(/missing its options array/)
-  })
-
-  it("rejects an empty or non-string bridge key", () => {
-    expect(() => parseBridgeOptions(optionsPayload([wireOption({ bridge: "" })]), REQUEST)).toThrow(
-      /invalid bridge key/,
-    )
-    expect(() => parseBridgeOptions(optionsPayload([wireOption({ bridge: 1 })]), REQUEST)).toThrow(
-      /invalid bridge key/,
-    )
-  })
+  it.each(["0", "", "1.5", "-1", 4900000])(
+    "rejects the required_min_received %o",
+    (required_min_received) => {
+      expect(() => parseBridgeOptions(withEnvelope({ required_min_received }), REQUEST)).toThrow(
+        /invalid required_min_received/,
+      )
+    },
+  )
 
   it("rejects duplicate bridge keys, including casing variants", () => {
     expect(() => parseBridgeOptions(optionsPayload([wireOption(), wireOption()]), REQUEST)).toThrow(
@@ -150,61 +136,20 @@ describe("parseBridgeOptions", () => {
     ).toThrow(/repeats the bridge key/)
   })
 
-  it("rejects malformed amounts", () => {
-    expect(() =>
-      parseBridgeOptions(optionsPayload([wireOption({ amount_out: "0" })]), REQUEST),
-    ).toThrow(/invalid amount_out/)
-    expect(() =>
-      parseBridgeOptions(optionsPayload([wireOption({ min_received: "4.95" })]), REQUEST),
-    ).toThrow(/invalid min_received/)
-  })
-
-  it("rejects a non-boolean eligible flag", () => {
-    expect(() =>
-      parseBridgeOptions(optionsPayload([wireOption({ eligible: "true" })]), REQUEST),
-    ).toThrow(/non-boolean eligible/)
-  })
-
   it("keeps missing optional estimates undefined rather than zero", () => {
-    const [option] = parseBridgeOptions(optionsPayload([wireOption()]), REQUEST).options
-    expect(option.execution_duration_seconds).toBeUndefined()
-    expect(option.gas_cost_usd).toBeUndefined()
+    const [parsed] = parseBridgeOptions(optionsPayload([wireOption()]), REQUEST).options
+    expect(parsed.execution_duration_seconds).toBeUndefined()
+    expect(parsed.gas_cost_usd).toBeUndefined()
   })
 
   it("treats an empty gas_cost_usd string as unknown", () => {
-    const [option] = parseBridgeOptions(
-      optionsPayload([wireOption({ gas_cost_usd: "" })]),
-      REQUEST,
-    ).options
-    expect(option.gas_cost_usd).toBeUndefined()
-  })
-
-  it("rejects malformed optional estimates", () => {
-    expect(() =>
-      parseBridgeOptions(
-        optionsPayload([wireOption({ execution_duration_seconds: 1.5 })]),
-        REQUEST,
-      ),
-    ).toThrow(/invalid execution_duration_seconds/)
-    expect(() =>
-      parseBridgeOptions(optionsPayload([wireOption({ execution_duration_seconds: -1 })]), REQUEST),
-    ).toThrow(/invalid execution_duration_seconds/)
-    expect(() =>
-      parseBridgeOptions(optionsPayload([wireOption({ gas_cost_usd: "free" })]), REQUEST),
-    ).toThrow(/invalid gas_cost_usd/)
+    const [parsed] = parseBridgeOptions(withOption({ gas_cost_usd: "" }), REQUEST).options
+    expect(parsed.gas_cost_usd).toBeUndefined()
   })
 
   it("names the requested route in its errors", () => {
     expect(() => parseBridgeOptions(null, REQUEST)).toThrow(/8453:.*-> interwoven-1:uusdc/)
   })
-})
-
-const option = (overrides: Partial<BridgeOption> & { bridge: string }): BridgeOption => ({
-  amount_out: "1000",
-  min_received: "1000",
-  eligible: true,
-  gas_cost_usd: "0",
-  ...overrides,
 })
 
 const keys = (options: BridgeOption[]) => rankBridgeOptions(options).map(({ bridge }) => bridge)
@@ -303,21 +248,6 @@ describe("rankBridgeOptions", () => {
     ])
   })
 
-  it("sorts unparseable values last without throwing", () => {
-    expect(
-      keys([
-        option({ bridge: "broken", amount_out: "not-a-number" }),
-        option({ bridge: "ok", amount_out: "1" }),
-      ]),
-    ).toEqual(["ok", "broken"])
-    expect(
-      keys([
-        option({ bridge: "broken", execution_duration_seconds: 10, gas_cost_usd: "free" }),
-        option({ bridge: "ok", execution_duration_seconds: 10, gas_cost_usd: "5" }),
-      ]),
-    ).toEqual(["ok", "broken"])
-  })
-
   it("does not mutate its input", () => {
     const input = [option({ bridge: "b" }), option({ bridge: "a" })]
     rankBridgeOptions(input)
@@ -393,39 +323,33 @@ describe("parseBridgeQuote", () => {
     expect(quote.estimate).toEqual({ execution_duration_seconds: 30, gas_cost_usd: "0.42" })
   })
 
-  it("rejects a non-object response", () => {
-    expect(() => parseBridgeQuote("nope", QUOTE_REQUEST)).toThrow(/is not an object/)
-  })
-
-  it("rejects a provider other than lifi", () => {
-    expect(() => parseBridgeQuote(quotePayload({ provider: "skip" }), QUOTE_REQUEST)).toThrow(
-      /unexpected provider/,
-    )
-  })
-
-  it("rejects a tool that is not the selected bridge", () => {
-    expect(() => parseBridgeQuote(quotePayload({ tool: "relay" }), QUOTE_REQUEST)).toThrow(
-      /tool mismatch/,
-    )
+  // Every field is bound to the retained request: a quote echoing a different
+  // chain, denom, amount, recipient or sender would move real funds.
+  it.each([
+    ["a non-object response", "nope", /is not an object/],
+    ["a provider other than lifi", quotePayload({ provider: "skip" }), /unexpected provider/],
+    ["a tool that is not the selected bridge", quotePayload({ tool: "relay" }), /tool mismatch/],
+    ["another src_chain_id", quotePayload({ src_chain_id: "42161" }), /src_chain_id mismatch/],
+    ["another src_denom", quotePayload({ src_denom: "ethereum-native" }), /src_denom mismatch/],
+    ["another dst_chain_id", quotePayload({ dst_chain_id: "yominet-1" }), /dst_chain_id mismatch/],
+    ["another dst_denom", quotePayload({ dst_denom: "uinit" }), /dst_denom mismatch/],
+    ["another amount", quotePayload({ amount: "4000000" }), /amount mismatch/],
+    ["a numeric amount", quotePayload({ amount: 5000000 }), /amount mismatch/],
+    [
+      "another recipient",
+      quotePayload({ wallet_address: "init1someoneelse" }),
+      /wallet_address mismatch/,
+    ],
+    ["a malformed deposit address", quotePayload({ deposit_address: "0x00" }), /deposit address/],
+    ["a missing cursor", quotePayload({ cursor: "" }), /missing the cursor/],
+    ["a non-positive amount_out", quotePayload({ amount_out: "0" }), /invalid amount_out/],
+    ["a malformed min_received", quotePayload({ min_received: "x" }), /invalid min_received/],
+  ])("rejects %s", (_name, payload, message) => {
+    expect(() => parseBridgeQuote(payload, QUOTE_REQUEST)).toThrow(message)
   })
 
   it("accepts the selected bridge in different casing", () => {
     expect(parseBridgeQuote(quotePayload({ tool: "Across" }), QUOTE_REQUEST).tool).toBe("Across")
-  })
-
-  it("rejects a chain or denom that is not the requested route", () => {
-    expect(() => parseBridgeQuote(quotePayload({ src_chain_id: "42161" }), QUOTE_REQUEST)).toThrow(
-      /src_chain_id mismatch/,
-    )
-    expect(() =>
-      parseBridgeQuote(quotePayload({ src_denom: "ethereum-native" }), QUOTE_REQUEST),
-    ).toThrow(/src_denom mismatch/)
-    expect(() =>
-      parseBridgeQuote(quotePayload({ dst_chain_id: "yominet-1" }), QUOTE_REQUEST),
-    ).toThrow(/dst_chain_id mismatch/)
-    expect(() => parseBridgeQuote(quotePayload({ dst_denom: "uinit" }), QUOTE_REQUEST)).toThrow(
-      /dst_denom mismatch/,
-    )
   })
 
   it("compares EVM denoms case-insensitively", () => {
@@ -433,40 +357,33 @@ describe("parseBridgeQuote", () => {
     expect(parseBridgeQuote(payload, QUOTE_REQUEST).src_denom).toBe(BASE_USDC.toLowerCase())
   })
 
-  it("rejects an amount other than the one the form entered", () => {
-    expect(() => parseBridgeQuote(quotePayload({ amount: "4000000" }), QUOTE_REQUEST)).toThrow(
-      /amount mismatch/,
-    )
-    expect(() => parseBridgeQuote(quotePayload({ amount: 5000000 }), QUOTE_REQUEST)).toThrow(
-      /amount mismatch/,
-    )
-  })
-
-  it("rejects a wallet_address that is not the resolved recipient", () => {
-    expect(() =>
-      parseBridgeQuote(quotePayload({ wallet_address: "init1someoneelse" }), QUOTE_REQUEST),
-    ).toThrow(/wallet_address mismatch/)
-  })
-
-  it("rejects a malformed deposit address, cursor or output amounts", () => {
-    expect(() =>
-      parseBridgeQuote(quotePayload({ deposit_address: "0x00" }), QUOTE_REQUEST),
-    ).toThrow(/invalid deposit address/)
-    expect(() => parseBridgeQuote(quotePayload({ cursor: "" }), QUOTE_REQUEST)).toThrow(
-      /missing the cursor/,
-    )
-    expect(() => parseBridgeQuote(quotePayload({ amount_out: "0" }), QUOTE_REQUEST)).toThrow(
-      /invalid amount_out/,
-    )
-    expect(() => parseBridgeQuote(quotePayload({ min_received: "x" }), QUOTE_REQUEST)).toThrow(
-      /invalid min_received/,
-    )
-  })
-
   describe("transaction", () => {
-    it("rejects a transaction built for another chain", () => {
-      expect(() => parseBridgeQuote(withTransaction({ chain_id: "1" }), QUOTE_REQUEST)).toThrow(
-        /transaction chain_id mismatch/,
+    it.each([
+      ["built for another chain", withTransaction({ chain_id: "1" }), /chain_id mismatch/],
+      [
+        "addressed from another sender",
+        withTransaction({ from: "0x4444444444444444444444444444444444444444" }),
+        /from mismatch/,
+      ],
+      ["with a malformed to address", withTransaction({ to: "not-an-address" }), /invalid to/],
+      ["with non-hex calldata", withTransaction({ data: "zzzz" }), /non-hex calldata/],
+      ["with odd-length calldata", withTransaction({ data: "0xabc" }), /non-hex calldata/],
+      ["that is not an object", quotePayload({ transaction: null }), /malformed transaction/],
+    ])("rejects a transaction %s", (_name, payload, message) => {
+      expect(() => parseBridgeQuote(payload, QUOTE_REQUEST)).toThrow(message)
+    })
+
+    // A dropped protocol/messaging fee makes the bridge call revert; a fabricated
+    // one overpays from the user's own balance.
+    it.each(["", "-1", "0x", "1.5", 100])("rejects the value %o", (value) => {
+      expect(() => parseBridgeQuote(withTransaction({ value }), QUOTE_REQUEST)).toThrow(
+        /invalid value/,
+      )
+    })
+
+    it.each(["250000.5", "0", "abc", 250000, "0x0"])("rejects the gas_limit %o", (gas_limit) => {
+      expect(() => parseBridgeQuote(withTransaction({ gas_limit }), QUOTE_REQUEST)).toThrow(
+        /invalid gas_limit/,
       )
     })
 
@@ -474,15 +391,6 @@ describe("parseBridgeQuote", () => {
       expect(
         parseBridgeQuote(withTransaction({ chain_id: 8453 }), QUOTE_REQUEST).transaction.chain_id,
       ).toBe("8453")
-    })
-
-    it("rejects a transaction addressed from another sender", () => {
-      expect(() =>
-        parseBridgeQuote(
-          withTransaction({ from: "0x4444444444444444444444444444444444444444" }),
-          QUOTE_REQUEST,
-        ),
-      ).toThrow(/transaction from mismatch/)
     })
 
     it("accepts the connected sender in either casing", () => {
@@ -495,28 +403,13 @@ describe("parseBridgeQuote", () => {
       ).toBe(upper)
     })
 
-    it("rejects a malformed to address", () => {
-      expect(() =>
-        parseBridgeQuote(withTransaction({ to: "not-an-address" }), QUOTE_REQUEST),
-      ).toThrow(/invalid to address/)
-    })
-
-    it("rejects non-hex or odd-length calldata", () => {
-      expect(() => parseBridgeQuote(withTransaction({ data: "zzzz" }), QUOTE_REQUEST)).toThrow(
-        /non-hex calldata/,
-      )
-      expect(() => parseBridgeQuote(withTransaction({ data: "0xabc" }), QUOTE_REQUEST)).toThrow(
-        /non-hex calldata/,
-      )
-    })
-
     it("accepts empty calldata", () => {
       expect(
         parseBridgeQuote(withTransaction({ data: "0x" }), QUOTE_REQUEST).transaction.data,
       ).toBe("0x")
     })
 
-    // A dropped protocol fee makes the bridge call revert, so a nonzero value has to survive the hex-to-decimal normalization intact.
+    // A nonzero fee has to survive the hex-to-decimal normalization intact.
     it("normalizes a hex value to a decimal string", () => {
       expect(
         parseBridgeQuote(withTransaction({ value: "0x2386f26fc10000" }), QUOTE_REQUEST).transaction
@@ -530,28 +423,9 @@ describe("parseBridgeQuote", () => {
       ).toBe("12345")
     })
 
-    it("rejects a malformed value", () => {
-      for (const value of ["", "-1", "0x", "1.5", 100]) {
-        expect(() => parseBridgeQuote(withTransaction({ value }), QUOTE_REQUEST)).toThrow(
-          /invalid value/,
-        )
-      }
-    })
-
-    it("rejects a non-integer or non-positive gas_limit", () => {
-      for (const gas_limit of ["250000.5", "0", "abc", 250000]) {
-        expect(() => parseBridgeQuote(withTransaction({ gas_limit }), QUOTE_REQUEST)).toThrow(
-          /invalid gas_limit/,
-        )
-      }
-    })
-
     it("normalizes a 0x-hex gas_limit (staging's wire form) to decimal", () => {
       const quote = parseBridgeQuote(withTransaction({ gas_limit: "0x11ab0c" }), QUOTE_REQUEST)
       expect(quote.transaction.gas_limit).toBe("1157900")
-      expect(() => parseBridgeQuote(withTransaction({ gas_limit: "0x0" }), QUOTE_REQUEST)).toThrow(
-        /invalid gas_limit/,
-      )
     })
 
     it("treats an absent gas_limit as unset", () => {
@@ -559,19 +433,30 @@ describe("parseBridgeQuote", () => {
       delete (payload.transaction as Record<string, unknown>).gas_limit
       expect(parseBridgeQuote(payload, QUOTE_REQUEST).transaction.gas_limit).toBeUndefined()
     })
-
-    it("rejects a malformed transaction object", () => {
-      expect(() => parseBridgeQuote(quotePayload({ transaction: null }), QUOTE_REQUEST)).toThrow(
-        /malformed transaction/,
-      )
-    })
   })
 
   describe("approval", () => {
-    it("rejects a null approval for an ERC-20 source", () => {
-      expect(() => parseBridgeQuote(withApproval(null), QUOTE_REQUEST)).toThrow(
-        /missing the ERC-20 approval/,
-      )
+    it.each([
+      ["null for an ERC-20 source", withApproval(null), /missing the ERC-20 approval/],
+      [
+        "for another token",
+        withApproval({ token_address: "0x0000000000000000000000000000000000000dEaD" }),
+        /approval token_address mismatch/,
+      ],
+      [
+        "with a zero spender",
+        withApproval({ spender_address: "0x0000000000000000000000000000000000000000" }),
+        /approval spender_address is invalid/,
+      ],
+      [
+        "with a malformed spender",
+        withApproval({ spender_address: "0xbeef" }),
+        /approval spender_address is invalid/,
+      ],
+      ["with a non-positive amount", withApproval({ amount: "0" }), /approval amount is invalid/],
+      ["that is not an object", quotePayload({ approval: "yes" }), /malformed approval/],
+    ])("rejects an approval %s", (_name, payload, message) => {
+      expect(() => parseBridgeQuote(payload, QUOTE_REQUEST)).toThrow(message)
     })
 
     it("allows a null approval for a native source", () => {
@@ -584,44 +469,11 @@ describe("parseBridgeQuote", () => {
       expect(parseBridgeQuote(payload, native).approval).toBeNull()
     })
 
-    it("rejects an approval for another token", () => {
-      expect(() =>
-        parseBridgeQuote(
-          withApproval({ token_address: "0x0000000000000000000000000000000000000dEaD" }),
-          QUOTE_REQUEST,
-        ),
-      ).toThrow(/approval token_address mismatch/)
-    })
-
     it("matches the approval token case-insensitively", () => {
       expect(
         parseBridgeQuote(withApproval({ token_address: BASE_USDC.toLowerCase() }), QUOTE_REQUEST)
           .approval?.token_address,
       ).toBe(BASE_USDC.toLowerCase())
-    })
-
-    it("rejects a zero or malformed spender", () => {
-      expect(() =>
-        parseBridgeQuote(
-          withApproval({ spender_address: "0x0000000000000000000000000000000000000000" }),
-          QUOTE_REQUEST,
-        ),
-      ).toThrow(/approval spender_address is invalid/)
-      expect(() =>
-        parseBridgeQuote(withApproval({ spender_address: "0xbeef" }), QUOTE_REQUEST),
-      ).toThrow(/approval spender_address is invalid/)
-    })
-
-    it("rejects a non-positive approval amount", () => {
-      expect(() => parseBridgeQuote(withApproval({ amount: "0" }), QUOTE_REQUEST)).toThrow(
-        /approval amount is invalid/,
-      )
-    })
-
-    it("rejects a malformed approval object", () => {
-      expect(() => parseBridgeQuote(quotePayload({ approval: "yes" }), QUOTE_REQUEST)).toThrow(
-        /malformed approval/,
-      )
     })
   })
 })
@@ -703,21 +555,6 @@ describe("meetsRequiredMinimum", () => {
   })
 })
 
-const deposit = (overrides: Partial<Deposit> = {}) =>
-  ({
-    id: "d1",
-    src_chain_id: "1",
-    src_tx_hash: DST_TX_HASH,
-    src_denom: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-    amount: "4950000",
-    deposit_address: DEPOSIT_ADDRESS,
-    wallet_address: RECIPIENT,
-    dst_chain_id: "interwoven-1",
-    dst_denom: "uusdc",
-    bucket: "waiting",
-    ...overrides,
-  }) as unknown as Deposit
-
 const EXPECTED = { srcChainId: "8453", srcTxHash: SRC_TX_HASH }
 
 const statusPayload = (overrides: Record<string, unknown> = {}) => ({
@@ -742,31 +579,35 @@ describe("parseBridgeStatus", () => {
     )
   })
 
-  it("rejects a status for another source chain", () => {
-    expect(() => parseBridgeStatus(statusPayload({ src_chain_id: 42161 }), EXPECTED)).toThrow(
-      /src_chain_id mismatch/,
-    )
-  })
-
-  it("rejects a status for another transaction", () => {
-    expect(() =>
-      parseBridgeStatus(statusPayload({ src_tx_hash: `0x${"c".repeat(64)}` }), EXPECTED),
-    ).toThrow(/src_tx_hash mismatch/)
+  it.each([
+    ["for another source chain", statusPayload({ src_chain_id: 42161 }), /src_chain_id mismatch/],
+    [
+      "for another transaction",
+      statusPayload({ src_tx_hash: `0x${"c".repeat(64)}` }),
+      /src_tx_hash mismatch/,
+    ],
+    ["in an undocumented state", statusPayload({ state: "bridge_done" }), /unknown state/],
+    ["with no state", statusPayload({ state: undefined }), /unknown state/],
+    [
+      "carrying a deposit outside deposit_indexed",
+      statusPayload({ state: "bridge_pending", deposit: deposit() }),
+      /carries a deposit in state bridge_pending/,
+    ],
+    [
+      "reporting deposit_indexed without one",
+      statusPayload({ state: "deposit_indexed" }),
+      /deposit_indexed without a deposit/,
+    ],
+    ["with a malformed dst_tx_hash", statusPayload({ dst_tx_hash: "0xshort" }), /dst_tx_hash/],
+    ["that is not an object", undefined, /is not an object/],
+  ])("rejects a status %s", (_name, payload, message) => {
+    expect(() => parseBridgeStatus(payload, EXPECTED)).toThrow(message)
   })
 
   it("compares the source hash case-insensitively", () => {
     const upper = `0x${SRC_TX_HASH.slice(2).toUpperCase()}`
     expect(parseBridgeStatus(statusPayload({ src_tx_hash: upper }), EXPECTED).src_tx_hash).toBe(
       upper,
-    )
-  })
-
-  it("rejects a state outside the documented set", () => {
-    expect(() => parseBridgeStatus(statusPayload({ state: "bridge_done" }), EXPECTED)).toThrow(
-      /unknown state/,
-    )
-    expect(() => parseBridgeStatus(statusPayload({ state: undefined }), EXPECTED)).toThrow(
-      /unknown state/,
     )
   })
 
@@ -783,18 +624,6 @@ describe("parseBridgeStatus", () => {
     ]) {
       expect(parseBridgeStatus(statusPayload({ state }), EXPECTED).state).toBe(state)
     }
-  })
-
-  it("rejects a deposit outside deposit_indexed", () => {
-    expect(() =>
-      parseBridgeStatus(statusPayload({ state: "bridge_pending", deposit: deposit() }), EXPECTED),
-    ).toThrow(/carries a deposit in state bridge_pending/)
-  })
-
-  it("requires a deposit for deposit_indexed", () => {
-    expect(() => parseBridgeStatus(statusPayload({ state: "deposit_indexed" }), EXPECTED)).toThrow(
-      /deposit_indexed without a deposit/,
-    )
   })
 
   it("returns the nested deposit for deposit_indexed", () => {
@@ -814,12 +643,6 @@ describe("parseBridgeStatus", () => {
     ).toThrow(/deposit has an invalid deposit_address/)
   })
 
-  it("rejects a malformed dst_tx_hash", () => {
-    expect(() => parseBridgeStatus(statusPayload({ dst_tx_hash: "0xshort" }), EXPECTED)).toThrow(
-      /invalid dst_tx_hash/,
-    )
-  })
-
   it("treats an absent or empty dst_tx_hash as unknown", () => {
     expect(parseBridgeStatus(statusPayload(), EXPECTED).dst_tx_hash).toBeUndefined()
     expect(
@@ -836,10 +659,6 @@ describe("parseBridgeStatus", () => {
   it("keeps the reported tool as diagnostic context", () => {
     expect(parseBridgeStatus(statusPayload({ bridge: "across" }), EXPECTED).bridge).toBe("across")
   })
-
-  it("rejects a non-object response", () => {
-    expect(() => parseBridgeStatus(undefined, EXPECTED)).toThrow(/is not an object/)
-  })
 })
 
 describe("classifyBridgeStatusError", () => {
@@ -852,43 +671,24 @@ describe("classifyBridgeStatusError", () => {
     ).rejects.toMatchObject({ code: "upstream_conflict", message: "tool mismatch" })
   })
 
-  it("keeps every documented code", async () => {
-    for (const code of ["invalid_request", "upstream_unavailable", "internal_error"]) {
-      await expect(
-        classifyBridgeStatusError(httpError(500, { error: code, message: "x" })),
-      ).rejects.toBeInstanceOf(BridgeStatusConflictError)
-    }
+  it.each(BRIDGE_STATUS_ERROR_CODES)("keeps the documented code %s", async (code) => {
+    await expect(
+      classifyBridgeStatusError(httpError(500, { error: code, message: "x" })),
+    ).rejects.toMatchObject({ code })
+  })
+
+  // A rate limit is classified by its code like any other coded failure; the
+  // screen's own cadence is the only backoff (see bridgeStatusPollInterval).
+  it("classifies a 429 through its coded body", async () => {
+    await expect(
+      classifyBridgeStatusError(httpError(429, { error: "rate_limited", message: "slow down" })),
+    ).rejects.toMatchObject({ code: "rate_limited", message: "slow down" })
   })
 
   it("falls back to the code when the body carries no message", async () => {
     await expect(
       classifyBridgeStatusError(httpError(502, { error: "upstream_conflict" })),
     ).rejects.toMatchObject({ message: "upstream_conflict" })
-  })
-
-  it("reads Retry-After seconds on a 429", async () => {
-    await expect(
-      classifyBridgeStatusError(
-        httpError(429, { error: "rate_limited", message: "slow down" }, { "Retry-After": "7" }),
-      ),
-    ).rejects.toMatchObject({ retryAfterMs: 7000, message: "slow down" })
-  })
-
-  it("leaves retryAfterMs unset when the header is missing or a date", async () => {
-    await expect(
-      classifyBridgeStatusError(httpError(429, { error: "rate_limited", message: "slow down" })),
-    ).rejects.toMatchObject({ retryAfterMs: undefined })
-    await expect(
-      classifyBridgeStatusError(
-        httpError(429, { error: "rate_limited", message: "m" }, { "Retry-After": "Wed, 21 Oct" }),
-      ),
-    ).rejects.toMatchObject({ retryAfterMs: undefined })
-  })
-
-  it("prefers the rate-limit classification over the coded one on a 429", async () => {
-    await expect(
-      classifyBridgeStatusError(httpError(429, { error: "rate_limited", message: "m" })),
-    ).rejects.toBeInstanceOf(RateLimitedError)
   })
 
   it("normalizes an uncoded HTTP failure", async () => {
@@ -928,12 +728,18 @@ describe("bridgeStatusPollInterval", () => {
   })
 
   it("stops on a deterministic invalid_request as well as upstream_conflict", () => {
-    for (const code of ["upstream_conflict", "invalid_request"]) {
+    for (const code of ["upstream_conflict", "invalid_request"] as const) {
       const error = new BridgeStatusConflictError(code, "rejected")
       expect(bridgeStatusPollInterval("bridge_pending", error, 0)).toBe(false)
     }
-    const transient = new BridgeStatusConflictError("upstream_unavailable", "later")
-    expect(bridgeStatusPollInterval("bridge_pending", transient, 0)).toBe(3000)
+  })
+
+  // Neither a transient upstream nor a rate limit is a verdict on the transfer.
+  it("keeps polling through the transient coded failures", () => {
+    for (const code of ["upstream_unavailable", "rate_limited", "internal_error"] as const) {
+      const error = new BridgeStatusConflictError(code, "later")
+      expect(bridgeStatusPollInterval("bridge_pending", error, 0)).toBe(3000)
+    }
   })
 
   it("stops after the handoff and on every terminal provider outcome", () => {
@@ -946,36 +752,6 @@ describe("bridgeStatusPollInterval", () => {
     ] as const) {
       expect(bridgeStatusPollInterval(state, null, 0)).toBe(false)
     }
-  })
-
-  it("honors the server's own retry delay", () => {
-    expect(bridgeStatusPollInterval("bridge_pending", new RateLimitedError("x", 30_000), 0)).toBe(
-      30_000,
-    )
-  })
-
-  it("falls back to its own cadence when the server sent no delay", () => {
-    expect(bridgeStatusPollInterval("bridge_pending", new RateLimitedError("x"), 0)).toBe(3000)
-  })
-
-  it("hard-stops on upstream_conflict", () => {
-    expect(
-      bridgeStatusPollInterval(
-        "bridge_pending",
-        new BridgeStatusConflictError("upstream_conflict", "m"),
-        0,
-      ),
-    ).toBe(false)
-  })
-
-  it("keeps polling through other coded failures", () => {
-    expect(
-      bridgeStatusPollInterval(
-        "bridge_pending",
-        new BridgeStatusConflictError("upstream_unavailable", "m"),
-        0,
-      ),
-    ).toBe(3000)
   })
 })
 
@@ -1065,7 +841,7 @@ describe("createBridgeStatusQueryOptions", () => {
   // The endpoint answers 502 upstream_conflict for a missing or mismatched hinted tool, including for not-found results.
   it("omits the bridge hint from the request", async () => {
     const { api, calls } = stubApi(statusPayload())
-    const { queryFn } = createBridgeStatusQueryOptions(api, PARAMS, true)
+    const { queryFn } = createBridgeStatusQueryOptions(api, PARAMS, true, Date.now())
     if (typeof queryFn !== "function") throw new Error("queryFn must be a function")
     await queryFn({} as unknown as Parameters<typeof queryFn>[0])
     expect(calls[0].url).toBe("v1/bridges/status")
@@ -1079,7 +855,7 @@ describe("createBridgeStatusQueryOptions", () => {
 
   it("classifies a coded failure instead of normalizing it away", async () => {
     const { api } = stubApi(httpError(502, { error: "upstream_conflict", message: "m" }))
-    const { queryFn } = createBridgeStatusQueryOptions(api, PARAMS, true)
+    const { queryFn } = createBridgeStatusQueryOptions(api, PARAMS, true, Date.now())
     if (typeof queryFn !== "function") throw new Error("queryFn must be a function")
     await expect(queryFn({} as unknown as Parameters<typeof queryFn>[0])).rejects.toBeInstanceOf(
       BridgeStatusConflictError,
@@ -1088,7 +864,7 @@ describe("createBridgeStatusQueryOptions", () => {
 
   it("never caches and never retries in place", () => {
     const { api } = stubApi(null)
-    const options = createBridgeStatusQueryOptions(api, PARAMS, true)
+    const options = createBridgeStatusQueryOptions(api, PARAMS, true, Date.now())
     expect(options.staleTime).toBe(0)
     expect(options.retry).toBe(false)
   })

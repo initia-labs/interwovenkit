@@ -1,11 +1,10 @@
 import { LocalStorageKey } from "@/data/constants"
-import type { DepositSession, StorageLike } from "./depositSession"
+import type { DepositSession, DepositSessionPhase, StorageLike } from "./depositSession"
 import {
   createDepositSession,
-  DepositSessionLockError,
   depositSessionStorageKey,
   DepositSessionWriteError,
-  holdDepositSessionLock,
+  findInFlightSession,
   isPhaseAdvance,
   listDepositSessions,
   mergeDepositSession,
@@ -16,69 +15,15 @@ import {
   rollbackDepositSessionPrompt,
   writeDepositSession,
 } from "./depositSession"
+import {
+  API_URL,
+  buildDepositSession,
+  createMemoryStorage,
+  DEPOSIT_ADDRESS,
+  SENDER,
+} from "./testing"
 
-interface MemoryStorage extends StorageLike {
-  map: Map<string, string>
-}
-
-function createMemoryStorage(): MemoryStorage {
-  const map = new Map<string, string>()
-  return {
-    map,
-    get length() {
-      return map.size
-    },
-    key: (index: number) => Array.from(map.keys())[index] ?? null,
-    getItem: (key: string) => map.get(key) ?? null,
-    setItem: (key: string, value: string) => {
-      map.set(key, value)
-    },
-    removeItem: (key: string) => {
-      map.delete(key)
-    },
-  }
-}
-
-const SENDER = "0x4e3d1f2a6b5c8d9e0f1a2b3c4d5e6f7a8b9c0d1e"
-const DEPOSIT_ADDRESS = "0x1111111111111111111111111111111111111111"
-
-function buildSession(overrides: Partial<DepositSession> = {}): DepositSession {
-  return {
-    version: 1,
-    id: "session-1",
-    apiUrl: "https://deposit.staging.example",
-    createdAt: 1_000,
-    updatedAt: 1_000,
-    transport: "lifi",
-    phase: "prepared",
-    source: {
-      chainId: "8453",
-      denom: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-      decimals: 6,
-      sender: SENDER,
-      amount: "1500000",
-      symbol: "USDC",
-      chainName: "Base",
-    },
-    destination: {
-      chainId: "interwoven-1",
-      denom: "uusdc",
-      recipient: "init1recipient",
-      symbol: "USDC",
-      chainName: "Initia",
-    },
-    depositAddress: DEPOSIT_ADDRESS,
-    cursor: "cursor-1",
-    transaction: {
-      chainId: "8453",
-      to: "0x2222222222222222222222222222222222222222",
-      data: "0xdeadbeef",
-      value: "0",
-    },
-    ...overrides,
-  }
-}
-
+/** Seeds a record the way an earlier tab left it: straight to storage, bypassing the merge. */
 function store(storage: StorageLike, session: DepositSession) {
   storage.setItem(depositSessionStorageKey(session.id), JSON.stringify(session))
 }
@@ -92,7 +37,7 @@ describe("depositSessionStorageKey", () => {
 describe("createDepositSession", () => {
   it("starts prepared with a generated id and matching timestamps", () => {
     const { apiUrl, transport, source, destination, depositAddress, cursor, transaction } =
-      buildSession()
+      buildDepositSession()
     const { version, id, createdAt, updatedAt, phase } = createDepositSession({
       apiUrl,
       transport,
@@ -112,37 +57,45 @@ describe("createDepositSession", () => {
 
 describe("parseDepositSession", () => {
   it("round-trips a valid record", () => {
-    const session = buildSession()
+    const session = buildDepositSession({ lastState: "bridge_pending" })
     expect(parseDepositSession(JSON.parse(JSON.stringify(session)))).toEqual(session)
   })
 
   it("drops fields it does not know about", () => {
-    const parsed = parseDepositSession({ ...buildSession(), rogueField: "x" })
+    const parsed = parseDepositSession({ ...buildDepositSession(), rogueField: "x" })
     expect(parsed).not.toHaveProperty("rogueField")
   })
 
+  it("drops a lastState it cannot render rather than rejecting a live record", () => {
+    const parsed = parseDepositSession({ ...buildDepositSession(), lastState: "moon_phase" })
+    expect(parsed).not.toBeNull()
+    expect(parsed?.lastState).toBeUndefined()
+  })
+
   it("rejects a record from another schema version", () => {
-    expect(parseDepositSession({ ...buildSession(), version: 2 })).toBeNull()
+    expect(parseDepositSession({ ...buildDepositSession(), version: 2 })).toBeNull()
   })
 
   it("rejects an unknown phase", () => {
-    expect(parseDepositSession({ ...buildSession(), phase: "halfway" })).toBeNull()
+    expect(parseDepositSession({ ...buildDepositSession(), phase: "halfway" })).toBeNull()
   })
 
   it("rejects a record without the intended transaction", () => {
-    const session: Partial<DepositSession> = buildSession()
+    const session: Partial<DepositSession> = buildDepositSession()
     delete session.transaction
     expect(parseDepositSession(session)).toBeNull()
   })
 
   it("rejects a submitted hash without a sender", () => {
-    expect(parseDepositSession({ ...buildSession(), submitted: { hash: "0xabc" } })).toBeNull()
+    expect(
+      parseDepositSession({ ...buildDepositSession(), submitted: { hash: "0xabc" } }),
+    ).toBeNull()
   })
 
   it("rejects non-objects", () => {
     expect(parseDepositSession(null)).toBeNull()
     expect(parseDepositSession("{}")).toBeNull()
-    expect(parseDepositSession([buildSession()])).toBeNull()
+    expect(parseDepositSession([buildDepositSession()])).toBeNull()
   })
 })
 
@@ -160,23 +113,26 @@ describe("isPhaseAdvance", () => {
 
 describe("mergeDepositSession", () => {
   it("returns the incoming session when nothing is stored", () => {
-    const session = buildSession()
+    const session = buildDepositSession()
     expect(mergeDepositSession(null, session)).toEqual(session)
   })
 
   it("keeps the newer phase when an older writer arrives late", () => {
-    const current = buildSession({ phase: "source_sent", currentSourceHash: "0xaaa" })
-    const stale = buildSession({ phase: "prepared" })
+    const current = buildDepositSession({ phase: "source_sent", currentSourceHash: "0xaaa" })
+    const stale = buildDepositSession({ phase: "prepared" })
     expect(mergeDepositSession(current, stale).phase).toBe("source_sent")
   })
 
   it("never erases a recorded hash by omission", () => {
-    const current = buildSession({
+    const current = buildDepositSession({
       phase: "source_sent",
       currentSourceHash: "0xaaa",
       submitted: { hash: "0xaaa", nonce: 7, from: SENDER },
     })
-    const statusUpdate = buildSession({ phase: "source_sent", lastState: "bridge_pending" })
+    const statusUpdate = buildDepositSession({
+      phase: "source_sent",
+      lastState: "bridge_pending",
+    })
     const merged = mergeDepositSession(current, statusUpdate)
     expect(merged.currentSourceHash).toBe("0xaaa")
     expect(merged.submitted).toEqual({ hash: "0xaaa", nonce: 7, from: SENDER })
@@ -184,23 +140,23 @@ describe("mergeDepositSession", () => {
   })
 
   it("adopts a replacement hash", () => {
-    const current = buildSession({ phase: "source_sent", currentSourceHash: "0xaaa" })
-    const replaced = buildSession({ phase: "source_sent", currentSourceHash: "0xbbb" })
+    const current = buildDepositSession({ phase: "source_sent", currentSourceHash: "0xaaa" })
+    const replaced = buildDepositSession({ phase: "source_sent", currentSourceHash: "0xbbb" })
     expect(mergeDepositSession(current, replaced).currentSourceHash).toBe("0xbbb")
   })
 
   it("preserves the original creation time and takes the latest update time", () => {
-    const current = buildSession({ createdAt: 1_000, updatedAt: 5_000 })
-    const next = buildSession({ createdAt: 9_999, updatedAt: 2_000 })
+    const current = buildDepositSession({ createdAt: 1_000, updatedAt: 5_000 })
+    const next = buildDepositSession({ createdAt: 9_999, updatedAt: 2_000 })
     const merged = mergeDepositSession(current, next)
     expect(merged.createdAt).toBe(1_000)
     expect(merged.updatedAt).toBe(5_000)
   })
 
   it("refuses to merge two different intents under one id", () => {
-    const current = buildSession()
-    const other = buildSession({
-      destination: { ...buildSession().destination, recipient: "init1someone-else" },
+    const current = buildDepositSession()
+    const other = buildDepositSession({
+      destination: { ...buildDepositSession().destination, recipient: "init1someone-else" },
     })
     expect(() => mergeDepositSession(current, other)).toThrow(DepositSessionWriteError)
   })
@@ -209,11 +165,11 @@ describe("mergeDepositSession", () => {
 describe("writeDepositSession", () => {
   it("merges into the stored record and returns what was persisted", () => {
     const storage = createMemoryStorage()
-    store(storage, buildSession({ phase: "source_sent", currentSourceHash: "0xaaa" }))
+    store(storage, buildDepositSession({ phase: "source_sent", currentSourceHash: "0xaaa" }))
 
     const saved = writeDepositSession(
       storage,
-      buildSession({ phase: "prepared", updatedAt: 2_000, lastState: "bridge_pending" }),
+      buildDepositSession({ phase: "prepared", updatedAt: 2_000, lastState: "bridge_pending" }),
     )
 
     expect(saved.phase).toBe("source_sent")
@@ -224,7 +180,9 @@ describe("writeDepositSession", () => {
   it("throws when the write is silently dropped", () => {
     const storage = createMemoryStorage()
     storage.setItem = () => {}
-    expect(() => writeDepositSession(storage, buildSession())).toThrow(DepositSessionWriteError)
+    expect(() => writeDepositSession(storage, buildDepositSession())).toThrow(
+      DepositSessionWriteError,
+    )
   })
 
   it("throws when storage rejects the write", () => {
@@ -232,14 +190,16 @@ describe("writeDepositSession", () => {
     storage.setItem = () => {
       throw new Error("QuotaExceededError")
     }
-    expect(() => writeDepositSession(storage, buildSession())).toThrow(DepositSessionWriteError)
+    expect(() => writeDepositSession(storage, buildDepositSession())).toThrow(
+      DepositSessionWriteError,
+    )
   })
 })
 
 describe("rollbackDepositSessionPrompt", () => {
   it("reopens the form after a rejected prompt", () => {
     const storage = createMemoryStorage()
-    store(storage, buildSession({ phase: "send_prompt" }))
+    store(storage, buildDepositSession({ phase: "send_prompt" }))
     expect(rollbackDepositSessionPrompt(storage, "session-1")?.phase).toBe("prepared")
   })
 
@@ -247,36 +207,52 @@ describe("rollbackDepositSessionPrompt", () => {
     const storage = createMemoryStorage()
     store(
       storage,
-      buildSession({ phase: "send_prompt", submitted: { hash: "0xaaa", from: SENDER } }),
+      buildDepositSession({ phase: "send_prompt", submitted: { hash: "0xaaa", from: SENDER } }),
     )
     expect(rollbackDepositSessionPrompt(storage, "session-1")?.phase).toBe("send_prompt")
   })
 
-  it("leaves a sent transfer alone", () => {
+  // The send prompt is the only reversible phase: everything else either never prompted or
+  // may already have reached the chain.
+  it.each<DepositSessionPhase>(["prepared", "submission_unknown", "source_sent", "terminal"])(
+    "leaves %s untouched",
+    (phase) => {
+      const storage = createMemoryStorage()
+      store(storage, buildDepositSession({ phase }))
+      expect(rollbackDepositSessionPrompt(storage, "session-1")?.phase).toBe(phase)
+    },
+  )
+
+  it("reports nothing to roll back when the record is gone", () => {
+    expect(rollbackDepositSessionPrompt(createMemoryStorage(), "session-1")).toBeNull()
+  })
+
+  it("throws when the reverted record cannot be proven durable", () => {
     const storage = createMemoryStorage()
-    store(storage, buildSession({ phase: "source_sent" }))
-    expect(rollbackDepositSessionPrompt(storage, "session-1")?.phase).toBe("source_sent")
+    store(storage, buildDepositSession({ phase: "send_prompt" }))
+    storage.setItem = () => {}
+    expect(() => rollbackDepositSessionPrompt(storage, "session-1")).toThrow(
+      DepositSessionWriteError,
+    )
   })
 })
 
 describe("listDepositSessions", () => {
   it("returns only this environment's sessions, newest first", () => {
     const storage = createMemoryStorage()
-    store(storage, buildSession({ id: "a", updatedAt: 1_000 }))
-    store(storage, buildSession({ id: "b", updatedAt: 3_000 }))
-    store(storage, buildSession({ id: "c", apiUrl: "https://deposit.example" }))
+    store(storage, buildDepositSession({ id: "a", updatedAt: 1_000 }))
+    store(storage, buildDepositSession({ id: "b", updatedAt: 3_000 }))
+    store(storage, buildDepositSession({ id: "c", apiUrl: "https://deposit.example" }))
     storage.setItem("unrelated:key", "{}")
 
-    expect(
-      listDepositSessions(storage, "https://deposit.staging.example").map(({ id }) => id),
-    ).toEqual(["b", "a"])
+    expect(listDepositSessions(storage, API_URL).map(({ id }) => id)).toEqual(["b", "a"])
   })
 
   it("skips malformed records instead of failing the list", () => {
     const storage = createMemoryStorage()
-    store(storage, buildSession({ id: "a" }))
+    store(storage, buildDepositSession({ id: "a" }))
     storage.setItem(depositSessionStorageKey("broken"), "{not json")
-    expect(listDepositSessions(storage, "https://deposit.staging.example")).toHaveLength(1)
+    expect(listDepositSessions(storage, API_URL)).toHaveLength(1)
   })
 })
 
@@ -286,92 +262,82 @@ describe("pruneDepositSessions", () => {
 
   it("never removes a session that is still in flight", () => {
     const storage = createMemoryStorage()
-    store(storage, buildSession({ id: "live", phase: "source_sent", updatedAt: ancient }))
+    store(storage, buildDepositSession({ id: "live", phase: "source_sent", updatedAt: ancient }))
     pruneDepositSessions(storage, now)
     expect(readDepositSession(storage, "live")).not.toBeNull()
   })
 
-  it("removes terminal sessions older than 30 days", () => {
+  it("drops a never-prompted record after a day and keeps a fresh one", () => {
     const storage = createMemoryStorage()
-    for (let index = 0; index < 25; index++) {
-      store(storage, buildSession({ id: `old-${index}`, phase: "terminal", updatedAt: ancient }))
-    }
+    const day = 24 * 60 * 60 * 1000
+    store(
+      storage,
+      buildDepositSession({ id: "stale", phase: "prepared", updatedAt: now - day - 1 }),
+    )
+    store(
+      storage,
+      buildDepositSession({ id: "fresh", phase: "prepared", updatedAt: now - day + 1 }),
+    )
     pruneDepositSessions(storage, now)
-    expect(listDepositSessions(storage, "https://deposit.staging.example")).toHaveLength(20)
+    expect(readDepositSession(storage, "stale")).toBeNull()
+    expect(readDepositSession(storage, "fresh")).not.toBeNull()
   })
 
-  it("keeps the newest 20 terminal records regardless of age", () => {
+  it("keeps the newest 20 terminal records regardless of age and drops the rest", () => {
     const storage = createMemoryStorage()
-    for (let index = 0; index < 20; index++) {
-      store(storage, buildSession({ id: `old-${index}`, phase: "terminal", updatedAt: ancient }))
+    for (let index = 0; index < 25; index++) {
+      store(
+        storage,
+        buildDepositSession({ id: `old-${index}`, phase: "terminal", updatedAt: ancient + index }),
+      )
     }
     pruneDepositSessions(storage, now)
-    expect(listDepositSessions(storage, "https://deposit.staging.example")).toHaveLength(20)
+    const ids = listDepositSessions(storage, API_URL).map(({ id }) => id)
+    expect(ids).toHaveLength(20)
+    expect(ids).toContain("old-24")
+    expect(ids).not.toContain("old-0")
   })
 })
 
 describe("recoveryReference", () => {
   it("carries the facts support needs to resolve a transfer", () => {
     const reference = recoveryReference(
-      buildSession({ phase: "source_sent", currentSourceHash: "0xaaa" }),
+      buildDepositSession({ phase: "source_sent", currentSourceHash: "0xaaa" }),
     )
-    expect(reference).toContain("https://deposit.staging.example")
+    expect(reference).toContain(API_URL)
     expect(reference).toContain("0xaaa")
     expect(reference).toContain(DEPOSIT_ADDRESS)
     expect(reference).toContain("init1recipient")
   })
 
   it("says the hash is unknown rather than omitting the line", () => {
-    expect(recoveryReference(buildSession())).toContain("Source transaction: unknown")
+    expect(recoveryReference(buildDepositSession())).toContain("Source transaction: unknown")
   })
 })
 
-interface FakeLocks {
-  held: Set<string>
-  request: (
-    name: string,
-    options: unknown,
-    callback: (lock: unknown) => unknown,
-  ) => Promise<unknown>
-}
-
-function createFakeLocks(): FakeLocks {
-  const held = new Set<string>()
-  return {
-    held,
-    request: async (name, _options, callback) => {
-      if (held.has(name)) return callback(null)
-      held.add(name)
-      try {
-        return await callback({ name, mode: "exclusive" })
-      } finally {
-        held.delete(name)
-      }
-    },
-  }
-}
-
-describe("holdDepositSessionLock", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals()
+describe("findInFlightSession", () => {
+  const intent = (session: ReturnType<typeof buildDepositSession>) => ({
+    apiUrl: session.apiUrl,
+    transport: session.transport,
+    source: session.source,
+    destination: session.destination,
   })
 
-  it("keeps the lock until release is called", async () => {
-    const locks = createFakeLocks()
-    vi.stubGlobal("navigator", { locks })
-
-    const lease = await holdDepositSessionLock("session-1")
-    expect(locks.held.has(depositSessionStorageKey("session-1"))).toBe(true)
-
-    await expect(holdDepositSessionLock("session-1")).rejects.toThrow(DepositSessionLockError)
-
-    lease.release()
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(locks.held.has(depositSessionStorageKey("session-1"))).toBe(false)
+  it("returns the record for the same transfer whose prompt is open or whose send is ambiguous", () => {
+    const prompted = buildDepositSession({ id: "prompted", phase: "send_prompt" })
+    const ambiguous = buildDepositSession({ id: "ambiguous", phase: "submission_unknown" })
+    const sent = buildDepositSession({ id: "sent", phase: "source_sent" })
+    const settled = buildDepositSession({ id: "settled", phase: "terminal" })
+    const fresh = buildDepositSession({ id: "fresh", phase: "prepared" })
+    expect(findInFlightSession([settled, fresh, prompted], intent(prompted))?.id).toBe("prompted")
+    expect(findInFlightSession([ambiguous], intent(ambiguous))?.id).toBe("ambiguous")
+    // A known hash is a distinct, tracked transfer: a new deposit for the same pair is fine.
+    expect(findInFlightSession([sent, settled, fresh], intent(sent))).toBeUndefined()
   })
 
-  it("fails closed when Web Locks is unavailable", async () => {
-    vi.stubGlobal("navigator", {})
-    await expect(holdDepositSessionLock("session-1")).rejects.toThrow(DepositSessionLockError)
+  it("ignores a record for a different transfer", () => {
+    const sent = buildDepositSession({ id: "sent", phase: "source_sent" })
+    const other = { ...intent(sent), destination: { ...sent.destination, recipient: "init1other" } }
+    expect(findInFlightSession([sent], other)).toBeUndefined()
   })
 })

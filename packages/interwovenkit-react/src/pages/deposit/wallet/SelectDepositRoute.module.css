@@ -1,9 +1,8 @@
-/* The row frame (padding, divider, hover, disabled) belongs to DepositSubpage.Row. */
+/* The row frame (padding, divider, hover, disabled) belongs to DepositSubpage.Row,
+   and the picker typography it shares with onramp/SelectProvider is composed
+   from DepositSubpage.module.css. Only this picker's own layout lives here. */
 .identity {
-  flex: 1;
-
-  min-width: 0;
-  text-align: left;
+  composes: pickerIdentity from "../DepositSubpage.module.css";
 }
 
 .amount {
@@ -11,18 +10,23 @@
   white-space: nowrap;
 }
 
+/* Both lines carry a logo or badge inline with their text. */
 .name,
 .out {
   display: flex;
   align-items: center;
   gap: 6px;
+}
 
-  font-size: 14px;
-  font-weight: 600;
+.name {
+  composes: pickerName from "../DepositSubpage.module.css";
 }
 
 .out {
   justify-content: flex-end;
+
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .best {
@@ -30,12 +34,11 @@
 
   border-radius: 4px;
   color: var(--info);
-  font-size: 11px;
-  font-weight: 600;
+  composes: pickerBadge from "../DepositSubpage.module.css";
   padding: 1px 6px;
 }
 
 .meta {
   color: var(--gray-3);
-  font-size: 12px;
+  composes: pickerMeta from "../DepositSubpage.module.css";
 }

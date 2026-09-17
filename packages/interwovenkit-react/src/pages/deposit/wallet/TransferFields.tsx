@@ -21,6 +21,7 @@ import { useLocalAssetOptions } from "../data/assetOptions"
 import DepositBackButton from "../DepositBackButton"
 import DepositStatus from "../DepositStatus"
 import { findBalanceByDenom, useAllBalancesQuery } from "./balances"
+import DepositTransferFooter from "./DepositTransferFooter"
 import { usePinnedSourceBalances } from "./evmRpc"
 import {
   useExternalAssetOptions,
@@ -31,7 +32,7 @@ import {
 import FooterWithTxFee from "./FooterWithTxFee"
 import { getResolvedTransferBalance, getTransferBalanceBlocker } from "./transferBalanceGate"
 import { useTransferFlow, useTransferForm, useTransferMode } from "./transferFlowConfig"
-import TransferFooter, { DepositTransferFooter } from "./TransferFooter"
+import TransferFooter from "./TransferFooter"
 import {
   buildTransferLocationState,
   getTransferBackNavigation,

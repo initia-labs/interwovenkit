@@ -2,20 +2,16 @@ import type { AssetOption } from "../data/assetOptions"
 import { normalizeDenom } from "../data/assetOptions"
 import { BridgeStatusConflictError } from "../data/bridges"
 import type { WalletDepositBucket } from "../data/deposits"
+import { eqAddress } from "../data/parse"
 import type { BridgeStatusState } from "../data/types"
+import type { DepositTrackingVariant } from "../DepositTracking"
 import {
   DEPOSIT_SESSION_PHASES,
+  type DepositLastState,
   type DepositSession,
   type DepositSessionPhase,
 } from "./depositSession"
 import type { SourceTxOutcome } from "./evmRpc"
-
-export type DepositProgressVariant =
-  | "in-flight"
-  | "completed"
-  | "failed"
-  | "below-minimum"
-  | "problem"
 
 /** The read the controller should be running; "none" stops automatic reads without discarding the session. */
 export type DepositProgressStage = "source" | "bridge" | "correlate" | "deposit" | "none"
@@ -23,7 +19,7 @@ export type DepositProgressStage = "source" | "bridge" | "correlate" | "deposit"
 export interface DepositProgressView {
   stage: DepositProgressStage
   title: string
-  variant: DepositProgressVariant
+  variant: DepositTrackingVariant
   heading?: string
   message: string
   note?: string
@@ -32,14 +28,13 @@ export interface DepositProgressView {
   showRefresh: boolean
   showChips: boolean
   /** What the controller must write back to the session, so the persisted trail matches the rendered claim. */
-  persist?: { phase?: DepositSessionPhase; lastState?: string }
+  persist?: { phase?: DepositSessionPhase; lastState?: DepositLastState }
 }
 
 export interface DepositProgressInputs {
   source: {
     outcome?: SourceTxOutcome
     isError: boolean
-    hasProvider: boolean
   }
   bridge: {
     state?: BridgeStatusState
@@ -73,8 +68,65 @@ const NEUTRAL_TITLE = "Deposit status"
 /** No automatic refund exists at any stage, so no screen may imply one. */
 const NO_REFUND = "Your funds remain at the deposit address with no automatic refund."
 
+const ARRIVED_ON_ETHEREUM = "USDC arrived on Ethereum. Waiting for the deposit to be detected."
+
 /** Heading for the post-send recovery block: the transfer was sent, only the local record of it was lost. */
 export const recoveryHeading = "Save your transfer details"
+
+interface LastStateCopy {
+  /** Resume-row subtext on the hub; absent falls back to the phase (see resumeStageLabel). */
+  label?: string
+  heading?: string
+  message?: string
+}
+
+// One table for every persisted state: the resume row reads `label`, the bridge stage reads
+// `heading`/`message`. Bridge states render a whole screen, so their copy is mandatory.
+const LAST_STATE: Record<DepositLastState, LastStateCopy> &
+  Record<BridgeStatusState, LastStateCopy & { message: string }> = {
+  source_pending: { label: "Source transaction pending" },
+  source_replaced: { label: "Source transaction replaced" },
+  source_reverted: {},
+  source_cancelled: {},
+  source_conflict: {},
+  bridge_not_found: {
+    label: "Waiting for the bridge",
+    message: "Transaction broadcast. Waiting for the bridge provider to pick it up.",
+  },
+  bridge_pending: { label: "Bridging to Ethereum", message: "Bridging USDC to Ethereum." },
+  bridge_refunding: {
+    label: "Refund in progress",
+    heading: "Refund in progress",
+    message: "The bridge is returning your funds. Checking until the refund confirms.",
+  },
+  bridge_refunded: {
+    heading: "Refund confirmed",
+    message: "The bridge refunded this transfer. See the transaction for details.",
+  },
+  bridge_partial: {
+    heading: "Deposit needs attention",
+    message:
+      "The bridge delivered only part of this transfer. Check the details or contact support.",
+  },
+  bridge_refund_required: {
+    heading: "Refund needs attention",
+    message: "This refund needs your action. Check the details to complete it.",
+  },
+  bridge_failed: {
+    heading: "Bridge failed",
+    message:
+      "The bridge could not complete this transfer. Check the details for the status of your funds.",
+  },
+  deposit_pending: { label: "Waiting for deposit detection", message: ARRIVED_ON_ETHEREUM },
+  deposit_indexed: { label: "Delivering", message: "Deposit detected. Delivering now." },
+  waiting: { label: "Confirming your deposit" },
+  processing: { label: "Delivering" },
+  completed: {},
+  below_minimum: {},
+  failed: {},
+  unknown: { label: "Status unavailable" },
+  tracking_conflict: {},
+}
 
 const phaseIndex = (phase: DepositSessionPhase) => DEPOSIT_SESSION_PHASES.indexOf(phase)
 
@@ -125,8 +177,8 @@ export function trackedSourceHash(session: DepositSession): string {
   return session.currentSourceHash ?? session.submitted?.hash ?? ""
 }
 
-// Gate for "Continue deposit": a `prepared` or `approval_*` session is an abandoned draft
-// with nothing broadcast; from `send_prompt` onward a send may have happened.
+// Gate for "Continue deposit": a `prepared` session is an abandoned draft with nothing
+// broadcast; from `send_prompt` onward a send may have happened.
 export function isResumableDepositSession(session: DepositSession): boolean {
   if (session.phase === "terminal") return false
   return phaseIndex(session.phase) >= phaseIndex("send_prompt")
@@ -141,6 +193,12 @@ export interface ResumeMatch {
   remoteOptions: AssetOption[]
 }
 
+type AssetRef = { chainId: string; denom: string }
+
+// host vs Skip vs Deposit API casing — see normalizeDenom
+const sameAsset = (a: AssetRef, b: AssetRef) =>
+  a.chainId === b.chainId && normalizeDenom(a.denom) === normalizeDenom(b.denom)
+
 // Recipient, destination and the host's source allowlist all have to agree: a session for
 // another recipient or an excluded source would reopen inside a request it violates.
 export function selectResumableSessions(
@@ -148,45 +206,21 @@ export function selectResumableSessions(
   match: ResumeMatch,
 ): DepositSession[] {
   if (!match.recipient) return []
-  const recipient = match.recipient.toLowerCase()
+  const destination = { chainId: match.dstChainId, denom: match.dstDenom }
   return sessions.filter(
     (session) =>
       isResumableDepositSession(session) &&
-      session.destination.recipient.toLowerCase() === recipient &&
-      session.destination.chainId === match.dstChainId &&
-      normalizeDenom(session.destination.denom) === normalizeDenom(match.dstDenom) &&
+      eqAddress(session.destination.recipient, match.recipient) &&
+      sameAsset(session.destination, destination) &&
       (match.remoteOptions.length === 0 ||
-        match.remoteOptions.some(
-          (option) =>
-            option.chainId === session.source.chainId &&
-            normalizeDenom(option.denom) === normalizeDenom(session.source.denom),
-        )),
+        match.remoteOptions.some((option) => sameAsset(option, session.source))),
   )
 }
 
 /** Falls back to the phase, which is written before every wallet prompt and therefore always present. */
 export function resumeStageLabel(session: DepositSession): string {
-  switch (session.lastState) {
-    case "source_pending":
-      return "Source transaction pending"
-    case "source_replaced":
-      return "Source transaction replaced"
-    case "bridge_not_found":
-      return "Waiting for the bridge"
-    case "bridge_pending":
-      return "Bridging to Ethereum"
-    case "deposit_pending":
-      return "Waiting for deposit detection"
-    case "bridge_refunding":
-      return "Refund in progress"
-    case "waiting":
-      return "Confirming your deposit"
-    case "deposit_indexed":
-    case "processing":
-      return "Delivering"
-    case "unknown":
-      return "Status unavailable"
-  }
+  const label = session.lastState && LAST_STATE[session.lastState].label
+  if (label) return label
   switch (session.phase) {
     case "send_prompt":
     case "submission_unknown":
@@ -198,20 +232,10 @@ export function resumeStageLabel(session: DepositSession): string {
   }
 }
 
-/** `session` is null only when neither storage nor the in-memory fallback holds a record. */
 export function deriveDepositProgress(
-  session: DepositSession | null,
+  session: DepositSession,
   inputs: DepositProgressInputs,
 ): DepositProgressView {
-  if (!session) {
-    return problem({
-      heading: "Deposit not found",
-      message:
-        "This deposit is no longer saved in this browser. Any transfer already sent is unaffected.",
-      showRefresh: false,
-    })
-  }
-
   const view = resolve(session, inputs)
 
   // Armed per stage so each leg gets its own budget. It replaces the heading, not the copy:
@@ -266,7 +290,7 @@ function withoutHash(session: DepositSession): DepositProgressView {
 
 // Provably never reached the mempool, or replaced by a cancellation. Gas was still spent
 // and an earlier approval may still stand.
-const notSent = (lastState: string) =>
+const notSent = (lastState: DepositLastState) =>
   terminal({
     variant: "failed",
     heading: "Deposit not sent",
@@ -276,7 +300,7 @@ const notSent = (lastState: string) =>
   })
 
 function sourceStage(session: DepositSession, inputs: DepositProgressInputs): DepositProgressView {
-  const { outcome, isError, hasProvider } = inputs.source
+  const { outcome, isError } = inputs.source
   const { chainName } = session.source
 
   if (outcome?.status === "reverted") return notSent("source_reverted")
@@ -306,14 +330,6 @@ function sourceStage(session: DepositSession, inputs: DepositProgressInputs): De
     persist: { lastState: hasReplacement ? "source_replaced" : "source_pending" },
   })
 
-  if (!hasProvider) {
-    // Missing RPC metadata is a capability gap on our side; the transfer is unaffected.
-    return {
-      ...base,
-      note: `Cannot verify on ${chainName} right now. Retrying.`,
-    }
-  }
-
   if (hasReplacement) {
     return {
       ...base,
@@ -324,39 +340,6 @@ function sourceStage(session: DepositSession, inputs: DepositProgressInputs): De
   if (isError) return { ...base, note: "Still checking…" }
 
   return base
-}
-
-const ARRIVED_ON_ETHEREUM = "USDC arrived on Ethereum. Waiting for the deposit to be detected."
-
-const BRIDGE_COPY: Record<BridgeStatusState, { heading?: string; message: string }> = {
-  bridge_not_found: {
-    message: "Transaction broadcast. Waiting for the bridge provider to pick it up.",
-  },
-  bridge_pending: { message: "Bridging USDC to Ethereum." },
-  deposit_pending: { message: ARRIVED_ON_ETHEREUM },
-  deposit_indexed: { message: "Deposit detected. Delivering now." },
-  bridge_refunding: {
-    heading: "Refund in progress",
-    message: "The bridge is returning your funds. Checking until the refund confirms.",
-  },
-  bridge_refunded: {
-    heading: "Refund confirmed",
-    message: "The bridge refunded this transfer. See the transaction for details.",
-  },
-  bridge_partial: {
-    heading: "Deposit needs attention",
-    message:
-      "The bridge delivered only part of this transfer. Check the details or contact support.",
-  },
-  bridge_refund_required: {
-    heading: "Refund needs attention",
-    message: "This refund needs your action. Check the details to complete it.",
-  },
-  bridge_failed: {
-    heading: "Bridge failed",
-    message:
-      "The bridge could not complete this transfer. Check the details for the status of your funds.",
-  },
 }
 
 function bridgeStage(inputs: DepositProgressInputs): DepositProgressView {
@@ -377,7 +360,7 @@ function bridgeStage(inputs: DepositProgressInputs): DepositProgressView {
   // A deposit that is not provably this user's must never complete this flow.
   if (conflict) return conflictView(conflict)
 
-  const copy = state ? BRIDGE_COPY[state] : BRIDGE_COPY.bridge_not_found
+  const copy = LAST_STATE[state ?? "bridge_not_found"]
 
   switch (state) {
     case "bridge_refunded":

@@ -66,8 +66,11 @@ export function assertField(condition: unknown, message: string): asserts condit
   if (!condition) throw new Error(message)
 }
 
+/** Addresses are compared case-insensitively: EIP-55 checksums and bech32 casing are not identity. */
+export const eqAddress = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
+
 /** One field of a record spec. An `optional` field may be absent, but never malformed. */
-export interface FieldRule<T, Optional extends boolean = false> {
+interface FieldRule<T, Optional extends boolean = false> {
   guard: (value: unknown) => value is T
   optional: Optional
 }
