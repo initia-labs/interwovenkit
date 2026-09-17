@@ -7,11 +7,11 @@ import { formatAmount, fromBaseUnit } from "@initia/utils"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
+import FormHelp from "@/components/form/FormHelp"
 import QuantityInput from "@/components/form/QuantityInput"
 import { parseQuantity } from "@/lib/amountValidation"
 import { formatValueWithPrice } from "@/lib/format"
 import { useLocationState, useNavigate } from "@/lib/router"
-import { useFindSkipChain } from "@/pages/bridge/data/chains"
 import { useRouteQuery } from "@/pages/bridge/data/simulate"
 import FooterWithAddressList from "@/pages/bridge/FooterWithAddressList"
 import FooterWithMsgs from "@/pages/bridge/FooterWithMsgs"
@@ -21,9 +21,12 @@ import { useLocalAssetOptions } from "../data/assetOptions"
 import DepositBackButton from "../DepositBackButton"
 import DepositStatus from "../DepositStatus"
 import { findBalanceByDenom, useAllBalancesQuery } from "./balances"
+import DepositTransferFooter from "./DepositTransferFooter"
+import { usePinnedSourceBalances } from "./evmRpc"
 import {
   useExternalAssetOptions,
   useExternalTransferAsset,
+  useFindTransferChain,
   useLocalTransferAsset,
 } from "./externalAssets"
 import FooterWithTxFee from "./FooterWithTxFee"
@@ -36,6 +39,7 @@ import {
   shouldSyncTransferNavigationState,
   type TransferLocationState,
 } from "./transferNavigation"
+import { useDepositTransportResolution } from "./useDepositTransfer"
 import styles from "./TransferFields.module.css"
 
 type RouteStatus = "disabled" | "loading" | "ready" | "no-route" | "server-error" | "refresh-failed"
@@ -96,7 +100,7 @@ const TransferFields = () => {
   const navigate = useNavigate()
   const state = useLocationState<TransferLocationState>()
   const { data: options } = useLocalAssetOptions()
-  const findChain = useFindSkipChain()
+  const findChain = useFindTransferChain()
   const {
     data: balances,
     error: balancesError,
@@ -114,6 +118,21 @@ const TransferFields = () => {
 
   const localAsset = useLocalTransferAsset()
   const externalAsset = useExternalTransferAsset()
+
+  // The transport is decided before any Router status is read, so a deliberately
+  // disabled Router query cannot leave the Deposit API branch on "Fetching route...".
+  const { resolution, retryCatalog, isCatalogFetching } = useDepositTransportResolution()
+  const isRouterTransport = resolution.transport === "router"
+  const isDepositApiTransport = resolution.transport === "direct" || resolution.transport === "lifi"
+
+  // The source-chain-pinned read is the single authority for a Deposit API pair's
+  // balance, MAX and amount gate; Skip's aggregate snapshot is never shown here.
+  const pinnedBalances = usePinnedSourceBalances({
+    chainId: isDepositApiTransport ? srcChainId : "",
+    owner: hexAddress,
+    token: isDepositApiTransport ? srcDenom : "",
+    enabled: isDepositApiTransport,
+  })
   const { data: externalAssetOptions, isLoading: isExternalAssetOptionsLoading } =
     useExternalAssetOptions()
   const hasSingleExternalAssetOption =
@@ -209,7 +228,8 @@ const TransferFields = () => {
     error: routeError,
     dataUpdatedAt: routeUpdatedAt,
   } = useRouteQuery(debouncedQuantity, {
-    disabled: isRouteQueryDisabled,
+    // A Deposit API pair owns its own execution path; the Router query must not run.
+    disabled: isRouteQueryDisabled || !isRouterTransport,
   })
 
   // Keep the latest successful route while background refetches run.
@@ -238,6 +258,10 @@ const TransferFields = () => {
   // Depend on the specific primitives that can change the derived location state
   // without depending on the full `state` object, which would loop after navigate().
   useIsomorphicLayoutEffect(() => {
+    // Router-only: writing an undefined route here would clear the Router preview
+    // the flow may come back to.
+    if (!isRouterTransport) return
+
     const nextState = buildTransferLocationState({
       currentState: state,
       route: routeForState,
@@ -253,6 +277,7 @@ const TransferFields = () => {
     currentRoute,
     getValues,
     hexAddress,
+    isRouterTransport,
     navigate,
     quoteVerifiedAt,
     recipientAddress,
@@ -278,6 +303,7 @@ const TransferFields = () => {
   if (mode === "deposit" && !externalAsset) return null
 
   const amountDecimals = amountAsset?.decimals || 6
+  const displayedBalance = isDepositApiTransport ? pinnedBalances.data?.token : balance
   const externalEmptyLabel = mode === "withdraw" ? "Select chain" : "Select asset"
 
   const resetToPreviousPage = () => {
@@ -347,8 +373,12 @@ const TransferFields = () => {
   const amountSection = (
     <>
       <p className={styles.label}>Amount</p>
-      <QuantityInput balance={balance} decimals={amountDecimals} className={styles.input} />
-      {balance !== undefined && (
+      <QuantityInput
+        balance={displayedBalance}
+        decimals={amountDecimals}
+        className={styles.input}
+      />
+      {displayedBalance !== undefined && (
         <div className={styles.balanceContainer}>
           <p className={styles.value}>
             {rawQuantity ? formatValueWithPrice(quantityValue.toString(), price) : "$-"}
@@ -357,13 +387,13 @@ const TransferFields = () => {
           <button
             className={styles.maxButton}
             onClick={() => {
-              const maxAmount = fromBaseUnit(balance, { decimals: amountDecimals })
+              const maxAmount = fromBaseUnit(displayedBalance, { decimals: amountDecimals })
               if (parseQuantity(rawQuantity)?.eq(maxAmount || 0)) return
 
               setValue("quantity", maxAmount)
             }}
           >
-            <IconWallet size={16} /> {formatAmount(balance, { decimals: amountDecimals })}{" "}
+            <IconWallet size={16} /> {formatAmount(displayedBalance, { decimals: amountDecimals })}{" "}
             <span>MAX</span>
           </button>
         </div>
@@ -399,10 +429,35 @@ const TransferFields = () => {
         </>
       )}
 
-      {(chainsError || balancesError) && (
+      {isRouterTransport && (chainsError || balancesError) && (
         <DepositStatus error>Failed to load balances</DepositStatus>
       )}
-      {!canRenderPreviewFooter ? (
+      {isDepositApiTransport ? (
+        <DepositTransferFooter resolution={resolution} />
+      ) : resolution.transport === "unavailable" ? (
+        /* A catalog outage makes this pair temporarily unusable rather than
+           silently handing it to Router with different fees and minimums. */
+        <Footer
+          extra={
+            resolution.reason === "error" && (
+              <FormHelp level="error">Deposit API unavailable</FormHelp>
+            )
+          }
+        >
+          {resolution.reason === "error" ? (
+            <Button.White
+              type="button"
+              onClick={() => void retryCatalog()}
+              loading={isCatalogFetching && "Retrying..."}
+              fullWidth
+            >
+              Retry
+            </Button.White>
+          ) : (
+            <Button.White loading="Loading..." disabled fullWidth />
+          )}
+        </Footer>
+      ) : !canRenderPreviewFooter ? (
         <Footer>
           <Button.White
             type="submit"

@@ -38,6 +38,60 @@ export const depositQueryKeys = createQueryKeys("interwovenkit:deposit", {
     dstDenom: string,
     amountIn: string,
   ) => [srcChainId, srcDenom, dstChainId, dstDenom, amountIn],
+  // Every field the request is bound to is in the key: a changed sender,
+  // recipient or amount must miss the cache rather than reuse a transaction
+  // built for the previous identity.
+  bridgeOptions: (
+    srcChainId: string,
+    srcDenom: string,
+    dstChainId: string,
+    dstDenom: string,
+    amount: string,
+    fromAddress: string,
+    walletAddress: string,
+  ) => [srcChainId, srcDenom, dstChainId, dstDenom, amount, fromAddress, walletAddress],
+  bridgeQuote: (
+    srcChainId: string,
+    srcDenom: string,
+    dstChainId: string,
+    dstDenom: string,
+    amount: string,
+    fromAddress: string,
+    walletAddress: string,
+    bridge: string,
+    depositAddress: string,
+  ) => [
+    srcChainId,
+    srcDenom,
+    dstChainId,
+    dstDenom,
+    amount,
+    fromAddress,
+    walletAddress,
+    bridge,
+    depositAddress,
+  ],
+  // Keyed without the tool: the `bridge` hint is omitted from the request
+  // (a mismatched hint answers 502 upstream_conflict, see bridges.ts).
+  bridgeStatus: (srcChainId: string, srcTxHash: string, depositAddress: string) => [
+    srcChainId,
+    srcTxHash,
+    depositAddress,
+  ],
+  depositBySourceTx: (srcChainId: string, srcTxHash: string) => [srcChainId, srcTxHash],
+  // Keyed by chain so a wallet network switch cannot serve another chain's
+  // balance (see wallet/evmRpc.ts).
+  sourceBalances: (chainId: string, owner: string, token: string) => [chainId, owner, token],
+  sourceBlock: (chainId: string) => [chainId],
+  maxFeePerGas: (chainId: string) => [chainId],
+  allowance: (chainId: string, owner: string, token: string, spender: string) => [
+    chainId,
+    owner,
+    token,
+    spender,
+  ],
+  // Keyed by the hash actually being watched, so adopting a replacement re-keys it.
+  sourceWatch: (sessionId: string, txHash: string) => [sessionId, txHash],
 })
 
 /**

@@ -44,7 +44,44 @@
   border-bottom: 0;
 }
 
-.row:hover,
+.row:not(:disabled):hover,
 .activeRow {
   background-color: var(--gray-8);
+}
+
+/* Disabled options stay readable: the row content carries the reason it cannot be chosen. */
+.row:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+/* Picker rows (wallet/SelectDepositRoute, onramp/SelectProvider) both render one
+ * option per row: identity on the left, amounts on the right. These are the
+ * parts the two render identically; each composes them and adds its own
+ * structure and colors. The right-hand column is deliberately not here — the
+ * two stack their amounts differently. */
+.pickerIdentity {
+  flex: 1;
+
+  min-width: 0;
+  text-align: left;
+}
+
+.pickerName {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Never shrinks or wraps: the badge is the row's one-word verdict. */
+.pickerBadge {
+  flex: none;
+
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Secondary line under (or beside) the name: cost, duration, or the gap to the best row. */
+.pickerMeta {
+  font-size: 12px;
 }

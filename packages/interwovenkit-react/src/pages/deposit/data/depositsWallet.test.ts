@@ -1,0 +1,223 @@
+import { describe, expect, it } from "vitest"
+import {
+  assertDirectDeposit,
+  assertLifiDeposit,
+  bySourceTxPollInterval,
+  classifyWalletBucket,
+  createDepositBySourceTxQueryOptions,
+} from "./deposits"
+import {
+  deposit,
+  DEPOSIT_ADDRESS,
+  DST_TX_HASH,
+  ETHEREUM_USDC,
+  httpError,
+  RECIPIENT,
+  SRC_TX_HASH,
+  stubApi,
+} from "./testing"
+import type { Deposit } from "./types"
+import { DEPOSIT_BUCKETS } from "./types"
+
+describe("classifyWalletBucket", () => {
+  it("reports every known bucket unchanged", () => {
+    for (const bucket of DEPOSIT_BUCKETS) {
+      expect(classifyWalletBucket(deposit({ bucket }))).toBe(bucket)
+    }
+  })
+
+  it("reports the pre-discovery frame as waiting", () => {
+    expect(classifyWalletBucket(null)).toBe("waiting")
+  })
+
+  // Deliberately the opposite of displayBucket: the user has just signed a real
+  // transfer, so an unrecognized bucket is a contract problem, not a failure.
+  it("keeps an unknown bucket unknown instead of calling it failed", () => {
+    expect(classifyWalletBucket(deposit({ bucket: "refunding" }))).toBe("unknown")
+    expect(classifyWalletBucket(deposit({ bucket: "" }))).toBe("unknown")
+  })
+})
+
+describe("bySourceTxPollInterval", () => {
+  it("polls on the shared cadence while the record is missing, then backs off", () => {
+    expect(bySourceTxPollInterval(null, 0)).toBe(3000)
+    expect(bySourceTxPollInterval(undefined, 6 * 60_000)).toBe(15_000)
+  })
+
+  it("stops once the deposit id is available", () => {
+    expect(bySourceTxPollInterval(deposit(), 0)).toBe(false)
+  })
+})
+
+describe("createDepositBySourceTxQueryOptions", () => {
+  it("reads the single record for the exact source transaction", async () => {
+    const record = deposit()
+    const { api, calls } = stubApi(record)
+    const { queryFn } = createDepositBySourceTxQueryOptions(api, SRC_TX_HASH, true, Date.now())
+    if (typeof queryFn !== "function") throw new Error("queryFn must be a function")
+    await expect(queryFn({} as unknown as Parameters<typeof queryFn>[0])).resolves.toBe(record)
+    expect(calls[0].url).toBe(`v1/deposits/by-source-tx/${SRC_TX_HASH}`)
+    expect(calls[0].options?.searchParams).toEqual({ src_chain_id: "1" })
+  })
+
+  it("treats a 404 as an indexing delay, not an error", async () => {
+    const { api } = stubApi(httpError(404, { message: "not found" }))
+    const { queryFn } = createDepositBySourceTxQueryOptions(api, SRC_TX_HASH, true, Date.now())
+    if (typeof queryFn !== "function") throw new Error("queryFn must be a function")
+    await expect(queryFn({} as unknown as Parameters<typeof queryFn>[0])).resolves.toBeNull()
+  })
+
+  it("surfaces every other failure normalized", async () => {
+    const { api } = stubApi(httpError(500, { message: "boom" }))
+    const { queryFn } = createDepositBySourceTxQueryOptions(api, SRC_TX_HASH, true, Date.now())
+    if (typeof queryFn !== "function") throw new Error("queryFn must be a function")
+    await expect(queryFn({} as unknown as Parameters<typeof queryFn>[0])).rejects.toThrow("boom")
+  })
+
+  it("passes the enabled gate through and never caches", () => {
+    const { api } = stubApi(null)
+    const options = createDepositBySourceTxQueryOptions(api, SRC_TX_HASH, false, Date.now())
+    expect(options.enabled).toBe(false)
+    expect(options.staleTime).toBe(0)
+  })
+
+  it("keys on the source transaction", () => {
+    const { api } = stubApi(null)
+    expect(
+      createDepositBySourceTxQueryOptions(api, SRC_TX_HASH, true, Date.now()).queryKey,
+    ).toContain(SRC_TX_HASH)
+  })
+})
+
+const DIRECT_IDENTITY = {
+  srcTxHash: SRC_TX_HASH,
+  amount: "5000000",
+  srcDenom: ETHEREUM_USDC,
+  depositAddress: DEPOSIT_ADDRESS,
+  dstChainId: "interwoven-1",
+  dstDenom: "uusdc",
+  recipient: RECIPIENT,
+}
+
+describe("assertDirectDeposit", () => {
+  it("accepts the record the session actually sent", () => {
+    const record = deposit()
+    expect(assertDirectDeposit(record, DIRECT_IDENTITY)).toBe(record)
+  })
+
+  it("compares hashes and the issued address case-insensitively", () => {
+    const record = deposit({
+      src_tx_hash: `0x${SRC_TX_HASH.slice(2).toUpperCase()}`,
+      deposit_address: DEPOSIT_ADDRESS.toLowerCase(),
+    })
+    expect(assertDirectDeposit(record, DIRECT_IDENTITY)).toBe(record)
+  })
+
+  it("compares EVM denoms through normalizeDenom", () => {
+    const record = deposit({ src_denom: ETHEREUM_USDC.toLowerCase() })
+    expect(assertDirectDeposit(record, DIRECT_IDENTITY)).toBe(record)
+  })
+
+  it("rejects a record from another source chain", () => {
+    expect(() => assertDirectDeposit(deposit({ src_chain_id: "8453" }), DIRECT_IDENTITY)).toThrow(
+      /src_chain_id is 8453/,
+    )
+  })
+
+  // The direct executor sends exactly one transfer of a known size, so an amount
+  // or hash disagreement means somebody else's deposit at the same reused address.
+  it("rejects another transaction or another amount", () => {
+    expect(() =>
+      assertDirectDeposit(deposit({ src_tx_hash: DST_TX_HASH }), DIRECT_IDENTITY),
+    ).toThrow(/src_tx_hash/)
+    expect(() => assertDirectDeposit(deposit({ amount: "4000000" }), DIRECT_IDENTITY)).toThrow(
+      /amount 4000000/,
+    )
+  })
+
+  it("rejects another asset, address, destination or recipient", () => {
+    expect(() =>
+      assertDirectDeposit(deposit({ src_denom: "ethereum-native" }), DIRECT_IDENTITY),
+    ).toThrow(/src_denom/)
+    expect(() =>
+      assertDirectDeposit(
+        deposit({ deposit_address: "0x9999999999999999999999999999999999999999" }),
+        DIRECT_IDENTITY,
+      ),
+    ).toThrow(/deposit_address/)
+    expect(() =>
+      assertDirectDeposit(deposit({ dst_chain_id: "yominet-1" }), DIRECT_IDENTITY),
+    ).toThrow(/dst_chain_id/)
+    expect(() => assertDirectDeposit(deposit({ dst_denom: "uinit" }), DIRECT_IDENTITY)).toThrow(
+      /dst_denom/,
+    )
+    expect(() =>
+      assertDirectDeposit(deposit({ wallet_address: "init1someoneelse" }), DIRECT_IDENTITY),
+    ).toThrow(/wallet_address/)
+  })
+})
+
+const LIFI_IDENTITY = {
+  depositAddress: DEPOSIT_ADDRESS,
+  dstChainId: "interwoven-1",
+  dstDenom: "uusdc",
+  recipient: RECIPIENT,
+  ethereumUsdc: ETHEREUM_USDC,
+}
+
+// The deposit records the Ethereum leg, so its hash and amount belong to the receiving transaction.
+const lifiDeposit = (overrides: Partial<Deposit> = {}) =>
+  deposit({ src_tx_hash: DST_TX_HASH, amount: "4950000", ...overrides })
+
+describe("assertLifiDeposit", () => {
+  it("accepts an indexed record without any amount comparison", () => {
+    const record = lifiDeposit()
+    expect(assertLifiDeposit(record, LIFI_IDENTITY)).toBe(record)
+  })
+
+  it("accepts a valid handoff when the envelope supplied no dst_tx_hash", () => {
+    const record = lifiDeposit({ src_tx_hash: `0x${"e".repeat(64)}` })
+    expect(assertLifiDeposit(record, LIFI_IDENTITY)).toBe(record)
+  })
+
+  it("binds to the reported Ethereum delivery when the envelope supplies one", () => {
+    const record = lifiDeposit()
+    expect(assertLifiDeposit(record, { ...LIFI_IDENTITY, dstTxHash: DST_TX_HASH })).toBe(record)
+    expect(
+      assertLifiDeposit(record, {
+        ...LIFI_IDENTITY,
+        dstTxHash: `0x${DST_TX_HASH.slice(2).toUpperCase()}`,
+      }),
+    ).toBe(record)
+  })
+
+  it("rejects a record whose hash is not the reported Ethereum delivery", () => {
+    expect(() =>
+      assertLifiDeposit(lifiDeposit(), { ...LIFI_IDENTITY, dstTxHash: SRC_TX_HASH }),
+    ).toThrow(/reported Ethereum delivery/)
+  })
+
+  it("requires the Ethereum leg's chain and canonical asset", () => {
+    expect(() => assertLifiDeposit(lifiDeposit({ src_chain_id: "8453" }), LIFI_IDENTITY)).toThrow(
+      /src_chain_id is 8453/,
+    )
+    expect(() =>
+      assertLifiDeposit(lifiDeposit({ src_denom: "ethereum-native" }), LIFI_IDENTITY),
+    ).toThrow(/not Ethereum USDC/)
+  })
+
+  it("requires the issued address, destination and recipient", () => {
+    expect(() =>
+      assertLifiDeposit(
+        lifiDeposit({ deposit_address: "0x9999999999999999999999999999999999999999" }),
+        LIFI_IDENTITY,
+      ),
+    ).toThrow(/deposit_address/)
+    expect(() => assertLifiDeposit(lifiDeposit({ dst_denom: "uinit" }), LIFI_IDENTITY)).toThrow(
+      /dst_denom/,
+    )
+    expect(() =>
+      assertLifiDeposit(lifiDeposit({ wallet_address: "init1someoneelse" }), LIFI_IDENTITY),
+    ).toThrow(/wallet_address/)
+  })
+})

@@ -1,10 +1,18 @@
+import type { KyInstance } from "ky"
+import { HTTPError } from "ky"
 import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { queryOptions, useQuery } from "@tanstack/react-query"
 import { useConfig } from "@/data/config"
 import { normalizeError } from "@/data/http"
 import { depositQueryKeys, useDepositApi } from "./api"
+import { normalizeDenom } from "./assetOptions"
+import { assertField } from "./parse"
 import type { Deposit, DepositBucket, ListDepositsResponse } from "./types"
 import { ACTIVE_DEPOSIT_BUCKETS, DEPOSIT_BUCKETS } from "./types"
+
+// Every Deposit API transfer lands on Ethereum, so correlation by source
+// transaction is always scoped to chain 1.
+const ETHEREUM_CHAIN_ID = "1"
 
 // Deliberately the negation of the active set: an unknown bucket must count
 // as terminal so polling stops, matching the server's own fail-closed mapping
@@ -186,7 +194,7 @@ interface TrackedDepositParams {
   depositId: string
 }
 
-export interface TrackedDeposit {
+interface TrackedDeposit {
   /** The discovered deposit, or null while still waiting for detection. */
   deposit: Deposit | null
   isError: boolean
@@ -227,4 +235,143 @@ export function useTrackedDeposit({
 }: TrackedDepositParams): TrackedDeposit {
   const detail = useDeposit(depositId)
   return resolveTrackedDeposit(detail.data, depositAddress, detail.error ?? null)
+}
+
+// An unknown wire bucket keeps its own name instead of collapsing onto "failed"
+// like displayBucket: the user has just signed a real transfer, so this is a
+// tracking-contract problem, not a financial failure.
+export type WalletDepositBucket = DepositBucket | "unknown"
+
+/** Null is the pre-discovery frame (waiting); an unrecognized wire bucket stays "unknown". */
+export function classifyWalletBucket(deposit: Deposit | null): WalletDepositBucket {
+  if (!deposit) return "waiting"
+  return isDepositBucket(deposit.bucket) ? deposit.bucket : "unknown"
+}
+
+/** Stop once the record exists; the deposit id takes over from there. */
+export const bySourceTxPollInterval = (deposit: Deposit | null | undefined, elapsedMs: number) =>
+  deposit ? false : pollInterval(elapsedMs)
+
+// Correlates by source transaction hash, never by address or cursor discovery:
+// a list scan could attach an unrelated transfer at the same reused address to
+// this session. A 404 is data, not an error — the indexer simply has not
+// observed the transfer yet. Only the Ethereum leg is ever correlated this way
+// (the LI.FI legs hand off through GET /v1/bridges/status), so the chain is fixed.
+export function createDepositBySourceTxQueryOptions(
+  api: KyInstance,
+  srcTxHash: string,
+  enabled: boolean,
+  startedAt: number,
+) {
+  return queryOptions({
+    queryKey: depositQueryKeys.depositBySourceTx(ETHEREUM_CHAIN_ID, srcTxHash).queryKey,
+    queryFn: async (): Promise<Deposit | null> => {
+      try {
+        return await api
+          .get(`v1/deposits/by-source-tx/${srcTxHash}`, {
+            searchParams: { src_chain_id: ETHEREUM_CHAIN_ID },
+          })
+          .json<Deposit>()
+      } catch (error) {
+        if (error instanceof HTTPError && error.response.status === 404) return null
+        throw await normalizeError(error)
+      }
+    },
+    enabled,
+    staleTime: 0,
+    refetchInterval: (query) => bySourceTxPollInterval(query.state.data, Date.now() - startedAt),
+  })
+}
+
+/** The saved session identity a directly transferred deposit must match exactly. */
+interface DirectDepositIdentity {
+  srcTxHash: string
+  /** Ethereum base units actually transferred. */
+  amount: string
+  srcDenom: string
+  depositAddress: string
+  dstChainId: string
+  dstDenom: string
+  /** Final credited wallet, init bech32 lowercase. */
+  recipient: string
+}
+
+// An off-by-one field here would track — and eventually declare complete —
+// somebody else's deposit at the same reused address. Amount is compared because
+// the direct executor sends exactly one transfer of a known size.
+export function assertDirectDeposit(deposit: Deposit, identity: DirectDepositIdentity): Deposit {
+  assertField(
+    deposit.src_chain_id === ETHEREUM_CHAIN_ID,
+    `Deposit record src_chain_id is ${deposit.src_chain_id}, not Ethereum ("1")`,
+  )
+  assertField(
+    deposit.src_tx_hash.toLowerCase() === identity.srcTxHash.toLowerCase(),
+    `Deposit record src_tx_hash ${deposit.src_tx_hash} is not the submitted ${identity.srcTxHash}`,
+  )
+  assertField(
+    deposit.amount === identity.amount,
+    `Deposit record amount ${deposit.amount} is not the transferred ${identity.amount}`,
+  )
+  assertField(
+    normalizeDenom(deposit.src_denom) === normalizeDenom(identity.srcDenom),
+    `Deposit record src_denom ${deposit.src_denom} is not ${identity.srcDenom}`,
+  )
+  assertCommonDepositIdentity(deposit, identity)
+  return deposit
+}
+
+/** The saved session identity a LI.FI-bridged deposit must match. */
+interface LifiDepositIdentity {
+  depositAddress: string
+  dstChainId: string
+  dstDenom: string
+  recipient: string
+  /** Canonical Ethereum USDC: the asset that actually lands at the deposit address. */
+  ethereumUsdc: string
+  dstTxHash?: string
+}
+
+// The deposit records the *Ethereum* leg: its chain, denom and hash belong to
+// the receiving transaction, not the transfer the user signed, and the bridge
+// delivers post-slippage. So identity rests on the issued address, Ethereum
+// USDC, destination and recipient, plus the receiving hash when one is given.
+export function assertLifiDeposit(deposit: Deposit, identity: LifiDepositIdentity): Deposit {
+  assertField(
+    deposit.src_chain_id === ETHEREUM_CHAIN_ID,
+    `Deposit record src_chain_id is ${deposit.src_chain_id}, not Ethereum ("1")`,
+  )
+  assertField(
+    normalizeDenom(deposit.src_denom) === normalizeDenom(identity.ethereumUsdc),
+    `Deposit record src_denom ${deposit.src_denom} is not Ethereum USDC`,
+  )
+  if (identity.dstTxHash) {
+    assertField(
+      deposit.src_tx_hash.toLowerCase() === identity.dstTxHash.toLowerCase(),
+      `Deposit record src_tx_hash ${deposit.src_tx_hash} is not the reported Ethereum delivery ${identity.dstTxHash}`,
+    )
+  }
+  assertCommonDepositIdentity(deposit, identity)
+  return deposit
+}
+
+function assertCommonDepositIdentity(
+  deposit: Deposit,
+  identity: Pick<DirectDepositIdentity, "depositAddress" | "dstChainId" | "dstDenom" | "recipient">,
+): void {
+  assertField(
+    deposit.deposit_address.toLowerCase() === identity.depositAddress.toLowerCase(),
+    `Deposit record deposit_address ${deposit.deposit_address} is not the issued ${identity.depositAddress}`,
+  )
+  assertField(
+    deposit.dst_chain_id === identity.dstChainId,
+    `Deposit record dst_chain_id ${deposit.dst_chain_id} is not ${identity.dstChainId}`,
+  )
+  assertField(
+    normalizeDenom(deposit.dst_denom) === normalizeDenom(identity.dstDenom),
+    `Deposit record dst_denom ${deposit.dst_denom} is not ${identity.dstDenom}`,
+  )
+  assertField(
+    deposit.wallet_address.toLowerCase() === identity.recipient.toLowerCase(),
+    `Deposit record wallet_address ${deposit.wallet_address} is not the recipient ${identity.recipient}`,
+  )
 }

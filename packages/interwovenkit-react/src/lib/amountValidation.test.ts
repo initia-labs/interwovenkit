@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { isInsufficientBalance, parseQuantity } from "./amountValidation"
+import { isInsufficientBalance, parseQuantity, toBaseUnitString } from "./amountValidation"
 
 describe("parseQuantity", () => {
   it("returns null for undefined", () => {
@@ -134,5 +134,33 @@ describe("isInsufficientBalance", () => {
 
   it("returns false for unparseable quantity instead of throwing under strict mode", () => {
     expect(isInsufficientBalance({ quantity: "abc", balance: "100", decimals: 6 })).toBe(false)
+  })
+})
+
+describe("toBaseUnitString", () => {
+  it("converts a typed token amount to integer base units", () => {
+    expect(toBaseUnitString("1", 6)).toBe("1000000")
+    expect(toBaseUnitString("0.5", 6)).toBe("500000")
+    expect(toBaseUnitString("1.234567", 6)).toBe("1234567")
+  })
+
+  it("floors sub-base-unit dust rather than rounding up", () => {
+    expect(toBaseUnitString("1.2345678", 6)).toBe("1234567")
+  })
+
+  // An amount past 2^53 base units would lose precision through JavaScript `Number`.
+  it("keeps large amounts exact", () => {
+    expect(toBaseUnitString("9007199254740993", 6)).toBe("9007199254740993000000")
+  })
+
+  it("answers empty for anything that is not a usable amount", () => {
+    // Partial keystrokes included: BigNumber strict mode must never throw mid-edit.
+    for (const value of ["", " ", ".", "-", "1..2", "1e", "abc", "-1", "1e6x"]) {
+      expect(toBaseUnitString(value, 6)).toBe("")
+    }
+  })
+
+  it("allows an explicit zero", () => {
+    expect(toBaseUnitString("0", 6)).toBe("0")
   })
 })

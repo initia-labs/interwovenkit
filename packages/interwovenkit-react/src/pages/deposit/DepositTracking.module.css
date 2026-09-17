@@ -2,22 +2,38 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 
-  padding: 24px 0 8px;
+  padding: 16px 0 4px;
   text-align: center;
 }
 
 .heading {
   font-size: 18px;
   font-weight: 600;
+
+  margin-top: 8px;
 }
 
 .delayHeading {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
 
   margin-top: 8px;
+}
+
+/* The status copy sits directly under the icon or heading: no block padding of its own. */
+p.message {
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 320px;
+  padding: 0 8px;
+}
+
+p.note {
+  color: var(--gray-3);
+  font-size: 12px;
+  padding: 0;
 }
 
 .successIcon {
@@ -38,4 +54,38 @@
   flex: none;
 
   border-radius: 50%;
+}
+
+/* Recovery reference (DepositProgress): the transfer was broadcast but could not be
+   saved, so these identifiers are the user's only copy — support input, not decoration. */
+.recovery {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+
+  width: 100%;
+
+  border: 1px solid var(--gray-7);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.recoveryHeading {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.recoveryText {
+  width: 100%;
+
+  color: var(--gray-3);
+  font-family: var(--monospace);
+  font-size: 11px;
+  line-height: 1.5;
+
+  overflow-x: auto;
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-all;
 }

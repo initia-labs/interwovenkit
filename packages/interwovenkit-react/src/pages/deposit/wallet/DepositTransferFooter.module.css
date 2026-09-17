@@ -1,0 +1,6 @@
+/* Deposit API footer messages are sentences; override the help style's
+   hash-friendly break-all so they wrap on words. */
+.prose [role="alert"] {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
