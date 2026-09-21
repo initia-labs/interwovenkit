@@ -1,11 +1,19 @@
 .container {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 12px;
 
   background-color: var(--gray-8);
   border-radius: 8px;
   padding: 16px;
+}
+
+.top,
+.stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
 }
 
 .info {
@@ -24,6 +32,13 @@
   color: var(--gray-0);
   font-size: 14px;
   font-weight: 600;
+}
+
+.attribution {
+  color: var(--gray-3);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
 }
 
 .expiration {
@@ -50,4 +65,62 @@
     color: var(--gray-4);
     cursor: not-allowed;
   }
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.reconnectButton {
+  color: var(--gray-1);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.stat {
+  color: var(--gray-2);
+  font-size: 12px;
+  font-weight: 500;
+
+  span:last-child {
+    color: var(--gray-1);
+    text-align: right;
+  }
+}
+
+.details {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+
+  summary {
+    color: var(--gray-1);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+  }
+}
+
+.detailsContent {
+  display: grid;
+  gap: 12px;
+
+  color: var(--gray-2);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  padding-top: 12px;
+
+  p {
+    color: var(--gray-1);
+    margin-top: 2px;
+    overflow-wrap: anywhere;
+  }
+}
+
+.detailsContent p.warning {
+  color: var(--warning);
 }

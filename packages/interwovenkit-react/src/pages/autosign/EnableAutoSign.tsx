@@ -3,20 +3,21 @@ import { useState } from "react"
 import { useAtom, useAtomValue } from "jotai"
 import { useQuery } from "@tanstack/react-query"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
-import { IconCheckCircle, IconExternalLink, IconWallet } from "@initia/icons-react"
+import { IconWallet } from "@initia/icons-react"
 import { truncate } from "@initia/utils"
 import Button from "@/components/Button"
-import Dropdown from "@/components/Dropdown"
 import Footer from "@/components/Footer"
 import FormHelp from "@/components/form/FormHelp"
 import Image from "@/components/Image"
 import Scrollable from "@/components/Scrollable"
 import { useFindChain, useInitiaRegistry } from "@/data/chains"
+import { useConfig } from "@/data/config"
 import { useDrawer } from "@/data/ui"
 import { useInterwovenKit } from "@/public/data/hooks"
 import { useEnableAutoSign } from "./data/actions"
-import { DEFAULT_DURATION, DURATION_OPTIONS } from "./data/constants"
+import { DURATION_OPTIONS } from "./data/constants"
 import { pendingAutoSignRequestAtom } from "./data/store"
+import { useAutoSignPreference } from "./data/wallet"
 import { isVerifiedWebsiteHost } from "./data/website"
 import styles from "./EnableAutoSign.module.css"
 
@@ -45,9 +46,7 @@ const accountQueries = createQueryKeys("interwovenkit:account", {
 
 const EnableAutoSignComponent = () => {
   const [pendingRequest, setPendingRequest] = useAtom(pendingAutoSignRequestAtom)
-  const [duration, setDuration] = useState<number>(
-    () => pendingRequest?.defaultDuration ?? DEFAULT_DURATION,
-  )
+  const { autoSignStorage } = useConfig()
   const [warningIgnored, setWarningIgnored] = useState(false)
 
   const findChain = useFindChain()
@@ -55,6 +54,15 @@ const EnableAutoSignComponent = () => {
   const { address, initiaAddress, username } = useInterwovenKit()
   const { mutate, isPending } = useEnableAutoSign()
   const { closeDrawer } = useDrawer()
+  const { stayConnected, isLoadingPreference, isStorageUnavailable } = useAutoSignPreference(
+    pendingRequest?.chainId ?? "",
+    initiaAddress,
+  )
+  const effectiveStayConnected =
+    autoSignStorage === "memory" ? false : (pendingRequest?.stayConnected ?? stayConnected)
+  const preferenceError = isStorageUnavailable
+    ? "Browser storage is unavailable. Restore browser storage access to enable autosign."
+    : ""
 
   if (!pendingRequest) throw new Error("Pending request not found")
 
@@ -78,11 +86,18 @@ const EnableAutoSignComponent = () => {
     ? isVerifiedWebsiteHost(targetChain.website, window.location.hostname)
     : false
 
+  const durationLabel = DURATION_OPTIONS.find(
+    (option) => option.value === pendingRequest.defaultDuration,
+  )?.label
+  const ownerMismatch = pendingRequest.owner !== initiaAddress
+
   const handleEnable = () => {
-    mutate(duration)
+    if (ownerMismatch) return
+    mutate({ durationInMs: pendingRequest.defaultDuration, stayConnected: effectiveStayConnected })
   }
 
   const handleCancel = () => {
+    if (isPending) return
     pendingRequest?.reject(new Error("User cancelled"))
     setPendingRequest(null)
     closeDrawer()
@@ -93,14 +108,20 @@ const EnableAutoSignComponent = () => {
     !isCheckingAccount && !isAccountQueryError && isAccountCreated === false
   const showAccountQueryError = !isCheckingAccount && isAccountQueryError
   const disableEnableButton =
-    isEnableDisabled || isCheckingAccount || isAccountQueryError || isAccountCreated === false
+    isEnableDisabled ||
+    isCheckingAccount ||
+    isAccountQueryError ||
+    isAccountCreated === false ||
+    isLoadingPreference ||
+    !!preferenceError ||
+    ownerMismatch
 
   return (
     <>
       <Scrollable className={styles.container}>
         <header>
-          <h1 className={styles.title}>Enable auto-signing</h1>
-          <p className={styles.description}>An application is requesting to enable auto-signing</p>
+          <h1 className={styles.title}>Enable autosign</h1>
+          <p className={styles.description}>An application is requesting to enable autosign</p>
         </header>
 
         <section>
@@ -131,40 +152,13 @@ const EnableAutoSignComponent = () => {
                 <span>{name}</span>
               </div>
             </div>
-            <div className={styles.infoItem}>
-              <div className={styles.label}>Duration</div>
-              <Dropdown
-                options={DURATION_OPTIONS}
-                value={duration}
-                onChange={setDuration}
-                classNames={{ trigger: styles.durationTrigger, item: styles.durationItem }}
-              />
-            </div>
+            {durationLabel && (
+              <div className={styles.infoItem}>
+                <div className={styles.label}>Duration</div>
+                <div className={styles.infoValue}>{durationLabel}</div>
+              </div>
+            )}
           </div>
-        </section>
-
-        <section>
-          <h2 className={styles.sectionTitle}>About auto-signing</h2>
-          <ul className={styles.featureList}>
-            {[
-              "Send transactions without confirmation pop-ups",
-              "Secured by your wallet signature",
-              "Revoke permissions any time in settings",
-            ].map((item) => (
-              <li key={item} className={styles.featureItem}>
-                <IconCheckCircle size={12} className={styles.checkIcon} />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-          <a
-            href="https://docs.initia.xyz/user-guides/wallet/auto-signing/introduction"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.learnMoreLink}
-          >
-            Learn more <IconExternalLink size={12} />
-          </a>
         </section>
       </Scrollable>
 
@@ -177,6 +171,10 @@ const EnableAutoSignComponent = () => {
             )}
             {showAccountQueryError && (
               <FormHelp level="warning">Unable to verify account status. Try again.</FormHelp>
+            )}
+            {preferenceError && <FormHelp level="warning">{preferenceError}</FormHelp>}
+            {ownerMismatch && (
+              <FormHelp level="error">The connected wallet changed. Close and try again.</FormHelp>
             )}
 
             {!isVerified && !warningIgnored && (
@@ -192,7 +190,9 @@ const EnableAutoSignComponent = () => {
           </div>
         }
       >
-        <Button.Outline onClick={handleCancel}>Cancel</Button.Outline>
+        <Button.Outline onClick={handleCancel} disabled={isPending}>
+          Cancel
+        </Button.Outline>
         <Button.White onClick={handleEnable} disabled={disableEnableButton} loading={isPending}>
           Enable
         </Button.White>
@@ -205,7 +205,9 @@ const EnableAutoSign = () => {
   const pendingRequest = useAtomValue(pendingAutoSignRequestAtom)
   if (!pendingRequest) return null
   return (
-    <EnableAutoSignComponent key={`${pendingRequest.chainId}:${pendingRequest.defaultDuration}`} />
+    <EnableAutoSignComponent
+      key={`${pendingRequest.owner}:${pendingRequest.chainId}:${pendingRequest.defaultDuration}`}
+    />
   )
 }
 

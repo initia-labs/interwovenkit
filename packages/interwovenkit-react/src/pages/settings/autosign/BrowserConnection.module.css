@@ -1,0 +1,59 @@
+.container {
+  display: grid;
+  gap: 12px;
+
+  background-color: var(--gray-8);
+  border-radius: 8px;
+  padding: 16px;
+
+  h2 {
+    color: var(--gray-0);
+    font-size: 14px;
+    font-weight: 600;
+  }
+}
+
+.note,
+.confirmation {
+  color: var(--gray-2);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.mode {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+
+  color: var(--gray-2);
+  font-size: 12px;
+  font-weight: 500;
+
+  span:last-child {
+    color: var(--gray-1);
+    text-align: right;
+  }
+}
+
+.forgetButton {
+  color: var(--error);
+  font-size: 12px;
+  font-weight: 600;
+  justify-self: start;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.confirmation {
+  display: grid;
+  gap: 10px;
+
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}

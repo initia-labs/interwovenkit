@@ -3,6 +3,8 @@ import { useAnalyticsTrack } from "@/data/analytics"
 import { useDrawer } from "@/data/ui"
 import { useNavigate, usePath } from "@/lib/router"
 import EnableAutoSign from "@/pages/autosign/EnableAutoSign"
+import ReconnectAutoSign from "@/pages/autosign/ReconnectAutoSign"
+import UnlockAutoSign from "@/pages/autosign/UnlockAutoSign"
 import BridgeForm from "@/pages/bridge/BridgeForm"
 import BridgeHistory from "@/pages/bridge/BridgeHistory"
 import BridgePreview from "@/pages/bridge/BridgePreview"
@@ -88,6 +90,10 @@ const Routes = () => {
       return <TxRequest />
     case "/autosign/enable":
       return <EnableAutoSign />
+    case "/autosign/reconnect":
+      return <ReconnectAutoSign />
+    case "/autosign/unlock":
+      return <UnlockAutoSign />
     case "/settings":
       return <Settings />
     case "/settings/autosign":
