@@ -83,6 +83,21 @@ describe("isPhaseAdvance", () => {
 })
 
 describe("mergeDepositSession", () => {
+  it("keeps a replacement hash against a stale writer's original hash", () => {
+    const replaced = buildDepositSession({
+      phase: "source_sent",
+      originalSourceHash: "0xaaa",
+      currentSourceHash: "0xbbb",
+    })
+    const stale = buildDepositSession({
+      phase: "source_sent",
+      originalSourceHash: "0xaaa",
+      currentSourceHash: "0xaaa",
+    })
+    expect(mergeDepositSession(replaced, stale).currentSourceHash).toBe("0xbbb")
+    expect(mergeDepositSession(stale, replaced).currentSourceHash).toBe("0xbbb")
+  })
+
   it("reopens a not-sent verdict when a hash arrives after it", () => {
     const released = buildDepositSession({ phase: "terminal", lastState: "not_sent" })
     const sent = buildDepositSession({ phase: "source_sent", currentSourceHash: "0xaaa" })

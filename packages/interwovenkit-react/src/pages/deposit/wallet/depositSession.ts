@@ -274,7 +274,10 @@ export function mergeDepositSession(
     promptNonce: next.promptNonce ?? current.promptNonce,
     promptSeenAt: Math.max(next.promptSeenAt ?? 0, current.promptSeenAt ?? 0) || undefined,
     sourceNonce: next.sourceNonce ?? current.sourceNonce,
-    currentSourceHash: next.currentSourceHash ?? current.currentSourceHash,
+    // A replacement is only ever newer: a stale writer's original hash must not undo it.
+    currentSourceHash: isStaleOriginal(current, next.currentSourceHash)
+      ? current.currentSourceHash
+      : (next.currentSourceHash ?? current.currentSourceHash),
     originalSourceHash: next.originalSourceHash ?? current.originalSourceHash,
     depositId: next.depositId ?? current.depositId,
     lastState: reopened
@@ -284,6 +287,12 @@ export function mergeDepositSession(
         : (next.lastState ?? current.lastState),
   })
 }
+
+const isStaleOriginal = (current: DepositSession, hash: string | undefined) =>
+  !!hash &&
+  !!current.currentSourceHash &&
+  current.currentSourceHash !== current.originalSourceHash &&
+  hash === current.originalSourceHash
 
 export function readDepositSession(storage: StorageLike, id: string): DepositSession | null {
   try {
@@ -334,7 +343,11 @@ export function rollbackDepositSessionPrompt(
     promptSeenAt: undefined,
     updatedAt: Date.now(),
   })
-  return persistDepositSession(storage, reverted)
+  // A heartbeat may have left an in-memory prompt and told this tab the send is in flight.
+  volatileSessions.delete(id)
+  const saved = persistDepositSession(storage, reverted)
+  notifyDepositSessions()
+  return saved
 }
 
 function readAllDepositSessions(storage: StorageLike): DepositSession[] {
