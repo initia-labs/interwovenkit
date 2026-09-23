@@ -157,7 +157,12 @@ export function useDepositRequest(resolution: DepositTransportResolution): Depos
     recipientError,
     amount,
     isComplete:
-      !!source && !!destination && !!amount && !!hexAddress && !!recipient && !recipientError,
+      !!source &&
+      !!destination &&
+      gteInteger(amount, "1") &&
+      !!hexAddress &&
+      !!recipient &&
+      !recipientError,
   }
 }
 
@@ -273,7 +278,15 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
       ? gteInteger(quote?.min_received, optionsData?.required_min_received ?? "") &&
         gteInteger(quote?.min_received, route.min_deposit_amount)
       : gteInteger(amount, route.min_deposit_amount)
-  const minimumLabel = formatSourceMin(route.min_deposit_amount, route.src_decimals, "USDC")
+  // LI.FI must clear both minimums, so the label names the higher one.
+  const requiredMin = optionsData?.required_min_received ?? ""
+  const minimumLabel = formatSourceMin(
+    transport === "lifi" && gteInteger(requiredMin, route.min_deposit_amount)
+      ? requiredMin
+      : route.min_deposit_amount,
+    route.src_decimals,
+    "USDC",
+  )
 
   // The guaranteed amount, not the expected one, must clear the destination.
   const preflightAmount = transport === "lifi" ? (quote?.min_received ?? "") : amount
@@ -481,7 +494,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     // While this tab holds the prompt open, other tabs must not read it as abandoned.
     const heartbeat = setInterval(() => {
       const current = readDepositSession(localStorage, prompted.id)
-      if (!mountedRef.current || current?.phase !== "send_prompt" || current.currentSourceHash) {
+      if (current?.phase !== "send_prompt" || current.currentSourceHash) {
         clearInterval(heartbeat)
         return
       }

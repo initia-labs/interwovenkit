@@ -31,7 +31,6 @@ describe("normalizeErrorMessage", () => {
       ["Coinbase", new Error("User denied transaction signature.")],
       ["Fireblocks and WalletConnect", new Error("User rejected.")],
       ["Binance", new Error("Closed modal")],
-      ["a cancelled transaction", new Error("Transaction cancelled")],
       ["a request cancelled by the user", new Error("Request cancelled by the user")],
       ["a plain object", { code: 4001, message: "denied" }],
     ])("maps %s", async (_name, error) => {
@@ -76,6 +75,11 @@ describe("normalizeErrorMessage", () => {
         "Request rejected (403)",
       ],
       ["a backend decline", withCode(-32000, "declined"), "declined"],
+      [
+        "a cancellation that doesn't say the user refused",
+        new Error("Transaction cancelled"),
+        "Transaction cancelled",
+      ],
       ["EIP-1193 4100", withCode(4100, "Unauthorized"), "Unauthorized"],
       [
         "a message about the user that is not a refusal",

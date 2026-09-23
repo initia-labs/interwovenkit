@@ -17,7 +17,6 @@ const USER_REJECTED_PATTERNS = [
   /user (rejected|denied|cancell?ed)/i,
   /cancell?ed by (the )?user/i,
   /closed modal/i,
-  /transaction cancell?ed/i,
 ]
 const NESTED_ERROR_PATHS = [
   ["cause"],
