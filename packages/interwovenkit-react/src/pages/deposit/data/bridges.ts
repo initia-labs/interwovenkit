@@ -220,7 +220,7 @@ function parseApproval(
     `${context} approval spender_address is invalid: ${String(spender_address)}`,
   )
   assertField(
-    isPositiveIntegerString(amount),
+    isPositiveIntegerString(amount) && BigInt(amount) >= BigInt(request.amount),
     `${context} approval amount is invalid: ${String(amount)}`,
   )
   return { token_address, spender_address, amount }

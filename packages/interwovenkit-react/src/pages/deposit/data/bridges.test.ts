@@ -515,6 +515,7 @@ describe("parseBridgeQuote", () => {
         /approval spender_address is invalid/,
       ],
       ["with a non-positive amount", withApproval({ amount: "0" }), /approval amount is invalid/],
+      ["below the transfer amount", withApproval({ amount: "1" }), /approval amount is invalid/],
     ])("rejects an approval %s", (_name, payload, message) => {
       expect(() => parseBridgeQuote(payload, QUOTE_REQUEST)).toThrow(message)
     })
