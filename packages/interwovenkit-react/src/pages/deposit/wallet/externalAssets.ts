@@ -200,8 +200,8 @@ export function useExternalAssetOptions(): ExternalAssetOptionsResult {
   if (!localAsset) return { ...EMPTY_EXTERNAL_ASSET_OPTIONS_RESULT, isLoading, balancesError }
 
   const sourceOverride = getExternalSourceOverride(localAsset.symbol)
-  // Only an override that already offers USDC as a source (iUSD) gains the Deposit API sources.
-  const depositApiSources = sourceOverride ? depositApiSourceOptions : []
+  // Only deposit mode may surface Deposit API-only sources; withdraw keeps the Router catalog.
+  const depositApiSources = mode === "deposit" && sourceOverride ? depositApiSourceOptions : []
   const depositApiOptions = depositApiSources.map(({ asset }) => ({
     chainId: asset.chain_id,
     denom: asset.denom,

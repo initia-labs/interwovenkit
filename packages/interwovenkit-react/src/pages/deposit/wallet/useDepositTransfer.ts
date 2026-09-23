@@ -237,7 +237,9 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
 
   const optionsEnabled = transport === "lifi" && request.isComplete
   const optionsQuery = useQuery(createBridgeOptionsQueryOptions(api, identity, optionsEnabled))
-  const optionsData = optionsEnabled ? optionsQuery.data : undefined
+  // Previous-amount placeholder data must not pass readiness or bind a quote for this amount.
+  const optionsData =
+    optionsEnabled && !optionsQuery.isPlaceholderData ? optionsQuery.data : undefined
   const ranked = rankBridgeOptions(optionsData?.options ?? [])
   const { option: selectedBridge, clearSelection } = selectBridgeOption(ranked, selectedBridgeKey)
 
@@ -494,13 +496,13 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     })
     setValue("depositSessionId", prepared.id)
 
-    const signer = await getSigner(prepared.transaction.chainId)
     writeDepositSession(localStorage, {
       ...prepared,
       phase: "send_prompt",
       preSubmitBlock: headQuery.data?.block,
       updatedAt: Date.now(),
     })
+    const signer = await getSigner(prepared.transaction.chainId)
 
     let response: { hash: string; nonce?: number; from: string }
     try {
