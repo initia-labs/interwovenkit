@@ -341,9 +341,7 @@ const DepositTracking = () => {
     }
     switch (bucket) {
       case "completed":
-        // The activity indexer can lag delivery, so "Go to history" may land on a
-        // list still missing this record; the caveat keeps it from reading as a failure.
-        return `${completedAmount} was delivered to your wallet on ${receiveAsset.chainName}. It may take a moment to appear in your activity.`
+        return `${completedAmount} was delivered to your wallet on ${receiveAsset.chainName}.`
       case "failed":
         // No support channel exists in the widget or config, so the copy must not point at one.
         return "This deposit could not be completed. Your funds remain at the deposit address with no automatic refund."
