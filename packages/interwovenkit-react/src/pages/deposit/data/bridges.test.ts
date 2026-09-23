@@ -14,6 +14,7 @@ import {
   parseBridgeStatus,
   percentDifference,
   rankBridgeOptions,
+  requiredMinimumAmount,
 } from "./bridges"
 import { ParseError } from "./parse"
 import {
@@ -594,6 +595,18 @@ describe("meetsRequiredMinimum", () => {
     ["1000", "1", "1.5", false],
   ])("min_received %o against %o and %o is %s", (minReceived, required, routeMin, expected) => {
     expect(meetsRequiredMinimum({ min_received: minReceived }, required, routeMin)).toBe(expected)
+  })
+})
+
+describe("requiredMinimumAmount", () => {
+  it.each([
+    ["900", "1000", "1000"],
+    ["1001", "900", "1001"],
+    ["10000000", "0", "10000000"],
+    ["", "1", undefined],
+    ["1", "1.5", undefined],
+  ])("%o against %o returns %o", (required, routeMin, expected) => {
+    expect(requiredMinimumAmount(required, routeMin)).toBe(expected)
   })
 })
 

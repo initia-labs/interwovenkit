@@ -15,6 +15,7 @@ import {
   createBridgeQuoteQueryOptions,
   meetsRequiredMinimum,
   rankBridgeOptions,
+  requiredMinimumAmount,
 } from "../data/bridges"
 import { useDepositAddress } from "../data/depositAddress"
 import { createQuoteQueryOptions } from "../data/quote"
@@ -286,7 +287,15 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
           route.min_deposit_amount,
         )
       : gteInteger(amount, route.min_deposit_amount)
-  const minimumLabel = formatSourceMin(route.min_deposit_amount, route.src_decimals, "USDC")
+  const minimumAmount =
+    transport === "lifi" && optionsData
+      ? requiredMinimumAmount(optionsData.required_min_received, route.min_deposit_amount)
+      : route.min_deposit_amount
+  const minimumLabel = formatSourceMin(
+    minimumAmount || route.min_deposit_amount,
+    route.src_decimals,
+    "USDC",
+  )
 
   const quoteBase = {
     srcChainId: ETHEREUM_CHAIN_ID,

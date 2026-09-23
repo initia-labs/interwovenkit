@@ -366,6 +366,16 @@ export function bridgeQuoteSignature(quote: BridgeQuoteResponse): string {
   ])
 }
 
+export function requiredMinimumAmount(
+  requiredMinReceived: string,
+  routeMinDeposit: string,
+): string | undefined {
+  if (!isIntegerString(requiredMinReceived) || !isIntegerString(routeMinDeposit)) return undefined
+  const required = BigInt(requiredMinReceived)
+  const routeMin = BigInt(routeMinDeposit)
+  return String(required > routeMin ? required : routeMin)
+}
+
 // Below either minimum the USDC is stranded at the deposit address with no refund, so this fails
 // closed.
 export function meetsRequiredMinimum(
@@ -374,10 +384,8 @@ export function meetsRequiredMinimum(
   routeMinDeposit: string,
 ): boolean {
   if (!isPositiveIntegerString(quote.min_received)) return false
-  if (!isIntegerString(requiredMinReceived) || !isIntegerString(routeMinDeposit)) return false
-  const required = BigInt(requiredMinReceived)
-  const routeMin = BigInt(routeMinDeposit)
-  return BigInt(quote.min_received) >= (required > routeMin ? required : routeMin)
+  const minimum = requiredMinimumAmount(requiredMinReceived, routeMinDeposit)
+  return !!minimum && BigInt(quote.min_received) >= BigInt(minimum)
 }
 
 const isBridgeStatusState = (value: unknown): value is BridgeStatusState =>
