@@ -45,7 +45,7 @@ const SelectDepositRoute = () => {
   const request = useDepositRequest(resolution)
 
   const isLifi = resolution.transport === "lifi"
-  const { data, error, isLoading } = useQuery(
+  const { data, error, isLoading, isPlaceholderData } = useQuery(
     createBridgeOptionsQueryOptions(api, request.identity, isLifi && request.isComplete),
   )
 
@@ -101,7 +101,7 @@ const SelectDepositRoute = () => {
   const renderList = () => {
     if (!isLifi) return null
     if (error) return <DepositStatus error>{error.message}</DepositStatus>
-    if (isLoading) return <DepositStatus>Finding routes...</DepositStatus>
+    if (isLoading || isPlaceholderData) return <DepositStatus>Finding routes...</DepositStatus>
     if (!ranked.length) return <DepositStatus>No routes available for this amount</DepositStatus>
 
     return ranked.map((option) => {
