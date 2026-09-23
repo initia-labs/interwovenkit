@@ -218,7 +218,9 @@ describe("deliverySeconds", () => {
   })
 
   it("is unknown when neither source has an estimate", () => {
-    expect(deliverySeconds(quote(), { ...destination, processing_time_seconds: null })).toBeNull()
+    expect(
+      deliverySeconds(quote(), { ...destination, processing_time_seconds: undefined }),
+    ).toBeUndefined()
   })
 
   it("adds the LI.FI leg for bridged transfers", () => {
