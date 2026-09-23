@@ -222,7 +222,7 @@ export function deriveDepositReadiness(input: DepositReadinessInput): DepositRea
   if (input.recipientError) return blocked(input.recipientError)
 
   if (!input.quantityEntered) return blocked("Enter amount", "info")
-  if (!input.amount) return blocked("Enter a valid amount", "info")
+  if (!gteInteger(input.amount, "1")) return blocked("Enter a valid amount", "info")
   if (!input.isAmountSettled) return loading("Updating amount...")
 
   if (input.balancesError) return blocked("Failed to load balance")

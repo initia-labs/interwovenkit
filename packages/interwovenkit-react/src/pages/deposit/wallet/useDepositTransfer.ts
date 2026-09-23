@@ -157,7 +157,12 @@ export function useDepositRequest(resolution: DepositTransportResolution): Depos
     recipientError,
     amount,
     isComplete:
-      !!source && !!destination && !!amount && !!hexAddress && !!recipient && !recipientError,
+      !!source &&
+      !!destination &&
+      gteInteger(amount, "1") &&
+      !!hexAddress &&
+      !!recipient &&
+      !recipientError,
   }
 }
 
