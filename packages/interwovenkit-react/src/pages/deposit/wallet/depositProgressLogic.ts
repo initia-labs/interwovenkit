@@ -262,17 +262,18 @@ interface HashlessSendCheck {
 
 // Unsent only if neither the mined nor the pending nonce moved past the one read before the prompt.
 export function checkHashlessSend(
-  session: Pick<DepositSession, "promptNonce" | "promptedAt" | "updatedAt">,
+  session: Pick<DepositSession, "promptNonce" | "promptedAt" | "promptSeenAt" | "updatedAt">,
   nonces: DepositProgressInputs["nonces"],
   now: number,
 ): HashlessSendCheck {
   const { promptNonce } = session
   const promptedAt = session.promptedAt ?? session.updatedAt
+  const lastSeenAt = Math.max(promptedAt, session.promptSeenAt ?? 0)
   const read = nonces.isError ? undefined : nonces.data
   const unchanged =
     promptNonce !== undefined && read?.latest === promptNonce && read.pending === promptNonce
   return {
-    release: unchanged && nonces.readAt - promptedAt >= RELEASE_AFTER_MS,
+    release: unchanged && nonces.readAt - lastSeenAt >= RELEASE_AFTER_MS,
     nonceMoved:
       promptNonce !== undefined &&
       !!read &&

@@ -470,6 +470,8 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
       // A fresh quote may carry a different spender or amount.
       void queryClient.invalidateQueries({ queryKey: quoteQueryOptions.queryKey })
       void queryClient.invalidateQueries({ queryKey: allowanceKey })
+      // The approval used a nonce; the next prompt must record the one after it.
+      void noncesQuery.refetch()
     },
   })
 
@@ -510,8 +512,11 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     // While this tab holds the prompt open, other tabs must not read it as abandoned.
     const heartbeat = setInterval(() => {
       const current = readDepositSession(localStorage, prepared.id)
-      if (current?.phase !== "send_prompt" || current.currentSourceHash) return
-      writeAfterPrompt({ ...current, promptedAt: Date.now(), updatedAt: Date.now() })
+      if (!mountedRef.current || current?.phase !== "send_prompt" || current.currentSourceHash) {
+        clearInterval(heartbeat)
+        return
+      }
+      writeAfterPrompt({ ...current, promptSeenAt: Date.now(), updatedAt: Date.now() })
     }, PROMPT_HEARTBEAT_MS)
 
     let response: { hash: string; nonce?: number; from: string }

@@ -27,6 +27,7 @@ import { DepositTrackingView, TAKING_LONGER_DELAY } from "../DepositTracking"
 import styles from "../DepositTracking.module.css"
 import FlowChips from "../FlowChips"
 import {
+  checkHashlessSend,
   type DepositProgressInputs,
   deriveDepositProgress,
   trackedSourceHash,
@@ -93,8 +94,6 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     (patch: Partial<DepositSession>) => {
       const current = read(session.id)
       if (!current || whereEq(patch, current)) return
-      // A hash another tab recorded meanwhile outranks a verdict drawn without one.
-      if (patch.lastState === "not_sent" && current.currentSourceHash) return
       write({ ...current, ...patch })
     },
     [read, write, session.id],
@@ -290,14 +289,33 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
 
   const view = isDelayed ? deriveDepositProgress(session, { ...inputs, isDelayed: true }) : baseView
 
+  // Re-checked against the stored record: another tab may have recorded a hash or a heartbeat since.
+  const { data: nonceData, dataUpdatedAt: nonceReadAt, isError: nonceError } = noncesQuery
+  const releaseNotSent = useCallback(
+    (manual: boolean) => {
+      const current = read(session.id)
+      if (!current || current.currentSourceHash) return
+      if (current.phase !== "send_prompt" && current.phase !== "submission_unknown") return
+      const nonces = { data: nonceData, readAt: nonceReadAt, isError: nonceError }
+      const check = checkHashlessSend(current, nonces, Date.now())
+      if (!(manual ? check.canMarkNotSent : check.release)) return
+      write({ ...current, phase: "terminal", lastState: "not_sent" })
+    },
+    [read, write, session.id, nonceData, nonceReadAt, nonceError],
+  )
+
   const persistPhase = view.persist?.phase
   const persistLastState = view.persist?.lastState
   useEffect(() => {
+    if (persistLastState === "not_sent") {
+      releaseNotSent(false)
+      return
+    }
     applyPatch({
       ...(persistPhase && { phase: persistPhase }),
       ...(persistLastState && { lastState: persistLastState }),
     })
-  }, [persistPhase, persistLastState, applyPatch])
+  }, [persistPhase, persistLastState, applyPatch, releaseNotSent])
 
   const explorerUrl = resolveExplorerUrl(deposit, bridgeStatus)
 
@@ -312,10 +330,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     view.showClose || view.showRefresh ? (
       <Footer>
         {view.canMarkNotSent && (
-          <Button.Outline
-            fullWidth
-            onClick={() => applyPatch({ phase: "terminal", lastState: "not_sent" })}
-          >
+          <Button.Outline fullWidth onClick={() => releaseNotSent(true)}>
             I didn't send this
           </Button.Outline>
         )}

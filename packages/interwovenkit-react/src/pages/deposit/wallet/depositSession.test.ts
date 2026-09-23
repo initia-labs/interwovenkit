@@ -104,6 +104,21 @@ describe("mergeDepositSession", () => {
     expect(mergeDepositSession(null, session)).toEqual(session)
   })
 
+  it("reopens a not-sent verdict when a hash arrives after it", () => {
+    const released = buildDepositSession({ phase: "terminal", lastState: "not_sent" })
+    const sent = buildDepositSession({ phase: "source_sent", currentSourceHash: "0xaaa" })
+    const merged = mergeDepositSession(released, sent)
+    expect(merged.phase).toBe("source_sent")
+    expect(merged.lastState).toBeUndefined()
+    expect(merged.currentSourceHash).toBe("0xaaa")
+  })
+
+  it("keeps the latest prompt heartbeat", () => {
+    const current = buildDepositSession({ phase: "send_prompt", promptSeenAt: 2000 })
+    const stale = buildDepositSession({ phase: "send_prompt", promptSeenAt: 1000 })
+    expect(mergeDepositSession(current, stale).promptSeenAt).toBe(2000)
+  })
+
   it("keeps the newer phase when an older writer arrives late", () => {
     const current = buildDepositSession({ phase: "source_sent", currentSourceHash: "0xaaa" })
     const stale = buildDepositSession({ phase: "prepared" })

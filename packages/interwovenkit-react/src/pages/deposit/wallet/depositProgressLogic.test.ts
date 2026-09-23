@@ -155,6 +155,17 @@ describe("checkHashlessSend", () => {
     })
   })
 
+  it("waits two minutes after the last heartbeat from a tab holding the prompt", () => {
+    const held = { ...prompted, promptSeenAt: 3 * MINUTE }
+    expect(checkHashlessSend(held, read(7, 7, 4 * MINUTE), 4 * MINUTE).release).toBe(false)
+    expect(checkHashlessSend(held, read(7, 7, 5 * MINUTE), 5 * MINUTE).release).toBe(true)
+  })
+
+  it("offers the manual release ten minutes after the prompt opened, whatever the heartbeat", () => {
+    const held = { ...prompted, promptSeenAt: 10 * MINUTE }
+    expect(checkHashlessSend(held, read(8, 8, 10 * MINUTE), 10 * MINUTE).canMarkNotSent).toBe(true)
+  })
+
   it.each([
     ["mined", read(8, 8, 5 * MINUTE)],
     ["pending", read(7, 8, 5 * MINUTE)],

@@ -97,6 +97,8 @@ export interface DepositSession {
   /** When the wallet prompt opened, and the sender's mined nonce read before it. */
   promptedAt?: number
   promptNonce?: number
+  /** Last heartbeat from a tab still holding the prompt open. */
+  promptSeenAt?: number
   /** What the wallet actually returned; its nonce may differ from any prefetched hint. */
   submitted?: { nonce?: number; from: string }
   currentSourceHash?: string
@@ -170,6 +172,7 @@ const SESSION_FIELDS = {
   preSubmitBlock: optional(isNonNegativeInteger),
   promptedAt: optional(isNonNegativeInteger),
   promptNonce: optional(isNonNegativeInteger),
+  promptSeenAt: optional(isNonNegativeInteger),
   currentSourceHash: optional(isNonEmptyString),
   originalSourceHash: optional(isNonEmptyString),
   depositId: optional(isNonEmptyString),
@@ -282,20 +285,25 @@ export function mergeDepositSession(
     throw new DepositSessionWriteError(`Deposit session ${current.id} identity changed`)
   }
 
+  // A hash outranks a "not sent" verdict: the transfer was broadcast after all.
+  const reopened =
+    current.lastState === "not_sent" && !current.currentSourceHash && !!next.currentSourceHash
+
   return canonicalize({
     ...current,
     ...next,
     createdAt: current.createdAt,
     updatedAt: Math.max(current.updatedAt, next.updatedAt),
-    phase: isPhaseAdvance(current.phase, next.phase) ? next.phase : current.phase,
+    phase: reopened || isPhaseAdvance(current.phase, next.phase) ? next.phase : current.phase,
     preSubmitBlock: next.preSubmitBlock ?? current.preSubmitBlock,
     promptedAt: next.promptedAt ?? current.promptedAt,
     promptNonce: next.promptNonce ?? current.promptNonce,
+    promptSeenAt: Math.max(next.promptSeenAt ?? 0, current.promptSeenAt ?? 0) || undefined,
     submitted: next.submitted ? { ...current.submitted, ...next.submitted } : current.submitted,
     currentSourceHash: next.currentSourceHash ?? current.currentSourceHash,
     originalSourceHash: next.originalSourceHash ?? current.originalSourceHash,
     depositId: next.depositId ?? current.depositId,
-    lastState: next.lastState ?? current.lastState,
+    lastState: reopened ? next.lastState : (next.lastState ?? current.lastState),
   })
 }
 
@@ -355,6 +363,7 @@ export function rollbackDepositSessionPrompt(
     phase: "prepared",
     promptedAt: undefined,
     promptNonce: undefined,
+    promptSeenAt: undefined,
     updatedAt: Date.now(),
   })
   return persistDepositSession(storage, reverted, "reverted")
