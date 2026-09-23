@@ -65,6 +65,7 @@ export const DepositTrackingView = ({
   isRetrying,
 }: DepositTrackingViewProps) => {
   const isError = variant !== "in-flight" && variant !== "completed"
+  const showHistoryLagNote = variant === "completed" && !!onHistoryClick
 
   return (
     <DepositSubpage title={title}>
@@ -92,6 +93,12 @@ export const DepositTrackingView = ({
         {chips}
 
         <ExplorerLinks explorerUrl={explorerUrl} onHistoryClick={onHistoryClick} />
+
+        {showHistoryLagNote && (
+          <DepositStatus className={styles.note}>
+            Recent activity may take a moment to appear in history.
+          </DepositStatus>
+        )}
 
         {isRetrying && <DepositStatus className={styles.note}>Reconnecting…</DepositStatus>}
       </div>
