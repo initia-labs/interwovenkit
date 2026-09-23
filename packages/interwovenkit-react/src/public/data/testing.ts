@@ -359,13 +359,15 @@ export function createTestWalletConnector(options: CreateTestWalletConfig) {
             chain,
             transport: http(getRpcUrl(currentChainId)),
           })
-          return walletClient.sendTransaction({
-            to: txParams.to as `0x${string}`,
-            value: txParams.value ? BigInt(txParams.value) : undefined,
-            data: txParams.data as `0x${string}` | undefined,
-            chainId: currentChainId,
-            ...sendTransactionOverrides,
-          })
+          return signThroughSimulatedPopup(() =>
+            walletClient.sendTransaction({
+              to: txParams.to as `0x${string}`,
+              value: txParams.value ? BigInt(txParams.value) : undefined,
+              data: txParams.data as `0x${string}` | undefined,
+              chainId: currentChainId,
+              ...sendTransactionOverrides,
+            }),
+          )
         }
 
         // Forward all other methods (eth_estimateGas, eth_gasPrice,

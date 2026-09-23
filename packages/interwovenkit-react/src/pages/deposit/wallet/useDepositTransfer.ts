@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useConfig } from "@/data/config"
@@ -50,6 +50,7 @@ import {
   isProvablyNotSent,
   isQuoteBoundToOptions,
   isQuoteStale,
+  nextAutoDepositStep,
   requiredNativeAmount,
   resolveDepositRecipient,
   selectBridgeOption,
@@ -194,6 +195,11 @@ export function useDepositRequest(resolution: DepositTransportResolution): Depos
 
 class UnknownSendError extends Error {}
 
+interface AutoDeposit {
+  inputs: string
+  quoteSignature: string
+}
+
 // Locks the form for the life of this mount: nothing may reach the wallet again from it.
 const isLockingError = (error: unknown): boolean =>
   error instanceof UnknownSendError || error instanceof DepositSessionWriteError
@@ -217,6 +223,9 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
   const [isRefreshingQuote, setIsRefreshingQuote] = useState(false)
   // Synchronous: a second click can land before React renders the mutation as pending.
   const busyRef = useRef(false)
+  // Held by this mount only, so a remount, reload, or another tab never sends it.
+  const autoDepositRef = useRef<AutoDeposit | null>(null)
+  const [isAutoDepositApproved, setIsAutoDepositApproved] = useState(false)
   const mountedRef = useRef(true)
   useEffect(() => {
     mountedRef.current = true
@@ -453,8 +462,8 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
           response.hash,
           APPROVAL_RECEIPT_TIMEOUT_MS,
         )
-        // The approval used a nonce; the next prompt must record the one after it.
-        await noncesQuery.refetch()
+        // The next prompt must record the nonce after the approval's and see the raised allowance.
+        await Promise.all([noncesQuery.refetch(), allowanceQuery.refetch()])
       } catch (error) {
         throw await normalizeError(error)
       }
@@ -462,7 +471,6 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     onSuccess: () => {
       // A fresh quote may carry a different spender or amount.
       void queryClient.invalidateQueries({ queryKey: quoteQueryOptions.queryKey })
-      void queryClient.invalidateQueries({ queryKey: allowanceKey })
     },
   })
 
@@ -629,9 +637,15 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     }
   }
 
+  const cancelAutoDeposit = () => {
+    autoDepositRef.current = null
+    setIsAutoDepositApproved(false)
+  }
+
   const submit = async () => {
     if (busyRef.current || readiness.status !== "ready" || approvalRequired) return
     busyRef.current = true
+    cancelAutoDeposit()
     let locked = false
     try {
       let reviewed = boundQuote
@@ -651,17 +665,53 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     }
   }
 
-  const approve = async () => {
+  const autoDepositInputs = [
+    source.chainId,
+    source.denom,
+    destination.chain_id,
+    destination.denom,
+    hexAddress,
+    recipient,
+    quantity,
+    amount,
+    selectedBridge?.bridge,
+  ].join("|")
+
+  const approveAndDeposit = async () => {
     if (busyRef.current || !approval) return
     busyRef.current = true
+    const pending = { inputs: autoDepositInputs, quoteSignature }
+    autoDepositRef.current = pending
     try {
       await approveMutation.mutateAsync(approval)
+      if (autoDepositRef.current === pending) setIsAutoDepositApproved(true)
     } catch {
       // Shown through the mutation's error.
+      if (autoDepositRef.current === pending) cancelAutoDeposit()
     } finally {
       busyRef.current = false
     }
   }
+
+  // An effect event, so the send reads the committed render's readiness, quote, and draft.
+  const advanceAutoDeposit = useEffectEvent(() => {
+    const pending = autoDepositRef.current
+    if (!pending) return
+    const step = nextAutoDepositStep({
+      approved: isAutoDepositApproved,
+      inputsChanged: pending.inputs !== autoDepositInputs,
+      readiness: readiness.status,
+      approvalRequired,
+      quoteChanged: pending.quoteSignature !== quoteSignature,
+    })
+    if (step === "wait") return
+    cancelAutoDeposit()
+    if (step === "review") setReviewRequiredSignature(quoteSignature)
+    if (step === "send") void submit()
+  })
+  useEffect(() => {
+    advanceAutoDeposit()
+  }, [isAutoDepositApproved, autoDepositInputs, readiness.status, approvalRequired, quoteSignature])
 
   return {
     transport,
@@ -678,11 +728,11 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     approval: {
       isApproving: approveMutation.isPending,
       error: approveMutation.error?.message,
-      approve: approvalRequired ? approve : undefined,
+      approve: approvalRequired ? approveAndDeposit : undefined,
     },
     readiness,
     submit,
-    isSubmitting: sendMutation.isPending || isRefreshingQuote,
+    isSubmitting: sendMutation.isPending || isRefreshingQuote || isAutoDepositApproved,
     submitError,
     legs,
     quoteUpdated,

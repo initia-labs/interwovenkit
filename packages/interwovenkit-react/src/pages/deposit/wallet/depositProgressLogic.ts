@@ -169,7 +169,7 @@ function problem(view: Pick<DepositProgressView, "message"> & ViewParts) {
 }
 
 // From `send_prompt` onward a send may have happened; `prepared` is an abandoned draft.
-export function isResumableDepositSession(session: DepositSession): boolean {
+function isResumableDepositSession(session: DepositSession): boolean {
   return session.phase !== "terminal" && isPhaseAdvance("send_prompt", session.phase)
 }
 
@@ -187,7 +187,6 @@ export function selectResumableSessions(
   sessions: DepositSession[],
   match: ResumeMatch,
 ): DepositSession[] {
-  if (!match.recipient) return []
   return sessions.filter(
     (session) =>
       isResumableDepositSession(session) &&
@@ -255,11 +254,12 @@ export function checkHashlessSend(
   const { promptNonce } = session
   const promptedAt = session.promptedAt ?? session.updatedAt
   const lastSeenAt = Math.max(promptedAt, session.promptSeenAt ?? 0)
-  const read = nonces.isError ? undefined : nonces.data
+  // A failed read keeps the last one for display but never releases.
+  const read = nonces.data
   const unchanged =
     promptNonce !== undefined && read?.latest === promptNonce && read.pending === promptNonce
   return {
-    release: unchanged && nonces.readAt - lastSeenAt >= RELEASE_AFTER_MS,
+    release: !nonces.isError && unchanged && nonces.readAt - lastSeenAt >= RELEASE_AFTER_MS,
     nonceMoved:
       promptNonce !== undefined &&
       !!read &&

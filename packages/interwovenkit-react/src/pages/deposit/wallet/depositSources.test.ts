@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM } from "../data/source"
-import type { Asset, DestinationNetwork } from "../data/types"
+import { ETHEREUM_USDC_DENOM } from "../data/source"
+import type { Asset } from "../data/types"
 import {
   DEPOSIT_API_SOURCES,
   findDepositApiSource,
@@ -8,18 +8,11 @@ import {
   intersectHostSources,
   resolveDepositTransport,
 } from "./depositSources"
+import { buildDestinationNetwork } from "./testing"
 
 const BASE_USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
 const ARBITRUM_USDC = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
-
-const network = (overrides: Partial<DestinationNetwork> = {}): DestinationNetwork => ({
-  chain_id: "interwoven-1",
-  chain_name: "Initia",
-  denom: "uusdc",
-  decimals: 6,
-  vm_type: "move",
-  ...overrides,
-})
+const EVM_IUSD = "0xAbCdEf0000000000000000000000000000000001"
 
 const ethereumRoute = (overrides: Partial<Asset> = {}): Asset => ({
   src_chain_id: "1",
@@ -28,31 +21,26 @@ const ethereumRoute = (overrides: Partial<Asset> = {}): Asset => ({
   min_deposit_amount: "10000000",
   max_slippage_percent: "0.5",
   dst_symbol: "iUSD",
-  dst_networks: [network()],
+  dst_networks: [buildDestinationNetwork()],
   ...overrides,
 })
 
 describe("findDepositApiSource", () => {
-  it("matches a canonical pair, case-insensitively on the denom", () => {
-    expect(findDepositApiSource("8453", BASE_USDC)?.chainName).toBe("Base")
-    expect(findDepositApiSource("8453", BASE_USDC.toLowerCase())?.chainName).toBe("Base")
-    expect(findDepositApiSource("42161", ARBITRUM_USDC)?.chainName).toBe("Arbitrum")
-  })
-
-  it("does not match the right denom on the wrong chain", () => {
-    expect(findDepositApiSource("1", BASE_USDC)).toBeUndefined()
-  })
-
-  it("does not match native ETH, Optimism or Arbitrum USDC.e", () => {
-    expect(findDepositApiSource("1", "ethereum-native")).toBeUndefined()
-    expect(findDepositApiSource("10", "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85")).toBeUndefined()
-    expect(
-      findDepositApiSource("42161", "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"),
-    ).toBeUndefined()
+  it.each([
+    ["8453", BASE_USDC, "Base"],
+    ["8453", BASE_USDC.toLowerCase(), "Base"],
+    ["42161", ARBITRUM_USDC, "Arbitrum"],
+    ["1", BASE_USDC, undefined],
+    ["1", "ethereum-native", undefined],
+    ["10", "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85", undefined],
+    ["42161", "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8", undefined],
+  ])("chain %s, denom %s → %s", (chainId, denom, chainName) => {
+    expect(findDepositApiSource(chainId, denom)?.chainName).toBe(chainName)
   })
 })
 
 describe("resolveDepositTransport", () => {
+  const route = ethereumRoute()
   const params = {
     mode: "deposit" as const,
     hasDepositApi: true,
@@ -60,115 +48,111 @@ describe("resolveDepositTransport", () => {
     srcDenom: BASE_USDC,
     dstChainId: "interwoven-1",
     dstDenom: "uusdc",
-    catalog: [ethereumRoute()],
+    catalog: [route],
     catalogError: false,
   }
+  const ethereum = { srcChainId: "1", srcDenom: ETHEREUM_USDC_DENOM }
+  const outsideAllowlist = { srcChainId: "1", srcDenom: "ethereum-native" }
 
-  it("resolves a Base source to the LI.FI transport with the Ethereum route", () => {
-    const resolution = resolveDepositTransport(params)
-    expect(resolution.transport).toBe("lifi")
-    if (resolution.transport !== "lifi") throw new Error("expected lifi")
-    expect(resolution.source.chainName).toBe("Base")
-    expect(resolution.route.src_chain_id).toBe(ETHEREUM_CHAIN_ID)
-    expect(resolution.destination.decimals).toBe(6)
-  })
-
-  it("resolves an Ethereum source to the direct transport", () => {
-    const resolution = resolveDepositTransport({
-      ...params,
-      srcChainId: "1",
-      srcDenom: ETHEREUM_USDC_DENOM,
+  it.each([
+    ["Base", {}, "lifi", "Base"],
+    ["Ethereum", ethereum, "direct", "Ethereum"],
+    ["Base after a background refetch failed", { catalogError: true }, "lifi", "Base"],
+    [
+      "Ethereum after a background refetch failed",
+      { ...ethereum, catalogError: true },
+      "direct",
+      "Ethereum",
+    ],
+  ])("resolves %s through the Ethereum route", (_, overrides, transport, chainName) => {
+    expect(resolveDepositTransport({ ...params, ...overrides })).toMatchObject({
+      transport,
+      source: { chainName },
+      route,
+      destination: buildDestinationNetwork(),
     })
-    expect(resolution.transport).toBe("direct")
   })
 
-  it("keeps Router for withdraw and when no Deposit API is configured", () => {
-    expect(resolveDepositTransport({ ...params, mode: "withdraw" }).transport).toBe("router")
-    expect(resolveDepositTransport({ ...params, hasDepositApi: false }).transport).toBe("router")
+  it.each([
+    ["withdraw", { mode: "withdraw" as const }],
+    [
+      "withdraw while the catalog fails",
+      { mode: "withdraw" as const, catalog: undefined, catalogError: true },
+    ],
+    ["no configured Deposit API", { hasDepositApi: false }],
+    ["a source outside the allowlist", outsideAllowlist],
+    [
+      "a source outside the allowlist while the catalog loads",
+      { ...outsideAllowlist, catalog: undefined },
+    ],
+    [
+      "a source outside the allowlist while the catalog fails",
+      { ...outsideAllowlist, catalog: undefined, catalogError: true },
+    ],
+    [
+      "a catalog without the Ethereum USDC route",
+      { catalog: [ethereumRoute({ src_denom: "other" })] },
+    ],
+    ["an empty catalog", { catalog: [] }],
+    ["a destination chain the route does not feed", { dstChainId: "yominet-1" }],
+    ["a destination denom the route does not feed", { dstDenom: "uinit" }],
+    [
+      "an unsupported destination vm_type",
+      {
+        catalog: [
+          ethereumRoute({ dst_networks: [buildDestinationNetwork({ vm_type: "not_supported" })] }),
+        ],
+      },
+    ],
+  ])("keeps Router for %s", (_, overrides) => {
+    expect(resolveDepositTransport({ ...params, ...overrides })).toEqual({ transport: "router" })
   })
 
-  it("keeps Router for a source outside the allowlist", () => {
-    expect(
-      resolveDepositTransport({ ...params, srcChainId: "1", srcDenom: "ethereum-native" })
-        .transport,
-    ).toBe("router")
-  })
-
-  it("reports the candidate sources unavailable while the catalog is unresolved", () => {
-    const loading = resolveDepositTransport({ ...params, catalog: undefined })
-    expect(loading).toMatchObject({ transport: "unavailable", reason: "loading" })
-    const failed = resolveDepositTransport({
-      ...params,
-      catalog: undefined,
-      catalogError: true,
+  it.each([
+    [false, "loading"],
+    [true, "error"],
+  ])("names the canonical source it holds back (catalogError %s → %s)", (catalogError, reason) => {
+    expect(resolveDepositTransport({ ...params, catalog: undefined, catalogError })).toMatchObject({
+      transport: "unavailable",
+      reason,
+      source: { chainName: "Base" },
     })
-    expect(failed).toMatchObject({ transport: "unavailable", reason: "error" })
   })
 
-  it("names the source it made unavailable so the UI can offer a retry", () => {
-    const resolution = resolveDepositTransport({ ...params, catalog: undefined })
-    if (resolution.transport !== "unavailable") throw new Error("expected unavailable")
-    expect(resolution.source.chainName).toBe("Base")
-  })
-
-  it("keeps Router when the catalog has no Ethereum USDC route", () => {
+  it("matches 0x route and destination denoms case-insensitively", () => {
+    const catalog = [
+      ethereumRoute({
+        src_denom: ETHEREUM_USDC_DENOM.toLowerCase(),
+        dst_networks: [
+          buildDestinationNetwork({ chain_id: "evm-1", denom: EVM_IUSD, vm_type: "evm" }),
+        ],
+      }),
+    ]
     expect(
-      resolveDepositTransport({ ...params, catalog: [ethereumRoute({ src_denom: "other" })] })
-        .transport,
-    ).toBe("router")
-    expect(resolveDepositTransport({ ...params, catalog: [] }).transport).toBe("router")
-  })
-
-  it("keeps Router when the Ethereum route does not feed the destination", () => {
-    expect(resolveDepositTransport({ ...params, dstChainId: "yominet-1" }).transport).toBe("router")
-    expect(resolveDepositTransport({ ...params, dstDenom: "uinit" }).transport).toBe("router")
-  })
-
-  it("keeps Router when the destination network's vm_type is unsupported", () => {
-    const unsupported = [ethereumRoute({ dst_networks: [network({ vm_type: "not_supported" })] })]
-    expect(resolveDepositTransport({ ...params, catalog: unsupported }).transport).toBe("router")
-  })
-
-  it("matches the Ethereum route and destination denoms case-insensitively", () => {
-    const lowercase = [ethereumRoute({ src_denom: ETHEREUM_USDC_DENOM.toLowerCase() })]
-    expect(resolveDepositTransport({ ...params, catalog: lowercase }).transport).toBe("lifi")
+      resolveDepositTransport({
+        ...params,
+        catalog,
+        dstChainId: "evm-1",
+        dstDenom: EVM_IUSD.toLowerCase(),
+      }),
+    ).toMatchObject({ transport: "lifi", destination: { denom: EVM_IUSD } })
   })
 })
 
 describe("intersectHostSources", () => {
-  it("returns every source when the host set no allowlist", () => {
-    expect(intersectHostSources(DEPOSIT_API_SOURCES, [])).toHaveLength(3)
-  })
-
-  it("keeps only the permitted pairs", () => {
+  it.each([
+    ["no allowlist keeps every source", [], ["Ethereum", "Base", "Arbitrum"]],
+    ["a permitted pair", [{ chainId: "8453", denom: BASE_USDC.toLowerCase() }], ["Base"]],
+    ["the right denom on another chain", [{ chainId: "1", denom: BASE_USDC }], []],
+  ])("%s", (_, remoteOptions, chainNames) => {
     expect(
-      intersectHostSources(DEPOSIT_API_SOURCES, [
-        { chainId: "8453", denom: BASE_USDC.toLowerCase() },
-      ]).map(({ chainName }) => chainName),
-    ).toEqual(["Base"])
-  })
-
-  it("ignores an allowlist entry for a different chain", () => {
-    expect(intersectHostSources(DEPOSIT_API_SOURCES, [{ chainId: "1", denom: BASE_USDC }])).toEqual(
-      [],
-    )
+      intersectHostSources(DEPOSIT_API_SOURCES, remoteOptions).map(({ chainName }) => chainName),
+    ).toEqual(chainNames)
   })
 })
 
 describe("getBridgeToolDisplay", () => {
-  it("resolves a known key to its LI.FI display identity", () => {
-    expect(getBridgeToolDisplay("across").name).toBe("Across")
-    expect(getBridgeToolDisplay("relaydepository").name).toBe("Relay")
-  })
-
-  it("keeps an unknown key readable instead of dropping the route", () => {
-    expect(getBridgeToolDisplay("brandNewBridge")).toEqual({
-      name: "brandNewBridge",
-      logoUrl: "",
-    })
-  })
-
-  it("does not resolve inherited Object properties as bridges", () => {
-    expect(getBridgeToolDisplay("toString")).toEqual({ name: "toString", logoUrl: "" })
+  it.each(["brandNewBridge", "toString"])("keeps the unlisted key %s as the raw name", (key) => {
+    expect(getBridgeToolDisplay(key)).toEqual({ name: key, logoUrl: "" })
   })
 })

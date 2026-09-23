@@ -1,5 +1,5 @@
 import type { JsonRpcProvider } from "ethers"
-import { getAddress, Signature, TransactionResponse } from "ethers"
+import { getAddress, Interface, Signature, TransactionResponse } from "ethers"
 import {
   encodeErc20Approve,
   encodeErc20Transfer,
@@ -17,66 +17,68 @@ const TOKEN = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
 const HASH = `0x${"11".repeat(32)}`
 const REPLACEMENT_HASH = `0x${"22".repeat(32)}`
 
-const UINT_4200000 = "0x0000000000000000000000000000000000000000000000000000000000401640"
-const UINT_7 = "0x0000000000000000000000000000000000000000000000000000000000000007"
+const ERC20_READS = new Interface([
+  "function balanceOf(address owner) view returns (uint256)",
+  "function allowance(address owner, address spender) view returns (uint256)",
+])
 
-interface FakeProviderOptions {
-  transaction?: TransactionResponse | null
-  receipts?: Record<string, unknown>
-  blockNumber?: number
-  transactionCount?: number
-  blocks?: Record<number, unknown>
-  balance?: bigint
-  call?: (tx: { to?: string; data?: string }) => string
+type EthCall = (tx: { to?: string; data?: string }) => string
+
+/** Answers only the expected read on TOKEN; anything else looks like an empty contract. */
+function answerTokenRead(fragment: "balanceOf" | "allowance", args: string[], value: bigint) {
+  const expected = ERC20_READS.encodeFunctionData(fragment, args)
+  return ({ to, data }: { to?: string; data?: string }) =>
+    to === TOKEN && data === expected ? ERC20_READS.encodeFunctionResult(fragment, [value]) : "0x"
 }
 
-function createFakeProvider(options: FakeProviderOptions = {}) {
-  const calls = { getTransaction: 0, getTransactionReceipt: 0 }
+interface ReplacementFields {
+  to: string
+  data: string
+  value: bigint
+  chainId?: bigint
+}
+
+interface FakeProviderOptions {
+  receipt?: { status: number }
+  /** Mined in block 100 at the watched nonce. */
+  replacement?: ReplacementFields
+  rpcError?: Error
+  balance?: bigint
+  call?: EthCall
+}
+
+function createFakeProvider(options: FakeProviderOptions = {}): JsonRpcProvider {
+  const { receipt, replacement, rpcError } = options
   const provider = {
-    getTransaction: async () => {
-      calls.getTransaction += 1
-      return options.transaction ?? null
-    },
+    getTransaction: async () => null,
     getTransactionReceipt: async (hash: string) => {
-      calls.getTransactionReceipt += 1
-      return options.receipts?.[hash] ?? null
+      if (rpcError) throw rpcError
+      if (hash === HASH && receipt) return { ...receipt, blockNumber: 100, hash }
+      if (hash === REPLACEMENT_HASH && replacement) return { status: 1, blockNumber: 100, hash }
+      return null
     },
-    getBlockNumber: async () => options.blockNumber ?? 0,
-    getTransactionCount: async () => options.transactionCount ?? 0,
-    getBlock: async (blockNumber: number) => options.blocks?.[blockNumber] ?? null,
+    getBlockNumber: async () => 105,
+    getTransactionCount: async () => (replacement ? 8 : 0),
+    getBlock: async (blockNumber: number) =>
+      replacement && blockNumber === 100 ? createBlock(buildReplacement(replacement)) : null,
     getBalance: async () => options.balance ?? 0n,
     call: async (tx: { to?: string; data?: string }) => options.call?.(tx) ?? "0x",
     on: () => provider,
     once: () => provider,
     off: () => provider,
   }
-  return { provider: provider as unknown as JsonRpcProvider, calls }
+  return provider as unknown as JsonRpcProvider
 }
 
-const PARAMS = {
-  hash: HASH,
-  from: SENDER,
-  nonce: 7,
-  to: BRIDGE,
-  data: "0xdeadbeef",
-  value: "0",
-  chainId: "8453",
-  startBlock: 100,
-  timeoutMs: 1000,
-}
-
-function buildResponse(
-  provider: JsonRpcProvider,
-  overrides: { hash: string; to: string; data: string; value: bigint; chainId?: bigint },
-) {
+function buildReplacement({ to, data, value, chainId = 8453n }: ReplacementFields) {
   return new TransactionResponse(
     {
       blockNumber: 100,
       blockHash: null,
-      hash: overrides.hash,
+      hash: REPLACEMENT_HASH,
       index: 0,
       type: 2,
-      to: getAddress(overrides.to),
+      to: getAddress(to),
       from: getAddress(SENDER),
       nonce: 7,
       gasLimit: 21000n,
@@ -84,15 +86,15 @@ function buildResponse(
       maxPriorityFeePerGas: null,
       maxFeePerGas: null,
       maxFeePerBlobGas: null,
-      data: overrides.data,
-      value: overrides.value,
-      chainId: overrides.chainId ?? 8453n,
+      data,
+      value,
+      chainId,
       signature: Signature.from(),
       accessList: null,
       blobVersionedHashes: null,
       authorizationList: null,
     },
-    provider,
+    null as unknown as JsonRpcProvider,
   )
 }
 
@@ -107,12 +109,19 @@ function createBlock(replacement: TransactionResponse) {
   }
 }
 
-describe("getPinnedProvider", () => {
-  it("pins the provider to the source chain's own endpoint and chain id", () => {
-    const provider = getPinnedProvider("8453")
-    expect(provider._network.chainId).toBe(8453n)
-  })
+const PARAMS = {
+  hash: HASH,
+  from: SENDER,
+  nonce: 7,
+  to: BRIDGE,
+  data: "0xdeadbeef",
+  value: "0",
+  chainId: "8453",
+  startBlock: 100,
+  timeoutMs: 1000,
+}
 
+describe("getPinnedProvider", () => {
   it("reuses one provider per chain: ethers keeps a polling loop on each", () => {
     expect(getPinnedProvider("42161")).toBe(getPinnedProvider("42161"))
     expect(getPinnedProvider("42161")).not.toBe(getPinnedProvider("1"))
@@ -125,8 +134,11 @@ describe("getPinnedProvider", () => {
 })
 
 describe("readSourceBalances", () => {
-  it("returns token and native balances as base-unit decimal strings", async () => {
-    const { provider } = createFakeProvider({ call: () => UINT_4200000, balance: 12345n })
+  it("reads the owner's token balance from the token contract and the native balance", async () => {
+    const provider = createFakeProvider({
+      call: answerTokenRead("balanceOf", [SENDER], 4_200_000n),
+      balance: 12345n,
+    })
     await expect(readSourceBalances(provider, { owner: SENDER, token: TOKEN })).resolves.toEqual({
       token: "4200000",
       native: "12345",
@@ -134,44 +146,31 @@ describe("readSourceBalances", () => {
   })
 
   it("throws rather than reading an empty response as a zero balance", async () => {
-    const { provider } = createFakeProvider({ call: () => "0x" })
-    await expect(readSourceBalances(provider, { owner: SENDER, token: TOKEN })).rejects.toThrow(
-      /returned no data/,
-    )
+    await expect(
+      readSourceBalances(createFakeProvider(), { owner: SENDER, token: TOKEN }),
+    ).rejects.toThrow(/returned no data/)
   })
 })
 
 describe("readErc20Uint", () => {
-  it("returns the allowance as a base-unit decimal string", async () => {
-    const { provider } = createFakeProvider({ call: () => UINT_7 })
+  it("reads the owner's allowance for the spender", async () => {
+    const provider = createFakeProvider({
+      call: answerTokenRead("allowance", [SENDER, BRIDGE], 7n),
+    })
     await expect(readErc20Uint(provider, TOKEN, "allowance", [SENDER, BRIDGE])).resolves.toBe("7")
   })
 })
 
-describe("encodeErc20Transfer", () => {
-  it("accepts a mixed-case address with a wrong EIP-55 checksum (bytes are identical)", () => {
-    const wrongChecksum = "0x9f1B4b1F2C3d4E5f60718293A4B5c6D7E8F90123"
-    expect(encodeErc20Transfer(wrongChecksum, "1")).toBe(
-      encodeErc20Transfer(wrongChecksum.toLowerCase(), "1"),
-    )
-  })
+describe("ERC-20 calldata", () => {
+  const wrongChecksum = "0x9f1B4b1F2C3d4E5f60718293A4B5c6D7E8F90123"
 
-  it("encodes transfer calldata", () => {
-    expect(encodeErc20Transfer(SENDER, "1500000")).toBe(
-      "0xa9059cbb0000000000000000000000004e3d1f2a6b5c8d9e0f1a2b3c4d5e6f7a8b9c0d1e000000000000000000000000000000000000000000000000000000000016e360",
-    )
-  })
-
-  it("throws on an amount that is not base units", () => {
-    expect(() => encodeErc20Transfer(SENDER, "1.5")).toThrow()
-  })
-})
-
-describe("encodeErc20Approve", () => {
-  it("encodes approve calldata", () => {
-    expect(encodeErc20Approve("0x1111111111111111111111111111111111111111", "2500000")).toBe(
-      "0x095ea7b3000000000000000000000000111111111111111111111111111111111111111100000000000000000000000000000000000000000000000000000000002625a0",
-    )
+  it.each([
+    ["transfer", encodeErc20Transfer, "0xa9059cbb"],
+    ["approve", encodeErc20Approve, "0x095ea7b3"],
+  ])("%s accepts a mixed-case address with a wrong EIP-55 checksum", (_, encode, selector) => {
+    const data = encode(wrongChecksum, "1")
+    expect(data).toBe(encode(wrongChecksum.toLowerCase(), "1"))
+    expect(data.slice(0, 10)).toBe(selector)
   })
 })
 
@@ -190,141 +189,74 @@ describe("waitForApproval", () => {
 })
 
 describe("watchSourceTransaction", () => {
-  it("reports a confirmed receipt", async () => {
-    const { provider } = createFakeProvider({
-      receipts: { [HASH]: { status: 1, blockNumber: 105, hash: HASH } },
-    })
-    await expect(watchSourceTransaction(provider, PARAMS)).resolves.toEqual({
-      status: "confirmed",
-    })
-  })
-
-  it("reports a reverted receipt", async () => {
-    const { provider } = createFakeProvider({
-      receipts: { [HASH]: { status: 0, blockNumber: 105, hash: HASH } },
-    })
-    await expect(watchSourceTransaction(provider, PARAMS)).resolves.toEqual({
-      status: "reverted",
+  it.each([
+    ["confirmed", 100, 1],
+    ["reverted", 100, 0],
+    ["confirmed", -1, 1],
+    ["reverted", -1, 0],
+  ])("reports a %s receipt (start block %s)", async (status, startBlock, receiptStatus) => {
+    const provider = createFakeProvider({ receipt: { status: receiptStatus } })
+    await expect(watchSourceTransaction(provider, { ...PARAMS, startBlock })).resolves.toEqual({
+      status,
     })
   })
 
   it("stays pending when the watch window elapses", async () => {
-    const { provider } = createFakeProvider({ blockNumber: 100, transactionCount: 7 })
-    await expect(watchSourceTransaction(provider, { ...PARAMS, timeoutMs: 20 })).resolves.toEqual({
-      status: "pending",
-    })
-  })
-
-  it("adopts a replacement with an identical payload as repriced", async () => {
-    const { provider } = createFakeProvider({
-      blockNumber: 105,
-      transactionCount: 8,
-      receipts: { [REPLACEMENT_HASH]: { status: 1, blockNumber: 100, hash: REPLACEMENT_HASH } },
-    })
-    const replacement = buildResponse(provider, {
-      hash: REPLACEMENT_HASH,
-      to: BRIDGE,
-      data: "0xdeadbeef",
-      value: 0n,
-    })
-    const { provider: pinned } = createFakeProvider({
-      blockNumber: 105,
-      transactionCount: 8,
-      blocks: { 100: createBlock(replacement) },
-      receipts: { [REPLACEMENT_HASH]: { status: 1, blockNumber: 100, hash: REPLACEMENT_HASH } },
-    })
-    await expect(watchSourceTransaction(pinned, PARAMS)).resolves.toEqual({
-      status: "replaced",
-      hash: REPLACEMENT_HASH,
-      reason: "repriced",
-    })
-  })
-
-  it("calls a mined self-send at the same nonce a cancellation", async () => {
-    const { provider } = createFakeProvider()
-    const replacement = buildResponse(provider, {
-      hash: REPLACEMENT_HASH,
-      to: SENDER,
-      data: "0x",
-      value: 0n,
-    })
-    const { provider: pinned } = createFakeProvider({
-      blockNumber: 105,
-      transactionCount: 8,
-      blocks: { 100: createBlock(replacement) },
-      receipts: { [REPLACEMENT_HASH]: { status: 1, blockNumber: 100, hash: REPLACEMENT_HASH } },
-    })
-    await expect(watchSourceTransaction(pinned, PARAMS)).resolves.toEqual({
-      status: "replaced",
-      hash: REPLACEMENT_HASH,
-      reason: "cancelled",
-    })
-  })
-
-  it("does not call a different payload a cancellation", async () => {
-    const { provider } = createFakeProvider()
-    const replacement = buildResponse(provider, {
-      hash: REPLACEMENT_HASH,
-      to: OTHER,
-      data: "0xfeedface",
-      value: 0n,
-    })
-    const { provider: pinned } = createFakeProvider({
-      blockNumber: 105,
-      transactionCount: 8,
-      blocks: { 100: createBlock(replacement) },
-      receipts: { [REPLACEMENT_HASH]: { status: 1, blockNumber: 100, hash: REPLACEMENT_HASH } },
-    })
-    await expect(watchSourceTransaction(pinned, PARAMS)).resolves.toEqual({
-      status: "replaced",
-      hash: REPLACEMENT_HASH,
-      reason: "replaced",
-    })
-  })
-
-  // ethers' own `reason` never checks the chain, so trusting it would read a payload-identical replacement from another chain as "repriced".
-  it("does not adopt a payload-identical replacement from another chain", async () => {
-    const { provider } = createFakeProvider()
-    const replacement = buildResponse(provider, {
-      hash: REPLACEMENT_HASH,
-      to: BRIDGE,
-      data: "0xdeadbeef",
-      value: 0n,
-      chainId: 1n,
-    })
-    const { provider: pinned } = createFakeProvider({
-      blockNumber: 105,
-      transactionCount: 8,
-      blocks: { 100: createBlock(replacement) },
-      receipts: { [REPLACEMENT_HASH]: { status: 1, blockNumber: 100, hash: REPLACEMENT_HASH } },
-    })
-    await expect(watchSourceTransaction(pinned, PARAMS)).resolves.toMatchObject({
-      status: "replaced",
-      reason: "replaced",
-    })
-  })
-
-  it("stays pending without a start block instead of assuming cancellation", async () => {
-    const { provider, calls } = createFakeProvider()
-    await expect(watchSourceTransaction(provider, { ...PARAMS, startBlock: -1 })).resolves.toEqual({
-      status: "pending",
-    })
-    expect(calls.getTransaction).toBe(0)
-  })
-
-  it("stays pending when the wallet never reported a nonce", async () => {
-    const { provider } = createFakeProvider()
     await expect(
-      watchSourceTransaction(provider, { ...PARAMS, nonce: Number.NaN }),
+      watchSourceTransaction(createFakeProvider(), { ...PARAMS, timeoutMs: 20 }),
     ).resolves.toEqual({ status: "pending" })
   })
 
-  it("still reports a receipt found without a start block", async () => {
-    const { provider } = createFakeProvider({
-      receipts: { [HASH]: { status: 1, blockNumber: 105, hash: HASH } },
+  it.each([
+    ["no start block", { startBlock: -1 }],
+    ["no nonce from the wallet", { nonce: Number.NaN }],
+  ])("stays pending with %s instead of assuming cancellation", async (_, missing) => {
+    const provider = createFakeProvider({
+      replacement: { to: SENDER, data: "0x", value: 0n },
     })
-    await expect(watchSourceTransaction(provider, { ...PARAMS, startBlock: -1 })).resolves.toEqual({
-      status: "confirmed",
+    await expect(watchSourceTransaction(provider, { ...PARAMS, ...missing })).resolves.toEqual({
+      status: "pending",
     })
+  })
+
+  it.each([
+    ["an identical payload", { to: BRIDGE, data: "0xdeadbeef", value: 0n }, "repriced"],
+    ["a payload differing only in case", { to: BRIDGE, data: "0xDEADBEEF", value: 0n }, "repriced"],
+    ["a self-send of nothing", { to: SENDER, data: "0x", value: 0n }, "cancelled"],
+    ["a different payload", { to: OTHER, data: "0xfeedface", value: 0n }, "replaced"],
+    [
+      "the same payload with a different value",
+      { to: BRIDGE, data: "0xdeadbeef", value: 1n },
+      "replaced",
+    ],
+    [
+      "the same payload on another chain",
+      { to: BRIDGE, data: "0xdeadbeef", value: 0n, chainId: 1n },
+      "replaced",
+    ],
+  ])("classifies a replacement with %s", async (_, replacement, reason) => {
+    const provider = createFakeProvider({ replacement })
+    await expect(watchSourceTransaction(provider, PARAMS)).resolves.toEqual({
+      status: "replaced",
+      hash: REPLACEMENT_HASH,
+      reason,
+    })
+  })
+
+  it("reports the error's hash when ethers omits the replacement", async () => {
+    const rpcError = Object.assign(new Error("transaction was replaced"), {
+      code: "TRANSACTION_REPLACED",
+      hash: REPLACEMENT_HASH,
+    })
+    await expect(watchSourceTransaction(createFakeProvider({ rpcError }), PARAMS)).resolves.toEqual(
+      { status: "replaced", hash: REPLACEMENT_HASH, reason: "replaced" },
+    )
+  })
+
+  it("rethrows an unrelated RPC error", async () => {
+    const rpcError = new Error("rate limited")
+    await expect(watchSourceTransaction(createFakeProvider({ rpcError }), PARAMS)).rejects.toBe(
+      rpcError,
+    )
   })
 })

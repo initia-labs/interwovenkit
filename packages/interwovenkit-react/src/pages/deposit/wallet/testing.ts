@@ -1,9 +1,9 @@
+import { DEPOSIT_ADDRESS, RECIPIENT } from "../data/testing"
+import type { DestinationNetwork } from "../data/types"
 import type { DepositSession, StorageLike } from "./depositSession"
 
 export const SENDER = "0x4e3d1f2a6b5c8d9e0f1a2b3c4d5e6f7a8b9c0d1e"
-export const DEPOSIT_ADDRESS = "0x1111111111111111111111111111111111111111"
 export const API_URL = "https://deposit.staging.example"
-export const REPLACEMENT_HASH = `0x${"b".repeat(64)}`
 
 /** A prepared Base → Initia transfer: nothing prompted, nothing broadcast. */
 export function buildDepositSession(overrides: Partial<DepositSession> = {}): DepositSession {
@@ -27,7 +27,7 @@ export function buildDepositSession(overrides: Partial<DepositSession> = {}): De
     destination: {
       chainId: "interwoven-1",
       denom: "uusdc",
-      recipient: "init1recipient",
+      recipient: RECIPIENT,
       symbol: "USDC",
       chainName: "Initia",
     },
@@ -42,14 +42,22 @@ export function buildDepositSession(overrides: Partial<DepositSession> = {}): De
   }
 }
 
-export interface MemoryStorage extends StorageLike {
-  map: Map<string, string>
+export function buildDestinationNetwork(
+  overrides: Partial<DestinationNetwork> = {},
+): DestinationNetwork {
+  return {
+    chain_id: "interwoven-1",
+    chain_name: "Initia",
+    denom: "uusdc",
+    decimals: 6,
+    vm_type: "move",
+    ...overrides,
+  }
 }
 
-export function createMemoryStorage(): MemoryStorage {
+export function createMemoryStorage(): StorageLike {
   const map = new Map<string, string>()
   return {
-    map,
     get length() {
       return map.size
     },

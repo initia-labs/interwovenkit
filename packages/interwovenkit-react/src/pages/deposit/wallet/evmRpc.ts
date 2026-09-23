@@ -1,5 +1,6 @@
 import type { TransactionReceipt } from "ethers"
 import {
+  FetchRequest,
   getAddress,
   Interface,
   isError,
@@ -16,13 +17,17 @@ export const SOURCE_READ_REFRESH_MS = 15_000
 
 // One per chain for the tab's lifetime: ethers keeps a polling loop alive once `wait()` subscribed.
 const pinnedProviders = new Map<string, JsonRpcProvider>()
+const RPC_TIMEOUT_MS = 10_000
 
 export function getPinnedProvider(chainId: string): JsonRpcProvider {
   const existing = pinnedProviders.get(chainId)
   if (existing) return existing
   const rpcUrl = depositApiRpcUrl(chainId)
   if (!rpcUrl) throw new Error(`Chain ${chainId} has no pinned RPC`)
-  const provider = new JsonRpcProvider(rpcUrl, Number(chainId), { staticNetwork: true })
+  const request = new FetchRequest(rpcUrl)
+  // A hung public endpoint must fail and retry, not spin for ethers' five-minute default.
+  request.timeout = RPC_TIMEOUT_MS
+  const provider = new JsonRpcProvider(request, Number(chainId), { staticNetwork: true })
   pinnedProviders.set(chainId, provider)
   return provider
 }
@@ -199,9 +204,8 @@ export async function watchSourceTransaction(
     return receipt ? fromReceipt(receipt) : { status: "pending" }
   }
 
-  // A dropped transaction is not returned at all; the persisted intent is then all there is to scan with.
-  const known = await provider.getTransaction(hash)
-  const response = known ?? reconstructTransactionResponse(provider, params)
+  // The persisted intent carries everything the scan compares, and survives a dropped transaction.
+  const response = reconstructTransactionResponse(provider, params)
 
   try {
     const receipt = await response.replaceableTransaction(startBlock).wait(1, timeoutMs)

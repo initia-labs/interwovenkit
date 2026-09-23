@@ -288,7 +288,11 @@ export function mergeDepositSession(
     currentSourceHash: next.currentSourceHash ?? current.currentSourceHash,
     originalSourceHash: next.originalSourceHash ?? current.originalSourceHash,
     depositId: next.depositId ?? current.depositId,
-    lastState: reopened ? next.lastState : (next.lastState ?? current.lastState),
+    lastState: reopened
+      ? next.lastState
+      : current.phase === "terminal"
+        ? current.lastState
+        : (next.lastState ?? current.lastState),
   })
 }
 

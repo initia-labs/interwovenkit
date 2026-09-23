@@ -1,7 +1,7 @@
 import BigNumber from "bignumber.js"
 import { path } from "ramda"
 import { InitiaAddress, toBaseUnit } from "@initia/utils"
-import { USER_REJECTED_MESSAGE } from "@/data/http"
+import { POPUP_BLOCKED_MESSAGE, USER_REJECTED_MESSAGE } from "@/data/http"
 import { BRIDGE_QUOTE_MAX_AGE } from "../data/bridges"
 import { eqAddress, isDecimalString, isEvmTxHash, isIntegerString } from "../data/parse"
 import type { QuoteResult } from "../data/quote"
@@ -145,11 +145,12 @@ export function sendTransactionHashOf(error: unknown): string | undefined {
   return isEvmTxHash(hash) ? hash : undefined
 }
 
-/** A rejected prompt or a node refusal before the mempool; anything else without a hash stays ambiguous. */
+/** A rejected or blocked prompt, or a node refusal before the mempool; anything else without a hash stays ambiguous. */
 export function isProvablyNotSent(message: string): boolean {
   const text = message.toLowerCase()
   return (
     message === USER_REJECTED_MESSAGE ||
+    message === POPUP_BLOCKED_MESSAGE ||
     text.includes("insufficient funds") ||
     text.includes("intrinsic gas too low")
   )
@@ -295,4 +296,18 @@ export function deriveDepositReadiness(input: DepositReadinessInput): DepositRea
   if (input.approvalChecking) return loading("Checking approvals...")
 
   return { status: "ready" }
+}
+
+// The deposit an approval click queued may only go out on the inputs and quote that click saw.
+export function nextAutoDepositStep(params: {
+  approved: boolean
+  inputsChanged: boolean
+  readiness: DepositReadiness["status"]
+  approvalRequired: boolean
+  quoteChanged: boolean
+}): "wait" | "cancel" | "review" | "send" {
+  if (params.inputsChanged) return "cancel"
+  if (!params.approved || params.readiness === "loading") return "wait"
+  if (params.readiness !== "ready" || params.approvalRequired) return "cancel"
+  return params.quoteChanged ? "review" : "send"
 }

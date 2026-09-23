@@ -1,84 +1,68 @@
 import { buildTransferDefaultValues } from "./defaultValues"
+import type { TransferFormValues } from "./transferFlowConfig"
 
 const INIT = { denom: "uinit", chainId: "interwoven-1" }
 const USDC = { denom: "uusdc", chainId: "interwoven-1" }
 
+const EMPTY: TransferFormValues = {
+  page: "select-local",
+  quantity: "",
+  srcDenom: "",
+  srcChainId: "",
+  dstDenom: "",
+  dstChainId: "",
+  selectedBridge: "",
+  depositSessionId: "",
+}
+const DEPOSIT_INIT = { dstDenom: INIT.denom, dstChainId: INIT.chainId }
+const WITHDRAW_INIT = { srcDenom: INIT.denom, srcChainId: INIT.chainId }
+
 describe("buildTransferDefaultValues", () => {
-  test("no preset: starts at the select-local picker", () => {
-    const values = buildTransferDefaultValues({
-      mode: "deposit",
-      localOptions: [INIT, USDC],
-    })
-    expect(values.page).toBe("select-local")
-    expect(values.srcDenom).toBe("")
-    expect(values.dstDenom).toBe("")
-  })
-
-  test("deposit with initialAsset: presets the destination and starts at select-external", () => {
-    const values = buildTransferDefaultValues({
-      mode: "deposit",
-      initialAsset: INIT,
-      localOptions: [],
-    })
-    expect(values.page).toBe("select-external")
-    expect(values.dstDenom).toBe(INIT.denom)
-    expect(values.dstChainId).toBe(INIT.chainId)
-    expect(values.srcDenom).toBe("")
-  })
-
-  test("withdraw with initialAsset: presets the source and starts at fields", () => {
-    const values = buildTransferDefaultValues({
-      mode: "withdraw",
-      initialAsset: INIT,
-      localOptions: [],
-    })
-    expect(values.page).toBe("fields")
-    expect(values.srcDenom).toBe(INIT.denom)
-    expect(values.srcChainId).toBe(INIT.chainId)
-    expect(values.dstDenom).toBe("")
-  })
-
-  test("single local option without initialAsset: presets it and skips select-local", () => {
-    const deposit = buildTransferDefaultValues({ mode: "deposit", localOptions: [INIT] })
-    expect(deposit.page).toBe("select-external")
-    expect(deposit.dstDenom).toBe(INIT.denom)
-
-    const withdraw = buildTransferDefaultValues({ mode: "withdraw", localOptions: [INIT] })
-    expect(withdraw.page).toBe("fields")
-    expect(withdraw.srcDenom).toBe(INIT.denom)
-  })
-
-  test("initialAsset wins over a single local option", () => {
-    const values = buildTransferDefaultValues({
-      mode: "deposit",
-      initialAsset: USDC,
-      localOptions: [INIT],
-    })
-    expect(values.dstDenom).toBe(USDC.denom)
-  })
-})
-
-describe("buildTransferDefaultValues with a resumed session", () => {
-  test("deposit with initialSessionId: opens deposit-progress for that session", () => {
-    const values = buildTransferDefaultValues({
-      mode: "deposit",
-      initialAsset: INIT,
-      initialSessionId: "session-1",
-      localOptions: [],
-    })
-    expect(values.page).toBe("deposit-progress")
-    expect(values.depositSessionId).toBe("session-1")
-    expect(values.dstDenom).toBe(INIT.denom)
-  })
-
-  test("withdraw ignores initialSessionId", () => {
-    const values = buildTransferDefaultValues({
-      mode: "withdraw",
-      initialAsset: INIT,
-      initialSessionId: "session-1",
-      localOptions: [],
-    })
-    expect(values.page).toBe("fields")
-    expect(values.depositSessionId).toBe("")
+  test.each<
+    [string, Parameters<typeof buildTransferDefaultValues>[0], Partial<TransferFormValues>]
+  >([
+    ["no preset starts at select-local", { mode: "deposit", localOptions: [INIT, USDC] }, {}],
+    [
+      "deposit presets initialAsset as the destination",
+      { mode: "deposit", initialAsset: INIT, localOptions: [] },
+      { page: "select-external", ...DEPOSIT_INIT },
+    ],
+    [
+      "withdraw presets initialAsset as the source",
+      { mode: "withdraw", initialAsset: INIT, localOptions: [] },
+      { page: "fields", ...WITHDRAW_INIT },
+    ],
+    [
+      "deposit presets a single local option",
+      { mode: "deposit", localOptions: [INIT] },
+      { page: "select-external", ...DEPOSIT_INIT },
+    ],
+    [
+      "withdraw presets a single local option",
+      { mode: "withdraw", localOptions: [INIT] },
+      { page: "fields", ...WITHDRAW_INIT },
+    ],
+    [
+      "initialAsset wins over a single local option",
+      { mode: "deposit", initialAsset: USDC, localOptions: [INIT] },
+      { page: "select-external", dstDenom: USDC.denom, dstChainId: USDC.chainId },
+    ],
+    [
+      "deposit opens a resumed session",
+      { mode: "deposit", initialAsset: INIT, initialSessionId: "session-1", localOptions: [] },
+      { page: "deposit-progress", depositSessionId: "session-1", ...DEPOSIT_INIT },
+    ],
+    [
+      "deposit opens a resumed session without initialAsset",
+      { mode: "deposit", initialSessionId: "session-1", localOptions: [INIT, USDC] },
+      { page: "deposit-progress", depositSessionId: "session-1" },
+    ],
+    [
+      "withdraw ignores initialSessionId",
+      { mode: "withdraw", initialAsset: INIT, initialSessionId: "session-1", localOptions: [] },
+      { page: "fields", ...WITHDRAW_INIT },
+    ],
+  ])("%s", (_, input, expected) => {
+    expect(buildTransferDefaultValues(input)).toEqual({ ...EMPTY, ...expected })
   })
 })
