@@ -494,13 +494,21 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     })
     setValue("depositSessionId", prepared.id)
 
-    const signer = await getSigner(prepared.transaction.chainId)
+    // Locked before the chain switch too, so another tab can't sign this transfer meanwhile.
     writeDepositSession(localStorage, {
       ...prepared,
       phase: "send_prompt",
       preSubmitBlock: headQuery.data?.block,
       updatedAt: Date.now(),
     })
+    let signer: Awaited<ReturnType<typeof getSigner>>
+    try {
+      signer = await getSigner(prepared.transaction.chainId)
+    } catch (error) {
+      // Nothing is broadcast before the send itself.
+      rollbackDepositSessionPrompt(localStorage, prepared.id)
+      throw error
+    }
 
     let response: { hash: string; nonce?: number; from: string }
     try {
@@ -569,7 +577,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
       maxFeePerGas: headQuery.data?.maxFeePerGas,
     }),
     optionsError: optionsQuery.error?.message,
-    hasOptions: !!optionsData,
+    hasOptions: !!optionsData && !optionsQuery.isPlaceholderData,
     hasEligibleOption: !!selectedBridge,
     quoteError: quoteQuery.error?.message,
     hasQuote: !!quote,

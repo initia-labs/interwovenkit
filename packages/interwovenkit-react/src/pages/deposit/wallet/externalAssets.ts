@@ -201,7 +201,7 @@ export function useExternalAssetOptions(): ExternalAssetOptionsResult {
 
   const sourceOverride = getExternalSourceOverride(localAsset.symbol)
   // Only an override that already offers USDC as a source (iUSD) gains the Deposit API sources.
-  const depositApiSources = sourceOverride ? depositApiSourceOptions : []
+  const depositApiSources = sourceOverride && mode === "deposit" ? depositApiSourceOptions : []
   const depositApiOptions = depositApiSources.map(({ asset }) => ({
     chainId: asset.chain_id,
     denom: asset.denom,
