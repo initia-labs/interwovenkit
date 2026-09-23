@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { BridgeStatusConflictError } from "../data/bridges"
+import { BridgeStatusError } from "../data/bridges"
+import { SRC_TX_HASH } from "../data/testing"
 import type { BridgeStatusState } from "../data/types"
 import {
   type DepositProgressInputs,
@@ -10,11 +11,11 @@ import {
   trackedSourceHash,
 } from "./depositProgressLogic"
 import type { DepositSession, DepositSessionPhase } from "./depositSession"
-import { buildDepositSession, REPLACEMENT_HASH, SENDER, SOURCE_HASH } from "./testing"
+import { buildDepositSession, REPLACEMENT_HASH } from "./testing"
 
 /** A broadcast transfer: the state every stage below starts from. */
 const session = (overrides: Partial<DepositSession> = {}): DepositSession =>
-  buildDepositSession({ phase: "source_sent", currentSourceHash: SOURCE_HASH, ...overrides })
+  buildDepositSession({ phase: "source_sent", currentSourceHash: SRC_TX_HASH, ...overrides })
 
 const inputs = (overrides: Partial<DepositProgressInputs> = {}): DepositProgressInputs => ({
   source: { isError: false },
@@ -28,7 +29,7 @@ const inputs = (overrides: Partial<DepositProgressInputs> = {}): DepositProgress
 const confirmedSource = {
   source: {
     isError: false,
-    outcome: { status: "confirmed" as const, hash: SOURCE_HASH, blockNumber: 10 },
+    outcome: { status: "confirmed" as const, hash: SRC_TX_HASH, blockNumber: 10 },
   },
 }
 
@@ -36,17 +37,9 @@ describe("trackedSourceHash", () => {
   it("prefers the current hash so a repriced replacement supersedes the original", () => {
     expect(
       trackedSourceHash(
-        session({ currentSourceHash: REPLACEMENT_HASH, originalSourceHash: SOURCE_HASH }),
+        session({ currentSourceHash: REPLACEMENT_HASH, originalSourceHash: SRC_TX_HASH }),
       ),
     ).toBe(REPLACEMENT_HASH)
-  })
-
-  it("falls back to the wallet response before the first session write lands", () => {
-    expect(
-      trackedSourceHash(
-        session({ currentSourceHash: undefined, submitted: { hash: SOURCE_HASH, from: SENDER } }),
-      ),
-    ).toBe(SOURCE_HASH)
   })
 
   it("is empty when nothing was ever returned", () => {
@@ -59,14 +52,12 @@ describe("isResumableDepositSession", () => {
     expect(isResumableDepositSession(session({ phase: "prepared" }))).toBe(false)
   })
 
-  it.each<DepositSessionPhase>([
-    "send_prompt",
-    "submission_unknown",
-    "source_sent",
-    "deposit_indexed",
-  ])("offers %s, where a send may already have happened", (phase) => {
-    expect(isResumableDepositSession(session({ phase }))).toBe(true)
-  })
+  it.each<DepositSessionPhase>(["send_prompt", "submission_unknown", "source_sent"])(
+    "offers %s, where a send may already have happened",
+    (phase) => {
+      expect(isResumableDepositSession(session({ phase }))).toBe(true)
+    },
+  )
 
   it("excludes terminal sessions", () => {
     expect(isResumableDepositSession(session({ phase: "terminal" }))).toBe(false)
@@ -133,7 +124,6 @@ describe("resumeStageLabel", () => {
     expect(resumeStageLabel(session({ phase: "submission_unknown" }))).toBe(
       "Checking your transaction",
     )
-    expect(resumeStageLabel(session({ phase: "deposit_indexed" }))).toBe("Delivering")
     expect(resumeStageLabel(session({ phase: "source_sent" }))).toBe("Source transaction pending")
     expect(resumeStageLabel(session({ lastState: "tracking_conflict" }))).toBe(
       "Source transaction pending",
@@ -206,7 +196,7 @@ describe("deriveDepositProgress: source stage", () => {
           outcome: {
             status: "replaced",
             hash: REPLACEMENT_HASH,
-            originalHash: SOURCE_HASH,
+            originalHash: SRC_TX_HASH,
             reason: "repriced",
           },
         },
@@ -219,7 +209,7 @@ describe("deriveDepositProgress: source stage", () => {
 
   it("persisted replacement lineage survives the reload that loses the outcome", () => {
     const view = deriveDepositProgress(
-      session({ originalSourceHash: SOURCE_HASH, currentSourceHash: REPLACEMENT_HASH }),
+      session({ originalSourceHash: SRC_TX_HASH, currentSourceHash: REPLACEMENT_HASH }),
       inputs(),
     )
     expect(view.variant).toBe("in-flight")
@@ -235,7 +225,7 @@ describe("deriveDepositProgress: source stage", () => {
           outcome: {
             status: "replaced",
             hash: REPLACEMENT_HASH,
-            originalHash: SOURCE_HASH,
+            originalHash: SRC_TX_HASH,
             reason: "cancelled",
           },
         },
@@ -253,7 +243,7 @@ describe("deriveDepositProgress: source stage", () => {
     const view = deriveDepositProgress(
       session(),
       inputs({
-        source: { isError: false, outcome: { status: "reverted", hash: SOURCE_HASH } },
+        source: { isError: false, outcome: { status: "reverted", hash: SRC_TX_HASH } },
       }),
     )
     expect(view.variant).toBe("failed")
@@ -269,7 +259,7 @@ describe("deriveDepositProgress: source stage", () => {
           outcome: {
             status: "replaced",
             hash: REPLACEMENT_HASH,
-            originalHash: SOURCE_HASH,
+            originalHash: SRC_TX_HASH,
             reason: "replaced",
           },
         },
@@ -346,7 +336,7 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
   it("upstream_conflict is a hard recovery state with automatic reads stopped", () => {
     const view = bridgeView({
       state: "bridge_pending",
-      error: new BridgeStatusConflictError("upstream_conflict", "evidence disagrees"),
+      error: new BridgeStatusError("upstream_conflict", "evidence disagrees"),
     })
     expect(view.stage).toBe("none")
     expect(view.variant).toBe("problem")
@@ -364,7 +354,7 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
     expect(
       bridgeView({
         state: "bridge_pending",
-        error: new BridgeStatusConflictError("upstream_unavailable", "down"),
+        error: new BridgeStatusError("upstream_unavailable", "down"),
       }).isRetrying,
     ).toBe(true)
   })
@@ -414,7 +404,7 @@ describe("deriveDepositProgress: direct Ethereum correlation", () => {
 })
 
 describe("deriveDepositProgress: deposit id stage", () => {
-  const tracked = session({ depositId: "deposit-1", phase: "deposit_indexed" })
+  const tracked = session({ depositId: "deposit-1" })
   const depositView = (deposit: Partial<DepositProgressInputs["deposit"]>) =>
     deriveDepositProgress(
       tracked,

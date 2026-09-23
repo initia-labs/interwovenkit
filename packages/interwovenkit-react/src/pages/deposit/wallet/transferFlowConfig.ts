@@ -6,7 +6,6 @@ export type TransferPage =
   | "select-local"
   | "select-external"
   | "fields"
-  // Deposit API pages; unreachable for Router pairs and Withdraw.
   | "select-route"
   | "deposit-progress"
   | "completed"
@@ -18,7 +17,6 @@ export interface TransferFormValues {
   srcChainId: string
   dstDenom: string
   dstChainId: string
-  /** LI.FI bridge key picked on select-route; "" keeps the ranked default. */
   selectedBridge: string
   depositSessionId: string
   // TX completion data

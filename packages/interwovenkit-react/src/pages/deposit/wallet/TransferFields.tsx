@@ -7,7 +7,6 @@ import { formatAmount, fromBaseUnit } from "@initia/utils"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
-import FormHelp from "@/components/form/FormHelp"
 import QuantityInput from "@/components/form/QuantityInput"
 import { parseQuantity } from "@/lib/amountValidation"
 import { formatValueWithPrice } from "@/lib/format"
@@ -119,14 +118,10 @@ const TransferFields = () => {
   const localAsset = useLocalTransferAsset()
   const externalAsset = useExternalTransferAsset()
 
-  // The transport is decided before any Router status is read, so a deliberately
-  // disabled Router query cannot leave the Deposit API branch on "Fetching route...".
   const { resolution, retryCatalog, isCatalogFetching } = useDepositTransportResolution()
   const isRouterTransport = resolution.transport === "router"
   const isDepositApiTransport = resolution.transport === "direct" || resolution.transport === "lifi"
 
-  // The source-chain-pinned read is the single authority for a Deposit API pair's
-  // balance, MAX and amount gate; Skip's aggregate snapshot is never shown here.
   const pinnedBalances = usePinnedSourceBalances({
     chainId: isDepositApiTransport ? srcChainId : "",
     owner: hexAddress,
@@ -228,7 +223,6 @@ const TransferFields = () => {
     error: routeError,
     dataUpdatedAt: routeUpdatedAt,
   } = useRouteQuery(debouncedQuantity, {
-    // A Deposit API pair owns its own execution path; the Router query must not run.
     disabled: isRouteQueryDisabled || !isRouterTransport,
   })
 
@@ -258,8 +252,7 @@ const TransferFields = () => {
   // Depend on the specific primitives that can change the derived location state
   // without depending on the full `state` object, which would loop after navigate().
   useIsomorphicLayoutEffect(() => {
-    // Router-only: writing an undefined route here would clear the Router preview
-    // the flow may come back to.
+    // Writing an undefined route here would clear the Router preview the flow may return to.
     if (!isRouterTransport) return
 
     const nextState = buildTransferLocationState({
@@ -432,31 +425,12 @@ const TransferFields = () => {
       {isRouterTransport && (chainsError || balancesError) && (
         <DepositStatus error>Failed to load balances</DepositStatus>
       )}
-      {isDepositApiTransport ? (
-        <DepositTransferFooter resolution={resolution} />
-      ) : resolution.transport === "unavailable" ? (
-        /* A catalog outage makes this pair temporarily unusable rather than
-           silently handing it to Router with different fees and minimums. */
-        <Footer
-          extra={
-            resolution.reason === "error" && (
-              <FormHelp level="error">Deposit API unavailable</FormHelp>
-            )
-          }
-        >
-          {resolution.reason === "error" ? (
-            <Button.White
-              type="button"
-              onClick={() => void retryCatalog()}
-              loading={isCatalogFetching && "Retrying..."}
-              fullWidth
-            >
-              Retry
-            </Button.White>
-          ) : (
-            <Button.White loading="Loading..." disabled fullWidth />
-          )}
-        </Footer>
+      {!isRouterTransport ? (
+        <DepositTransferFooter
+          resolution={resolution}
+          onRetry={() => void retryCatalog()}
+          isRetrying={isCatalogFetching}
+        />
       ) : !canRenderPreviewFooter ? (
         <Footer>
           <Button.White

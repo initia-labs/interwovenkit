@@ -1,16 +1,11 @@
-// Fixtures shared by the Deposit API data tests, so one test's idea of a
-// well-formed deposit (or of a ky failure) cannot drift from another's.
-
 import type { KyInstance } from "ky"
 import { HTTPError, type NormalizedOptions } from "ky"
-import type { BridgeOption, Deposit } from "./types"
+import type { SkipToken } from "@tanstack/react-query"
+import { ETHEREUM_USDC_DENOM } from "./source"
+import type { Deposit } from "./types"
 
-/** Canonical Ethereum USDC: the asset every route finally delivers. */
-export const ETHEREUM_USDC = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 export const DEPOSIT_ADDRESS = "0xAbCd000000000000000000000000000000000001"
-/** Final credited wallet, init bech32. */
 export const RECIPIENT = "init1recipient"
-/** The source-chain transaction the user signs. */
 export const SRC_TX_HASH = `0x${"a".repeat(64)}`
 /** The Ethereum leg: a bridge's destination transaction, and the deposit's own `src_tx_hash`. */
 export const DST_TX_HASH = `0x${"b".repeat(64)}`
@@ -28,7 +23,7 @@ export const httpError = (status: number, body?: object, headers?: Record<string
 
 export interface Call {
   url: string
-  options?: { json?: unknown; searchParams?: Record<string, string> }
+  options?: { json?: unknown; searchParams?: Record<string, string>; retry?: number }
 }
 
 /** A ky stand-in: every verb records its call and answers `result`, rejecting when it is an Error. */
@@ -43,13 +38,20 @@ export function stubApi(result: unknown) {
   return { api: { get: respond, post: respond } as unknown as KyInstance, calls }
 }
 
-/** A complete wire deposit; override only the fields under test. */
+export function runQueryFn<T>(options: {
+  queryFn?: ((context: never) => T | Promise<T>) | SkipToken
+}): Promise<T> {
+  const { queryFn } = options
+  if (typeof queryFn !== "function") throw new Error("queryFn must be a function")
+  return Promise.resolve(queryFn({} as never))
+}
+
 export const deposit = (overrides: Partial<Deposit> = {}): Deposit => ({
   id: "d1",
   src_chain_id: "1",
   src_tx_hash: SRC_TX_HASH,
   src_log_index: 0,
-  src_denom: ETHEREUM_USDC,
+  src_denom: ETHEREUM_USDC_DENOM,
   amount: "5000000",
   deposit_address: DEPOSIT_ADDRESS,
   wallet_address: RECIPIENT,
@@ -65,14 +67,5 @@ export const deposit = (overrides: Partial<Deposit> = {}): Deposit => ({
   updated_at: "",
   bot_tx_hash: "",
   bot_tx_explorer_url: "",
-  ...overrides,
-})
-
-/** A parsed, eligible route. Gas is priced so ranking always has a net value to compare. */
-export const option = (overrides: Partial<BridgeOption> & { bridge: string }): BridgeOption => ({
-  amount_out: "1000",
-  min_received: "1000",
-  eligible: true,
-  gas_cost_usd: "0",
   ...overrides,
 })

@@ -2,6 +2,7 @@ import ky from "ky"
 import { useMemo } from "react"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { useConfig } from "@/data/config"
+import type { BridgeRequestIdentity } from "./types"
 
 export const depositQueryKeys = createQueryKeys("interwovenkit:deposit", {
   assets: null,
@@ -29,8 +30,7 @@ export const depositQueryKeys = createQueryKeys("interwovenkit:deposit", {
     amount,
     paymentMethod,
   ],
-  // Deposit API pre-quote (GET /v1/quote) for the Buy form's "Minimum
-  // received" (amountIn in source base units).
+  // Deposit API pre-quote (GET /v1/quote), amountIn in source base units.
   minReceived: (
     srcChainId: string,
     srcDenom: string,
@@ -38,52 +38,22 @@ export const depositQueryKeys = createQueryKeys("interwovenkit:deposit", {
     dstDenom: string,
     amountIn: string,
   ) => [srcChainId, srcDenom, dstChainId, dstDenom, amountIn],
-  // Every field the request is bound to is in the key: a changed sender,
-  // recipient or amount must miss the cache rather than reuse a transaction
-  // built for the previous identity.
-  bridgeOptions: (
-    srcChainId: string,
-    srcDenom: string,
-    dstChainId: string,
-    dstDenom: string,
-    amount: string,
-    fromAddress: string,
-    walletAddress: string,
-  ) => [srcChainId, srcDenom, dstChainId, dstDenom, amount, fromAddress, walletAddress],
-  bridgeQuote: (
-    srcChainId: string,
-    srcDenom: string,
-    dstChainId: string,
-    dstDenom: string,
-    amount: string,
-    fromAddress: string,
-    walletAddress: string,
-    bridge: string,
-    depositAddress: string,
-  ) => [
-    srcChainId,
-    srcDenom,
-    dstChainId,
-    dstDenom,
-    amount,
-    fromAddress,
-    walletAddress,
+  // Keyed by the whole retained request, so a changed sender, recipient or amount misses the cache.
+  bridgeOptions: (identity: BridgeRequestIdentity) => [identity],
+  bridgeQuote: (identity: BridgeRequestIdentity, bridge: string, depositAddress: string) => [
+    identity,
     bridge,
     depositAddress,
   ],
-  // Keyed without the tool: the `bridge` hint is omitted from the request
-  // (a mismatched hint answers 502 upstream_conflict, see bridges.ts).
   bridgeStatus: (srcChainId: string, srcTxHash: string, depositAddress: string) => [
     srcChainId,
     srcTxHash,
     depositAddress,
   ],
   depositBySourceTx: (srcChainId: string, srcTxHash: string) => [srcChainId, srcTxHash],
-  // Keyed by chain so a wallet network switch cannot serve another chain's
-  // balance (see wallet/evmRpc.ts).
+  // Keyed by chain so a wallet network switch cannot serve another chain's balance.
   sourceBalances: (chainId: string, owner: string, token: string) => [chainId, owner, token],
-  sourceBlock: (chainId: string) => [chainId],
-  maxFeePerGas: (chainId: string) => [chainId],
+  sourceHead: (chainId: string) => [chainId],
   allowance: (chainId: string, owner: string, token: string, spender: string) => [
     chainId,
     owner,

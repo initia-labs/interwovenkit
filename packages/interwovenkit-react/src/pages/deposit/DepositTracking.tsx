@@ -28,12 +28,11 @@ import styles from "./DepositTracking.module.css"
 
 import type { ReactNode } from "react"
 
-// Per-stage stall budget, shared with the wallet flow's DepositProgress: the pipeline
-// spans several statuses (~5 min end-to-end), so each gets its own minute before the
-// "taking a little longer" reassurance replaces the normal status copy.
+// Per-status stall budget: the pipeline spans several statuses (~5 min
+// end-to-end), so each gets its own minute before the "taking a little longer"
+// reassurance replaces the normal status copy.
 export const TAKING_LONGER_DELAY = 60 * 1000
 
-// Selects the icon and the status color; the copy is entirely the controller's.
 export type DepositTrackingVariant =
   | "in-flight"
   | "completed"
@@ -44,22 +43,16 @@ export type DepositTrackingVariant =
 interface DepositTrackingViewProps {
   title: string
   variant: DepositTrackingVariant
-  /** On an in-flight screen this is the stall reassurance; elsewhere the outcome heading. */
   heading?: string
-  /** Omitted renders no status block, for transient frames that have nothing to say yet. */
   message?: ReactNode
   chips?: ReactNode
   explorerUrl?: string
   onHistoryClick?: () => void
   footer?: ReactNode
   isRetrying?: boolean
-  /** Extra body content between the chips and the links. */
-  extra?: ReactNode
 }
 
-// Shared body for both tracking controllers: the address/onramp tracker below and
-// the wallet flow's DepositProgress, which reports on stages that exist before any
-// Deposit record has been discovered.
+// Shared by the address/onramp tracker below and the wallet flow's DepositProgress.
 export const DepositTrackingView = ({
   title,
   variant,
@@ -70,10 +63,7 @@ export const DepositTrackingView = ({
   onHistoryClick,
   footer,
   isRetrying,
-  extra,
 }: DepositTrackingViewProps) => {
-  // Completion is the only green outcome; every other terminal screen shares the
-  // error treatment.
   const isError = variant !== "in-flight" && variant !== "completed"
 
   return (
@@ -100,7 +90,6 @@ export const DepositTrackingView = ({
         )}
 
         {chips}
-        {extra}
 
         <ExplorerLinks explorerUrl={explorerUrl} onHistoryClick={onHistoryClick} />
 
@@ -294,7 +283,6 @@ const DepositTracking = () => {
         return "Amount below minimum"
       case "waiting":
       case "processing":
-        // The only in-flight heading is the stall reassurance.
         return isDelayed ? "This is taking a little longer" : undefined
       case "completed":
         return undefined
@@ -383,8 +371,7 @@ const DepositTracking = () => {
     return null
   }
 
-  // A hard error replaces the whole body: the bucket it was derived from is not
-  // trustworthy, so neither the chips nor the explorer links may ride along.
+  // A hard error's bucket is untrustworthy, so no chips or explorer links ride along.
   const isInFlight = !isHardError && (bucket === "waiting" || bucket === "processing")
   const isCompleted = !isHardError && bucket === "completed"
   const hasExplorerLink = isCompleted || (!isHardError && bucket === "failed")

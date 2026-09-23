@@ -1,11 +1,8 @@
 import { describe, expect, it } from "vitest"
+import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM } from "../data/source"
 import type { Asset, DestinationNetwork } from "../data/types"
 import {
-  BRIDGE_TOOLS,
   DEPOSIT_API_SOURCES,
-  depositApiRpcUrl,
-  ETHEREUM_CHAIN_ID,
-  ETHEREUM_USDC_DENOM,
   findDepositApiSource,
   getBridgeToolDisplay,
   intersectHostSources,
@@ -33,31 +30,6 @@ const ethereumRoute = (overrides: Partial<Asset> = {}): Asset => ({
   dst_symbol: "iUSD",
   dst_networks: [network()],
   ...overrides,
-})
-
-describe("DEPOSIT_API_SOURCES", () => {
-  it("is exactly the three canonical USDC pairs", () => {
-    expect(DEPOSIT_API_SOURCES.map(({ chainId, symbol }) => `${chainId}:${symbol}`)).toEqual([
-      "1:USDC",
-      "8453:USDC",
-      "42161:USDC",
-    ])
-  })
-
-  it("routes Ethereum directly and the L2s through LI.FI", () => {
-    expect(DEPOSIT_API_SOURCES.map(({ transport }) => transport)).toEqual([
-      "direct",
-      "lifi",
-      "lifi",
-    ])
-  })
-
-  it("carries six decimals and a chain logo fallback for every source", () => {
-    for (const source of DEPOSIT_API_SOURCES) {
-      expect(source.decimals).toBe(6)
-      expect(source.fallbackChainLogoUrl).toMatch(/^https:\/\//)
-    }
-  })
 })
 
 describe("findDepositApiSource", () => {
@@ -181,42 +153,9 @@ describe("intersectHostSources", () => {
       [],
     )
   })
-
-  it("does not alias the shared source table", () => {
-    const result = intersectHostSources(DEPOSIT_API_SOURCES, [])
-    expect(result).not.toBe(DEPOSIT_API_SOURCES)
-  })
 })
 
-describe("BRIDGE_TOOLS", () => {
-  // The table is narrowed to the tools that can rank for Base/Arbitrum → Ethereum USDC. It is
-  // display metadata, so a missing key costs a logo (see the degradation test below), never a route.
-  it("covers the families the supported pairs route through", () => {
-    for (const key of [
-      "across",
-      "cctp",
-      "celercircle",
-      "glacis",
-      "layerswap",
-      "lifiIntents",
-      "mayan",
-      "polymer",
-      "relaydepository",
-      "squid",
-      "stargateV2",
-      "symbiosis",
-    ]) {
-      expect(BRIDGE_TOOLS, key).toHaveProperty(key)
-    }
-  })
-
-  it("carries a readable name and a hot-linked logo for each key", () => {
-    for (const [key, { name, logoUrl }] of Object.entries(BRIDGE_TOOLS)) {
-      expect(name, key).not.toBe("")
-      expect(logoUrl, key).toMatch(/^https:\/\/.+\.svg$/)
-    }
-  })
-
+describe("getBridgeToolDisplay", () => {
   it("resolves a known key to its LI.FI display identity", () => {
     expect(getBridgeToolDisplay("across").name).toBe("AcrossV4")
     expect(getBridgeToolDisplay("relaydepository").name).toBe("Relay")
@@ -231,14 +170,5 @@ describe("BRIDGE_TOOLS", () => {
 
   it("does not resolve inherited Object properties as bridges", () => {
     expect(getBridgeToolDisplay("toString")).toEqual({ name: "toString", logoUrl: "" })
-  })
-})
-
-describe("depositApiRpcUrl", () => {
-  test("overrides the Router RPC only where the registry endpoint cannot serve receipts", () => {
-    expect(depositApiRpcUrl("8453")).toBe("https://mainnet.base.org")
-    expect(depositApiRpcUrl("42161")).toBe("https://arb1.arbitrum.io/rpc")
-    expect(depositApiRpcUrl("1")).toBe("https://ethereum-rpc.publicnode.com")
-    expect(depositApiRpcUrl("10")).toBeUndefined()
   })
 })

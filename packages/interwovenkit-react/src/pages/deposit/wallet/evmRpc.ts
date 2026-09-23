@@ -12,32 +12,17 @@ import { depositQueryKeys } from "../data/api"
 import { eqAddress } from "../data/parse"
 import { depositApiRpcUrl } from "./depositSources"
 
-// One provider per source chain for the tab's lifetime. ethers keeps a polling loop alive once
-// `wait()` subscribed to blocks, so a per-mount provider would need tearing down — and
-// StrictMode's mount → cleanup → mount would leave a destroyed one behind, rejecting every read.
+const SOURCE_READ_REFRESH_MS = 15_000
+
+// One per chain for the tab's lifetime: ethers keeps a polling loop alive once `wait()` subscribed.
 const pinnedProviders = new Map<string, JsonRpcProvider>()
 
-/**
- * Pinned to one source chain: the wallet's provider follows whatever network the user switches
- * to, so a receipt read through it can come from the wrong chain while a transfer is in flight.
- * `staticNetwork` stops ethers from silently re-detecting and reintroducing that drift.
- *
- * Only Deposit API sources are readable here, and every one of them carries its own endpoint
- * (`DepositApiSource.rpcUrl`) — never the Router registry, whose Base and Arbitrum entries
- * refuse `eth_getTransactionReceipt`.
- */
+// Never the wallet's provider, which follows whatever network the user switches to.
 export function getPinnedProvider(chainId: string): JsonRpcProvider {
-  const provider = findPinnedProvider(chainId)
-  if (!provider) throw new Error(`Chain ${chainId} is not a Deposit API source`)
-  return provider
-}
-
-/** Null for a chain outside the catalog: a stored record may name a source that was since delisted. */
-export function findPinnedProvider(chainId: string): JsonRpcProvider | null {
   const existing = pinnedProviders.get(chainId)
   if (existing) return existing
   const rpcUrl = depositApiRpcUrl(chainId)
-  if (!rpcUrl) return null
+  if (!rpcUrl) throw new Error(`Chain ${chainId} has no pinned RPC`)
   const provider = new JsonRpcProvider(rpcUrl, Number(chainId), { staticNetwork: true })
   pinnedProviders.set(chainId, provider)
   return provider
@@ -50,8 +35,7 @@ const ERC20 = new Interface([
   "function approve(address spender, uint256 amount) returns (bool)",
 ])
 
-// An empty response means the address holds no contract (wrong chain, wrong token). Decoding it
-// would yield zero, which reads as "approval needed" or "insufficient funds" — guesses about money.
+// An empty response means no contract at that address; decoding it would read as zero.
 async function readErc20Uint(
   provider: JsonRpcProvider,
   token: string,
@@ -66,7 +50,6 @@ async function readErc20Uint(
   return (value as bigint).toString()
 }
 
-/** Token and native balances in base units. Decimal strings, never JavaScript numbers. */
 interface SourceBalances {
   token: string
   native: string
@@ -92,11 +75,9 @@ export async function readAllowance(
   return readErc20Uint(provider, token, "allowance", [owner, spender])
 }
 
-// ethers rejects a mixed-case address whose EIP-55 checksum does not match, but accepts
-// all-lowercase. The API validates issued addresses by shape only, so lowercase before encoding.
+// ethers rejects a mixed-case address with a bad EIP-55 checksum; the API checks shape only.
 const addressArg = (address: string) => address.toLowerCase()
 
-/** `transfer(to, amount)` calldata; a non-integer `amount` throws rather than truncating. */
 export function encodeErc20Transfer(to: string, amount: string): string {
   return ERC20.encodeFunctionData("transfer", [addressArg(to), BigInt(amount)])
 }
@@ -105,9 +86,14 @@ export function encodeErc20Approve(spender: string, amount: string): string {
   return ERC20.encodeFunctionData("approve", [addressArg(spender), BigInt(amount)])
 }
 
-export async function readMaxFeePerGas(provider: JsonRpcProvider): Promise<string | undefined> {
-  const { maxFeePerGas, gasPrice } = await provider.getFeeData()
-  return (maxFeePerGas ?? gasPrice)?.toString()
+// Only a successful receipt counts; the allowance re-read still decides whether another approval is needed.
+export async function waitForApproval(
+  provider: Pick<JsonRpcProvider, "waitForTransaction">,
+  hash: string,
+  timeoutMs: number,
+): Promise<void> {
+  const receipt = await provider.waitForTransaction(hash, 1, timeoutMs)
+  if (receipt?.status !== 1) throw new Error("The USDC approval did not go through")
 }
 
 export type SourceTxOutcome =
@@ -120,7 +106,7 @@ export type SourceTxOutcome =
       reason: "repriced" | "cancelled" | "replaced"
     }
   | { status: "reverted"; hash: string }
-  /** The watch window elapsed without a decision. Not a failure: the caller keeps waiting. */
+  /** The watch window elapsed without a decision; the caller keeps waiting. */
   | { status: "pending" }
 
 interface WatchSourceTransactionParams {
@@ -131,13 +117,10 @@ interface WatchSourceTransactionParams {
   data: string
   value: string
   chainId: string
-  /** Source-pinned block captured before the prompt. */
   startBlock: number
   timeoutMs: number
 }
 
-// ethers reports `to` as null for a contract creation, and an absent address must never
-// compare equal to another absent one.
 function sameAddress(a: string | null | undefined, b: string | null | undefined): boolean {
   return !!a && !!b && eqAddress(a, b)
 }
@@ -150,10 +133,7 @@ function toBigIntOrNull(value: string): bigint | null {
   }
 }
 
-// ethers computes its own `reason` but never checks the chain and compares `to`/`data` by exact
-// string, so a repriced transaction is only adopted after this check against what we persisted
-// before signing. `chainId` is compared only when the node reported one: some backends omit it
-// on legacy transactions, and the provider is already pinned to the source chain.
+// ethers' own `reason` never checks the chain and compares `to`/`data` by exact string.
 function isEquivalentPayload(
   replacement: TransactionResponse,
   params: WatchSourceTransactionParams,
@@ -169,7 +149,6 @@ function isEquivalentPayload(
   return true
 }
 
-/** A self-send of zero value with no calldata: the wallet's "cancel" transaction, mined at our nonce. */
 function isSelfCancellation(replacement: TransactionResponse): boolean {
   return (
     replacement.data === "0x" &&
@@ -195,8 +174,7 @@ function fromReceipt(receipt: TransactionReceipt): SourceTxOutcome {
 
 const isBlockNumber = (value: number) => Number.isInteger(value) && value >= 0
 
-// Rebuilds the response we lost so ethers' replacement scan can still run: `wait()` reads only
-// hash, from, nonce, to, data, value and chain id, plus a start block. The rest is placeholder.
+// `wait()` reads only hash, from, nonce, to, data, value and chain id; the rest is placeholder.
 function reconstructTransactionResponse(
   provider: JsonRpcProvider,
   params: WatchSourceTransactionParams,
@@ -208,7 +186,7 @@ function reconstructTransactionResponse(
       hash: params.hash,
       index: 0,
       type: 0,
-      // ethers compares the scanned block's addresses to these by exact string, and formatted responses are checksummed.
+      // ethers compares these to checksummed addresses by exact string.
       to: getAddress(params.to.toLowerCase()),
       from: getAddress(params.from.toLowerCase()),
       nonce: params.nonce,
@@ -229,10 +207,7 @@ function reconstructTransactionResponse(
   )
 }
 
-// Replacement detection is ethers' own: `replaceableTransaction(startBlock)` arms the
-// nonce-advance check inside `wait()`, which plain receipt polling cannot see.
-// Every ambiguous outcome resolves to `pending` — no gap in our evidence proves a transfer was
-// not broadcast, and `cancelled` is reported only for a mined cancellation at this exact nonce.
+// Every ambiguous outcome is `pending`: no gap in the evidence proves a transfer was not broadcast.
 export async function watchSourceTransaction(
   provider: JsonRpcProvider,
   params: WatchSourceTransactionParams,
@@ -244,7 +219,7 @@ export async function watchSourceTransaction(
     return receipt ? fromReceipt(receipt) : { status: "pending" }
   }
 
-  // A dropped transaction does not come back at all; then the persisted intent is the only thing left to scan with.
+  // A dropped transaction is not returned at all; the persisted intent is then all there is to scan with.
   const known = await provider.getTransaction(hash)
   const response = known ?? reconstructTransactionResponse(provider, params)
 
@@ -261,7 +236,6 @@ export async function watchSourceTransaction(
         reason: classifyReplacement(replacement, params),
       }
     }
-    // ethers turns a status-0 receipt into CALL_EXCEPTION and carries the receipt.
     if (isError(error, "CALL_EXCEPTION") && error.receipt) {
       return { status: "reverted", hash: error.receipt.hash }
     }
@@ -270,12 +244,6 @@ export async function watchSourceTransaction(
   }
 }
 
-// A plain lookup, stable across renders without memoization and with nothing to clean up.
-export function useSourceChainProvider(chainId: string): JsonRpcProvider {
-  return getPinnedProvider(chainId)
-}
-
-/** Token and native balances from the source chain itself, not from the aggregated balance service. */
 export function usePinnedSourceBalances(params: {
   chainId: string
   owner: string
@@ -283,13 +251,30 @@ export function usePinnedSourceBalances(params: {
   enabled: boolean
 }) {
   const { chainId, owner, token, enabled } = params
-  // Callers disable this by passing an empty chain id, so the provider is resolved inside the
-  // query function rather than during render, where an unknown chain would throw.
   return useQuery({
     queryKey: depositQueryKeys.sourceBalances(chainId, owner, token).queryKey,
     queryFn: () => readSourceBalances(getPinnedProvider(chainId), { owner, token }),
-    enabled: enabled && !!depositApiRpcUrl(chainId) && !!owner && !!token,
+    enabled: enabled && !!owner && !!depositApiRpcUrl(chainId),
     staleTime: 10_000,
-    refetchInterval: 15_000,
+    refetchInterval: SOURCE_READ_REFRESH_MS,
+  })
+}
+
+/** The head block (lower bound for the replacement scan) and the priced gas for the fee gate. */
+export function useSourceChainHead(chainId: string) {
+  return useQuery({
+    queryKey: depositQueryKeys.sourceHead(chainId).queryKey,
+    queryFn: async () => {
+      const provider = getPinnedProvider(chainId)
+      const [block, feeData] = await Promise.all([
+        provider.getBlockNumber(),
+        // A missing fee only narrows the gate to the call's own value.
+        provider.getFeeData().catch(() => undefined),
+      ])
+      const maxFeePerGas = feeData?.maxFeePerGas ?? feeData?.gasPrice
+      return { block, maxFeePerGas: maxFeePerGas?.toString() }
+    },
+    staleTime: SOURCE_READ_REFRESH_MS,
+    refetchInterval: SOURCE_READ_REFRESH_MS,
   })
 }

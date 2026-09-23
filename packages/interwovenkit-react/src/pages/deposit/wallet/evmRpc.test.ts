@@ -6,10 +6,11 @@ import {
   getPinnedProvider,
   readAllowance,
   readSourceBalances,
+  waitForApproval,
   watchSourceTransaction,
 } from "./evmRpc"
+import { SENDER } from "./testing"
 
-const SENDER = "0x4e3d1f2a6b5c8d9e0f1a2b3c4d5e6f7a8b9c0d1e"
 const BRIDGE = "0x2222222222222222222222222222222222222222"
 const OTHER = "0x3333333333333333333333333333333333333333"
 const TOKEN = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"
@@ -118,8 +119,8 @@ describe("getPinnedProvider", () => {
   })
 
   it("refuses a chain the Deposit API does not source from", () => {
-    expect(() => getPinnedProvider("10")).toThrow(/not a Deposit API source/)
-    expect(() => getPinnedProvider("")).toThrow(/not a Deposit API source/)
+    expect(() => getPinnedProvider("10")).toThrow(/has no pinned RPC/)
+    expect(() => getPinnedProvider("")).toThrow(/has no pinned RPC/)
   })
 })
 
@@ -173,6 +174,20 @@ describe("encodeErc20Approve", () => {
     expect(encodeErc20Approve("0x1111111111111111111111111111111111111111", "2500000")).toBe(
       "0x095ea7b3000000000000000000000000111111111111111111111111111111111111111100000000000000000000000000000000000000000000000000000000002625a0",
     )
+  })
+})
+
+describe("waitForApproval", () => {
+  const withReceipt = (receipt: { status: number } | null) =>
+    ({ waitForTransaction: async () => receipt }) as unknown as JsonRpcProvider
+
+  it("resolves only on a successful receipt", async () => {
+    await expect(waitForApproval(withReceipt({ status: 1 }), HASH, 10)).resolves.toBeUndefined()
+  })
+
+  it("throws on a reverted or missing receipt so the footer shows it", async () => {
+    await expect(waitForApproval(withReceipt({ status: 0 }), HASH, 10)).rejects.toThrow()
+    await expect(waitForApproval(withReceipt(null), HASH, 10)).rejects.toThrow()
   })
 })
 

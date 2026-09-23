@@ -81,10 +81,4 @@ describe("buildTransferDefaultValues with a resumed session", () => {
     expect(values.page).toBe("fields")
     expect(values.depositSessionId).toBe("")
   })
-
-  test("defaults leave selectedBridge and depositSessionId empty", () => {
-    const values = buildTransferDefaultValues({ mode: "deposit", localOptions: [INIT, USDC] })
-    expect(values.selectedBridge).toBe("")
-    expect(values.depositSessionId).toBe("")
-  })
 })

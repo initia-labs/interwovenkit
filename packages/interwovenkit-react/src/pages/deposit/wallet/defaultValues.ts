@@ -11,7 +11,6 @@ import {
  * or when the host provided a single local option — there is nothing to pick,
  * and showing the picker would only flash. Deposit then starts at
  * select-external (the source is still unknown); withdraw starts at fields.
- * A resumed session (`initialSessionId`) opens straight on its progress page.
  */
 export function buildTransferDefaultValues({
   mode,

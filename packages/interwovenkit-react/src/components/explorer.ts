@@ -31,7 +31,7 @@ export function buildExplorerUrl(
   return undefined
 }
 
-/** An explorer link taken from an API response: scheme-checked, then escaped. Empty in, undefined out, so a caller can pass it straight through. */
+/** Scheme-checks and escapes an explorer link from an API response. */
 export function safeExplorerUrl(href: string | undefined): string | undefined {
   return href ? xss(sanitizeLink(href)) : undefined
 }

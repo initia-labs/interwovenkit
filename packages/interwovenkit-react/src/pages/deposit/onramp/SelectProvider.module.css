@@ -13,28 +13,34 @@
   padding: 0 20px 8px;
 }
 
-/* The picker typography shared with wallet/SelectDepositRoute is composed from
-   DepositSubpage.module.css; only this picker's own layout lives here. */
 .left {
+  flex: 1;
+
   display: flex;
   align-items: center;
   gap: 10px;
 
-  composes: pickerIdentity from "../DepositSubpage.module.css";
+  min-width: 0;
 }
 
 .name {
-  composes: pickerName from "../DepositSubpage.module.css";
+  font-size: 14px;
+  font-weight: 600;
 }
 
-/* The only badge this screen shows: the best payout on offer. */
 .badge {
-  background-color: var(--success-bg);
+  flex: none;
 
   border-radius: 6px;
-  color: var(--success);
-  composes: pickerBadge from "../DepositSubpage.module.css";
+  font-size: 11px;
+  font-weight: 600;
   padding: 2px 6px;
+  white-space: nowrap;
+}
+
+.badge-success {
+  background-color: var(--success-bg);
+  color: var(--success);
 }
 
 .right {
@@ -52,7 +58,7 @@
 
 .diff {
   color: var(--error);
-  composes: pickerMeta from "../DepositSubpage.module.css";
   font-family: var(--monospace);
+  font-size: 12px;
   font-weight: 500;
 }

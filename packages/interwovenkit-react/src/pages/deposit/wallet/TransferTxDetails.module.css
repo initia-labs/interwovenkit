@@ -15,19 +15,3 @@
   border: 1px solid var(--border);
   border-radius: 50%;
 }
-
-/* The provider value is the only entry to the route picker: it reads as pressable
- * while sitting on the same baseline as every other detail value. */
-.provider {
-  gap: 6px;
-
-  transition: color var(--transition) ease;
-}
-
-.provider:hover {
-  color: var(--gray-1);
-}
-
-.muted {
-  color: var(--gray-3);
-}

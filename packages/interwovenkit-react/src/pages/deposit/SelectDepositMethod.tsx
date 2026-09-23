@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { IconBuy, IconQrCode, IconWallet } from "@initia/icons-react"
 import { formatAmount, truncate } from "@initia/utils"
@@ -38,24 +38,24 @@ type CryptoAvailability =
  * `address`/`onramp` select the deposit method (see useSelectDepositMethod). */
 type HubMethodId = "wallet" | "address" | "onramp"
 
-// Saved-session rows share one list with the fixed methods, so their ids are namespaced:
-// the template literal keeps the three fixed ids exhaustively checked.
 type HubSelection = HubMethodId | `resume:${string}`
 
-/** Non-terminal deposits credited to the connected account, as list rows. */
 function useResumeSection(): DepositMethodSection<HubSelection> | undefined {
   const { depositApiUrl, registryUrl } = useConfig()
   const store = useDepositSessionStore()
+  const storedSessions = useMemo(
+    () => (depositApiUrl ? store.list(depositApiUrl) : []),
+    [store, depositApiUrl],
+  )
   const initiaAddress = useInitiaAddress()
   const { watch } = useDepositForm()
   const { remoteOptions = [], recipientAddress } = useLocationState<DepositLocationState>()
 
   if (!depositApiUrl || !initiaAddress) return undefined
-  // The same recipient rule the wallet flow applies, so a session is only offered
-  // inside a request it could have been created by.
+  // Only offer sessions this request could have created.
   const resolved = resolveDepositRecipient(recipientAddress, initiaAddress)
   if (!("recipient" in resolved)) return undefined
-  const sessions = selectResumableSessions(store.list(depositApiUrl), {
+  const sessions = selectResumableSessions(storedSessions, {
     recipient: resolved.recipient,
     dstChainId: watch("receiveChainId"),
     dstDenom: watch("receiveDenom"),
@@ -71,11 +71,11 @@ function useResumeSection(): DepositMethodSection<HubSelection> | undefined {
       subtext: resumeStageLabel(session),
       Icon: IconWallet,
       iconUrl: `${registryUrl}/images/${session.source.symbol}.png`,
+      chainIconUrl: session.source.chainLogoUrl,
     })),
   }
 }
 
-/** "5 USDC from Base" — the saved identity, never a live quote. */
 function resumeRowTitle(session: DepositSession): string {
   const { amount, decimals, symbol, chainName } = session.source
   return `${formatAmount(amount, { decimals })} ${symbol} from ${chainName}`
@@ -96,8 +96,7 @@ const MethodSections = ({ availability, onrampUnavailableReason }: MethodSection
   const { setValue } = useDepositForm()
   const hexAddress = useHexAddress()
   const walletIcon = useConnectedWalletIcon()
-  // Saved sessions are local state, not a Deposit API read, so they render in every
-  // availability state — a catalog outage must not hide a transfer already in flight.
+  // Local state, so a catalog outage never hides a transfer already in flight.
   const resumeSection = useResumeSection()
 
   // The Buy form suspends on the geo-defaults lookup; warming it here (the
@@ -125,8 +124,6 @@ const MethodSections = ({ availability, onrampUnavailableReason }: MethodSection
     (availability.status === "unavailable" ? availability.reason : undefined)
 
   const sections: DepositMethodSection<HubSelection>[] = [
-    // Above Crypto, but never in place of it: work in progress must not remove the
-    // ability to start a separate deposit.
     ...(resumeSection ? [resumeSection] : []),
     {
       label: "Crypto",
@@ -198,8 +195,6 @@ const MethodSections = ({ availability, onrampUnavailableReason }: MethodSection
             selectMethod(id)
             break
           default:
-            // Only an explicit tap resumes: the hub never navigates on its own,
-            // however urgent a pending transfer looks.
             setValue("resumeSessionId", id.slice("resume:".length))
             navigate("wallet")
         }
@@ -259,13 +254,11 @@ const SelectDepositMethod = () => {
   const queryClient = useQueryClient()
   const receiveSymbol = watch("receiveSymbol")
 
-  // Only long-settled terminal records are dropped; a non-terminal session is never
-  // removed, no matter how old, because age is not evidence that a transfer settled.
   useEffect(() => {
     try {
       pruneDepositSessions(localStorage, Date.now())
     } catch {
-      // Storage unavailable (private mode). Nothing downstream depends on pruning.
+      // Storage unavailable (private mode); pruning is best effort.
     }
   }, [])
 

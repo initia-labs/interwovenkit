@@ -1,37 +1,59 @@
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import FormHelp from "@/components/form/FormHelp"
+import { getBridgeConfirmLabel } from "@/pages/bridge/confirmLabel"
+import type { DepositTransportResolution } from "./depositSources"
 import DepositTransferTxDetails from "./DepositTransferTxDetails"
 import type { DepositTransportSelection } from "./useDepositTransfer"
 import { useDepositTransfer } from "./useDepositTransfer"
-import styles from "./DepositTransferFooter.module.css"
 
-// There is no separate review page, so the "review after refresh" gate lives on this button:
-// a stale quote is re-read inside the click, and only a materially changed one is shown again
-// before it can reach the wallet.
-const DepositTransferFooter = ({ resolution }: { resolution: DepositTransportSelection }) => {
+interface Props {
+  resolution: Exclude<DepositTransportResolution, { transport: "router" }>
+  onRetry: () => void
+  isRetrying: boolean
+}
+
+const DepositTransferFooter = ({ resolution, onRetry, isRetrying }: Props) => {
+  if (resolution.transport !== "unavailable") {
+    return <DepositTransferActions resolution={resolution} />
+  }
+
+  if (resolution.reason === "loading") {
+    return (
+      <Footer>
+        <Button.White loading="Loading..." disabled fullWidth />
+      </Footer>
+    )
+  }
+
+  return (
+    <Footer extra={<FormHelp level="error">Couldn&apos;t load deposit routes</FormHelp>}>
+      <Button.White type="button" onClick={onRetry} loading={isRetrying && "Retrying..."} fullWidth>
+        Retry
+      </Button.White>
+    </Footer>
+  )
+}
+
+const DepositTransferActions = ({ resolution }: { resolution: DepositTransportSelection }) => {
   const model = useDepositTransfer(resolution)
   const { approval, readiness, quoteUpdated } = model
 
-  const isApproving = approval.isApproving
   const isSending = model.isSubmitting
   const needsApproval = approval.required && !!approval.approve
-  const actionLabel = needsApproval ? "Approve USDC" : "Deposit"
-
-  // A blocked `info` reason is an input prompt, so it reads as the button's label.
+  // A blocked `info` reason is an input prompt, so it replaces the button label.
   const isPrompt = readiness.status === "blocked" && readiness.level === "info"
-  // While this footer's own send is pending, the button's sending state is the whole story.
   const errorMessage =
     !isSending && readiness.status === "blocked" && readiness.level !== "info"
       ? readiness.message
       : undefined
 
   const loadingText = isSending
-    ? "Sending deposit..."
-    : isApproving
-      ? "Approving USDC..."
+    ? "Signing transaction..."
+    : approval.isApproving
+      ? "Approving tokens..."
       : readiness.status === "loading"
-        ? readiness.message || "Preparing..."
+        ? readiness.message || "Loading..."
         : false
 
   return (
@@ -39,23 +61,18 @@ const DepositTransferFooter = ({ resolution }: { resolution: DepositTransportSel
       <DepositTransferTxDetails model={model} />
       <Footer
         extra={
-          // Sentences, not hashes: overrides the shared help style's break-all.
-          <div className={styles.prose}>
-            <FormHelp.Stack>
-              {errorMessage && (
-                <FormHelp level={readiness.level ?? "error"}>{errorMessage}</FormHelp>
-              )}
-              {model.submitError && <FormHelp level="error">{model.submitError}</FormHelp>}
-              {approval.error && <FormHelp level="error">{approval.error}</FormHelp>}
-              {quoteUpdated && (
-                <FormHelp level="info">Quote updated. Review and confirm again.</FormHelp>
-              )}
-            </FormHelp.Stack>
-          </div>
+          <FormHelp.Stack>
+            {errorMessage && <FormHelp level={readiness.level ?? "error"}>{errorMessage}</FormHelp>}
+            {model.submitError && <FormHelp level="error">{model.submitError}</FormHelp>}
+            {approval.error && <FormHelp level="error">{approval.error}</FormHelp>}
+            {quoteUpdated && (
+              <FormHelp level="info">Route updated. Please review and confirm again.</FormHelp>
+            )}
+          </FormHelp.Stack>
         }
       >
         {model.unknownSend && !isSending ? (
-          // Nothing may re-enter the wallet here; progress resolves the ambiguous send.
+          // An ambiguous send must never re-enter the wallet; only progress can resolve it.
           <Button.White type="button" onClick={model.openProgress} fullWidth>
             View progress
           </Button.White>
@@ -67,7 +84,11 @@ const DepositTransferFooter = ({ resolution }: { resolution: DepositTransportSel
             disabled={readiness.status !== "ready"}
             fullWidth
           >
-            {isPrompt ? readiness.message : actionLabel}
+            {isPrompt
+              ? readiness.message
+              : needsApproval
+                ? "Approve tokens"
+                : getBridgeConfirmLabel("Deposit", quoteUpdated)}
           </Button.White>
         )}
       </Footer>

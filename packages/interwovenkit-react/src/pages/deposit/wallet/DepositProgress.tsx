@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { whereEq } from "ramda"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import Button from "@/components/Button"
+import CopyButton from "@/components/CopyButton"
 import { safeExplorerUrl } from "@/components/explorer"
 import Footer from "@/components/Footer"
 import { useConfig } from "@/data/config"
 import { useDrawer, useModal } from "@/data/ui"
 import { useInitiaAddress } from "@/public/data/hooks"
 import { depositQueryKeys, useDepositApi } from "../data/api"
-import { normalizeDenom } from "../data/assetOptions"
 import { createDepositAssetsQueryOptions } from "../data/assets"
 import { createBridgeStatusQueryOptions } from "../data/bridges"
 import {
@@ -27,30 +28,26 @@ import FlowChips from "../FlowChips"
 import {
   type DepositProgressInputs,
   deriveDepositProgress,
-  recoveryHeading,
   trackedSourceHash,
 } from "./depositProgressLogic"
 import { type DepositSession, recoveryReference, useDepositSessionStore } from "./depositSession"
-import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM, findDepositApiSource } from "./depositSources"
-import { findPinnedProvider, type SourceTxOutcome, watchSourceTransaction } from "./evmRpc"
+import { depositApiRpcUrl, findDepositApiSource, findEthereumUsdcRoute } from "./depositSources"
+import { getPinnedProvider, type SourceTxOutcome, watchSourceTransaction } from "./evmRpc"
 import { useTransferForm } from "./transferFlowConfig"
 
-// A watch window that times out is reported as `pending`, never as a failure.
-const SOURCE_WATCH_TIMEOUT = 20_000
+// Long enough that ethers' replacement scan rarely restarts; the refetch interval is the outer loop.
+const SOURCE_WATCH_TIMEOUT = 90_000
 const SOURCE_WATCH_INTERVAL = 5_000
 
-// Every "failed" / "completed" judgment lives in `deriveDepositProgress`, which
-// keeps it unit-testable; this file only runs the reads that feed it.
 const DepositProgress = () => {
   const { watch } = useTransferForm()
   const sessionId = watch("depositSessionId")
   const store = useDepositSessionStore()
   const { closeModal } = useModal()
 
-  const session = sessionId ? store.read(sessionId) : null
+  const session = useMemo(() => (sessionId ? store.read(sessionId) : null), [store, sessionId])
 
   if (!session) {
-    // Nothing left to read or refresh, and no claim to make about the transfer itself.
     return (
       <DepositTrackingView
         title="Deposit status"
@@ -68,7 +65,7 @@ const DepositProgress = () => {
     )
   }
 
-  // Keyed remount on a session switch so every stage timer below restarts.
+  // Keyed so every stage timer restarts on a session switch.
   return <DepositProgressTracker key={session.id} session={session} />
 }
 
@@ -82,47 +79,29 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   const { closeModal } = useModal()
   const { openDrawer } = useDrawer()
   const initiaAddress = useInitiaAddress()
-  const store = useDepositSessionStore()
+  const { read, write, isVolatile } = useDepositSessionStore()
 
-  // Latest-value refs, synced in an effect (never during render) and declared
-  // before every effect that calls applyPatch, so those read current values.
-  const sessionRef = useRef(session)
-  const storeRef = useRef(store)
-  useEffect(() => {
-    sessionRef.current = session
-    storeRef.current = store
-  })
-
-  // Reads current state from a ref: a fresh session object per render must not
-  // re-arm the effects that call this into a write loop.
-  const applyPatch = useCallback((patch: Partial<DepositSession>) => {
-    const current = sessionRef.current
-    const fields = Object.fromEntries(
-      Object.entries(patch).filter(([, value]) => value !== undefined),
-    ) as Partial<DepositSession>
-    const changed = Object.entries(fields).some(
-      ([key, value]) => current[key as keyof DepositSession] !== value,
-    )
-    if (changed) storeRef.current.write({ ...current, ...fields })
-  }, [])
+  // Stable across store revisions, so the effects below re-run only when their own values change.
+  const applyPatch = useCallback(
+    (patch: Partial<DepositSession>) => {
+      const current = read(session.id)
+      if (current && !whereEq(patch, current)) write({ ...current, ...patch })
+    },
+    [read, write, session.id],
+  )
 
   const sourceHash = trackedSourceHash(session)
   const depositId = session.depositId ?? ""
 
-  // Source-chain-pinned reads, never the wallet's own provider.
-  const provider = findPinnedProvider(session.source.chainId)
-
   const sourceQuery = useQuery({
-    // Session id + watched hash already identify the remaining inputs, which are
-    // the session's own immutable intent.
+    // The session id and watched hash identify every other input: the session's immutable intent.
     // eslint-disable-next-line @tanstack/query/exhaustive-deps
     queryKey: depositQueryKeys.sourceWatch(session.id, sourceHash).queryKey,
     queryFn: (): Promise<SourceTxOutcome> =>
-      watchSourceTransaction(provider!, {
+      watchSourceTransaction(getPinnedProvider(session.source.chainId), {
         hash: sourceHash,
         from: session.submitted?.from ?? session.source.sender,
-        // Missing nonce/start-block evidence degrades the watch to a plain
-        // receipt read (see watchSourceTransaction); it never fabricates one.
+        // Missing evidence degrades the watch to a plain receipt read.
         nonce: session.submitted?.nonce ?? -1,
         to: session.transaction.to,
         data: session.transaction.data,
@@ -131,9 +110,8 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
         startBlock: session.preSubmitBlock ?? -1,
         timeoutMs: SOURCE_WATCH_TIMEOUT,
       }),
-    enabled: !!provider && !!sourceHash && !depositId,
-    // The interval is the retry: a thrown RPC error is an evidence gap the
-    // screen renders as "still checking", not a query that should give up.
+    enabled: !!depositApiRpcUrl(session.source.chainId) && !!sourceHash && !depositId,
+    // The interval is the retry: an RPC error is an evidence gap, not a reason to give up.
     retry: false,
     staleTime: 0,
     refetchInterval: (query) =>
@@ -141,22 +119,15 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   })
   const sourceOutcome = sourceQuery.data
 
-  // A repriced replacement is the same intent at a new hash, so tracking follows
-  // it and keeps the original for support.
+  // A repriced replacement is the same intent at a new hash; `originalSourceHash` keeps the first.
   const replacementHash =
     sourceOutcome?.status === "replaced" && sourceOutcome.reason === "repriced"
       ? sourceOutcome.hash
       : ""
   useEffect(() => {
-    if (!replacementHash) return
-    const current = sessionRef.current
-    applyPatch({
-      currentSourceHash: replacementHash,
-      originalSourceHash: current.originalSourceHash ?? trackedSourceHash(current),
-    })
+    if (replacementHash) applyPatch({ currentSourceHash: replacementHash })
   }, [replacementHash, applyPatch])
 
-  // One clock for both backend polls: the tracker remounts per session (keyed above).
   const [startedAt] = useState(() => Date.now())
   const bridgeQuery = useQuery(
     createBridgeStatusQueryOptions(
@@ -166,16 +137,14 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
         srcTxHash: sourceHash,
         depositAddress: session.depositAddress,
       },
-      // Polled alongside the receipt watch: the backend's own view of the source
-      // transaction must not wait on a third-party RPC.
+      // Alongside the receipt watch: the backend's view must not wait on a third-party RPC.
       session.transport === "lifi" && !depositId && !!sourceHash,
       startedAt,
     ),
   )
   const bridgeStatus = bridgeQuery.data
 
-  // A deposit that cannot be proven to be this user's is a tracking conflict,
-  // never a completion.
+  // A deposit that cannot be proven to be this user's is a tracking conflict, never a completion.
   const lifiHandoff = useMemo(() => {
     if (bridgeStatus?.state !== "deposit_indexed" || !bridgeStatus.deposit) return undefined
     try {
@@ -185,7 +154,6 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
           dstChainId: session.destination.chainId,
           dstDenom: session.destination.denom,
           recipient: session.destination.recipient,
-          ethereumUsdc: ETHEREUM_USDC_DENOM,
           dstTxHash: bridgeStatus.dst_tx_hash,
         }),
       }
@@ -211,7 +179,6 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
         deposit: assertDirectDeposit(directRecord, {
           srcTxHash: sourceHash,
           amount: session.source.amount,
-          srcDenom: session.source.denom,
           depositAddress: session.depositAddress,
           dstChainId: session.destination.chainId,
           dstDenom: session.destination.denom,
@@ -226,29 +193,22 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   const handoffId = lifiHandoff?.deposit?.id ?? directHandoff?.deposit?.id ?? ""
   useEffect(() => {
     if (!handoffId) return
-    applyPatch({ depositId: handoffId, phase: "deposit_indexed" })
+    applyPatch({ depositId: handoffId })
   }, [handoffId, applyPatch])
 
   const depositQuery = useDeposit(depositId)
   const deposit = depositQuery.data ?? null
   const bucket = classifyWalletBucket(deposit)
 
-  // Non-suspending catalog read: suspending here would blank a screen that is
-  // already reporting on money in flight.
+  // Non-suspending: suspending would blank a screen already reporting on money in flight.
   const assetsQuery = useQuery({
     ...createDepositAssetsQueryOptions(api),
     enabled: !!depositApiUrl,
   })
-  const ethereumRoute = assetsQuery.data?.find(
-    (asset) =>
-      asset.src_chain_id === ETHEREUM_CHAIN_ID &&
-      normalizeDenom(asset.src_denom) === normalizeDenom(ETHEREUM_USDC_DENOM),
-  )
+  const ethereumRoute = findEthereumUsdcRoute(assetsQuery.data)
   const minLabel =
     deposit?.required_min_amount && ethereumRoute
-      ? // Rounds up: understating the minimum would invite a repeat deposit that
-        // lands below it again.
-        formatSourceMin(deposit.required_min_amount, ethereumRoute.src_decimals, "USDC")
+      ? formatSourceMin(deposit.required_min_amount, ethereumRoute.src_decimals, "USDC")
       : ""
 
   const dstNetwork =
@@ -286,8 +246,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     },
   }
 
-  // The stage key comes from the undelayed derivation: letting the flag reach it
-  // would make arming the timer change its own trigger.
+  // Keyed on the undelayed view, or arming the timer would change its own trigger.
   const baseView = deriveDepositProgress(session, { ...inputs, isDelayed: false })
   const stageKey = `${baseView.stage}:${baseView.persist?.lastState ?? ""}`
   const [delayedStage, setDelayedStage] = useState<string | null>(null)
@@ -302,8 +261,10 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   const persistPhase = view.persist?.phase
   const persistLastState = view.persist?.lastState
   useEffect(() => {
-    if (!persistPhase && !persistLastState) return
-    applyPatch({ phase: persistPhase, lastState: persistLastState })
+    applyPatch({
+      ...(persistPhase && { phase: persistPhase }),
+      ...(persistLastState && { lastState: persistLastState }),
+    })
   }, [persistPhase, persistLastState, applyPatch])
 
   const explorerUrl = resolveExplorerUrl(deposit, bridgeStatus)
@@ -329,9 +290,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
           </Button.Outline>
         )}
       </Footer>
-    ) : // Nothing to press while the transfer is in flight: closing the widget
-    // does not stop it, and no button here can make it go faster.
-    null
+    ) : null
 
   const message = view.note ? (
     <>
@@ -343,9 +302,8 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     view.message
   )
 
-  // Storage could not hold this transfer, so the reference is the user's only
-  // durable copy.
-  const showRecovery = store.isVolatile(session.id)
+  // Storage could not hold this transfer, so the reference is the user's only durable copy.
+  const showRecovery = isVolatile(session.id)
 
   return (
     <DepositTrackingView
@@ -353,18 +311,20 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
       variant={view.variant}
       heading={view.heading}
       message={message}
-      chips={view.showChips ? <ProgressChips session={session} /> : undefined}
+      chips={
+        <>
+          {view.showChips && <ProgressChips session={session} />}
+          {showRecovery && <RecoveryReference session={session} />}
+        </>
+      }
       explorerUrl={explorerUrl}
       onHistoryClick={view.variant === "completed" ? () => openDrawer("/activity") : undefined}
       footer={footer}
       isRetrying={view.isRetrying}
-      extra={showRecovery ? <RecoveryReference session={session} /> : undefined}
     />
   )
 }
 
-// Explorer link in evidence order: fast delivery, bridge submission, then the
-// provider's own links. Never a claim that the flow completed.
 function resolveExplorerUrl(
   deposit: Deposit | null,
   bridgeStatus: BridgeStatusResponse | undefined,
@@ -373,32 +333,22 @@ function resolveExplorerUrl(
   return safeExplorerUrl(fromDeposit || bridgeStatus?.dst_tx_link || bridgeStatus?.src_tx_link)
 }
 
-/** Copyable support reference for a transfer this browser could not save. */
 const RecoveryReference = ({ session }: { session: DepositSession }) => {
-  const [copied, setCopied] = useState(false)
   const reference = recoveryReference(session)
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(reference)
-      setCopied(true)
-    } catch {
-      // Clipboard permission denied: the text is on screen and selectable.
-      setCopied(false)
-    }
-  }
-
   return (
     <div className={styles.recovery}>
-      <p className={styles.recoveryHeading}>{recoveryHeading}</p>
+      <p className={styles.recoveryHeading}>Save your transfer details</p>
       <pre className={styles.recoveryText}>{reference}</pre>
-      <Button.Small onClick={copy}>{copied ? "Copied" : "Copy recovery details"}</Button.Small>
+      <CopyButton value={reference}>
+        {({ copy, copied }) => (
+          <Button.Small onClick={copy}>{copied ? "Copied" : "Copy recovery details"}</Button.Small>
+        )}
+      </CopyButton>
     </div>
   )
 }
 
-// Chips render from the saved session identity alone, so a transfer in flight can
-// be watched without a Router or registry read succeeding first.
+// From the saved session alone, so a transfer in flight can be watched without a registry read.
 const ProgressChips = ({ session }: { session: DepositSession }) => {
   const { registryUrl } = useConfig()
   const { source, destination } = session

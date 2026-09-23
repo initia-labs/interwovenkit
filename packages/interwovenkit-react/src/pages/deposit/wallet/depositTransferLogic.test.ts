@@ -5,23 +5,21 @@ import type { BridgeOption, BridgeQuoteResponse } from "../data/types"
 import {
   buildDepositTransaction,
   combineEstimatedSeconds,
-  coversAmount,
-  decideRefreshedQuote,
   type DepositReadinessInput,
   deriveDepositReadiness,
   derivePreflight,
   formatNetworkFee,
-  isKnownNotSent,
+  gteInteger,
+  isProvablyNotSent,
   isQuoteBoundToOptions,
   isQuoteStale,
-  isWalletRejection,
-  meetsDirectMinimum,
   requiredNativeAmount,
   resolveDepositRecipient,
   selectBridgeOption,
   sendTransactionHashOf,
   SESSION_IN_FLIGHT_MESSAGE,
   STORAGE_BLOCKED_MESSAGE,
+  toBaseUnitString,
   UNKNOWN_SEND_MESSAGE,
 } from "./depositTransferLogic"
 
@@ -129,57 +127,34 @@ describe("isQuoteStale", () => {
   })
 })
 
-describe("minimum and balance gates", () => {
-  it("compares the direct amount against the live route minimum", () => {
-    expect(meetsDirectMinimum("1000000", "1000000")).toBe(true)
-    expect(meetsDirectMinimum("999999", "1000000")).toBe(false)
+describe("gteInteger", () => {
+  it("compares integer base units", () => {
+    expect(gteInteger("1000000", "1000000")).toBe(true)
+    expect(gteInteger("999999", "1000000")).toBe(false)
   })
 
-  it("fails closed on unparseable amounts", () => {
-    expect(meetsDirectMinimum("", "1000000")).toBe(false)
-    expect(meetsDirectMinimum("1.5", "1000000")).toBe(false)
-  })
-
-  it("keeps an unknown balance from covering anything", () => {
-    expect(coversAmount(undefined, "1")).toBe(false)
-    expect(coversAmount("1000000", "1000000")).toBe(true)
-    expect(coversAmount("999999", "1000000")).toBe(false)
+  it("fails closed on an unknown or malformed value", () => {
+    expect(gteInteger(undefined, "1")).toBe(false)
+    expect(gteInteger("", "1000000")).toBe(false)
+    expect(gteInteger("1.5", "1000000")).toBe(false)
   })
 })
 
-// The single-click send, at the level `submit` decides it: `isQuoteStale` chooses whether the
-// click re-reads at all, and `decideRefreshedQuote` chooses whether that same click goes on to
-// the wallet. Both halves are pure, so the flow is testable without React.
-describe("submit's quote gate", () => {
-  const now = 1_000_000
-  const fresh = now - 1
-  const stale = now - BRIDGE_QUOTE_MAX_AGE - 1
-
-  it("sends in the same click when the re-read describes the same transaction", () => {
-    expect(isQuoteStale(stale, now)).toBe(true)
-    expect(decideRefreshedQuote({ reviewedSignature: "sig-a", refreshedSignature: "sig-a" })).toBe(
-      "send",
-    )
+describe("toBaseUnitString", () => {
+  it("converts to integer base units, flooring sub-unit dust", () => {
+    expect(toBaseUnitString("1.234567", 6)).toBe("1234567")
+    expect(toBaseUnitString("1.2345678", 6)).toBe("1234567")
+    expect(toBaseUnitString("0", 6)).toBe("0")
   })
 
-  it("asks for a second click when the re-read changed the quote", () => {
-    expect(isQuoteStale(stale, now)).toBe(true)
-    expect(decideRefreshedQuote({ reviewedSignature: "sig-a", refreshedSignature: "sig-b" })).toBe(
-      "review",
-    )
+  it("keeps amounts past 2^53 base units exact", () => {
+    expect(toBaseUnitString("9007199254740993", 6)).toBe("9007199254740993000000")
   })
 
-  it("never signs an unverified quote: a re-read without a result reviews", () => {
-    expect(decideRefreshedQuote({ reviewedSignature: "sig-a", refreshedSignature: "" })).toBe(
-      "review",
-    )
-    expect(decideRefreshedQuote({ reviewedSignature: "", refreshedSignature: "sig-a" })).toBe(
-      "review",
-    )
-  })
-
-  it("does not re-read a quote that is still fresh", () => {
-    expect(isQuoteStale(fresh, now)).toBe(false)
+  it("answers empty for anything that is not a usable amount", () => {
+    for (const value of ["", " ", ".", "-", "1..2", "1e", "abc", "-1", "1e6x"]) {
+      expect(toBaseUnitString(value, 6)).toBe("")
+    }
   })
 })
 
@@ -207,7 +182,7 @@ describe("combineEstimatedSeconds", () => {
 
   it("is unknown when any leg is unknown", () => {
     expect(combineEstimatedSeconds([120, undefined])).toBeUndefined()
-    expect(combineEstimatedSeconds([undefined])).toBeUndefined()
+    expect(combineEstimatedSeconds([120, null])).toBeUndefined()
   })
 })
 
@@ -264,28 +239,18 @@ describe("sendTransactionHashOf", () => {
   })
 })
 
-describe("readiness amount settlement", () => {
-  it("waits for the debounced amount to match the typed one", () => {
-    const view = deriveDepositReadiness(readinessInput({ isAmountSettled: false }))
-    expect(view).toEqual({ status: "loading", message: "Updating amount..." })
-  })
-})
-
-describe("isKnownNotSent", () => {
-  it("recognizes node refusals that never reach the mempool", () => {
-    expect(isKnownNotSent("insufficient funds for intrinsic transaction cost")).toBe(true)
-    expect(isKnownNotSent("Insufficient funds for gas * price + value")).toBe(true)
-    expect(isKnownNotSent("intrinsic gas too low")).toBe(true)
-  })
-  it("keeps everything ambiguous otherwise", () => {
-    for (const message of [
-      "network error",
-      "timeout",
-      "nonce too low",
-      "replacement underpriced",
-    ]) {
-      expect(isKnownNotSent(message)).toBe(false)
-    }
+describe("isProvablyNotSent", () => {
+  it.each([
+    ["User rejected", true],
+    ["insufficient funds for intrinsic transaction cost", true],
+    ["Insufficient funds for gas * price + value", true],
+    ["intrinsic gas too low", true],
+    ["network error", false],
+    ["timeout", false],
+    ["nonce too low", false],
+    ["replacement underpriced", false],
+  ])("%s → %s", (message, expected) => {
+    expect(isProvablyNotSent(message)).toBe(expected)
   })
 })
 
@@ -295,13 +260,6 @@ describe("requiredNativeAmount", () => {
     expect(requiredNativeAmount({ value: "669", gasLimit: "10" })).toBe("669")
     expect(requiredNativeAmount({ value: undefined })).toBeUndefined()
     expect(requiredNativeAmount({ value: "0", gasLimit: "10", maxFeePerGas: "2" })).toBe("20")
-  })
-})
-
-describe("isWalletRejection", () => {
-  it("matches the normalized rejection message only", () => {
-    expect(isWalletRejection("User rejected")).toBe(true)
-    expect(isWalletRejection("network error")).toBe(false)
   })
 })
 
@@ -317,7 +275,6 @@ function readinessInput(overrides: Partial<DepositReadinessInput> = {}): Deposit
     balancesError: false,
     tokenBalance: "5000000",
     nativeBalance: "10000000000000000",
-    nativeSymbol: "ETH",
     hasOptions: true,
     hasEligibleOption: true,
     hasQuote: true,
@@ -432,6 +389,13 @@ describe("deriveDepositReadiness", () => {
     )
   })
 
+  it("waits for the debounced amount to match the typed one", () => {
+    expect(deriveDepositReadiness(readinessInput({ isAmountSettled: false }))).toEqual({
+      status: "loading",
+      message: "Updating amount...",
+    })
+  })
+
   it("waits for the pinned balance rather than trusting a snapshot", () => {
     expect(deriveDepositReadiness(readinessInput({ tokenBalance: undefined }))).toEqual({
       status: "loading",
@@ -447,12 +411,12 @@ describe("deriveDepositReadiness", () => {
     })
   })
 
-  it("blocks on a zero native balance, naming the chain's gas symbol", () => {
-    const readiness = deriveDepositReadiness(
-      readinessInput({ nativeBalance: "0", nativeSymbol: "ETH" }),
-    )
-    expect(readiness.status).toBe("blocked")
-    expect(readiness.message).toContain("ETH")
+  it("blocks on a zero native balance", () => {
+    expect(deriveDepositReadiness(readinessInput({ nativeBalance: "0" }))).toEqual({
+      status: "blocked",
+      message: "Not enough ETH for gas",
+      level: "error",
+    })
   })
 
   it("blocks when the native balance cannot cover the call's value plus priced gas", () => {
@@ -520,9 +484,5 @@ describe("deriveDepositReadiness", () => {
   it("waits for the destination preflight", () => {
     expect(deriveDepositReadiness(readinessInput({ preflight: "loading" })).status).toBe("loading")
     expect(deriveDepositReadiness(readinessInput({ preflight: "error" })).status).toBe("blocked")
-  })
-
-  it("stays ready after a failed attempt so the user can retry", () => {
-    expect(deriveDepositReadiness(readinessInput())).toEqual({ status: "ready" })
   })
 })

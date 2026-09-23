@@ -7,8 +7,6 @@ export const INIT_DECIMALS = 6
 
 export const IUSD_SYMBOL = "iUSD"
 
-// Canonical USDC everywhere this client touches it (Ethereum, Base, Arbitrum
-// and the Deposit API's own amounts).
 export const USDC_DECIMALS = 6
 
 // omniINIT (Minitswap LP token)
@@ -17,10 +15,6 @@ export const OMNI_INIT_SYMBOL = "omniINIT"
 
 // Strat (perp DEX) chain identifier as it appears in Minity portfolio responses.
 export const STRAT_CHAIN_NAME = "strat"
-
-// Display
-/** Em dash placeholder for a value that is unknown, never for a known zero. */
-export const UNKNOWN_VALUE = "—"
 
 // External URLs
 export const INITIA_APP_URL = "https://app.initia.xyz"
@@ -48,9 +42,7 @@ export const LocalStorageKey = {
   BRIDGE_HISTORY: `${NAMESPACE}:bridge:history`,
 
   // deposit
-  // Prefix, not a key: one record per in-flight session (`${PREFIX}${sessionId}`).
-  // An aggregate array would need a read-modify-write, so two tabs settling two
-  // sessions could drop one — and a dropped record is a lost source transaction hash.
+  // One record per session: a shared array would let two tabs overwrite each other.
   DEPOSIT_SESSION_PREFIX: `${NAMESPACE}:deposit:session:`,
 
   // onramp

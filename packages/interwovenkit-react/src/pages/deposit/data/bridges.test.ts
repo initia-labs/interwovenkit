@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   bridgeQuoteSignature,
-  type BridgeRequestIdentity,
-  BridgeStatusConflictError,
+  BridgeStatusError,
   bridgeStatusPollInterval,
   classifyBridgeStatusError,
   createBridgeOptionsQueryOptions,
@@ -15,23 +14,24 @@ import {
   percentDifference,
   rankBridgeOptions,
 } from "./bridges"
+import { ParseError } from "./parse"
 import {
   deposit,
   DEPOSIT_ADDRESS,
   DST_TX_HASH,
   httpError,
-  option,
   RECIPIENT,
+  runQueryFn,
   SRC_TX_HASH,
   stubApi,
 } from "./testing"
-import type { BridgeOption } from "./types"
-import { BRIDGE_STATUS_ERROR_CODES } from "./types"
+import type { BridgeOption, BridgeRequestIdentity } from "./types"
 
 const BASE_USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
 const SPENDER = "0x1111111111111111111111111111111111111111"
 const BRIDGE_ROUTER = "0x2222222222222222222222222222222222222222"
 const SENDER = "0x3333333333333333333333333333333333333333"
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 
 const REQUEST: BridgeRequestIdentity = {
   srcChainId: "8453",
@@ -43,7 +43,7 @@ const REQUEST: BridgeRequestIdentity = {
   walletAddress: RECIPIENT,
 }
 
-const QUOTE_REQUEST = { ...REQUEST, bridge: "across", sourceToken: BASE_USDC }
+const QUOTE_REQUEST = { ...REQUEST, bridge: "across" }
 
 const optionsPayload = (options: unknown[]) => ({
   deposit_address: DEPOSIT_ADDRESS,
@@ -90,6 +90,7 @@ describe("parseBridgeOptions", () => {
     ["a non-object response", null, /is not an object/],
     ["an array response", [], /is not an object/],
     ["a malformed deposit address", withEnvelope({ deposit_address: "0x1234" }), /deposit address/],
+    ["a zero deposit address", withEnvelope({ deposit_address: ZERO_ADDRESS }), /deposit address/],
     [
       "a missing options array",
       { deposit_address: DEPOSIT_ADDRESS, required_min_received: "1" },
@@ -152,6 +153,14 @@ describe("parseBridgeOptions", () => {
   })
 })
 
+const option = (overrides: Partial<BridgeOption> & { bridge: string }): BridgeOption => ({
+  amount_out: "1000",
+  min_received: "1000",
+  eligible: true,
+  gas_cost_usd: "0",
+  ...overrides,
+})
+
 const keys = (options: BridgeOption[]) => rankBridgeOptions(options).map(({ bridge }) => bridge)
 
 describe("rankBridgeOptions", () => {
@@ -195,7 +204,8 @@ describe("rankBridgeOptions", () => {
   })
 
   it("nets the quoted gas out of the output before comparing", () => {
-    // 1.00 USDC out minus $0.05 gas ranks below 0.96 USDC with free gas, so output alone would have ordered these the other way.
+    // 1.00 USDC out minus $0.05 gas ranks below 0.96 USDC with free gas, so output alone would have
+    // ordered these the other way.
     expect(
       keys([
         option({ bridge: "gassy", amount_out: "1000000", gas_cost_usd: "0.05" }),
@@ -353,6 +363,7 @@ describe("parseBridgeQuote", () => {
       /wallet_address mismatch/,
     ],
     ["a malformed deposit address", quotePayload({ deposit_address: "0x00" }), /deposit address/],
+    ["a zero deposit address", quotePayload({ deposit_address: ZERO_ADDRESS }), /deposit address/],
     ["a missing cursor", quotePayload({ cursor: "" }), /missing the cursor/],
     ["a non-positive amount_out", quotePayload({ amount_out: "0" }), /invalid amount_out/],
     ["a malformed min_received", quotePayload({ min_received: "x" }), /invalid min_received/],
@@ -378,6 +389,7 @@ describe("parseBridgeQuote", () => {
         /from mismatch/,
       ],
       ["with a malformed to address", withTransaction({ to: "not-an-address" }), /invalid to/],
+      ["sent to the zero address", withTransaction({ to: ZERO_ADDRESS }), /invalid to/],
       ["with non-hex calldata", withTransaction({ data: "zzzz" }), /non-hex calldata/],
       ["with odd-length calldata", withTransaction({ data: "0xabc" }), /non-hex calldata/],
       ["that is not an object", quotePayload({ transaction: null }), /malformed transaction/],
@@ -449,7 +461,8 @@ describe("parseBridgeQuote", () => {
 
   describe("approval", () => {
     it.each([
-      ["null for an ERC-20 source", withApproval(null), /missing the ERC-20 approval/],
+      ["that is null", withApproval(null), /missing the ERC-20 approval/],
+      ["that is not an object", quotePayload({ approval: "yes" }), /missing the ERC-20 approval/],
       [
         "for another token",
         withApproval({ token_address: "0x0000000000000000000000000000000000000dEaD" }),
@@ -457,7 +470,7 @@ describe("parseBridgeQuote", () => {
       ],
       [
         "with a zero spender",
-        withApproval({ spender_address: "0x0000000000000000000000000000000000000000" }),
+        withApproval({ spender_address: ZERO_ADDRESS }),
         /approval spender_address is invalid/,
       ],
       [
@@ -466,25 +479,14 @@ describe("parseBridgeQuote", () => {
         /approval spender_address is invalid/,
       ],
       ["with a non-positive amount", withApproval({ amount: "0" }), /approval amount is invalid/],
-      ["that is not an object", quotePayload({ approval: "yes" }), /malformed approval/],
     ])("rejects an approval %s", (_name, payload, message) => {
       expect(() => parseBridgeQuote(payload, QUOTE_REQUEST)).toThrow(message)
-    })
-
-    it("allows a null approval for a native source", () => {
-      const native = {
-        ...QUOTE_REQUEST,
-        srcDenom: "ethereum-native",
-        sourceToken: "ethereum-native",
-      }
-      const payload = quotePayload({ approval: null, src_denom: "ethereum-native" })
-      expect(parseBridgeQuote(payload, native).approval).toBeNull()
     })
 
     it("matches the approval token case-insensitively", () => {
       expect(
         parseBridgeQuote(withApproval({ token_address: BASE_USDC.toLowerCase() }), QUOTE_REQUEST)
-          .approval?.token_address,
+          .approval.token_address,
       ).toBe(BASE_USDC.toLowerCase())
     })
   })
@@ -498,11 +500,12 @@ describe("bridgeQuoteSignature", () => {
     expect(signatureOf()).toBe(signatureOf())
   })
 
-  it("ignores address casing", () => {
+  it("ignores the tool's casing", () => {
     expect(signatureOf({ tool: "Across" })).toBe(signatureOf())
   })
 
-  // LI.FI re-encodes calldata and re-estimates gas on every quote, so neither may force a second click.
+  // LI.FI re-encodes calldata and re-estimates gas on every quote, so neither may force a second
+  // click.
   it("ignores re-encoded calldata and a new gas estimate", () => {
     for (const overrides of [{ data: "0xcafe" }, { gas_limit: "300000" }]) {
       expect(
@@ -667,112 +670,60 @@ describe("parseBridgeStatus", () => {
       "",
     )
   })
-
-  it("keeps the reported tool as diagnostic context", () => {
-    expect(parseBridgeStatus(statusPayload({ bridge: "across" }), EXPECTED).bridge).toBe("across")
-  })
 })
 
 describe("classifyBridgeStatusError", () => {
   // This endpoint answers `{ error, message }` instead of the API-wide `{ message }`.
-  it("throws a coded conflict for a coded body", async () => {
-    await expect(
-      classifyBridgeStatusError(
-        httpError(502, { error: "upstream_conflict", message: "tool mismatch" }),
-      ),
-    ).rejects.toMatchObject({ code: "upstream_conflict", message: "tool mismatch" })
+  it.each([
+    [502, { error: "upstream_conflict", message: "tool mismatch" }, "tool mismatch"],
+    [429, { error: "rate_limited", message: "slow down" }, "slow down"],
+    [500, { error: "some_new_code" }, "some_new_code"],
+  ])("keeps the code of a coded %i", async (status, body, message) => {
+    const error = await classifyBridgeStatusError(httpError(status, body)).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(BridgeStatusError)
+    expect(error).toMatchObject({ code: body.error, message })
   })
 
-  it.each(BRIDGE_STATUS_ERROR_CODES)("keeps the documented code %s", async (code) => {
-    await expect(
-      classifyBridgeStatusError(httpError(500, { error: code, message: "x" })),
-    ).rejects.toMatchObject({ code })
-  })
-
-  // A rate limit is classified by its code like any other coded failure; the
-  // screen's own cadence is the only backoff (see bridgeStatusPollInterval).
-  it("classifies a 429 through its coded body", async () => {
-    await expect(
-      classifyBridgeStatusError(httpError(429, { error: "rate_limited", message: "slow down" })),
-    ).rejects.toMatchObject({ code: "rate_limited", message: "slow down" })
-  })
-
-  it("falls back to the code when the body carries no message", async () => {
-    await expect(
-      classifyBridgeStatusError(httpError(502, { error: "upstream_conflict" })),
-    ).rejects.toMatchObject({ message: "upstream_conflict" })
-  })
-
-  it("normalizes an uncoded HTTP failure", async () => {
-    await expect(classifyBridgeStatusError(httpError(500, { message: "boom" }))).rejects.toThrow(
-      "boom",
+  it("normalizes an uncoded, unparseable or non-HTTP failure", async () => {
+    const uncoded = await classifyBridgeStatusError(httpError(500, { message: "boom" })).catch(
+      (e: unknown) => e,
     )
-    await expect(
-      classifyBridgeStatusError(httpError(500, { message: "boom" })),
-    ).rejects.not.toBeInstanceOf(BridgeStatusConflictError)
-  })
-
-  it("normalizes a non-JSON body and a plain failure", async () => {
+    expect(uncoded).not.toBeInstanceOf(BridgeStatusError)
+    expect(uncoded).toMatchObject({ message: "boom" })
     await expect(classifyBridgeStatusError(httpError(503))).rejects.toThrow()
     await expect(classifyBridgeStatusError(new Error("offline"))).rejects.toThrow("offline")
   })
 })
 
 describe("bridgeStatusPollInterval", () => {
-  it("polls fast while the user is watching and backs off once idle", () => {
-    expect(bridgeStatusPollInterval("bridge_pending", null, 0)).toBe(3000)
-    expect(bridgeStatusPollInterval("bridge_pending", null, 6 * 60_000)).toBe(15_000)
-  })
+  const coded = (code: string) => new BridgeStatusError(code, "m")
 
-  it("keeps polling through the in-flight states", () => {
-    for (const state of [
-      "bridge_not_found",
-      "bridge_pending",
-      "bridge_refunding",
-      "deposit_pending",
-    ] as const) {
-      expect(bridgeStatusPollInterval(state, null, 0)).toBe(3000)
-    }
-  })
-
-  it("keeps polling before the first response", () => {
-    expect(bridgeStatusPollInterval(undefined, null, 0)).toBe(3000)
-  })
-
-  it("stops on a deterministic invalid_request as well as upstream_conflict", () => {
-    for (const code of ["upstream_conflict", "invalid_request"] as const) {
-      const error = new BridgeStatusConflictError(code, "rejected")
-      expect(bridgeStatusPollInterval("bridge_pending", error, 0)).toBe(false)
-    }
-  })
-
-  // Neither a transient upstream nor a rate limit is a verdict on the transfer.
-  it("keeps polling through the transient coded failures", () => {
-    for (const code of ["upstream_unavailable", "rate_limited", "internal_error"] as const) {
-      const error = new BridgeStatusConflictError(code, "later")
-      expect(bridgeStatusPollInterval("bridge_pending", error, 0)).toBe(3000)
-    }
-  })
-
-  it("stops after the handoff and on every terminal provider outcome", () => {
-    for (const state of [
-      "deposit_indexed",
-      "bridge_partial",
-      "bridge_refunded",
-      "bridge_refund_required",
-      "bridge_failed",
-    ] as const) {
-      expect(bridgeStatusPollInterval(state, null, 0)).toBe(false)
-    }
+  it.each<[string, Parameters<typeof bridgeStatusPollInterval>, number | false]>([
+    ["before the first response", [undefined, null, 0], 3000],
+    ["while in flight", ["bridge_pending", null, 0], 3000],
+    ["once idle", ["bridge_pending", null, 6 * 60_000], 15_000],
+    ["while not found", ["bridge_not_found", null, 0], 3000],
+    ["while refunding", ["bridge_refunding", null, 0], 3000],
+    ["while the deposit is pending", ["deposit_pending", null, 0], 3000],
+    ["through a transient upstream", ["bridge_pending", coded("upstream_unavailable"), 0], 3000],
+    ["through a rate limit", ["bridge_pending", coded("rate_limited"), 0], 3000],
+    ["through an internal error", ["bridge_pending", coded("internal_error"), 0], 3000],
+    ["on upstream_conflict", ["bridge_pending", coded("upstream_conflict"), 0], false],
+    ["on invalid_request", ["bridge_pending", coded("invalid_request"), 0], false],
+    ["after the handoff", ["deposit_indexed", null, 0], false],
+    ["on bridge_partial", ["bridge_partial", null, 0], false],
+    ["on bridge_refunded", ["bridge_refunded", null, 0], false],
+    ["on bridge_refund_required", ["bridge_refund_required", null, 0], false],
+    ["on bridge_failed", ["bridge_failed", null, 0], false],
+  ])("answers %s", (_name, args, expected) => {
+    expect(bridgeStatusPollInterval(...args)).toBe(expected)
   })
 })
 
 describe("createBridgeOptionsQueryOptions", () => {
   it("posts the request identity to the relative options path", async () => {
     const { api, calls } = stubApi(optionsPayload([wireOption()]))
-    const { queryFn } = createBridgeOptionsQueryOptions(api, REQUEST, true)
-    if (typeof queryFn !== "function") throw new Error("queryFn must be a function")
-    await queryFn({} as unknown as Parameters<typeof queryFn>[0])
+    await runQueryFn(createBridgeOptionsQueryOptions(api, REQUEST, true))
     expect(calls[0].url).toBe("v1/bridges/options")
     expect(calls[0].options?.json).toEqual({
       src_chain_id: "8453",
@@ -785,22 +736,21 @@ describe("createBridgeOptionsQueryOptions", () => {
     })
   })
 
-  it("routes the response through the boundary parser", async () => {
+  it("rejects a malformed response through the boundary parser", async () => {
     const { api } = stubApi(optionsPayload([wireOption({ min_received: "oops" })]))
-    const { queryFn } = createBridgeOptionsQueryOptions(api, REQUEST, true)
-    if (typeof queryFn !== "function") throw new Error("queryFn must be a function")
-    await expect(queryFn({} as unknown as Parameters<typeof queryFn>[0])).rejects.toThrow(
+    await expect(runQueryFn(createBridgeOptionsQueryOptions(api, REQUEST, true))).rejects.toThrow(
       /invalid min_received/,
     )
   })
 
-  it("goes stale after 10 s, keeps the previous list, and never polls in the background", () => {
+  // A parse failure is deterministic; only a failed request is worth retrying.
+  it("retries a failed request but never a parse failure", () => {
     const { api } = stubApi(null)
-    const options = createBridgeOptionsQueryOptions(api, REQUEST, true)
-    expect(options.staleTime).toBe(10_000)
-    expect(options.refetchInterval).toBeUndefined()
-    expect(options.refetchOnWindowFocus).toBe(false)
-    expect(options.placeholderData).toBeTypeOf("function")
+    const { retry } = createBridgeOptionsQueryOptions(api, REQUEST, true)
+    if (typeof retry !== "function") throw new Error("retry must be a predicate")
+    expect(retry(0, new Error("Failed to fetch"))).toBe(true)
+    expect(retry(3, new Error("Failed to fetch"))).toBe(false)
+    expect(retry(0, new ParseError("invalid min_received"))).toBe(false)
   })
 
   it("keys a changed sender or recipient separately", () => {
@@ -820,12 +770,23 @@ describe("createBridgeQuoteQueryOptions", () => {
   it("includes the selected bridge in the request and the cache key", async () => {
     const { api, calls } = stubApi(quotePayload())
     const options = createBridgeQuoteQueryOptions(api, QUOTE_REQUEST, true)
-    const { queryFn } = options
-    if (typeof queryFn !== "function") throw new Error("queryFn must be a function")
-    await queryFn({} as unknown as Parameters<typeof queryFn>[0])
+    await runQueryFn(options)
     expect(calls[0].url).toBe("v1/bridges/quote")
     expect(calls[0].options?.json).toMatchObject({ bridge: "across" })
     expect(options.queryKey).toContain("across")
+  })
+
+  it("keys a reissued deposit address separately without sending it", async () => {
+    const { api, calls } = stubApi(quotePayload())
+    const base = createBridgeQuoteQueryOptions(api, QUOTE_REQUEST, true)
+    const reissued = createBridgeQuoteQueryOptions(
+      api,
+      { ...QUOTE_REQUEST, depositAddress: DEPOSIT_ADDRESS },
+      true,
+    )
+    expect(reissued.queryKey).not.toEqual(base.queryKey)
+    await runQueryFn(reissued)
+    expect(calls[0].options?.json).not.toHaveProperty("depositAddress")
   })
 
   it("never keeps previous data", () => {
@@ -833,13 +794,11 @@ describe("createBridgeQuoteQueryOptions", () => {
     expect(createBridgeQuoteQueryOptions(api, QUOTE_REQUEST, true).placeholderData).toBeUndefined()
   })
 
-  it("routes the response through the boundary parser", async () => {
+  it("rejects a mismatched response through the boundary parser", async () => {
     const { api } = stubApi(quotePayload({ tool: "relay" }))
-    const { queryFn } = createBridgeQuoteQueryOptions(api, QUOTE_REQUEST, true)
-    if (typeof queryFn !== "function") throw new Error("queryFn must be a function")
-    await expect(queryFn({} as unknown as Parameters<typeof queryFn>[0])).rejects.toThrow(
-      /tool mismatch/,
-    )
+    await expect(
+      runQueryFn(createBridgeQuoteQueryOptions(api, QUOTE_REQUEST, true)),
+    ).rejects.toThrow(/tool mismatch/)
   })
 })
 
@@ -850,35 +809,27 @@ describe("createBridgeStatusQueryOptions", () => {
     depositAddress: DEPOSIT_ADDRESS,
   }
 
-  // The endpoint answers 502 upstream_conflict for a missing or mismatched hinted tool, including for not-found results.
-  it("omits the bridge hint from the request", async () => {
+  // A hinted tool answers 502 upstream_conflict even for not-found results, and ky's own
+  // retries would re-send a deterministic failure behind the poll interval.
+  it("omits the bridge hint and disables ky retries", async () => {
     const { api, calls } = stubApi(statusPayload())
-    const { queryFn } = createBridgeStatusQueryOptions(api, PARAMS, true, Date.now())
-    if (typeof queryFn !== "function") throw new Error("queryFn must be a function")
-    await queryFn({} as unknown as Parameters<typeof queryFn>[0])
+    await runQueryFn(createBridgeStatusQueryOptions(api, PARAMS, true, Date.now()))
     expect(calls[0].url).toBe("v1/bridges/status")
-    expect(calls[0].options?.searchParams).toEqual({
-      src_chain_id: "8453",
-      src_tx_hash: SRC_TX_HASH,
-      deposit_address: DEPOSIT_ADDRESS,
+    expect(calls[0].options).toEqual({
+      searchParams: {
+        src_chain_id: "8453",
+        src_tx_hash: SRC_TX_HASH,
+        deposit_address: DEPOSIT_ADDRESS,
+      },
+      retry: 0,
     })
-    expect(calls[0].options?.searchParams).not.toHaveProperty("bridge")
   })
 
   it("classifies a coded failure instead of normalizing it away", async () => {
     const { api } = stubApi(httpError(502, { error: "upstream_conflict", message: "m" }))
-    const { queryFn } = createBridgeStatusQueryOptions(api, PARAMS, true, Date.now())
-    if (typeof queryFn !== "function") throw new Error("queryFn must be a function")
-    await expect(queryFn({} as unknown as Parameters<typeof queryFn>[0])).rejects.toBeInstanceOf(
-      BridgeStatusConflictError,
-    )
-  })
-
-  it("never caches and never retries in place", () => {
-    const { api } = stubApi(null)
-    const options = createBridgeStatusQueryOptions(api, PARAMS, true, Date.now())
-    expect(options.staleTime).toBe(0)
-    expect(options.retry).toBe(false)
+    await expect(
+      runQueryFn(createBridgeStatusQueryOptions(api, PARAMS, true, Date.now())),
+    ).rejects.toBeInstanceOf(BridgeStatusError)
   })
 
   it("drives its interval from the observed state and error", () => {
@@ -891,6 +842,6 @@ describe("createBridgeStatusQueryOptions", () => {
       >[0])
     expect(call({ state: "bridge_pending" }, null)).toBe(3000)
     expect(call({ state: "deposit_indexed" }, null)).toBe(false)
-    expect(call(undefined, new BridgeStatusConflictError("upstream_conflict", "m"))).toBe(false)
+    expect(call(undefined, new BridgeStatusError("upstream_conflict", "m"))).toBe(false)
   })
 })

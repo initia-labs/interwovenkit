@@ -1,12 +1,8 @@
 import type { DepositSession, StorageLike } from "./depositSession"
 
-// Fixtures shared by the deposit session and progress tests, so one record shape describes
-// a transfer everywhere and a case's overrides carry only what that case is about.
-
 export const SENDER = "0x4e3d1f2a6b5c8d9e0f1a2b3c4d5e6f7a8b9c0d1e"
 export const DEPOSIT_ADDRESS = "0x1111111111111111111111111111111111111111"
 export const API_URL = "https://deposit.staging.example"
-export const SOURCE_HASH = `0x${"a".repeat(64)}`
 export const REPLACEMENT_HASH = `0x${"b".repeat(64)}`
 
 /** A prepared Base → Initia transfer: nothing prompted, nothing broadcast. */
@@ -51,7 +47,6 @@ export interface MemoryStorage extends StorageLike {
   map: Map<string, string>
 }
 
-/** Durable by construction: a case that needs a failing store overrides `setItem`. */
 export function createMemoryStorage(): MemoryStorage {
   const map = new Map<string, string>()
   return {

@@ -1,7 +1,6 @@
-import { LocalStorageKey } from "@/data/constants"
+import { omit } from "ramda"
 import type { DepositSession, DepositSessionPhase, StorageLike } from "./depositSession"
 import {
-  createDepositSession,
   depositSessionStorageKey,
   DepositSessionWriteError,
   findInFlightSession,
@@ -12,6 +11,7 @@ import {
   pruneDepositSessions,
   readDepositSession,
   recoveryReference,
+  reuseOrCreateDepositSession,
   rollbackDepositSessionPrompt,
   writeDepositSession,
 } from "./depositSession"
@@ -27,33 +27,6 @@ import {
 function store(storage: StorageLike, session: DepositSession) {
   storage.setItem(depositSessionStorageKey(session.id), JSON.stringify(session))
 }
-
-describe("depositSessionStorageKey", () => {
-  it("prefixes the id with the deposit session namespace", () => {
-    expect(depositSessionStorageKey("abc")).toBe(`${LocalStorageKey.DEPOSIT_SESSION_PREFIX}abc`)
-  })
-})
-
-describe("createDepositSession", () => {
-  it("starts prepared with a generated id and matching timestamps", () => {
-    const { apiUrl, transport, source, destination, depositAddress, cursor, transaction } =
-      buildDepositSession()
-    const { version, id, createdAt, updatedAt, phase } = createDepositSession({
-      apiUrl,
-      transport,
-      source,
-      destination,
-      depositAddress,
-      cursor,
-      transaction,
-    })
-    expect(version).toBe(1)
-    expect(id).not.toBe("session-1")
-    expect(id.length).toBeGreaterThan(0)
-    expect(phase).toBe("prepared")
-    expect(createdAt).toBe(updatedAt)
-  })
-})
 
 describe("parseDepositSession", () => {
   it("round-trips a valid record", () => {
@@ -86,10 +59,8 @@ describe("parseDepositSession", () => {
     expect(parseDepositSession(session)).toBeNull()
   })
 
-  it("rejects a submitted hash without a sender", () => {
-    expect(
-      parseDepositSession({ ...buildDepositSession(), submitted: { hash: "0xabc" } }),
-    ).toBeNull()
+  it("rejects a submitted record without a sender", () => {
+    expect(parseDepositSession({ ...buildDepositSession(), submitted: { nonce: 1 } })).toBeNull()
   })
 
   it("rejects non-objects", () => {
@@ -127,7 +98,7 @@ describe("mergeDepositSession", () => {
     const current = buildDepositSession({
       phase: "source_sent",
       currentSourceHash: "0xaaa",
-      submitted: { hash: "0xaaa", nonce: 7, from: SENDER },
+      submitted: { nonce: 7, from: SENDER },
     })
     const statusUpdate = buildDepositSession({
       phase: "source_sent",
@@ -135,7 +106,7 @@ describe("mergeDepositSession", () => {
     })
     const merged = mergeDepositSession(current, statusUpdate)
     expect(merged.currentSourceHash).toBe("0xaaa")
-    expect(merged.submitted).toEqual({ hash: "0xaaa", nonce: 7, from: SENDER })
+    expect(merged.submitted).toEqual({ nonce: 7, from: SENDER })
     expect(merged.lastState).toBe("bridge_pending")
   })
 
@@ -205,10 +176,7 @@ describe("rollbackDepositSessionPrompt", () => {
 
   it("refuses once a hash exists", () => {
     const storage = createMemoryStorage()
-    store(
-      storage,
-      buildDepositSession({ phase: "send_prompt", submitted: { hash: "0xaaa", from: SENDER } }),
-    )
+    store(storage, buildDepositSession({ phase: "send_prompt", currentSourceHash: "0xaaa" }))
     expect(rollbackDepositSessionPrompt(storage, "session-1")?.phase).toBe("send_prompt")
   })
 
@@ -335,9 +303,42 @@ describe("findInFlightSession", () => {
     expect(findInFlightSession([sent, settled, fresh], intent(sent))).toBeUndefined()
   })
 
+  // What "View progress" opens: another mount's open prompt wins over this form's own draft.
+  it("finds another mount's open prompt next to this form's own prepared draft", () => {
+    const storage = createMemoryStorage()
+    store(storage, buildDepositSession({ id: "this-form", phase: "prepared", updatedAt: 2_000 }))
+    store(storage, buildDepositSession({ id: "other-tab", phase: "send_prompt", updatedAt: 1_000 }))
+    const sessions = listDepositSessions(storage, API_URL)
+    expect(findInFlightSession(sessions, intent(buildDepositSession()))?.id).toBe("other-tab")
+  })
+
   it("ignores a record for a different transfer", () => {
     const sent = buildDepositSession({ id: "sent", phase: "source_sent" })
     const other = { ...intent(sent), destination: { ...sent.destination, recipient: "init1other" } }
     expect(findInFlightSession([sent], other)).toBeUndefined()
+  })
+})
+
+describe("reuseOrCreateDepositSession", () => {
+  const draft = omit(["version", "id", "createdAt", "updatedAt", "phase"], buildDepositSession())
+
+  it("reuses this form's never-prompted record for the same transfer", () => {
+    const stored = buildDepositSession({ phase: "prepared" })
+    expect(reuseOrCreateDepositSession(stored, draft)).toBe(stored)
+  })
+
+  it.each<DepositSessionPhase>(["send_prompt", "submission_unknown", "source_sent", "terminal"])(
+    "starts a new record over one that reached %s",
+    (phase) => {
+      const next = reuseOrCreateDepositSession(buildDepositSession({ phase }), draft)
+      expect(next.id).not.toBe("session-1")
+      expect(next.phase).toBe("prepared")
+    },
+  )
+
+  it("starts a new record for a different transfer or when nothing is stored", () => {
+    const other = { ...draft, destination: { ...draft.destination, recipient: "init1other" } }
+    expect(reuseOrCreateDepositSession(buildDepositSession(), other).id).not.toBe("session-1")
+    expect(reuseOrCreateDepositSession(null, draft).phase).toBe("prepared")
   })
 })

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest"
 import {
   assertDepositsAtAddress,
+  assertDirectDeposit,
+  assertLifiDeposit,
+  bySourceTxPollInterval,
+  classifyWalletBucket,
+  createDepositBySourceTxQueryOptions,
   DepositAddressMismatchError,
   displayBucket,
   isTerminalBucket,
@@ -8,7 +13,18 @@ import {
   pollUntilTerminal,
   resolveTrackedDeposit,
 } from "./deposits"
-import { deposit, DEPOSIT_ADDRESS } from "./testing"
+import { ETHEREUM_USDC_DENOM } from "./source"
+import {
+  deposit,
+  DEPOSIT_ADDRESS,
+  DST_TX_HASH,
+  httpError,
+  RECIPIENT,
+  runQueryFn,
+  SRC_TX_HASH,
+  stubApi,
+} from "./testing"
+import type { Deposit } from "./types"
 import { ACTIVE_DEPOSIT_BUCKETS, DEPOSIT_BUCKETS, TERMINAL_DEPOSIT_BUCKETS } from "./types"
 
 // Completeness guard: if the bucket contract gains a value, this fails until
@@ -136,5 +152,126 @@ describe("assertDepositsAtAddress", () => {
     // Typed so the tracking screen can route it to the hard-error path instead
     // of the transient "retrying" notice.
     expect(call).toThrow(DepositAddressMismatchError)
+  })
+})
+
+describe("classifyWalletBucket", () => {
+  it("reports every known bucket unchanged and the pre-discovery frame as waiting", () => {
+    for (const bucket of DEPOSIT_BUCKETS) {
+      expect(classifyWalletBucket(deposit({ bucket }))).toBe(bucket)
+    }
+    expect(classifyWalletBucket(null)).toBe("waiting")
+  })
+
+  // Unlike displayBucket: the user has just signed a real transfer.
+  it("keeps an unknown bucket unknown instead of calling it failed", () => {
+    expect(classifyWalletBucket(deposit({ bucket: "refunding" }))).toBe("unknown")
+    expect(classifyWalletBucket(deposit({ bucket: "" }))).toBe("unknown")
+  })
+})
+
+describe("bySourceTxPollInterval", () => {
+  it("polls on the shared cadence until the record exists", () => {
+    expect(bySourceTxPollInterval(null, 0)).toBe(3000)
+    expect(bySourceTxPollInterval(undefined, 6 * 60_000)).toBe(15_000)
+    expect(bySourceTxPollInterval(deposit(), 0)).toBe(false)
+  })
+})
+
+describe("createDepositBySourceTxQueryOptions", () => {
+  const run = (result: unknown) => {
+    const { api, calls } = stubApi(result)
+    const promise = runQueryFn(
+      createDepositBySourceTxQueryOptions(api, SRC_TX_HASH, true, Date.now()),
+    )
+    return { promise, calls }
+  }
+
+  // ky's own retries would re-send a deterministic failure behind the poll interval.
+  it("reads the record for the exact source transaction without ky retries", async () => {
+    const record = deposit()
+    const { promise, calls } = run(record)
+    await expect(promise).resolves.toBe(record)
+    expect(calls[0].url).toBe(`v1/deposits/by-source-tx/${SRC_TX_HASH}`)
+    expect(calls[0].options).toEqual({ searchParams: { src_chain_id: "1" }, retry: 0 })
+  })
+
+  it("treats a 404 as an indexing delay, not an error", async () => {
+    await expect(run(httpError(404, { message: "not found" })).promise).resolves.toBeNull()
+  })
+
+  it("surfaces every other failure normalized", async () => {
+    await expect(run(httpError(500, { message: "boom" })).promise).rejects.toThrow("boom")
+  })
+})
+
+const IDENTITY = {
+  depositAddress: DEPOSIT_ADDRESS,
+  dstChainId: "interwoven-1",
+  dstDenom: "uusdc",
+  recipient: RECIPIENT,
+}
+
+const OTHER_ADDRESS = "0x9999999999999999999999999999999999999999"
+
+// Shared by both transports: the record is always the Ethereum USDC leg at the issued address.
+const IDENTITY_MISMATCHES: [Partial<Deposit>, RegExp][] = [
+  [{ src_chain_id: "8453" }, /src_chain_id is 8453/],
+  [{ src_denom: "ethereum-native" }, /not Ethereum USDC/],
+  [{ deposit_address: OTHER_ADDRESS }, /deposit_address/],
+  [{ dst_chain_id: "yominet-1" }, /dst_chain_id/],
+  [{ dst_denom: "uinit" }, /dst_denom/],
+  [{ wallet_address: "init1someoneelse" }, /wallet_address/],
+]
+
+describe("assertDirectDeposit", () => {
+  const DIRECT = { ...IDENTITY, srcTxHash: SRC_TX_HASH, amount: "5000000" }
+
+  it("accepts the record the session sent, in any casing", () => {
+    for (const record of [
+      deposit(),
+      deposit({
+        src_tx_hash: `0x${SRC_TX_HASH.slice(2).toUpperCase()}`,
+        deposit_address: DEPOSIT_ADDRESS.toLowerCase(),
+        src_denom: ETHEREUM_USDC_DENOM.toLowerCase(),
+      }),
+    ]) {
+      expect(assertDirectDeposit(record, DIRECT)).toBe(record)
+    }
+  })
+
+  it.each<[Partial<Deposit>, RegExp]>([
+    [{ src_tx_hash: DST_TX_HASH }, /src_tx_hash/],
+    [{ amount: "4000000" }, /amount 4000000/],
+    ...IDENTITY_MISMATCHES,
+  ])("rejects %o", (overrides, message) => {
+    expect(() => assertDirectDeposit(deposit(overrides), DIRECT)).toThrow(message)
+  })
+})
+
+describe("assertLifiDeposit", () => {
+  // The Ethereum leg's hash and post-slippage amount, never the source transfer's.
+  const lifiDeposit = (overrides: Partial<Deposit> = {}) =>
+    deposit({ src_tx_hash: DST_TX_HASH, amount: "4950000", ...overrides })
+
+  it("accepts an indexed record without comparing the amount or, when unreported, the hash", () => {
+    const record = lifiDeposit()
+    expect(assertLifiDeposit(record, IDENTITY)).toBe(record)
+    expect(
+      assertLifiDeposit(record, {
+        ...IDENTITY,
+        dstTxHash: `0x${DST_TX_HASH.slice(2).toUpperCase()}`,
+      }),
+    ).toBe(record)
+  })
+
+  it("rejects a record whose hash is not the reported Ethereum delivery", () => {
+    expect(() => assertLifiDeposit(lifiDeposit(), { ...IDENTITY, dstTxHash: SRC_TX_HASH })).toThrow(
+      /reported Ethereum delivery/,
+    )
+  })
+
+  it.each(IDENTITY_MISMATCHES)("rejects %o", (overrides, message) => {
+    expect(() => assertLifiDeposit(lifiDeposit(overrides), IDENTITY)).toThrow(message)
   })
 })

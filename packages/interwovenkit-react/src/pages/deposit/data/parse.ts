@@ -1,7 +1,8 @@
-// Shared primitives for the Deposit API boundary parsers, so one parser's idea
-// of "an integer string" cannot drift from another's.
+import { isHexString } from "ethers"
 
-/** A keyed JSON object. Arrays are excluded: every wire record this API sends is keyed. */
+/** Thrown by assertField: a response that failed its boundary check, which no retry can change. */
+export class ParseError extends Error {}
+
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
 }
@@ -10,7 +11,6 @@ export function isString(value: unknown): value is string {
   return typeof value === "string"
 }
 
-/** Empty counts as missing everywhere in these parsers, so it never passes as a present value. */
 export function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0
 }
@@ -23,18 +23,8 @@ export function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value)
 }
 
-const INTEGER_PATTERN = /^\d+$/
-const DECIMAL_PATTERN = /^\d+(\.\d+)?$/
-const EVM_ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/
-const EVM_TX_HASH_PATTERN = /^0x[0-9a-fA-F]{64}$/
-// Even-length hex: calldata is whole bytes, and an odd-length string would be
-// silently re-interpreted (or rejected) by the wallet after the user signed.
-const HEX_DATA_PATTERN = /^0x([0-9a-fA-F]{2})*$/
-const HEX_QUANTITY_PATTERN = /^0x[0-9a-fA-F]+$/
-
-/** Base units stay decimal strings end to end; `Number` would lose precision on them. */
 export function isIntegerString(value: unknown): value is string {
-  return typeof value === "string" && INTEGER_PATTERN.test(value)
+  return typeof value === "string" && /^\d+$/.test(value)
 }
 
 export function isPositiveIntegerString(value: unknown): value is string {
@@ -42,34 +32,24 @@ export function isPositiveIntegerString(value: unknown): value is string {
 }
 
 export function isDecimalString(value: unknown): value is string {
-  return typeof value === "string" && DECIMAL_PATTERN.test(value)
-}
-
-export function isEvmAddress(value: unknown): value is string {
-  return typeof value === "string" && EVM_ADDRESS_PATTERN.test(value)
+  return typeof value === "string" && /^\d+(\.\d+)?$/.test(value)
 }
 
 export function isEvmTxHash(value: unknown): value is string {
-  return typeof value === "string" && EVM_TX_HASH_PATTERN.test(value)
+  return isHexString(value, 32)
 }
 
-export function isHexData(value: unknown): value is string {
-  return typeof value === "string" && HEX_DATA_PATTERN.test(value)
-}
-
-/** 0x-prefixed hex number — the form staging uses for `value` and the gas fields. */
+/** 0x-prefixed hex number, the form staging uses for `value` and the gas fields. */
 export function isHexQuantity(value: unknown): value is string {
-  return typeof value === "string" && HEX_QUANTITY_PATTERN.test(value)
+  return typeof value === "string" && /^0x[0-9a-fA-F]+$/.test(value)
 }
 
 export function assertField(condition: unknown, message: string): asserts condition {
-  if (!condition) throw new Error(message)
+  if (!condition) throw new ParseError(message)
 }
 
-/** Addresses are compared case-insensitively: EIP-55 checksums and bech32 casing are not identity. */
 export const eqAddress = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
 
-/** One field of a record spec. An `optional` field may be absent, but never malformed. */
 interface FieldRule<T, Optional extends boolean = false> {
   guard: (value: unknown) => value is T
   optional: Optional
@@ -83,9 +63,9 @@ export function optional<T>(guard: (value: unknown) => value is T): FieldRule<T,
   return { guard, optional: true }
 }
 
-export type FieldSpec = Record<string, FieldRule<unknown, boolean>>
+type FieldSpec = Record<string, FieldRule<unknown, boolean>>
 
-export type ParsedFields<S extends FieldSpec> = {
+type ParsedFields<S extends FieldSpec> = {
   [K in keyof S]: S[K] extends FieldRule<infer T, infer Optional>
     ? Optional extends true
       ? T | undefined
@@ -93,8 +73,8 @@ export type ParsedFields<S extends FieldSpec> = {
     : never
 }
 
-// Never half-builds a result, and the result carries only spec'd keys — a
-// foreign key written by another version cannot ride along into a later write.
+// Never half-builds a result, and carries only spec'd keys so a foreign key cannot ride along into
+// a later write.
 export function parseFields<S extends FieldSpec>(value: unknown, spec: S): ParsedFields<S> | null {
   if (!isRecord(value)) return null
   const parsed: Record<string, unknown> = {}

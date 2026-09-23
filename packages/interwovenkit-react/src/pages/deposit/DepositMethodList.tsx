@@ -1,5 +1,6 @@
 import { Fragment } from "react"
 import Image from "@/components/Image"
+import Images from "@/components/Images"
 import styles from "./DepositMethodList.module.css"
 
 import type { ComponentType, ReactNode } from "react"
@@ -16,6 +17,7 @@ export interface DepositMethodItem<Id extends string = string> {
   /** When set, render this image (e.g. the connected wallet's icon) instead of
    * Icon; Icon stays the fallback while it loads or if the image errors. */
   iconUrl?: string
+  chainIconUrl?: string
   disabled?: boolean
 }
 
@@ -38,7 +40,7 @@ const DepositMethodList = <Id extends string>({ sections, onSelect }: Props<Id>)
         <Fragment key={section.label}>
           <p className={styles.section}>{section.label}</p>
 
-          {section.methods.map(({ id, title, subtext, Icon, iconUrl, disabled }) => (
+          {section.methods.map(({ id, title, subtext, Icon, iconUrl, chainIconUrl, disabled }) => (
             <button
               type="button"
               className={styles.method}
@@ -47,7 +49,15 @@ const DepositMethodList = <Id extends string>({ sections, onSelect }: Props<Id>)
               disabled={disabled}
             >
               <span className={styles.icon}>
-                {iconUrl ? (
+                {iconUrl && chainIconUrl ? (
+                  <Images
+                    assetLogoUrl={iconUrl}
+                    chainLogoUrl={chainIconUrl}
+                    assetLogoSize={24}
+                    chainLogoSize={14}
+                    chainLogoOffset={4}
+                  />
+                ) : iconUrl ? (
                   <Image src={iconUrl} width={24} height={24} placeholder={<Icon size={24} />} />
                 ) : (
                   <Icon size={24} />

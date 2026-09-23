@@ -1,3 +1,4 @@
+import clsx from "clsx"
 import { formatNumber } from "@initia/utils"
 import { useSourceAssetLookup } from "../data/sourceAssets"
 import { useDepositForm, useDepositNavigate } from "../context"
@@ -46,7 +47,9 @@ const SelectProvider = () => {
         <span className={styles.left}>
           <ProviderLogo ramp={entry.ramp} size={28} />
           <span className={styles.name}>{getOnrampDisplayName(onramps, entry.ramp)}</span>
-          {entry.isBest && <span className={styles.badge}>Best price</span>}
+          {entry.isBest && (
+            <span className={clsx(styles.badge, styles["badge-success"])}>Best price</span>
+          )}
         </span>
 
         <span className={styles.right}>

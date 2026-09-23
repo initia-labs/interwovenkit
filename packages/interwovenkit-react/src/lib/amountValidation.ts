@@ -15,15 +15,6 @@ export const parseQuantity = (quantity?: string | null): BigNumber | null => {
   }
 }
 
-// Mirrors `isIntegerString` in the Deposit API parsers, inlined so this module stays free of
-// feature imports. "" when the input cannot be represented (empty, non-numeric, negative):
-// no JavaScript `Number` touches the value, since an amount past 2^53 base units would lose
-// precision.
-export const toBaseUnitString = (quantity: string, decimals: number): string => {
-  const base = toBaseUnit(quantity, { decimals })
-  return /^\d+$/.test(base) ? base : ""
-}
-
 export const isInsufficientBalance = ({
   quantity,
   balance,

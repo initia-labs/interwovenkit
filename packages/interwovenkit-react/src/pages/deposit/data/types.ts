@@ -48,8 +48,6 @@ export interface Asset {
   /** Minimum deposit in the source denom base unit (not destination). A backend
    * route setting that can change; always read it from here, never hardcode. */
   min_deposit_amount: string
-  /** Fast-advance cap in source base units, "" when unset. Display only: gating a send on it would block deposits the backend accepts the ordinary way. */
-  advance_max_amount?: string
   /**
    * Backend route-policy slippage tolerance as a percent string (e.g. "0.5";
    * "0.0" on swapless routes). Read-only display: slippage is not a user
@@ -160,13 +158,9 @@ export interface Deposit {
   bot_tx_hash: string
   /** Explorer URL for the bridge tx; empty string before submission. */
   bot_tx_explorer_url: string
-  /** Fast-delivery lifecycle, opaque like `status`. "failed" is not a financial outcome — the backend still falls back to ordinary delivery. */
+  /** Fast-delivery lifecycle, opaque like `status`; "failed" falls back to ordinary delivery. */
   advance_status?: string
-  /** Latest fast-delivery L1 submission hash, recorded before broadcast — it proves neither inclusion nor success. */
-  advance_tx_hash?: string
   advance_tx_explorer_url?: string
-  /** Operator's internal treasury reclaim; never rendered, it is not the user's deposit. */
-  reclaim_status?: string
 }
 
 /** GET /v1/deposits. Echoes whichever filters were sent; only `deposits` is consumed. */
@@ -183,29 +177,31 @@ export interface ListDepositsResponse {
   next_cursor?: string
 }
 
-// Pre-deposit bridge leg (Base/Arbitrum USDC -> Ethereum USDC via LI.FI). The
-// Deposit API fronts LI.FI; the client never calls LI.FI directly. Every shape
-// below is parsed at the boundary (data/bridges.ts) before a wallet prompt.
+/** The locally retained request a bridge response must be bound to before it can be signed. */
+export interface BridgeRequestIdentity {
+  srcChainId: string
+  srcDenom: string
+  dstChainId: string
+  dstDenom: string
+  amount: string
+  fromAddress: string
+  /** Final credited recipient, not the sender. */
+  walletAddress: string
+}
 
-/** One executable LI.FI route from the source chain to the Ethereum deposit address. */
 export interface BridgeOption {
   bridge: string
-  /** Expected Ethereum USDC delivered, in Ethereum base units. */
   amount_out: string
   /** Guaranteed Ethereum USDC after LI.FI slippage; the value every minimum gate compares. */
   min_received: string
   eligible: boolean
-  /** Absent when LI.FI supplied no estimate — unknown, never zero. */
   execution_duration_seconds?: number
-  /** Decimal USD string; absent when LI.FI supplied no estimate — unknown, never zero. */
   gas_cost_usd?: string
 }
 
 /** POST /v1/bridges/options */
 export interface BridgeOptionsResponse {
-  /** Issued Ethereum address every option delivers to (EIP-55 checksummed 0x hex). */
   deposit_address: string
-  /** Ethereum base units the delivered amount must reach for the deposit to be accepted. */
   required_min_received: string
   options: BridgeOption[]
 }
@@ -216,16 +212,14 @@ export interface BridgeQuoteApproval {
   amount: string
 }
 
-/** The exact source-chain call to sign. Never rewritten client-side. */
 export interface BridgeQuoteTransaction {
   chain_id: string
   from: string
   to: string
-  /** Native base units as a decimal string (normalized from the wire's hex). Nonzero on ERC-20 sources when the bridge charges a messaging fee, so it is forwarded as-is. */
+  /** Decimal native base units; nonzero when the bridge charges a messaging fee. */
   value: string
   data: string
   gas_limit?: string
-  gas_price?: string
 }
 
 /** POST /v1/bridges/quote */
@@ -236,27 +230,20 @@ export interface BridgeQuoteResponse {
   dst_chain_id: string
   dst_denom: string
   amount: string
-  /** Canonical destination wallet the deposit address is bound to (init bech32, lowercase). */
   wallet_address: string
   deposit_address: string
-  /** Monitoring watermark issued before the source transaction is submitted. */
   cursor: string
   amount_out: string
   min_received: string
-  /** The selected LI.FI tool; must echo the requested bridge key. */
   tool: string
-  quote_id?: string
   estimate: {
     execution_duration_seconds?: number
     gas_cost_usd?: string
   }
-  /** null for native sources; required and validated for ERC-20 sources. */
-  approval: BridgeQuoteApproval | null
+  approval: BridgeQuoteApproval
   transaction: BridgeQuoteTransaction
 }
 
-// Closed on the wire (an OpenAPI enum), unlike `Deposit.bucket`: an unrecognized
-// value is a tracking-contract problem, never a financial outcome.
 export const BRIDGE_STATUS_STATES = [
   "deposit_indexed",
   "deposit_pending",
@@ -274,24 +261,11 @@ export type BridgeStatusState = (typeof BRIDGE_STATUS_STATES)[number]
 /** GET /v1/bridges/status */
 export interface BridgeStatusResponse {
   state: BridgeStatusState
-  /** Normalized to a string; the wire sends a JSON integer (8453 | 42161). */
   src_chain_id: string
   src_tx_hash: string
   src_tx_link: string
   dst_tx_hash?: string
   dst_tx_link?: string
-  bridge?: string
-  /** Non-null only for `deposit_indexed`; validated by assertLifiDeposit before handoff. */
+  /** Non-null only for `deposit_indexed`. */
   deposit: Deposit | null
 }
-
-/** Coded failures unique to GET /v1/bridges/status (`{ error, message }`, not `{ message }`). */
-export const BRIDGE_STATUS_ERROR_CODES = [
-  "invalid_request",
-  "upstream_conflict",
-  "upstream_unavailable",
-  "rate_limited",
-  "internal_error",
-] as const
-
-export type BridgeStatusErrorCode = (typeof BRIDGE_STATUS_ERROR_CODES)[number]
