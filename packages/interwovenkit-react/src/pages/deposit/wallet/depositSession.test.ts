@@ -162,6 +162,24 @@ describe("mergeDepositSession", () => {
     expect(mergeDepositSession(current, replaced).currentSourceHash).toBe("0xbbb")
   })
 
+  it("keeps tracking a recorded replacement when a stale writer re-sends the original hash", () => {
+    const current = buildDepositSession({
+      phase: "source_sent",
+      currentSourceHash: "0xbbb",
+      originalSourceHash: "0xaaa",
+    })
+    const stale = buildDepositSession({
+      phase: "source_sent",
+      currentSourceHash: "0xaaa",
+      lastState: "bridge_pending",
+    })
+    expect(mergeDepositSession(current, stale)).toMatchObject({
+      currentSourceHash: "0xbbb",
+      originalSourceHash: "0xaaa",
+      lastState: "bridge_pending",
+    })
+  })
+
   it("preserves the original creation time and takes the latest update time", () => {
     const current = buildDepositSession({ createdAt: 1_000, updatedAt: 5_000 })
     const next = buildDepositSession({ createdAt: 9_999, updatedAt: 2_000 })

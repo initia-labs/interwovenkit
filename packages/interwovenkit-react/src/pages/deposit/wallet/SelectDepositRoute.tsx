@@ -43,8 +43,8 @@ function describeRoute(option: BridgeOption, delivery: number | null | undefined
 
 // Not polled: the options refresh re-keys every row whose amount moved.
 function useFinalQuote(amountIn: string, destination: DestinationNetwork | undefined) {
-  const { data } = useDeliveryQuote(destination, amountIn, false)
-  return amountIn && data?.status === "quoted" ? data.quote : undefined
+  const { data, isPlaceholderData } = useDeliveryQuote(destination, amountIn, false)
+  return amountIn && !isPlaceholderData && data?.status === "quoted" ? data.quote : undefined
 }
 
 interface RouteRowProps {

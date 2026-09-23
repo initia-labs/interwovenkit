@@ -262,6 +262,10 @@ export function mergeDepositSession(
   // A hash outranks a "not sent" verdict: the transfer was broadcast after all.
   const reopened =
     current.lastState === "not_sent" && !current.currentSourceHash && !!next.currentSourceHash
+  const staleOriginalHash =
+    !!current.originalSourceHash &&
+    current.originalSourceHash !== current.currentSourceHash &&
+    next.currentSourceHash === current.originalSourceHash
 
   return canonicalize({
     ...current,
@@ -274,7 +278,10 @@ export function mergeDepositSession(
     promptNonce: next.promptNonce ?? current.promptNonce,
     promptSeenAt: Math.max(next.promptSeenAt ?? 0, current.promptSeenAt ?? 0) || undefined,
     sourceNonce: next.sourceNonce ?? current.sourceNonce,
-    currentSourceHash: next.currentSourceHash ?? current.currentSourceHash,
+    // Once repriced, a late writer still carrying the original hash must not move tracking back.
+    currentSourceHash: staleOriginalHash
+      ? current.currentSourceHash
+      : (next.currentSourceHash ?? current.currentSourceHash),
     originalSourceHash: next.originalSourceHash ?? current.originalSourceHash,
     depositId: next.depositId ?? current.depositId,
     lastState: reopened
