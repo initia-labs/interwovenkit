@@ -192,16 +192,44 @@ describe("rankBridgeOptions", () => {
     ).toEqual(["rich", "fast"])
   })
 
-  it("treats a gap under a cent as competitive even when it exceeds 0.5% of a small deposit", () => {
-    // 0.5 USDC: $0.004 of extra gas is 0.8% of the output but not worth 9 minutes.
+  it("treats a gap under five cents as competitive even when it exceeds 0.5% of a small deposit", () => {
+    // 0.5 USDC: $0.03 is 6% of the output but not worth 9 minutes; $0.06 is past the floor.
     expect(
       keys([
         option({ bridge: "slow", amount_out: "500000", execution_duration_seconds: 628 }),
-        option({ bridge: "fast", amount_out: "496000", execution_duration_seconds: 106 }),
-        option({ bridge: "far", amount_out: "480000", execution_duration_seconds: 3 }),
+        option({ bridge: "fast", amount_out: "470000", execution_duration_seconds: 106 }),
+        option({ bridge: "far", amount_out: "440000", execution_duration_seconds: 3 }),
       ]),
     ).toEqual(["fast", "slow", "far"])
   })
+
+  it.each(["0.032", "0.045"])(
+    "ranks Stargate Fast first at 1 USDC when it costs $%s of gas",
+    (fastGas) => {
+      expect(
+        keys([
+          option({
+            bridge: "stargateV2Bus",
+            amount_out: "1000000",
+            execution_duration_seconds: 606,
+            gas_cost_usd: "0.022",
+          }),
+          option({
+            bridge: "glacis",
+            amount_out: "1000000",
+            execution_duration_seconds: 1200,
+            gas_cost_usd: "0.03",
+          }),
+          option({
+            bridge: "stargateV2",
+            amount_out: "1000000",
+            execution_duration_seconds: 61,
+            gas_cost_usd: fastGas,
+          }),
+        ]),
+      ).toEqual(["stargateV2", "stargateV2Bus", "glacis"])
+    },
+  )
 
   it("nets the quoted gas out of the output before comparing", () => {
     // 1.00 USDC out minus $0.05 gas ranks below 0.96 USDC with free gas, so output alone would have
@@ -278,13 +306,21 @@ describe("rankBridgeOptions", () => {
 })
 
 describe("percentDifference", () => {
-  it("reports the signed percentage against the best value", () => {
-    expect(percentDifference("1000000", "1000000")).toBe("0.00%")
-    expect(percentDifference("999999", "1000000")).toBe("0.00%")
-    expect(percentDifference("1010000", "1000000")).toBe("+1.00%")
-    expect(percentDifference("990000", "1000000")).toBe("-1.00%")
-    expect(percentDifference("nope", "1000000")).toBe("")
-    expect(percentDifference(undefined, "1000000")).toBe("")
+  it.each([
+    ["1010000", "+1.00%"],
+    ["990000", "-1.00%"],
+    ["1000100", "+0.01%"],
+    ["999900", "-0.01%"],
+    ["1000000", ""],
+    ["1000099", ""],
+    ["999901", ""],
+    ["nope", ""],
+    [undefined, ""],
+  ])("reports %s against 1000000 as %j", (value, expected) => {
+    expect(percentDifference(value, "1000000")).toBe(expected)
+  })
+
+  it("has no reference without a positive best value", () => {
     expect(percentDifference("1", "0")).toBe("")
   })
 })

@@ -1,6 +1,34 @@
+.explainer {
+  color: var(--gray-3);
+  font-size: 12px;
+
+  margin: -8px 0 16px;
+  text-align: center;
+}
+
+.text {
+  min-width: 0;
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .meta {
   display: block;
 
   color: var(--gray-3);
   font-size: 12px;
+}
+
+.gain {
+  color: var(--success);
 }

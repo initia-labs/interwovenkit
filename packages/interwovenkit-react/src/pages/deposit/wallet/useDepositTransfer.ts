@@ -79,8 +79,12 @@ export interface DepositTransferModel {
   destination: DestinationNetwork
   recipient: string
   isHostRecipient: boolean
+  depositAddress?: string
   /** The bound LI.FI quote; undefined on the direct path. */
   quote?: BridgeQuoteResponse
+  hasAmount: boolean
+  /** The estimates for the typed amount are still on their first fetch. */
+  isEstimating: boolean
   estimatedAmountOut?: string
   estimatedSeconds?: number
   approval: {
@@ -104,6 +108,9 @@ export interface DepositTransferModel {
 
 const SOURCE_READ_REFRESH_MS = 15_000
 const APPROVAL_RECEIPT_TIMEOUT_MS = 120_000
+
+const isFirstFetch = (query: { isLoading: boolean; isPlaceholderData: boolean }) =>
+  query.isLoading || query.isPlaceholderData
 
 // Non-suspense: a Deposit API outage must not suspend the Router pairs in the same form.
 export function useDepositTransportResolution() {
@@ -320,6 +327,13 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
   const estimatedSeconds = combineEstimatedSeconds(
     transport === "lifi" ? [boundQuote?.estimate.execution_duration_seconds, delivery] : [delivery],
   )
+  const typedAmount = toBaseUnitString(quantity, source.decimals)
+  const isAmountSettled = typedAmount === amount
+  const isEstimating =
+    !isAmountSettled ||
+    (transport === "lifi" && (isFirstFetch(optionsQuery) || quoteQuery.isLoading)) ||
+    isFirstFetch(preflightQuery) ||
+    (needsDisplayQuote && isFirstFetch(displayQuery))
 
   const approval = boundQuote?.approval
   const spender = approval?.spender_address ?? ""
@@ -544,7 +558,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     storageBlocked,
     recipientError,
     quantityEntered: !!quantity,
-    isAmountSettled: toBaseUnitString(quantity, source.decimals) === amount,
+    isAmountSettled,
     amount,
     balancesError: !!balancesQuery.error,
     tokenBalance: balancesQuery.data?.token,
@@ -634,7 +648,10 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     destination,
     recipient,
     isHostRecipient: request.isHostRecipient,
+    depositAddress,
     quote: boundQuote,
+    hasAmount: gteInteger(typedAmount, "1"),
+    isEstimating,
     estimatedAmountOut: displayQuote?.amount_out,
     estimatedSeconds,
     approval: {

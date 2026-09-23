@@ -1,9 +1,12 @@
 import { Fragment } from "react"
-import { IconChevronDown, IconChevronRight } from "@initia/icons-react"
+import { IconCheck, IconChevronRight, IconCopy, IconExternalLink } from "@initia/icons-react"
 import { formatAmount, truncate } from "@initia/utils"
 import Collapsible from "@/components/Collapsible"
+import CopyButton from "@/components/CopyButton"
 import DetailRow from "@/components/DetailRow"
+import { safeExplorerUrl } from "@/components/explorer"
 import Image from "@/components/Image"
+import Skeleton from "@/components/Skeleton"
 import { useConfig } from "@/data/config"
 import { useConnectedWalletIcon } from "@/hooks/useConnectedWalletIcon"
 import { formatDuration } from "@/pages/bridge/data/format"
@@ -18,13 +21,18 @@ const DepositTransferTxDetails = ({ model }: { model: DepositTransferModel }) =>
   const { registryUrl } = useConfig()
   const walletIcon = useConnectedWalletIcon()
   const { quote, route, destination, estimatedAmountOut, recipient, isHostRecipient } = model
+  const { depositAddress, isEstimating } = model
+
+  if (!model.hasAmount) return null
 
   const tool = quote ? getBridgeToolDisplay(quote.tool) : undefined
 
   return (
     <div className={styles.container}>
       <DetailRow label="Route">
-        {model.openRouteSelection ? (
+        {model.openRouteSelection && !tool && isEstimating ? (
+          <Skeleton width={96} height={24} />
+        ) : model.openRouteSelection ? (
           <button
             type="button"
             className={onrampStyles.providerPill}
@@ -39,7 +47,7 @@ const DepositTransferTxDetails = ({ model }: { model: DepositTransferModel }) =>
             ) : (
               "—"
             )}
-            <IconChevronDown size={12} className={onrampStyles.pillChevron} aria-hidden="true" />
+            <IconChevronRight size={12} className={onrampStyles.pillChevron} aria-hidden="true" />
           </button>
         ) : (
           model.legs.map((leg, index) => (
@@ -63,10 +71,46 @@ const DepositTransferTxDetails = ({ model }: { model: DepositTransferModel }) =>
           {!isHostRecipient && <img src={walletIcon} alt="Wallet" height={12} width={12} />}{" "}
           {truncate(recipient)}
         </DetailRow>
+        {depositAddress && (
+          <DetailRow label="Deposit address">
+            <CopyButton value={depositAddress}>
+              {({ copy, copied }) => (
+                <button
+                  type="button"
+                  className={styles.address}
+                  onClick={copy}
+                  aria-label={copied ? "Copied" : "Copy deposit address"}
+                >
+                  {truncate(depositAddress, [8, 6])}
+                  {copied ? (
+                    <IconCheck size={12} aria-hidden="true" />
+                  ) : (
+                    <IconCopy size={12} aria-hidden="true" />
+                  )}
+                </button>
+              )}
+            </CopyButton>
+            <a
+              href={safeExplorerUrl(`https://etherscan.io/address/${depositAddress}`)}
+              className={styles.address}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="View deposit address on Etherscan"
+            >
+              <IconExternalLink size={12} aria-hidden="true" />
+            </a>
+          </DetailRow>
+        )}
       </Collapsible>
 
       <DetailRow label="Estimated time">
-        {model.estimatedSeconds ? formatDuration(model.estimatedSeconds) : "—"}
+        {model.estimatedSeconds ? (
+          formatDuration(model.estimatedSeconds)
+        ) : isEstimating ? (
+          <Skeleton width={48} height={16} />
+        ) : (
+          "—"
+        )}
       </DetailRow>
       <DetailRow label="Estimated received" emphasized>
         {estimatedAmountOut ? (
@@ -81,6 +125,8 @@ const DepositTransferTxDetails = ({ model }: { model: DepositTransferModel }) =>
             {formatAmount(estimatedAmountOut, { decimals: destination.decimals })}{" "}
             {route.dst_symbol}
           </>
+        ) : isEstimating ? (
+          <Skeleton width={96} height={16} />
         ) : (
           "—"
         )}

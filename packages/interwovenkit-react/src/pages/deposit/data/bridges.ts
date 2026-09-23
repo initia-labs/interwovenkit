@@ -147,7 +147,7 @@ function compareUnknownLast<T>(
 }
 
 const COMPETITIVE_VALUE_TOLERANCE = 0.005
-const COMPETITIVE_VALUE_FLOOR_USD = 0.01
+const COMPETITIVE_VALUE_FLOOR_USD = 0.05
 
 function bestNetValue(options: BridgeOption[]): BigNumber | undefined {
   return options
@@ -160,7 +160,7 @@ function bestNetValue(options: BridgeOption[]): BigNumber | undefined {
     )
 }
 
-// Eligible first; routes within 0.5% or one cent of the best net value order by speed, the rest by
+// Eligible first; routes within 0.5% or five cents of the best net value order by speed, the rest by
 // value.
 export function rankBridgeOptions(options: BridgeOption[]): BridgeOption[] {
   const nets = new Map(options.map((option) => [option.bridge, netValue(option)]))
@@ -197,9 +197,9 @@ export function rankBridgeOptions(options: BridgeOption[]): BridgeOption[] {
 export function percentDifference(value: string | undefined, best: string | undefined): string {
   if (!value || !best || !isIntegerString(value) || !isIntegerString(best)) return ""
   if (BigNumber(best).lte(0)) return ""
-  const percent = BigNumber(value).minus(best).div(best).times(100).toFixed(2)
-  if (BigNumber(percent).isZero()) return "0.00%"
-  return `${percent.startsWith("-") ? "" : "+"}${percent}%`
+  const percent = BigNumber(value).minus(best).div(best).times(100)
+  if (percent.abs().lt(0.01)) return ""
+  return `${percent.gt(0) ? "+" : ""}${percent.toFixed(2)}%`
 }
 
 // Every source is an ERC-20: without an allowance for exactly that token the call reverts after the

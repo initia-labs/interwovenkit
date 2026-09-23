@@ -139,27 +139,27 @@ interface BridgeToolDisplay {
   logoUrl: string
 }
 
-// Display metadata from https://li.quest/v1/tools for the tools that route Base/Arbitrum → Ethereum USDC.
+// Base/Arbitrum → Ethereum USDC tools from https://li.quest/v1/tools, names shortened to one line.
 const BRIDGE_TOOLS: Record<string, BridgeToolDisplay> = {
-  across: { name: "AcrossV4", logoUrl: lifiIcon("bridges/across") },
+  across: { name: "Across", logoUrl: lifiIcon("bridges/across") },
   arbitrum: { name: "Arbitrum Bridge", logoUrl: lifiIcon("bridges/arbitrum") },
   cctp: { name: "Circle CCTP", logoUrl: lifiIcon("bridges/circle") },
-  celercircle: { name: "CCTP + Celer (Standard)", logoUrl: lifiIcon("bridges/circle") },
-  celercirclefast: { name: "CCTP + Celer (Fast)", logoUrl: lifiIcon("bridges/circle") },
+  celercircle: { name: "Celer CCTP", logoUrl: lifiIcon("bridges/circle") },
+  celercirclefast: { name: "Celer CCTP Fast", logoUrl: lifiIcon("bridges/circle") },
   gasZipBridge: { name: "GasZip", logoUrl: lifiIcon("bridges/gaszip") },
   glacis: { name: "Glacis", logoUrl: lifiIcon("bridges/glacis") },
   layerswap: { name: "Layerswap", logoUrl: lifiIcon("bridges/layerswap") },
   lifiIntents: { name: "LI.FI Intents", logoUrl: lifiIcon("bridges/lifi") },
-  mayan: { name: "Mayan (Swift)", logoUrl: lifiIcon("bridges/mayan") },
-  mayanFastMCTP: { name: "CCTPv2 + Mayan", logoUrl: lifiIcon("bridges/mayan") },
-  mayanMCTP: { name: "CCTP + Mayan", logoUrl: lifiIcon("bridges/mayan") },
-  mayanWH: { name: "Mayan (Wormhole)", logoUrl: lifiIcon("bridges/mayan") },
-  polymer: { name: "Polymer (Fast)", logoUrl: lifiIcon("bridges/polymer") },
-  polymerStandard: { name: "Polymer (Standard)", logoUrl: lifiIcon("bridges/polymer") },
+  mayan: { name: "Mayan Swift", logoUrl: lifiIcon("bridges/mayan") },
+  mayanFastMCTP: { name: "Mayan CCTPv2", logoUrl: lifiIcon("bridges/mayan") },
+  mayanMCTP: { name: "Mayan CCTP", logoUrl: lifiIcon("bridges/mayan") },
+  mayanWH: { name: "Mayan Wormhole", logoUrl: lifiIcon("bridges/mayan") },
+  polymer: { name: "Polymer Fast", logoUrl: lifiIcon("bridges/polymer") },
+  polymerStandard: { name: "Polymer Standard", logoUrl: lifiIcon("bridges/polymer") },
   relaydepository: { name: "Relay", logoUrl: lifiIcon("bridges/relay") },
   squid: { name: "Squid", logoUrl: lifiIcon("bridges/squid") },
-  stargateV2: { name: "StargateV2 (Fast mode)", logoUrl: lifiIcon("bridges/stargate") },
-  stargateV2Bus: { name: "StargateV2 (Economy mode)", logoUrl: lifiIcon("bridges/stargate") },
+  stargateV2: { name: "Stargate Fast", logoUrl: lifiIcon("bridges/stargate") },
+  stargateV2Bus: { name: "Stargate Economy", logoUrl: lifiIcon("bridges/stargate") },
   symbiosis: { name: "Symbiosis", logoUrl: lifiIcon("bridges/symbiosis") },
 }
 

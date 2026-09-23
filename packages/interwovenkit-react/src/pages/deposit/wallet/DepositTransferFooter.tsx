@@ -1,3 +1,4 @@
+import { truncate } from "@initia/utils"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import FormHelp from "@/components/form/FormHelp"
@@ -6,6 +7,7 @@ import type { DepositTransportResolution } from "./depositSources"
 import DepositTransferTxDetails from "./DepositTransferTxDetails"
 import type { DepositTransportSelection } from "./useDepositTransfer"
 import { useDepositTransfer } from "./useDepositTransfer"
+import styles from "./TransferTxDetails.module.css"
 
 interface Props {
   resolution: Exclude<DepositTransportResolution, { transport: "router" }>
@@ -48,6 +50,19 @@ const DepositTransferActions = ({ resolution }: { resolution: DepositTransportSe
       ? readiness.message
       : undefined
 
+  // Wallets like Rabby flag a recipient that isn't the connected account.
+  const addressNotice =
+    model.transport === "lifi" &&
+    model.depositAddress &&
+    readiness.status === "ready" &&
+    !isSending &&
+    !needsApproval &&
+    !model.submitError &&
+    !approval.error &&
+    !quoteUpdated
+      ? `This deposit goes to your personal Initia deposit address, ${truncate(model.depositAddress, [8, 6])}. Your wallet may warn that it's not your current address.`
+      : undefined
+
   const loadingText = isSending
     ? "Signing transaction..."
     : approval.isApproving
@@ -68,6 +83,7 @@ const DepositTransferActions = ({ resolution }: { resolution: DepositTransportSe
             {quoteUpdated && (
               <FormHelp level="info">Route updated. Please review and confirm again.</FormHelp>
             )}
+            {addressNotice && <p className={styles.notice}>{addressNotice}</p>}
           </FormHelp.Stack>
         }
       >

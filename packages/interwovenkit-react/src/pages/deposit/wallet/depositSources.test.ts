@@ -157,7 +157,7 @@ describe("intersectHostSources", () => {
 
 describe("getBridgeToolDisplay", () => {
   it("resolves a known key to its LI.FI display identity", () => {
-    expect(getBridgeToolDisplay("across").name).toBe("AcrossV4")
+    expect(getBridgeToolDisplay("across").name).toBe("Across")
     expect(getBridgeToolDisplay("relaydepository").name).toBe("Relay")
   })
 

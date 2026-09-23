@@ -1,6 +1,6 @@
 import clsx from "clsx"
 import { useEffect } from "react"
-import { IconChevronDown } from "@initia/icons-react"
+import { IconChevronDown, IconChevronRight } from "@initia/icons-react"
 import { formatNumber } from "@initia/utils"
 import Button from "@/components/Button"
 import Collapsible from "@/components/Collapsible"
@@ -299,7 +299,7 @@ const OnrampFields = () => {
               ) : (
                 "—"
               )}
-              <IconChevronDown size={12} className={styles.pillChevron} aria-hidden="true" />
+              <IconChevronRight size={12} className={styles.pillChevron} aria-hidden="true" />
             </button>
           </DetailRow>
 

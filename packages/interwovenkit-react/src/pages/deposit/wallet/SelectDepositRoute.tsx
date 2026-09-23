@@ -1,7 +1,6 @@
-import BigNumber from "bignumber.js"
 import clsx from "clsx"
 import { useEffect } from "react"
-import { useQueries, useQuery } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { formatAmount } from "@initia/utils"
 import Image from "@/components/Image"
 import { USDC_DECIMALS } from "@/data/constants"
@@ -14,7 +13,7 @@ import {
 } from "../data/bridges"
 import { createQuoteQueryOptions } from "../data/quote"
 import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM, formatSourceMin } from "../data/source"
-import type { BridgeOption } from "../data/types"
+import type { BridgeOption, DestinationNetwork } from "../data/types"
 import providerStyles from "../onramp/SelectProvider.module.css"
 import DepositStatus from "../DepositStatus"
 import DepositSubpage from "../DepositSubpage"
@@ -29,12 +28,89 @@ import { useTransferForm } from "./transferFlowConfig"
 import { useDepositRequest, useDepositTransportResolution } from "./useDepositTransfer"
 import styles from "./SelectDepositRoute.module.css"
 
+const OPTIONS_REFRESH_MS = 20_000
+
 /** Unknown cost or time is dropped rather than shown as free or instant. */
 function describeRoute(option: BridgeOption, delivery: number | null | undefined): string {
   const gas = option.gas_cost_usd ? `Gas ${formatNetworkFee(option.gas_cost_usd)}` : undefined
   const seconds = combineEstimatedSeconds([option.execution_duration_seconds, delivery])
   const duration = seconds ? formatDuration(seconds) : undefined
   return [gas, duration].filter((part): part is string => !!part).join(" · ")
+}
+
+// Final delivery for a route, quoted from the USDC it lands on Ethereum. One observer per row keeps
+// the previous amount's quote on screen while a refreshed route amount is re-quoted.
+function useFinalQuote(amountIn: string, destination: DestinationNetwork | undefined) {
+  const api = useDepositApi()
+  const { data } = useQuery(
+    createQuoteQueryOptions(
+      api,
+      {
+        srcChainId: ETHEREUM_CHAIN_ID,
+        srcDenom: ETHEREUM_USDC_DENOM,
+        dstChainId: destination?.chain_id ?? "",
+        dstDenom: destination?.denom ?? "",
+        amountIn,
+      },
+      !!destination && !!amountIn,
+    ),
+  )
+  return amountIn && data?.status === "quoted" ? data.quote : undefined
+}
+
+interface RouteRowProps {
+  option: BridgeOption
+  destination: DestinationNetwork
+  symbol: string
+  isActive: boolean
+  isBest: boolean
+  bestFinal?: string
+  requiredMinimum: string
+  onSelect: () => void
+}
+
+const RouteRow = (props: RouteRowProps) => {
+  const { option, destination, symbol, isActive, isBest, bestFinal, requiredMinimum } = props
+  const { name, logoUrl } = getBridgeToolDisplay(option.bridge)
+  const finalQuote = useFinalQuote(option.eligible ? option.amount_out : "", destination)
+  const finalAmount = finalQuote?.amount_out
+  const difference = option.eligible && !isBest ? percentDifference(finalAmount, bestFinal) : ""
+
+  return (
+    <DepositSubpage.Row isActive={isActive} onClick={props.onSelect} disabled={!option.eligible}>
+      <span className={providerStyles.left}>
+        <Image src={logoUrl} width={28} height={28} logo />
+        <span className={styles.text}>
+          <span className={styles.title}>
+            <span className={clsx(providerStyles.name, styles.name)}>{name}</span>
+            {isBest && (
+              <span className={clsx(providerStyles.badge, providerStyles["badge-success"])}>
+                Best
+              </span>
+            )}
+          </span>
+          <span className={styles.meta}>
+            {option.eligible
+              ? describeRoute(option, deliverySeconds(finalQuote, destination))
+              : `Below the ${requiredMinimum} minimum`}
+          </span>
+        </span>
+      </span>
+
+      <span className={providerStyles.right}>
+        <span className={providerStyles.amount}>
+          {finalAmount
+            ? `${formatAmount(finalAmount, { decimals: destination.decimals })} ${symbol}`
+            : "—"}
+        </span>
+        {difference && (
+          <span className={clsx(providerStyles.diff, difference.startsWith("+") && styles.gain)}>
+            {difference}
+          </span>
+        )}
+      </span>
+    </DepositSubpage.Row>
+  )
 }
 
 const SelectDepositRoute = () => {
@@ -45,9 +121,10 @@ const SelectDepositRoute = () => {
   const request = useDepositRequest(resolution)
 
   const isLifi = resolution.transport === "lifi"
-  const { data, error, isLoading, isPlaceholderData } = useQuery(
-    createBridgeOptionsQueryOptions(api, request.identity, isLifi && request.isComplete),
-  )
+  const { data, error, isLoading, isPlaceholderData } = useQuery({
+    ...createBridgeOptionsQueryOptions(api, request.identity, isLifi && request.isComplete),
+    refetchInterval: OPTIONS_REFRESH_MS,
+  })
 
   useEffect(() => {
     if (!isLifi) setValue("page", "fields")
@@ -56,42 +133,13 @@ const SelectDepositRoute = () => {
   const ranked = rankBridgeOptions(data?.options ?? [])
   const { option: activeOption } = selectBridgeOption(ranked, selectedBridge)
   const best = ranked.find((option) => option.eligible)
+  const bestFinal = useFinalQuote(
+    best?.amount_out ?? "",
+    isLifi ? resolution.destination : undefined,
+  )?.amount_out
   const requiredMinimum = data
     ? formatSourceMin(data.required_min_received, USDC_DECIMALS, "USDC")
     : ""
-
-  // Final delivery per route, quoted from the USDC it lands on Ethereum.
-  const destination = isLifi ? resolution.destination : undefined
-  const route = isLifi ? resolution.route : undefined
-  const amounts = [
-    ...new Set(ranked.filter((option) => option.eligible).map((option) => option.amount_out)),
-  ]
-  const finalQuotes = useQueries({
-    queries: amounts.map((amountIn) =>
-      createQuoteQueryOptions(
-        api,
-        {
-          srcChainId: ETHEREUM_CHAIN_ID,
-          srcDenom: ETHEREUM_USDC_DENOM,
-          dstChainId: destination?.chain_id ?? "",
-          dstDenom: destination?.denom ?? "",
-          amountIn,
-        },
-        !!destination,
-      ),
-    ),
-  })
-  const finalQuoteByAmount = new Map(
-    amounts.map((amountIn, index) => {
-      const { data, isPlaceholderData } = finalQuotes[index]
-      const quoted = !isPlaceholderData && data?.status === "quoted"
-      return [amountIn, quoted ? data.quote : undefined]
-    }),
-  )
-  const bestFinal = [...finalQuoteByAmount.values()]
-    .map((quote) => quote?.amount_out)
-    .filter((amount): amount is string => !!amount)
-    .sort((a, b) => (BigNumber(a).gt(b) ? -1 : 1))[0]
 
   const selectRoute = (option: BridgeOption) => {
     setValue("selectedBridge", option.bridge)
@@ -99,58 +147,31 @@ const SelectDepositRoute = () => {
   }
 
   const renderList = () => {
-    if (!isLifi) return null
+    if (resolution.transport !== "lifi") return null
     if (error) return <DepositStatus error>{error.message}</DepositStatus>
     if (isLoading || isPlaceholderData) return <DepositStatus>Finding routes...</DepositStatus>
     if (!ranked.length) return <DepositStatus>No routes available for this amount</DepositStatus>
 
-    return ranked.map((option) => {
-      const { name, logoUrl } = getBridgeToolDisplay(option.bridge)
-      const finalQuote = finalQuoteByAmount.get(option.amount_out)
-      const finalAmount = finalQuote?.amount_out
-      const difference =
-        option.eligible && finalAmount !== bestFinal
-          ? percentDifference(finalAmount, bestFinal)
-          : ""
-      return (
-        <DepositSubpage.Row
-          key={option.bridge}
-          isActive={option.bridge === activeOption?.bridge}
-          onClick={() => selectRoute(option)}
-          disabled={!option.eligible}
-        >
-          <span className={providerStyles.left}>
-            <Image src={logoUrl} width={28} height={28} logo />
-            <span>
-              <span className={providerStyles.name}>{name}</span>
-              <span className={styles.meta}>
-                {option.eligible
-                  ? describeRoute(option, deliverySeconds(finalQuote, destination))
-                  : `Below the ${requiredMinimum} minimum`}
-              </span>
-            </span>
-            {option.bridge === best?.bridge && (
-              <span className={clsx(providerStyles.badge, providerStyles["badge-success"])}>
-                Best
-              </span>
-            )}
-          </span>
-
-          <span className={providerStyles.right}>
-            <span className={providerStyles.amount}>
-              {finalAmount && destination && route
-                ? `${formatAmount(finalAmount, { decimals: destination.decimals })} ${route.dst_symbol}`
-                : "—"}
-            </span>
-            {difference && <span className={providerStyles.diff}>{difference}</span>}
-          </span>
-        </DepositSubpage.Row>
-      )
-    })
+    return ranked.map((option) => (
+      <RouteRow
+        key={option.bridge}
+        option={option}
+        destination={resolution.destination}
+        symbol={resolution.route.dst_symbol}
+        isActive={option.bridge === activeOption?.bridge}
+        isBest={option.bridge === best?.bridge}
+        bestFinal={bestFinal}
+        requiredMinimum={requiredMinimum}
+        onSelect={() => selectRoute(option)}
+      />
+    ))
   }
 
   return (
     <DepositSubpage title="Select route" onBack={() => setValue("page", "fields")}>
+      <p className={styles.explainer}>
+        Best is the fastest route within 0.5% or $0.05 of the highest amount after gas.
+      </p>
       <div className={providerStyles.header}>
         <span>Route</span>
         <span>You receive</span>
