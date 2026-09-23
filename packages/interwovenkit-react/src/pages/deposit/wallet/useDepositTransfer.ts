@@ -462,6 +462,8 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
           response.hash,
           APPROVAL_RECEIPT_TIMEOUT_MS,
         )
+        // The approval used a nonce; the next prompt must record the one after it.
+        await noncesQuery.refetch()
       } catch (error) {
         throw await normalizeError(error)
       }
@@ -470,8 +472,6 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
       // A fresh quote may carry a different spender or amount.
       void queryClient.invalidateQueries({ queryKey: quoteQueryOptions.queryKey })
       void queryClient.invalidateQueries({ queryKey: allowanceKey })
-      // The approval used a nonce; the next prompt must record the one after it.
-      void noncesQuery.refetch()
     },
   })
 

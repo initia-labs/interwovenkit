@@ -453,9 +453,11 @@ const getRevision = () => storeRevision
 // Post-prompt records the browser could not persist; a later successful write promotes them back.
 const volatileSessions = new Map<string, DepositSession>()
 
+// Merged rather than picked, so a late hash kept only in memory still outranks a stored verdict.
 function preferVolatile(stored: DepositSession | null, id: string): DepositSession | null {
   const volatile = volatileSessions.get(id)
-  return volatile && (!stored || isPhaseAdvance(stored.phase, volatile.phase)) ? volatile : stored
+  if (!volatile) return stored
+  return stored ? mergeDepositSession(stored, volatile) : volatile
 }
 
 function readStoredOrVolatile(id: string): DepositSession | null {
