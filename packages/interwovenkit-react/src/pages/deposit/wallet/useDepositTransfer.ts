@@ -549,13 +549,18 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
 
   const sessionRef = useRef<{ intentKey: string; session: DepositSession } | null>(null)
   useEffect(() => {
-    if (sessionRef.current?.intentKey === intentKey) return
     // An in-flight record is adopted so "View progress" opens it; readiness blocks the send.
     if (inFlightSession) {
-      sessionRef.current = { intentKey, session: inFlightSession }
+      if (
+        sessionRef.current?.intentKey !== intentKey ||
+        sessionRef.current.session.id !== inFlightSession.id
+      ) {
+        sessionRef.current = { intentKey, session: inFlightSession }
+      }
       if (inFlightSession.id !== depositSessionId) setValue("depositSessionId", inFlightSession.id)
       return
     }
+    if (sessionRef.current?.intentKey === intentKey) return
     if (!sessionDraft) return
     // The id lives in the form so a wallet rejection, or a remount (the provider picker, a
     // source change and back), reuses the same record while it is still re-signable.
