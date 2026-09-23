@@ -13,7 +13,7 @@ const route = (min_deposit_amount: string): Asset => ({
   dst_networks: [],
 })
 
-const network = (processing_time_seconds?: number): DestinationNetwork => ({
+const network = (processing_time_seconds?: number | null): DestinationNetwork => ({
   chain_id: "interwoven-1",
   chain_name: "Initia",
   denom: "uusdc",
@@ -120,6 +120,11 @@ describe("createDepositAssetsQueryOptions", () => {
     it("polls every 5 s while an estimate is missing and the budget remains", () => {
       expect(getRefetchInterval(missingEstimate, 1)).toBe(5_000)
       expect(getRefetchInterval(missingEstimate, 6)).toBe(5_000)
+    })
+
+    it("treats a null estimate as missing", () => {
+      const nullEstimate = [{ ...route("1"), dst_networks: [network(null)] }]
+      expect(getRefetchInterval(nullEstimate, 1)).toBe(5_000)
     })
 
     it("stops polling once the fetch budget is spent", () => {
