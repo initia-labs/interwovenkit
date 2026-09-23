@@ -86,7 +86,9 @@ export async function waitForApproval(
 }
 
 export type SourceTxOutcome =
-  | { status: "confirmed" | "reverted" | "pending" }
+  | { status: "confirmed" | "reverted" }
+  /** `nextBlock` is where the next check resumes a replacement scan. */
+  | { status: "pending"; nextBlock?: number }
   /** `hash` is the replacement's. */
   | { status: "replaced"; hash: string; reason: "repriced" | "cancelled" | "replaced" }
 
@@ -109,11 +111,15 @@ function classifyReplacement(replacement: TransactionResponse, send: WatchedSend
   return isCancelled ? "cancelled" : "replaced"
 }
 
-// Every gap in the evidence is `pending`: only a mined transaction at our nonce proves a replacement.
+const SCAN_BLOCKS_PER_CHECK = 25
+
+// Every gap in the evidence is `pending`: only a mined transaction at our nonce, with its own
+// receipt from that block, proves a replacement.
 export async function checkSourceTransaction(
   provider: JsonRpcProvider,
   hash: string,
   send: WatchedSend,
+  resumeBlock?: number,
 ): Promise<SourceTxOutcome> {
   const { sourceNonce: nonce, preSubmitBlock: startBlock } = send
   const { sender } = send.source
@@ -127,18 +133,23 @@ export async function checkSourceTransaction(
   }
 
   const head = await provider.getBlockNumber()
-  for (let number = startBlock; number <= head; number++) {
+  const first = Math.max(startBlock, resumeBlock ?? startBlock)
+  const last = Math.min(head, first + SCAN_BLOCKS_PER_CHECK - 1)
+  for (let number = first; number <= last; number++) {
     const block = await provider.getBlock(number, true)
-    if (!block) return { status: "pending" }
+    if (!block) return { status: "pending", nextBlock: number }
     const taken = block.prefetchedTransactions.find(
       (tx) => sameAddress(tx.from, sender) && tx.nonce === nonce,
     )
     if (!taken) continue
     // Our own transaction with a lagging receipt.
-    if (taken.hash.toLowerCase() === hash.toLowerCase()) return { status: "pending" }
+    if (taken.hash.toLowerCase() === hash.toLowerCase())
+      return { status: "pending", nextBlock: number }
+    const replacement = await provider.getTransactionReceipt(taken.hash)
+    if (replacement?.blockNumber !== number) return { status: "pending", nextBlock: number }
     return { status: "replaced", hash: taken.hash, reason: classifyReplacement(taken, send) }
   }
-  return { status: "pending" }
+  return { status: "pending", nextBlock: last + 1 }
 }
 
 export function usePinnedSourceBalances(params: { chainId: string; owner: string; token: string }) {

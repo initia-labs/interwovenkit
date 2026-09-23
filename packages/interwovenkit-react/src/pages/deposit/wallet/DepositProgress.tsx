@@ -41,7 +41,12 @@ import {
 } from "./depositProgressLogic"
 import { type DepositSession, recoveryReference, useDepositSessionStore } from "./depositSession"
 import { depositApiRpcUrl, findEthereumUsdcRoute } from "./depositSources"
-import { checkSourceTransaction, getPinnedProvider, useSenderNonces } from "./evmRpc"
+import {
+  checkSourceTransaction,
+  getPinnedProvider,
+  type SourceTxOutcome,
+  useSenderNonces,
+} from "./evmRpc"
 import { useTransferForm } from "./transferFlowConfig"
 import styles from "./DepositProgress.module.css"
 
@@ -106,12 +111,21 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
       promptNonce !== undefined && nonces && nonces.latest > promptNonce ? false : POLL_INTERVAL,
   )
 
+  const sourceWatchKey = depositQueryKeys.sourceWatch(session.id, sourceHash).queryKey
   const sourceQuery = useQuery({
     // The session id and watched hash identify every other input: the session's immutable intent.
     // eslint-disable-next-line @tanstack/query/exhaustive-deps
-    queryKey: depositQueryKeys.sourceWatch(session.id, sourceHash).queryKey,
-    queryFn: () =>
-      checkSourceTransaction(getPinnedProvider(session.source.chainId), sourceHash, session),
+    queryKey: sourceWatchKey,
+    // A replacement scan resumes where the last check stopped instead of restarting at the send.
+    queryFn: () => {
+      const previous = queryClient.getQueryData<SourceTxOutcome>(sourceWatchKey)
+      return checkSourceTransaction(
+        getPinnedProvider(session.source.chainId),
+        sourceHash,
+        session,
+        previous?.status === "pending" ? previous.nextBlock : undefined,
+      )
+    },
     enabled: !!depositApiRpcUrl(session.source.chainId) && !!sourceHash && !depositId,
     // The interval is the retry: an RPC error is an evidence gap, not a reason to give up.
     retry: false,

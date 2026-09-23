@@ -42,8 +42,12 @@ interface MinedFields {
 
 interface FakeProviderOptions {
   receipt?: { status: number }
-  /** Mined in block 100 at the watched nonce, which moves the sender's nonce past it. */
+  /** Mined at the watched nonce (block 100 unless `minedBlock`), which moves the sender's nonce past it. */
   mined?: MinedFields
+  minedBlock?: number
+  /** The mined transaction's own receipt block; `null` for a receipt the node doesn't have yet. */
+  minedReceiptBlock?: number | null
+  head?: number
   rpcError?: Error
   balance?: bigint
   call?: EthCall
@@ -54,7 +58,9 @@ const checksummed = (hex: string) => `0x${hex.slice(2).toUpperCase()}`
 const blockReads: number[] = []
 
 function createFakeProvider(options: FakeProviderOptions = {}): JsonRpcProvider {
-  const { receipt, mined, rpcError } = options
+  const { receipt, mined, rpcError, minedBlock = 100, head = 105 } = options
+  const minedReceiptBlock =
+    options.minedReceiptBlock === undefined ? minedBlock : options.minedReceiptBlock
   blockReads.length = 0
   const minedTx = mined && {
     hash: REPLACEMENT_HASH,
@@ -66,13 +72,16 @@ function createFakeProvider(options: FakeProviderOptions = {}): JsonRpcProvider 
   return {
     getTransactionReceipt: async (hash: string) => {
       if (rpcError) throw rpcError
-      return hash === HASH && receipt ? receipt : null
+      if (hash === HASH) return receipt ?? null
+      return minedTx && hash === minedTx.hash && minedReceiptBlock !== null
+        ? { status: 1, blockNumber: minedReceiptBlock }
+        : null
     },
-    getBlockNumber: async () => 105,
+    getBlockNumber: async () => head,
     getTransactionCount: async () => (mined ? 8 : 7),
     getBlock: async (blockNumber: number) => {
       blockReads.push(blockNumber)
-      return { prefetchedTransactions: blockNumber === 100 && minedTx ? [minedTx] : [] }
+      return { prefetchedTransactions: blockNumber === minedBlock && minedTx ? [minedTx] : [] }
     },
     getBalance: async () => options.balance ?? 0n,
     call: async (tx: { to?: string; data?: string }) => options.call?.(tx) ?? "0x",
@@ -176,8 +185,36 @@ describe("checkSourceTransaction", () => {
     const provider = createFakeProvider({
       mined: { from: OTHER, to: SENDER, data: "0x", value: 0n },
     })
-    await expect(check(provider)).resolves.toEqual({ status: "pending" })
+    await expect(check(provider)).resolves.toEqual({ status: "pending", nextBlock: 106 })
     expect(blockReads).toEqual([100, 101, 102, 103, 104, 105])
+  })
+
+  it("scans a bounded range per check and resumes where the last one stopped", async () => {
+    const options = {
+      mined: { to: SENDER, data: "0x", value: 0n },
+      minedBlock: 130,
+      head: 400,
+    }
+    await expect(check(createFakeProvider(options))).resolves.toEqual({
+      status: "pending",
+      nextBlock: 125,
+    })
+    expect(blockReads).toEqual(Array.from({ length: 25 }, (_, index) => 100 + index))
+    await expect(
+      checkSourceTransaction(createFakeProvider(options), HASH, SEND, 125),
+    ).resolves.toMatchObject({ status: "replaced", reason: "cancelled" })
+    expect(blockReads[0]).toBe(125)
+  })
+
+  it.each([
+    ["the node has no receipt for it yet", null],
+    ["its receipt is from another block after a reorg", 101],
+  ])("stays pending on a replacement when %s", async (_, minedReceiptBlock) => {
+    const provider = createFakeProvider({
+      mined: { to: SENDER, data: "0x", value: 0n },
+      minedReceiptBlock,
+    })
+    await expect(check(provider)).resolves.toEqual({ status: "pending", nextBlock: 100 })
   })
 
   it.each([
@@ -192,13 +229,14 @@ describe("checkSourceTransaction", () => {
     const provider = createFakeProvider({
       mined: { hash: checksummed(HASH), to: SENDER, data: "0x", value: 0n },
     })
-    await expect(check(provider)).resolves.toEqual({ status: "pending" })
+    await expect(check(provider)).resolves.toEqual({ status: "pending", nextBlock: 100 })
   })
 
   it("stays pending when the transaction at the nonce is outside the scanned blocks", async () => {
     const provider = createFakeProvider({ mined: { to: SENDER, data: "0x", value: 0n } })
     await expect(check(provider, { ...SEND, preSubmitBlock: 101 })).resolves.toEqual({
       status: "pending",
+      nextBlock: 106,
     })
   })
 
