@@ -18,7 +18,7 @@ const PROCESSING_TIME_FETCH_LIMIT = 7
 
 function hasMissingProcessingTime(assets: Asset[]): boolean {
   return assets.some((asset) =>
-    asset.dst_networks.some((network) => network.processing_time_seconds === undefined),
+    asset.dst_networks.some((network) => network.processing_time_seconds == null),
   )
 }
 
@@ -154,7 +154,7 @@ export function useProcessingTime(
     queryClient.getQueryState(depositQueryKeys.assets.queryKey)?.dataUpdateCount ?? 0
 
   const seconds = route
-    ? findDestinationNetwork(route, chainId, denom)?.processing_time_seconds
+    ? (findDestinationNetwork(route, chainId, denom)?.processing_time_seconds ?? undefined)
     : undefined
   const selectionKey = `${route?.src_chain_id ?? ""}:${route?.src_denom ?? ""}:${chainId}:${denom}`
 

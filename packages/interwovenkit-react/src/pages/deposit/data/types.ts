@@ -27,10 +27,10 @@ export interface DestinationNetwork {
   vm_type: string
   /**
    * Best-effort processing estimate (route min amount → this network) in
-   * seconds. Omitted when the backend has no cached router estimate, so treat
-   * absence as "unknown", not zero.
+   * seconds. Omitted or null when the backend has no cached router estimate,
+   * so treat absence as "unknown", not zero.
    */
-  processing_time_seconds?: number
+  processing_time_seconds?: number | null
 }
 
 /**
