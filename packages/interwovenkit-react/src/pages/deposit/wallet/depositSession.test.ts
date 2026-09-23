@@ -29,9 +29,16 @@ function store(storage: StorageLike, session: DepositSession) {
 }
 
 describe("parseDepositSession", () => {
-  it("round-trips a valid record", () => {
-    const session = buildDepositSession({ lastState: "bridge_pending" })
+  it.each([undefined, "advance"])("round-trips a valid record (predicted %s)", (predicted) => {
+    const session = buildDepositSession({
+      lastState: "bridge_pending",
+      ...(predicted && { predictedDelivery: predicted }),
+    })
     expect(parseDepositSession(JSON.parse(JSON.stringify(session)))).toEqual(session)
+  })
+
+  it("rejects a malformed predicted delivery", () => {
+    expect(parseDepositSession({ ...buildDepositSession(), predictedDelivery: 1 })).toBeNull()
   })
 
   it("drops fields it does not know about", () => {

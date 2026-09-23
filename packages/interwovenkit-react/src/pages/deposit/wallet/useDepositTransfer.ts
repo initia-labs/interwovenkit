@@ -41,6 +41,8 @@ import {
 import { type DepositTransportResolution, resolveDepositTransport } from "./depositSources"
 import {
   buildDepositTransaction,
+  combineEstimatedSeconds,
+  deliverySeconds,
   type DepositReadiness,
   deriveDepositReadiness,
   derivePreflight,
@@ -80,6 +82,7 @@ export interface DepositTransferModel {
   /** The bound LI.FI quote; undefined on the direct path. */
   quote?: BridgeQuoteResponse
   estimatedAmountOut?: string
+  estimatedSeconds?: number
   approval: {
     required: boolean
     isChecking: boolean
@@ -307,6 +310,10 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
   const displayResult =
     displaySource.data && !displaySource.isPlaceholderData ? displaySource.data : undefined
   const displayQuote = displayResult?.status === "quoted" ? displayResult.quote : undefined
+  const delivery = deliverySeconds(displayQuote, destination)
+  const estimatedSeconds = combineEstimatedSeconds(
+    transport === "lifi" ? [boundQuote?.estimate.execution_duration_seconds, delivery] : [delivery],
+  )
 
   const approval = boundQuote?.approval
   const spender = approval?.spender_address ?? ""
@@ -392,6 +399,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
       depositAddress,
       cursor,
       transaction,
+      predictedDelivery: displayQuote?.delivery?.method,
     }
   }
   const draftTransaction = buildDraft(boundQuote)?.transaction
@@ -622,6 +630,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     isHostRecipient: request.isHostRecipient,
     quote: boundQuote,
     estimatedAmountOut: displayQuote?.amount_out,
+    estimatedSeconds,
     approval: {
       required: approvalRequired,
       isChecking: approvalChecking,

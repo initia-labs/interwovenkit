@@ -89,6 +89,24 @@ export interface DepositAddressResponse {
 export interface QuoteResponse {
   amount_out: string
   min_received: string
+  /** Omitted by older backends. */
+  delivery?: QuoteDelivery
+}
+
+/**
+ * Predicted at quote time, not reserved, for Ethereum → destination only.
+ * `method` is an open set like `bucket`: only "advance" is fast.
+ */
+export interface QuoteDelivery {
+  method: string
+  estimated_seconds: number | null
+}
+
+/** `method` is current, so it reads "standard" after an advance falls back. */
+export interface DepositDelivery {
+  method: string
+  /** The actual time once completed; null while waiting, failed, or unknown. */
+  estimated_completion_at: string | null
 }
 
 // Server-computed user-facing lifecycle groups, split by liveness. The server
@@ -161,6 +179,8 @@ export interface Deposit {
   /** Fast-delivery lifecycle, opaque like `status`; "failed" falls back to ordinary delivery. */
   advance_status?: string
   advance_tx_explorer_url?: string
+  /** Omitted until the worker classifies the deposit. */
+  delivery?: DepositDelivery
 }
 
 /** GET /v1/deposits. Echoes whichever filters were sent; only `deposits` is consumed. */

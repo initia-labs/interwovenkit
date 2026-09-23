@@ -90,6 +90,8 @@ export interface DepositSession {
   depositAddress: string
   cursor: string
   transaction: DepositSessionTransaction
+  /** The quote's delivery method at send time. */
+  predictedDelivery?: string
   preSubmitBlock?: number
   /** What the wallet actually returned; its nonce may differ from any prefetched hint. */
   submitted?: { nonce?: number; from: string }
@@ -160,6 +162,7 @@ const SESSION_FIELDS = {
   phase: required(isPhase),
   depositAddress: required(isNonEmptyString),
   cursor: required(isString),
+  predictedDelivery: optional(isNonEmptyString),
   preSubmitBlock: optional(isBlockNumber),
   currentSourceHash: optional(isNonEmptyString),
   originalSourceHash: optional(isNonEmptyString),

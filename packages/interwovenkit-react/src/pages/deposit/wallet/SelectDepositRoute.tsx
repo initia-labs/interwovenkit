@@ -14,13 +14,14 @@ import {
 } from "../data/bridges"
 import { createQuoteQueryOptions } from "../data/quote"
 import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM, formatSourceMin } from "../data/source"
-import type { BridgeOption, DestinationNetwork } from "../data/types"
+import type { BridgeOption } from "../data/types"
 import providerStyles from "../onramp/SelectProvider.module.css"
 import DepositStatus from "../DepositStatus"
 import DepositSubpage from "../DepositSubpage"
 import { getBridgeToolDisplay } from "./depositSources"
 import {
   combineEstimatedSeconds,
+  deliverySeconds,
   formatNetworkFee,
   selectBridgeOption,
 } from "./depositTransferLogic"
@@ -29,12 +30,9 @@ import { useDepositRequest, useDepositTransportResolution } from "./useDepositTr
 import styles from "./SelectDepositRoute.module.css"
 
 /** Unknown cost or time is dropped rather than shown as free or instant. */
-function describeRoute(option: BridgeOption, destination: DestinationNetwork | undefined): string {
+function describeRoute(option: BridgeOption, delivery: number | null | undefined): string {
   const gas = option.gas_cost_usd ? `Gas ${formatNetworkFee(option.gas_cost_usd)}` : undefined
-  const seconds = combineEstimatedSeconds([
-    option.execution_duration_seconds,
-    destination?.processing_time_seconds,
-  ])
+  const seconds = combineEstimatedSeconds([option.execution_duration_seconds, delivery])
   const duration = seconds ? formatDuration(seconds) : undefined
   return [gas, duration].filter((part): part is string => !!part).join(" · ")
 }
@@ -83,14 +81,15 @@ const SelectDepositRoute = () => {
       ),
     ),
   })
-  const finalAmounts = new Map(
+  const finalQuoteByAmount = new Map(
     amounts.map((amountIn, index) => {
       const { data, isPlaceholderData } = finalQuotes[index]
       const quoted = !isPlaceholderData && data?.status === "quoted"
-      return [amountIn, quoted ? data.quote.amount_out : undefined]
+      return [amountIn, quoted ? data.quote : undefined]
     }),
   )
-  const bestFinal = [...finalAmounts.values()]
+  const bestFinal = [...finalQuoteByAmount.values()]
+    .map((quote) => quote?.amount_out)
     .filter((amount): amount is string => !!amount)
     .sort((a, b) => (BigNumber(a).gt(b) ? -1 : 1))[0]
 
@@ -107,7 +106,8 @@ const SelectDepositRoute = () => {
 
     return ranked.map((option) => {
       const { name, logoUrl } = getBridgeToolDisplay(option.bridge)
-      const finalAmount = finalAmounts.get(option.amount_out)
+      const finalQuote = finalQuoteByAmount.get(option.amount_out)
+      const finalAmount = finalQuote?.amount_out
       const difference =
         option.eligible && finalAmount !== bestFinal
           ? percentDifference(finalAmount, bestFinal)
@@ -125,7 +125,7 @@ const SelectDepositRoute = () => {
               <span className={providerStyles.name}>{name}</span>
               <span className={styles.meta}>
                 {option.eligible
-                  ? describeRoute(option, destination)
+                  ? describeRoute(option, deliverySeconds(finalQuote, destination))
                   : `Below the ${requiredMinimum} minimum`}
               </span>
             </span>

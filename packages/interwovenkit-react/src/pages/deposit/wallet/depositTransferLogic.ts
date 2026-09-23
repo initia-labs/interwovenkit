@@ -6,7 +6,12 @@ import { BRIDGE_QUOTE_MAX_AGE } from "../data/bridges"
 import { eqAddress, isDecimalString, isEvmTxHash, isIntegerString } from "../data/parse"
 import type { QuoteResult } from "../data/quote"
 import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM } from "../data/source"
-import type { BridgeOption, BridgeQuoteResponse } from "../data/types"
+import type {
+  BridgeOption,
+  BridgeQuoteResponse,
+  DestinationNetwork,
+  QuoteResponse,
+} from "../data/types"
 import type { DepositSessionTransaction } from "./depositSession"
 import { encodeErc20Transfer } from "./evmRpc"
 
@@ -82,6 +87,15 @@ export function combineEstimatedSeconds(parts: (number | null | undefined)[]): n
     total += part
   }
   return total
+}
+
+/** The Ethereum → destination leg: unknown until quoted, since the method depends on the amount. */
+export function deliverySeconds(
+  quote: QuoteResponse | undefined,
+  destination: DestinationNetwork | undefined,
+): number | null | undefined {
+  if (!quote) return undefined
+  return quote.delivery?.estimated_seconds ?? destination?.processing_time_seconds
 }
 
 // The issued address is swept between deposits, so a transfer estimated against a nonzero

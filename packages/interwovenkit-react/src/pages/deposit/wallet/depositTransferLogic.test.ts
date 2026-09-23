@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest"
 import { InitiaAddress } from "@initia/utils"
 import { BRIDGE_QUOTE_MAX_AGE } from "../data/bridges"
-import type { BridgeOption, BridgeQuoteResponse } from "../data/types"
+import type {
+  BridgeOption,
+  BridgeQuoteResponse,
+  DestinationNetwork,
+  QuoteResponse,
+} from "../data/types"
 import {
   buildDepositTransaction,
   combineEstimatedSeconds,
+  deliverySeconds,
   type DepositReadinessInput,
   deriveDepositReadiness,
   derivePreflight,
@@ -183,6 +189,46 @@ describe("combineEstimatedSeconds", () => {
   it("is unknown when any leg is unknown", () => {
     expect(combineEstimatedSeconds([120, undefined])).toBeUndefined()
     expect(combineEstimatedSeconds([120, null])).toBeUndefined()
+  })
+})
+
+describe("deliverySeconds", () => {
+  const destination: DestinationNetwork = {
+    chain_id: "interwoven-1",
+    chain_name: "Initia",
+    denom: "uiusd",
+    decimals: 6,
+    vm_type: "move",
+    processing_time_seconds: 360,
+  }
+  const quote = (delivery?: QuoteResponse["delivery"]): QuoteResponse => ({
+    amount_out: "5000000",
+    min_received: "4975000",
+    delivery,
+  })
+
+  it.each<[string, QuoteResponse | undefined, number | null | undefined]>([
+    ["an advance prediction", quote({ method: "advance", estimated_seconds: 60 }), 60],
+    ["a standard prediction", quote({ method: "standard", estimated_seconds: 420 }), 420],
+    ["a null estimate falls back", quote({ method: "standard", estimated_seconds: null }), 360],
+    ["an older backend falls back", quote(), 360],
+    ["no quote yet is unknown", undefined, undefined],
+  ])("%s", (_, input, expected) => {
+    expect(deliverySeconds(input, destination)).toBe(expected)
+  })
+
+  it("is unknown when neither source has an estimate", () => {
+    expect(deliverySeconds(quote(), { ...destination, processing_time_seconds: null })).toBeNull()
+  })
+
+  it("adds the LI.FI leg for bridged transfers", () => {
+    const delivery = deliverySeconds(
+      quote({ method: "advance", estimated_seconds: 60 }),
+      destination,
+    )
+    expect(combineEstimatedSeconds([delivery])).toBe(60)
+    expect(combineEstimatedSeconds([45, delivery])).toBe(105)
+    expect(combineEstimatedSeconds([undefined, delivery])).toBeUndefined()
   })
 })
 

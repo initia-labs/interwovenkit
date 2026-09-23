@@ -1,8 +1,9 @@
+import { formatDuration } from "@/pages/bridge/data/format"
 import type { AssetOption } from "../data/assetOptions"
 import { BridgeStatusError } from "../data/bridges"
 import type { WalletDepositBucket } from "../data/deposits"
 import { eqAddress } from "../data/parse"
-import type { BridgeStatusState } from "../data/types"
+import type { BridgeStatusState, DepositDelivery } from "../data/types"
 import type { DepositTrackingVariant } from "../DepositTracking"
 import {
   type DepositLastState,
@@ -49,12 +50,14 @@ export interface DepositProgressInputs {
   deposit: {
     bucket: WalletDepositBucket
     advanceStatus?: string
+    delivery?: DepositDelivery
     isError: boolean
     minLabel?: string
     completedAmount?: string
     isSelfRecipient: boolean
   }
   isDelayed: boolean
+  now: number
 }
 
 const IN_FLIGHT_TITLE = "Deposit in progress"
@@ -63,6 +66,9 @@ const NEUTRAL_TITLE = "Deposit status"
 const NO_REFUND = "Your funds remain at the deposit address with no automatic refund."
 
 const ARRIVED_ON_ETHEREUM = "USDC arrived on Ethereum. Waiting for the deposit to be detected."
+
+const FAST_DELIVERY_FELL_BACK =
+  "Fast delivery wasn't available, so this deposit is using standard delivery."
 
 interface LastStateCopy {
   /** Resume-row subtext on the hub. */
@@ -209,7 +215,7 @@ export function deriveDepositProgress(
   const view = resolve(session, inputs)
 
   // Replaces the heading, not the copy: "your funds are safe" is false while a bridge holds them.
-  if (view.variant === "in-flight" && inputs.isDelayed) {
+  if (view.variant === "in-flight" && inputs.isDelayed && !timeLeft(session, inputs)) {
     return { ...view, heading: "Taking longer than usual" }
   }
   return view
@@ -363,17 +369,33 @@ function correlateStage(inputs: DepositProgressInputs): DepositProgressView {
   })
 }
 
+// Hidden once the estimate passes: it is a prediction, not a deadline.
+function timeLeft(session: DepositSession, inputs: DepositProgressInputs): string | undefined {
+  const { bucket, delivery } = inputs.deposit
+  if (!session.depositId || (bucket !== "waiting" && bucket !== "processing")) return undefined
+  const remaining = Date.parse(delivery?.estimated_completion_at ?? "") - inputs.now
+  if (!(remaining > 0)) return undefined
+  return `About ${formatDuration(Math.ceil(remaining / 60_000) * 60)} left.`
+}
+
 function depositStage(session: DepositSession, inputs: DepositProgressInputs): DepositProgressView {
-  const { bucket, advanceStatus, isError, minLabel, completedAmount, isSelfRecipient } =
+  const { bucket, advanceStatus, delivery, isError, minLabel, completedAmount, isSelfRecipient } =
     inputs.deposit
   const destination = session.destination.chainName || "the destination"
+  const eta = timeLeft(session, inputs)
+  const fellBack =
+    session.predictedDelivery === "advance" && !!delivery && delivery.method !== "advance"
+  const delivering = (message: string) => ({
+    message: eta ? `${message} ${eta}` : message,
+    note: fellBack ? FAST_DELIVERY_FELL_BACK : undefined,
+  })
 
   switch (bucket) {
     case "waiting":
       return inFlight({
         stage: "deposit",
         title: "Confirming your deposit…",
-        message: "Confirming on Ethereum.",
+        ...delivering("Confirming on Ethereum."),
         isRetrying: isError,
         persist: { lastState: "waiting" },
       })
@@ -381,10 +403,11 @@ function depositStage(session: DepositSession, inputs: DepositProgressInputs): D
       return inFlight({
         stage: "deposit",
         title: "Transferring…",
-        message:
+        ...delivering(
           advanceStatus === "pending"
             ? `Fast delivery to ${destination} in progress.`
             : `Delivering to ${destination}.`,
+        ),
         isRetrying: isError,
         persist: { lastState: "processing" },
       })

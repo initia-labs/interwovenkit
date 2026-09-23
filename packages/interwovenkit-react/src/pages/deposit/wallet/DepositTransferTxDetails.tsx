@@ -9,7 +9,7 @@ import { useConnectedWalletIcon } from "@/hooks/useConnectedWalletIcon"
 import { formatDuration } from "@/pages/bridge/data/format"
 import onrampStyles from "../onramp/OnrampFields.module.css"
 import { getBridgeToolDisplay } from "./depositSources"
-import { combineEstimatedSeconds, formatNetworkFee } from "./depositTransferLogic"
+import { formatNetworkFee } from "./depositTransferLogic"
 import type { DepositTransferModel } from "./useDepositTransfer"
 import styles from "./TransferTxDetails.module.css"
 
@@ -17,15 +17,9 @@ import styles from "./TransferTxDetails.module.css"
 const DepositTransferTxDetails = ({ model }: { model: DepositTransferModel }) => {
   const { registryUrl } = useConfig()
   const walletIcon = useConnectedWalletIcon()
-  const { transport, quote, route, destination, estimatedAmountOut, recipient, isHostRecipient } =
-    model
+  const { quote, route, destination, estimatedAmountOut, recipient, isHostRecipient } = model
 
   const tool = quote ? getBridgeToolDisplay(quote.tool) : undefined
-  const estimatedSeconds = combineEstimatedSeconds(
-    transport === "lifi"
-      ? [quote?.estimate.execution_duration_seconds, destination.processing_time_seconds]
-      : [destination.processing_time_seconds],
-  )
 
   return (
     <div className={styles.container}>
@@ -72,7 +66,7 @@ const DepositTransferTxDetails = ({ model }: { model: DepositTransferModel }) =>
       </Collapsible>
 
       <DetailRow label="Estimated time">
-        {estimatedSeconds ? formatDuration(estimatedSeconds) : "—"}
+        {model.estimatedSeconds ? formatDuration(model.estimatedSeconds) : "—"}
       </DetailRow>
       <DetailRow label="Estimated received" emphasized>
         {estimatedAmountOut ? (

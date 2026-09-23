@@ -23,6 +23,7 @@ const inputs = (overrides: Partial<DepositProgressInputs> = {}): DepositProgress
   direct: { isError: false },
   deposit: { bucket: "waiting", isError: false, isSelfRecipient: true },
   isDelayed: false,
+  now: 0,
   ...overrides,
 })
 
@@ -529,5 +530,74 @@ describe("deriveDepositProgress: stall reassurance", () => {
     )
     expect(view.heading).toBe("Deposit failed")
     expect(view.variant).toBe("failed")
+  })
+})
+
+describe("deriveDepositProgress: delivery estimate", () => {
+  const NOW = Date.parse("2026-09-23T00:00:00Z")
+  const at = (seconds: number) => new Date(NOW + seconds * 1000).toISOString()
+  const view = (
+    deposit: Partial<DepositProgressInputs["deposit"]>,
+    overrides: Partial<DepositSession> = {},
+    isDelayed = false,
+  ) =>
+    deriveDepositProgress(
+      session({ depositId: "deposit-1", ...overrides }),
+      inputs({
+        now: NOW,
+        isDelayed,
+        deposit: { bucket: "processing", isError: false, isSelfRecipient: true, ...deposit },
+      }),
+    )
+
+  it("shows the time left while the estimate is ahead, rounded up to the minute", () => {
+    const { message } = view({ delivery: { method: "advance", estimated_completion_at: at(45) } })
+    expect(message).toBe("Delivering to Initia. About 1m left.")
+    expect(
+      view({ delivery: { method: "standard", estimated_completion_at: at(301) } }).message,
+    ).toBe("Delivering to Initia. About 6m left.")
+  })
+
+  it.each([
+    ["passed", at(-1)],
+    ["null", null],
+    ["malformed", "soon"],
+  ])("hides the time left when the estimate is %s", (_, estimatedCompletionAt) => {
+    const delivery = { method: "standard", estimated_completion_at: estimatedCompletionAt }
+    expect(view({ delivery }).message).toBe("Delivering to Initia.")
+  })
+
+  it("hides the time left once the deposit is terminal", () => {
+    const delivery = { method: "advance", estimated_completion_at: at(60) }
+    const completed = view({ bucket: "completed", completedAmount: "5 iUSD", delivery })
+    expect(completed.message).not.toContain("left")
+  })
+
+  it("keeps the stall heading back while the estimate is ahead", () => {
+    const delivery = { method: "standard", estimated_completion_at: at(120) }
+    expect(view({ delivery }, {}, true).heading).toBeUndefined()
+    expect(
+      view({ delivery: { ...delivery, estimated_completion_at: at(-1) } }, {}, true).heading,
+    ).toBe("Taking longer than usual")
+  })
+
+  const FELL_BACK = "Fast delivery wasn't available, so this deposit is using standard delivery."
+
+  it.each<[string, string | undefined, string | undefined, string | undefined]>([
+    ["advance fell back to standard", "advance", "standard", FELL_BACK],
+    ["advance still advance", "advance", "advance", undefined],
+    ["standard as predicted", "standard", "standard", undefined],
+    ["no prediction", undefined, "standard", undefined],
+    ["not classified yet", "advance", undefined, undefined],
+  ])("fallback line: %s", (_, predicted, method, note) => {
+    const delivery = method ? { method, estimated_completion_at: null } : undefined
+    expect(view({ delivery }, { predictedDelivery: predicted }).note).toBe(note)
+  })
+
+  it("drops the fallback line once the deposit is terminal", () => {
+    const delivery = { method: "standard", estimated_completion_at: null }
+    expect(
+      view({ bucket: "failed", delivery }, { predictedDelivery: "advance" }).note,
+    ).toBeUndefined()
   })
 })

@@ -1,5 +1,6 @@
 import { whereEq } from "ramda"
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { useInterval } from "usehooks-ts"
 import { useQuery } from "@tanstack/react-query"
 import Button from "@/components/Button"
 import CopyButton from "@/components/CopyButton"
@@ -199,6 +200,12 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   const depositQuery = useDeposit(depositId)
   const deposit = depositQuery.data ?? null
   const bucket = classifyWalletBucket(deposit)
+  const estimatedCompletionAt = deposit?.delivery?.estimated_completion_at
+
+  const [now, setNow] = useState(Date.now)
+  const isCountingDown =
+    !!estimatedCompletionAt && (bucket === "waiting" || bucket === "processing")
+  useInterval(() => setNow(Date.now()), isCountingDown ? 10_000 : null)
 
   // Non-suspending: suspending would blank a screen already reporting on money in flight.
   const assetsQuery = useQuery({
@@ -225,6 +232,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   })
 
   const inputs: Omit<DepositProgressInputs, "isDelayed"> = {
+    now,
     source: { outcome: sourceOutcome, isError: sourceQuery.isError },
     bridge: {
       state: bridgeStatus?.state,
@@ -239,6 +247,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     deposit: {
       bucket,
       advanceStatus: deposit?.advance_status,
+      delivery: deposit?.delivery,
       isError: depositQuery.isError,
       minLabel,
       completedAmount,
