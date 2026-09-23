@@ -112,6 +112,8 @@ function classifyReplacement(replacement: TransactionResponse, send: WatchedSend
 }
 
 const SCAN_BLOCKS_PER_CHECK = 25
+// Re-read behind the cursor, so a reorg that moves the replacement lower is still found.
+const REORG_OVERLAP_BLOCKS = 3
 
 // Every gap in the evidence is `pending`: only a mined transaction at our nonce, with its own
 // receipt from that block, proves a replacement.
@@ -133,7 +135,8 @@ export async function checkSourceTransaction(
   }
 
   const head = await provider.getBlockNumber()
-  const first = Math.max(startBlock, resumeBlock ?? startBlock)
+  const cursor = Math.max(startBlock, resumeBlock ?? startBlock)
+  const first = Math.max(startBlock, cursor - REORG_OVERLAP_BLOCKS)
   const last = Math.min(head, first + SCAN_BLOCKS_PER_CHECK - 1)
   for (let number = first; number <= last; number++) {
     const block = await provider.getBlock(number, true)
@@ -149,7 +152,8 @@ export async function checkSourceTransaction(
     if (replacement?.blockNumber !== number) return { status: "pending", nextBlock: number }
     return { status: "replaced", hash: taken.hash, reason: classifyReplacement(taken, send) }
   }
-  return { status: "pending", nextBlock: last + 1 }
+  // Never backwards: a lagging node's lower head must not undo progress.
+  return { status: "pending", nextBlock: Math.max(cursor, last + 1) }
 }
 
 export function usePinnedSourceBalances(params: { chainId: string; owner: string; token: string }) {

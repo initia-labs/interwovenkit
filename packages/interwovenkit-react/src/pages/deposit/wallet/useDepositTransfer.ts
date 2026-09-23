@@ -572,7 +572,9 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     minimumLabel,
     approvalChecking,
     approvalError: allowanceError,
-    depositAddressError: depositAddressQuery.error?.message,
+    depositAddressError: depositAddressQuery.error
+      ? "Couldn't get your deposit address. Try again."
+      : undefined,
     hasDepositAddress: !!depositAddress,
     preflight: preflight.status,
     preflightReason: preflight.reason,

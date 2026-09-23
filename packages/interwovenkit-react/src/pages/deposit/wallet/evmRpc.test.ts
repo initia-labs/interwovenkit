@@ -203,7 +203,29 @@ describe("checkSourceTransaction", () => {
     await expect(
       checkSourceTransaction(createFakeProvider(options), HASH, SEND, 125),
     ).resolves.toMatchObject({ status: "replaced", reason: "cancelled" })
-    expect(blockReads[0]).toBe(125)
+    expect(blockReads[0]).toBe(122)
+  })
+
+  it("re-reads a few blocks behind the cursor to catch a replacement a reorg moved lower", async () => {
+    const provider = createFakeProvider({
+      mined: { to: SENDER, data: "0x", value: 0n },
+      minedBlock: 123,
+      head: 400,
+    })
+    await expect(checkSourceTransaction(provider, HASH, SEND, 125)).resolves.toMatchObject({
+      status: "replaced",
+    })
+  })
+
+  it("never moves the cursor back when a lagging node reports a lower head", async () => {
+    const provider = createFakeProvider({
+      mined: { from: OTHER, to: SENDER, data: "0x", value: 0n },
+      head: 110,
+    })
+    await expect(checkSourceTransaction(provider, HASH, SEND, 130)).resolves.toEqual({
+      status: "pending",
+      nextBlock: 130,
+    })
   })
 
   it.each([

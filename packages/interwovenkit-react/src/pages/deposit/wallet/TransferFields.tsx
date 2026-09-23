@@ -295,7 +295,7 @@ const TransferFields = () => {
   if (mode === "deposit" && !externalAsset) return null
 
   const amountDecimals = amountAsset?.decimals || 6
-  const displayedBalance = isDepositApiTransport ? pinnedBalances.data?.token : balance
+  const displayedBalance = isRouterTransport ? balance : pinnedBalances.data?.token
   const externalEmptyLabel = mode === "withdraw" ? "Select chain" : "Select asset"
 
   const resetToPreviousPage = () => {
