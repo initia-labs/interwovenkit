@@ -562,8 +562,9 @@ export function createBridgeStatusQueryOptions(
   return queryOptions({
     queryKey: depositQueryKeys.bridgeStatus(srcChainId, srcTxHash, depositAddress).queryKey,
     queryFn: async (): Promise<BridgeStatusResponse> => {
+      let response: unknown
       try {
-        const response = await api
+        response = await api
           .get("v1/bridges/status", {
             searchParams: {
               src_chain_id: srcChainId,
@@ -573,10 +574,10 @@ export function createBridgeStatusQueryOptions(
             retry: 0,
           })
           .json<unknown>()
-        return parseBridgeStatus(response, { srcChainId, srcTxHash })
       } catch (error) {
         return await classifyBridgeStatusError(error)
       }
+      return parseBridgeStatus(response, { srcChainId, srcTxHash })
     },
     enabled,
     staleTime: 0,

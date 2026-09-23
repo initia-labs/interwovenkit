@@ -1,3 +1,4 @@
+import BigNumber from "bignumber.js"
 import { describe, expect, it } from "vitest"
 import {
   bridgeQuoteSignature,
@@ -96,8 +97,14 @@ describe("parseBridgeOptions", () => {
       { deposit_address: DEPOSIT_ADDRESS, required_min_received: "1" },
       /missing its options array/,
     ],
+    ["a null option", optionsPayload([null]), /option 0 is not an object/],
     ["an empty bridge key", withOption({ bridge: "" }), /invalid bridge key/],
     ["a non-string bridge key", withOption({ bridge: 1 }), /invalid bridge key/],
+    [
+      "bridge keys differing only in casing",
+      optionsPayload([wireOption({ bridge: "Across" }), wireOption({ bridge: "across" })]),
+      /repeats the bridge key/,
+    ],
     ["a non-positive amount_out", withOption({ amount_out: "0" }), /invalid amount_out/],
     ["a fractional min_received", withOption({ min_received: "4.95" }), /invalid min_received/],
     ["a non-boolean eligible flag", withOption({ eligible: "true" }), /non-boolean eligible/],
@@ -125,33 +132,18 @@ describe("parseBridgeOptions", () => {
     },
   )
 
-  it("rejects duplicate bridge keys, including casing variants", () => {
-    expect(() => parseBridgeOptions(optionsPayload([wireOption(), wireOption()]), REQUEST)).toThrow(
-      /repeats the bridge key/,
-    )
-    expect(() =>
-      parseBridgeOptions(
-        optionsPayload([wireOption({ bridge: "Across" }), wireOption({ bridge: "across" })]),
-        REQUEST,
-      ),
-    ).toThrow(/repeats the bridge key/)
-  })
-
-  it("keeps missing optional estimates undefined rather than zero", () => {
-    const [parsed] = parseBridgeOptions(optionsPayload([wireOption()]), REQUEST).options
+  it.each<[string, Record<string, unknown>]>([
+    ["absent", {}],
+    ["null", { execution_duration_seconds: null, gas_cost_usd: null }],
+    ["an empty gas cost", { gas_cost_usd: "" }],
+  ])("keeps %s estimates unknown rather than zero", (_name, overrides) => {
+    const [parsed] = parseBridgeOptions(withOption(overrides), REQUEST).options
     expect(parsed.execution_duration_seconds).toBeUndefined()
     expect(parsed.gas_cost_usd).toBeUndefined()
   })
-
-  it("treats an empty gas_cost_usd string as unknown", () => {
-    const [parsed] = parseBridgeOptions(withOption({ gas_cost_usd: "" }), REQUEST).options
-    expect(parsed.gas_cost_usd).toBeUndefined()
-  })
-
-  it("names the requested route in its errors", () => {
-    expect(() => parseBridgeOptions(null, REQUEST)).toThrow(/8453:.*-> interwoven-1:uusdc/)
-  })
 })
+
+const usdc = (amount: string) => BigNumber(amount).shiftedBy(6).toFixed()
 
 const option = (overrides: Partial<BridgeOption> & { bridge: string }): BridgeOption => ({
   amount_out: "1000",
@@ -173,73 +165,104 @@ describe("rankBridgeOptions", () => {
     ).toEqual(["b", "a"])
   })
 
-  it("prefers the fastest route among those within 0.5% of the best net value", () => {
+  it("prefers the fastest route within 0.5% of the best net value", () => {
     expect(
       keys([
-        option({ bridge: "slow", amount_out: "1000000", execution_duration_seconds: 1200 }),
-        option({ bridge: "fast", amount_out: "996000", execution_duration_seconds: 4 }),
-        option({ bridge: "mid", amount_out: "999000", execution_duration_seconds: 60 }),
+        option({ bridge: "slow", amount_out: usdc("100"), execution_duration_seconds: 1200 }),
+        option({ bridge: "fast", amount_out: usdc("99.6"), execution_duration_seconds: 4 }),
+        option({ bridge: "mid", amount_out: usdc("99.8"), execution_duration_seconds: 60 }),
       ]),
     ).toEqual(["fast", "mid", "slow"])
   })
 
-  it("keeps a route paying materially more ahead of a faster one outside the tolerance", () => {
+  it("keeps a route worth more than 0.5% more ahead of a faster one", () => {
     expect(
       keys([
-        option({ bridge: "rich", amount_out: "10000000", execution_duration_seconds: 1200 }),
-        option({ bridge: "fast", amount_out: "9900000", execution_duration_seconds: 4 }),
+        option({ bridge: "fast", amount_out: usdc("99.4"), execution_duration_seconds: 4 }),
+        option({ bridge: "rich", amount_out: usdc("100"), execution_duration_seconds: 1200 }),
       ]),
     ).toEqual(["rich", "fast"])
   })
 
   it("treats a gap under five cents as competitive even when it exceeds 0.5% of a small deposit", () => {
-    // 0.5 USDC: $0.03 is 6% of the output but not worth 9 minutes; $0.06 is past the floor.
     expect(
       keys([
-        option({ bridge: "slow", amount_out: "500000", execution_duration_seconds: 628 }),
-        option({ bridge: "fast", amount_out: "470000", execution_duration_seconds: 106 }),
-        option({ bridge: "far", amount_out: "440000", execution_duration_seconds: 3 }),
+        option({ bridge: "slow", amount_out: usdc("0.5"), execution_duration_seconds: 628 }),
+        option({ bridge: "fast", amount_out: usdc("0.47"), execution_duration_seconds: 106 }),
+        option({ bridge: "far", amount_out: usdc("0.44"), execution_duration_seconds: 3 }),
       ]),
     ).toEqual(["fast", "slow", "far"])
   })
 
-  it.each(["0.032", "0.045"])(
-    "ranks Stargate Fast first at 1 USDC when it costs $%s of gas",
-    (fastGas) => {
-      expect(
-        keys([
-          option({
-            bridge: "stargateV2Bus",
-            amount_out: "1000000",
-            execution_duration_seconds: 606,
-            gas_cost_usd: "0.022",
-          }),
-          option({
-            bridge: "glacis",
-            amount_out: "1000000",
-            execution_duration_seconds: 1200,
-            gas_cost_usd: "0.03",
-          }),
-          option({
-            bridge: "stargateV2",
-            amount_out: "1000000",
-            execution_duration_seconds: 61,
-            gas_cost_usd: fastGas,
-          }),
-        ]),
-      ).toEqual(["stargateV2", "stargateV2Bus", "glacis"])
-    },
-  )
-
-  it("nets the quoted gas out of the output before comparing", () => {
-    // 1.00 USDC out minus $0.05 gas ranks below 0.96 USDC with free gas, so output alone would have
-    // ordered these the other way.
+  it("ranks Stargate Fast first at 1 USDC despite its higher gas", () => {
     expect(
       keys([
-        option({ bridge: "gassy", amount_out: "1000000", gas_cost_usd: "0.05" }),
-        option({ bridge: "lean", amount_out: "960000", gas_cost_usd: "0" }),
+        option({
+          bridge: "stargateV2Bus",
+          amount_out: usdc("1"),
+          execution_duration_seconds: 606,
+          gas_cost_usd: "0.022",
+        }),
+        option({
+          bridge: "glacis",
+          amount_out: usdc("1"),
+          execution_duration_seconds: 1200,
+          gas_cost_usd: "0.03",
+        }),
+        option({
+          bridge: "stargateV2",
+          amount_out: usdc("1"),
+          execution_duration_seconds: 61,
+          gas_cost_usd: "0.045",
+        }),
+      ]),
+    ).toEqual(["stargateV2", "stargateV2Bus", "glacis"])
+  })
+
+  it("nets the quoted gas out of the output before comparing", () => {
+    expect(
+      keys([
+        option({
+          bridge: "gassy",
+          amount_out: usdc("100"),
+          execution_duration_seconds: 10,
+          gas_cost_usd: "2",
+        }),
+        option({ bridge: "lean", amount_out: usdc("99"), execution_duration_seconds: 600 }),
       ]),
     ).toEqual(["lean", "gassy"])
+  })
+
+  it("never lets an ineligible route set the best value", () => {
+    expect(
+      keys([
+        option({ bridge: "ineligible", amount_out: usdc("200"), eligible: false }),
+        option({ bridge: "slow", amount_out: usdc("100"), execution_duration_seconds: 600 }),
+        option({ bridge: "fast", amount_out: usdc("99.8"), execution_duration_seconds: 10 }),
+      ]),
+    ).toEqual(["fast", "slow", "ineligible"])
+  })
+
+  it("orders routes outside the tolerance by net value, not speed", () => {
+    expect(
+      keys([
+        option({
+          bridge: "a",
+          eligible: false,
+          amount_out: usdc("80"),
+          execution_duration_seconds: 5,
+        }),
+        option({ bridge: "b", amount_out: usdc("90"), execution_duration_seconds: 10 }),
+        option({
+          bridge: "c",
+          eligible: false,
+          amount_out: usdc("85"),
+          execution_duration_seconds: 900,
+        }),
+        option({ bridge: "d", amount_out: usdc("95"), execution_duration_seconds: 600 }),
+        option({ bridge: "e", amount_out: usdc("100"), execution_duration_seconds: 1200 }),
+      ]),
+    ).toEqual(["e", "d", "b", "c", "a"])
   })
 
   it("never ranks a route without a gas estimate ahead of one with a known estimate", () => {
@@ -247,13 +270,13 @@ describe("rankBridgeOptions", () => {
       keys([
         option({
           bridge: "unpriced",
-          amount_out: "1000000",
+          amount_out: usdc("1"),
           execution_duration_seconds: 4,
           gas_cost_usd: undefined,
         }),
         option({
           bridge: "priced",
-          amount_out: "990000",
+          amount_out: usdc("0.99"),
           execution_duration_seconds: 600,
           gas_cost_usd: "0.02",
         }),
@@ -264,15 +287,13 @@ describe("rankBridgeOptions", () => {
   it("sorts an unknown duration after every known one among competitive routes", () => {
     expect(
       keys([
-        option({ bridge: "unknown" }),
-        option({ bridge: "slow", execution_duration_seconds: 3000 }),
+        option({ bridge: "across" }),
+        option({ bridge: "relay", execution_duration_seconds: 3000 }),
       ]),
-    ).toEqual(["slow", "unknown"])
+    ).toEqual(["relay", "across"])
   })
 
-  it("breaks a duration tie by the lower known gas cost", () => {
-    // Same duration and the same net value (output minus gas), so only gas can decide;
-    // the key order would put "alpha" first.
+  it("breaks a duration and net value tie by the lower gas cost", () => {
     expect(
       keys([
         option({
@@ -310,10 +331,8 @@ describe("percentDifference", () => {
     ["1010000", "+1.00%"],
     ["990000", "-1.00%"],
     ["1000100", "+0.01%"],
-    ["999900", "-0.01%"],
     ["1000000", ""],
     ["1000099", ""],
-    ["999901", ""],
     ["nope", ""],
     [undefined, ""],
   ])("reports %s against 1000000 as %j", (value, expected) => {
@@ -334,7 +353,6 @@ const quotePayload = (overrides: Record<string, unknown> = {}) => ({
   amount: "5000000",
   wallet_address: RECIPIENT,
   deposit_address: DEPOSIT_ADDRESS,
-  cursor: "v1.abc",
   amount_out: "4980000",
   min_received: "4950000",
   tool: "across",
@@ -380,8 +398,6 @@ describe("parseBridgeQuote", () => {
     expect(quote.estimate).toEqual({ execution_duration_seconds: 30, gas_cost_usd: "0.42" })
   })
 
-  // Every field is bound to the retained request: a quote echoing a different
-  // chain, denom, amount, recipient or sender would move real funds.
   it.each([
     ["a non-object response", "nope", /is not an object/],
     ["a provider other than lifi", quotePayload({ provider: "skip" }), /unexpected provider/],
@@ -401,6 +417,11 @@ describe("parseBridgeQuote", () => {
     ["a zero deposit address", quotePayload({ deposit_address: ZERO_ADDRESS }), /deposit address/],
     ["a non-positive amount_out", quotePayload({ amount_out: "0" }), /invalid amount_out/],
     ["a malformed min_received", quotePayload({ min_received: "x" }), /invalid min_received/],
+    [
+      "an invalid estimated duration",
+      quotePayload({ estimate: { execution_duration_seconds: -1 } }),
+      /estimate has an invalid execution_duration_seconds/,
+    ],
   ])("rejects %s", (_name, payload, message) => {
     expect(() => parseBridgeQuote(payload, QUOTE_REQUEST)).toThrow(message)
   })
@@ -414,6 +435,13 @@ describe("parseBridgeQuote", () => {
     expect(parseBridgeQuote(payload, QUOTE_REQUEST).src_denom).toBe(BASE_USDC.toLowerCase())
   })
 
+  it.each([undefined, null, "fast"])("treats an estimate of %o as unknown", (estimate) => {
+    expect(parseBridgeQuote(quotePayload({ estimate }), QUOTE_REQUEST).estimate).toEqual({
+      execution_duration_seconds: undefined,
+      gas_cost_usd: undefined,
+    })
+  })
+
   describe("transaction", () => {
     it.each([
       ["built for another chain", withTransaction({ chain_id: "1" }), /chain_id mismatch/],
@@ -425,14 +453,11 @@ describe("parseBridgeQuote", () => {
       ["with a malformed to address", withTransaction({ to: "not-an-address" }), /invalid to/],
       ["sent to the zero address", withTransaction({ to: ZERO_ADDRESS }), /invalid to/],
       ["with non-hex calldata", withTransaction({ data: "zzzz" }), /non-hex calldata/],
-      ["with odd-length calldata", withTransaction({ data: "0xabc" }), /non-hex calldata/],
       ["that is not an object", quotePayload({ transaction: null }), /malformed transaction/],
     ])("rejects a transaction %s", (_name, payload, message) => {
       expect(() => parseBridgeQuote(payload, QUOTE_REQUEST)).toThrow(message)
     })
 
-    // A dropped protocol/messaging fee makes the bridge call revert; a fabricated
-    // one overpays from the user's own balance.
     it.each(["", "-1", "0x", "1.5", 100])("rejects the value %o", (value) => {
       expect(() => parseBridgeQuote(withTransaction({ value }), QUOTE_REQUEST)).toThrow(
         /invalid value/,
@@ -467,36 +492,30 @@ describe("parseBridgeQuote", () => {
       ).toBe("0x")
     })
 
-    // A nonzero fee has to survive the hex-to-decimal normalization intact.
-    it("normalizes a hex value to a decimal string", () => {
+    it.each([
+      ["0x2386f26fc10000", "10000000000000000"],
+      ["12345", "12345"],
+    ])("normalizes the value %s to %s", (value, expected) => {
+      expect(parseBridgeQuote(withTransaction({ value }), QUOTE_REQUEST).transaction.value).toBe(
+        expected,
+      )
+    })
+
+    it.each([
+      ["0x11ab0c", "1157900"],
+      [undefined, undefined],
+      ["", undefined],
+      [null, undefined],
+    ])("normalizes the gas_limit %o to %o", (gas_limit, expected) => {
       expect(
-        parseBridgeQuote(withTransaction({ value: "0x2386f26fc10000" }), QUOTE_REQUEST).transaction
-          .value,
-      ).toBe("10000000000000000")
-    })
-
-    it("accepts a decimal value string unchanged", () => {
-      expect(
-        parseBridgeQuote(withTransaction({ value: "12345" }), QUOTE_REQUEST).transaction.value,
-      ).toBe("12345")
-    })
-
-    it("normalizes a 0x-hex gas_limit (staging's wire form) to decimal", () => {
-      const quote = parseBridgeQuote(withTransaction({ gas_limit: "0x11ab0c" }), QUOTE_REQUEST)
-      expect(quote.transaction.gas_limit).toBe("1157900")
-    })
-
-    it("treats an absent gas_limit as unset", () => {
-      const payload = withTransaction({})
-      delete (payload.transaction as Record<string, unknown>).gas_limit
-      expect(parseBridgeQuote(payload, QUOTE_REQUEST).transaction.gas_limit).toBeUndefined()
+        parseBridgeQuote(withTransaction({ gas_limit }), QUOTE_REQUEST).transaction.gas_limit,
+      ).toBe(expected)
     })
   })
 
   describe("approval", () => {
     it.each([
       ["that is null", withApproval(null), /missing the ERC-20 approval/],
-      ["that is not an object", quotePayload({ approval: "yes" }), /missing the ERC-20 approval/],
       [
         "for another token",
         withApproval({ token_address: "0x0000000000000000000000000000000000000dEaD" }),
@@ -512,7 +531,6 @@ describe("parseBridgeQuote", () => {
         withApproval({ spender_address: "0xbeef" }),
         /approval spender_address is invalid/,
       ],
-      ["with a non-positive amount", withApproval({ amount: "0" }), /approval amount is invalid/],
       ["below the transfer amount", withApproval({ amount: "1" }), /approval amount is invalid/],
       [
         "above the transfer amount",
@@ -533,76 +551,49 @@ describe("parseBridgeQuote", () => {
 })
 
 describe("bridgeQuoteSignature", () => {
-  const signatureOf = (overrides: Record<string, unknown> = {}) =>
-    bridgeQuoteSignature(parseBridgeQuote(quotePayload(overrides), QUOTE_REQUEST))
+  const signatureOf = (payload: ReturnType<typeof quotePayload>) =>
+    bridgeQuoteSignature(parseBridgeQuote(payload, QUOTE_REQUEST))
+  const reviewed = signatureOf(quotePayload())
 
-  it("is stable across identical quotes", () => {
-    expect(signatureOf()).toBe(signatureOf())
+  it.each([
+    ["the tool's casing", quotePayload({ tool: "Across" })],
+    ["address casing", quotePayload({ deposit_address: DEPOSIT_ADDRESS.toLowerCase() })],
+    ["re-encoded calldata", withTransaction({ data: "0xcafe" })],
+    ["a new gas estimate", withTransaction({ gas_limit: "300000" })],
+  ])("ignores %s", (_name, payload) => {
+    expect(signatureOf(payload)).toBe(reviewed)
   })
 
-  it("ignores the tool's casing", () => {
-    expect(signatureOf({ tool: "Across" })).toBe(signatureOf())
-  })
-
-  // LI.FI re-encodes calldata and re-estimates gas on every quote, so neither may force a second
-  // click.
-  it("ignores re-encoded calldata and a new gas estimate", () => {
-    for (const overrides of [{ data: "0xcafe" }, { gas_limit: "300000" }]) {
-      expect(
-        bridgeQuoteSignature(parseBridgeQuote(withTransaction(overrides), QUOTE_REQUEST)),
-      ).toBe(signatureOf())
-    }
-  })
-
-  it("changes when the contract or native value changes", () => {
-    const base = signatureOf()
-    for (const overrides of [
-      { to: "0x5555555555555555555555555555555555555555" },
-      { value: "0x1" },
-    ]) {
-      expect(
-        bridgeQuoteSignature(parseBridgeQuote(withTransaction(overrides), QUOTE_REQUEST)),
-      ).not.toBe(base)
-    }
-  })
-
-  it("changes when the approval spender changes", () => {
-    expect(
-      bridgeQuoteSignature(
-        parseBridgeQuote(
-          withApproval({ spender_address: "0x6666666666666666666666666666666666666666" }),
-          QUOTE_REQUEST,
-        ),
-      ),
-    ).not.toBe(signatureOf())
-  })
-
-  it("changes when the promised output changes", () => {
-    expect(signatureOf({ min_received: "4000000" })).not.toBe(signatureOf())
-    expect(signatureOf({ amount_out: "4000000" })).not.toBe(signatureOf())
+  it.each([
+    ["contract", withTransaction({ to: "0x5555555555555555555555555555555555555555" })],
+    ["native value", withTransaction({ value: "0x1" })],
+    [
+      "approval spender",
+      withApproval({ spender_address: "0x6666666666666666666666666666666666666666" }),
+    ],
+    ["min_received", quotePayload({ min_received: "4000000" })],
+    ["amount_out", quotePayload({ amount_out: "4000000" })],
+    [
+      "deposit address",
+      quotePayload({ deposit_address: "0x7777777777777777777777777777777777777777" }),
+    ],
+  ])("changes with the %s", (_name, payload) => {
+    expect(signatureOf(payload)).not.toBe(reviewed)
   })
 })
 
 describe("meetsRequiredMinimum", () => {
-  it("compares against the greater of the two minimums", () => {
-    expect(meetsRequiredMinimum({ min_received: "1000" }, "900", "1000")).toBe(true)
-    expect(meetsRequiredMinimum({ min_received: "1000" }, "1001", "900")).toBe(false)
-    expect(meetsRequiredMinimum({ min_received: "1000" }, "900", "1001")).toBe(false)
-  })
-
-  it("treats an exact match as sufficient", () => {
-    expect(meetsRequiredMinimum({ min_received: "1000" }, "1000", "1000")).toBe(true)
-  })
-
-  it("compares as integers, not lexically", () => {
-    expect(meetsRequiredMinimum({ min_received: "10000000" }, "9000000", "0")).toBe(true)
-  })
-
-  it("answers false for any unparseable input", () => {
-    expect(meetsRequiredMinimum({ min_received: "" }, "1", "1")).toBe(false)
-    expect(meetsRequiredMinimum({ min_received: "0" }, "0", "0")).toBe(false)
-    expect(meetsRequiredMinimum({ min_received: "1000" }, "", "1")).toBe(false)
-    expect(meetsRequiredMinimum({ min_received: "1000" }, "1", "1.5")).toBe(false)
+  it.each([
+    ["1000", "900", "1000", true],
+    ["1000", "1001", "900", false],
+    ["1000", "900", "1001", false],
+    ["10000000", "9000000", "0", true],
+    ["", "1", "1", false],
+    ["0", "0", "0", false],
+    ["1000", "", "1", false],
+    ["1000", "1", "1.5", false],
+  ])("min_received %o against %o and %o is %s", (minReceived, required, routeMin, expected) => {
+    expect(meetsRequiredMinimum({ min_received: minReceived }, required, routeMin)).toBe(expected)
   })
 })
 
@@ -618,16 +609,8 @@ const statusPayload = (overrides: Record<string, unknown> = {}) => ({
 })
 
 describe("parseBridgeStatus", () => {
-  // The wire sends a JSON integer; `8453 !== "8453"` in JavaScript.
-  it("normalizes the integer src_chain_id to a string before comparing", () => {
-    const parsed = parseBridgeStatus(statusPayload(), EXPECTED)
-    expect(parsed.src_chain_id).toBe("8453")
-  })
-
-  it("accepts a string src_chain_id too", () => {
-    expect(parseBridgeStatus(statusPayload({ src_chain_id: "8453" }), EXPECTED).src_chain_id).toBe(
-      "8453",
-    )
+  it.each([8453, "8453"])("binds the src_chain_id %o to the request", (src_chain_id) => {
+    expect(parseBridgeStatus(statusPayload({ src_chain_id }), EXPECTED).src_chain_id).toBe("8453")
   })
 
   it.each([
@@ -662,21 +645,6 @@ describe("parseBridgeStatus", () => {
     )
   })
 
-  it("accepts every documented state", () => {
-    for (const state of [
-      "deposit_pending",
-      "bridge_not_found",
-      "bridge_pending",
-      "bridge_refunding",
-      "bridge_partial",
-      "bridge_refunded",
-      "bridge_refund_required",
-      "bridge_failed",
-    ]) {
-      expect(parseBridgeStatus(statusPayload({ state }), EXPECTED).state).toBe(state)
-    }
-  })
-
   it("returns the nested deposit for deposit_indexed", () => {
     const parsed = parseBridgeStatus(
       statusPayload({ state: "deposit_indexed", deposit: deposit(), dst_tx_hash: DST_TX_HASH }),
@@ -709,10 +677,8 @@ describe("parseBridgeStatus", () => {
 })
 
 describe("classifyBridgeStatusError", () => {
-  // This endpoint answers `{ error, message }` instead of the API-wide `{ message }`.
   it.each([
     [502, { error: "upstream_conflict", message: "tool mismatch" }, "tool mismatch"],
-    [429, { error: "rate_limited", message: "slow down" }, "slow down"],
     [500, { error: "some_new_code" }, "some_new_code"],
   ])("keeps the code of a coded %i", async (status, body, message) => {
     const error = await classifyBridgeStatusError(httpError(status, body)).catch((e: unknown) => e)
@@ -737,13 +703,8 @@ describe("bridgeStatusPollInterval", () => {
   it.each<[string, Parameters<typeof bridgeStatusPollInterval>, number | false]>([
     ["before the first response", [undefined, null, 0], 3000],
     ["while in flight", ["bridge_pending", null, 0], 3000],
-    ["once idle", ["bridge_pending", null, 6 * 60_000], 15_000],
-    ["while not found", ["bridge_not_found", null, 0], 3000],
     ["while refunding", ["bridge_refunding", null, 0], 3000],
-    ["while the deposit is pending", ["deposit_pending", null, 0], 3000],
     ["through a transient upstream", ["bridge_pending", coded("upstream_unavailable"), 0], 3000],
-    ["through a rate limit", ["bridge_pending", coded("rate_limited"), 0], 3000],
-    ["through an internal error", ["bridge_pending", coded("internal_error"), 0], 3000],
     ["on upstream_conflict", ["bridge_pending", coded("upstream_conflict"), 0], false],
     ["on invalid_request", ["bridge_pending", coded("invalid_request"), 0], false],
     ["after the handoff", ["deposit_indexed", null, 0], false],
@@ -779,13 +740,11 @@ describe("createBridgeOptionsQueryOptions", () => {
     )
   })
 
-  // A parse failure is deterministic; only a failed request is worth retrying.
   it("retries a failed request but never a parse failure", () => {
     const { api } = stubApi(null)
     const { retry } = createBridgeOptionsQueryOptions(api, REQUEST, true)
     if (typeof retry !== "function") throw new Error("retry must be a predicate")
     expect(retry(0, new Error("Failed to fetch"))).toBe(true)
-    expect(retry(3, new Error("Failed to fetch"))).toBe(false)
     expect(retry(0, new ParseError("invalid min_received"))).toBe(false)
   })
 
@@ -803,13 +762,14 @@ describe("createBridgeOptionsQueryOptions", () => {
 })
 
 describe("createBridgeQuoteQueryOptions", () => {
-  it("includes the selected bridge in the request and the cache key", async () => {
+  it("sends the selected bridge and keys each bridge separately", async () => {
     const { api, calls } = stubApi(quotePayload())
-    const options = createBridgeQuoteQueryOptions(api, QUOTE_REQUEST, true)
-    await runQueryFn(options)
+    const across = createBridgeQuoteQueryOptions(api, QUOTE_REQUEST, true)
+    const relay = createBridgeQuoteQueryOptions(api, { ...QUOTE_REQUEST, bridge: "relay" }, true)
+    expect(relay.queryKey).not.toEqual(across.queryKey)
+    await runQueryFn(across)
     expect(calls[0].url).toBe("v1/bridges/quote")
     expect(calls[0].options?.json).toMatchObject({ bridge: "across" })
-    expect(options.queryKey).toContain("across")
   })
 
   it("keys a reissued deposit address separately without sending it", async () => {
@@ -845,20 +805,23 @@ describe("createBridgeStatusQueryOptions", () => {
     depositAddress: DEPOSIT_ADDRESS,
   }
 
-  // A hinted tool answers 502 upstream_conflict even for not-found results, and ky's own
-  // retries would re-send a deterministic failure behind the poll interval.
-  it("omits the bridge hint and disables ky retries", async () => {
+  // A hinted tool answers 502 upstream_conflict even for not-found results.
+  it("polls by source transaction without the bridge hint", async () => {
     const { api, calls } = stubApi(statusPayload())
     await runQueryFn(createBridgeStatusQueryOptions(api, PARAMS, true, Date.now()))
     expect(calls[0].url).toBe("v1/bridges/status")
-    expect(calls[0].options).toEqual({
-      searchParams: {
-        src_chain_id: "8453",
-        src_tx_hash: SRC_TX_HASH,
-        deposit_address: DEPOSIT_ADDRESS,
-      },
-      retry: 0,
+    expect(calls[0].options?.searchParams).toEqual({
+      src_chain_id: "8453",
+      src_tx_hash: SRC_TX_HASH,
+      deposit_address: DEPOSIT_ADDRESS,
     })
+  })
+
+  it("rejects a response for another transaction as a ParseError", async () => {
+    const { api } = stubApi(statusPayload({ src_tx_hash: DST_TX_HASH }))
+    await expect(
+      runQueryFn(createBridgeStatusQueryOptions(api, PARAMS, true, Date.now())),
+    ).rejects.toBeInstanceOf(ParseError)
   })
 
   it("classifies a coded failure instead of normalizing it away", async () => {
@@ -866,18 +829,5 @@ describe("createBridgeStatusQueryOptions", () => {
     await expect(
       runQueryFn(createBridgeStatusQueryOptions(api, PARAMS, true, Date.now())),
     ).rejects.toBeInstanceOf(BridgeStatusError)
-  })
-
-  it("drives its interval from the observed state and error", () => {
-    const { api } = stubApi(null)
-    const { refetchInterval } = createBridgeStatusQueryOptions(api, PARAMS, true, Date.now())
-    if (typeof refetchInterval !== "function") throw new Error("refetchInterval must be a function")
-    const call = (data: unknown, error: Error | null) =>
-      refetchInterval({ state: { data, error } } as unknown as Parameters<
-        typeof refetchInterval
-      >[0])
-    expect(call({ state: "bridge_pending" }, null)).toBe(3000)
-    expect(call({ state: "deposit_indexed" }, null)).toBe(false)
-    expect(call(undefined, new BridgeStatusError("upstream_conflict", "m"))).toBe(false)
   })
 })

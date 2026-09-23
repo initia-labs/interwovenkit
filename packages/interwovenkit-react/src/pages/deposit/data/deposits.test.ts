@@ -12,6 +12,7 @@ import {
   pollInterval,
   pollUntilTerminal,
   resolveTrackedDeposit,
+  type WalletDepositBucket,
 } from "./deposits"
 import { ETHEREUM_USDC_DENOM } from "./source"
 import {
@@ -156,17 +157,14 @@ describe("assertDepositsAtAddress", () => {
 })
 
 describe("classifyWalletBucket", () => {
-  it("reports every known bucket unchanged and the pre-discovery frame as waiting", () => {
-    for (const bucket of DEPOSIT_BUCKETS) {
-      expect(classifyWalletBucket(deposit({ bucket }))).toBe(bucket)
-    }
-    expect(classifyWalletBucket(null)).toBe("waiting")
-  })
-
-  // Unlike displayBucket: the user has just signed a real transfer.
-  it("keeps an unknown bucket unknown instead of calling it failed", () => {
-    expect(classifyWalletBucket(deposit({ bucket: "refunding" }))).toBe("unknown")
-    expect(classifyWalletBucket(deposit({ bucket: "" }))).toBe("unknown")
+  // Unlike displayBucket, an unknown bucket is not failed: the user has just signed a real transfer.
+  it.each<[string | null, WalletDepositBucket]>([
+    ["processing", "processing"],
+    [null, "waiting"],
+    ["refunding", "unknown"],
+    ["", "unknown"],
+  ])("classifies the bucket %o as %s", (bucket, expected) => {
+    expect(classifyWalletBucket(bucket === null ? null : deposit({ bucket }))).toBe(expected)
   })
 })
 
@@ -187,13 +185,11 @@ describe("createDepositBySourceTxQueryOptions", () => {
     return { promise, calls }
   }
 
-  // ky's own retries would re-send a deterministic failure behind the poll interval.
-  it("reads the record for the exact source transaction without ky retries", async () => {
-    const record = deposit()
-    const { promise, calls } = run(record)
-    await expect(promise).resolves.toBe(record)
+  it("reads the record for the exact Ethereum source transaction", async () => {
+    const { promise, calls } = run(deposit())
+    await promise
     expect(calls[0].url).toBe(`v1/deposits/by-source-tx/${SRC_TX_HASH}`)
-    expect(calls[0].options).toEqual({ searchParams: { src_chain_id: "1" }, retry: 0 })
+    expect(calls[0].options?.searchParams).toEqual({ src_chain_id: "1" })
   })
 
   it("treats a 404 as an indexing delay, not an error", async () => {

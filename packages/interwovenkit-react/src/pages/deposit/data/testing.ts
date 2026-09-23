@@ -23,7 +23,7 @@ export const httpError = (status: number, body?: object, headers?: Record<string
 
 export interface Call {
   url: string
-  options?: { json?: unknown; searchParams?: Record<string, string>; retry?: number }
+  options?: { json?: unknown; searchParams?: Record<string, string> }
 }
 
 /** A ky stand-in: every verb records its call and answers `result`, rejecting when it is an Error. */
