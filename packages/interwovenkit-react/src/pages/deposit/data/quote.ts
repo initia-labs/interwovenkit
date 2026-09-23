@@ -40,8 +40,8 @@ export function parseQuoteDelivery(delivery: unknown): QuoteDelivery | undefined
   }
 }
 
-// Consumers must pair `keepPreviousData` with deriveSettlement so a held result never reads as a
-// verdict for the current amount.
+// Placeholder data is the previous amount's result, never a verdict for the current one. ky's GET
+// retries are the only retry layer.
 export function createQuoteQueryOptions(api: KyInstance, params: QuoteParams, enabled: boolean) {
   const { srcChainId, srcDenom, dstChainId, dstDenom, amountIn } = params
   return queryOptions({
@@ -71,6 +71,7 @@ export function createQuoteQueryOptions(api: KyInstance, params: QuoteParams, en
     enabled,
     staleTime: QUOTE_STALE_TIME,
     refetchInterval: QUOTE_STALE_TIME,
+    retry: false,
     placeholderData: keepPreviousData,
   })
 }

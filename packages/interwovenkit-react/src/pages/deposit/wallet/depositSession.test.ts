@@ -16,7 +16,7 @@ import {
   rollbackDepositSessionPrompt,
   writeDepositSession,
 } from "./depositSession"
-import { API_URL, buildDepositSession, createMemoryStorage, SENDER } from "./testing"
+import { API_URL, buildDepositSession, createMemoryStorage } from "./testing"
 
 /** Seeds a record the way an earlier tab left it: straight to storage, bypassing the merge. */
 function store(storage: StorageLike, session: DepositSession) {
@@ -36,7 +36,7 @@ describe("parseDepositSession", () => {
     promptedAt: 5_000,
     promptNonce: 0,
     promptSeenAt: 6_000,
-    submitted: { nonce: 0, from: SENDER },
+    sourceNonce: 0,
     currentSourceHash: "0xbbb",
     originalSourceHash: "0xaaa",
     depositId: "deposit-1",
@@ -62,7 +62,7 @@ describe("parseDepositSession", () => {
     ["another schema version", { ...full, version: 2 }],
     ["an unknown phase", { ...full, phase: "halfway" }],
     ["no intended transaction", omit(["transaction"], full)],
-    ["a submission without a sender", { ...full, submitted: { nonce: 1 } }],
+    ["a negative source nonce", { ...full, sourceNonce: -1 }],
     ["null", null],
     ["a string", "{}"],
     ["an array", [full]],
@@ -140,14 +140,18 @@ describe("mergeDepositSession", () => {
     const current = buildDepositSession({
       phase: "source_sent",
       currentSourceHash: "0xaaa",
-      submitted: { nonce: 7, from: SENDER },
+      sourceNonce: 7,
       promptNonce: 7,
     })
-    const statusUpdate = buildDepositSession({ phase: "source_sent", lastState: "bridge_pending" })
+    const statusUpdate = buildDepositSession({
+      phase: "source_sent",
+      lastState: "bridge_pending",
+      sourceNonce: undefined,
+    })
     expect(mergeDepositSession(current, statusUpdate)).toMatchObject({
       currentSourceHash: "0xaaa",
       promptNonce: 7,
-      submitted: { nonce: 7, from: SENDER },
+      sourceNonce: 7,
       lastState: "bridge_pending",
     })
   })

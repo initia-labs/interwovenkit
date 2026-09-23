@@ -3,19 +3,17 @@ import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import FormHelp from "@/components/form/FormHelp"
 import { getBridgeConfirmLabel } from "@/pages/bridge/confirmLabel"
-import type { DepositTransportResolution } from "./depositSources"
 import DepositTransferTxDetails from "./DepositTransferTxDetails"
-import type { DepositTransportSelection } from "./useDepositTransfer"
-import { useDepositTransfer } from "./useDepositTransfer"
+import {
+  type DepositTransportSelection,
+  useDepositTransfer,
+  useDepositTransportResolution,
+} from "./useDepositTransfer"
 import styles from "./TransferTxDetails.module.css"
 
-interface Props {
-  resolution: Exclude<DepositTransportResolution, { transport: "router" }>
-  onRetry: () => void
-  isRetrying: boolean
-}
-
-const DepositTransferFooter = ({ resolution, onRetry, isRetrying }: Props) => {
+const DepositTransferFooter = () => {
+  const { resolution, retryCatalog, isCatalogFetching } = useDepositTransportResolution()
+  if (resolution.transport === "router") return null
   if (resolution.transport !== "unavailable") {
     return <DepositTransferActions resolution={resolution} />
   }
@@ -30,7 +28,12 @@ const DepositTransferFooter = ({ resolution, onRetry, isRetrying }: Props) => {
 
   return (
     <Footer extra={<FormHelp level="error">Couldn&apos;t load deposit routes</FormHelp>}>
-      <Button.White type="button" onClick={onRetry} loading={isRetrying && "Retrying..."} fullWidth>
+      <Button.White
+        type="button"
+        onClick={() => void retryCatalog()}
+        loading={isCatalogFetching && "Retrying..."}
+        fullWidth
+      >
         Retry
       </Button.White>
     </Footer>

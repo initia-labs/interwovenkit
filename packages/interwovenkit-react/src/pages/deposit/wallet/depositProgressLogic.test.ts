@@ -5,6 +5,7 @@ import {
   checkHashlessSend,
   type DepositProgressInputs,
   deriveDepositProgress,
+  progressHeading,
   type ResumeMatch,
   resumeStageLabel,
   selectResumableSessions,
@@ -13,6 +14,8 @@ import type { DepositSession, DepositSessionPhase } from "./depositSession"
 import { buildDepositSession } from "./testing"
 
 const REPLACEMENT_HASH = `0x${"b".repeat(64)}`
+const MISMATCH =
+  "The tracking details don't match this deposit. Your submitted transaction is still saved."
 const MINUTE = 60_000
 
 /** A broadcast transfer: the state every stage below starts from. */
@@ -25,7 +28,6 @@ const inputs = (overrides: Partial<DepositProgressInputs> = {}): DepositProgress
   direct: { isError: false },
   deposit: { bucket: "waiting", isError: false, isSelfRecipient: true },
   nonces: { readAt: 0, isError: false },
-  isDelayed: false,
   now: 0,
   ...overrides,
 })
@@ -213,13 +215,7 @@ describe("deriveDepositProgress: no source hash", () => {
     ],
   ])("%s stays locked without a verdict", (_, overrides, extra, heading, canMarkNotSent) => {
     const view = deriveDepositProgress(hashless(overrides), inputs(extra))
-    expect(view).toMatchObject({
-      variant: "problem",
-      heading,
-      showClose: true,
-      showRefresh: false,
-      canMarkNotSent,
-    })
+    expect(view).toMatchObject({ variant: "problem", heading, canMarkNotSent })
     expect(view.persist).toBeUndefined()
   })
 
@@ -234,7 +230,6 @@ describe("deriveDepositProgress: no source hash", () => {
     expect(deriveDepositProgress(released, releaseInputs)).toMatchObject({
       variant: "failed",
       heading: "Deposit not sent",
-      showClose: true,
       persist: { phase: "terminal", lastState: "not_sent" },
     })
   })
@@ -244,7 +239,7 @@ describe("deriveDepositProgress: no source hash", () => {
       session({ phase: "prepared", currentSourceHash: undefined }),
       inputs(),
     )
-    expect(view).toMatchObject({ heading: "Nothing to track yet", showClose: true })
+    expect(view).toMatchObject({ variant: "problem", heading: "Nothing to track yet" })
     expect(view.note).toBeUndefined()
   })
 })
@@ -304,7 +299,6 @@ describe("deriveDepositProgress: source stage", () => {
     expect(view).toMatchObject({
       variant: "in-flight",
       message: "Confirming on Base.",
-      showClose: false,
       persist: { lastState: "source_pending" },
     })
     expect(view.note).toBeUndefined()
@@ -314,7 +308,6 @@ describe("deriveDepositProgress: source stage", () => {
     expect(deriveDepositProgress(session(), inputs({ source: { isError: true } }))).toMatchObject({
       variant: "in-flight",
       note: "Still checking…",
-      showClose: false,
     })
   })
 
@@ -371,11 +364,7 @@ describe("deriveDepositProgress: source stage", () => {
         },
       }),
     )
-    expect(view).toMatchObject({
-      variant: "problem",
-      showRefresh: true,
-      persist: { lastState: "source_conflict" },
-    })
+    expect(view).toMatchObject({ variant: "problem", persist: { lastState: "source_conflict" } })
   })
 })
 
@@ -415,11 +404,7 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
     "%s preserves ambiguity and offers refresh",
     (state) => {
       const view = bridgeView({ state })
-      expect(view).toMatchObject({
-        variant: "problem",
-        showRefresh: true,
-        persist: { lastState: state },
-      })
+      expect(view).toMatchObject({ variant: "problem", persist: { lastState: state } })
       expect(view.note).toContain("Don't send a replacement deposit")
     },
   )
@@ -428,12 +413,12 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
     [
       "upstream_conflict stops tracking",
       { state: "bridge_pending", error: new BridgeStatusError("upstream_conflict", "disagrees") },
-      { variant: "problem", isRetrying: false, persist: { lastState: "tracking_conflict" } },
+      { variant: "problem", persist: { lastState: "tracking_conflict" } },
     ],
     [
       "invalid_request stops tracking",
       { state: "bridge_pending", error: new BridgeStatusError("invalid_request", "rejected") },
-      { variant: "problem", isRetrying: false, persist: { lastState: "tracking_conflict" } },
+      { variant: "problem", persist: { lastState: "tracking_conflict" } },
     ],
     [
       "upstream_unavailable retries the stage",
@@ -455,9 +440,11 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
   })
 
   it("a failed identity assertion on an indexed envelope never completes the flow", () => {
-    expect(
-      bridgeView({ state: "deposit_indexed", conflict: "deposit_address mismatch" }),
-    ).toMatchObject({ variant: "problem", message: "deposit_address mismatch" })
+    expect(bridgeView({ state: "deposit_indexed", conflict: true })).toMatchObject({
+      variant: "problem",
+      message: MISMATCH,
+      persist: { lastState: "tracking_conflict" },
+    })
   })
 })
 
@@ -482,9 +469,10 @@ describe("deriveDepositProgress: direct Ethereum correlation", () => {
   })
 
   it("a failed identity assertion is a conflict, not a completion", () => {
-    expect(correlate({ isError: false, conflict: "amount mismatch" })).toMatchObject({
+    expect(correlate({ isError: false, conflict: true })).toMatchObject({
       variant: "problem",
-      message: "amount mismatch",
+      message: MISMATCH,
+      persist: { lastState: "tracking_conflict" },
     })
   })
 })
@@ -551,34 +539,56 @@ describe("deriveDepositProgress: deposit id stage", () => {
   it("an unknown bucket is a contract problem, never a financial outcome", () => {
     expect(depositView({ bucket: "unknown" })).toMatchObject({
       variant: "problem",
-      showRefresh: true,
       persist: { lastState: "unknown" },
     })
   })
 
   it("a transient detail-read failure shows the retry notice only while in flight", () => {
     expect(depositView({ bucket: "processing", isError: true }).isRetrying).toBe(true)
-    expect(depositView({ bucket: "failed", isError: true }).isRetrying).toBe(false)
+    expect(depositView({ bucket: "failed", isError: true }).isRetrying).toBeFalsy()
   })
 })
 
-describe("deriveDepositProgress: stall reassurance", () => {
-  it.each([
-    ["the source stage", {}],
-    ["a source read failure", { source: { isError: true } }],
-  ])("replaces only the heading of %s", (_, extra) => {
-    const base = deriveDepositProgress(session(), inputs(extra))
-    expect(deriveDepositProgress(session(), inputs({ ...extra, isDelayed: true }))).toEqual({
-      ...base,
-      heading: "Taking longer than usual",
-    })
+describe("progressHeading", () => {
+  const delayedHeading = (target: DepositSession, extra: Partial<DepositProgressInputs> = {}) => {
+    const stage = inputs(extra)
+    return progressHeading(deriveDepositProgress(target, stage), target, stage, true)
+  }
+
+  it.each<[string, DepositSession, Partial<DepositProgressInputs>]>([
+    ["the source stage", session(), {}],
+    ["a source read failure", session(), { source: { isError: true } }],
+    [
+      "the Ethereum leg after a bridge",
+      session(),
+      { ...confirmedSource, bridge: { state: "deposit_pending" } },
+    ],
+    ["an indexed bridge", session(), { ...confirmedSource, bridge: { state: "deposit_indexed" } }],
+    ["direct correlation", directSession, { ...confirmedSource, direct: { isError: false } }],
+    ["a deposit without an estimate", session({ depositId: "deposit-1" }), {}],
+  ])("replaces the heading of a stalled %s", (_, target, extra) => {
+    expect(delayedHeading(target, extra)).toBe("Taking longer than usual")
   })
 
-  it("never applies to a settled screen", () => {
-    expect(depositView({ bucket: "failed" }, {}, { isDelayed: true })).toMatchObject({
-      variant: "failed",
-      heading: "Deposit failed",
-    })
+  it.each<[string, DepositProgressInputs["bridge"], string | undefined]>([
+    ["an unread first poll", {}, undefined],
+    ["bridge_not_found", { state: "bridge_not_found" }, undefined],
+    ["bridge_pending", { state: "bridge_pending" }, undefined],
+    ["bridge_refunding", { state: "bridge_refunding" }, "Refund in progress"],
+  ])("leaves a bridge that takes minutes alone: %s", (_, bridge, heading) => {
+    expect(delayedHeading(session(), { ...confirmedSource, bridge })).toBe(heading)
+  })
+
+  it("never applies to a settled screen or before the stage stalls", () => {
+    const failed = session({ depositId: "deposit-1" })
+    const stage = inputs({ deposit: { bucket: "failed", isError: false, isSelfRecipient: true } })
+    expect(progressHeading(deriveDepositProgress(failed, stage), failed, stage, true)).toBe(
+      "Deposit failed",
+    )
+    const pending = inputs()
+    expect(
+      progressHeading(deriveDepositProgress(session(), pending), session(), pending, false),
+    ).toBe(undefined)
   })
 })
 
@@ -588,8 +598,7 @@ describe("deriveDepositProgress: delivery estimate", () => {
   const estimate = (
     deposit: Partial<DepositProgressInputs["deposit"]>,
     overrides: Partial<DepositSession> = {},
-    isDelayed = false,
-  ) => depositView({ bucket: "processing", ...deposit }, overrides, { now: NOW, isDelayed })
+  ) => depositView({ bucket: "processing", ...deposit }, overrides, { now: NOW })
 
   it.each([
     ["processing", 45, "Delivering to Initia. About 1m left."],
@@ -620,11 +629,17 @@ describe("deriveDepositProgress: delivery estimate", () => {
   })
 
   it("keeps the stall heading back while the estimate is ahead", () => {
-    const delivery = { method: "standard", estimated_completion_at: at(120) }
-    expect(estimate({ delivery }, {}, true).heading).toBeUndefined()
-    expect(
-      estimate({ delivery: { ...delivery, estimated_completion_at: at(-1) } }, {}, true).heading,
-    ).toBe("Taking longer than usual")
+    const stalledHeading = (seconds: number) => {
+      const target = session({ depositId: "deposit-1" })
+      const delivery = { method: "standard", estimated_completion_at: at(seconds) }
+      const stage = inputs({
+        now: NOW,
+        deposit: { bucket: "processing", isError: false, isSelfRecipient: true, delivery },
+      })
+      return progressHeading(deriveDepositProgress(target, stage), target, stage, true)
+    }
+    expect(stalledHeading(120)).toBeUndefined()
+    expect(stalledHeading(-1)).toBe("Taking longer than usual")
   })
 
   const FELL_BACK = "Fast delivery wasn't available, so this deposit is using standard delivery."

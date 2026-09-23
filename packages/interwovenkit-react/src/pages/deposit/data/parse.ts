@@ -1,7 +1,16 @@
 import { isHexString } from "ethers"
+import { normalizeDenom } from "./assetOptions"
 
 /** Thrown by assertField: a response that failed its boundary check, which no retry can change. */
 export class ParseError extends Error {}
+
+const PARSE_ERROR_MESSAGE = "Couldn't verify the route details. Try again."
+
+// A ParseError message names request fields and wire values, so users see a fixed line instead.
+export function userErrorMessage(error: Error | null): string | undefined {
+  if (!error) return undefined
+  return error instanceof ParseError ? PARSE_ERROR_MESSAGE : error.message
+}
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value)
@@ -53,6 +62,56 @@ export function assertField(condition: unknown, message: string): asserts condit
 }
 
 export const eqAddress = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
+
+export function gteInteger(value: string | undefined, minimum: string): boolean {
+  if (!isIntegerString(value) || !isIntegerString(minimum)) return false
+  return BigInt(value) >= BigInt(minimum)
+}
+
+export function expectField<T>(
+  record: Record<string, unknown>,
+  key: string,
+  guard: (value: unknown) => value is T,
+  context: string,
+): T {
+  const value = record[key]
+  assertField(guard(value), `${context} has an invalid ${key}: ${String(value)}`)
+  return value
+}
+
+/** Like expectField, but null, undefined and "" read as absent. */
+export function optionalField<T>(
+  record: Record<string, unknown>,
+  key: string,
+  guard: (value: unknown) => value is T,
+  context: string,
+): T | undefined {
+  const value = record[key]
+  if (value === undefined || value === null || value === "") return undefined
+  return expectField(record, key, guard, context)
+}
+
+type Same = (actual: unknown, expected: string) => boolean
+
+export const caseInsensitive: Same = (actual, expected) =>
+  typeof actual === "string" && eqAddress(actual, expected)
+export const sameDenom: Same = (actual, expected) =>
+  typeof actual === "string" && normalizeDenom(actual) === normalizeDenom(expected)
+// Some endpoints send EVM chain ids as numbers.
+export const sameChainId: Same = (actual, expected) => String(actual) === expected
+
+export type Echoes<T> = { [K in keyof T]?: string | [expected: string, same: Same] }
+
+/** Asserts each field echoes the retained request: exactly, or through the paired comparison. */
+export function assertEchoes<T extends object>(record: T, context: string, echoes: Echoes<T>) {
+  for (const key in echoes) {
+    const echo = echoes[key]
+    if (echo === undefined) continue
+    const [expected, same] = typeof echo === "string" ? [echo, Object.is] : echo
+    const actual = record[key]
+    assertField(same(actual, expected), `${context} ${key} ${String(actual)} is not ${expected}`)
+  }
+}
 
 interface FieldRule<T, Optional extends boolean = false> {
   guard: (value: unknown) => value is T

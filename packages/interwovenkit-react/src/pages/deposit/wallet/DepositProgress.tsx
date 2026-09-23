@@ -1,11 +1,14 @@
 import { whereEq } from "ramda"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import xss from "xss"
+import { useEffect, useEffectEvent, useMemo, useState } from "react"
 import { useInterval } from "usehooks-ts"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { IconCheckCircleFilled, IconCloseCircleFilled } from "@initia/icons-react"
 import Button from "@/components/Button"
 import CopyButton from "@/components/CopyButton"
-import { safeExplorerUrl } from "@/components/explorer"
+import { sanitizeLink } from "@/components/explorer"
 import Footer from "@/components/Footer"
+import Loader from "@/components/Loader"
 import { useConfig } from "@/data/config"
 import { useDrawer, useModal } from "@/data/ui"
 import { useInitiaAddress } from "@/public/data/hooks"
@@ -23,28 +26,28 @@ import { eqAddress } from "../data/parse"
 import { findDestinationNetwork, formatSourceMin } from "../data/source"
 import type { BridgeStatusResponse, Deposit } from "../data/types"
 import { formatCompletedAmount } from "../completedAmount"
-import { DepositTrackingView, TAKING_LONGER_DELAY } from "../DepositTracking"
+import DepositStatus from "../DepositStatus"
+import DepositSubpage from "../DepositSubpage"
+import { TAKING_LONGER_DELAY } from "../DepositTracking"
+import trackingStyles from "../DepositTracking.module.css"
+import ExplorerLinks from "../ExplorerLinks"
 import FlowChips from "../FlowChips"
 import {
   checkHashlessSend,
   type DepositProgressInputs,
+  type DepositProgressVariant,
   deriveDepositProgress,
+  progressHeading,
 } from "./depositProgressLogic"
 import { type DepositSession, recoveryReference, useDepositSessionStore } from "./depositSession"
-import { depositApiRpcUrl, findDepositApiSource, findEthereumUsdcRoute } from "./depositSources"
-import {
-  getPinnedProvider,
-  type SourceTxOutcome,
-  useSenderNonces,
-  watchSourceTransaction,
-} from "./evmRpc"
+import { depositApiRpcUrl, findEthereumUsdcRoute } from "./depositSources"
+import { checkSourceTransaction, getPinnedProvider, useSenderNonces } from "./evmRpc"
 import { useTransferForm } from "./transferFlowConfig"
 import styles from "./DepositProgress.module.css"
 
-// Long enough that ethers' replacement scan rarely restarts; the refetch interval is the outer loop.
-const SOURCE_WATCH_TIMEOUT = 90_000
-const SOURCE_WATCH_INTERVAL = 5_000
-const NONCE_POLL_INTERVAL = 5_000
+import type { ReactNode } from "react"
+
+const POLL_INTERVAL = 5_000
 
 const DepositProgress = () => {
   const { watch } = useTransferForm()
@@ -56,7 +59,7 @@ const DepositProgress = () => {
 
   if (!session) {
     return (
-      <DepositTrackingView
+      <ProgressScreen
         title="Deposit status"
         variant="problem"
         heading="Deposit not found"
@@ -86,52 +89,35 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   const { closeModal } = useModal()
   const { openDrawer } = useDrawer()
   const initiaAddress = useInitiaAddress()
+  const queryClient = useQueryClient()
   const { read, write, isVolatile } = useDepositSessionStore()
-
-  // Stable across store revisions, so the effects below re-run only when their own values change.
-  const applyPatch = useCallback(
-    (patch: Partial<DepositSession>) => {
-      const current = read(session.id)
-      if (!current || whereEq(patch, current)) return
-      write({ ...current, ...patch })
-    },
-    [read, write, session.id],
-  )
 
   const sourceHash = session.currentSourceHash ?? ""
   const depositId = session.depositId ?? ""
   const isHashlessSend =
     !sourceHash && (session.phase === "send_prompt" || session.phase === "submission_unknown")
 
+  const { promptNonce } = session
+  // Once the mined nonce moved past the prompt's, no later read can release the send.
   const noncesQuery = useSenderNonces(
     session.source.chainId,
-    isHashlessSend && session.promptNonce !== undefined ? session.source.sender : "",
-    NONCE_POLL_INTERVAL,
+    isHashlessSend && promptNonce !== undefined ? session.source.sender : "",
+    (nonces) =>
+      promptNonce !== undefined && nonces && nonces.latest > promptNonce ? false : POLL_INTERVAL,
   )
 
   const sourceQuery = useQuery({
     // The session id and watched hash identify every other input: the session's immutable intent.
     // eslint-disable-next-line @tanstack/query/exhaustive-deps
     queryKey: depositQueryKeys.sourceWatch(session.id, sourceHash).queryKey,
-    queryFn: (): Promise<SourceTxOutcome> =>
-      watchSourceTransaction(getPinnedProvider(session.source.chainId), {
-        hash: sourceHash,
-        from: session.submitted?.from ?? session.source.sender,
-        // Missing evidence degrades the watch to a plain receipt read.
-        nonce: session.submitted?.nonce ?? -1,
-        to: session.transaction.to,
-        data: session.transaction.data,
-        value: session.transaction.value,
-        chainId: session.transaction.chainId,
-        startBlock: session.preSubmitBlock ?? -1,
-        timeoutMs: SOURCE_WATCH_TIMEOUT,
-      }),
+    queryFn: () =>
+      checkSourceTransaction(getPinnedProvider(session.source.chainId), sourceHash, session),
     enabled: !!depositApiRpcUrl(session.source.chainId) && !!sourceHash && !depositId,
     // The interval is the retry: an RPC error is an evidence gap, not a reason to give up.
     retry: false,
     staleTime: 0,
     refetchInterval: (query) =>
-      !query.state.data || query.state.data.status === "pending" ? SOURCE_WATCH_INTERVAL : false,
+      !query.state.data || query.state.data.status === "pending" ? POLL_INTERVAL : false,
   })
   const sourceOutcome = sourceQuery.data
 
@@ -140,9 +126,6 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     sourceOutcome?.status === "replaced" && sourceOutcome.reason === "repriced"
       ? sourceOutcome.hash
       : ""
-  useEffect(() => {
-    if (replacementHash) applyPatch({ currentSourceHash: replacementHash })
-  }, [replacementHash, applyPatch])
 
   const [startedAt] = useState(() => Date.now())
   const bridgeQuery = useQuery(
@@ -193,11 +176,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
       )
     : undefined
 
-  const handoffId = lifiHandoff?.deposit?.id ?? directHandoff?.deposit?.id ?? ""
-  useEffect(() => {
-    if (!handoffId) return
-    applyPatch({ depositId: handoffId })
-  }, [handoffId, applyPatch])
+  const handoff = lifiHandoff?.deposit ?? directHandoff?.deposit
 
   const depositQuery = useDeposit(depositId)
   const deposit = depositQuery.data ?? null
@@ -233,7 +212,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     sentSymbol: "USDC",
   })
 
-  const inputs: Omit<DepositProgressInputs, "isDelayed"> = {
+  const inputs: DepositProgressInputs = {
     // The record's own fetch time keeps the first reading fresh before the interval ticks.
     now: Math.max(now, depositQuery.dataUpdatedAt),
     nonces: {
@@ -245,12 +224,12 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     bridge: {
       state: bridgeStatus?.state,
       error: bridgeQuery.error,
-      conflict: lifiHandoff?.error,
+      conflict: lifiHandoff?.conflict,
     },
     direct: {
       found: directQuery.isFetched ? !!directRecord : undefined,
       isError: directQuery.isError,
-      conflict: directHandoff?.error,
+      conflict: directHandoff?.conflict,
     },
     deposit: {
       bucket,
@@ -263,45 +242,50 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     },
   }
 
-  // Keyed on the undelayed view, or arming the timer would change its own trigger.
-  const baseView = deriveDepositProgress(session, { ...inputs, isDelayed: false })
-  const stageKey = `${baseView.variant}:${baseView.persist?.lastState ?? ""}`
+  const view = deriveDepositProgress(session, inputs)
+  const stageKey = `${view.variant}:${view.persist?.lastState ?? ""}`
   const [delayedStage, setDelayedStage] = useState<string | null>(null)
-  const isDelayed = delayedStage === stageKey && baseView.variant === "in-flight"
   useEffect(() => {
     const timer = setTimeout(() => setDelayedStage(stageKey), TAKING_LONGER_DELAY)
     return () => clearTimeout(timer)
   }, [stageKey])
-
-  const view = isDelayed ? deriveDepositProgress(session, { ...inputs, isDelayed: true }) : baseView
+  const heading = progressHeading(view, session, inputs, delayedStage === stageKey)
 
   // Re-checked against the stored record: another tab may have recorded a hash or a heartbeat since.
-  const { data: nonceData, dataUpdatedAt: nonceReadAt, isError: nonceError } = noncesQuery
-  const releaseNotSent = useCallback(
-    (manual: boolean) => {
-      const current = read(session.id)
-      if (!current || current.currentSourceHash) return
-      if (current.phase !== "send_prompt" && current.phase !== "submission_unknown") return
-      const nonces = { data: nonceData, readAt: nonceReadAt, isError: nonceError }
-      const check = checkHashlessSend(current, nonces, Date.now())
-      if (!(manual ? check.canMarkNotSent : check.release)) return
-      write({ ...current, phase: "terminal", lastState: "not_sent" })
-    },
-    [read, write, session.id, nonceData, nonceReadAt, nonceError],
-  )
+  const releaseNotSent = (manual: boolean) => {
+    const current = read(session.id)
+    if (!current || current.currentSourceHash) return
+    if (current.phase !== "send_prompt" && current.phase !== "submission_unknown") return
+    const check = checkHashlessSend(current, inputs.nonces, Date.now())
+    if (!(manual ? check.canMarkNotSent : check.release)) return
+    write({ ...current, phase: "terminal", lastState: "not_sent" })
+  }
 
-  const persistPhase = view.persist?.phase
-  const persistLastState = view.persist?.lastState
-  useEffect(() => {
-    if (persistLastState === "not_sent") {
-      releaseNotSent(false)
-      return
+  const persistProgress = useEffectEvent(() => {
+    if (view.persist?.lastState === "not_sent") return releaseNotSent(false)
+    const current = read(session.id)
+    if (!current) return
+    // Seeded so the tracker opens on the handed-off record instead of a blank first poll.
+    if (handoff && !current.depositId) {
+      queryClient.setQueryData(depositQueryKeys.deposit(handoff.id).queryKey, handoff)
     }
-    applyPatch({
-      ...(persistPhase && { phase: persistPhase }),
-      ...(persistLastState && { lastState: persistLastState }),
-    })
-  }, [persistPhase, persistLastState, applyPatch, releaseNotSent])
+    const patch = {
+      ...(replacementHash && { currentSourceHash: replacementHash }),
+      ...(handoff && { depositId: handoff.id }),
+      ...view.persist,
+    }
+    if (!whereEq(patch, current)) write({ ...current, ...patch })
+  })
+  useEffect(() => {
+    persistProgress()
+  }, [
+    replacementHash,
+    handoff?.id,
+    view.persist?.phase,
+    view.persist?.lastState,
+    // Each nonce read re-checks a pending "not sent" release.
+    noncesQuery.dataUpdatedAt,
+  ])
 
   const explorerUrl = resolveExplorerUrl(deposit, bridgeStatus)
 
@@ -311,20 +295,22 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     }
   }
 
+  const showClose = view.variant !== "in-flight"
+  const showRefresh = view.variant === "problem" && !!sourceHash
   const footer =
-    view.showClose || view.showRefresh ? (
+    showClose || showRefresh ? (
       <Footer>
         {view.canMarkNotSent && (
           <Button.Outline fullWidth onClick={() => releaseNotSent(true)}>
             I didn't send this
           </Button.Outline>
         )}
-        {view.showRefresh && (
+        {showRefresh && (
           <Button.White fullWidth onClick={refresh}>
             Refresh
           </Button.White>
         )}
-        {view.showClose && (
+        {showClose && (
           <Button.Outline fullWidth onClick={closeModal}>
             Close
           </Button.Outline>
@@ -345,15 +331,17 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   // Storage could not hold this transfer, so the reference is the user's only durable copy.
   const showRecovery = isVolatile(session.id)
 
+  const showChips = view.variant === "in-flight" || view.variant === "completed"
+
   return (
-    <DepositTrackingView
+    <ProgressScreen
       title={view.title}
       variant={view.variant}
-      heading={view.heading}
+      heading={heading}
       message={message}
       chips={
         <>
-          {view.showChips && <ProgressChips session={session} />}
+          {showChips && <ProgressChips session={session} />}
           {showRecovery && <RecoveryReference session={session} />}
         </>
       }
@@ -366,11 +354,11 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
 }
 
 // A deposit that cannot be proven to be this user's is a tracking conflict, never a completion.
-function checkHandoff(assert: () => Deposit): { deposit?: Deposit; error?: string } {
+function checkHandoff(assert: () => Deposit): { deposit?: Deposit; conflict?: boolean } {
   try {
     return { deposit: assert() }
-  } catch (error) {
-    return { error: error instanceof Error ? error.message : String(error) }
+  } catch {
+    return { conflict: true }
   }
 }
 
@@ -378,8 +366,12 @@ function resolveExplorerUrl(
   deposit: Deposit | null,
   bridgeStatus: BridgeStatusResponse | undefined,
 ): string | undefined {
-  const fromDeposit = deposit?.advance_tx_explorer_url || deposit?.bot_tx_explorer_url
-  return safeExplorerUrl(fromDeposit || bridgeStatus?.dst_tx_link || bridgeStatus?.src_tx_link)
+  const href =
+    deposit?.advance_tx_explorer_url ||
+    deposit?.bot_tx_explorer_url ||
+    bridgeStatus?.dst_tx_link ||
+    bridgeStatus?.src_tx_link
+  return href ? xss(sanitizeLink(href)) : undefined
 }
 
 const RecoveryReference = ({ session }: { session: DepositSession }) => {
@@ -401,15 +393,13 @@ const RecoveryReference = ({ session }: { session: DepositSession }) => {
 const ProgressChips = ({ session }: { session: DepositSession }) => {
   const { registryUrl } = useConfig()
   const { source, destination } = session
-  const sourceChainLogoUrl =
-    source.chainLogoUrl || findDepositApiSource(source.chainId, source.denom)?.fallbackChainLogoUrl
   return (
     <FlowChips
       steps={[
         {
           label: "You sent",
           logoUrl: `${registryUrl}/images/${source.symbol}.png`,
-          chainLogoUrl: sourceChainLogoUrl ?? "",
+          chainLogoUrl: source.chainLogoUrl ?? "",
           text: source.symbol,
         },
         {
@@ -420,6 +410,63 @@ const ProgressChips = ({ session }: { session: DepositSession }) => {
         },
       ]}
     />
+  )
+}
+
+interface ProgressScreenProps {
+  title: string
+  variant: DepositProgressVariant
+  heading?: string
+  message?: ReactNode
+  chips?: ReactNode
+  explorerUrl?: string
+  onHistoryClick?: () => void
+  footer?: ReactNode
+  isRetrying?: boolean
+}
+
+const ProgressScreen = (props: ProgressScreenProps) => {
+  const { title, variant, heading, message, chips, explorerUrl, onHistoryClick, footer } = props
+  const isError = variant !== "in-flight" && variant !== "completed"
+
+  return (
+    <DepositSubpage title={title}>
+      <div className={trackingStyles.body}>
+        {variant === "in-flight" ? (
+          <Loader size={40} color="var(--success)" />
+        ) : variant === "completed" ? (
+          <IconCheckCircleFilled size={48} className={trackingStyles.successIcon} aria-hidden />
+        ) : (
+          <IconCloseCircleFilled size={48} className={trackingStyles.failIcon} aria-hidden />
+        )}
+
+        {heading && (
+          <p
+            className={
+              variant === "in-flight" ? trackingStyles.delayHeading : trackingStyles.heading
+            }
+          >
+            {heading}
+          </p>
+        )}
+
+        {message && (
+          <DepositStatus error={isError} className={trackingStyles.message}>
+            {message}
+          </DepositStatus>
+        )}
+
+        {chips}
+
+        <ExplorerLinks explorerUrl={explorerUrl} onHistoryClick={onHistoryClick} />
+
+        {props.isRetrying && (
+          <DepositStatus className={trackingStyles.note}>Reconnecting…</DepositStatus>
+        )}
+      </div>
+
+      {footer}
+    </DepositSubpage>
   )
 }
 

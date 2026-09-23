@@ -3,7 +3,7 @@ import { path } from "ramda"
 import { InitiaAddress, toBaseUnit } from "@initia/utils"
 import { POPUP_BLOCKED_MESSAGE, USER_REJECTED_MESSAGE } from "@/data/http"
 import { BRIDGE_QUOTE_MAX_AGE } from "../data/bridges"
-import { eqAddress, isDecimalString, isEvmTxHash, isIntegerString } from "../data/parse"
+import { gteInteger, isDecimalString, isEvmTxHash, isIntegerString } from "../data/parse"
 import type { QuoteResult } from "../data/quote"
 import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM } from "../data/source"
 import type {
@@ -15,7 +15,6 @@ import type {
 import type { DepositSessionTransaction } from "./depositSession"
 import { encodeErc20Transfer } from "./evmRpc"
 
-/** Integer base units, or "" when the typed quantity is not representable. */
 export function toBaseUnitString(quantity: string, decimals: number): string {
   const amount = toBaseUnit(quantity, { decimals })
   return isIntegerString(amount) ? amount : ""
@@ -53,24 +52,9 @@ export function selectBridgeOption(
   return { option: fallback, clearSelection: ranked.length > 0 }
 }
 
-// The options response echoes nothing back, so the issued address is the only identity it shares with the quote.
-export function isQuoteBoundToOptions(
-  quoteDepositAddress: string | undefined,
-  optionsDepositAddress: string | undefined,
-): boolean {
-  if (!quoteDepositAddress || !optionsDepositAddress) return false
-  return eqAddress(quoteDepositAddress, optionsDepositAddress)
-}
-
 export function isQuoteStale(dataUpdatedAt: number, now: number): boolean {
   if (!dataUpdatedAt) return true
   return now - dataUpdatedAt > BRIDGE_QUOTE_MAX_AGE
-}
-
-/** Fails closed: an unknown or malformed value is never enough. */
-export function gteInteger(value: string | undefined, minimum: string): boolean {
-  if (!isIntegerString(value) || !isIntegerString(minimum)) return false
-  return BigInt(value) >= BigInt(minimum)
 }
 
 export function formatNetworkFee(gasCostUsd: string | undefined): string {
@@ -89,7 +73,6 @@ export function combineEstimatedSeconds(parts: (number | null | undefined)[]): n
   return total
 }
 
-/** The Ethereum → destination leg: unknown until quoted, since the method depends on the amount. */
 export function deliverySeconds(
   quote: QuoteResponse | undefined,
   destination: DestinationNetwork | undefined,
@@ -127,7 +110,6 @@ export function buildDepositTransaction(
   }
 }
 
-/** The call's own value plus its gas limit at the pinned fee, or just the value when gas is unknown. */
 export function requiredNativeAmount(params: {
   value?: string
   gasLimit?: string
@@ -199,7 +181,6 @@ export interface DepositReadinessInput {
 
   quantityEntered: boolean
   amount: string
-  /** The debounced amount matches what is typed. */
   isAmountSettled: boolean
 
   balancesError: boolean
@@ -214,8 +195,6 @@ export interface DepositReadinessInput {
   hasEligibleOption: boolean
   quoteError?: string
   hasQuote: boolean
-  quoteBound: boolean
-  isRefreshing: boolean
   meetsMinimum: boolean
   minimumLabel: string
   approvalChecking: boolean
@@ -268,13 +247,6 @@ export function deriveDepositReadiness(input: DepositReadinessInput): DepositRea
     }
     if (input.quoteError) return blocked(input.quoteError)
     if (!input.hasQuote) return loading("Fetching quote...")
-    if (!input.quoteBound) {
-      return input.isRefreshing
-        ? loading("Refreshing quote...")
-        : blocked(
-            "The issued deposit address changed. Change the amount or route for a fresh quote.",
-          )
-    }
     if (!input.meetsMinimum) {
       return blocked(
         `This route would deliver less than ${input.minimumLabel} to Ethereum. Try a larger amount or another route.`,

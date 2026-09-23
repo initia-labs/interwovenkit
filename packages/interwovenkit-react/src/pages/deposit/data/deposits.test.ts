@@ -212,8 +212,8 @@ const OTHER_ADDRESS = "0x9999999999999999999999999999999999999999"
 
 // Shared by both transports: the record is always the Ethereum USDC leg at the issued address.
 const IDENTITY_MISMATCHES: [Partial<Deposit>, RegExp][] = [
-  [{ src_chain_id: "8453" }, /src_chain_id is 8453/],
-  [{ src_denom: "ethereum-native" }, /not Ethereum USDC/],
+  [{ src_chain_id: "8453" }, /src_chain_id 8453 is not 1/],
+  [{ src_denom: "ethereum-native" }, /src_denom ethereum-native/],
   [{ deposit_address: OTHER_ADDRESS }, /deposit_address/],
   [{ dst_chain_id: "yominet-1" }, /dst_chain_id/],
   [{ dst_denom: "uinit" }, /dst_denom/],
@@ -271,7 +271,7 @@ describe("assertLifiDeposit", () => {
 
   it("rejects a record whose hash is not the reported Ethereum delivery", () => {
     expect(() => assertLifiDeposit(lifiDeposit(), { ...IDENTITY, dstTxHash: SRC_TX_HASH })).toThrow(
-      /reported Ethereum delivery/,
+      /src_tx_hash 0xb+ is not 0xa+/,
     )
   })
 

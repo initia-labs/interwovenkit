@@ -4,7 +4,6 @@ import { BridgeStatusError } from "../data/bridges"
 import type { WalletDepositBucket } from "../data/deposits"
 import { eqAddress } from "../data/parse"
 import type { BridgeStatusState, DepositDelivery } from "../data/types"
-import type { DepositTrackingVariant } from "../DepositTracking"
 import {
   type DepositLastState,
   type DepositSession,
@@ -14,16 +13,22 @@ import {
 import { matchesAssetOption } from "./depositSources"
 import type { SenderNonces, SourceTxOutcome } from "./evmRpc"
 
+export type DepositProgressVariant =
+  | "in-flight"
+  | "completed"
+  | "failed"
+  | "below-minimum"
+  | "problem"
+
 export interface DepositProgressView {
   title: string
-  variant: DepositTrackingVariant
+  variant: DepositProgressVariant
   heading?: string
   message: string
   note?: string
-  isRetrying: boolean
-  showClose: boolean
-  showRefresh: boolean
-  showChips: boolean
+  isRetrying?: boolean
+  /** A bridge normally takes minutes and reports no ETA, so this stage never reads as delayed. */
+  isBridging?: boolean
   canMarkNotSent?: boolean
   /** Written back to the session so the persisted trail matches the rendered claim. */
   persist?: { phase?: DepositSessionPhase; lastState?: DepositLastState }
@@ -37,13 +42,13 @@ export interface DepositProgressInputs {
   bridge: {
     state?: BridgeStatusState
     error?: unknown
-    conflict?: string
+    conflict?: boolean
   }
   direct: {
     /** false for a 404, undefined before the first read. */
     found?: boolean
     isError: boolean
-    conflict?: string
+    conflict?: boolean
   }
   deposit: {
     bucket: WalletDepositBucket
@@ -54,18 +59,19 @@ export interface DepositProgressInputs {
     completedAmount?: string
     isSelfRecipient: boolean
   }
-  /** The sender's nonces, polled while a send has no hash. */
   nonces: {
     data?: SenderNonces
     readAt: number
     isError: boolean
   }
-  isDelayed: boolean
   now: number
 }
 
 const IN_FLIGHT_TITLE = "Deposit in progress"
 const NEUTRAL_TITLE = "Deposit status"
+
+const MISMATCH =
+  "The tracking details don't match this deposit. Your submitted transaction is still saved."
 
 const NO_REFUND = "Your funds remain at the deposit address with no automatic refund."
 
@@ -81,12 +87,10 @@ interface LastStateCopy {
 }
 
 // Bridge states render a whole screen, so their message is mandatory.
-const LAST_STATE: Record<DepositLastState, LastStateCopy> &
+const LAST_STATE: Partial<Record<DepositLastState, LastStateCopy>> &
   Record<BridgeStatusState, LastStateCopy & { message: string }> = {
   source_pending: { label: "Source transaction pending" },
   source_replaced: { label: "Source transaction replaced" },
-  source_reverted: {},
-  source_cancelled: {},
   source_conflict: { label: "Couldn't verify transfer" },
   bridge_not_found: {
     label: "Waiting for the bridge",
@@ -122,55 +126,23 @@ const LAST_STATE: Record<DepositLastState, LastStateCopy> &
   deposit_indexed: { label: "Delivering", message: "Deposit detected. Delivering now." },
   waiting: { label: "Confirming your deposit" },
   processing: { label: "Delivering" },
-  completed: {},
-  below_minimum: {},
-  failed: {},
   unknown: { label: "Status unavailable" },
   tracking_conflict: { label: "Couldn't verify transfer" },
-  not_sent: {},
 }
 
 type ViewParts = Partial<DepositProgressView>
 
 function inFlight(view: Pick<DepositProgressView, "message"> & ViewParts) {
-  return {
-    title: IN_FLIGHT_TITLE,
-    variant: "in-flight",
-    isRetrying: false,
-    showClose: false,
-    showRefresh: false,
-    showChips: true,
-    ...view,
-  } satisfies DepositProgressView
+  return { title: IN_FLIGHT_TITLE, variant: "in-flight", ...view } satisfies DepositProgressView
 }
 
 function terminal(view: Pick<DepositProgressView, "variant" | "message"> & ViewParts) {
-  return {
-    title: NEUTRAL_TITLE,
-    isRetrying: false,
-    showClose: true,
-    showRefresh: false,
-    showChips: false,
-    ...view,
-  } satisfies DepositProgressView
+  return { title: NEUTRAL_TITLE, ...view } satisfies DepositProgressView
 }
 
 /** Tracking stopped without a financial verdict: never a claim about the funds. */
 function problem(view: Pick<DepositProgressView, "message"> & ViewParts) {
-  return {
-    title: NEUTRAL_TITLE,
-    variant: "problem",
-    isRetrying: false,
-    showClose: true,
-    showRefresh: true,
-    showChips: false,
-    ...view,
-  } satisfies DepositProgressView
-}
-
-// From `send_prompt` onward a send may have happened; `prepared` is an abandoned draft.
-function isResumableDepositSession(session: DepositSession): boolean {
-  return session.phase !== "terminal" && isPhaseAdvance("send_prompt", session.phase)
+  return { title: NEUTRAL_TITLE, variant: "problem", ...view } satisfies DepositProgressView
 }
 
 /** What the hub is currently depositing; a saved session must match all of it to be offered. */
@@ -189,7 +161,9 @@ export function selectResumableSessions(
 ): DepositSession[] {
   return sessions.filter(
     (session) =>
-      isResumableDepositSession(session) &&
+      // From `send_prompt` onward a send may have happened; `prepared` is an abandoned draft.
+      session.phase !== "terminal" &&
+      isPhaseAdvance("send_prompt", session.phase) &&
       eqAddress(session.destination.recipient, match.recipient) &&
       matchesAssetOption(session.destination, match.dstChainId, match.dstDenom) &&
       (match.remoteOptions.length === 0 ||
@@ -200,27 +174,28 @@ export function selectResumableSessions(
 }
 
 export function resumeStageLabel(session: DepositSession): string {
-  const label = session.lastState && LAST_STATE[session.lastState].label
+  const label = session.lastState && LAST_STATE[session.lastState]?.label
   if (label) return label
   return session.phase === "send_prompt" || session.phase === "submission_unknown"
     ? "Checking your transaction"
     : "Source transaction pending"
 }
 
+// Replaces the heading, not the copy: "your funds are safe" is false while a bridge holds them.
+export function progressHeading(
+  view: DepositProgressView,
+  session: DepositSession,
+  inputs: DepositProgressInputs,
+  isDelayed: boolean,
+): string | undefined {
+  const canDelay = view.variant === "in-flight" && !view.isBridging && !timeLeft(session, inputs)
+  return isDelayed && canDelay ? "Taking longer than usual" : view.heading
+}
+
 export function deriveDepositProgress(
   session: DepositSession,
   inputs: DepositProgressInputs,
 ): DepositProgressView {
-  const view = resolve(session, inputs)
-
-  // Replaces the heading, not the copy: "your funds are safe" is false while a bridge holds them.
-  if (view.variant === "in-flight" && inputs.isDelayed && !timeLeft(session, inputs)) {
-    return { ...view, heading: "Taking longer than usual" }
-  }
-  return view
-}
-
-function resolve(session: DepositSession, inputs: DepositProgressInputs): DepositProgressView {
   if (!session.currentSourceHash) return withoutHash(session, inputs)
 
   if (session.depositId) return depositStage(session, inputs)
@@ -284,7 +259,6 @@ function withoutHash(session: DepositSession, inputs: DepositProgressInputs): De
     return problem({
       heading: "Nothing to track yet",
       message: "This deposit was never submitted. Start a new deposit to try again.",
-      showRefresh: false,
     })
   }
 
@@ -292,10 +266,7 @@ function withoutHash(session: DepositSession, inputs: DepositProgressInputs): De
   if (check.release) return markedNotSent()
 
   const { chainName } = session.source
-  const unconfirmed = {
-    showRefresh: false,
-    canMarkNotSent: check.canMarkNotSent,
-  }
+  const unconfirmed = { canMarkNotSent: check.canMarkNotSent }
 
   if (check.nonceMoved) {
     return problem({
@@ -345,8 +316,7 @@ function sourceStage(session: DepositSession, inputs: DepositProgressInputs): De
     // Same nonce, different payload: not this transfer, and not a proven cancellation.
     return problem({
       heading: "Couldn't verify this transfer",
-      message:
-        "The tracking details don't match this deposit. Your submitted transaction is still saved.",
+      message: MISMATCH,
       note: "A different transaction replaced yours. Check the transaction details before sending anything new.",
       persist: { lastState: "source_conflict" },
     })
@@ -378,15 +348,13 @@ function bridgeStage(inputs: DepositProgressInputs): DepositProgressView {
   const { state, error, conflict } = inputs.bridge
 
   if (error instanceof BridgeStatusError && error.code === "upstream_conflict") {
-    return conflictView(
-      "The tracking details don't match this deposit. Your submitted transaction is still saved.",
-    )
+    return conflictView(MISMATCH)
   }
   if (error instanceof BridgeStatusError && error.code === "invalid_request") {
     return conflictView("The tracking request was rejected. Your transaction details are saved.")
   }
 
-  if (conflict) return conflictView(conflict)
+  if (conflict) return conflictView(MISMATCH)
 
   const copy = LAST_STATE[state ?? "bridge_not_found"]
 
@@ -414,6 +382,7 @@ function bridgeStage(inputs: DepositProgressInputs): DepositProgressView {
     message: copy.message,
     // Before any state is known, a failed read is indistinguishable from "not picked up yet".
     isRetrying: !!error && !!state,
+    isBridging: state !== "deposit_pending" && state !== "deposit_indexed",
     persist: state ? { lastState: state } : undefined,
   })
 }
@@ -421,7 +390,7 @@ function bridgeStage(inputs: DepositProgressInputs): DepositProgressView {
 function correlateStage(inputs: DepositProgressInputs): DepositProgressView {
   const { isError, conflict } = inputs.direct
 
-  if (conflict) return conflictView(conflict)
+  if (conflict) return conflictView(MISMATCH)
 
   return inFlight({
     // A 404 here is an indexing delay: the receipt is already confirmed on Ethereum.
@@ -477,7 +446,6 @@ function depositStage(session: DepositSession, inputs: DepositProgressInputs): D
         message: isSelfRecipient
           ? `${completedAmount} delivered to your wallet on ${destination}.`
           : `${completedAmount} delivered to the recipient on ${destination}.`,
-        showChips: true,
         persist: { phase: "terminal", lastState: "completed" },
       })
     case "below_minimum":

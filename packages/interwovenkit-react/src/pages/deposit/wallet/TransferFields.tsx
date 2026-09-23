@@ -11,6 +11,7 @@ import QuantityInput from "@/components/form/QuantityInput"
 import { parseQuantity } from "@/lib/amountValidation"
 import { formatValueWithPrice } from "@/lib/format"
 import { useLocationState, useNavigate } from "@/lib/router"
+import { useFindSkipChain } from "@/pages/bridge/data/chains"
 import { useRouteQuery } from "@/pages/bridge/data/simulate"
 import FooterWithAddressList from "@/pages/bridge/FooterWithAddressList"
 import FooterWithMsgs from "@/pages/bridge/FooterWithMsgs"
@@ -25,7 +26,6 @@ import { usePinnedSourceBalances } from "./evmRpc"
 import {
   useExternalAssetOptions,
   useExternalTransferAsset,
-  useFindTransferChain,
   useLocalTransferAsset,
 } from "./externalAssets"
 import FooterWithTxFee from "./FooterWithTxFee"
@@ -99,7 +99,7 @@ const TransferFields = () => {
   const navigate = useNavigate()
   const state = useLocationState<TransferLocationState>()
   const { data: options } = useLocalAssetOptions()
-  const findChain = useFindTransferChain()
+  const findChain = useFindSkipChain()
   const {
     data: balances,
     error: balancesError,
@@ -118,7 +118,7 @@ const TransferFields = () => {
   const localAsset = useLocalTransferAsset()
   const externalAsset = useExternalTransferAsset()
 
-  const { resolution, retryCatalog, isCatalogFetching } = useDepositTransportResolution()
+  const { resolution } = useDepositTransportResolution()
   const isRouterTransport = resolution.transport === "router"
   const isDepositApiTransport = resolution.transport === "direct" || resolution.transport === "lifi"
 
@@ -425,11 +425,7 @@ const TransferFields = () => {
         <DepositStatus error>Failed to load balances</DepositStatus>
       )}
       {!isRouterTransport ? (
-        <DepositTransferFooter
-          resolution={resolution}
-          onRetry={() => void retryCatalog()}
-          isRetrying={isCatalogFetching}
-        />
+        <DepositTransferFooter />
       ) : !canRenderPreviewFooter ? (
         <Footer>
           <Button.White

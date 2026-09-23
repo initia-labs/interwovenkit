@@ -1,27 +1,20 @@
-import { useEffect, useMemo } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 import { IconBuy, IconQrCode, IconWallet } from "@initia/icons-react"
-import { formatAmount, truncate } from "@initia/utils"
+import { truncate } from "@initia/utils"
 import AsyncBoundary from "@/components/AsyncBoundary"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
 import { useConfig } from "@/data/config"
 import { useConnectedWalletIcon } from "@/hooks/useConnectedWalletIcon"
 import { useLocationState } from "@/lib/router"
-import { useHexAddress, useInitiaAddress } from "@/public/data/hooks"
+import { useHexAddress } from "@/public/data/hooks"
 import { depositQueryKeys, useOnramperEnabled } from "./data/api"
 import type { DepositLocationState } from "./data/assetOptions"
 import { useDepositRoutes } from "./data/assets"
 import CashMethodSubtext, { CASH_SUBTEXT_FALLBACK } from "./onramp/CashMethodSubtext"
 import { useOnramperCryptos, usePrefetchOnramperGeoDefaults } from "./onramp/data/onramper"
 import { matchOnramperCrypto } from "./onramp/data/onramperLogic"
-import { resumeStageLabel, selectResumableSessions } from "./wallet/depositProgressLogic"
-import {
-  type DepositSession,
-  pruneDepositSessions,
-  useDepositSessionStore,
-} from "./wallet/depositSession"
-import { resolveDepositRecipient } from "./wallet/depositTransferLogic"
+import { type ResumeSelection, useResumeSection } from "./wallet/useResumeSection"
 import { useDepositForm, useDepositNavigate, useSelectDepositMethod } from "./context"
 import DepositMethodList, { type DepositMethodSection } from "./DepositMethodList"
 import DepositSubpage from "./DepositSubpage"
@@ -38,48 +31,7 @@ type CryptoAvailability =
  * `address`/`onramp` select the deposit method (see useSelectDepositMethod). */
 type HubMethodId = "wallet" | "address" | "onramp"
 
-type HubSelection = HubMethodId | `resume:${string}`
-
-function useResumeSection(): DepositMethodSection<HubSelection> | undefined {
-  const { depositApiUrl, registryUrl } = useConfig()
-  const store = useDepositSessionStore()
-  const storedSessions = useMemo(
-    () => (depositApiUrl ? store.list(depositApiUrl) : []),
-    [store, depositApiUrl],
-  )
-  const initiaAddress = useInitiaAddress()
-  const { watch } = useDepositForm()
-  const { remoteOptions = [], recipientAddress } = useLocationState<DepositLocationState>()
-
-  if (!depositApiUrl || !initiaAddress) return undefined
-  // Only offer sessions this request could have created.
-  const resolved = resolveDepositRecipient(recipientAddress, initiaAddress)
-  if (!("recipient" in resolved)) return undefined
-  const sessions = selectResumableSessions(storedSessions, {
-    recipient: resolved.recipient,
-    dstChainId: watch("receiveChainId"),
-    dstDenom: watch("receiveDenom"),
-    remoteOptions,
-  })
-  if (sessions.length === 0) return undefined
-
-  return {
-    label: "Continue deposit",
-    methods: sessions.map((session) => ({
-      id: `resume:${session.id}` as const,
-      title: resumeRowTitle(session),
-      subtext: resumeStageLabel(session),
-      Icon: IconWallet,
-      iconUrl: `${registryUrl}/images/${session.source.symbol}.png`,
-      chainIconUrl: session.source.chainLogoUrl,
-    })),
-  }
-}
-
-function resumeRowTitle(session: DepositSession): string {
-  const { amount, decimals, symbol, chainName } = session.source
-  return `${formatAmount(amount, { decimals })} ${symbol} from ${chainName}`
-}
+type HubSelection = HubMethodId | ResumeSelection
 
 interface MethodSectionsProps {
   availability: CryptoAvailability
@@ -254,14 +206,6 @@ const SelectDepositMethod = () => {
   const navigate = useDepositNavigate()
   const queryClient = useQueryClient()
   const receiveSymbol = watch("receiveSymbol")
-
-  useEffect(() => {
-    try {
-      pruneDepositSessions(localStorage, Date.now())
-    } catch {
-      // Storage unavailable (private mode); pruning is best effort.
-    }
-  }, [])
 
   return (
     <DepositSubpage

@@ -89,20 +89,15 @@ export interface DepositAddressResponse {
 export interface QuoteResponse {
   amount_out: string
   min_received: string
-  /** Omitted by older backends. */
   delivery?: QuoteDelivery
 }
 
-/**
- * Predicted at quote time, not reserved, for Ethereum → destination only.
- * `method` is an open set like `bucket`: only "advance" is fast.
- */
+/** Ethereum → destination only. `method` is an open set like `bucket`: only "advance" is fast. */
 export interface QuoteDelivery {
   method: string
   estimated_seconds: number | null
 }
 
-/** `method` is current, so it reads "standard" after an advance falls back. */
 export interface DepositDelivery {
   method: string
   /** The actual time once completed; null while waiting, failed, or unknown. */
@@ -179,7 +174,6 @@ export interface Deposit {
   /** Fast-delivery lifecycle, opaque like `status`; "failed" falls back to ordinary delivery. */
   advance_status?: string
   advance_tx_explorer_url?: string
-  /** Omitted until the worker classifies the deposit. */
   delivery?: DepositDelivery
 }
 
@@ -234,7 +228,6 @@ export interface BridgeQuoteApproval {
 
 export interface BridgeQuoteTransaction {
   chain_id: string
-  from: string
   to: string
   /** Decimal native base units; nonzero when the bridge charges a messaging fee. */
   value: string
@@ -242,15 +235,8 @@ export interface BridgeQuoteTransaction {
   gas_limit?: string
 }
 
-/** POST /v1/bridges/quote */
+/** POST /v1/bridges/quote, after its echoes of the request were checked. */
 export interface BridgeQuoteResponse {
-  provider: "lifi"
-  src_chain_id: string
-  src_denom: string
-  dst_chain_id: string
-  dst_denom: string
-  amount: string
-  wallet_address: string
   deposit_address: string
   amount_out: string
   min_received: string
@@ -280,8 +266,6 @@ export type BridgeStatusState = (typeof BRIDGE_STATUS_STATES)[number]
 /** GET /v1/bridges/status */
 export interface BridgeStatusResponse {
   state: BridgeStatusState
-  src_chain_id: string
-  src_tx_hash: string
   src_tx_link: string
   dst_tx_hash?: string
   dst_tx_link?: string

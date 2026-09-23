@@ -8,7 +8,6 @@ import {
   createBridgeOptionsQueryOptions,
   createBridgeQuoteQueryOptions,
   createBridgeStatusQueryOptions,
-  meetsRequiredMinimum,
   parseBridgeOptions,
   parseBridgeQuote,
   parseBridgeStatus,
@@ -31,7 +30,7 @@ import type { BridgeOption, BridgeRequestIdentity } from "./types"
 const BASE_USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
 const SPENDER = "0x1111111111111111111111111111111111111111"
 const BRIDGE_ROUTER = "0x2222222222222222222222222222222222222222"
-const SENDER = "0x3333333333333333333333333333333333333333"
+const SENDER = "0x33333333333333333333333333333333333333Ab"
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 
 const REQUEST: BridgeRequestIdentity = {
@@ -44,7 +43,7 @@ const REQUEST: BridgeRequestIdentity = {
   walletAddress: RECIPIENT,
 }
 
-const QUOTE_REQUEST = { ...REQUEST, bridge: "across" }
+const QUOTE_REQUEST = { ...REQUEST, bridge: "across", depositAddress: DEPOSIT_ADDRESS }
 
 const optionsPayload = (options: unknown[]) => ({
   deposit_address: DEPOSIT_ADDRESS,
@@ -71,7 +70,6 @@ describe("parseBridgeOptions", () => {
   it("returns the parsed envelope and options", () => {
     const parsed = parseBridgeOptions(
       optionsPayload([wireOption({ execution_duration_seconds: 30, gas_cost_usd: "0.42" })]),
-      REQUEST,
     )
     expect(parsed.deposit_address).toBe(DEPOSIT_ADDRESS)
     expect(parsed.required_min_received).toBe("4900000")
@@ -90,16 +88,24 @@ describe("parseBridgeOptions", () => {
   it.each([
     ["a non-object response", null, /is not an object/],
     ["an array response", [], /is not an object/],
-    ["a malformed deposit address", withEnvelope({ deposit_address: "0x1234" }), /deposit address/],
-    ["a zero deposit address", withEnvelope({ deposit_address: ZERO_ADDRESS }), /deposit address/],
+    [
+      "a malformed deposit address",
+      withEnvelope({ deposit_address: "0x1234" }),
+      /invalid deposit_address/,
+    ],
+    [
+      "a zero deposit address",
+      withEnvelope({ deposit_address: ZERO_ADDRESS }),
+      /invalid deposit_address/,
+    ],
     [
       "a missing options array",
       { deposit_address: DEPOSIT_ADDRESS, required_min_received: "1" },
-      /missing its options array/,
+      /invalid options/,
     ],
     ["a null option", optionsPayload([null]), /option 0 is not an object/],
-    ["an empty bridge key", withOption({ bridge: "" }), /invalid bridge key/],
-    ["a non-string bridge key", withOption({ bridge: 1 }), /invalid bridge key/],
+    ["an empty bridge key", withOption({ bridge: "" }), /invalid bridge/],
+    ["a non-string bridge key", withOption({ bridge: 1 }), /invalid bridge/],
     [
       "bridge keys differing only in casing",
       optionsPayload([wireOption({ bridge: "Across" }), wireOption({ bridge: "across" })]),
@@ -107,7 +113,7 @@ describe("parseBridgeOptions", () => {
     ],
     ["a non-positive amount_out", withOption({ amount_out: "0" }), /invalid amount_out/],
     ["a fractional min_received", withOption({ min_received: "4.95" }), /invalid min_received/],
-    ["a non-boolean eligible flag", withOption({ eligible: "true" }), /non-boolean eligible/],
+    ["a non-boolean eligible flag", withOption({ eligible: "true" }), /invalid eligible/],
     [
       "a fractional duration",
       withOption({ execution_duration_seconds: 1.5 }),
@@ -120,13 +126,13 @@ describe("parseBridgeOptions", () => {
     ],
     ["an unparseable gas_cost_usd", withOption({ gas_cost_usd: "free" }), /invalid gas_cost_usd/],
   ])("rejects %s", (_name, payload, message) => {
-    expect(() => parseBridgeOptions(payload, REQUEST)).toThrow(message)
+    expect(() => parseBridgeOptions(payload)).toThrow(message)
   })
 
   it.each(["0", "", "1.5", "-1", 4900000])(
     "rejects the required_min_received %o",
     (required_min_received) => {
-      expect(() => parseBridgeOptions(withEnvelope({ required_min_received }), REQUEST)).toThrow(
+      expect(() => parseBridgeOptions(withEnvelope({ required_min_received }))).toThrow(
         /invalid required_min_received/,
       )
     },
@@ -137,7 +143,7 @@ describe("parseBridgeOptions", () => {
     ["null", { execution_duration_seconds: null, gas_cost_usd: null }],
     ["an empty gas cost", { gas_cost_usd: "" }],
   ])("keeps %s estimates unknown rather than zero", (_name, overrides) => {
-    const [parsed] = parseBridgeOptions(withOption(overrides), REQUEST).options
+    const [parsed] = parseBridgeOptions(withOption(overrides)).options
     expect(parsed.execution_duration_seconds).toBeUndefined()
     expect(parsed.gas_cost_usd).toBeUndefined()
   })
@@ -377,44 +383,55 @@ const withApproval = (overrides: Record<string, unknown> | null) =>
     approval: overrides === null ? null : { ...quotePayload().approval, ...overrides },
   })
 
+const OTHER_ADDRESS = "0x7777777777777777777777777777777777777777"
+
 describe("parseBridgeQuote", () => {
-  it("returns the executable quote", () => {
-    const quote = parseBridgeQuote(quotePayload(), QUOTE_REQUEST)
-    expect(quote.provider).toBe("lifi")
-    expect(quote.tool).toBe("across")
-    expect(quote.transaction).toEqual({
-      chain_id: "8453",
-      from: SENDER,
-      to: BRIDGE_ROUTER,
-      value: "0",
-      data: "0xdeadbeef",
-      gas_limit: "250000",
+  const parsed = parseBridgeQuote(quotePayload(), QUOTE_REQUEST)
+
+  it("returns the executable quote without the request's echoes", () => {
+    expect(parsed).toEqual({
+      deposit_address: DEPOSIT_ADDRESS,
+      amount_out: "4980000",
+      min_received: "4950000",
+      tool: "across",
+      estimate: { execution_duration_seconds: 30, gas_cost_usd: "0.42" },
+      approval: { token_address: BASE_USDC, spender_address: SPENDER, amount: "5000000" },
+      transaction: {
+        chain_id: "8453",
+        to: BRIDGE_ROUTER,
+        value: "0",
+        data: "0xdeadbeef",
+        gas_limit: "250000",
+      },
     })
-    expect(quote.approval).toEqual({
-      token_address: BASE_USDC,
-      spender_address: SPENDER,
-      amount: "5000000",
-    })
-    expect(quote.estimate).toEqual({ execution_duration_seconds: 30, gas_cost_usd: "0.42" })
   })
 
   it.each([
     ["a non-object response", "nope", /is not an object/],
-    ["a provider other than lifi", quotePayload({ provider: "skip" }), /unexpected provider/],
-    ["a tool that is not the selected bridge", quotePayload({ tool: "relay" }), /tool mismatch/],
-    ["another src_chain_id", quotePayload({ src_chain_id: "42161" }), /src_chain_id mismatch/],
-    ["another src_denom", quotePayload({ src_denom: "ethereum-native" }), /src_denom mismatch/],
-    ["another dst_chain_id", quotePayload({ dst_chain_id: "yominet-1" }), /dst_chain_id mismatch/],
-    ["another dst_denom", quotePayload({ dst_denom: "uinit" }), /dst_denom mismatch/],
-    ["another amount", quotePayload({ amount: "4000000" }), /amount mismatch/],
-    ["a numeric amount", quotePayload({ amount: 5000000 }), /amount mismatch/],
+    ["a provider other than lifi", quotePayload({ provider: "skip" }), /provider skip is not lifi/],
+    ["a tool that is not the selected bridge", quotePayload({ tool: "relay" }), /tool relay/],
+    ["another src_chain_id", quotePayload({ src_chain_id: "42161" }), /src_chain_id 42161/],
+    ["another src_denom", quotePayload({ src_denom: "ethereum-native" }), /src_denom/],
+    ["another dst_chain_id", quotePayload({ dst_chain_id: "yominet-1" }), /dst_chain_id/],
+    ["another dst_denom", quotePayload({ dst_denom: "uinit" }), /dst_denom/],
+    ["another amount", quotePayload({ amount: "4000000" }), /response amount 4000000/],
+    ["a numeric amount", quotePayload({ amount: 5000000 }), /response amount 5000000 is not/],
+    ["another recipient", quotePayload({ wallet_address: "init1someoneelse" }), /wallet_address/],
     [
-      "another recipient",
-      quotePayload({ wallet_address: "init1someoneelse" }),
-      /wallet_address mismatch/,
+      "a malformed deposit address",
+      quotePayload({ deposit_address: "0x00" }),
+      /invalid deposit_address/,
     ],
-    ["a malformed deposit address", quotePayload({ deposit_address: "0x00" }), /deposit address/],
-    ["a zero deposit address", quotePayload({ deposit_address: ZERO_ADDRESS }), /deposit address/],
+    [
+      "a zero deposit address",
+      quotePayload({ deposit_address: ZERO_ADDRESS }),
+      /invalid deposit_address/,
+    ],
+    [
+      "a deposit address other than the options'",
+      quotePayload({ deposit_address: OTHER_ADDRESS }),
+      /deposit_address 0x7+ is not/,
+    ],
     ["a non-positive amount_out", quotePayload({ amount_out: "0" }), /invalid amount_out/],
     ["a malformed min_received", quotePayload({ min_received: "x" }), /invalid min_received/],
     [
@@ -426,13 +443,15 @@ describe("parseBridgeQuote", () => {
     expect(() => parseBridgeQuote(payload, QUOTE_REQUEST)).toThrow(message)
   })
 
-  it("accepts the selected bridge in different casing", () => {
-    expect(parseBridgeQuote(quotePayload({ tool: "Across" }), QUOTE_REQUEST).tool).toBe("Across")
-  })
-
-  it("compares EVM denoms case-insensitively", () => {
-    const payload = quotePayload({ src_denom: BASE_USDC.toLowerCase() })
-    expect(parseBridgeQuote(payload, QUOTE_REQUEST).src_denom).toBe(BASE_USDC.toLowerCase())
+  it.each([
+    ["the tool", quotePayload({ tool: "Across" })],
+    ["the source denom", quotePayload({ src_denom: BASE_USDC.toLowerCase() })],
+    ["the deposit address", quotePayload({ deposit_address: DEPOSIT_ADDRESS.toLowerCase() })],
+    ["the approval token", withApproval({ token_address: BASE_USDC.toLowerCase() })],
+    ["the sender", withTransaction({ from: SENDER.toLowerCase() })],
+    ["numeric chain ids", { ...withTransaction({ chain_id: 8453 }), src_chain_id: 8453 }],
+  ])("binds %s loosely and returns the request's own copy", (_name, payload) => {
+    expect(parseBridgeQuote(payload, QUOTE_REQUEST)).toEqual(parsed)
   })
 
   it.each([undefined, null, "fast"])("treats an estimate of %o as unknown", (estimate) => {
@@ -444,16 +463,20 @@ describe("parseBridgeQuote", () => {
 
   describe("transaction", () => {
     it.each([
-      ["built for another chain", withTransaction({ chain_id: "1" }), /chain_id mismatch/],
+      ["built for another chain", withTransaction({ chain_id: "1" }), /chain_id 1 is not 8453/],
       [
         "addressed from another sender",
         withTransaction({ from: "0x4444444444444444444444444444444444444444" }),
-        /from mismatch/,
+        /transaction from/,
       ],
       ["with a malformed to address", withTransaction({ to: "not-an-address" }), /invalid to/],
       ["sent to the zero address", withTransaction({ to: ZERO_ADDRESS }), /invalid to/],
-      ["with non-hex calldata", withTransaction({ data: "zzzz" }), /non-hex calldata/],
-      ["that is not an object", quotePayload({ transaction: null }), /malformed transaction/],
+      ["with non-hex calldata", withTransaction({ data: "zzzz" }), /invalid data/],
+      [
+        "that is not an object",
+        quotePayload({ transaction: null }),
+        /transaction is not an object/,
+      ],
     ])("rejects a transaction %s", (_name, payload, message) => {
       expect(() => parseBridgeQuote(payload, QUOTE_REQUEST)).toThrow(message)
     })
@@ -468,22 +491,6 @@ describe("parseBridgeQuote", () => {
       expect(() => parseBridgeQuote(withTransaction({ gas_limit }), QUOTE_REQUEST)).toThrow(
         /invalid gas_limit/,
       )
-    })
-
-    it("accepts a numeric wire chain_id after normalization", () => {
-      expect(
-        parseBridgeQuote(withTransaction({ chain_id: 8453 }), QUOTE_REQUEST).transaction.chain_id,
-      ).toBe("8453")
-    })
-
-    it("accepts the connected sender in either casing", () => {
-      const upper = `0x${SENDER.slice(2).toUpperCase()}`
-      expect(
-        parseBridgeQuote(withTransaction({ from: upper }), {
-          ...QUOTE_REQUEST,
-          fromAddress: SENDER.toLowerCase(),
-        }).transaction.from,
-      ).toBe(upper)
     })
 
     it("accepts empty calldata", () => {
@@ -513,51 +520,36 @@ describe("parseBridgeQuote", () => {
     })
   })
 
-  describe("approval", () => {
-    it.each([
-      ["that is null", withApproval(null), /missing the ERC-20 approval/],
-      [
-        "for another token",
-        withApproval({ token_address: "0x0000000000000000000000000000000000000dEaD" }),
-        /approval token_address mismatch/,
-      ],
-      [
-        "with a zero spender",
-        withApproval({ spender_address: ZERO_ADDRESS }),
-        /approval spender_address is invalid/,
-      ],
-      [
-        "with a malformed spender",
-        withApproval({ spender_address: "0xbeef" }),
-        /approval spender_address is invalid/,
-      ],
-      ["below the transfer amount", withApproval({ amount: "1" }), /approval amount is invalid/],
-      [
-        "above the transfer amount",
-        withApproval({ amount: "5000001" }),
-        /approval amount is invalid/,
-      ],
-    ])("rejects an approval %s", (_name, payload, message) => {
-      expect(() => parseBridgeQuote(payload, QUOTE_REQUEST)).toThrow(message)
-    })
-
-    it("matches the approval token case-insensitively", () => {
-      expect(
-        parseBridgeQuote(withApproval({ token_address: BASE_USDC.toLowerCase() }), QUOTE_REQUEST)
-          .approval.token_address,
-      ).toBe(BASE_USDC.toLowerCase())
-    })
+  it.each([
+    ["that is null", withApproval(null), /approval is missing/],
+    [
+      "for another token",
+      withApproval({ token_address: "0x0000000000000000000000000000000000000dEaD" }),
+      /approval token_address/,
+    ],
+    [
+      "with a zero spender",
+      withApproval({ spender_address: ZERO_ADDRESS }),
+      /approval has an invalid spender_address/,
+    ],
+    [
+      "with a malformed spender",
+      withApproval({ spender_address: "0xbeef" }),
+      /approval has an invalid spender_address/,
+    ],
+    ["below the transfer amount", withApproval({ amount: "1" }), /approval amount 1 is not/],
+    ["above the transfer amount", withApproval({ amount: "5000001" }), /approval amount 5000001/],
+  ])("rejects an approval %s", (_name, payload, message) => {
+    expect(() => parseBridgeQuote(payload, QUOTE_REQUEST)).toThrow(message)
   })
 })
 
 describe("bridgeQuoteSignature", () => {
-  const signatureOf = (payload: ReturnType<typeof quotePayload>) =>
-    bridgeQuoteSignature(parseBridgeQuote(payload, QUOTE_REQUEST))
+  const signatureOf = (payload: ReturnType<typeof quotePayload>, request = QUOTE_REQUEST) =>
+    bridgeQuoteSignature(parseBridgeQuote(payload, request))
   const reviewed = signatureOf(quotePayload())
 
   it.each([
-    ["the tool's casing", quotePayload({ tool: "Across" })],
-    ["address casing", quotePayload({ deposit_address: DEPOSIT_ADDRESS.toLowerCase() })],
     ["re-encoded calldata", withTransaction({ data: "0xcafe" })],
     ["a new gas estimate", withTransaction({ gas_limit: "300000" })],
   ])("ignores %s", (_name, payload) => {
@@ -573,27 +565,17 @@ describe("bridgeQuoteSignature", () => {
     ],
     ["min_received", quotePayload({ min_received: "4000000" })],
     ["amount_out", quotePayload({ amount_out: "4000000" })],
-    [
-      "deposit address",
-      quotePayload({ deposit_address: "0x7777777777777777777777777777777777777777" }),
-    ],
   ])("changes with the %s", (_name, payload) => {
     expect(signatureOf(payload)).not.toBe(reviewed)
   })
-})
 
-describe("meetsRequiredMinimum", () => {
-  it.each([
-    ["1000", "900", "1000", true],
-    ["1000", "1001", "900", false],
-    ["1000", "900", "1001", false],
-    ["10000000", "9000000", "0", true],
-    ["", "1", "1", false],
-    ["0", "0", "0", false],
-    ["1000", "", "1", false],
-    ["1000", "1", "1.5", false],
-  ])("min_received %o against %o and %o is %s", (minReceived, required, routeMin, expected) => {
-    expect(meetsRequiredMinimum({ min_received: minReceived }, required, routeMin)).toBe(expected)
+  it("changes with a reissued deposit address", () => {
+    expect(
+      signatureOf(quotePayload({ deposit_address: OTHER_ADDRESS }), {
+        ...QUOTE_REQUEST,
+        depositAddress: OTHER_ADDRESS,
+      }),
+    ).not.toBe(reviewed)
   })
 })
 
@@ -609,28 +591,30 @@ const statusPayload = (overrides: Record<string, unknown> = {}) => ({
 })
 
 describe("parseBridgeStatus", () => {
-  it.each([8453, "8453"])("binds the src_chain_id %o to the request", (src_chain_id) => {
-    expect(parseBridgeStatus(statusPayload({ src_chain_id }), EXPECTED).src_chain_id).toBe("8453")
+  it.each([
+    ["a numeric chain id", statusPayload({ src_chain_id: 8453 })],
+    ["a string chain id", statusPayload({ src_chain_id: "8453" })],
+    [
+      "the source hash in another casing",
+      statusPayload({ src_tx_hash: SRC_TX_HASH.toUpperCase() }),
+    ],
+  ])("binds %s to the request", (_name, payload) => {
+    expect(parseBridgeStatus(payload, EXPECTED).state).toBe("bridge_pending")
   })
 
   it.each([
-    ["for another source chain", statusPayload({ src_chain_id: 42161 }), /src_chain_id mismatch/],
+    ["for another source chain", statusPayload({ src_chain_id: 42161 }), /src_chain_id 42161/],
     [
       "for another transaction",
       statusPayload({ src_tx_hash: `0x${"c".repeat(64)}` }),
-      /src_tx_hash mismatch/,
+      /src_tx_hash 0xc+ is not/,
     ],
-    ["in an undocumented state", statusPayload({ state: "bridge_done" }), /unknown state/],
-    ["with no state", statusPayload({ state: undefined }), /unknown state/],
+    ["in an undocumented state", statusPayload({ state: "bridge_done" }), /invalid state/],
+    ["with no state", statusPayload({ state: undefined }), /invalid state/],
     [
-      "carrying a deposit outside deposit_indexed",
-      statusPayload({ state: "bridge_pending", deposit: deposit() }),
-      /carries a deposit in state bridge_pending/,
-    ],
-    [
-      "reporting deposit_indexed without one",
+      "reporting deposit_indexed without a deposit",
       statusPayload({ state: "deposit_indexed" }),
-      /deposit_indexed without a deposit/,
+      /deposit is not an object/,
     ],
     ["with a malformed dst_tx_hash", statusPayload({ dst_tx_hash: "0xshort" }), /dst_tx_hash/],
     ["that is not an object", undefined, /is not an object/],
@@ -638,20 +622,14 @@ describe("parseBridgeStatus", () => {
     expect(() => parseBridgeStatus(payload, EXPECTED)).toThrow(message)
   })
 
-  it("compares the source hash case-insensitively", () => {
-    const upper = `0x${SRC_TX_HASH.slice(2).toUpperCase()}`
-    expect(parseBridgeStatus(statusPayload({ src_tx_hash: upper }), EXPECTED).src_tx_hash).toBe(
-      upper,
-    )
-  })
-
-  it("returns the nested deposit for deposit_indexed", () => {
+  it("returns the nested deposit only for deposit_indexed", () => {
     const parsed = parseBridgeStatus(
       statusPayload({ state: "deposit_indexed", deposit: deposit(), dst_tx_hash: DST_TX_HASH }),
       EXPECTED,
     )
     expect(parsed.deposit?.id).toBe("d1")
     expect(parsed.dst_tx_hash).toBe(DST_TX_HASH)
+    expect(parseBridgeStatus(statusPayload({ deposit: deposit() }), EXPECTED).deposit).toBeNull()
   })
 
   it("rejects a nested deposit missing an identity field", () => {
@@ -770,31 +748,42 @@ describe("createBridgeQuoteQueryOptions", () => {
     await runQueryFn(across)
     expect(calls[0].url).toBe("v1/bridges/quote")
     expect(calls[0].options?.json).toMatchObject({ bridge: "across" })
-  })
-
-  it("keys a reissued deposit address separately without sending it", async () => {
-    const { api, calls } = stubApi(quotePayload())
-    const base = createBridgeQuoteQueryOptions(api, QUOTE_REQUEST, true)
-    const reissued = createBridgeQuoteQueryOptions(
-      api,
-      { ...QUOTE_REQUEST, depositAddress: DEPOSIT_ADDRESS },
-      true,
-    )
-    expect(reissued.queryKey).not.toEqual(base.queryKey)
-    await runQueryFn(reissued)
     expect(calls[0].options?.json).not.toHaveProperty("depositAddress")
   })
+
+  it.each([OTHER_ADDRESS, undefined])(
+    "keys the options' deposit address %o and rejects a quote for another",
+    async (depositAddress) => {
+      const { api } = stubApi(quotePayload())
+      const options = createBridgeQuoteQueryOptions(api, { ...QUOTE_REQUEST, depositAddress }, true)
+      expect(options.queryKey).not.toEqual(
+        createBridgeQuoteQueryOptions(api, QUOTE_REQUEST, true).queryKey,
+      )
+      await expect(runQueryFn(options)).rejects.toThrow(/deposit_address/)
+    },
+  )
 
   it("never keeps previous data", () => {
     const { api } = stubApi(null)
     expect(createBridgeQuoteQueryOptions(api, QUOTE_REQUEST, true).placeholderData).toBeUndefined()
   })
 
+  it("refetches a failed quote on its own but never polls a good one", () => {
+    const { refetchInterval } = createBridgeQuoteQueryOptions(
+      stubApi(null).api,
+      QUOTE_REQUEST,
+      true,
+    )
+    expect(refetchInterval({ state: { status: "error" } })).toBe(10_000)
+    expect(refetchInterval({ state: { status: "success" } })).toBe(false)
+    expect(refetchInterval({ state: { status: "pending" } })).toBe(false)
+  })
+
   it("rejects a mismatched response through the boundary parser", async () => {
     const { api } = stubApi(quotePayload({ tool: "relay" }))
     await expect(
       runQueryFn(createBridgeQuoteQueryOptions(api, QUOTE_REQUEST, true)),
-    ).rejects.toThrow(/tool mismatch/)
+    ).rejects.toThrow(/tool relay/)
   })
 })
 

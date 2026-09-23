@@ -7,8 +7,6 @@ export const INIT_DECIMALS = 6
 
 export const IUSD_SYMBOL = "iUSD"
 
-export const USDC_DECIMALS = 6
-
 // omniINIT (Minitswap LP token)
 export const OMNI_INIT_DENOM = "uoinit"
 export const OMNI_INIT_SYMBOL = "omniINIT"

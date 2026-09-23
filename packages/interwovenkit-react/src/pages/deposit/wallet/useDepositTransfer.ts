@@ -5,6 +5,7 @@ import { useConfig } from "@/data/config"
 import { normalizeError, normalizeErrorMessage } from "@/data/http"
 import { useGetProvider } from "@/data/signer"
 import { useLocationState } from "@/lib/router"
+import { useFindSkipChain } from "@/pages/bridge/data/chains"
 import { switchEthereumChain } from "@/pages/bridge/data/evm"
 import { useHexAddress, useInitiaAddress } from "@/public/data/hooks"
 import { depositQueryKeys, useDepositApi } from "../data/api"
@@ -13,14 +14,13 @@ import {
   bridgeQuoteSignature,
   createBridgeOptionsQueryOptions,
   createBridgeQuoteQueryOptions,
-  meetsRequiredMinimum,
   rankBridgeOptions,
 } from "../data/bridges"
 import { useDepositAddress } from "../data/depositAddress"
+import { eqAddress, gteInteger, userErrorMessage } from "../data/parse"
 import { createQuoteQueryOptions } from "../data/quote"
 import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM, formatSourceMin } from "../data/source"
 import type {
-  Asset,
   BridgeQuoteApproval,
   BridgeQuoteResponse,
   BridgeRequestIdentity,
@@ -32,6 +32,7 @@ import {
   type DepositSessionDraft,
   DepositSessionWriteError,
   findInFlightSession,
+  pruneDepositSessions,
   readDepositSession,
   reuseOrCreateDepositSession,
   rollbackDepositSessionPrompt,
@@ -43,12 +44,9 @@ import {
   buildDepositTransaction,
   combineEstimatedSeconds,
   deliverySeconds,
-  type DepositReadiness,
   deriveDepositReadiness,
   derivePreflight,
-  gteInteger,
   isProvablyNotSent,
-  isQuoteBoundToOptions,
   isQuoteStale,
   nextAutoDepositStep,
   requiredNativeAmount,
@@ -67,7 +65,6 @@ import {
   useSourceChainHead,
   waitForApproval,
 } from "./evmRpc"
-import { useFindTransferChain } from "./externalAssets"
 import { useTransferFlow, useTransferForm } from "./transferFlowConfig"
 import type { TransferLocationState } from "./transferNavigation"
 
@@ -77,35 +74,6 @@ export type DepositTransportSelection = Extract<
 >
 
 const PROMPT_HEARTBEAT_MS = 15_000
-
-export interface DepositTransferModel {
-  transport: "direct" | "lifi"
-  route: Asset
-  destination: DestinationNetwork
-  recipient: string
-  isHostRecipient: boolean
-  depositAddress?: string
-  quote?: BridgeQuoteResponse
-  hasAmount: boolean
-  /** The estimates for the typed amount are still on their first fetch. */
-  isEstimating: boolean
-  estimatedAmountOut?: string
-  estimatedSeconds?: number
-  approval: {
-    isApproving: boolean
-    error?: string
-    approve?: () => void
-  }
-  readiness: DepositReadiness
-  submit: () => void
-  isSubmitting: boolean
-  submitError?: string
-  legs: { name: string; logoUrl: string }[]
-  quoteUpdated: boolean
-  unknownSend: boolean
-  openProgress: () => void
-  openRouteSelection?: () => void
-}
 
 const APPROVAL_RECEIPT_TIMEOUT_MS = 120_000
 
@@ -193,24 +161,53 @@ export function useDepositRequest(resolution: DepositTransportResolution): Depos
   }
 }
 
+export function useDeliveryQuote(
+  destination: DestinationNetwork | undefined,
+  amountIn: string,
+  refetchInterval?: false,
+) {
+  const api = useDepositApi()
+  const params = {
+    srcChainId: ETHEREUM_CHAIN_ID,
+    srcDenom: ETHEREUM_USDC_DENOM,
+    dstChainId: destination?.chain_id ?? "",
+    dstDenom: destination?.denom ?? "",
+    amountIn,
+  }
+  return useQuery({
+    ...createQuoteQueryOptions(api, params, !!destination && !!amountIn),
+    ...(refetchInterval === false && { refetchInterval }),
+  })
+}
+
 class UnknownSendError extends Error {}
 
 interface AutoDeposit {
   inputs: string
   quoteSignature: string
+  approved: boolean
 }
 
 // Locks the form for the life of this mount: nothing may reach the wallet again from it.
 const isLockingError = (error: unknown): boolean =>
   error instanceof UnknownSendError || error instanceof DepositSessionWriteError
 
-export function useDepositTransfer(resolution: DepositTransportSelection): DepositTransferModel {
+export type DepositTransferModel = ReturnType<typeof useDepositTransfer>
+
+export function useDepositTransfer(resolution: DepositTransportSelection) {
   const { transport, source, route, destination } = resolution
   const api = useDepositApi()
   const { depositApiUrl = "" } = useConfig()
   const queryClient = useQueryClient()
   const getProvider = useGetProvider()
-  const findChain = useFindTransferChain()
+  const findSkipChain = useFindSkipChain()
+  const findChain = (chainId: string) => {
+    try {
+      return findSkipChain(chainId)
+    } catch {
+      return undefined
+    }
+  }
   const { setValue, getValues, watch } = useTransferForm()
   const [selectedBridgeKey, quantity] = watch(["selectedBridge", "quantity"])
   const hexAddress = useHexAddress()
@@ -218,14 +215,12 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
   const { identity, recipient, recipientError, amount } = request
   const store = useDepositSessionStore()
 
-  // The signature a click's re-read produced when it differed, so the notice clears once the quote moves on.
   const [reviewRequiredSignature, setReviewRequiredSignature] = useState("")
   const [isRefreshingQuote, setIsRefreshingQuote] = useState(false)
   // Synchronous: a second click can land before React renders the mutation as pending.
   const busyRef = useRef(false)
   // Held by this mount only, so a remount, reload, or another tab never sends it.
-  const autoDepositRef = useRef<AutoDeposit | null>(null)
-  const [isAutoDepositApproved, setIsAutoDepositApproved] = useState(false)
+  const [autoDeposit, setAutoDeposit] = useState<AutoDeposit | null>(null)
   const mountedRef = useRef(true)
   useEffect(() => {
     mountedRef.current = true
@@ -240,7 +235,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     token: source.denom,
   })
   const headQuery = useSourceChainHead(source.chainId)
-  const noncesQuery = useSenderNonces(source.chainId, hexAddress, SOURCE_READ_REFRESH_MS)
+  const noncesQuery = useSenderNonces(source.chainId, hexAddress, () => SOURCE_READ_REFRESH_MS)
 
   const optionsEnabled = transport === "lifi" && request.isComplete
   const optionsQuery = useQuery(createBridgeOptionsQueryOptions(api, identity, optionsEnabled))
@@ -263,19 +258,6 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
   )
   const quoteQuery = useQuery(quoteQueryOptions)
   const quote = transport === "lifi" ? quoteQuery.data : undefined
-  const quoteBound =
-    transport === "direct" ||
-    isQuoteBoundToOptions(quote?.deposit_address, optionsData?.deposit_address)
-  // A quote issued for a newer address than the options: re-read the options once per pair.
-  const unboundPair =
-    quote && optionsData && !quoteBound
-      ? `${quote.deposit_address}|${optionsData.deposit_address}`
-      : ""
-  const refetchOptions = optionsQuery.refetch
-  useEffect(() => {
-    if (unboundPair) void refetchOptions()
-  }, [unboundPair, refetchOptions])
-  const boundQuote = quote && quoteBound ? quote : undefined
 
   const depositAddressQuery = useDepositAddress({
     walletAddress: transport === "direct" ? recipient : "",
@@ -283,36 +265,22 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     assetDenom: destination.denom,
   })
   const depositAddress =
-    transport === "direct" ? depositAddressQuery.data?.deposit_address : boundQuote?.deposit_address
+    transport === "direct" ? depositAddressQuery.data?.deposit_address : quote?.deposit_address
 
+  // Below either minimum the USDC is stranded at the deposit address with no refund.
   const meetsMinimum =
     transport === "lifi"
-      ? !!boundQuote &&
-        !!optionsData &&
-        meetsRequiredMinimum(
-          boundQuote,
-          optionsData.required_min_received,
-          route.min_deposit_amount,
-        )
+      ? gteInteger(quote?.min_received, optionsData?.required_min_received ?? "") &&
+        gteInteger(quote?.min_received, route.min_deposit_amount)
       : gteInteger(amount, route.min_deposit_amount)
   const minimumLabel = formatSourceMin(route.min_deposit_amount, route.src_decimals, "USDC")
 
-  const quoteBase = {
-    srcChainId: ETHEREUM_CHAIN_ID,
-    srcDenom: ETHEREUM_USDC_DENOM,
-    dstChainId: destination.chain_id,
-    dstDenom: destination.denom,
-  }
   // The guaranteed amount, not the expected one, must clear the destination.
-  const preflightAmount = transport === "lifi" ? (boundQuote?.min_received ?? "") : amount
-  const displayAmount = transport === "lifi" ? (boundQuote?.amount_out ?? "") : amount
-  const preflightQuery = useQuery(
-    createQuoteQueryOptions(api, { ...quoteBase, amountIn: preflightAmount }, !!preflightAmount),
-  )
+  const preflightAmount = transport === "lifi" ? (quote?.min_received ?? "") : amount
+  const displayAmount = transport === "lifi" ? (quote?.amount_out ?? "") : amount
+  const preflightQuery = useDeliveryQuote(destination, preflightAmount)
   const needsDisplayQuote = !!displayAmount && displayAmount !== preflightAmount
-  const displayQuery = useQuery(
-    createQuoteQueryOptions(api, { ...quoteBase, amountIn: displayAmount }, needsDisplayQuote),
-  )
+  const displayQuery = useDeliveryQuote(destination, needsDisplayQuote ? displayAmount : "")
 
   const preflight = derivePreflight({
     amountIn: preflightAmount,
@@ -328,11 +296,10 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     preflightQuery.data?.status === "quoted" && !preflightQuery.isPlaceholderData
       ? preflightQuery.data.quote
       : undefined
-  // Either leg predicts the same method unless the amounts straddle the fast-delivery cap.
   const deliveryQuote = displayQuote ?? preflightQuote
   const delivery = deliverySeconds(deliveryQuote, destination)
   const estimatedSeconds = combineEstimatedSeconds(
-    transport === "lifi" ? [boundQuote?.estimate.execution_duration_seconds, delivery] : [delivery],
+    transport === "lifi" ? [quote?.estimate.execution_duration_seconds, delivery] : [delivery],
   )
   const typedAmount = toBaseUnitString(quantity, source.decimals)
   const isAmountSettled = typedAmount === amount
@@ -342,7 +309,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     isFirstFetch(preflightQuery) ||
     (needsDisplayQuote && isFirstFetch(displayQuery))
 
-  const approval = boundQuote?.approval
+  const approval = quote?.approval
   const spender = approval?.spender_address ?? ""
   const allowanceKey = depositQueryKeys.allowance(
     source.chainId,
@@ -369,12 +336,12 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
   const allowanceError =
     approval && allowanceQuery.error ? "Could not check the USDC allowance" : undefined
 
-  const quoteSignature = boundQuote ? bridgeQuoteSignature(boundQuote) : ""
+  const quoteSignature = quote ? bridgeQuoteSignature(quote) : ""
   const quoteUpdated = !!reviewRequiredSignature && reviewRequiredSignature === quoteSignature
 
   const sourceLeg = {
     name: source.chainName,
-    logoUrl: findChain(source.chainId)?.logo_uri || source.fallbackChainLogoUrl,
+    logoUrl: findChain(source.chainId)?.logo_uri ?? "",
   }
   const destinationChain = findChain(destination.chain_id)
   const destinationLeg = {
@@ -426,7 +393,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
       predictedDelivery: deliveryQuote?.delivery?.method,
     }
   }
-  const draftTransaction = buildDraft(boundQuote)?.transaction
+  const draftTransaction = buildDraft(quote)?.transaction
 
   const intent: DepositIntent = {
     apiUrl: depositApiUrl,
@@ -444,7 +411,13 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     if (!chain) throw new Error(`Chain not found: ${chainId}`)
     const provider = await getProvider()
     const signer = await provider.getSigner()
-    await switchEthereumChain(provider, chain)
+    // Balances, allowance and nonce were read for this account; the watch assumes it sent.
+    if (!eqAddress(signer.address, hexAddress)) {
+      throw new Error("Your wallet switched accounts. Try again.")
+    }
+    // Asked of the wallet itself: a stale cached chain would make ethers refuse the send.
+    const walletChainId = Number(await provider.send("eth_chainId", []))
+    if (walletChainId !== Number(chainId)) await switchEthereumChain(provider, chain)
     return signer
   }
 
@@ -469,7 +442,6 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
       }
     },
     onSuccess: () => {
-      // A fresh quote may carry a different spender or amount.
       void queryClient.invalidateQueries({ queryKey: quoteQueryOptions.queryKey })
     },
   })
@@ -491,30 +463,24 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
       throw new Error("This deposit is not ready to send")
     }
 
-    // A rejected prompt or a remount reuses the form's record while it is still re-signable.
     const storedId = getValues("depositSessionId")
     const stored = storedId ? readDepositSession(localStorage, storedId) : null
+    pruneDepositSessions(localStorage, Date.now())
     // Written and read back before any wallet prompt, the chain switch included.
-    const prepared = writeDepositSession(localStorage, {
+    const prompted = writeDepositSession(localStorage, {
       ...reuseOrCreateDepositSession(stored, draft),
       ...draft,
-      phase: "prepared",
-      updatedAt: Date.now(),
-    })
-    setValue("depositSessionId", prepared.id)
-
-    // Locked before the chain switch too, so another tab can't sign this transfer meanwhile.
-    writeDepositSession(localStorage, {
-      ...prepared,
       phase: "send_prompt",
       preSubmitBlock,
       promptedAt: Date.now(),
       promptNonce,
       updatedAt: Date.now(),
     })
+    setValue("depositSessionId", prompted.id)
+
     // While this tab holds the prompt open, other tabs must not read it as abandoned.
     const heartbeat = setInterval(() => {
-      const current = readDepositSession(localStorage, prepared.id)
+      const current = readDepositSession(localStorage, prompted.id)
       if (!mountedRef.current || current?.phase !== "send_prompt" || current.currentSourceHash) {
         clearInterval(heartbeat)
         return
@@ -522,14 +488,14 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
       writeAfterPrompt({ ...current, promptSeenAt: Date.now(), updatedAt: Date.now() })
     }, PROMPT_HEARTBEAT_MS)
 
-    let response: { hash: string; nonce?: number; from: string }
+    let response: { hash: string; nonce?: number }
     try {
       // Nothing is broadcast before the send itself.
-      const signer = await getSigner(prepared.transaction.chainId).catch((error: unknown) => {
-        rollbackDepositSessionPrompt(localStorage, prepared.id)
+      const signer = await getSigner(prompted.transaction.chainId).catch((error: unknown) => {
+        rollbackDepositSessionPrompt(localStorage, prompted.id)
         throw error
       })
-      const { transaction } = prepared
+      const { transaction } = prompted
       response = await signer
         .sendTransaction({
           chainId: Number(transaction.chainId),
@@ -541,13 +507,13 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
         .catch(async (error: unknown) => {
           // A hash proves the broadcast, whatever the error says.
           const hash = sendTransactionHashOf(error)
-          if (hash) return { hash, from: hexAddress }
+          if (hash) return { hash }
           const message = await normalizeErrorMessage(error)
           if (isProvablyNotSent(message)) {
-            rollbackDepositSessionPrompt(localStorage, prepared.id)
+            rollbackDepositSessionPrompt(localStorage, prompted.id)
             throw error
           }
-          writeAfterPrompt({ ...prepared, phase: "submission_unknown" })
+          writeAfterPrompt({ ...prompted, phase: "submission_unknown" })
           throw new UnknownSendError(message)
         })
     } finally {
@@ -555,9 +521,9 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     }
 
     writeAfterPrompt({
-      ...prepared,
+      ...prompted,
       phase: "source_sent",
-      submitted: { nonce: response.nonce, from: response.from },
+      sourceNonce: response.nonce,
       currentSourceHash: response.hash,
       originalSourceHash: response.hash,
     })
@@ -597,13 +563,11 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
       maxFeePerGas: headQuery.data?.maxFeePerGas,
     }),
     sourceChainLoaded: headQuery.data !== undefined && noncesQuery.data !== undefined,
-    optionsError: optionsQuery.error?.message,
+    optionsError: userErrorMessage(optionsQuery.error),
     hasOptions: !!optionsData && !optionsQuery.isPlaceholderData,
     hasEligibleOption: !!selectedBridge,
-    quoteError: quoteQuery.error?.message,
+    quoteError: userErrorMessage(quoteQuery.error),
     hasQuote: !!quote,
-    quoteBound,
-    isRefreshing: optionsQuery.isFetching || quoteQuery.isFetching,
     meetsMinimum,
     minimumLabel,
     approvalChecking,
@@ -620,12 +584,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     try {
       const { data, isError } = await quoteQuery.refetch()
       if (!mountedRef.current) return undefined
-      const verified =
-        !isError &&
-        data &&
-        isQuoteBoundToOptions(data.deposit_address, optionsData?.deposit_address)
-          ? data
-          : undefined
+      const verified = !isError ? data : undefined
       const signature = verified ? bridgeQuoteSignature(verified) : ""
       if (!signature || signature !== quoteSignature) {
         setReviewRequiredSignature(signature)
@@ -637,18 +596,13 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     }
   }
 
-  const cancelAutoDeposit = () => {
-    autoDepositRef.current = null
-    setIsAutoDepositApproved(false)
-  }
-
   const submit = async () => {
     if (busyRef.current || readiness.status !== "ready" || approvalRequired) return
     busyRef.current = true
-    cancelAutoDeposit()
+    setAutoDeposit(null)
     let locked = false
     try {
-      let reviewed = boundQuote
+      let reviewed = quote
       if (
         transport === "lifi" &&
         (isQuoteStale(quoteQuery.dataUpdatedAt, Date.now()) || quoteQuery.isFetching)
@@ -680,14 +634,13 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
   const approveAndDeposit = async () => {
     if (busyRef.current || !approval) return
     busyRef.current = true
-    const pending = { inputs: autoDepositInputs, quoteSignature }
-    autoDepositRef.current = pending
+    const pending = { inputs: autoDepositInputs, quoteSignature, approved: false }
+    setAutoDeposit(pending)
     try {
       await approveMutation.mutateAsync(approval)
-      if (autoDepositRef.current === pending) setIsAutoDepositApproved(true)
+      setAutoDeposit((current) => (current === pending ? { ...pending, approved: true } : current))
     } catch {
-      // Shown through the mutation's error.
-      if (autoDepositRef.current === pending) cancelAutoDeposit()
+      setAutoDeposit((current) => (current === pending ? null : current))
     } finally {
       busyRef.current = false
     }
@@ -695,23 +648,22 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
 
   // An effect event, so the send reads the committed render's readiness, quote, and draft.
   const advanceAutoDeposit = useEffectEvent(() => {
-    const pending = autoDepositRef.current
-    if (!pending) return
+    if (!autoDeposit) return
     const step = nextAutoDepositStep({
-      approved: isAutoDepositApproved,
-      inputsChanged: pending.inputs !== autoDepositInputs,
+      approved: autoDeposit.approved,
+      inputsChanged: autoDeposit.inputs !== autoDepositInputs,
       readiness: readiness.status,
       approvalRequired,
-      quoteChanged: pending.quoteSignature !== quoteSignature,
+      quoteChanged: autoDeposit.quoteSignature !== quoteSignature,
     })
     if (step === "wait") return
-    cancelAutoDeposit()
+    setAutoDeposit(null)
     if (step === "review") setReviewRequiredSignature(quoteSignature)
     if (step === "send") void submit()
   })
   useEffect(() => {
     advanceAutoDeposit()
-  }, [isAutoDepositApproved, autoDepositInputs, readiness.status, approvalRequired, quoteSignature])
+  }, [autoDeposit, autoDepositInputs, readiness.status, approvalRequired, quoteSignature])
 
   return {
     transport,
@@ -720,7 +672,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     recipient,
     isHostRecipient: request.isHostRecipient,
     depositAddress,
-    quote: boundQuote,
+    quote,
     hasAmount: gteInteger(typedAmount, "1"),
     isEstimating,
     estimatedAmountOut: displayQuote?.amount_out,
@@ -732,7 +684,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     },
     readiness,
     submit,
-    isSubmitting: sendMutation.isPending || isRefreshingQuote || isAutoDepositApproved,
+    isSubmitting: sendMutation.isPending || isRefreshingQuote || !!autoDeposit?.approved,
     submitError,
     legs,
     quoteUpdated,

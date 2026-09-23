@@ -152,6 +152,14 @@ describe("intersectHostSources", () => {
 })
 
 describe("getBridgeToolDisplay", () => {
+  it.each([
+    ["across", "Across"],
+    ["Across", "Across"],
+    ["GASZIPBRIDGE", "GasZip"],
+  ])("finds %s in any case", (key, name) => {
+    expect(getBridgeToolDisplay(key)).toEqual({ name, logoUrl: expect.stringMatching(/\.svg$/) })
+  })
+
   it.each(["brandNewBridge", "toString"])("keeps the unlisted key %s as the raw name", (key) => {
     expect(getBridgeToolDisplay(key)).toEqual({ name: key, logoUrl: "" })
   })

@@ -10,12 +10,6 @@
   min-width: 0;
 }
 
-.title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .name {
   overflow: hidden;
   text-overflow: ellipsis;

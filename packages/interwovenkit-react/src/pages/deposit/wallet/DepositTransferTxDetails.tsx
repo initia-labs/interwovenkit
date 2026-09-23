@@ -4,7 +4,6 @@ import { formatAmount, truncate } from "@initia/utils"
 import Collapsible from "@/components/Collapsible"
 import CopyButton from "@/components/CopyButton"
 import DetailRow from "@/components/DetailRow"
-import { safeExplorerUrl } from "@/components/explorer"
 import Image from "@/components/Image"
 import Skeleton from "@/components/Skeleton"
 import { useConfig } from "@/data/config"
@@ -37,7 +36,7 @@ const DepositTransferTxDetails = ({ model }: { model: DepositTransferModel }) =>
             type="button"
             className={onrampStyles.providerPill}
             onClick={model.openRouteSelection}
-            disabled={model.isSubmitting}
+            disabled={model.isSubmitting || model.approval.isApproving}
           >
             {tool ? (
               <>
@@ -91,7 +90,7 @@ const DepositTransferTxDetails = ({ model }: { model: DepositTransferModel }) =>
               )}
             </CopyButton>
             <a
-              href={safeExplorerUrl(`https://etherscan.io/address/${depositAddress}`)}
+              href={`https://etherscan.io/address/${depositAddress}`}
               className={styles.address}
               target="_blank"
               rel="noopener noreferrer"

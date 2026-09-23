@@ -39,7 +39,6 @@ export const depositQueryKeys = createQueryKeys("interwovenkit:deposit", {
     dstDenom: string,
     amountIn: string,
   ) => [srcChainId, srcDenom, dstChainId, dstDenom, amountIn],
-  // Keyed by the whole retained request, so a changed sender, recipient or amount misses the cache.
   bridgeOptions: (identity: BridgeRequestIdentity) => [identity],
   bridgeQuote: (identity: BridgeRequestIdentity, bridge: string, depositAddress: string) => [
     identity,
@@ -52,7 +51,6 @@ export const depositQueryKeys = createQueryKeys("interwovenkit:deposit", {
     depositAddress,
   ],
   depositBySourceTx: (srcChainId: string, srcTxHash: string) => [srcChainId, srcTxHash],
-  // Keyed by chain so a wallet network switch cannot serve another chain's balance.
   sourceBalances: (chainId: string, owner: string, token: string) => [chainId, owner, token],
   sourceHead: (chainId: string) => [chainId],
   senderNonces: (chainId: string, sender: string) => [chainId, sender],
@@ -62,7 +60,6 @@ export const depositQueryKeys = createQueryKeys("interwovenkit:deposit", {
     token,
     spender,
   ],
-  // Keyed by the hash actually being watched, so adopting a replacement re-keys it.
   sourceWatch: (sessionId: string, txHash: string) => [sessionId, txHash],
 })
 

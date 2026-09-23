@@ -15,7 +15,6 @@ export interface DepositApiSource {
   decimals: 6
   chainName: "Ethereum" | "Base" | "Arbitrum"
   transport: "direct" | "lifi"
-  fallbackChainLogoUrl: string
   rpcUrl: string
 }
 
@@ -27,7 +26,6 @@ export const DEPOSIT_API_SOURCES: readonly DepositApiSource[] = [
     decimals: 6,
     chainName: "Ethereum",
     transport: "direct",
-    fallbackChainLogoUrl: lifiIcon("chains/ethereum"),
     rpcUrl: "https://ethereum-rpc.publicnode.com",
   },
   {
@@ -37,7 +35,6 @@ export const DEPOSIT_API_SOURCES: readonly DepositApiSource[] = [
     decimals: 6,
     chainName: "Base",
     transport: "lifi",
-    fallbackChainLogoUrl: lifiIcon("chains/base"),
     rpcUrl: "https://mainnet.base.org",
   },
   {
@@ -47,7 +44,6 @@ export const DEPOSIT_API_SOURCES: readonly DepositApiSource[] = [
     decimals: 6,
     chainName: "Arbitrum",
     transport: "lifi",
-    fallbackChainLogoUrl: lifiIcon("chains/arbitrum"),
     rpcUrl: "https://arb1.arbitrum.io/rpc",
   },
 ]
@@ -160,7 +156,11 @@ const BRIDGE_TOOLS: Record<string, BridgeToolDisplay> = {
   symbiosis: { name: "Symbiosis", logoUrl: lifiIcon("bridges/symbiosis") },
 }
 
+const BRIDGE_TOOLS_BY_KEY = new Map(
+  Object.entries(BRIDGE_TOOLS).map(([key, display]) => [key.toLowerCase(), display]),
+)
+
 // An unknown key keeps its raw name: stale metadata must never hide an eligible route.
 export function getBridgeToolDisplay(key: string): BridgeToolDisplay {
-  return Object.hasOwn(BRIDGE_TOOLS, key) ? BRIDGE_TOOLS[key] : { name: key, logoUrl: "" }
+  return BRIDGE_TOOLS_BY_KEY.get(key.toLowerCase()) ?? { name: key, logoUrl: "" }
 }

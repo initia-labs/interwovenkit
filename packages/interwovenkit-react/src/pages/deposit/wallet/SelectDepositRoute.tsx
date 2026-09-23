@@ -3,7 +3,6 @@ import { useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { formatAmount } from "@initia/utils"
 import Image from "@/components/Image"
-import { USDC_DECIMALS } from "@/data/constants"
 import { formatDuration } from "@/pages/bridge/data/format"
 import { useDepositApi } from "../data/api"
 import {
@@ -11,8 +10,8 @@ import {
   percentDifference,
   rankBridgeOptions,
 } from "../data/bridges"
-import { createQuoteQueryOptions } from "../data/quote"
-import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM, formatSourceMin } from "../data/source"
+import { userErrorMessage } from "../data/parse"
+import { formatSourceMin } from "../data/source"
 import type { BridgeOption, DestinationNetwork } from "../data/types"
 import providerStyles from "../onramp/SelectProvider.module.css"
 import DepositStatus from "../DepositStatus"
@@ -25,7 +24,11 @@ import {
   selectBridgeOption,
 } from "./depositTransferLogic"
 import { useTransferForm } from "./transferFlowConfig"
-import { useDepositRequest, useDepositTransportResolution } from "./useDepositTransfer"
+import {
+  useDeliveryQuote,
+  useDepositRequest,
+  useDepositTransportResolution,
+} from "./useDepositTransfer"
 import styles from "./SelectDepositRoute.module.css"
 
 const OPTIONS_REFRESH_MS = 20_000
@@ -38,23 +41,9 @@ function describeRoute(option: BridgeOption, delivery: number | null | undefined
   return [gas, duration].filter((part): part is string => !!part).join(" · ")
 }
 
-// Final delivery for a route, quoted from the USDC it lands on Ethereum. One observer per row keeps
-// the previous amount's quote on screen while a refreshed route amount is re-quoted.
+// Not polled: the options refresh re-keys every row whose amount moved.
 function useFinalQuote(amountIn: string, destination: DestinationNetwork | undefined) {
-  const api = useDepositApi()
-  const { data } = useQuery(
-    createQuoteQueryOptions(
-      api,
-      {
-        srcChainId: ETHEREUM_CHAIN_ID,
-        srcDenom: ETHEREUM_USDC_DENOM,
-        dstChainId: destination?.chain_id ?? "",
-        dstDenom: destination?.denom ?? "",
-        amountIn,
-      },
-      !!destination && !!amountIn,
-    ),
-  )
+  const { data } = useDeliveryQuote(destination, amountIn, false)
   return amountIn && data?.status === "quoted" ? data.quote : undefined
 }
 
@@ -81,7 +70,7 @@ const RouteRow = (props: RouteRowProps) => {
       <span className={providerStyles.left}>
         <Image src={logoUrl} width={28} height={28} logo />
         <span className={styles.text}>
-          <span className={styles.title}>
+          <span className={providerStyles.left}>
             <span className={clsx(providerStyles.name, styles.name)}>{name}</span>
             {isBest && (
               <span className={clsx(providerStyles.badge, providerStyles["badge-success"])}>
@@ -137,9 +126,10 @@ const SelectDepositRoute = () => {
     best?.amount_out ?? "",
     isLifi ? resolution.destination : undefined,
   )?.amount_out
-  const requiredMinimum = data
-    ? formatSourceMin(data.required_min_received, USDC_DECIMALS, "USDC")
-    : ""
+  const requiredMinimum =
+    data && isLifi
+      ? formatSourceMin(data.required_min_received, resolution.route.src_decimals, "USDC")
+      : ""
 
   const selectRoute = (option: BridgeOption) => {
     setValue("selectedBridge", option.bridge)
@@ -148,7 +138,8 @@ const SelectDepositRoute = () => {
 
   const renderList = () => {
     if (resolution.transport !== "lifi") return null
-    if (error) return <DepositStatus error>{error.message}</DepositStatus>
+    // A failed refresh keeps the last good list on screen.
+    if (error && !data) return <DepositStatus error>{userErrorMessage(error)}</DepositStatus>
     if (isLoading || isPlaceholderData) return <DepositStatus>Finding routes...</DepositStatus>
     if (!ranked.length) return <DepositStatus>No routes available for this amount</DepositStatus>
 

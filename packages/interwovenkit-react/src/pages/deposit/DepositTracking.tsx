@@ -1,7 +1,8 @@
+import xss from "xss"
 import { useEffect, useState } from "react"
 import { IconCheckCircleFilled, IconCloseCircleFilled } from "@initia/icons-react"
 import Button from "@/components/Button"
-import { safeExplorerUrl } from "@/components/explorer"
+import { sanitizeLink } from "@/components/explorer"
 import Footer from "@/components/Footer"
 import Image from "@/components/Image"
 import Loader from "@/components/Loader"
@@ -26,80 +27,8 @@ import ExplorerLinks from "./ExplorerLinks"
 import FlowChips from "./FlowChips"
 import styles from "./DepositTracking.module.css"
 
-import type { ReactNode } from "react"
-
-// Per-status stall budget: the pipeline spans several statuses (~5 min
-// end-to-end), so each gets its own minute before the "taking a little longer"
-// reassurance replaces the normal status copy.
+// Per-status stall budget before the "taking a little longer" copy.
 export const TAKING_LONGER_DELAY = 60 * 1000
-
-export type DepositTrackingVariant =
-  | "in-flight"
-  | "completed"
-  | "failed"
-  | "below-minimum"
-  | "problem"
-
-interface DepositTrackingViewProps {
-  title: string
-  variant: DepositTrackingVariant
-  heading?: string
-  message?: ReactNode
-  chips?: ReactNode
-  explorerUrl?: string
-  onHistoryClick?: () => void
-  footer?: ReactNode
-  isRetrying?: boolean
-}
-
-// Shared by the address/onramp tracker below and the wallet flow's DepositProgress.
-export const DepositTrackingView = ({
-  title,
-  variant,
-  heading,
-  message,
-  chips,
-  explorerUrl,
-  onHistoryClick,
-  footer,
-  isRetrying,
-}: DepositTrackingViewProps) => {
-  const isError = variant !== "in-flight" && variant !== "completed"
-
-  return (
-    <DepositSubpage title={title}>
-      <div className={styles.body}>
-        {variant === "in-flight" ? (
-          <Loader size={40} color="var(--success)" />
-        ) : variant === "completed" ? (
-          <IconCheckCircleFilled size={48} className={styles.successIcon} aria-hidden="true" />
-        ) : (
-          <IconCloseCircleFilled size={48} className={styles.failIcon} aria-hidden="true" />
-        )}
-
-        {heading && (
-          <p className={variant === "in-flight" ? styles.delayHeading : styles.heading}>
-            {heading}
-          </p>
-        )}
-
-        {message && (
-          <DepositStatus error={isError} className={styles.message}>
-            {message}
-          </DepositStatus>
-        )}
-
-        {chips}
-
-        <ExplorerLinks explorerUrl={explorerUrl} onHistoryClick={onHistoryClick} />
-
-        {isRetrying && <DepositStatus className={styles.note}>Reconnecting…</DepositStatus>}
-      </div>
-
-      {footer}
-    </DepositSubpage>
-  )
-}
 
 /**
  * Deposit tracking screen shared by the address transfer and onramp purchase
@@ -191,7 +120,9 @@ const DepositTracking = () => {
     ? (srcChain?.pretty_name ?? fallbackChainName(deposit.src_chain_id))
     : ""
 
-  const explorerUrl = safeExplorerUrl(deposit?.bot_tx_explorer_url)
+  const explorerUrl = deposit?.bot_tx_explorer_url
+    ? xss(sanitizeLink(deposit.bot_tx_explorer_url))
+    : ""
 
   // `src_decimals` comes from the deposit's route in the Deposit API's
   // `config/assets`; when the route has since been removed, the minimum cannot
@@ -259,85 +190,108 @@ const DepositTracking = () => {
     />
   )
 
-  const variant = (): DepositTrackingVariant => {
-    if (isHardError) return "problem"
-    switch (bucket) {
-      case "completed":
-        return "completed"
-      case "failed":
-        return "failed"
-      case "below_minimum":
-        return "below-minimum"
-      case "waiting":
-      case "processing":
-        return "in-flight"
-    }
-  }
-
-  const heading = () => {
-    if (isHardError) return "Couldn't track your deposit"
-    switch (bucket) {
-      case "failed":
-        return "Deposit failed"
-      case "below_minimum":
-        return "Amount below minimum"
-      case "waiting":
-      case "processing":
-        return isDelayed ? "This is taking a little longer" : undefined
-      case "completed":
-        return undefined
-    }
-  }
-
   const inFlightMessage = () => {
     if (isDelayed) {
       return (
         <>
-          We hit a temporary delay and are retrying.
-          <br />
-          Your funds are safe at your deposit address.
+          <p className={styles.delayHeading}>This is taking a little longer</p>
+          <DepositStatus className={styles.message}>
+            We hit a temporary delay and are retrying.
+            <br />
+            Your funds are safe at your deposit address.
+          </DepositStatus>
         </>
       )
     }
     // Transient re-discovery frame (entry always follows a detection); render
     // the loader alone until the shared query cache repopulates.
-    if (!deposit) return undefined
+    if (!deposit) return null
     if (bucket === "waiting") {
       return (
-        <span className={styles.confirming}>
-          Your deposit is confirming on
-          <Image
-            src={srcChain?.logo_uri ?? ""}
-            width={16}
-            height={16}
-            className={styles.chainLogo}
-            classNames={{ placeholder: styles.chainLogo }}
-          />
-          {srcChainName}
-        </span>
+        <DepositStatus className={styles.message}>
+          <span className={styles.confirming}>
+            Your deposit is confirming on
+            <Image
+              src={srcChain?.logo_uri ?? ""}
+              width={16}
+              height={16}
+              className={styles.chainLogo}
+              classNames={{ placeholder: styles.chainLogo }}
+            />
+            {srcChainName}
+          </span>
+        </DepositStatus>
       )
     }
-    return <>We&apos;re moving your funds to the destination chain now.</>
+    return (
+      <DepositStatus className={styles.message}>
+        We&apos;re moving your funds to the destination chain now.
+      </DepositStatus>
+    )
   }
 
-  const message = () => {
+  const renderBody = () => {
     if (isHardError) {
       return (
-        (addressError ?? trackingError)?.message ??
-        "Something went wrong while tracking your deposit."
+        <>
+          <IconCloseCircleFilled size={48} className={styles.failIcon} aria-hidden="true" />
+          <p className={styles.heading}>Couldn&apos;t track your deposit</p>
+          <DepositStatus error className={styles.message}>
+            {(addressError ?? trackingError)?.message ??
+              "Something went wrong while tracking your deposit."}
+          </DepositStatus>
+        </>
       )
     }
+
     switch (bucket) {
       case "completed":
-        return `${completedAmount} was delivered to your wallet on ${receiveAsset.chainName}.`
+        return (
+          <>
+            <IconCheckCircleFilled size={48} className={styles.successIcon} aria-hidden="true" />
+            <DepositStatus className={styles.message}>
+              {completedAmount} was delivered to your wallet on {receiveAsset.chainName}.
+            </DepositStatus>
+            <ExplorerLinks
+              explorerUrl={explorerUrl}
+              onHistoryClick={() => openDrawer("/activity")}
+            />
+          </>
+        )
       case "failed":
-        // No support channel exists in the widget or config, so the copy must not point at one.
-        return "This deposit could not be completed. Your funds remain at the deposit address with no automatic refund."
+        return (
+          <>
+            <IconCloseCircleFilled size={48} className={styles.failIcon} aria-hidden="true" />
+            <p className={styles.heading}>Deposit failed</p>
+            {/* No support channel exists in the widget or config, so the copy
+                must not point at one. */}
+            <DepositStatus error className={styles.message}>
+              This deposit could not be completed. Your funds remain at the deposit address with no
+              automatic refund.
+            </DepositStatus>
+            <ExplorerLinks explorerUrl={explorerUrl} />
+          </>
+        )
       case "below_minimum":
-        return `${minLabel ? `Deposits below ${minLabel} can't be processed. ` : ""}Your funds remain at the deposit address with no automatic refund.`
+        return (
+          <>
+            <IconCloseCircleFilled size={48} className={styles.failIcon} aria-hidden="true" />
+            <p className={styles.heading}>Amount below minimum</p>
+            <DepositStatus error className={styles.message}>
+              {minLabel ? `Deposits below ${minLabel} can't be processed. ` : ""}
+              Your funds remain at the deposit address with no automatic refund.
+            </DepositStatus>
+          </>
+        )
       case "waiting":
       case "processing":
-        return inFlightMessage()
+        return (
+          <>
+            <Loader size={40} color="var(--success)" />
+            {inFlightMessage()}
+            {chips}
+          </>
+        )
     }
   }
 
@@ -371,26 +325,19 @@ const DepositTracking = () => {
     return null
   }
 
-  // A hard error's bucket is untrustworthy, so no chips or explorer links ride along.
-  const isInFlight = !isHardError && (bucket === "waiting" || bucket === "processing")
-  const isCompleted = !isHardError && bucket === "completed"
-  const hasExplorerLink = isCompleted || (!isHardError && bucket === "failed")
-
   // No back button: entry always follows a discovered deposit, so funds are
   // already in flight (or settled) and there is no pre-arrival state to back
   // out of.
   return (
-    <DepositTrackingView
-      title={title()}
-      variant={variant()}
-      heading={heading()}
-      message={message()}
-      chips={isInFlight ? chips : undefined}
-      explorerUrl={hasExplorerLink ? explorerUrl : undefined}
-      onHistoryClick={isCompleted ? () => openDrawer("/activity") : undefined}
-      footer={renderFooter()}
-      isRetrying={isTrackingError && !isHardError && !isFinal}
-    />
+    <DepositSubpage title={title()}>
+      <div className={styles.body}>
+        {renderBody()}
+        {isTrackingError && !isHardError && !isFinal && (
+          <DepositStatus className={styles.note}>Reconnecting…</DepositStatus>
+        )}
+      </div>
+      {renderFooter()}
+    </DepositSubpage>
   )
 }
 

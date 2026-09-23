@@ -18,9 +18,7 @@ import {
   deriveDepositReadiness,
   derivePreflight,
   formatNetworkFee,
-  gteInteger,
   isProvablyNotSent,
-  isQuoteBoundToOptions,
   isQuoteStale,
   nextAutoDepositStep,
   requiredNativeAmount,
@@ -102,27 +100,6 @@ describe("selectBridgeOption", () => {
   })
 })
 
-describe("isQuoteBoundToOptions", () => {
-  it.each([
-    [
-      "binds the same address in another case",
-      DEPOSIT_ADDRESS.toLowerCase(),
-      DEPOSIT_ADDRESS,
-      true,
-    ],
-    [
-      "rejects a different address",
-      "0x2222222222222222222222222222222222222222",
-      DEPOSIT_ADDRESS,
-      false,
-    ],
-    ["is unbound without a quote address", undefined, DEPOSIT_ADDRESS, false],
-    ["is unbound without an options address", DEPOSIT_ADDRESS, undefined, false],
-  ])("%s", (_, quoteAddress, optionsAddress, expected) => {
-    expect(isQuoteBoundToOptions(quoteAddress, optionsAddress)).toBe(expected)
-  })
-})
-
 describe("isQuoteStale", () => {
   const now = 1_000_000
 
@@ -132,19 +109,6 @@ describe("isQuoteStale", () => {
     ["a quote past 10 s is stale", now - 10_001, true],
   ])("%s", (_, updatedAt, expected) => {
     expect(isQuoteStale(updatedAt, now)).toBe(expected)
-  })
-})
-
-describe("gteInteger", () => {
-  it("compares integer base units", () => {
-    expect(gteInteger("1000000", "1000000")).toBe(true)
-    expect(gteInteger("999999", "1000000")).toBe(false)
-  })
-
-  it("fails closed on an unknown or malformed value", () => {
-    expect(gteInteger(undefined, "1")).toBe(false)
-    expect(gteInteger("", "1000000")).toBe(false)
-    expect(gteInteger("1.5", "1000000")).toBe(false)
   })
 })
 
@@ -214,7 +178,6 @@ describe("buildDepositTransaction", () => {
     ({
       transaction: {
         chain_id: "8453",
-        from: "0x3333333333333333333333333333333333333333",
         to: ROUTER,
         data: "0xdeadbeef",
         value: "1500",
@@ -332,8 +295,6 @@ describe("deriveDepositReadiness", () => {
     hasOptions: true,
     hasEligibleOption: true,
     hasQuote: true,
-    quoteBound: true,
-    isRefreshing: false,
     meetsMinimum: true,
     minimumLabel: "1 USDC",
     approvalChecking: false,
@@ -383,16 +344,6 @@ describe("deriveDepositReadiness", () => {
     ],
     ["a failed quote", { quoteError: "Quote failed" }, blocked("Quote failed")],
     ["no quote yet", { hasQuote: false }, loading("Fetching quote...")],
-    [
-      "an unbound quote being re-read",
-      { quoteBound: false, isRefreshing: true },
-      loading("Refreshing quote..."),
-    ],
-    [
-      "an unbound quote",
-      { quoteBound: false },
-      blocked("The issued deposit address changed. Change the amount or route for a fresh quote."),
-    ],
     ["a route below the minimum", { meetsMinimum: false }, blocked(ROUTE_MINIMUM)],
     [
       "a direct amount below the minimum",
@@ -433,7 +384,6 @@ describe("deriveDepositReadiness", () => {
         hasEligibleOption: false,
         quoteError: "Quote failed",
         hasQuote: false,
-        quoteBound: false,
       },
       { status: "ready" },
     ],

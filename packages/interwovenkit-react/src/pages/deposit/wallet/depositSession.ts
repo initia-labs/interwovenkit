@@ -82,13 +82,12 @@ export interface DepositSession {
   transaction: DepositSessionTransaction
   predictedDelivery?: string
   preSubmitBlock?: number
-  /** When the wallet prompt opened, and the sender's mined nonce read before it. */
   promptedAt?: number
   promptNonce?: number
   /** Last heartbeat from a tab still holding the prompt open. */
   promptSeenAt?: number
-  /** What the wallet actually returned; its nonce may differ from any prefetched hint. */
-  submitted?: { nonce?: number; from: string }
+  /** The nonce the wallet actually used, when it reported one. */
+  sourceNonce?: number
   currentSourceHash?: string
   originalSourceHash?: string
   depositId?: string
@@ -133,9 +132,6 @@ export function reuseOrCreateDepositSession(
     : createDepositSession(draft)
 }
 
-const isInteger = (value: unknown): value is number =>
-  isFiniteNumber(value) && Number.isInteger(value)
-
 const isTransport = (value: unknown): value is DepositSession["transport"] =>
   value === "direct" || value === "lifi"
 
@@ -158,6 +154,7 @@ const SESSION_FIELDS = {
   promptedAt: optional(isNonNegativeInteger),
   promptNonce: optional(isNonNegativeInteger),
   promptSeenAt: optional(isNonNegativeInteger),
+  sourceNonce: optional(isNonNegativeInteger),
   currentSourceHash: optional(isNonEmptyString),
   originalSourceHash: optional(isNonEmptyString),
   depositId: optional(isNonEmptyString),
@@ -191,11 +188,6 @@ const TRANSACTION_FIELDS = {
   gasLimit: optional(isNonEmptyString),
 }
 
-const SUBMITTED_FIELDS = {
-  nonce: optional(isInteger),
-  from: required(isNonEmptyString),
-}
-
 // Fails closed, and keeps only spec'd fields so a foreign key cannot ride along into a later write.
 export function parseDepositSession(raw: unknown): DepositSession | null {
   if (!isRecord(raw) || raw.version !== DEPOSIT_SESSION_VERSION) return null
@@ -204,9 +196,7 @@ export function parseDepositSession(raw: unknown): DepositSession | null {
   const source = parseFields(raw.source, SOURCE_FIELDS)
   const destination = parseFields(raw.destination, DESTINATION_FIELDS)
   const transaction = parseFields(raw.transaction, TRANSACTION_FIELDS)
-  const submitted =
-    raw.submitted === undefined ? undefined : parseFields(raw.submitted, SUBMITTED_FIELDS)
-  if (!session || !source || !destination || !transaction || submitted === null) return null
+  if (!session || !source || !destination || !transaction) return null
 
   return canonicalize({
     version: DEPOSIT_SESSION_VERSION,
@@ -214,7 +204,6 @@ export function parseDepositSession(raw: unknown): DepositSession | null {
     source,
     destination,
     transaction,
-    submitted,
     // Display-only: an unknown label must not reject a record that may describe funds in flight.
     lastState: isLastState(raw.lastState) ? raw.lastState : undefined,
   })
@@ -284,7 +273,7 @@ export function mergeDepositSession(
     promptedAt: next.promptedAt ?? current.promptedAt,
     promptNonce: next.promptNonce ?? current.promptNonce,
     promptSeenAt: Math.max(next.promptSeenAt ?? 0, current.promptSeenAt ?? 0) || undefined,
-    submitted: next.submitted ? { ...current.submitted, ...next.submitted } : current.submitted,
+    sourceNonce: next.sourceNonce ?? current.sourceNonce,
     currentSourceHash: next.currentSourceHash ?? current.currentSourceHash,
     originalSourceHash: next.originalSourceHash ?? current.originalSourceHash,
     depositId: next.depositId ?? current.depositId,

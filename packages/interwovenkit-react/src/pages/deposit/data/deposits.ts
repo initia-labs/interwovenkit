@@ -5,8 +5,16 @@ import { queryOptions, useQuery } from "@tanstack/react-query"
 import { useConfig } from "@/data/config"
 import { normalizeError } from "@/data/http"
 import { depositQueryKeys, useDepositApi } from "./api"
-import { normalizeDenom } from "./assetOptions"
-import { assertField, eqAddress, isRecord, isString } from "./parse"
+import {
+  assertEchoes,
+  assertField,
+  caseInsensitive,
+  type Echoes,
+  expectField,
+  isRecord,
+  isString,
+  sameDenom,
+} from "./parse"
 import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM } from "./source"
 import type { Deposit, DepositBucket, ListDepositsResponse } from "./types"
 import { ACTIVE_DEPOSIT_BUCKETS, DEPOSIT_BUCKETS } from "./types"
@@ -234,8 +242,7 @@ export function useTrackedDeposit({
   return resolveTrackedDeposit(detail.data, depositAddress, detail.error ?? null)
 }
 
-// Unlike displayBucket, an unknown bucket is not "failed": the user has just signed a real
-// transfer.
+// Unlike displayBucket, an unknown bucket isn't "failed": the user just signed a real transfer.
 export type WalletDepositBucket = DepositBucket | "unknown"
 
 export function classifyWalletBucket(deposit: Deposit | null): WalletDepositBucket {
@@ -269,6 +276,7 @@ export function createDepositBySourceTxQueryOptions(
     },
     enabled,
     staleTime: 0,
+    retry: false,
     refetchInterval: (query) => bySourceTxPollInterval(query.state.data, Date.now() - startedAt),
   })
 }
@@ -295,72 +303,47 @@ export function asDepositRecord(value: unknown, context: string): Deposit {
     "dst_denom",
     "bucket",
   ]) {
-    assertField(
-      isString(value[field]),
-      `${context} has an invalid ${field}: ${String(value[field])}`,
-    )
+    expectField(value, field, isString, context)
   }
   return value as unknown as Deposit
 }
 
-// A mismatch here would track, and eventually complete, somebody else's deposit at the same reused
-// address.
+// A mismatch would track, and eventually complete, someone else's deposit at the reused address.
+function assertDepositIdentity(
+  deposit: Deposit,
+  identity: DepositIdentity,
+  echoes: Echoes<Deposit>,
+): Deposit {
+  assertEchoes(deposit, "Deposit record", {
+    ...echoes,
+    src_chain_id: ETHEREUM_CHAIN_ID,
+    src_denom: [ETHEREUM_USDC_DENOM, sameDenom],
+    deposit_address: [identity.depositAddress, caseInsensitive],
+    dst_chain_id: identity.dstChainId,
+    dst_denom: [identity.dstDenom, sameDenom],
+    wallet_address: [identity.recipient, caseInsensitive],
+  })
+  return deposit
+}
+
 export function assertDirectDeposit(
   record: unknown,
   identity: DepositIdentity & { srcTxHash: string; amount: string },
 ): Deposit {
-  const deposit = asDepositRecord(record, "Deposit record")
-  assertField(
-    deposit.src_tx_hash.toLowerCase() === identity.srcTxHash.toLowerCase(),
-    `Deposit record src_tx_hash ${deposit.src_tx_hash} is not the submitted ${identity.srcTxHash}`,
-  )
-  assertField(
-    deposit.amount === identity.amount,
-    `Deposit record amount ${deposit.amount} is not the transferred ${identity.amount}`,
-  )
-  assertDepositIdentity(deposit, identity)
-  return deposit
+  return assertDepositIdentity(asDepositRecord(record, "Deposit record"), identity, {
+    src_tx_hash: [identity.srcTxHash, caseInsensitive],
+    amount: identity.amount,
+  })
 }
 
-// The record describes the Ethereum leg after slippage, so it binds to the receiving hash when
-// known, never the amount.
+// The Ethereum leg after slippage: bound to the receiving hash when known, never the amount.
 export function assertLifiDeposit(
   deposit: Deposit,
   identity: DepositIdentity & { dstTxHash?: string },
 ): Deposit {
-  if (identity.dstTxHash) {
-    assertField(
-      deposit.src_tx_hash.toLowerCase() === identity.dstTxHash.toLowerCase(),
-      `Deposit record src_tx_hash ${deposit.src_tx_hash} is not the reported Ethereum delivery ${identity.dstTxHash}`,
-    )
-  }
-  assertDepositIdentity(deposit, identity)
-  return deposit
-}
-
-function assertDepositIdentity(deposit: Deposit, identity: DepositIdentity): void {
-  assertField(
-    deposit.src_chain_id === ETHEREUM_CHAIN_ID,
-    `Deposit record src_chain_id is ${deposit.src_chain_id}, not Ethereum`,
-  )
-  assertField(
-    normalizeDenom(deposit.src_denom) === normalizeDenom(ETHEREUM_USDC_DENOM),
-    `Deposit record src_denom ${deposit.src_denom} is not Ethereum USDC`,
-  )
-  assertField(
-    eqAddress(deposit.deposit_address, identity.depositAddress),
-    `Deposit record deposit_address ${deposit.deposit_address} is not the issued ${identity.depositAddress}`,
-  )
-  assertField(
-    deposit.dst_chain_id === identity.dstChainId,
-    `Deposit record dst_chain_id ${deposit.dst_chain_id} is not ${identity.dstChainId}`,
-  )
-  assertField(
-    normalizeDenom(deposit.dst_denom) === normalizeDenom(identity.dstDenom),
-    `Deposit record dst_denom ${deposit.dst_denom} is not ${identity.dstDenom}`,
-  )
-  assertField(
-    eqAddress(deposit.wallet_address, identity.recipient),
-    `Deposit record wallet_address ${deposit.wallet_address} is not the recipient ${identity.recipient}`,
+  return assertDepositIdentity(
+    deposit,
+    identity,
+    identity.dstTxHash ? { src_tx_hash: [identity.dstTxHash, caseInsensitive] } : {},
   )
 }
