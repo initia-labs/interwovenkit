@@ -6,7 +6,7 @@ import { useConfig } from "@/data/config"
 import { normalizeError } from "@/data/http"
 import { depositQueryKeys, useDepositApi } from "./api"
 import { normalizeDenom } from "./assetOptions"
-import { assertField, eqAddress } from "./parse"
+import { assertField, eqAddress, isRecord, isString } from "./parse"
 import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM } from "./source"
 import type { Deposit, DepositBucket, ListDepositsResponse } from "./types"
 import { ACTIVE_DEPOSIT_BUCKETS, DEPOSIT_BUCKETS } from "./types"
@@ -246,8 +246,6 @@ export function classifyWalletBucket(deposit: Deposit | null): WalletDepositBuck
 export const bySourceTxPollInterval = (deposit: Deposit | null | undefined, elapsedMs: number) =>
   deposit ? false : pollInterval(elapsedMs)
 
-// Correlates by the exact source hash, never by address discovery, which could attach another
-// transfer at the same reused address. A 404 means not indexed yet.
 export function createDepositBySourceTxQueryOptions(
   api: KyInstance,
   srcTxHash: string,
@@ -283,12 +281,35 @@ interface DepositIdentity {
   recipient: string
 }
 
+export function asDepositRecord(value: unknown, context: string): Deposit {
+  assertField(isRecord(value), `${context} is not an object`)
+  for (const field of [
+    "id",
+    "src_chain_id",
+    "src_tx_hash",
+    "src_denom",
+    "amount",
+    "deposit_address",
+    "wallet_address",
+    "dst_chain_id",
+    "dst_denom",
+    "bucket",
+  ]) {
+    assertField(
+      isString(value[field]),
+      `${context} has an invalid ${field}: ${String(value[field])}`,
+    )
+  }
+  return value as unknown as Deposit
+}
+
 // A mismatch here would track, and eventually complete, somebody else's deposit at the same reused
 // address.
 export function assertDirectDeposit(
-  deposit: Deposit,
+  record: unknown,
   identity: DepositIdentity & { srcTxHash: string; amount: string },
 ): Deposit {
+  const deposit = asDepositRecord(record, "Deposit record")
   assertField(
     deposit.src_tx_hash.toLowerCase() === identity.srcTxHash.toLowerCase(),
     `Deposit record src_tx_hash ${deposit.src_tx_hash} is not the submitted ${identity.srcTxHash}`,

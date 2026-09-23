@@ -247,6 +247,14 @@ describe("assertDirectDeposit", () => {
   ])("rejects %o", (overrides, message) => {
     expect(() => assertDirectDeposit(deposit(overrides), DIRECT)).toThrow(message)
   })
+
+  it("rejects a malformed record with a shape error, not a TypeError", () => {
+    const missingHash = { ...deposit(), src_tx_hash: undefined }
+    expect(() => assertDirectDeposit(missingHash, DIRECT)).toThrow(
+      "Deposit record has an invalid src_tx_hash: undefined",
+    )
+    expect(() => assertDirectDeposit("nope", DIRECT)).toThrow("Deposit record is not an object")
+  })
 })
 
 describe("assertLifiDeposit", () => {

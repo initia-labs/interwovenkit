@@ -24,13 +24,11 @@ import { findDestinationNetwork, formatSourceMin } from "../data/source"
 import type { BridgeStatusResponse, Deposit } from "../data/types"
 import { formatCompletedAmount } from "../completedAmount"
 import { DepositTrackingView, TAKING_LONGER_DELAY } from "../DepositTracking"
-import styles from "../DepositTracking.module.css"
 import FlowChips from "../FlowChips"
 import {
   checkHashlessSend,
   type DepositProgressInputs,
   deriveDepositProgress,
-  trackedSourceHash,
 } from "./depositProgressLogic"
 import { type DepositSession, recoveryReference, useDepositSessionStore } from "./depositSession"
 import { depositApiRpcUrl, findDepositApiSource, findEthereumUsdcRoute } from "./depositSources"
@@ -41,6 +39,7 @@ import {
   watchSourceTransaction,
 } from "./evmRpc"
 import { useTransferForm } from "./transferFlowConfig"
+import styles from "./DepositProgress.module.css"
 
 // Long enough that ethers' replacement scan rarely restarts; the refetch interval is the outer loop.
 const SOURCE_WATCH_TIMEOUT = 90_000
@@ -99,7 +98,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     [read, write, session.id],
   )
 
-  const sourceHash = trackedSourceHash(session)
+  const sourceHash = session.currentSourceHash ?? ""
   const depositId = session.depositId ?? ""
   const isHashlessSend =
     !sourceHash && (session.phase === "send_prompt" || session.phase === "submission_unknown")
@@ -161,23 +160,18 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   )
   const bridgeStatus = bridgeQuery.data
 
-  // A deposit that cannot be proven to be this user's is a tracking conflict, never a completion.
-  const lifiHandoff = useMemo(() => {
-    if (bridgeStatus?.state !== "deposit_indexed" || !bridgeStatus.deposit) return undefined
-    try {
-      return {
-        deposit: assertLifiDeposit(bridgeStatus.deposit, {
-          depositAddress: session.depositAddress,
-          dstChainId: session.destination.chainId,
-          dstDenom: session.destination.denom,
-          recipient: session.destination.recipient,
-          dstTxHash: bridgeStatus.dst_tx_hash,
-        }),
-      }
-    } catch (error) {
-      return { error: error instanceof Error ? error.message : String(error) }
-    }
-  }, [bridgeStatus, session.depositAddress, session.destination])
+  const identity = {
+    depositAddress: session.depositAddress,
+    dstChainId: session.destination.chainId,
+    dstDenom: session.destination.denom,
+    recipient: session.destination.recipient,
+  }
+  const indexedDeposit = bridgeStatus?.state === "deposit_indexed" ? bridgeStatus.deposit : null
+  const lifiHandoff = indexedDeposit
+    ? checkHandoff(() =>
+        assertLifiDeposit(indexedDeposit, { ...identity, dstTxHash: bridgeStatus?.dst_tx_hash }),
+      )
+    : undefined
 
   const directQuery = useQuery(
     createDepositBySourceTxQueryOptions(
@@ -189,23 +183,15 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   )
   const directRecord = directQuery.data
 
-  const directHandoff = useMemo(() => {
-    if (!directRecord) return undefined
-    try {
-      return {
-        deposit: assertDirectDeposit(directRecord, {
+  const directHandoff = directRecord
+    ? checkHandoff(() =>
+        assertDirectDeposit(directRecord, {
+          ...identity,
           srcTxHash: sourceHash,
           amount: session.source.amount,
-          depositAddress: session.depositAddress,
-          dstChainId: session.destination.chainId,
-          dstDenom: session.destination.denom,
-          recipient: session.destination.recipient,
         }),
-      }
-    } catch (error) {
-      return { error: error instanceof Error ? error.message : String(error) }
-    }
-  }, [directRecord, sourceHash, session.source, session.depositAddress, session.destination])
+      )
+    : undefined
 
   const handoffId = lifiHandoff?.deposit?.id ?? directHandoff?.deposit?.id ?? ""
   useEffect(() => {
@@ -279,7 +265,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
 
   // Keyed on the undelayed view, or arming the timer would change its own trigger.
   const baseView = deriveDepositProgress(session, { ...inputs, isDelayed: false })
-  const stageKey = `${baseView.stage}:${baseView.persist?.lastState ?? ""}`
+  const stageKey = `${baseView.variant}:${baseView.persist?.lastState ?? ""}`
   const [delayedStage, setDelayedStage] = useState<string | null>(null)
   const isDelayed = delayedStage === stageKey && baseView.variant === "in-flight"
   useEffect(() => {
@@ -320,10 +306,9 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   const explorerUrl = resolveExplorerUrl(deposit, bridgeStatus)
 
   const refresh = () => {
-    void sourceQuery.refetch()
-    void bridgeQuery.refetch()
-    void directQuery.refetch()
-    void depositQuery.refetch()
+    for (const query of [sourceQuery, bridgeQuery, directQuery, depositQuery]) {
+      if (query.isEnabled) void query.refetch()
+    }
   }
 
   const footer =
@@ -378,6 +363,15 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
       isRetrying={view.isRetrying}
     />
   )
+}
+
+// A deposit that cannot be proven to be this user's is a tracking conflict, never a completion.
+function checkHandoff(assert: () => Deposit): { deposit?: Deposit; error?: string } {
+  try {
+    return { deposit: assert() }
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) }
+  }
 }
 
 function resolveExplorerUrl(

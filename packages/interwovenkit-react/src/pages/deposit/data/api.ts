@@ -30,7 +30,8 @@ export const depositQueryKeys = createQueryKeys("interwovenkit:deposit", {
     amount,
     paymentMethod,
   ],
-  // Deposit API pre-quote (GET /v1/quote), amountIn in source base units.
+  // Deposit API pre-quote (GET /v1/quote) for the Buy form's "Minimum
+  // received" (amountIn in source base units).
   minReceived: (
     srcChainId: string,
     srcDenom: string,

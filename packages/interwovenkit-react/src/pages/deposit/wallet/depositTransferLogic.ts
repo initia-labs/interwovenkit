@@ -181,7 +181,7 @@ export function derivePreflight(params: {
   return { status: "quoted" }
 }
 
-type ReadinessLevel = "error" | "warning" | "info"
+type ReadinessLevel = "error" | "info"
 
 export interface DepositReadiness {
   status: "loading" | "blocked" | "ready"
@@ -205,6 +205,8 @@ export interface DepositReadinessInput {
   tokenBalance?: string
   nativeBalance?: string
   requiredNative?: string
+  /** The head block and sender nonce the send prompt records. */
+  sourceChainLoaded: boolean
 
   optionsError?: string
   hasOptions: boolean
@@ -253,6 +255,7 @@ export function deriveDepositReadiness(input: DepositReadinessInput): DepositRea
       return blocked("Not enough ETH for this route's fee and gas")
     }
   }
+  if (!input.sourceChainLoaded) return loading()
 
   if (input.transport === "lifi") {
     if (input.optionsError) return blocked(input.optionsError)

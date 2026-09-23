@@ -32,7 +32,6 @@ export function buildDepositSession(overrides: Partial<DepositSession> = {}): De
       chainName: "Initia",
     },
     depositAddress: DEPOSIT_ADDRESS,
-    cursor: "cursor-1",
     transaction: {
       chainId: "8453",
       to: "0x2222222222222222222222222222222222222222",

@@ -9,15 +9,14 @@ import {
 } from "ethers"
 import { useQuery } from "@tanstack/react-query"
 import { depositQueryKeys } from "../data/api"
-import { eqAddress } from "../data/parse"
+import { eqAddress, isNonNegativeInteger } from "../data/parse"
 import { depositApiRpcUrl } from "./depositSources"
 
-const SOURCE_READ_REFRESH_MS = 15_000
+export const SOURCE_READ_REFRESH_MS = 15_000
 
 // One per chain for the tab's lifetime: ethers keeps a polling loop alive once `wait()` subscribed.
 const pinnedProviders = new Map<string, JsonRpcProvider>()
 
-// Never the wallet's provider, which follows whatever network the user switches to.
 export function getPinnedProvider(chainId: string): JsonRpcProvider {
   const existing = pinnedProviders.get(chainId)
   if (existing) return existing
@@ -36,7 +35,7 @@ const ERC20 = new Interface([
 ])
 
 // An empty response means no contract at that address; decoding it would read as zero.
-async function readErc20Uint(
+export async function readErc20Uint(
   provider: JsonRpcProvider,
   token: string,
   fragment: "balanceOf" | "allowance",
@@ -67,14 +66,6 @@ export async function readSourceBalances(
   return { token: tokenBalance, native: nativeBalance.toString() }
 }
 
-export async function readAllowance(
-  provider: JsonRpcProvider,
-  params: { owner: string; token: string; spender: string },
-): Promise<string> {
-  const { owner, token, spender } = params
-  return readErc20Uint(provider, token, "allowance", [owner, spender])
-}
-
 // ethers rejects a mixed-case address with a bad EIP-55 checksum; the API checks shape only.
 const addressArg = (address: string) => address.toLowerCase()
 
@@ -97,17 +88,9 @@ export async function waitForApproval(
 }
 
 export type SourceTxOutcome =
-  | { status: "confirmed"; hash: string; blockNumber: number }
-  | {
-      status: "replaced"
-      /** The replacement's hash. */
-      hash: string
-      originalHash: string
-      reason: "repriced" | "cancelled" | "replaced"
-    }
-  | { status: "reverted"; hash: string }
-  /** The watch window elapsed without a decision; the caller keeps waiting. */
-  | { status: "pending" }
+  | { status: "confirmed" | "reverted" | "pending" }
+  /** `hash` is the replacement's. */
+  | { status: "replaced"; hash: string; reason: "repriced" | "cancelled" | "replaced" }
 
 interface WatchSourceTransactionParams {
   hash: string
@@ -168,11 +151,8 @@ function classifyReplacement(
 }
 
 function fromReceipt(receipt: TransactionReceipt): SourceTxOutcome {
-  if (receipt.status === 0) return { status: "reverted", hash: receipt.hash }
-  return { status: "confirmed", hash: receipt.hash, blockNumber: receipt.blockNumber }
+  return { status: receipt.status === 0 ? "reverted" : "confirmed" }
 }
-
-const isBlockNumber = (value: number) => Number.isInteger(value) && value >= 0
 
 // `wait()` reads only hash, from, nonce, to, data, value and chain id; the rest is placeholder.
 function reconstructTransactionResponse(
@@ -214,7 +194,7 @@ export async function watchSourceTransaction(
 ): Promise<SourceTxOutcome> {
   const { hash, startBlock, nonce, timeoutMs } = params
 
-  if (!isBlockNumber(startBlock) || !isBlockNumber(nonce)) {
+  if (!isNonNegativeInteger(startBlock) || !isNonNegativeInteger(nonce)) {
     const receipt = await provider.getTransactionReceipt(hash)
     return receipt ? fromReceipt(receipt) : { status: "pending" }
   }
@@ -232,35 +212,26 @@ export async function watchSourceTransaction(
       return {
         status: "replaced",
         hash: replacement?.hash ?? error.hash,
-        originalHash: hash,
         reason: classifyReplacement(replacement, params),
       }
     }
-    if (isError(error, "CALL_EXCEPTION") && error.receipt) {
-      return { status: "reverted", hash: error.receipt.hash }
-    }
+    if (isError(error, "CALL_EXCEPTION") && error.receipt) return { status: "reverted" }
     if (isError(error, "TIMEOUT")) return { status: "pending" }
     throw error
   }
 }
 
-export function usePinnedSourceBalances(params: {
-  chainId: string
-  owner: string
-  token: string
-  enabled: boolean
-}) {
-  const { chainId, owner, token, enabled } = params
+export function usePinnedSourceBalances(params: { chainId: string; owner: string; token: string }) {
+  const { chainId, owner, token } = params
   return useQuery({
     queryKey: depositQueryKeys.sourceBalances(chainId, owner, token).queryKey,
     queryFn: () => readSourceBalances(getPinnedProvider(chainId), { owner, token }),
-    enabled: enabled && !!owner && !!depositApiRpcUrl(chainId),
+    enabled: !!owner && !!depositApiRpcUrl(chainId),
     staleTime: 10_000,
     refetchInterval: SOURCE_READ_REFRESH_MS,
   })
 }
 
-/** The head block (lower bound for the replacement scan) and the priced gas for the fee gate. */
 export function useSourceChainHead(chainId: string) {
   return useQuery({
     queryKey: depositQueryKeys.sourceHead(chainId).queryKey,

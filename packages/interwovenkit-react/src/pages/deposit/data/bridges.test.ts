@@ -364,7 +364,6 @@ describe("parseBridgeQuote", () => {
     const quote = parseBridgeQuote(quotePayload(), QUOTE_REQUEST)
     expect(quote.provider).toBe("lifi")
     expect(quote.tool).toBe("across")
-    expect(quote.cursor).toBe("v1.abc")
     expect(quote.transaction).toEqual({
       chain_id: "8453",
       from: SENDER,
@@ -400,7 +399,6 @@ describe("parseBridgeQuote", () => {
     ],
     ["a malformed deposit address", quotePayload({ deposit_address: "0x00" }), /deposit address/],
     ["a zero deposit address", quotePayload({ deposit_address: ZERO_ADDRESS }), /deposit address/],
-    ["a missing cursor", quotePayload({ cursor: "" }), /missing the cursor/],
     ["a non-positive amount_out", quotePayload({ amount_out: "0" }), /invalid amount_out/],
     ["a malformed min_received", quotePayload({ min_received: "x" }), /invalid min_received/],
   ])("rejects %s", (_name, payload, message) => {

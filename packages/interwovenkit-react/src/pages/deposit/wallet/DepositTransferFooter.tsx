@@ -42,7 +42,7 @@ const DepositTransferActions = ({ resolution }: { resolution: DepositTransportSe
   const { approval, readiness, quoteUpdated } = model
 
   const isSending = model.isSubmitting
-  const needsApproval = approval.required && !!approval.approve
+  const needsApproval = !!approval.approve
   // A blocked `info` reason is an input prompt, so it replaces the button label.
   const isPrompt = readiness.status === "blocked" && readiness.level === "info"
   const errorMessage =

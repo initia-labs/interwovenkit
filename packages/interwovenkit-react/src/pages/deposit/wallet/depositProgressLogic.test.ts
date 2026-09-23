@@ -9,7 +9,6 @@ import {
   isResumableDepositSession,
   resumeStageLabel,
   selectResumableSessions,
-  trackedSourceHash,
 } from "./depositProgressLogic"
 import type { DepositSession, DepositSessionPhase } from "./depositSession"
 import { buildDepositSession, REPLACEMENT_HASH } from "./testing"
@@ -32,23 +31,9 @@ const inputs = (overrides: Partial<DepositProgressInputs> = {}): DepositProgress
 const confirmedSource = {
   source: {
     isError: false,
-    outcome: { status: "confirmed" as const, hash: SRC_TX_HASH, blockNumber: 10 },
+    outcome: { status: "confirmed" as const },
   },
 }
-
-describe("trackedSourceHash", () => {
-  it("prefers the current hash so a repriced replacement supersedes the original", () => {
-    expect(
-      trackedSourceHash(
-        session({ currentSourceHash: REPLACEMENT_HASH, originalSourceHash: SRC_TX_HASH }),
-      ),
-    ).toBe(REPLACEMENT_HASH)
-  })
-
-  it("is empty when nothing was ever returned", () => {
-    expect(trackedSourceHash(session({ currentSourceHash: undefined }))).toBe("")
-  })
-})
 
 describe("isResumableDepositSession", () => {
   it("excludes the abandoned form draft", () => {
@@ -212,7 +197,6 @@ describe("deriveDepositProgress: no source hash", () => {
     "%s without a hash stays locked while the nonce check runs",
     (phase) => {
       const view = deriveDepositProgress(hashless({ phase, promptNonce: 7 }), inputs())
-      expect(view.stage).toBe("none")
       expect(view.variant).toBe("problem")
       expect(view.heading).toBe("Checking your transaction")
       expect(view.note).toContain("Don't send again")
@@ -276,7 +260,6 @@ describe("deriveDepositProgress: no source hash", () => {
 describe("deriveDepositProgress: source stage", () => {
   it("waits on the source receipt with the source chain named", () => {
     const view = deriveDepositProgress(session(), inputs())
-    expect(view.stage).toBe("source")
     expect(view.variant).toBe("in-flight")
     expect(view.message).toContain("Base")
     expect(view.showChips).toBe(true)
@@ -289,14 +272,12 @@ describe("deriveDepositProgress: source stage", () => {
       session(),
       inputs({ source: { isError: false, outcome: { status: "pending" } } }),
     )
-    expect(view.stage).toBe("source")
     expect(view.variant).toBe("in-flight")
     expect(view.note).toBeUndefined()
   })
 
   it("an RPC read failure keeps the pending copy and says so", () => {
     const view = deriveDepositProgress(session(), inputs({ source: { isError: true } }))
-    expect(view.stage).toBe("source")
     expect(view.variant).toBe("in-flight")
     expect(view.note).toBe("Still checking…")
     // An unread node is never rendered as a failed transfer.
@@ -312,13 +293,11 @@ describe("deriveDepositProgress: source stage", () => {
           outcome: {
             status: "replaced",
             hash: REPLACEMENT_HASH,
-            originalHash: SRC_TX_HASH,
             reason: "repriced",
           },
         },
       }),
     )
-    expect(view.stage).toBe("source")
     expect(view.variant).toBe("in-flight")
     expect(view.persist).toEqual({ lastState: "source_replaced" })
   })
@@ -341,13 +320,11 @@ describe("deriveDepositProgress: source stage", () => {
           outcome: {
             status: "replaced",
             hash: REPLACEMENT_HASH,
-            originalHash: SRC_TX_HASH,
             reason: "cancelled",
           },
         },
       }),
     )
-    expect(view.stage).toBe("none")
     expect(view.variant).toBe("failed")
     expect(view.heading).toBe("Deposit not sent")
     // Fees were spent and the approval may stand: this is not "nothing happened".
@@ -359,7 +336,7 @@ describe("deriveDepositProgress: source stage", () => {
     const view = deriveDepositProgress(
       session(),
       inputs({
-        source: { isError: false, outcome: { status: "reverted", hash: SRC_TX_HASH } },
+        source: { isError: false, outcome: { status: "reverted" } },
       }),
     )
     expect(view.variant).toBe("failed")
@@ -375,13 +352,11 @@ describe("deriveDepositProgress: source stage", () => {
           outcome: {
             status: "replaced",
             hash: REPLACEMENT_HASH,
-            originalHash: SRC_TX_HASH,
             reason: "replaced",
           },
         },
       }),
     )
-    expect(view.stage).toBe("none")
     expect(view.variant).toBe("problem")
     expect(view.showRefresh).toBe(true)
     // Not terminal: the evidence is preserved, not resolved.
@@ -395,14 +370,12 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
 
   it("bridge_not_found keeps polling and never implies a failed send", () => {
     const view = bridgeView({ state: "bridge_not_found" })
-    expect(view.stage).toBe("bridge")
     expect(view.variant).toBe("in-flight")
     expect(view.persist).toEqual({ lastState: "bridge_not_found" })
   })
 
   it("an unread first poll uses the not-indexed copy rather than nothing", () => {
     const view = bridgeView({})
-    expect(view.stage).toBe("bridge")
     expect(view.message).toBe(bridgeView({ state: "bridge_not_found" }).message)
     // Nothing was read, so nothing is recorded.
     expect(view.persist).toBeUndefined()
@@ -412,7 +385,6 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
     "%s stays in flight: only the deposit bucket completes",
     (state) => {
       const view = bridgeView({ state })
-      expect(view.stage).toBe("bridge")
       expect(view.variant).toBe("in-flight")
       expect(view.persist).toEqual({ lastState: state })
     },
@@ -420,7 +392,6 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
 
   it("bridge_refunding keeps polling under refund copy", () => {
     const view = bridgeView({ state: "bridge_refunding" })
-    expect(view.stage).toBe("bridge")
     expect(view.variant).toBe("in-flight")
     expect(view.heading).toBe("Refund in progress")
   })
@@ -429,7 +400,6 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
     "%s is its own terminal outcome, not completion",
     (state) => {
       const view = bridgeView({ state })
-      expect(view.stage).toBe("none")
       expect(view.variant).toBe("failed")
       expect(view.heading).toBeTruthy()
       expect(view.persist).toEqual({ phase: "terminal", lastState: state })
@@ -440,7 +410,6 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
     "%s preserves ambiguity and offers refresh",
     (state) => {
       const view = bridgeView({ state })
-      expect(view.stage).toBe("none")
       expect(view.variant).toBe("problem")
       expect(view.showRefresh).toBe(true)
       expect(view.note).toContain("Don't send a replacement deposit")
@@ -454,7 +423,6 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
       state: "bridge_pending",
       error: new BridgeStatusError("upstream_conflict", "evidence disagrees"),
     })
-    expect(view.stage).toBe("none")
     expect(view.variant).toBe("problem")
     expect(view.showRefresh).toBe(true)
     expect(view.isRetrying).toBe(false)
@@ -463,7 +431,6 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
 
   it("every other coded or transport error is transient: keep the stage copy and retry", () => {
     const view = bridgeView({ state: "bridge_pending", error: new Error("network") })
-    expect(view.stage).toBe("bridge")
     expect(view.variant).toBe("in-flight")
     expect(view.isRetrying).toBe(true)
     expect(view.message).toBe(bridgeView({ state: "bridge_pending" }).message)
@@ -477,7 +444,6 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
 
   it("a failed identity assertion on an indexed envelope never completes the flow", () => {
     const view = bridgeView({ state: "deposit_indexed", conflict: "deposit_address mismatch" })
-    expect(view.stage).toBe("none")
     expect(view.variant).toBe("problem")
     expect(view.message).toBe("deposit_address mismatch")
   })
@@ -494,7 +460,6 @@ describe("deriveDepositProgress: direct Ethereum correlation", () => {
       directSession,
       inputs({ ...confirmedSource, direct: { isError: false, found: false } }),
     )
-    expect(view.stage).toBe("correlate")
     expect(view.variant).toBe("in-flight")
     expect(view.persist).toEqual({ lastState: "deposit_pending" })
   })
@@ -504,7 +469,6 @@ describe("deriveDepositProgress: direct Ethereum correlation", () => {
       directSession,
       inputs({ ...confirmedSource, direct: { isError: true } }),
     )
-    expect(view.stage).toBe("correlate")
     expect(view.isRetrying).toBe(true)
   })
 
@@ -513,7 +477,6 @@ describe("deriveDepositProgress: direct Ethereum correlation", () => {
       directSession,
       inputs({ ...confirmedSource, direct: { isError: false, conflict: "amount mismatch" } }),
     )
-    expect(view.stage).toBe("none")
     expect(view.variant).toBe("problem")
     expect(view.message).toBe("amount mismatch")
   })
@@ -531,7 +494,6 @@ describe("deriveDepositProgress: deposit id stage", () => {
     // No confirmed source outcome supplied: the correlated id is authoritative, and both
     // transports reach the issued address on Ethereum.
     const view = depositView({ bucket: "waiting" })
-    expect(view.stage).toBe("deposit")
     expect(view.variant).toBe("in-flight")
     expect(view.title).toBe("Confirming your deposit…")
     expect(view.message).toContain("Ethereum")
@@ -550,7 +512,6 @@ describe("deriveDepositProgress: deposit id stage", () => {
     const view = depositView({ bucket: "processing", advanceStatus: "pending" })
     expect(view.message).not.toBe(depositView({ bucket: "processing" }).message)
     expect(view.variant).toBe("in-flight")
-    expect(view.stage).toBe("deposit")
   })
 
   it("advance_status completed alone never completes the flow", () => {
@@ -565,7 +526,6 @@ describe("deriveDepositProgress: deposit id stage", () => {
       completedAmount: "5 iUSD",
       isSelfRecipient: true,
     })
-    expect(view.stage).toBe("none")
     expect(view.variant).toBe("completed")
     expect(view.title).toBe("Transfer complete")
     expect(view.message).toContain("5 iUSD")
@@ -604,7 +564,6 @@ describe("deriveDepositProgress: deposit id stage", () => {
 
   it("an unknown bucket is a contract problem, never a financial outcome", () => {
     const view = depositView({ bucket: "unknown" })
-    expect(view.stage).toBe("none")
     expect(view.variant).toBe("problem")
     expect(view.showRefresh).toBe(true)
     // Deliberately not terminal: a corrected response can still resolve it.

@@ -64,7 +64,7 @@ const DepositTransferTxDetails = ({ model }: { model: DepositTransferModel }) =>
         {/* Paid in the native token, outside the quoted output. */}
         {quote && BigInt(quote.transaction.value) > 0n && (
           <DetailRow label="Protocol fee">
-            {formatAmount(quote.transaction.value, { decimals: 18 })} {model.nativeSymbol}
+            {formatAmount(quote.transaction.value, { decimals: 18 })} ETH
           </DetailRow>
         )}
         <DetailRow label={isHostRecipient ? "Recipient (set by app)" : "Receiving address"}>

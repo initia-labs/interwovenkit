@@ -59,7 +59,8 @@ import {
 import {
   encodeErc20Approve,
   getPinnedProvider,
-  readAllowance,
+  readErc20Uint,
+  SOURCE_READ_REFRESH_MS,
   usePinnedSourceBalances,
   useSenderNonces,
   useSourceChainHead,
@@ -83,7 +84,6 @@ export interface DepositTransferModel {
   recipient: string
   isHostRecipient: boolean
   depositAddress?: string
-  /** The bound LI.FI quote; undefined on the direct path. */
   quote?: BridgeQuoteResponse
   hasAmount: boolean
   /** The estimates for the typed amount are still on their first fetch. */
@@ -91,8 +91,6 @@ export interface DepositTransferModel {
   estimatedAmountOut?: string
   estimatedSeconds?: number
   approval: {
-    required: boolean
-    isChecking: boolean
     isApproving: boolean
     error?: string
     approve?: () => void
@@ -101,7 +99,6 @@ export interface DepositTransferModel {
   submit: () => void
   isSubmitting: boolean
   submitError?: string
-  nativeSymbol: string
   legs: { name: string; logoUrl: string }[]
   quoteUpdated: boolean
   unknownSend: boolean
@@ -109,7 +106,6 @@ export interface DepositTransferModel {
   openRouteSelection?: () => void
 }
 
-const SOURCE_READ_REFRESH_MS = 15_000
 const APPROVAL_RECEIPT_TIMEOUT_MS = 120_000
 
 const isFirstFetch = (query: { isLoading: boolean; isPlaceholderData: boolean }) =>
@@ -157,7 +153,6 @@ interface DepositRequestState {
   isComplete: boolean
 }
 
-// Shared with SelectDepositRoute so both read the same options cache entry.
 export function useDepositRequest(resolution: DepositTransportResolution): DepositRequestState {
   const { watch } = useTransferForm()
   const quantity = watch("quantity")
@@ -234,7 +229,6 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     chainId: source.chainId,
     owner: hexAddress,
     token: source.denom,
-    enabled: true,
   })
   const headQuery = useSourceChainHead(source.chainId)
   const noncesQuery = useSenderNonces(source.chainId, hexAddress, SOURCE_READ_REFRESH_MS)
@@ -350,11 +344,10 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
   const allowanceQuery = useQuery({
     queryKey: allowanceKey,
     queryFn: () =>
-      readAllowance(getPinnedProvider(source.chainId), {
-        owner: hexAddress,
-        token: source.denom,
+      readErc20Uint(getPinnedProvider(source.chainId), source.denom, "allowance", [
+        hexAddress,
         spender,
-      }),
+      ]),
     enabled: !!hexAddress && !!approval,
     staleTime: SOURCE_READ_REFRESH_MS,
   })
@@ -389,10 +382,9 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
       : [sourceLeg, destinationLeg]
 
   const buildDraft = (quote: BridgeQuoteResponse | undefined): DepositSessionDraft | undefined => {
-    const issued = transport === "direct" ? depositAddressQuery.data : quote
-    const depositAddress = issued?.deposit_address
-    const cursor = issued?.cursor ?? ""
-    if (!recipient || !hexAddress || !amount || !depositAddress || !cursor) return undefined
+    const depositAddress =
+      transport === "direct" ? depositAddressQuery.data?.deposit_address : quote?.deposit_address
+    if (!recipient || !hexAddress || !amount || !depositAddress) return undefined
     const transaction =
       transport === "direct"
         ? buildDepositTransaction({ transport, depositAddress, amount })
@@ -421,7 +413,6 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
         chainLogoUrl: destinationLeg.logoUrl,
       },
       depositAddress,
-      cursor,
       transaction,
       predictedDelivery: deliveryQuote?.delivery?.method,
     }
@@ -486,7 +477,11 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
 
   const sendDeposit = async (quote: BridgeQuoteResponse | undefined) => {
     const draft = buildDraft(quote)
-    if (!draft) throw new Error("This deposit is not ready to send")
+    const preSubmitBlock = headQuery.data?.block
+    const promptNonce = noncesQuery.data?.latest
+    if (!draft || preSubmitBlock === undefined || promptNonce === undefined) {
+      throw new Error("This deposit is not ready to send")
+    }
 
     // A rejected prompt or a remount reuses the form's record while it is still re-signable.
     const storedId = getValues("depositSessionId")
@@ -504,9 +499,9 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     writeDepositSession(localStorage, {
       ...prepared,
       phase: "send_prompt",
-      preSubmitBlock: headQuery.data?.block,
+      preSubmitBlock,
       promptedAt: Date.now(),
-      promptNonce: noncesQuery.data?.latest,
+      promptNonce,
       updatedAt: Date.now(),
     })
     // While this tab holds the prompt open, other tabs must not read it as abandoned.
@@ -521,38 +516,32 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
 
     let response: { hash: string; nonce?: number; from: string }
     try {
-      let signer: Awaited<ReturnType<typeof getSigner>>
-      try {
-        signer = await getSigner(prepared.transaction.chainId)
-      } catch (error) {
-        // Nothing is broadcast before the send itself.
+      // Nothing is broadcast before the send itself.
+      const signer = await getSigner(prepared.transaction.chainId).catch((error: unknown) => {
         rollbackDepositSessionPrompt(localStorage, prepared.id)
         throw error
-      }
-
-      try {
-        const { transaction } = prepared
-        response = await signer.sendTransaction({
+      })
+      const { transaction } = prepared
+      response = await signer
+        .sendTransaction({
           chainId: Number(transaction.chainId),
           to: transaction.to,
           data: transaction.data,
           value: BigInt(transaction.value),
           ...(transaction.gasLimit ? { gasLimit: BigInt(transaction.gasLimit) } : {}),
         })
-      } catch (error) {
-        // A hash proves the broadcast, whatever the error says.
-        const hash = sendTransactionHashOf(error)
-        const message = await normalizeErrorMessage(error)
-        if (!hash && isProvablyNotSent(message)) {
-          rollbackDepositSessionPrompt(localStorage, prepared.id)
-          throw error
-        }
-        if (!hash) {
+        .catch(async (error: unknown) => {
+          // A hash proves the broadcast, whatever the error says.
+          const hash = sendTransactionHashOf(error)
+          if (hash) return { hash, from: hexAddress }
+          const message = await normalizeErrorMessage(error)
+          if (isProvablyNotSent(message)) {
+            rollbackDepositSessionPrompt(localStorage, prepared.id)
+            throw error
+          }
           writeAfterPrompt({ ...prepared, phase: "submission_unknown" })
           throw new UnknownSendError(message)
-        }
-        response = { hash, from: hexAddress }
-      }
+        })
     } finally {
       clearInterval(heartbeat)
     }
@@ -599,6 +588,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
       gasLimit: draftTransaction?.gasLimit,
       maxFeePerGas: headQuery.data?.maxFeePerGas,
     }),
+    sourceChainLoaded: headQuery.data !== undefined && noncesQuery.data !== undefined,
     optionsError: optionsQuery.error?.message,
     hasOptions: !!optionsData && !optionsQuery.isPlaceholderData,
     hasEligibleOption: !!selectedBridge,
@@ -640,7 +630,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
   }
 
   const submit = async () => {
-    if (busyRef.current || readiness.status !== "ready") return
+    if (busyRef.current || readiness.status !== "ready" || approvalRequired) return
     busyRef.current = true
     let locked = false
     try {
@@ -686,8 +676,6 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     estimatedAmountOut: displayQuote?.amount_out,
     estimatedSeconds,
     approval: {
-      required: approvalRequired,
-      isChecking: approvalChecking,
       isApproving: approveMutation.isPending,
       error: approveMutation.error?.message,
       approve: approvalRequired ? approve : undefined,
@@ -696,7 +684,6 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     submit,
     isSubmitting: sendMutation.isPending || isRefreshingQuote,
     submitError,
-    nativeSymbol: "ETH",
     legs,
     quoteUpdated,
     unknownSend: unknownSend || !!inFlightSession,

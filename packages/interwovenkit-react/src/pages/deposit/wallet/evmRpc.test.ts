@@ -4,7 +4,7 @@ import {
   encodeErc20Approve,
   encodeErc20Transfer,
   getPinnedProvider,
-  readAllowance,
+  readErc20Uint,
   readSourceBalances,
   waitForApproval,
   watchSourceTransaction,
@@ -141,12 +141,10 @@ describe("readSourceBalances", () => {
   })
 })
 
-describe("readAllowance", () => {
+describe("readErc20Uint", () => {
   it("returns the allowance as a base-unit decimal string", async () => {
     const { provider } = createFakeProvider({ call: () => UINT_7 })
-    await expect(
-      readAllowance(provider, { owner: SENDER, token: TOKEN, spender: BRIDGE }),
-    ).resolves.toBe("7")
+    await expect(readErc20Uint(provider, TOKEN, "allowance", [SENDER, BRIDGE])).resolves.toBe("7")
   })
 })
 
@@ -198,8 +196,6 @@ describe("watchSourceTransaction", () => {
     })
     await expect(watchSourceTransaction(provider, PARAMS)).resolves.toEqual({
       status: "confirmed",
-      hash: HASH,
-      blockNumber: 105,
     })
   })
 
@@ -209,7 +205,6 @@ describe("watchSourceTransaction", () => {
     })
     await expect(watchSourceTransaction(provider, PARAMS)).resolves.toEqual({
       status: "reverted",
-      hash: HASH,
     })
   })
 
@@ -241,7 +236,6 @@ describe("watchSourceTransaction", () => {
     await expect(watchSourceTransaction(pinned, PARAMS)).resolves.toEqual({
       status: "replaced",
       hash: REPLACEMENT_HASH,
-      originalHash: HASH,
       reason: "repriced",
     })
   })
@@ -263,7 +257,6 @@ describe("watchSourceTransaction", () => {
     await expect(watchSourceTransaction(pinned, PARAMS)).resolves.toEqual({
       status: "replaced",
       hash: REPLACEMENT_HASH,
-      originalHash: HASH,
       reason: "cancelled",
     })
   })
@@ -285,7 +278,6 @@ describe("watchSourceTransaction", () => {
     await expect(watchSourceTransaction(pinned, PARAMS)).resolves.toEqual({
       status: "replaced",
       hash: REPLACEMENT_HASH,
-      originalHash: HASH,
       reason: "replaced",
     })
   })
@@ -333,8 +325,6 @@ describe("watchSourceTransaction", () => {
     })
     await expect(watchSourceTransaction(provider, { ...PARAMS, startBlock: -1 })).resolves.toEqual({
       status: "confirmed",
-      hash: HASH,
-      blockNumber: 105,
     })
   })
 })

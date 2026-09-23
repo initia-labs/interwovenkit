@@ -16,11 +16,9 @@ export interface DepositApiSource {
   chainName: "Ethereum" | "Base" | "Arbitrum"
   transport: "direct" | "lifi"
   fallbackChainLogoUrl: string
-  // The Router registry's Base and Arbitrum RPCs refuse eth_getTransactionReceipt.
   rpcUrl: string
 }
 
-// The exact pairs the backend allowlists; any other source keeps the Router path.
 export const DEPOSIT_API_SOURCES: readonly DepositApiSource[] = [
   {
     chainId: ETHEREUM_CHAIN_ID,
@@ -85,7 +83,6 @@ export type DepositTransportResolution =
       route: Asset
       destination: DestinationNetwork
     }
-  // A catalog outage must not hand a Deposit API pair to the Router.
   | { transport: "unavailable"; source: DepositApiSource; reason: "loading" | "error" }
 
 interface ResolveDepositTransportParams {

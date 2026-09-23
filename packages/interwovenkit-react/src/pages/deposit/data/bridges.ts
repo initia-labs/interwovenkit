@@ -7,7 +7,7 @@ import { USDC_DECIMALS } from "@/data/constants"
 import { normalizeError, STALE_TIMES } from "@/data/http"
 import { depositQueryKeys } from "./api"
 import { normalizeDenom } from "./assetOptions"
-import { pollInterval } from "./deposits"
+import { asDepositRecord, pollInterval } from "./deposits"
 import {
   assertField,
   eqAddress,
@@ -17,6 +17,7 @@ import {
   isHexQuantity,
   isIntegerString,
   isNonEmptyString,
+  isNonNegativeInteger,
   isPositiveIntegerString,
   isRecord,
   isString,
@@ -31,7 +32,6 @@ import type {
   BridgeRequestIdentity,
   BridgeStatusResponse,
   BridgeStatusState,
-  Deposit,
 } from "./types"
 import { BRIDGE_STATUS_STATES } from "./types"
 
@@ -43,7 +43,7 @@ const isNonZeroAddress = (value: unknown): value is string =>
 function parseOptionalDuration(value: unknown, context: string): number | undefined {
   if (value === undefined || value === null) return undefined
   assertField(
-    typeof value === "number" && Number.isInteger(value) && value >= 0,
+    isNonNegativeInteger(value),
     `${context} has an invalid execution_duration_seconds: ${String(value)}`,
   )
   return value
@@ -281,7 +281,7 @@ export function parseBridgeQuote(
   const context = `Bridge quote response (${describeRequest(request)})`
   assertField(isRecord(response), `${context} is not an object`)
 
-  const { provider, tool, cursor, deposit_address, amount_out, min_received } = response
+  const { provider, tool, deposit_address, amount_out, min_received } = response
   const { src_chain_id, src_denom, dst_chain_id, dst_denom, amount, wallet_address } = response
   assertField(provider === "lifi", `${context} has an unexpected provider: ${String(provider)}`)
   assertField(
@@ -313,7 +313,6 @@ export function parseBridgeQuote(
     isNonZeroAddress(deposit_address),
     `${context} has an invalid deposit address: ${String(deposit_address)}`,
   )
-  assertField(isNonEmptyString(cursor), `${context} is missing the cursor`)
   assertField(
     isPositiveIntegerString(amount_out),
     `${context} has an invalid amount_out: ${String(amount_out)}`,
@@ -334,7 +333,6 @@ export function parseBridgeQuote(
     amount,
     wallet_address,
     deposit_address,
-    cursor,
     amount_out,
     min_received,
     tool,
@@ -385,28 +383,6 @@ export function meetsRequiredMinimum(
 const isBridgeStatusState = (value: unknown): value is BridgeStatusState =>
   typeof value === "string" && (BRIDGE_STATUS_STATES as readonly string[]).includes(value)
 
-function asDepositRecord(value: unknown, context: string): Deposit {
-  assertField(isRecord(value), `${context} deposit is not an object`)
-  for (const field of [
-    "id",
-    "src_chain_id",
-    "src_tx_hash",
-    "src_denom",
-    "amount",
-    "deposit_address",
-    "wallet_address",
-    "dst_chain_id",
-    "dst_denom",
-    "bucket",
-  ]) {
-    assertField(
-      isString(value[field]),
-      `${context} deposit has an invalid ${field}: ${String(value[field])}`,
-    )
-  }
-  return value as unknown as Deposit
-}
-
 export function parseBridgeStatus(
   response: unknown,
   expected: { srcChainId: string; srcTxHash: string },
@@ -448,7 +424,7 @@ export function parseBridgeStatus(
     src_tx_link: isString(src_tx_link) ? src_tx_link : "",
     ...(dstTxHash ? { dst_tx_hash: dstTxHash } : {}),
     ...(isNonEmptyString(response.dst_tx_link) ? { dst_tx_link: response.dst_tx_link } : {}),
-    deposit: state === "deposit_indexed" ? asDepositRecord(deposit, context) : null,
+    deposit: state === "deposit_indexed" ? asDepositRecord(deposit, `${context} deposit`) : null,
   }
 }
 
@@ -575,8 +551,7 @@ interface BridgeStatusParams {
   depositAddress: string
 }
 
-// Without the `bridge` hint: a missing or mismatched hint answers 502 upstream_conflict even for
-// not-found results. The refetch interval is the only cadence, so neither ky nor TanStack retries.
+// The refetch interval is the only cadence, so neither ky nor TanStack retries.
 export function createBridgeStatusQueryOptions(
   api: KyInstance,
   params: BridgeStatusParams,

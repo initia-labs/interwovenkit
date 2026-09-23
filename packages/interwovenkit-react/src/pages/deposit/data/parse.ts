@@ -23,6 +23,10 @@ export function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value)
 }
 
+export function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0
+}
+
 export function isIntegerString(value: unknown): value is string {
   return typeof value === "string" && /^\d+$/.test(value)
 }

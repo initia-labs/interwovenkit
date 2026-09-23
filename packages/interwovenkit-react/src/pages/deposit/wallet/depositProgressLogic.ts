@@ -14,10 +14,7 @@ import {
 import { matchesAssetOption } from "./depositSources"
 import type { SenderNonces, SourceTxOutcome } from "./evmRpc"
 
-export type DepositProgressStage = "source" | "bridge" | "correlate" | "deposit" | "none"
-
 export interface DepositProgressView {
-  stage: DepositProgressStage
   title: string
   variant: DepositTrackingVariant
   heading?: string
@@ -27,7 +24,6 @@ export interface DepositProgressView {
   showClose: boolean
   showRefresh: boolean
   showChips: boolean
-  /** Offers "I didn't send this" for a send that never returned a hash. */
   canMarkNotSent?: boolean
   /** Written back to the session so the persisted trail matches the rendered claim. */
   persist?: { phase?: DepositSessionPhase; lastState?: DepositLastState }
@@ -61,7 +57,6 @@ export interface DepositProgressInputs {
   /** The sender's nonces, polled while a send has no hash. */
   nonces: {
     data?: SenderNonces
-    /** When `data` was read. */
     readAt: number
     isError: boolean
   }
@@ -80,7 +75,6 @@ const FAST_DELIVERY_FELL_BACK =
   "Fast delivery wasn't available, so this deposit is using standard delivery."
 
 interface LastStateCopy {
-  /** Resume-row subtext on the hub. */
   label?: string
   heading?: string
   message?: string
@@ -138,7 +132,7 @@ const LAST_STATE: Record<DepositLastState, LastStateCopy> &
 
 type ViewParts = Partial<DepositProgressView>
 
-function inFlight(view: Pick<DepositProgressView, "stage" | "message"> & ViewParts) {
+function inFlight(view: Pick<DepositProgressView, "message"> & ViewParts) {
   return {
     title: IN_FLIGHT_TITLE,
     variant: "in-flight",
@@ -152,7 +146,6 @@ function inFlight(view: Pick<DepositProgressView, "stage" | "message"> & ViewPar
 
 function terminal(view: Pick<DepositProgressView, "variant" | "message"> & ViewParts) {
   return {
-    stage: "none",
     title: NEUTRAL_TITLE,
     isRetrying: false,
     showClose: true,
@@ -165,7 +158,6 @@ function terminal(view: Pick<DepositProgressView, "variant" | "message"> & ViewP
 /** Tracking stopped without a financial verdict: never a claim about the funds. */
 function problem(view: Pick<DepositProgressView, "message"> & ViewParts) {
   return {
-    stage: "none",
     title: NEUTRAL_TITLE,
     variant: "problem",
     isRetrying: false,
@@ -174,10 +166,6 @@ function problem(view: Pick<DepositProgressView, "message"> & ViewParts) {
     showChips: false,
     ...view,
   } satisfies DepositProgressView
-}
-
-export function trackedSourceHash(session: DepositSession): string {
-  return session.currentSourceHash ?? ""
 }
 
 // From `send_prompt` onward a send may have happened; `prepared` is an abandoned draft.
@@ -234,9 +222,7 @@ export function deriveDepositProgress(
 }
 
 function resolve(session: DepositSession, inputs: DepositProgressInputs): DepositProgressView {
-  const sourceHash = trackedSourceHash(session)
-
-  if (!sourceHash) return withoutHash(session, inputs)
+  if (!session.currentSourceHash) return withoutHash(session, inputs)
 
   if (session.depositId) return depositStage(session, inputs)
 
@@ -372,7 +358,6 @@ function sourceStage(session: DepositSession, inputs: DepositProgressInputs): De
     (!!session.originalSourceHash && session.originalSourceHash !== session.currentSourceHash)
 
   const base = inFlight({
-    stage: "source",
     message: `Confirming on ${chainName}.`,
     persist: { lastState: hasReplacement ? "source_replaced" : "source_pending" },
   })
@@ -425,7 +410,6 @@ function bridgeStage(inputs: DepositProgressInputs): DepositProgressView {
   }
 
   return inFlight({
-    stage: "bridge",
     heading: copy.heading,
     message: copy.message,
     // Before any state is known, a failed read is indistinguishable from "not picked up yet".
@@ -440,7 +424,6 @@ function correlateStage(inputs: DepositProgressInputs): DepositProgressView {
   if (conflict) return conflictView(conflict)
 
   return inFlight({
-    stage: "correlate",
     // A 404 here is an indexing delay: the receipt is already confirmed on Ethereum.
     message: ARRIVED_ON_ETHEREUM,
     isRetrying: isError,
@@ -471,7 +454,6 @@ function depositStage(session: DepositSession, inputs: DepositProgressInputs): D
   switch (bucket) {
     case "waiting":
       return inFlight({
-        stage: "deposit",
         title: "Confirming your deposit…",
         ...delivering("Confirming on Ethereum."),
         isRetrying: isError,
@@ -479,7 +461,6 @@ function depositStage(session: DepositSession, inputs: DepositProgressInputs): D
       })
     case "processing":
       return inFlight({
-        stage: "deposit",
         title: "Transferring…",
         ...delivering(
           advanceStatus === "pending"

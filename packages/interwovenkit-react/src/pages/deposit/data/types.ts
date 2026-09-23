@@ -252,7 +252,6 @@ export interface BridgeQuoteResponse {
   amount: string
   wallet_address: string
   deposit_address: string
-  cursor: string
   amount_out: string
   min_received: string
   tool: string

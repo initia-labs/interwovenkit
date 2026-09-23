@@ -126,7 +126,6 @@ const TransferFields = () => {
     chainId: isDepositApiTransport ? srcChainId : "",
     owner: hexAddress,
     token: isDepositApiTransport ? srcDenom : "",
-    enabled: isDepositApiTransport,
   })
   const { data: externalAssetOptions, isLoading: isExternalAssetOptionsLoading } =
     useExternalAssetOptions()

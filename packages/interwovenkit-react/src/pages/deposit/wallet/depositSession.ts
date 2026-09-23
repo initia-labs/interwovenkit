@@ -4,12 +4,14 @@ import { DAY_IN_MS, LocalStorageKey } from "@/data/constants"
 import {
   isFiniteNumber,
   isNonEmptyString,
+  isNonNegativeInteger,
   isRecord,
   isString,
   optional,
   parseFields,
   required,
 } from "../data/parse"
+import { BRIDGE_STATUS_STATES, DEPOSIT_BUCKETS } from "../data/types"
 
 export type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem" | "key" | "length">
 
@@ -32,20 +34,8 @@ const DEPOSIT_LAST_STATES = [
   "source_reverted",
   "source_cancelled",
   "source_conflict",
-  "bridge_not_found",
-  "bridge_pending",
-  "bridge_refunding",
-  "bridge_refunded",
-  "bridge_partial",
-  "bridge_refund_required",
-  "bridge_failed",
-  "deposit_pending",
-  "deposit_indexed",
-  "waiting",
-  "processing",
-  "completed",
-  "below_minimum",
-  "failed",
+  ...BRIDGE_STATUS_STATES,
+  ...DEPOSIT_BUCKETS,
   "unknown",
   "tracking_conflict",
   "not_sent",
@@ -89,9 +79,7 @@ export interface DepositSession {
     chainLogoUrl?: string
   }
   depositAddress: string
-  cursor: string
   transaction: DepositSessionTransaction
-  /** The quote's delivery method at send time. */
   predictedDelivery?: string
   preSubmitBlock?: number
   /** When the wallet prompt opened, and the sender's mined nonce read before it. */
@@ -148,8 +136,6 @@ export function reuseOrCreateDepositSession(
 const isInteger = (value: unknown): value is number =>
   isFiniteNumber(value) && Number.isInteger(value)
 
-const isNonNegativeInteger = (value: unknown): value is number => isInteger(value) && value >= 0
-
 const isTransport = (value: unknown): value is DepositSession["transport"] =>
   value === "direct" || value === "lifi"
 
@@ -167,7 +153,6 @@ const SESSION_FIELDS = {
   transport: required(isTransport),
   phase: required(isPhase),
   depositAddress: required(isNonEmptyString),
-  cursor: required(isString),
   predictedDelivery: optional(isNonEmptyString),
   preSubmitBlock: optional(isNonNegativeInteger),
   promptedAt: optional(isNonNegativeInteger),
@@ -308,31 +293,21 @@ export function mergeDepositSession(
 }
 
 export function readDepositSession(storage: StorageLike, id: string): DepositSession | null {
-  let raw: string | null
   try {
-    raw = storage.getItem(depositSessionStorageKey(id))
-  } catch {
-    return null
-  }
-  if (!raw) return null
-  try {
-    return parseDepositSession(JSON.parse(raw))
+    const raw = storage.getItem(depositSessionStorageKey(id))
+    return raw ? parseDepositSession(JSON.parse(raw)) : null
   } catch {
     return null
   }
 }
 
 // Read back every durable write: a quota error, a private-mode stub or another tab can each drop it silently.
-function persistDepositSession(
-  storage: StorageLike,
-  session: DepositSession,
-  action: string,
-): DepositSession {
+function persistDepositSession(storage: StorageLike, session: DepositSession): DepositSession {
   try {
     storage.setItem(depositSessionStorageKey(session.id), JSON.stringify(session))
   } catch (error) {
     throw new DepositSessionWriteError(
-      `Deposit session ${session.id} could not be ${action}: ${String(error)}`,
+      `Deposit session ${session.id} could not be saved: ${String(error)}`,
     )
   }
 
@@ -347,7 +322,7 @@ function persistDepositSession(
 
 export function writeDepositSession(storage: StorageLike, session: DepositSession): DepositSession {
   const merged = mergeDepositSession(readDepositSession(storage, session.id), session)
-  return persistDepositSession(storage, merged, "saved")
+  return persistDepositSession(storage, merged)
 }
 
 // The one sanctioned phase regression: a rejection after a hash is not a rejection of that transaction.
@@ -366,7 +341,7 @@ export function rollbackDepositSessionPrompt(
     promptSeenAt: undefined,
     updatedAt: Date.now(),
   })
-  return persistDepositSession(storage, reverted, "reverted")
+  return persistDepositSession(storage, reverted)
 }
 
 function readAllDepositSessions(storage: StorageLike): DepositSession[] {
@@ -381,7 +356,6 @@ function readAllDepositSessions(storage: StorageLike): DepositSession[] {
   return sessions
 }
 
-/** Newest first, for one environment only. */
 export function listDepositSessions(storage: StorageLike, apiUrl: string): DepositSession[] {
   return readAllDepositSessions(storage)
     .filter((session) => session.apiUrl === apiUrl)

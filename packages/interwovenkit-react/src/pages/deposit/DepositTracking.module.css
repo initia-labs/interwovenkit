@@ -54,35 +54,3 @@ p.note {
 
   border-radius: 50%;
 }
-
-.recovery {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-
-  width: 100%;
-
-  border: 1px solid var(--gray-7);
-  border-radius: 12px;
-  padding: 12px;
-}
-
-.recoveryHeading {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.recoveryText {
-  width: 100%;
-
-  color: var(--gray-3);
-  font-family: var(--monospace);
-  font-size: 11px;
-  line-height: 1.5;
-
-  overflow-x: auto;
-  text-align: left;
-  white-space: pre-wrap;
-  word-break: break-all;
-}

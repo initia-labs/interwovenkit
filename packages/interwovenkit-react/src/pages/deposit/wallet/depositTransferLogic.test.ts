@@ -323,6 +323,7 @@ function readinessInput(overrides: Partial<DepositReadinessInput> = {}): Deposit
     balancesError: false,
     tokenBalance: "5000000",
     nativeBalance: "10000000000000000",
+    sourceChainLoaded: true,
     hasOptions: true,
     hasEligibleOption: true,
     hasQuote: true,
@@ -472,6 +473,12 @@ describe("deriveDepositReadiness", () => {
     expect(deriveDepositReadiness(short).status).toBe("blocked")
     const enough = readinessInput({ nativeBalance: "700", requiredNative: "669" })
     expect(deriveDepositReadiness(enough).status).toBe("ready")
+  })
+
+  it("waits for the head block and nonce the send prompt records", () => {
+    expect(deriveDepositReadiness(readinessInput({ sourceChainLoaded: false }))).toEqual({
+      status: "loading",
+    })
   })
 
   it("loads while routes are unknown and blocks when none is eligible", () => {
