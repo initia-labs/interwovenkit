@@ -278,3 +278,26 @@ export function useSourceChainHead(chainId: string) {
     refetchInterval: SOURCE_READ_REFRESH_MS,
   })
 }
+
+export interface SenderNonces {
+  latest: number
+  pending: number
+}
+
+export function useSenderNonces(chainId: string, sender: string, refetchInterval: number) {
+  return useQuery({
+    queryKey: depositQueryKeys.senderNonces(chainId, sender).queryKey,
+    queryFn: async (): Promise<SenderNonces> => {
+      const provider = getPinnedProvider(chainId)
+      const [latest, pending] = await Promise.all([
+        provider.getTransactionCount(sender, "latest"),
+        provider.getTransactionCount(sender, "pending"),
+      ])
+      return { latest, pending }
+    },
+    enabled: !!sender && !!depositApiRpcUrl(chainId),
+    staleTime: 0,
+    retry: false,
+    refetchInterval,
+  })
+}

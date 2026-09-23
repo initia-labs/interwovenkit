@@ -37,6 +37,15 @@ describe("parseDepositSession", () => {
     expect(parseDepositSession(JSON.parse(JSON.stringify(session)))).toEqual(session)
   })
 
+  it("round-trips the prompt evidence", () => {
+    const session = buildDepositSession({ phase: "send_prompt", promptedAt: 5_000, promptNonce: 0 })
+    expect(parseDepositSession(JSON.parse(JSON.stringify(session)))).toEqual(session)
+  })
+
+  it.each([-1, 1.5, "7", null])("rejects a prompt nonce of %s", (promptNonce) => {
+    expect(parseDepositSession({ ...buildDepositSession(), promptNonce })).toBeNull()
+  })
+
   it("rejects a malformed predicted delivery", () => {
     expect(parseDepositSession({ ...buildDepositSession(), predictedDelivery: 1 })).toBeNull()
   })
@@ -106,13 +115,16 @@ describe("mergeDepositSession", () => {
       phase: "source_sent",
       currentSourceHash: "0xaaa",
       submitted: { nonce: 7, from: SENDER },
+      promptNonce: 7,
     })
     const statusUpdate = buildDepositSession({
       phase: "source_sent",
       lastState: "bridge_pending",
+      promptNonce: undefined,
     })
     const merged = mergeDepositSession(current, statusUpdate)
     expect(merged.currentSourceHash).toBe("0xaaa")
+    expect(merged.promptNonce).toBe(7)
     expect(merged.submitted).toEqual({ nonce: 7, from: SENDER })
     expect(merged.lastState).toBe("bridge_pending")
   })
@@ -175,10 +187,13 @@ describe("writeDepositSession", () => {
 })
 
 describe("rollbackDepositSessionPrompt", () => {
-  it("reopens the form after a rejected prompt", () => {
+  it("reopens the form after a rejected prompt and forgets that prompt's evidence", () => {
     const storage = createMemoryStorage()
-    store(storage, buildDepositSession({ phase: "send_prompt" }))
-    expect(rollbackDepositSessionPrompt(storage, "session-1")?.phase).toBe("prepared")
+    store(storage, buildDepositSession({ phase: "send_prompt", promptedAt: 5_000, promptNonce: 7 }))
+    const reverted = rollbackDepositSessionPrompt(storage, "session-1")
+    expect(reverted?.phase).toBe("prepared")
+    expect(reverted).not.toHaveProperty("promptedAt")
+    expect(reverted).not.toHaveProperty("promptNonce")
   })
 
   it("refuses once a hash exists", () => {

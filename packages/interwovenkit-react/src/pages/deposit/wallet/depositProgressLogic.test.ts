@@ -3,6 +3,7 @@ import { BridgeStatusError } from "../data/bridges"
 import { SRC_TX_HASH } from "../data/testing"
 import type { BridgeStatusState } from "../data/types"
 import {
+  checkHashlessSend,
   type DepositProgressInputs,
   deriveDepositProgress,
   isResumableDepositSession,
@@ -22,6 +23,7 @@ const inputs = (overrides: Partial<DepositProgressInputs> = {}): DepositProgress
   bridge: {},
   direct: { isError: false },
   deposit: { bucket: "waiting", isError: false, isSelfRecipient: true },
+  nonces: { readAt: 0, isError: false },
   isDelayed: false,
   now: 0,
   ...overrides,
@@ -118,6 +120,12 @@ describe("resumeStageLabel", () => {
     expect(resumeStageLabel(session({ lastState: "bridge_pending" }))).toBe("Bridging to Ethereum")
     expect(resumeStageLabel(session({ lastState: "waiting" }))).toBe("Confirming your deposit")
     expect(resumeStageLabel(session({ lastState: "unknown" }))).toBe("Status unavailable")
+    expect(resumeStageLabel(session({ lastState: "tracking_conflict" }))).toBe(
+      "Couldn't verify transfer",
+    )
+    expect(resumeStageLabel(session({ lastState: "bridge_refund_required" }))).toBe(
+      "Refund needs your action",
+    )
   })
 
   it("falls back to the phase when the recorded state carries no resume label", () => {
@@ -126,26 +134,122 @@ describe("resumeStageLabel", () => {
       "Checking your transaction",
     )
     expect(resumeStageLabel(session({ phase: "source_sent" }))).toBe("Source transaction pending")
-    expect(resumeStageLabel(session({ lastState: "tracking_conflict" }))).toBe(
-      "Source transaction pending",
+  })
+})
+
+describe("checkHashlessSend", () => {
+  const MINUTE = 60_000
+  const prompted = { promptNonce: 7, promptedAt: 0, updatedAt: 0 }
+  const read = (latest: number, pending: number, readAt: number, isError = false) => ({
+    data: { latest, pending },
+    readAt,
+    isError,
+  })
+
+  it("releases only once an unchanged nonce is read two minutes after the prompt", () => {
+    expect(checkHashlessSend(prompted, read(7, 7, 2 * MINUTE - 1), 2 * MINUTE).release).toBe(false)
+    expect(checkHashlessSend(prompted, read(7, 7, 2 * MINUTE), 2 * MINUTE)).toEqual({
+      release: true,
+      nonceMoved: false,
+      canMarkNotSent: false,
+    })
+  })
+
+  it.each([
+    ["mined", read(8, 8, 5 * MINUTE)],
+    ["pending", read(7, 8, 5 * MINUTE)],
+  ])("keeps the lock when the %s nonce moved", (_name, nonces) => {
+    const check = checkHashlessSend(prompted, nonces, 5 * MINUTE)
+    expect(check.release).toBe(false)
+    expect(check.nonceMoved).toBe(true)
+  })
+
+  it("never releases on a failed read, a lagging node or a missing prompt nonce", () => {
+    expect(checkHashlessSend(prompted, read(7, 7, 5 * MINUTE, true), 5 * MINUTE).release).toBe(
+      false,
     )
+    expect(checkHashlessSend(prompted, read(6, 6, 5 * MINUTE), 5 * MINUTE).release).toBe(false)
+    const unread = { ...prompted, promptNonce: undefined }
+    expect(checkHashlessSend(unread, read(7, 7, 5 * MINUTE), 5 * MINUTE)).toEqual({
+      release: false,
+      nonceMoved: false,
+      canMarkNotSent: false,
+    })
+  })
+
+  it("offers the manual release only ten minutes after the prompt", () => {
+    const moved = read(8, 8, 9 * MINUTE)
+    expect(checkHashlessSend(prompted, moved, 10 * MINUTE - 1).canMarkNotSent).toBe(false)
+    expect(checkHashlessSend(prompted, moved, 10 * MINUTE).canMarkNotSent).toBe(true)
+    const unread = { promptNonce: undefined, promptedAt: undefined, updatedAt: MINUTE }
+    expect(
+      checkHashlessSend(unread, { readAt: 0, isError: false }, 11 * MINUTE).canMarkNotSent,
+    ).toBe(true)
   })
 })
 
 describe("deriveDepositProgress: no source hash", () => {
+  const hashless = (overrides: Partial<DepositSession> = {}) =>
+    session({
+      phase: "submission_unknown",
+      currentSourceHash: undefined,
+      promptedAt: 0,
+      ...overrides,
+    })
+
   it.each<DepositSessionPhase>(["send_prompt", "submission_unknown"])(
-    "%s without a hash is ambiguous: no polling, no resend",
+    "%s without a hash stays locked while the nonce check runs",
     (phase) => {
-      const view = deriveDepositProgress(session({ phase, currentSourceHash: undefined }), inputs())
+      const view = deriveDepositProgress(hashless({ phase, promptNonce: 7 }), inputs())
       expect(view.stage).toBe("none")
       expect(view.variant).toBe("problem")
       expect(view.heading).toBe("Checking your transaction")
-      expect(view.note).toContain("Don't send again until you know")
+      expect(view.note).toContain("Don't send again")
       expect(view.showClose).toBe(true)
-      // Nothing to refresh: no hash means no backend read exists.
       expect(view.showRefresh).toBe(false)
+      expect(view.canMarkNotSent).toBe(false)
+      expect(view.persist).toBeUndefined()
     },
   )
+
+  it("says it cannot check when no prompt nonce was recorded", () => {
+    const view = deriveDepositProgress(hashless(), inputs())
+    expect(view.heading).toBe("Transfer status unknown")
+    expect(view.message).not.toContain("Checking")
+    expect(view.persist).toBeUndefined()
+  })
+
+  it("releases the transfer as not sent once the unchanged nonce is confirmed", () => {
+    const view = deriveDepositProgress(
+      hashless({ promptNonce: 7 }),
+      inputs({ nonces: { data: { latest: 7, pending: 7 }, readAt: 120_000, isError: false } }),
+    )
+    expect(view.heading).toBe("Deposit not sent")
+    expect(view.persist).toEqual({ phase: "terminal", lastState: "not_sent" })
+  })
+
+  it("keeps the lock and offers the manual release after ten minutes when the nonce moved", () => {
+    const view = deriveDepositProgress(
+      hashless({ promptNonce: 7 }),
+      inputs({
+        nonces: { data: { latest: 8, pending: 8 }, readAt: 600_000, isError: false },
+        now: 600_000,
+      }),
+    )
+    expect(view.heading).toBe("Check your wallet")
+    expect(view.message).toContain("may be this deposit")
+    expect(view.canMarkNotSent).toBe(true)
+    expect(view.persist).toBeUndefined()
+  })
+
+  it("renders a released session as not sent", () => {
+    const view = deriveDepositProgress(
+      hashless({ phase: "terminal", lastState: "not_sent" }),
+      inputs(),
+    )
+    expect(view.heading).toBe("Deposit not sent")
+    expect(view.showClose).toBe(true)
+  })
 
   it("a session that never reached a prompt is not ambiguous", () => {
     const view = deriveDepositProgress(

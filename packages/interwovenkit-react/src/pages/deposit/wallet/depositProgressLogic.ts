@@ -12,7 +12,7 @@ import {
   isPhaseAdvance,
 } from "./depositSession"
 import { matchesAssetOption } from "./depositSources"
-import type { SourceTxOutcome } from "./evmRpc"
+import type { SenderNonces, SourceTxOutcome } from "./evmRpc"
 
 export type DepositProgressStage = "source" | "bridge" | "correlate" | "deposit" | "none"
 
@@ -27,6 +27,8 @@ export interface DepositProgressView {
   showClose: boolean
   showRefresh: boolean
   showChips: boolean
+  /** Offers "I didn't send this" for a send that never returned a hash. */
+  canMarkNotSent?: boolean
   /** Written back to the session so the persisted trail matches the rendered claim. */
   persist?: { phase?: DepositSessionPhase; lastState?: DepositLastState }
 }
@@ -56,6 +58,13 @@ export interface DepositProgressInputs {
     completedAmount?: string
     isSelfRecipient: boolean
   }
+  /** The sender's nonces, polled while a send has no hash. */
+  nonces: {
+    data?: SenderNonces
+    /** When `data` was read. */
+    readAt: number
+    isError: boolean
+  }
   isDelayed: boolean
   now: number
 }
@@ -84,7 +93,7 @@ const LAST_STATE: Record<DepositLastState, LastStateCopy> &
   source_replaced: { label: "Source transaction replaced" },
   source_reverted: {},
   source_cancelled: {},
-  source_conflict: {},
+  source_conflict: { label: "Couldn't verify transfer" },
   bridge_not_found: {
     label: "Waiting for the bridge",
     message: "Transaction broadcast. Waiting for the bridge to pick it up.",
@@ -100,11 +109,13 @@ const LAST_STATE: Record<DepositLastState, LastStateCopy> &
     message: "The bridge refunded this transfer. See the transaction for details.",
   },
   bridge_partial: {
+    label: "Partially delivered",
     heading: "Deposit needs attention",
     message:
       "The bridge delivered only part of this transfer. Check the details or contact support.",
   },
   bridge_refund_required: {
+    label: "Refund needs your action",
     heading: "Refund needs attention",
     message: "This refund needs your action. Check the details to complete it.",
   },
@@ -121,7 +132,8 @@ const LAST_STATE: Record<DepositLastState, LastStateCopy> &
   below_minimum: {},
   failed: {},
   unknown: { label: "Status unavailable" },
-  tracking_conflict: {},
+  tracking_conflict: { label: "Couldn't verify transfer" },
+  not_sent: {},
 }
 
 type ViewParts = Partial<DepositProgressView>
@@ -224,7 +236,7 @@ export function deriveDepositProgress(
 function resolve(session: DepositSession, inputs: DepositProgressInputs): DepositProgressView {
   const sourceHash = trackedSourceHash(session)
 
-  if (!sourceHash) return withoutHash(session)
+  if (!sourceHash) return withoutHash(session, inputs)
 
   if (session.depositId) return depositStage(session, inputs)
 
@@ -239,22 +251,88 @@ function resolve(session: DepositSession, inputs: DepositProgressInputs): Deposi
   return session.transport === "lifi" ? bridgeStage(inputs) : correlateStage(inputs)
 }
 
+const RELEASE_AFTER_MS = 2 * 60_000
+const MARK_NOT_SENT_AFTER_MS = 10 * 60_000
+
+interface HashlessSendCheck {
+  release: boolean
+  nonceMoved: boolean
+  canMarkNotSent: boolean
+}
+
+// Unsent only if neither the mined nor the pending nonce moved past the one read before the prompt.
+export function checkHashlessSend(
+  session: Pick<DepositSession, "promptNonce" | "promptedAt" | "updatedAt">,
+  nonces: DepositProgressInputs["nonces"],
+  now: number,
+): HashlessSendCheck {
+  const { promptNonce } = session
+  const promptedAt = session.promptedAt ?? session.updatedAt
+  const read = nonces.isError ? undefined : nonces.data
+  const unchanged =
+    promptNonce !== undefined && read?.latest === promptNonce && read.pending === promptNonce
+  return {
+    release: unchanged && nonces.readAt - promptedAt >= RELEASE_AFTER_MS,
+    nonceMoved:
+      promptNonce !== undefined &&
+      !!read &&
+      (read.latest > promptNonce || read.pending > promptNonce),
+    canMarkNotSent: now - promptedAt >= MARK_NOT_SENT_AFTER_MS,
+  }
+}
+
+const markedNotSent = () =>
+  terminal({
+    variant: "failed",
+    heading: "Deposit not sent",
+    message: "This deposit wasn't sent from your wallet. You can start a new one.",
+    persist: { phase: "terminal", lastState: "not_sent" },
+  })
+
 // The wallet may have sent without returning a hash, or the session never reached a prompt.
-function withoutHash(session: DepositSession): DepositProgressView {
-  if (isPhaseAdvance("send_prompt", session.phase)) {
+function withoutHash(session: DepositSession, inputs: DepositProgressInputs): DepositProgressView {
+  if (session.lastState === "not_sent") return markedNotSent()
+
+  if (!isPhaseAdvance("send_prompt", session.phase)) {
     return problem({
-      title: "Checking your transaction",
-      heading: "Checking your transaction",
-      message: "Your wallet may have submitted this transfer. Checking before you can send again.",
-      note: "Check your wallet activity for a transfer from this account. Don't send again until you know.",
+      heading: "Nothing to track yet",
+      message: "This deposit was never submitted. Start a new deposit to try again.",
       showRefresh: false,
     })
   }
 
-  return problem({
-    heading: "Nothing to track yet",
-    message: "This deposit was never submitted. Start a new deposit to try again.",
+  const check = checkHashlessSend(session, inputs.nonces, inputs.now)
+  if (check.release) return markedNotSent()
+
+  const { chainName } = session.source
+  const unconfirmed = {
     showRefresh: false,
+    canMarkNotSent: check.canMarkNotSent,
+  }
+
+  if (check.nonceMoved) {
+    return problem({
+      ...unconfirmed,
+      heading: "Check your wallet",
+      message: `Your account has a newer transaction on ${chainName}. It may be this deposit, which can still arrive.`,
+      note: "Check your wallet activity before you send again.",
+    })
+  }
+
+  if (session.promptNonce === undefined) {
+    return problem({
+      ...unconfirmed,
+      heading: "Transfer status unknown",
+      message: "Your wallet didn't confirm whether this transfer was sent.",
+      note: "Check your wallet activity for a transfer from this account. Don't send again until you know.",
+    })
+  }
+
+  return problem({
+    ...unconfirmed,
+    heading: "Checking your transaction",
+    message: `Your wallet didn't confirm whether this transfer was sent. Checking ${chainName} for it before you can send again.`,
+    note: "This takes about two minutes. Don't send again in the meantime.",
   })
 }
 

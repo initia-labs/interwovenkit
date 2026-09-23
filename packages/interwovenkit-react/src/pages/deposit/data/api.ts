@@ -54,6 +54,7 @@ export const depositQueryKeys = createQueryKeys("interwovenkit:deposit", {
   // Keyed by chain so a wallet network switch cannot serve another chain's balance.
   sourceBalances: (chainId: string, owner: string, token: string) => [chainId, owner, token],
   sourceHead: (chainId: string) => [chainId],
+  senderNonces: (chainId: string, sender: string) => [chainId, sender],
   allowance: (chainId: string, owner: string, token: string, spender: string) => [
     chainId,
     owner,

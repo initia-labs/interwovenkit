@@ -516,6 +516,11 @@ describe("parseBridgeQuote", () => {
       ],
       ["with a non-positive amount", withApproval({ amount: "0" }), /approval amount is invalid/],
       ["below the transfer amount", withApproval({ amount: "1" }), /approval amount is invalid/],
+      [
+        "above the transfer amount",
+        withApproval({ amount: "5000001" }),
+        /approval amount is invalid/,
+      ],
     ])("rejects an approval %s", (_name, payload, message) => {
       expect(() => parseBridgeQuote(payload, QUOTE_REQUEST)).toThrow(message)
     })
@@ -563,8 +568,7 @@ describe("bridgeQuoteSignature", () => {
     }
   })
 
-  it("changes when the approval spender or amount changes", () => {
-    const base = signatureOf()
+  it("changes when the approval spender changes", () => {
     expect(
       bridgeQuoteSignature(
         parseBridgeQuote(
@@ -572,10 +576,7 @@ describe("bridgeQuoteSignature", () => {
           QUOTE_REQUEST,
         ),
       ),
-    ).not.toBe(base)
-    expect(
-      bridgeQuoteSignature(parseBridgeQuote(withApproval({ amount: "9000000" }), QUOTE_REQUEST)),
-    ).not.toBe(base)
+    ).not.toBe(signatureOf())
   })
 
   it("changes when the promised output changes", () => {

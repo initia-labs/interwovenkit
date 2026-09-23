@@ -48,6 +48,7 @@ const DEPOSIT_LAST_STATES = [
   "failed",
   "unknown",
   "tracking_conflict",
+  "not_sent",
 ] as const
 
 export type DepositLastState = (typeof DEPOSIT_LAST_STATES)[number]
@@ -93,6 +94,9 @@ export interface DepositSession {
   /** The quote's delivery method at send time. */
   predictedDelivery?: string
   preSubmitBlock?: number
+  /** When the wallet prompt opened, and the sender's mined nonce read before it. */
+  promptedAt?: number
+  promptNonce?: number
   /** What the wallet actually returned; its nonce may differ from any prefetched hint. */
   submitted?: { nonce?: number; from: string }
   currentSourceHash?: string
@@ -142,7 +146,7 @@ export function reuseOrCreateDepositSession(
 const isInteger = (value: unknown): value is number =>
   isFiniteNumber(value) && Number.isInteger(value)
 
-const isBlockNumber = (value: unknown): value is number => isInteger(value) && value >= 0
+const isNonNegativeInteger = (value: unknown): value is number => isInteger(value) && value >= 0
 
 const isTransport = (value: unknown): value is DepositSession["transport"] =>
   value === "direct" || value === "lifi"
@@ -163,7 +167,9 @@ const SESSION_FIELDS = {
   depositAddress: required(isNonEmptyString),
   cursor: required(isString),
   predictedDelivery: optional(isNonEmptyString),
-  preSubmitBlock: optional(isBlockNumber),
+  preSubmitBlock: optional(isNonNegativeInteger),
+  promptedAt: optional(isNonNegativeInteger),
+  promptNonce: optional(isNonNegativeInteger),
   currentSourceHash: optional(isNonEmptyString),
   originalSourceHash: optional(isNonEmptyString),
   depositId: optional(isNonEmptyString),
@@ -283,6 +289,8 @@ export function mergeDepositSession(
     updatedAt: Math.max(current.updatedAt, next.updatedAt),
     phase: isPhaseAdvance(current.phase, next.phase) ? next.phase : current.phase,
     preSubmitBlock: next.preSubmitBlock ?? current.preSubmitBlock,
+    promptedAt: next.promptedAt ?? current.promptedAt,
+    promptNonce: next.promptNonce ?? current.promptNonce,
     submitted: next.submitted ? { ...current.submitted, ...next.submitted } : current.submitted,
     currentSourceHash: next.currentSourceHash ?? current.currentSourceHash,
     originalSourceHash: next.originalSourceHash ?? current.originalSourceHash,
@@ -342,7 +350,13 @@ export function rollbackDepositSessionPrompt(
   const current = readDepositSession(storage, id)
   if (!current || current.phase !== "send_prompt" || current.currentSourceHash) return current
 
-  const reverted = canonicalize({ ...current, phase: "prepared", updatedAt: Date.now() })
+  const reverted = canonicalize({
+    ...current,
+    phase: "prepared",
+    promptedAt: undefined,
+    promptNonce: undefined,
+    updatedAt: Date.now(),
+  })
   return persistDepositSession(storage, reverted, "reverted")
 }
 

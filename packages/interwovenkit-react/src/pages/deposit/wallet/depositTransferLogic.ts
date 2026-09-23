@@ -156,7 +156,7 @@ export function isProvablyNotSent(message: string): boolean {
 }
 
 export const UNKNOWN_SEND_MESSAGE =
-  "The wallet did not confirm whether this transfer was sent. Do not send it again — open the progress view to check its status."
+  "Your wallet didn't confirm whether this transfer was sent. Don't send it again. Open the progress view to check its status."
 
 export const SESSION_IN_FLIGHT_MESSAGE =
   "A transfer for this deposit is already in progress. Open the progress view to follow it."

@@ -33,12 +33,18 @@ import {
 } from "./depositProgressLogic"
 import { type DepositSession, recoveryReference, useDepositSessionStore } from "./depositSession"
 import { depositApiRpcUrl, findDepositApiSource, findEthereumUsdcRoute } from "./depositSources"
-import { getPinnedProvider, type SourceTxOutcome, watchSourceTransaction } from "./evmRpc"
+import {
+  getPinnedProvider,
+  type SourceTxOutcome,
+  useSenderNonces,
+  watchSourceTransaction,
+} from "./evmRpc"
 import { useTransferForm } from "./transferFlowConfig"
 
 // Long enough that ethers' replacement scan rarely restarts; the refetch interval is the outer loop.
 const SOURCE_WATCH_TIMEOUT = 90_000
 const SOURCE_WATCH_INTERVAL = 5_000
+const NONCE_POLL_INTERVAL = 5_000
 
 const DepositProgress = () => {
   const { watch } = useTransferForm()
@@ -86,13 +92,24 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   const applyPatch = useCallback(
     (patch: Partial<DepositSession>) => {
       const current = read(session.id)
-      if (current && !whereEq(patch, current)) write({ ...current, ...patch })
+      if (!current || whereEq(patch, current)) return
+      // A hash another tab recorded meanwhile outranks a verdict drawn without one.
+      if (patch.lastState === "not_sent" && current.currentSourceHash) return
+      write({ ...current, ...patch })
     },
     [read, write, session.id],
   )
 
   const sourceHash = trackedSourceHash(session)
   const depositId = session.depositId ?? ""
+  const isHashlessSend =
+    !sourceHash && (session.phase === "send_prompt" || session.phase === "submission_unknown")
+
+  const noncesQuery = useSenderNonces(
+    session.source.chainId,
+    isHashlessSend && session.promptNonce !== undefined ? session.source.sender : "",
+    NONCE_POLL_INTERVAL,
+  )
 
   const sourceQuery = useQuery({
     // The session id and watched hash identify every other input: the session's immutable intent.
@@ -205,7 +222,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   const [now, setNow] = useState(Date.now)
   const isCountingDown =
     !!estimatedCompletionAt && (bucket === "waiting" || bucket === "processing")
-  useInterval(() => setNow(Date.now()), isCountingDown ? 10_000 : null)
+  useInterval(() => setNow(Date.now()), isCountingDown || isHashlessSend ? 10_000 : null)
 
   // Non-suspending: suspending would blank a screen already reporting on money in flight.
   const assetsQuery = useQuery({
@@ -234,6 +251,11 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   const inputs: Omit<DepositProgressInputs, "isDelayed"> = {
     // The record's own fetch time keeps the first reading fresh before the interval ticks.
     now: Math.max(now, depositQuery.dataUpdatedAt),
+    nonces: {
+      data: noncesQuery.data,
+      readAt: noncesQuery.dataUpdatedAt,
+      isError: noncesQuery.isError,
+    },
     source: { outcome: sourceOutcome, isError: sourceQuery.isError },
     bridge: {
       state: bridgeStatus?.state,
@@ -289,6 +311,14 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   const footer =
     view.showClose || view.showRefresh ? (
       <Footer>
+        {view.canMarkNotSent && (
+          <Button.Outline
+            fullWidth
+            onClick={() => applyPatch({ phase: "terminal", lastState: "not_sent" })}
+          >
+            I didn't send this
+          </Button.Outline>
+        )}
         {view.showRefresh && (
           <Button.White fullWidth onClick={refresh}>
             Refresh

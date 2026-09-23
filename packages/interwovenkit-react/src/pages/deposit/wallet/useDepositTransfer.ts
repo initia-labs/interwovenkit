@@ -61,6 +61,7 @@ import {
   getPinnedProvider,
   readAllowance,
   usePinnedSourceBalances,
+  useSenderNonces,
   useSourceChainHead,
   waitForApproval,
 } from "./evmRpc"
@@ -72,6 +73,8 @@ export type DepositTransportSelection = Extract<
   DepositTransportResolution,
   { transport: "direct" | "lifi" }
 >
+
+const PROMPT_HEARTBEAT_MS = 15_000
 
 export interface DepositTransferModel {
   transport: "direct" | "lifi"
@@ -234,6 +237,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
     enabled: true,
   })
   const headQuery = useSourceChainHead(source.chainId)
+  const noncesQuery = useSenderNonces(source.chainId, hexAddress, SOURCE_READ_REFRESH_MS)
 
   const optionsEnabled = transport === "lifi" && request.isComplete
   const optionsQuery = useQuery(createBridgeOptionsQueryOptions(api, identity, optionsEnabled))
@@ -499,39 +503,53 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
       ...prepared,
       phase: "send_prompt",
       preSubmitBlock: headQuery.data?.block,
+      promptedAt: Date.now(),
+      promptNonce: noncesQuery.data?.latest,
       updatedAt: Date.now(),
     })
-    let signer: Awaited<ReturnType<typeof getSigner>>
-    try {
-      signer = await getSigner(prepared.transaction.chainId)
-    } catch (error) {
-      // Nothing is broadcast before the send itself.
-      rollbackDepositSessionPrompt(localStorage, prepared.id)
-      throw error
-    }
+    // While this tab holds the prompt open, other tabs must not read it as abandoned.
+    const heartbeat = setInterval(() => {
+      const current = readDepositSession(localStorage, prepared.id)
+      if (current?.phase !== "send_prompt" || current.currentSourceHash) return
+      writeAfterPrompt({ ...current, promptedAt: Date.now(), updatedAt: Date.now() })
+    }, PROMPT_HEARTBEAT_MS)
 
     let response: { hash: string; nonce?: number; from: string }
     try {
-      const { transaction } = prepared
-      response = await signer.sendTransaction({
-        chainId: Number(transaction.chainId),
-        to: transaction.to,
-        data: transaction.data,
-        value: BigInt(transaction.value),
-        ...(transaction.gasLimit ? { gasLimit: BigInt(transaction.gasLimit) } : {}),
-      })
-    } catch (error) {
-      const message = await normalizeErrorMessage(error)
-      if (isProvablyNotSent(message)) {
+      let signer: Awaited<ReturnType<typeof getSigner>>
+      try {
+        signer = await getSigner(prepared.transaction.chainId)
+      } catch (error) {
+        // Nothing is broadcast before the send itself.
         rollbackDepositSessionPrompt(localStorage, prepared.id)
         throw error
       }
-      const hash = sendTransactionHashOf(error)
-      if (!hash) {
-        writeAfterPrompt({ ...prepared, phase: "submission_unknown" })
-        throw new UnknownSendError(message)
+
+      try {
+        const { transaction } = prepared
+        response = await signer.sendTransaction({
+          chainId: Number(transaction.chainId),
+          to: transaction.to,
+          data: transaction.data,
+          value: BigInt(transaction.value),
+          ...(transaction.gasLimit ? { gasLimit: BigInt(transaction.gasLimit) } : {}),
+        })
+      } catch (error) {
+        // A hash proves the broadcast, whatever the error says.
+        const hash = sendTransactionHashOf(error)
+        const message = await normalizeErrorMessage(error)
+        if (!hash && isProvablyNotSent(message)) {
+          rollbackDepositSessionPrompt(localStorage, prepared.id)
+          throw error
+        }
+        if (!hash) {
+          writeAfterPrompt({ ...prepared, phase: "submission_unknown" })
+          throw new UnknownSendError(message)
+        }
+        response = { hash, from: hexAddress }
       }
-      response = { hash, from: hexAddress }
+    } finally {
+      clearInterval(heartbeat)
     }
 
     writeAfterPrompt({
