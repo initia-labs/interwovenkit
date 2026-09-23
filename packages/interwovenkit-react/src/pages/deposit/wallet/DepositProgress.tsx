@@ -232,7 +232,8 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   })
 
   const inputs: Omit<DepositProgressInputs, "isDelayed"> = {
-    now,
+    // The record's own fetch time keeps the first reading fresh before the interval ticks.
+    now: Math.max(now, depositQuery.dataUpdatedAt),
     source: { outcome: sourceOutcome, isError: sourceQuery.isError },
     bridge: {
       state: bridgeStatus?.state,

@@ -383,8 +383,7 @@ function depositStage(session: DepositSession, inputs: DepositProgressInputs): D
     inputs.deposit
   const destination = session.destination.chainName || "the destination"
   const eta = timeLeft(session, inputs)
-  const fellBack =
-    session.predictedDelivery === "advance" && !!delivery && delivery.method !== "advance"
+  const fellBack = session.predictedDelivery === "advance" && delivery?.method === "standard"
   const delivering = (message: string) => ({
     message: eta ? `${message} ${eta}` : message,
     note: fellBack ? FAST_DELIVERY_FELL_BACK : undefined,

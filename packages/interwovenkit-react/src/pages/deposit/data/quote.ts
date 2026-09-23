@@ -3,7 +3,8 @@ import { HTTPError } from "ky"
 import { keepPreviousData, queryOptions } from "@tanstack/react-query"
 import { normalizeError, normalizeErrorMessage, STALE_TIMES } from "@/data/http"
 import { depositQueryKeys } from "./api"
-import type { QuoteResponse } from "./types"
+import { isRecord } from "./parse"
+import type { QuoteDelivery, QuoteResponse } from "./types"
 
 export const QUOTE_STALE_TIME = STALE_TIMES.SECOND * 30
 
@@ -28,6 +29,17 @@ export async function classifyQuoteFailure(error: unknown): Promise<QuoteResult>
   throw await normalizeError(error)
 }
 
+// Display-only: a malformed prediction is dropped rather than allowed to block a send.
+export function parseQuoteDelivery(delivery: unknown): QuoteDelivery | undefined {
+  if (!isRecord(delivery) || typeof delivery.method !== "string" || !delivery.method)
+    return undefined
+  const seconds = delivery.estimated_seconds
+  return {
+    method: delivery.method,
+    estimated_seconds: typeof seconds === "number" && seconds >= 0 ? seconds : null,
+  }
+}
+
 // Consumers must pair `keepPreviousData` with deriveSettlement so a held result never reads as a
 // verdict for the current amount.
 export function createQuoteQueryOptions(api: KyInstance, params: QuoteParams, enabled: boolean) {
@@ -48,7 +60,10 @@ export function createQuoteQueryOptions(api: KyInstance, params: QuoteParams, en
             },
           })
           .json<QuoteResponse>()
-        return { status: "quoted", quote }
+        return {
+          status: "quoted",
+          quote: { ...quote, delivery: parseQuoteDelivery(quote.delivery) },
+        }
       } catch (error) {
         return await classifyQuoteFailure(error)
       }

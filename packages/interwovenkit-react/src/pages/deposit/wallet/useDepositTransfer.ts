@@ -310,7 +310,13 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
   const displayResult =
     displaySource.data && !displaySource.isPlaceholderData ? displaySource.data : undefined
   const displayQuote = displayResult?.status === "quoted" ? displayResult.quote : undefined
-  const delivery = deliverySeconds(displayQuote, destination)
+  const preflightQuote =
+    preflightQuery.data?.status === "quoted" && !preflightQuery.isPlaceholderData
+      ? preflightQuery.data.quote
+      : undefined
+  // Either leg predicts the same method unless the amounts straddle the fast-delivery cap.
+  const deliveryQuote = displayQuote ?? preflightQuote
+  const delivery = deliverySeconds(deliveryQuote, destination)
   const estimatedSeconds = combineEstimatedSeconds(
     transport === "lifi" ? [boundQuote?.estimate.execution_duration_seconds, delivery] : [delivery],
   )
@@ -399,7 +405,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
       depositAddress,
       cursor,
       transaction,
-      predictedDelivery: displayQuote?.delivery?.method,
+      predictedDelivery: deliveryQuote?.delivery?.method,
     }
   }
   const draftTransaction = buildDraft(boundQuote)?.transaction

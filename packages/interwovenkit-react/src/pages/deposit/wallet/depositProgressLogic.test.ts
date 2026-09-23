@@ -589,6 +589,7 @@ describe("deriveDepositProgress: delivery estimate", () => {
     ["standard as predicted", "standard", "standard", undefined],
     ["no prediction", undefined, "standard", undefined],
     ["not classified yet", "advance", undefined, undefined],
+    ["an unknown method", "advance", "priority", undefined],
   ])("fallback line: %s", (_, predicted, method, note) => {
     const delivery = method ? { method, estimated_completion_at: null } : undefined
     expect(view({ delivery }, { predictedDelivery: predicted }).note).toBe(note)

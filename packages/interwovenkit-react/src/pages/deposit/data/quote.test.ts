@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest"
-import { classifyQuoteFailure, createQuoteQueryOptions } from "./quote"
+import { classifyQuoteFailure, createQuoteQueryOptions, parseQuoteDelivery } from "./quote"
 import { ETHEREUM_USDC_DENOM } from "./source"
 import { httpError, runQueryFn, stubApi } from "./testing"
+import type { QuoteDelivery } from "./types"
 
 const PARAMS = {
   srcChainId: "1",
@@ -53,5 +54,30 @@ describe("createQuoteQueryOptions", () => {
       status: "declined",
       reason: "route paused",
     })
+  })
+})
+
+describe("parseQuoteDelivery", () => {
+  it.each<[string, unknown, QuoteDelivery | undefined]>([
+    [
+      "keeps a prediction",
+      { method: "advance", estimated_seconds: 60 },
+      { method: "advance", estimated_seconds: 60 },
+    ],
+    [
+      "keeps a null estimate",
+      { method: "standard", estimated_seconds: null },
+      { method: "standard", estimated_seconds: null },
+    ],
+    [
+      "nulls a malformed estimate",
+      { method: "standard", estimated_seconds: "60" },
+      { method: "standard", estimated_seconds: null },
+    ],
+    ["drops a missing method", { estimated_seconds: 60 }, undefined],
+    ["drops a non-string method", { method: null, estimated_seconds: 60 }, undefined],
+    ["drops an absent prediction", undefined, undefined],
+  ])("%s", (_, input, expected) => {
+    expect(parseQuoteDelivery(input)).toEqual(expected)
   })
 })
