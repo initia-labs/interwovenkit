@@ -45,19 +45,20 @@ const SelectDepositRoute = () => {
   const request = useDepositRequest(resolution)
 
   const isLifi = resolution.transport === "lifi"
-  const { data, error, isLoading } = useQuery(
+  const { data, error, isLoading, isPlaceholderData } = useQuery(
     createBridgeOptionsQueryOptions(api, request.identity, isLifi && request.isComplete),
   )
+  const optionsData = isPlaceholderData ? undefined : data
 
   useEffect(() => {
     if (!isLifi) setValue("page", "fields")
   }, [isLifi, setValue])
 
-  const ranked = rankBridgeOptions(data?.options ?? [])
+  const ranked = rankBridgeOptions(optionsData?.options ?? [])
   const { option: activeOption } = selectBridgeOption(ranked, selectedBridge)
   const best = ranked.find((option) => option.eligible)
-  const requiredMinimum = data
-    ? formatSourceMin(data.required_min_received, USDC_DECIMALS, "USDC")
+  const requiredMinimum = optionsData
+    ? formatSourceMin(optionsData.required_min_received, USDC_DECIMALS, "USDC")
     : ""
 
   // Final delivery per route, quoted from the USDC it lands on Ethereum.
@@ -101,7 +102,7 @@ const SelectDepositRoute = () => {
   const renderList = () => {
     if (!isLifi) return null
     if (error) return <DepositStatus error>{error.message}</DepositStatus>
-    if (isLoading) return <DepositStatus>Finding routes...</DepositStatus>
+    if (isLoading || isPlaceholderData) return <DepositStatus>Finding routes...</DepositStatus>
     if (!ranked.length) return <DepositStatus>No routes available for this amount</DepositStatus>
 
     return ranked.map((option) => {

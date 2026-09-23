@@ -188,6 +188,7 @@ const MethodSections = ({ availability, onrampUnavailableReason }: MethodSection
         // the `wallet` page of this hub, scoped to the selected receive asset.
         switch (id) {
           case "wallet":
+            setValue("resumeSessionId", "")
             navigate("wallet")
             break
           case "address":

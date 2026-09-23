@@ -230,7 +230,8 @@ export function useDepositTransfer(resolution: DepositTransportSelection): Depos
 
   const optionsEnabled = transport === "lifi" && request.isComplete
   const optionsQuery = useQuery(createBridgeOptionsQueryOptions(api, identity, optionsEnabled))
-  const optionsData = optionsEnabled ? optionsQuery.data : undefined
+  const optionsData =
+    optionsEnabled && !optionsQuery.isPlaceholderData ? optionsQuery.data : undefined
   const ranked = rankBridgeOptions(optionsData?.options ?? [])
   const { option: selectedBridge, clearSelection } = selectBridgeOption(ranked, selectedBridgeKey)
 
