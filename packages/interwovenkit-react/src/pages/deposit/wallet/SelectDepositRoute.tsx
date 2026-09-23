@@ -41,10 +41,12 @@ function describeRoute(option: BridgeOption, delivery: number | null | undefined
   return [gas, duration].filter((part): part is string => !!part).join(" · ")
 }
 
-// Not polled: the options refresh re-keys every row whose amount moved.
+// Not polled: the options refresh re-keys every row whose amount moved. The previous amount's
+// quote stays on screen while the new one loads, but is never compared as current.
 function useFinalQuote(amountIn: string, destination: DestinationNetwork | undefined) {
-  const { data } = useDeliveryQuote(destination, amountIn, false)
-  return amountIn && data?.status === "quoted" ? data.quote : undefined
+  const { data, isPlaceholderData } = useDeliveryQuote(destination, amountIn, false)
+  const quote = amountIn && data?.status === "quoted" ? data.quote : undefined
+  return { quote, isCurrent: !!quote && !isPlaceholderData }
 }
 
 interface RouteRowProps {
@@ -61,9 +63,13 @@ interface RouteRowProps {
 const RouteRow = (props: RouteRowProps) => {
   const { option, destination, symbol, isActive, isBest, bestFinal, requiredMinimum } = props
   const { name, logoUrl } = getBridgeToolDisplay(option.bridge)
-  const finalQuote = useFinalQuote(option.eligible ? option.amount_out : "", destination)
+  const { quote: finalQuote, isCurrent } = useFinalQuote(
+    option.eligible ? option.amount_out : "",
+    destination,
+  )
   const finalAmount = finalQuote?.amount_out
-  const difference = option.eligible && !isBest ? percentDifference(finalAmount, bestFinal) : ""
+  const difference =
+    option.eligible && !isBest && isCurrent ? percentDifference(finalAmount, bestFinal) : ""
 
   return (
     <DepositSubpage.Row isActive={isActive} onClick={props.onSelect} disabled={!option.eligible}>
@@ -122,10 +128,11 @@ const SelectDepositRoute = () => {
   const ranked = rankBridgeOptions(data?.options ?? [])
   const { option: activeOption } = selectBridgeOption(ranked, selectedBridge)
   const best = ranked.find((option) => option.eligible)
-  const bestFinal = useFinalQuote(
+  const bestQuote = useFinalQuote(
     best?.amount_out ?? "",
     isLifi ? resolution.destination : undefined,
-  )?.amount_out
+  )
+  const bestFinal = bestQuote.isCurrent ? bestQuote.quote?.amount_out : undefined
   const requiredMinimum =
     data && isLifi
       ? formatSourceMin(data.required_min_received, resolution.route.src_decimals, "USDC")
