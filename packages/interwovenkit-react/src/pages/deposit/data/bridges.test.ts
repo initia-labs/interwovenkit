@@ -69,7 +69,9 @@ const withOption = (overrides: Record<string, unknown>) => optionsPayload([wireO
 describe("parseBridgeOptions", () => {
   it("returns the parsed envelope and options", () => {
     const parsed = parseBridgeOptions(
-      optionsPayload([wireOption({ execution_duration_seconds: 30, gas_cost_usd: "0.42" })]),
+      optionsPayload([
+        wireOption({ execution_duration_seconds: 30, gas_cost_usd: "0.42", fee_cost_usd: "1.65" }),
+      ]),
     )
     expect(parsed.deposit_address).toBe(DEPOSIT_ADDRESS)
     expect(parsed.required_min_received).toBe("4900000")
@@ -81,6 +83,7 @@ describe("parseBridgeOptions", () => {
         eligible: true,
         execution_duration_seconds: 30,
         gas_cost_usd: "0.42",
+        fee_cost_usd: "1.65",
       },
     ])
   })
@@ -125,6 +128,7 @@ describe("parseBridgeOptions", () => {
       /invalid execution_duration_seconds/,
     ],
     ["an unparseable gas_cost_usd", withOption({ gas_cost_usd: "free" }), /invalid gas_cost_usd/],
+    ["an unparseable fee_cost_usd", withOption({ fee_cost_usd: "free" }), /invalid fee_cost_usd/],
   ])("rejects %s", (_name, payload, message) => {
     expect(() => parseBridgeOptions(payload)).toThrow(message)
   })
@@ -156,6 +160,7 @@ const option = (overrides: Partial<BridgeOption> & { bridge: string }): BridgeOp
   min_received: "1000",
   eligible: true,
   gas_cost_usd: "0",
+  fee_cost_usd: "0",
   ...overrides,
 })
 
@@ -269,6 +274,35 @@ describe("rankBridgeOptions", () => {
         option({ bridge: "e", amount_out: usdc("100"), execution_duration_seconds: 1200 }),
       ]),
     ).toEqual(["e", "d", "b", "c", "a"])
+  })
+
+  // The live 3 USDC Arbitrum case: Stargate's messaging fee is paid on top as native value.
+  it("counts fees paid on top, so a route charging one can't win as if it were free", () => {
+    const routes = [
+      option({
+        bridge: "stargate",
+        amount_out: "2977239",
+        execution_duration_seconds: 5,
+        gas_cost_usd: "0.031",
+        fee_cost_usd: "1.6466",
+      }),
+      option({
+        bridge: "polymer",
+        amount_out: "2962156",
+        execution_duration_seconds: 10,
+        gas_cost_usd: "0.0182",
+      }),
+    ]
+    expect(keys(routes)).toEqual(["polymer", "stargate"])
+  })
+
+  it("never ranks a route whose fees are unknown ahead of one whose fees are known", () => {
+    expect(
+      keys([
+        option({ bridge: "unknown", amount_out: usdc("1"), fee_cost_usd: undefined }),
+        option({ bridge: "known", amount_out: usdc("0.99"), execution_duration_seconds: 600 }),
+      ]),
+    ).toEqual(["known", "unknown"])
   })
 
   it("never ranks a route without a gas estimate ahead of one with a known estimate", () => {

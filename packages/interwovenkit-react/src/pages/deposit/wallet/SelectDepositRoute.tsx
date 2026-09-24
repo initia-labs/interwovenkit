@@ -9,6 +9,7 @@ import {
   createBridgeOptionsQueryOptions,
   percentDifference,
   rankBridgeOptions,
+  routeCostUsd,
 } from "../data/bridges"
 import { userErrorMessage } from "../data/parse"
 import { formatSourceMin } from "../data/source"
@@ -35,10 +36,11 @@ const OPTIONS_REFRESH_MS = 20_000
 
 /** Unknown cost or time is dropped rather than shown as free or instant. */
 function describeRoute(option: BridgeOption, delivery: number | null | undefined): string {
-  const gas = option.gas_cost_usd ? `Gas ${formatNetworkFee(option.gas_cost_usd)}` : undefined
+  const cost = routeCostUsd(option)
+  const fees = cost ? `Fees ${formatNetworkFee(cost.toString())}` : undefined
   const seconds = combineEstimatedSeconds([option.execution_duration_seconds, delivery])
   const duration = seconds ? formatDuration(seconds) : undefined
-  return [gas, duration].filter((part): part is string => !!part).join(" · ")
+  return [fees, duration].filter((part): part is string => !!part).join(" · ")
 }
 
 // Not polled: the options refresh re-keys every row whose amount moved. The previous amount's
@@ -168,7 +170,7 @@ const SelectDepositRoute = () => {
   return (
     <DepositSubpage title="Select route" onBack={() => setValue("page", "fields")}>
       <p className={styles.explainer}>
-        Best is the fastest route within 0.5% or $0.05 of the highest amount after gas.
+        Best is the fastest route within 0.5% or $0.05 of the highest amount after fees.
       </p>
       <div className={providerStyles.header}>
         <span>Route</span>

@@ -107,17 +107,27 @@ export function parseBridgeOptions(response: unknown): BridgeOptionsResponse {
           min_received: expectField(option, "min_received", isPositiveIntegerString, where),
           eligible: expectField(option, "eligible", isBoolean, where),
           ...parseEstimate(option, where),
+          fee_cost_usd: optionalField(option, "fee_cost_usd", isDecimalString, where),
         }
       },
     ),
   }
 }
 
-// Every source is USDC, so USD gas nets out in USDC base units; unknown gas never reaches the best.
-const netValue = (option: BridgeOption) =>
-  option.gas_cost_usd
-    ? BigNumber(option.amount_out).minus(BigNumber(option.gas_cost_usd).shiftedBy(USDC_DECIMALS))
+// What a route costs on top of its output: gas plus fees paid as the call's native value.
+// Unknown either way is not free, so it never reaches the best.
+export function routeCostUsd(option: BridgeOption): BigNumber | undefined {
+  if (!option.gas_cost_usd || !option.fee_cost_usd) return undefined
+  return BigNumber(option.gas_cost_usd).plus(option.fee_cost_usd)
+}
+
+// Every source is USDC, so USD costs net out in USDC base units.
+const netValue = (option: BridgeOption) => {
+  const cost = routeCostUsd(option)
+  return cost
+    ? BigNumber(option.amount_out).minus(cost.shiftedBy(USDC_DECIMALS))
     : BigNumber(-Infinity)
+}
 
 const COMPETITIVE_VALUE_TOLERANCE = 0.005
 const COMPETITIVE_VALUE_FLOOR = BigNumber(0.05).shiftedBy(USDC_DECIMALS)
@@ -136,13 +146,13 @@ export function rankBridgeOptions(options: BridgeOption[]): BridgeOption[] {
   const byNet = (a: BridgeOption, b: BridgeOption) => netValue(b).comparedTo(netValue(a)) ?? 0
   const byDuration = (a: BridgeOption, b: BridgeOption) =>
     (a.execution_duration_seconds ?? Infinity) - (b.execution_duration_seconds ?? Infinity)
-  const byGas = (a: BridgeOption, b: BridgeOption) =>
-    BigNumber(a.gas_cost_usd ?? Infinity).comparedTo(b.gas_cost_usd ?? Infinity) ?? 0
+  const byCost = (a: BridgeOption, b: BridgeOption) =>
+    (routeCostUsd(a) ?? BigNumber(Infinity)).comparedTo(routeCostUsd(b) ?? Infinity) ?? 0
 
   return [...options].sort((a, b) => {
     const byTier = tier(a) - tier(b)
     if (byTier !== 0) return byTier
-    if (tier(a) === 0) return byDuration(a, b) || byGas(a, b) || byNet(a, b) || byKey(a, b)
+    if (tier(a) === 0) return byDuration(a, b) || byCost(a, b) || byNet(a, b) || byKey(a, b)
     return byNet(a, b) || byDuration(a, b) || byKey(a, b)
   })
 }

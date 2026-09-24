@@ -211,6 +211,8 @@ export interface BridgeOption {
   eligible: boolean
   execution_duration_seconds?: number
   gas_cost_usd?: string
+  /** Fees paid on top as the call's native value; omitted when LI.FI can't say which fees are. */
+  fee_cost_usd?: string
 }
 
 /** POST /v1/bridges/options */
