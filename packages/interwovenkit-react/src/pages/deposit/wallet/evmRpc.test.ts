@@ -49,6 +49,8 @@ interface FakeProviderOptions {
   minedReceiptBlock?: number | null
   head?: number
   rpcError?: Error
+  /** A block whose read fails, like a slow node timing out. */
+  failedBlock?: number
   balance?: bigint
   call?: EthCall
 }
@@ -81,6 +83,7 @@ function createFakeProvider(options: FakeProviderOptions = {}): JsonRpcProvider 
     getTransactionCount: async () => (mined ? 8 : 7),
     getBlock: async (blockNumber: number) => {
       blockReads.push(blockNumber)
+      if (blockNumber === options.failedBlock) throw new Error("timeout")
       return { prefetchedTransactions: blockNumber === minedBlock && minedTx ? [minedTx] : [] }
     },
     getBalance: async () => options.balance ?? 0n,
@@ -246,6 +249,30 @@ describe("checkSourceTransaction", () => {
     const provider = createFakeProvider({
       mined: { from: OTHER, to: SENDER, data: "0x", value: 0n },
       head: 110,
+    })
+    await expect(checkSourceTransaction(provider, HASH, SEND, 130)).resolves.toEqual({
+      status: "pending",
+      nextBlock: 130,
+    })
+  })
+
+  it("keeps the blocks already scanned when a block read fails", async () => {
+    const provider = createFakeProvider({
+      mined: { to: SENDER, data: "0x", value: 0n },
+      minedBlock: 130,
+      head: 400,
+      failedBlock: 103,
+    })
+    await expect(check(provider)).resolves.toEqual({ status: "pending", nextBlock: 103 })
+    expect(blockReads).toEqual([100, 101, 102, 103])
+  })
+
+  it("never moves the cursor back when a block read behind it fails", async () => {
+    const provider = createFakeProvider({
+      mined: { to: SENDER, data: "0x", value: 0n },
+      minedBlock: 200,
+      head: 400,
+      failedBlock: 127,
     })
     await expect(checkSourceTransaction(provider, HASH, SEND, 130)).resolves.toEqual({
       status: "pending",

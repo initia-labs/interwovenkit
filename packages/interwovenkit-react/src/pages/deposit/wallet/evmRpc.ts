@@ -159,8 +159,9 @@ export async function checkSourceTransaction(
   const first = Math.max(startBlock, cursor - REORG_OVERLAP_BLOCKS)
   const last = Math.min(head, first + SCAN_BLOCKS_PER_CHECK - 1)
   for (let number = first; number <= last; number++) {
-    const block = await provider.getBlock(number, true)
-    if (!block) return { status: "pending", nextBlock: number }
+    // A failed or missing block keeps the progress so far for the next check to resume from.
+    const block = await provider.getBlock(number, true).catch(() => null)
+    if (!block) return { status: "pending", nextBlock: Math.max(cursor, number) }
     const taken = block.prefetchedTransactions.find(
       (tx) => sameAddress(tx.from, sender) && tx.nonce === nonce,
     )
