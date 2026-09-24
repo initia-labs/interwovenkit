@@ -67,7 +67,9 @@ const DepositTransferTxDetails = ({ model }: { model: DepositTransferModel }) =>
           </DetailRow>
         )}
         <DetailRow label={isHostRecipient ? "Recipient (set by app)" : "Receiving address"}>
-          {!isHostRecipient && <img src={walletIcon} alt="Wallet" height={12} width={12} />}{" "}
+          {!isHostRecipient && walletIcon && (
+            <img src={walletIcon} alt="Wallet" height={12} width={12} />
+          )}{" "}
           {truncate(recipient)}
         </DetailRow>
         {depositAddress && (

@@ -100,6 +100,17 @@ describe("normalizeErrorMessage", () => {
     ])("passes %s through", async (_name, error, expected) => {
       expect(await normalizeErrorMessage(error)).toBe(expected)
     })
+
+    // A request already open in the wallet: the send may still be signed there.
+    it("never reads a pending wallet request as a refusal, even nested", async () => {
+      const pending = makeError("user rejected action", "ACTION_REJECTED", {
+        action: "sendTransaction",
+        reason: "pending",
+      })
+      const nested = new Error("send failed", { cause: pending })
+      expect(await normalizeErrorMessage(pending)).not.toBe(USER_REJECTED_MESSAGE)
+      expect(await normalizeErrorMessage(nested)).not.toBe(USER_REJECTED_MESSAGE)
+    })
   })
 
   it("stringifies non-error values", async () => {

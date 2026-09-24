@@ -36,6 +36,10 @@ function isUserRejection(error: unknown): boolean {
       if (USER_REJECTED_PATTERNS.some((pattern) => pattern.test(node))) return true
     } else if (typeof node === "object" && node !== null && !seen.has(node)) {
       seen.add(node)
+      // ethers reports a request already open in the wallet as ACTION_REJECTED "pending": not a refusal.
+      if (path(["code"], node) === "ACTION_REJECTED" && path(["reason"], node) === "pending") {
+        return false
+      }
       if (USER_REJECTED_CODES.includes(String(path(["code"], node)))) return true
       queue.push(path(["message"], node), ...NESTED_ERROR_PATHS.map((key) => path(key, node)))
     }
