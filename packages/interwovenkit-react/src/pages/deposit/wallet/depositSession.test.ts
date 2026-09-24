@@ -106,6 +106,18 @@ describe("mergeDepositSession", () => {
     expect(merged.lastState).toBeUndefined()
   })
 
+  it("reopens a stored not-sent verdict that already kept the hash", () => {
+    const released = buildDepositSession({
+      phase: "terminal",
+      lastState: "not_sent",
+      currentSourceHash: "0xaaa",
+    })
+    const sent = buildDepositSession({ phase: "source_sent", currentSourceHash: "0xaaa" })
+    const merged = mergeDepositSession(released, sent)
+    expect(merged).toMatchObject({ phase: "source_sent", currentSourceHash: "0xaaa" })
+    expect(merged.lastState).toBeUndefined()
+  })
+
   it.each<[string, Partial<DepositSession>, Partial<DepositSession>]>([
     [
       "a failed deposit",
@@ -115,11 +127,6 @@ describe("mergeDepositSession", () => {
     [
       "a completed deposit",
       { phase: "terminal", lastState: "completed", currentSourceHash: "0xaaa" },
-      { phase: "source_sent", currentSourceHash: "0xbbb" },
-    ],
-    [
-      "a not-sent verdict that already had a hash",
-      { phase: "terminal", lastState: "not_sent", currentSourceHash: "0xaaa" },
       { phase: "source_sent", currentSourceHash: "0xbbb" },
     ],
     [
@@ -135,6 +142,14 @@ describe("mergeDepositSession", () => {
   ])("keeps %s terminal", (_, current, next) => {
     const merged = mergeDepositSession(buildDepositSession(current), buildDepositSession(next))
     expect(merged).toMatchObject({ phase: "terminal", lastState: current.lastState })
+  })
+
+  it("keeps an in-flight hash against a later hashless not-sent write", () => {
+    const current = buildDepositSession({ phase: "source_sent", currentSourceHash: "0xaaa" })
+    const released = buildDepositSession({ phase: "terminal", lastState: "not_sent" })
+    const merged = mergeDepositSession(current, released)
+    expect(merged).toMatchObject({ phase: "source_sent", currentSourceHash: "0xaaa" })
+    expect(merged.lastState).toBeUndefined()
   })
 
   it.each<[DepositSessionPhase, DepositSessionPhase]>([

@@ -260,15 +260,19 @@ export function mergeDepositSession(
   }
 
   // A hash outranks a "not sent" verdict: the transfer was broadcast after all.
-  const reopened =
-    current.lastState === "not_sent" && !current.currentSourceHash && !!next.currentSourceHash
+  const reopened = current.lastState === "not_sent" && !!next.currentSourceHash
+  const staleNotSent =
+    next.lastState === "not_sent" && !next.currentSourceHash && !!current.currentSourceHash
 
   return canonicalize({
     ...current,
     ...next,
     createdAt: current.createdAt,
     updatedAt: Math.max(current.updatedAt, next.updatedAt),
-    phase: reopened || isPhaseAdvance(current.phase, next.phase) ? next.phase : current.phase,
+    phase:
+      reopened || (!staleNotSent && isPhaseAdvance(current.phase, next.phase))
+        ? next.phase
+        : current.phase,
     preSubmitBlock: next.preSubmitBlock ?? current.preSubmitBlock,
     promptedAt: next.promptedAt ?? current.promptedAt,
     promptNonce: next.promptNonce ?? current.promptNonce,
@@ -282,9 +286,11 @@ export function mergeDepositSession(
     depositId: next.depositId ?? current.depositId,
     lastState: reopened
       ? next.lastState
-      : current.phase === "terminal"
+      : staleNotSent
         ? current.lastState
-        : (next.lastState ?? current.lastState),
+        : current.phase === "terminal"
+          ? current.lastState
+          : (next.lastState ?? current.lastState),
   })
 }
 
