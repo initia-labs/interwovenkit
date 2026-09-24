@@ -719,6 +719,7 @@ describe("bridgeStatusPollInterval", () => {
     ["through a transient upstream", ["bridge_pending", coded("upstream_unavailable"), 0], 3000],
     ["on upstream_conflict", ["bridge_pending", coded("upstream_conflict"), 0], false],
     ["on invalid_request", ["bridge_pending", coded("invalid_request"), 0], false],
+    ["on a response that failed its checks", ["bridge_pending", new ParseError("m"), 0], false],
     ["after the handoff", ["deposit_indexed", null, 0], false],
     ["on bridge_partial", ["bridge_partial", null, 0], false],
     ["on bridge_refunded", ["bridge_refunded", null, 0], false],

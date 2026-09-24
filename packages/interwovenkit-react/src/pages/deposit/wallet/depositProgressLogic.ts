@@ -2,7 +2,7 @@ import { formatDuration } from "@/pages/bridge/data/format"
 import type { AssetOption } from "../data/assetOptions"
 import { BridgeStatusError } from "../data/bridges"
 import type { WalletDepositBucket } from "../data/deposits"
-import { eqAddress } from "../data/parse"
+import { eqAddress, ParseError } from "../data/parse"
 import type { BridgeStatusState, DepositDelivery } from "../data/types"
 import {
   type DepositLastState,
@@ -220,25 +220,31 @@ interface HashlessSendCheck {
   canMarkNotSent: boolean
 }
 
-// Unsent only if neither the mined nor the pending nonce moved past the one read before the prompt.
+// Unsent only if both nonces still match the ones read before the prompt, so a transaction already
+// pending then isn't mistaken for this send.
 export function checkHashlessSend(
-  session: Pick<DepositSession, "promptNonce" | "promptedAt" | "promptSeenAt" | "updatedAt">,
+  session: Pick<
+    DepositSession,
+    "promptNonce" | "promptPendingNonce" | "promptedAt" | "promptSeenAt" | "updatedAt"
+  >,
   nonces: DepositProgressInputs["nonces"],
   now: number,
 ): HashlessSendCheck {
   const { promptNonce } = session
+  const promptPendingNonce = session.promptPendingNonce ?? promptNonce
   const promptedAt = session.promptedAt ?? session.updatedAt
   const lastSeenAt = Math.max(promptedAt, session.promptSeenAt ?? 0)
   // A failed read keeps the last one for display but never releases.
   const read = nonces.data
   const unchanged =
-    promptNonce !== undefined && read?.latest === promptNonce && read.pending === promptNonce
+    promptNonce !== undefined && read?.latest === promptNonce && read.pending === promptPendingNonce
   return {
     release: !nonces.isError && unchanged && nonces.readAt - lastSeenAt >= RELEASE_AFTER_MS,
     nonceMoved:
       promptNonce !== undefined &&
+      promptPendingNonce !== undefined &&
       !!read &&
-      (read.latest > promptNonce || read.pending > promptNonce),
+      (read.latest > promptNonce || read.pending > promptPendingNonce),
     canMarkNotSent: now - promptedAt >= MARK_NOT_SENT_AFTER_MS,
   }
 }
@@ -354,7 +360,8 @@ function bridgeStage(inputs: DepositProgressInputs): DepositProgressView {
     return conflictView("The tracking request was rejected. Your transaction details are saved.")
   }
 
-  if (conflict) return conflictView(MISMATCH)
+  // A response that fails its checks can't be fixed by polling again.
+  if (conflict || error instanceof ParseError) return conflictView(MISMATCH)
 
   const copy = LAST_STATE[state ?? "bridge_not_found"]
 

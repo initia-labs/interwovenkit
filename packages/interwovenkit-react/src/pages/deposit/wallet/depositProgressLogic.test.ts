@@ -1,4 +1,5 @@
 import { BridgeStatusError } from "../data/bridges"
+import { ParseError } from "../data/parse"
 import { RECIPIENT, SRC_TX_HASH } from "../data/testing"
 import type { BridgeStatusState } from "../data/types"
 import {
@@ -118,6 +119,7 @@ describe("resumeStageLabel", () => {
 
 describe("checkHashlessSend", () => {
   const prompted = { promptNonce: 7, promptedAt: 0, updatedAt: 0 }
+  const queued = { ...prompted, promptPendingNonce: 8 }
   const read = (latest: number, pending: number, readAt: number, isError = false) => ({
     data: { latest, pending },
     readAt,
@@ -130,6 +132,13 @@ describe("checkHashlessSend", () => {
       release: true,
       nonceMoved: false,
       canMarkNotSent: false,
+    })
+  })
+
+  it("releases past a transaction that was already pending at the prompt", () => {
+    expect(checkHashlessSend(queued, read(7, 8, 2 * MINUTE), 2 * MINUTE)).toMatchObject({
+      release: true,
+      nonceMoved: false,
     })
   })
 
@@ -152,6 +161,8 @@ describe("checkHashlessSend", () => {
     ["nothing was read yet", prompted, { readAt: 5 * MINUTE, isError: false }, false],
     ["the mined nonce moved", prompted, read(8, 8, 5 * MINUTE), true],
     ["the pending nonce moved", prompted, read(7, 8, 5 * MINUTE), true],
+    ["a transaction pending before the prompt mined", queued, read(8, 8, 5 * MINUTE), true],
+    ["the pending nonce moved past one already queued", queued, read(7, 9, 5 * MINUTE), true],
   ])("never releases when %s", (_, sent, nonces, nonceMoved) => {
     expect(checkHashlessSend(sent, nonces, 5 * MINUTE)).toMatchObject({
       release: false,
@@ -418,6 +429,16 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
     [
       "invalid_request stops tracking",
       { state: "bridge_pending", error: new BridgeStatusError("invalid_request", "rejected") },
+      { variant: "problem", persist: { lastState: "tracking_conflict" } },
+    ],
+    [
+      "a response that failed its checks stops tracking",
+      { state: "bridge_pending", error: new ParseError("echoes another hash") },
+      { variant: "problem", persist: { lastState: "tracking_conflict" } },
+    ],
+    [
+      "a failed check before any state stops tracking",
+      { error: new ParseError("unknown state") },
       { variant: "problem", persist: { lastState: "tracking_conflict" } },
     ],
     [

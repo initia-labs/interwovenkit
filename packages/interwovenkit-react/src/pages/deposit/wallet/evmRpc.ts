@@ -8,7 +8,7 @@ import { depositApiRpcUrl } from "./depositSources"
 
 export const SOURCE_READ_REFRESH_MS = 15_000
 
-// One per chain for the tab's lifetime: ethers keeps a polling loop alive once `waitForTransaction` subscribed.
+// One per chain for the tab's lifetime.
 const pinnedProviders = new Map<string, JsonRpcProvider>()
 const RPC_TIMEOUT_MS = 10_000
 
@@ -75,14 +75,34 @@ export function encodeErc20Approve(spender: string, amount: string): string {
   return ERC20.encodeFunctionData("approve", [addressArg(spender), BigInt(amount)])
 }
 
-// Only a successful receipt counts; the allowance re-read still decides whether another approval is needed.
+const APPROVAL_POLL_MS = 2_000
+
+interface PendingApproval {
+  hash: string
+  owner: string
+  token: string
+  spender: string
+  amount: string
+}
+
+// A wallet speed-up gives the approval a new hash, so the raised allowance confirms it too.
 export async function waitForApproval(
-  provider: Pick<JsonRpcProvider, "waitForTransaction">,
-  hash: string,
+  provider: JsonRpcProvider,
+  { hash, owner, token, spender, amount }: PendingApproval,
   timeoutMs: number,
 ): Promise<void> {
-  const receipt = await provider.waitForTransaction(hash, 1, timeoutMs)
-  if (receipt?.status !== 1) throw new Error("The USDC approval did not go through")
+  const deadline = Date.now() + timeoutMs
+  do {
+    // A failed read is only "not yet"; the deadline bounds the wait.
+    const [receipt, allowance] = await Promise.all([
+      provider.getTransactionReceipt(hash).catch(() => null),
+      readErc20Uint(provider, token, "allowance", [owner, spender]).catch(() => "0"),
+    ])
+    if (receipt && receipt.status !== 1) break
+    if (receipt || BigInt(allowance) >= BigInt(amount)) return
+    await new Promise((resolve) => setTimeout(resolve, APPROVAL_POLL_MS))
+  } while (Date.now() < deadline)
+  throw new Error("The USDC approval did not go through")
 }
 
 export type SourceTxOutcome =

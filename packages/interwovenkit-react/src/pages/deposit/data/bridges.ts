@@ -322,6 +322,7 @@ export function bridgeStatusPollInterval(
   error: Error | null,
   elapsedMs: number,
 ): number | false {
+  if (error instanceof ParseError) return false
   if (error instanceof BridgeStatusError && BRIDGE_STATUS_STOP_ERROR_CODES.includes(error.code)) {
     return false
   }

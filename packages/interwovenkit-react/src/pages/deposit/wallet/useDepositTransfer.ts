@@ -445,7 +445,13 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
         })
         await waitForApproval(
           getPinnedProvider(source.chainId),
-          response.hash,
+          {
+            hash: response.hash,
+            owner: signer.address,
+            token: approval.token_address,
+            spender: approval.spender_address,
+            amount: approval.amount,
+          },
           APPROVAL_RECEIPT_TIMEOUT_MS,
         )
         // The next prompt must record the nonce after the approval's and see the raised allowance.
@@ -471,8 +477,8 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const sendDeposit = async (quote: BridgeQuoteResponse | undefined) => {
     const draft = buildDraft(quote)
     const preSubmitBlock = headQuery.data?.block
-    const promptNonce = noncesQuery.data?.latest
-    if (!draft || preSubmitBlock === undefined || promptNonce === undefined) {
+    const nonces = noncesQuery.data
+    if (!draft || preSubmitBlock === undefined || !nonces) {
       throw new Error("This deposit is not ready to send")
     }
 
@@ -486,7 +492,8 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
       phase: "send_prompt",
       preSubmitBlock,
       promptedAt: Date.now(),
-      promptNonce,
+      promptNonce: nonces.latest,
+      promptPendingNonce: nonces.pending,
       updatedAt: Date.now(),
     })
     setValue("depositSessionId", prompted.id)

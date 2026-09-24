@@ -95,7 +95,7 @@ const SEND = buildDepositSession({
 })
 
 describe("getPinnedProvider", () => {
-  it("reuses one provider per chain: ethers keeps a polling loop on each", () => {
+  it("reuses one provider per chain", () => {
     expect(getPinnedProvider("42161")).toBe(getPinnedProvider("42161"))
     expect(getPinnedProvider("42161")).not.toBe(getPinnedProvider("1"))
   })
@@ -148,16 +148,41 @@ describe("ERC-20 calldata", () => {
 })
 
 describe("waitForApproval", () => {
-  const withReceipt = (receipt: { status: number } | null) =>
-    ({ waitForTransaction: async () => receipt }) as unknown as JsonRpcProvider
+  const APPROVAL = { hash: HASH, owner: SENDER, token: TOKEN, spender: BRIDGE, amount: "1000" }
+  const approvalProvider = (receipt: { status: number } | null, allowance: bigint) =>
+    createFakeProvider({
+      receipt: receipt ?? undefined,
+      call: answerTokenRead("allowance", [SENDER, BRIDGE], allowance),
+    })
 
-  it("resolves only on a successful receipt", async () => {
-    await expect(waitForApproval(withReceipt({ status: 1 }), HASH, 10)).resolves.toBeUndefined()
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
-  it("throws on a reverted or missing receipt so the footer shows it", async () => {
-    await expect(waitForApproval(withReceipt({ status: 0 }), HASH, 10)).rejects.toThrow()
-    await expect(waitForApproval(withReceipt(null), HASH, 10)).rejects.toThrow()
+  it("resolves on a successful receipt", async () => {
+    const provider = approvalProvider({ status: 1 }, 0n)
+    await expect(waitForApproval(provider, APPROVAL, 0)).resolves.toBeUndefined()
+  })
+
+  it("resolves once a replacement raised the allowance, with no receipt for the original", async () => {
+    const provider = approvalProvider(null, 1000n)
+    await expect(waitForApproval(provider, APPROVAL, 0)).resolves.toBeUndefined()
+  })
+
+  it("throws on a reverted receipt even if an older approval already covers the amount", async () => {
+    const provider = approvalProvider({ status: 0 }, 1000n)
+    await expect(waitForApproval(provider, APPROVAL, 60_000)).rejects.toThrow(/did not go through/)
+  })
+
+  it("keeps polling through failed reads and throws at the deadline", async () => {
+    vi.useFakeTimers()
+    const reads = vi.fn().mockRejectedValue(new Error("timeout"))
+    const provider = { getTransactionReceipt: reads, call: reads } as unknown as JsonRpcProvider
+    const result = waitForApproval(provider, APPROVAL, 5_000)
+    const settled = expect(result).rejects.toThrow(/did not go through/)
+    await vi.advanceTimersByTimeAsync(6_000)
+    await settled
+    expect(reads.mock.calls.length).toBeGreaterThan(2)
   })
 })
 

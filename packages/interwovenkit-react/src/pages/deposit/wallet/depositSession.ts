@@ -84,6 +84,7 @@ export interface DepositSession {
   preSubmitBlock?: number
   promptedAt?: number
   promptNonce?: number
+  promptPendingNonce?: number
   /** Last heartbeat from a tab still holding the prompt open. */
   promptSeenAt?: number
   /** The nonce the wallet actually used, when it reported one. */
@@ -153,6 +154,7 @@ const SESSION_FIELDS = {
   preSubmitBlock: optional(isNonNegativeInteger),
   promptedAt: optional(isNonNegativeInteger),
   promptNonce: optional(isNonNegativeInteger),
+  promptPendingNonce: optional(isNonNegativeInteger),
   promptSeenAt: optional(isNonNegativeInteger),
   sourceNonce: optional(isNonNegativeInteger),
   currentSourceHash: optional(isNonEmptyString),
@@ -278,6 +280,7 @@ export function mergeDepositSession(
     preSubmitBlock: next.preSubmitBlock ?? current.preSubmitBlock,
     promptedAt: next.promptedAt ?? current.promptedAt,
     promptNonce: next.promptNonce ?? current.promptNonce,
+    promptPendingNonce: next.promptPendingNonce ?? current.promptPendingNonce,
     promptSeenAt: Math.max(next.promptSeenAt ?? 0, current.promptSeenAt ?? 0) || undefined,
     sourceNonce: next.sourceNonce ?? current.sourceNonce,
     // A replacement is only ever newer: a stale writer's original hash must not undo it.
@@ -346,6 +349,7 @@ export function rollbackDepositSessionPrompt(
     phase: "prepared",
     promptedAt: undefined,
     promptNonce: undefined,
+    promptPendingNonce: undefined,
     promptSeenAt: undefined,
     updatedAt: Date.now(),
   })
