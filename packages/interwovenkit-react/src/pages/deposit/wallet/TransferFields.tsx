@@ -21,6 +21,8 @@ import { useLocalAssetOptions } from "../data/assetOptions"
 import DepositBackButton from "../DepositBackButton"
 import DepositStatus from "../DepositStatus"
 import { findBalanceByDenom, useAllBalancesQuery } from "./balances"
+import DepositTransferFooter from "./DepositTransferFooter"
+import { usePinnedSourceBalances } from "./evmRpc"
 import {
   useExternalAssetOptions,
   useExternalTransferAsset,
@@ -36,6 +38,7 @@ import {
   shouldSyncTransferNavigationState,
   type TransferLocationState,
 } from "./transferNavigation"
+import { useDepositTransportResolution } from "./useDepositTransfer"
 import styles from "./TransferFields.module.css"
 
 type RouteStatus = "disabled" | "loading" | "ready" | "no-route" | "server-error" | "refresh-failed"
@@ -114,6 +117,16 @@ const TransferFields = () => {
 
   const localAsset = useLocalTransferAsset()
   const externalAsset = useExternalTransferAsset()
+
+  const { resolution } = useDepositTransportResolution()
+  const isRouterTransport = resolution.transport === "router"
+  const isDepositApiTransport = resolution.transport === "direct" || resolution.transport === "lifi"
+
+  const pinnedBalances = usePinnedSourceBalances({
+    chainId: isDepositApiTransport ? srcChainId : "",
+    owner: hexAddress,
+    token: isDepositApiTransport ? srcDenom : "",
+  })
   const { data: externalAssetOptions, isLoading: isExternalAssetOptionsLoading } =
     useExternalAssetOptions()
   const hasSingleExternalAssetOption =
@@ -209,7 +222,7 @@ const TransferFields = () => {
     error: routeError,
     dataUpdatedAt: routeUpdatedAt,
   } = useRouteQuery(debouncedQuantity, {
-    disabled: isRouteQueryDisabled,
+    disabled: isRouteQueryDisabled || !isRouterTransport,
   })
 
   // Keep the latest successful route while background refetches run.
@@ -238,6 +251,9 @@ const TransferFields = () => {
   // Depend on the specific primitives that can change the derived location state
   // without depending on the full `state` object, which would loop after navigate().
   useIsomorphicLayoutEffect(() => {
+    // Writing an undefined route here would clear the Router preview the flow may return to.
+    if (!isRouterTransport) return
+
     const nextState = buildTransferLocationState({
       currentState: state,
       route: routeForState,
@@ -253,6 +269,7 @@ const TransferFields = () => {
     currentRoute,
     getValues,
     hexAddress,
+    isRouterTransport,
     navigate,
     quoteVerifiedAt,
     recipientAddress,
@@ -278,6 +295,7 @@ const TransferFields = () => {
   if (mode === "deposit" && !externalAsset) return null
 
   const amountDecimals = amountAsset?.decimals || 6
+  const displayedBalance = isRouterTransport ? balance : pinnedBalances.data?.token
   const externalEmptyLabel = mode === "withdraw" ? "Select chain" : "Select asset"
 
   const resetToPreviousPage = () => {
@@ -347,8 +365,12 @@ const TransferFields = () => {
   const amountSection = (
     <>
       <p className={styles.label}>Amount</p>
-      <QuantityInput balance={balance} decimals={amountDecimals} className={styles.input} />
-      {balance !== undefined && (
+      <QuantityInput
+        balance={displayedBalance}
+        decimals={amountDecimals}
+        className={styles.input}
+      />
+      {displayedBalance !== undefined && (
         <div className={styles.balanceContainer}>
           <p className={styles.value}>
             {rawQuantity ? formatValueWithPrice(quantityValue.toString(), price) : "$-"}
@@ -357,13 +379,13 @@ const TransferFields = () => {
           <button
             className={styles.maxButton}
             onClick={() => {
-              const maxAmount = fromBaseUnit(balance, { decimals: amountDecimals })
+              const maxAmount = fromBaseUnit(displayedBalance, { decimals: amountDecimals })
               if (parseQuantity(rawQuantity)?.eq(maxAmount || 0)) return
 
               setValue("quantity", maxAmount)
             }}
           >
-            <IconWallet size={16} /> {formatAmount(balance, { decimals: amountDecimals })}{" "}
+            <IconWallet size={16} /> {formatAmount(displayedBalance, { decimals: amountDecimals })}{" "}
             <span>MAX</span>
           </button>
         </div>
@@ -399,10 +421,12 @@ const TransferFields = () => {
         </>
       )}
 
-      {(chainsError || balancesError) && (
+      {isRouterTransport && (chainsError || balancesError) && (
         <DepositStatus error>Failed to load balances</DepositStatus>
       )}
-      {!canRenderPreviewFooter ? (
+      {!isRouterTransport ? (
+        <DepositTransferFooter />
+      ) : !canRenderPreviewFooter ? (
         <Footer>
           <Button.White
             type="submit"

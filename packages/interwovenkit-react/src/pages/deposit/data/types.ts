@@ -89,6 +89,19 @@ export interface DepositAddressResponse {
 export interface QuoteResponse {
   amount_out: string
   min_received: string
+  delivery?: QuoteDelivery
+}
+
+/** Ethereum → destination only. `method` is an open set like `bucket`: only "advance" is fast. */
+export interface QuoteDelivery {
+  method: string
+  estimated_seconds: number | null
+}
+
+export interface DepositDelivery {
+  method: string
+  /** The actual time once completed; null while waiting, failed, or unknown. */
+  estimated_completion_at: string | null
 }
 
 // Server-computed user-facing lifecycle groups, split by liveness. The server
@@ -158,6 +171,10 @@ export interface Deposit {
   bot_tx_hash: string
   /** Explorer URL for the bridge tx; empty string before submission. */
   bot_tx_explorer_url: string
+  /** Fast-delivery lifecycle, opaque like `status`; "failed" falls back to ordinary delivery. */
+  advance_status?: string
+  advance_tx_explorer_url?: string
+  delivery?: DepositDelivery
 }
 
 /** GET /v1/deposits. Echoes whichever filters were sent; only `deposits` is consumed. */
@@ -172,4 +189,88 @@ export interface ListDepositsResponse {
    */
   has_more: boolean
   next_cursor?: string
+}
+
+/** The locally retained request a bridge response must be bound to before it can be signed. */
+export interface BridgeRequestIdentity {
+  srcChainId: string
+  srcDenom: string
+  dstChainId: string
+  dstDenom: string
+  amount: string
+  fromAddress: string
+  /** Final credited recipient, not the sender. */
+  walletAddress: string
+}
+
+export interface BridgeOption {
+  bridge: string
+  amount_out: string
+  /** Guaranteed Ethereum USDC after LI.FI slippage; the value every minimum gate compares. */
+  min_received: string
+  eligible: boolean
+  execution_duration_seconds?: number
+  gas_cost_usd?: string
+  /** Fees paid on top as the call's native value; omitted when LI.FI can't say which fees are. */
+  fee_cost_usd?: string
+}
+
+/** POST /v1/bridges/options */
+export interface BridgeOptionsResponse {
+  deposit_address: string
+  required_min_received: string
+  options: BridgeOption[]
+}
+
+export interface BridgeQuoteApproval {
+  token_address: string
+  spender_address: string
+  amount: string
+}
+
+export interface BridgeQuoteTransaction {
+  chain_id: string
+  to: string
+  /** Decimal native base units; nonzero when the bridge charges a messaging fee. */
+  value: string
+  data: string
+  gas_limit?: string
+}
+
+/** POST /v1/bridges/quote, after its echoes of the request were checked. */
+export interface BridgeQuoteResponse {
+  deposit_address: string
+  amount_out: string
+  min_received: string
+  tool: string
+  estimate: {
+    execution_duration_seconds?: number
+    gas_cost_usd?: string
+  }
+  approval: BridgeQuoteApproval
+  transaction: BridgeQuoteTransaction
+}
+
+export const BRIDGE_STATUS_STATES = [
+  "deposit_indexed",
+  "deposit_pending",
+  "bridge_not_found",
+  "bridge_pending",
+  "bridge_refunding",
+  "bridge_partial",
+  "bridge_refunded",
+  "bridge_refund_required",
+  "bridge_failed",
+] as const
+
+export type BridgeStatusState = (typeof BRIDGE_STATUS_STATES)[number]
+
+/** GET /v1/bridges/status */
+export interface BridgeStatusResponse {
+  state: BridgeStatusState
+  src_tx_link: string
+  dst_tx_hash?: string
+  dst_tx_link?: string
+  /** Non-null only for `deposit_indexed`. */
+  deposit: Deposit | null
 }

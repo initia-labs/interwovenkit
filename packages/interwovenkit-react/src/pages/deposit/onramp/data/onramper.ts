@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tansta
 import { normalizeError, STALE_TIMES } from "@/data/http"
 import { depositQueryKeys, useDepositApi, useOnramper, useOnramperEnabled } from "../../data/api"
 import { useDepositRoutes } from "../../data/assets"
+import { QUOTE_STALE_TIME } from "../../data/quote"
 import type { Asset } from "../../data/types"
 import {
   assertCheckoutUrl,
@@ -290,10 +291,6 @@ interface QuotesParams {
    * checkout hand-off, where the provider is pinned and nothing reads it). */
   enabled?: boolean
 }
-
-// Quotes are live prices; refresh on a short interval so the picker does not go
-// stale while open.
-const QUOTE_STALE_TIME = STALE_TIMES.SECOND * 30
 
 /**
  * GET /quotes/{fiat}/{crypto}, always price-only (no walletAddress): delivery

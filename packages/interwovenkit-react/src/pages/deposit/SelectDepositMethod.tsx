@@ -14,6 +14,7 @@ import { useDepositRoutes } from "./data/assets"
 import CashMethodSubtext, { CASH_SUBTEXT_FALLBACK } from "./onramp/CashMethodSubtext"
 import { useOnramperCryptos, usePrefetchOnramperGeoDefaults } from "./onramp/data/onramper"
 import { matchOnramperCrypto } from "./onramp/data/onramperLogic"
+import { type ResumeSelection, useResumeSection } from "./wallet/useResumeSection"
 import { useDepositForm, useDepositNavigate, useSelectDepositMethod } from "./context"
 import DepositMethodList, { type DepositMethodSection } from "./DepositMethodList"
 import DepositSubpage from "./DepositSubpage"
@@ -30,6 +31,8 @@ type CryptoAvailability =
  * `address`/`onramp` select the deposit method (see useSelectDepositMethod). */
 type HubMethodId = "wallet" | "address" | "onramp"
 
+type HubSelection = HubMethodId | ResumeSelection
+
 interface MethodSectionsProps {
   availability: CryptoAvailability
   /** Cash-only unavailability on top of `availability` (e.g. no route maps to
@@ -42,8 +45,11 @@ const MethodSections = ({ availability, onrampUnavailableReason }: MethodSection
   const onramperEnabled = useOnramperEnabled()
   const navigate = useDepositNavigate()
   const selectMethod = useSelectDepositMethod()
+  const { setValue } = useDepositForm()
   const hexAddress = useHexAddress()
   const walletIcon = useConnectedWalletIcon()
+  // Local state, so a catalog outage never hides a transfer already in flight.
+  const resumeSection = useResumeSection()
 
   // The Buy form suspends on the geo-defaults lookup; warming it here (the
   // screen the user reads before picking cash) keeps that entry instant.
@@ -69,7 +75,8 @@ const MethodSections = ({ availability, onrampUnavailableReason }: MethodSection
     hostConstraintReason ??
     (availability.status === "unavailable" ? availability.reason : undefined)
 
-  const sections: DepositMethodSection<HubMethodId>[] = [
+  const sections: DepositMethodSection<HubSelection>[] = [
+    ...(resumeSection ? [resumeSection] : []),
     {
       label: "Crypto",
       methods: [
@@ -133,12 +140,16 @@ const MethodSections = ({ availability, onrampUnavailableReason }: MethodSection
         // the `wallet` page of this hub, scoped to the selected receive asset.
         switch (id) {
           case "wallet":
+            setValue("resumeSessionId", "")
             navigate("wallet")
             break
           case "address":
           case "onramp":
             selectMethod(id)
             break
+          default:
+            setValue("resumeSessionId", id.slice("resume:".length))
+            navigate("wallet")
         }
       }}
     />

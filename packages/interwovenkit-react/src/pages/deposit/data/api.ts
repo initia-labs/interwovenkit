@@ -2,6 +2,7 @@ import ky from "ky"
 import { useMemo } from "react"
 import { createQueryKeys } from "@lukemorales/query-key-factory"
 import { useConfig } from "@/data/config"
+import type { BridgeRequestIdentity } from "./types"
 
 export const depositQueryKeys = createQueryKeys("interwovenkit:deposit", {
   assets: null,
@@ -38,6 +39,28 @@ export const depositQueryKeys = createQueryKeys("interwovenkit:deposit", {
     dstDenom: string,
     amountIn: string,
   ) => [srcChainId, srcDenom, dstChainId, dstDenom, amountIn],
+  bridgeOptions: (identity: BridgeRequestIdentity) => [identity],
+  bridgeQuote: (identity: BridgeRequestIdentity, bridge: string, depositAddress: string) => [
+    identity,
+    bridge,
+    depositAddress,
+  ],
+  bridgeStatus: (srcChainId: string, srcTxHash: string, depositAddress: string) => [
+    srcChainId,
+    srcTxHash,
+    depositAddress,
+  ],
+  depositBySourceTx: (srcChainId: string, srcTxHash: string) => [srcChainId, srcTxHash],
+  sourceBalances: (chainId: string, owner: string, token: string) => [chainId, owner, token],
+  sourceHead: (chainId: string) => [chainId],
+  senderNonces: (chainId: string, sender: string) => [chainId, sender],
+  allowance: (chainId: string, owner: string, token: string, spender: string) => [
+    chainId,
+    owner,
+    token,
+    spender,
+  ],
+  sourceWatch: (sessionId: string, txHash: string) => [sessionId, txHash],
 })
 
 /**

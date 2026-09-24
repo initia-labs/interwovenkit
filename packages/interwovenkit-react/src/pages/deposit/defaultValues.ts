@@ -34,6 +34,7 @@ export function buildDepositDefaultValues(
     receiveChainId: "",
     method: "address",
     trackedDepositId: "",
+    resumeSessionId: "",
     fiatId: onramp?.currency || persisted.fiatId || DEFAULT_FIAT_ID,
     fiatAmount: onramp?.amount ?? "",
     paymentMethodId: persisted.paymentMethodId || DEFAULT_PAYMENT_TYPE_ID,

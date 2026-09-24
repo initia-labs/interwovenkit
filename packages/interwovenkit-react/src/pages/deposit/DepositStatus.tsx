@@ -11,12 +11,12 @@ import type { ComponentProps } from "react"
  * color applies only to non-error statuses, leaving the shared error color in
  * charge.
  */
-const DepositStatus = ({ error, ...props }: ComponentProps<typeof Status>) => {
+const DepositStatus = ({ error, className, ...props }: ComponentProps<typeof Status>) => {
   return (
     <Status
       {...props}
       error={error}
-      className={clsx(styles.status, { [styles.contrast]: !error })}
+      className={clsx(styles.status, { [styles.contrast]: !error }, className)}
     />
   )
 }

@@ -1,8 +1,21 @@
+import type { KyInstance } from "ky"
+import { HTTPError } from "ky"
 import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { queryOptions, useQuery } from "@tanstack/react-query"
 import { useConfig } from "@/data/config"
 import { normalizeError } from "@/data/http"
 import { depositQueryKeys, useDepositApi } from "./api"
+import {
+  assertEchoes,
+  assertField,
+  caseInsensitive,
+  type Echoes,
+  expectField,
+  isRecord,
+  isString,
+  sameDenom,
+} from "./parse"
+import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM } from "./source"
 import type { Deposit, DepositBucket, ListDepositsResponse } from "./types"
 import { ACTIVE_DEPOSIT_BUCKETS, DEPOSIT_BUCKETS } from "./types"
 
@@ -227,4 +240,110 @@ export function useTrackedDeposit({
 }: TrackedDepositParams): TrackedDeposit {
   const detail = useDeposit(depositId)
   return resolveTrackedDeposit(detail.data, depositAddress, detail.error ?? null)
+}
+
+// Unlike displayBucket, an unknown bucket isn't "failed": the user just signed a real transfer.
+export type WalletDepositBucket = DepositBucket | "unknown"
+
+export function classifyWalletBucket(deposit: Deposit | null): WalletDepositBucket {
+  if (!deposit) return "waiting"
+  return isDepositBucket(deposit.bucket) ? deposit.bucket : "unknown"
+}
+
+export const bySourceTxPollInterval = (deposit: Deposit | null | undefined, elapsedMs: number) =>
+  deposit ? false : pollInterval(elapsedMs)
+
+export function createDepositBySourceTxQueryOptions(
+  api: KyInstance,
+  srcTxHash: string,
+  enabled: boolean,
+  startedAt: number,
+) {
+  return queryOptions({
+    queryKey: depositQueryKeys.depositBySourceTx(ETHEREUM_CHAIN_ID, srcTxHash).queryKey,
+    queryFn: async (): Promise<Deposit | null> => {
+      try {
+        return await api
+          .get(`v1/deposits/by-source-tx/${srcTxHash}`, {
+            searchParams: { src_chain_id: ETHEREUM_CHAIN_ID },
+            retry: 0,
+          })
+          .json<Deposit>()
+      } catch (error) {
+        if (error instanceof HTTPError && error.response.status === 404) return null
+        throw await normalizeError(error)
+      }
+    },
+    enabled,
+    staleTime: 0,
+    retry: false,
+    refetchInterval: (query) => bySourceTxPollInterval(query.state.data, Date.now() - startedAt),
+  })
+}
+
+interface DepositIdentity {
+  depositAddress: string
+  dstChainId: string
+  dstDenom: string
+  /** Final credited wallet, init bech32 lowercase. */
+  recipient: string
+}
+
+export function asDepositRecord(value: unknown, context: string): Deposit {
+  assertField(isRecord(value), `${context} is not an object`)
+  for (const field of [
+    "id",
+    "src_chain_id",
+    "src_tx_hash",
+    "src_denom",
+    "amount",
+    "deposit_address",
+    "wallet_address",
+    "dst_chain_id",
+    "dst_denom",
+    "bucket",
+  ]) {
+    expectField(value, field, isString, context)
+  }
+  return value as unknown as Deposit
+}
+
+// A mismatch would track, and eventually complete, someone else's deposit at the reused address.
+function assertDepositIdentity(
+  deposit: Deposit,
+  identity: DepositIdentity,
+  echoes: Echoes<Deposit>,
+): Deposit {
+  assertEchoes(deposit, "Deposit record", {
+    ...echoes,
+    src_chain_id: ETHEREUM_CHAIN_ID,
+    src_denom: [ETHEREUM_USDC_DENOM, sameDenom],
+    deposit_address: [identity.depositAddress, caseInsensitive],
+    dst_chain_id: identity.dstChainId,
+    dst_denom: [identity.dstDenom, sameDenom],
+    wallet_address: [identity.recipient, caseInsensitive],
+  })
+  return deposit
+}
+
+export function assertDirectDeposit(
+  record: unknown,
+  identity: DepositIdentity & { srcTxHash: string; amount: string },
+): Deposit {
+  return assertDepositIdentity(asDepositRecord(record, "Deposit record"), identity, {
+    src_tx_hash: [identity.srcTxHash, caseInsensitive],
+    amount: identity.amount,
+  })
+}
+
+// The Ethereum leg after slippage: bound to the receiving hash when known, never the amount.
+export function assertLifiDeposit(
+  deposit: Deposit,
+  identity: DepositIdentity & { dstTxHash?: string },
+): Deposit {
+  return assertDepositIdentity(
+    deposit,
+    identity,
+    identity.dstTxHash ? { src_tx_hash: [identity.dstTxHash, caseInsensitive] } : {},
+  )
 }

@@ -1,39 +1,5 @@
-import { HTTPError, type NormalizedOptions } from "ky"
 import { describe, expect, it } from "vitest"
-import {
-  classifyQuoteFailure,
-  composeMinReceived,
-  deriveSettlement,
-  selectMinReceived,
-} from "./minReceived"
-
-const httpError = (status: number, body?: object) =>
-  new HTTPError(
-    new Response(body ? JSON.stringify(body) : null, {
-      status,
-      headers: body ? { "content-type": "application/json" } : undefined,
-    }),
-    new Request("https://deposit.test/v1/quote"),
-    {} as NormalizedOptions,
-  )
-
-describe("classifyQuoteFailure", () => {
-  // The layer-4 submit gate keys on this: a 400 leaking into the error channel
-  // silently loses the backend-signaled minimum gate (UI looks identical, "—").
-  it("promotes a 400 to declined, keeping the backend's message", async () => {
-    await expect(
-      classifyQuoteFailure(httpError(400, { message: "amount below minimum" })),
-    ).resolves.toEqual({ status: "declined", reason: "amount below minimum" })
-  })
-
-  it("rethrows server errors as transient failures", async () => {
-    await expect(classifyQuoteFailure(httpError(500))).rejects.toThrow()
-  })
-
-  it("rethrows non-HTTP failures as transient failures", async () => {
-    await expect(classifyQuoteFailure(new Error("network down"))).rejects.toThrow("network down")
-  })
-})
+import { composeMinReceived, deriveSettlement, selectMinReceived } from "./minReceived"
 
 const quoted = (minReceived: string, amountOut = "1230000") => ({
   status: "quoted" as const,

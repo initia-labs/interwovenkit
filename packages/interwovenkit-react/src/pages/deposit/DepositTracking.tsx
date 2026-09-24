@@ -27,10 +27,8 @@ import ExplorerLinks from "./ExplorerLinks"
 import FlowChips from "./FlowChips"
 import styles from "./DepositTracking.module.css"
 
-// Per-status stall budget: the pipeline spans several statuses (~5 min
-// end-to-end), so each gets its own minute before the "taking a little longer"
-// reassurance replaces the normal status copy.
-const TAKING_LONGER_DELAY = 60 * 1000
+// Per-status stall budget before the "taking a little longer" copy.
+export const TAKING_LONGER_DELAY = 60 * 1000
 
 /**
  * Deposit tracking screen shared by the address transfer and onramp purchase
@@ -197,7 +195,7 @@ const DepositTracking = () => {
       return (
         <>
           <p className={styles.delayHeading}>This is taking a little longer</p>
-          <DepositStatus>
+          <DepositStatus className={styles.message}>
             We hit a temporary delay and are retrying.
             <br />
             Your funds are safe at your deposit address.
@@ -210,7 +208,7 @@ const DepositTracking = () => {
     if (!deposit) return null
     if (bucket === "waiting") {
       return (
-        <DepositStatus>
+        <DepositStatus className={styles.message}>
           <span className={styles.confirming}>
             Your deposit is confirming on
             <Image
@@ -225,7 +223,11 @@ const DepositTracking = () => {
         </DepositStatus>
       )
     }
-    return <DepositStatus>We&apos;re moving your funds to the destination chain now.</DepositStatus>
+    return (
+      <DepositStatus className={styles.message}>
+        We&apos;re moving your funds to the destination chain now.
+      </DepositStatus>
+    )
   }
 
   const renderBody = () => {
@@ -234,7 +236,7 @@ const DepositTracking = () => {
         <>
           <IconCloseCircleFilled size={48} className={styles.failIcon} aria-hidden="true" />
           <p className={styles.heading}>Couldn&apos;t track your deposit</p>
-          <DepositStatus error>
+          <DepositStatus error className={styles.message}>
             {(addressError ?? trackingError)?.message ??
               "Something went wrong while tracking your deposit."}
           </DepositStatus>
@@ -247,12 +249,8 @@ const DepositTracking = () => {
         return (
           <>
             <IconCheckCircleFilled size={48} className={styles.successIcon} aria-hidden="true" />
-            {/* The activity indexer can lag delivery by a few seconds, so "Go
-                to history" may land on a list still missing this record; the
-                caveat keeps that from reading as a failed transfer. */}
-            <DepositStatus>
-              {completedAmount} was delivered to your wallet on {receiveAsset.chainName}. It may
-              take a moment to appear in your activity.
+            <DepositStatus className={styles.message}>
+              {completedAmount} was delivered to your wallet on {receiveAsset.chainName}.
             </DepositStatus>
             <ExplorerLinks
               explorerUrl={explorerUrl}
@@ -267,7 +265,7 @@ const DepositTracking = () => {
             <p className={styles.heading}>Deposit failed</p>
             {/* No support channel exists in the widget or config, so the copy
                 must not point at one. */}
-            <DepositStatus error>
+            <DepositStatus error className={styles.message}>
               This deposit could not be completed. Your funds remain at the deposit address with no
               automatic refund.
             </DepositStatus>
@@ -279,7 +277,7 @@ const DepositTracking = () => {
           <>
             <IconCloseCircleFilled size={48} className={styles.failIcon} aria-hidden="true" />
             <p className={styles.heading}>Amount below minimum</p>
-            <DepositStatus error>
+            <DepositStatus error className={styles.message}>
               {minLabel ? `Deposits below ${minLabel} can't be processed. ` : ""}
               Your funds remain at the deposit address with no automatic refund.
             </DepositStatus>
@@ -335,7 +333,7 @@ const DepositTracking = () => {
       <div className={styles.body}>
         {renderBody()}
         {isTrackingError && !isHardError && !isFinal && (
-          <DepositStatus error>Connection lost. Retrying…</DepositStatus>
+          <DepositStatus className={styles.note}>Reconnecting…</DepositStatus>
         )}
       </div>
       {renderFooter()}

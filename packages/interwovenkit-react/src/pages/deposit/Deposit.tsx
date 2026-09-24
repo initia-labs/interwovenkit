@@ -143,11 +143,14 @@ const WalletFlow = () => {
   const navigate = useDepositNavigate()
   const receiveDenom = watch("receiveDenom")
   const receiveChainId = watch("receiveChainId")
+  const resumeSessionId = watch("resumeSessionId")
 
   return (
     <TransferFlow
+      key={resumeSessionId}
       mode="deposit"
       initialAsset={{ denom: receiveDenom, chainId: receiveChainId }}
+      initialSessionId={resumeSessionId}
       onExit={() => navigate("select-method")}
     />
   )

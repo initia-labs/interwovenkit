@@ -2,7 +2,13 @@ import { createContext, useContext } from "react"
 import { useFormContext } from "react-hook-form"
 import type { BridgeTxResult } from "@/pages/bridge/data/tx"
 
-export type TransferPage = "select-local" | "select-external" | "fields" | "completed"
+export type TransferPage =
+  | "select-local"
+  | "select-external"
+  | "fields"
+  | "select-route"
+  | "deposit-progress"
+  | "completed"
 
 export interface TransferFormValues {
   page: TransferPage
@@ -11,6 +17,8 @@ export interface TransferFormValues {
   srcChainId: string
   dstDenom: string
   dstChainId: string
+  selectedBridge: string
+  depositSessionId: string
   // TX completion data
   result?: BridgeTxResult
 }

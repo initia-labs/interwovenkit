@@ -67,6 +67,7 @@ interface RowProps {
   onClick: () => void
   /** Highlights the row as the current selection (e.g. the chosen provider). */
   isActive?: boolean
+  disabled?: boolean
 }
 
 /**
@@ -74,12 +75,18 @@ interface RowProps {
  * a hover/active background, and the shared row padding. Content (icon, name,
  * trailing check or amounts) is composed by the caller.
  */
-const DepositSubpageRow = ({ onClick, isActive, children }: PropsWithChildren<RowProps>) => {
+const DepositSubpageRow = ({
+  onClick,
+  isActive,
+  disabled,
+  children,
+}: PropsWithChildren<RowProps>) => {
   return (
     <button
       type="button"
       className={clsx(styles.row, isActive && styles.activeRow)}
       onClick={onClick}
+      disabled={disabled}
     >
       {children}
     </button>
