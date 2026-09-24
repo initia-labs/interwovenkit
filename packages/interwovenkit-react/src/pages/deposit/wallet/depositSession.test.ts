@@ -35,6 +35,7 @@ describe("parseDepositSession", () => {
     preSubmitBlock: 100,
     promptedAt: 5_000,
     promptNonce: 0,
+    promptPendingNonce: 1,
     promptSeenAt: 6_000,
     sourceNonce: 0,
     currentSourceHash: "0xbbb",
@@ -58,6 +59,8 @@ describe("parseDepositSession", () => {
     ["a fractional prompt nonce", { ...full, promptNonce: 1.5 }],
     ["a string prompt nonce", { ...full, promptNonce: "7" }],
     ["a null prompt nonce", { ...full, promptNonce: null }],
+    ["a negative pending prompt nonce", { ...full, promptPendingNonce: -1 }],
+    ["a string pending prompt nonce", { ...full, promptPendingNonce: "8" }],
     ["a malformed predicted delivery", { ...full, predictedDelivery: 1 }],
     ["another schema version", { ...full, version: 2 }],
     ["an unknown phase", { ...full, phase: "halfway" }],
@@ -167,6 +170,7 @@ describe("mergeDepositSession", () => {
       currentSourceHash: "0xaaa",
       sourceNonce: 7,
       promptNonce: 7,
+      promptPendingNonce: 8,
     })
     const statusUpdate = buildDepositSession({
       phase: "source_sent",
@@ -176,6 +180,7 @@ describe("mergeDepositSession", () => {
     expect(mergeDepositSession(current, statusUpdate)).toMatchObject({
       currentSourceHash: "0xaaa",
       promptNonce: 7,
+      promptPendingNonce: 8,
       sourceNonce: 7,
       lastState: "bridge_pending",
     })
@@ -248,11 +253,20 @@ describe("writeDepositSession", () => {
 describe("rollbackDepositSessionPrompt", () => {
   it("reopens the form after a rejected prompt and forgets that prompt's evidence", () => {
     const storage = createMemoryStorage()
-    store(storage, buildDepositSession({ phase: "send_prompt", promptedAt: 5_000, promptNonce: 7 }))
+    store(
+      storage,
+      buildDepositSession({
+        phase: "send_prompt",
+        promptedAt: 5_000,
+        promptNonce: 7,
+        promptPendingNonce: 8,
+      }),
+    )
     const reverted = rollbackDepositSessionPrompt(storage, "session-1")
     expect(reverted?.phase).toBe("prepared")
     expect(reverted).not.toHaveProperty("promptedAt")
     expect(reverted).not.toHaveProperty("promptNonce")
+    expect(reverted).not.toHaveProperty("promptPendingNonce")
   })
 
   it.each<[string, Partial<DepositSession>]>([

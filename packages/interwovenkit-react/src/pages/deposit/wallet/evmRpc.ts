@@ -75,14 +75,67 @@ export function encodeErc20Approve(spender: string, amount: string): string {
   return ERC20.encodeFunctionData("approve", [addressArg(spender), BigInt(amount)])
 }
 
+interface WatchedApproval {
+  hash: string
+  from: string
+  nonce: number
+  chainId: string
+  token: string
+  spender: string
+  amount: string
+  preSubmitBlock: number
+}
+
+const APPROVAL_WAIT_SLICE_MS = 10_000
+
 // Only a successful receipt counts; the allowance re-read still decides whether another approval is needed.
 export async function waitForApproval(
-  provider: Pick<JsonRpcProvider, "waitForTransaction">,
-  hash: string,
+  provider: JsonRpcProvider,
+  approval: WatchedApproval,
   timeoutMs: number,
 ): Promise<void> {
-  const receipt = await provider.waitForTransaction(hash, 1, timeoutMs)
-  if (receipt?.status !== 1) throw new Error("The USDC approval did not go through")
+  const send: WatchedSend = {
+    source: { sender: approval.from },
+    transaction: {
+      chainId: approval.chainId,
+      to: approval.token,
+      data: encodeErc20Approve(approval.spender, approval.amount),
+      value: "0",
+    },
+    preSubmitBlock: approval.preSubmitBlock,
+    sourceNonce: approval.nonce,
+  }
+
+  let hash = approval.hash
+  let resumeBlock: number | undefined
+  const deadline = Date.now() + timeoutMs
+  while (true) {
+    const remainingMs = deadline - Date.now()
+    if (remainingMs <= 0) break
+
+    const receipt = await provider.waitForTransaction(
+      hash,
+      1,
+      Math.min(remainingMs, APPROVAL_WAIT_SLICE_MS),
+    )
+    if (receipt) {
+      if (receipt.status !== 1) break
+      return
+    }
+
+    const outcome = await checkSourceTransaction(provider, hash, send, resumeBlock)
+    if (outcome.status === "confirmed") return
+    if (outcome.status === "reverted") break
+    if (outcome.status === "replaced") {
+      if (outcome.reason !== "repriced") break
+      hash = outcome.hash
+      resumeBlock = undefined
+      continue
+    }
+    resumeBlock = outcome.status === "pending" ? outcome.nextBlock : undefined
+  }
+
+  throw new Error("The USDC approval did not go through")
 }
 
 export type SourceTxOutcome =
@@ -92,7 +145,12 @@ export type SourceTxOutcome =
   /** `hash` is the replacement's. */
   | { status: "replaced"; hash: string; reason: "repriced" | "cancelled" | "replaced" }
 
-type WatchedSend = Pick<DepositSession, "source" | "transaction" | "preSubmitBlock" | "sourceNonce">
+interface WatchedSend {
+  source: Pick<DepositSession["source"], "sender">
+  transaction: DepositSession["transaction"]
+  preSubmitBlock?: number
+  sourceNonce?: number
+}
 
 const sameAddress = (a: string | null, b: string | null) => !!a && !!b && eqAddress(a, b)
 

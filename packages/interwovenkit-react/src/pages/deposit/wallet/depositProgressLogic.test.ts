@@ -118,6 +118,7 @@ describe("resumeStageLabel", () => {
 
 describe("checkHashlessSend", () => {
   const prompted = { promptNonce: 7, promptedAt: 0, updatedAt: 0 }
+  const promptedWithPending = { ...prompted, promptPendingNonce: 8 }
   const read = (latest: number, pending: number, readAt: number, isError = false) => ({
     data: { latest, pending },
     readAt,
@@ -139,6 +140,14 @@ describe("checkHashlessSend", () => {
     expect(checkHashlessSend(held, read(7, 7, 5 * MINUTE), 5 * MINUTE).release).toBe(true)
   })
 
+  it("releases when a pre-existing pending nonce stays unchanged for two minutes", () => {
+    expect(checkHashlessSend(promptedWithPending, read(7, 8, 2 * MINUTE), 2 * MINUTE)).toEqual({
+      release: true,
+      nonceMoved: false,
+      canMarkNotSent: false,
+    })
+  })
+
   it.each([
     ["the read failed", prompted, read(7, 7, 5 * MINUTE, true), false],
     ["the read failed over stale data that moved", prompted, read(8, 8, 5 * MINUTE, true), true],
@@ -152,6 +161,12 @@ describe("checkHashlessSend", () => {
     ["nothing was read yet", prompted, { readAt: 5 * MINUTE, isError: false }, false],
     ["the mined nonce moved", prompted, read(8, 8, 5 * MINUTE), true],
     ["the pending nonce moved", prompted, read(7, 8, 5 * MINUTE), true],
+    [
+      "the pending nonce moved past the recorded gap",
+      promptedWithPending,
+      read(7, 9, 5 * MINUTE),
+      true,
+    ],
   ])("never releases when %s", (_, sent, nonces, nonceMoved) => {
     expect(checkHashlessSend(sent, nonces, 5 * MINUTE)).toMatchObject({
       release: false,

@@ -437,6 +437,8 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const approveMutation = useMutation({
     mutationFn: async (approval: BridgeQuoteApproval) => {
       try {
+        const pinnedProvider = getPinnedProvider(source.chainId)
+        const preSubmitBlock = headQuery.data?.block ?? (await pinnedProvider.getBlockNumber())
         const signer = await getSigner(source.chainId)
         const response = await signer.sendTransaction({
           chainId: Number(source.chainId),
@@ -444,8 +446,17 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
           data: encodeErc20Approve(approval.spender_address, approval.amount),
         })
         await waitForApproval(
-          getPinnedProvider(source.chainId),
-          response.hash,
+          pinnedProvider,
+          {
+            hash: response.hash,
+            from: signer.address,
+            nonce: response.nonce,
+            chainId: source.chainId,
+            token: approval.token_address,
+            spender: approval.spender_address,
+            amount: approval.amount,
+            preSubmitBlock,
+          },
           APPROVAL_RECEIPT_TIMEOUT_MS,
         )
         // The next prompt must record the nonce after the approval's and see the raised allowance.
@@ -472,7 +483,13 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     const draft = buildDraft(quote)
     const preSubmitBlock = headQuery.data?.block
     const promptNonce = noncesQuery.data?.latest
-    if (!draft || preSubmitBlock === undefined || promptNonce === undefined) {
+    const promptPendingNonce = noncesQuery.data?.pending
+    if (
+      !draft ||
+      preSubmitBlock === undefined ||
+      promptNonce === undefined ||
+      promptPendingNonce === undefined
+    ) {
       throw new Error("This deposit is not ready to send")
     }
 
@@ -487,6 +504,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
       preSubmitBlock,
       promptedAt: Date.now(),
       promptNonce,
+      promptPendingNonce,
       updatedAt: Date.now(),
     })
     setValue("depositSessionId", prompted.id)

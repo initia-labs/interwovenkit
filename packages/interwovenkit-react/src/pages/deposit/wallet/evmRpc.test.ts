@@ -148,16 +148,53 @@ describe("ERC-20 calldata", () => {
 })
 
 describe("waitForApproval", () => {
+  const approval = {
+    hash: HASH,
+    from: SENDER,
+    nonce: 7,
+    chainId: "8453",
+    token: TOKEN,
+    spender: BRIDGE,
+    amount: "1",
+    preSubmitBlock: 100,
+  }
+
   const withReceipt = (receipt: { status: number } | null) =>
     ({ waitForTransaction: async () => receipt }) as unknown as JsonRpcProvider
 
   it("resolves only on a successful receipt", async () => {
-    await expect(waitForApproval(withReceipt({ status: 1 }), HASH, 10)).resolves.toBeUndefined()
+    await expect(waitForApproval(withReceipt({ status: 1 }), approval, 10)).resolves.toBeUndefined()
   })
 
   it("throws on a reverted or missing receipt so the footer shows it", async () => {
-    await expect(waitForApproval(withReceipt({ status: 0 }), HASH, 10)).rejects.toThrow()
-    await expect(waitForApproval(withReceipt(null), HASH, 10)).rejects.toThrow()
+    await expect(waitForApproval(withReceipt({ status: 0 }), approval, 10)).rejects.toThrow()
+    await expect(waitForApproval(withReceipt(null), approval, 10)).rejects.toThrow()
+  })
+
+  it("follows a repriced replacement until the replacement receipt succeeds", async () => {
+    const provider = {
+      waitForTransaction: async (hash: string) =>
+        hash === REPLACEMENT_HASH ? { status: 1 } : null,
+      getTransactionReceipt: async (hash: string) =>
+        hash === REPLACEMENT_HASH ? { status: 1, blockNumber: 100 } : null,
+      getTransactionCount: async () => 8,
+      getBlockNumber: async () => 100,
+      getBlock: async () => ({
+        prefetchedTransactions: [
+          {
+            hash: REPLACEMENT_HASH,
+            from: checksummed(SENDER),
+            nonce: 7,
+            chainId: 8453n,
+            to: TOKEN,
+            data: encodeErc20Approve(BRIDGE, "1"),
+            value: 0n,
+          },
+        ],
+      }),
+    } as unknown as JsonRpcProvider
+
+    await expect(waitForApproval(provider, approval, 10)).resolves.toBeUndefined()
   })
 })
 
