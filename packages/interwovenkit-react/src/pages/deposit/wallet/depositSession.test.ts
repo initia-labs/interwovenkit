@@ -83,6 +83,16 @@ describe("isPhaseAdvance", () => {
 })
 
 describe("mergeDepositSession", () => {
+  it("never lets a late not-sent verdict hide a session that already has a hash", () => {
+    const sent = buildDepositSession({ phase: "source_sent", currentSourceHash: "0xaaa" })
+    const released = buildDepositSession({ phase: "terminal", lastState: "not_sent" })
+    expect(mergeDepositSession(sent, released)).toMatchObject({
+      phase: "source_sent",
+      currentSourceHash: "0xaaa",
+    })
+    expect(mergeDepositSession(sent, released).lastState).toBeUndefined()
+  })
+
   it("keeps a replacement hash against a stale writer's original hash", () => {
     const replaced = buildDepositSession({
       phase: "source_sent",

@@ -263,12 +263,18 @@ export function mergeDepositSession(
   const reopened =
     current.lastState === "not_sent" && !current.currentSourceHash && !!next.currentSourceHash
 
+  // Nor may a "not sent" verdict land on a session that already has one.
+  const staleNotSent = next.lastState === "not_sent" && !!current.currentSourceHash
+
   return canonicalize({
     ...current,
     ...next,
     createdAt: current.createdAt,
     updatedAt: Math.max(current.updatedAt, next.updatedAt),
-    phase: reopened || isPhaseAdvance(current.phase, next.phase) ? next.phase : current.phase,
+    phase:
+      !staleNotSent && (reopened || isPhaseAdvance(current.phase, next.phase))
+        ? next.phase
+        : current.phase,
     preSubmitBlock: next.preSubmitBlock ?? current.preSubmitBlock,
     promptedAt: next.promptedAt ?? current.promptedAt,
     promptNonce: next.promptNonce ?? current.promptNonce,
@@ -282,7 +288,7 @@ export function mergeDepositSession(
     depositId: next.depositId ?? current.depositId,
     lastState: reopened
       ? next.lastState
-      : current.phase === "terminal"
+      : current.phase === "terminal" || staleNotSent
         ? current.lastState
         : (next.lastState ?? current.lastState),
   })

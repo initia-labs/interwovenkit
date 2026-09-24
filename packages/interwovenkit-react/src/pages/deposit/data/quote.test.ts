@@ -34,19 +34,20 @@ describe("createQuoteQueryOptions", () => {
   })
 
   // The submit gate keys on a decline: a 400 leaking into the error channel loses the minimum gate.
+  it("declines a 400 with the backend's reason", async () => {
+    const failure = httpError(400, { message: "route paused" })
+    await expect(
+      runQueryFn(createQuoteQueryOptions(stubApi(failure).api, PARAMS, true)),
+    ).resolves.toEqual({ status: "declined", reason: "route paused" })
+  })
+
   it.each([
-    [
-      "declines a 400 with the backend's reason",
-      httpError(400, { message: "route paused" }),
-      { status: "declined", reason: "route paused" },
-    ],
-    ["rejects a server error", httpError(500, { message: "boom" }), { message: "boom" }],
-    ["rejects a network failure", new Error("network down"), { message: "network down" }],
-  ])("%s", async (_name, failure, expected) => {
-    const outcome = await runQueryFn(
-      createQuoteQueryOptions(stubApi(failure).api, PARAMS, true),
-    ).catch((error: unknown) => error)
-    expect(outcome).toMatchObject(expected)
+    ["a server error", httpError(500, { message: "boom" }), "boom"],
+    ["a network failure", new Error("network down"), "network down"],
+  ])("rejects %s", async (_name, failure, message) => {
+    await expect(
+      runQueryFn(createQuoteQueryOptions(stubApi(failure).api, PARAMS, true)),
+    ).rejects.toThrow(message)
   })
 })
 
