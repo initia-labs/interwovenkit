@@ -191,6 +191,33 @@ export function progressHeading(
   return isDelayed && canDelay ? "Taking longer than usual" : view.heading
 }
 
+export type ProgressStepStatus = "done" | "active" | "stopped" | "failed" | "pending"
+
+// One step per hop the API reports: a LI.FI route bridges to Ethereum before the delivery. Nothing
+// before a source hash is on chain yet, so a hashless send has no steps.
+export function deriveProgressSteps(
+  session: DepositSession,
+  inputs: DepositProgressInputs,
+  view: DepositProgressView,
+): ProgressStepStatus[] | undefined {
+  if (!session.currentSourceHash) return undefined
+  const isLifi = session.transport === "lifi"
+  // The recorded stage keeps a finished bridge done while a reload reads the chain again.
+  const bridged =
+    isLifi &&
+    (!!session.depositId ||
+      [inputs.bridge.state, session.lastState].some(
+        (stage) => stage === "deposit_pending" || stage === "deposit_indexed",
+      ))
+  const total = isLifi ? 2 : 1
+  const done = view.variant === "completed" ? total : bridged ? 1 : 0
+  const current: ProgressStepStatus =
+    view.variant === "in-flight" ? "active" : view.variant === "problem" ? "stopped" : "failed"
+  return Array.from({ length: total }, (_, index) =>
+    index < done ? "done" : index === done ? current : "pending",
+  )
+}
+
 export function deriveDepositProgress(
   session: DepositSession,
   inputs: DepositProgressInputs,

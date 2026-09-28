@@ -6,6 +6,7 @@ import {
   checkHashlessSend,
   type DepositProgressInputs,
   deriveDepositProgress,
+  deriveProgressSteps,
   progressHeading,
   type ResumeMatch,
   resumeStageLabel,
@@ -685,5 +686,73 @@ describe("deriveDepositProgress: delivery estimate", () => {
     expect(
       estimate({ bucket: "failed", delivery }, { predictedDelivery: "advance" }).note,
     ).toBeUndefined()
+  })
+})
+
+describe("deriveProgressSteps", () => {
+  const steps = (target: DepositSession, extra: Partial<DepositProgressInputs> = {}) => {
+    const stage = inputs(extra)
+    return deriveProgressSteps(target, stage, deriveDepositProgress(target, stage))
+  }
+  const withDeposit = (bucket: DepositProgressInputs["deposit"]["bucket"]) => ({
+    deposit: { bucket, isError: false, isSelfRecipient: true, completedAmount: "5 iUSD" },
+  })
+
+  it.each<[string, DepositSession, Partial<DepositProgressInputs>, string[]]>([
+    ["a direct send confirming", directSession, {}, ["active"]],
+    [
+      "a direct deposit delivered",
+      { ...directSession, depositId: "d1" },
+      withDeposit("completed"),
+      ["done"],
+    ],
+    ["a LI.FI send on the source chain", session(), {}, ["active", "pending"]],
+    [
+      "a LI.FI bridge in flight",
+      session(),
+      { ...confirmedSource, bridge: { state: "bridge_pending" } },
+      ["active", "pending"],
+    ],
+    [
+      "USDC arrived on Ethereum",
+      session(),
+      { ...confirmedSource, bridge: { state: "deposit_pending" } },
+      ["done", "active"],
+    ],
+    [
+      "a LI.FI deposit delivering",
+      session({ depositId: "d1" }),
+      withDeposit("processing"),
+      ["done", "active"],
+    ],
+    [
+      "a LI.FI deposit delivered",
+      session({ depositId: "d1" }),
+      withDeposit("completed"),
+      ["done", "done"],
+    ],
+    [
+      "a refunded bridge",
+      session(),
+      { ...confirmedSource, bridge: { state: "bridge_refunded" } },
+      ["failed", "pending"],
+    ],
+    ["a failed delivery", session({ depositId: "d1" }), withDeposit("failed"), ["done", "failed"]],
+    [
+      "a delivery read that no longer matches",
+      session({ depositId: "d1" }),
+      { deposit: { bucket: "processing", isError: false, isSelfRecipient: true, conflict: true } },
+      ["done", "stopped"],
+    ],
+  ])("marks %s", (_, target, extra, expected) => {
+    expect(steps(target, extra)).toEqual(expected)
+  })
+
+  it("keeps a finished bridge done while a reload reads the source chain again", () => {
+    expect(steps(session({ lastState: "deposit_pending" }))).toEqual(["done", "active"])
+  })
+
+  it("has no steps before a source transaction exists", () => {
+    expect(steps(session({ currentSourceHash: undefined, phase: "send_prompt" }))).toBeUndefined()
   })
 })

@@ -188,6 +188,14 @@ describe("mergeDepositSession", () => {
     })
   })
 
+  it("keeps a later in-flight stage when a reload reads an earlier one", () => {
+    const bridged = buildDepositSession({ phase: "source_sent", lastState: "deposit_pending" })
+    const reread = buildDepositSession({ phase: "source_sent", lastState: "source_pending" })
+    expect(mergeDepositSession(bridged, reread).lastState).toBe("deposit_pending")
+    const conflict = buildDepositSession({ phase: "source_sent", lastState: "tracking_conflict" })
+    expect(mergeDepositSession(bridged, conflict).lastState).toBe("tracking_conflict")
+  })
+
   it("adopts a replacement hash", () => {
     const current = buildDepositSession({ phase: "source_sent", currentSourceHash: "0xaaa" })
     const replaced = buildDepositSession({ phase: "source_sent", currentSourceHash: "0xbbb" })

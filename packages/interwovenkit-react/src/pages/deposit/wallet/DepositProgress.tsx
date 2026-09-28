@@ -37,7 +37,9 @@ import {
   type DepositProgressInputs,
   type DepositProgressVariant,
   deriveDepositProgress,
+  deriveProgressSteps,
   progressHeading,
+  type ProgressStepStatus,
 } from "./depositProgressLogic"
 import { type DepositSession, recoveryReference, useDepositSessionStore } from "./depositSession"
 import { depositApiRpcUrl, findEthereumUsdcRoute } from "./depositSources"
@@ -47,6 +49,7 @@ import {
   type SourceTxOutcome,
   useSenderNonces,
 } from "./evmRpc"
+import ProgressSteps from "./ProgressSteps"
 import { useTransferForm } from "./transferFlowConfig"
 import styles from "./DepositProgress.module.css"
 
@@ -367,6 +370,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
       onHistoryClick={view.variant === "completed" ? () => openDrawer("/activity") : undefined}
       footer={footer}
       isRetrying={view.isRetrying}
+      steps={deriveProgressSteps(session, inputs, view)}
     />
   )
 }
@@ -441,6 +445,7 @@ interface ProgressScreenProps {
   onHistoryClick?: () => void
   footer?: ReactNode
   isRetrying?: boolean
+  steps?: ProgressStepStatus[]
 }
 
 const ProgressScreen = (props: ProgressScreenProps) => {
@@ -450,7 +455,9 @@ const ProgressScreen = (props: ProgressScreenProps) => {
   return (
     <DepositSubpage title={title}>
       <div className={trackingStyles.body}>
-        {variant === "in-flight" ? (
+        {props.steps ? (
+          <ProgressSteps steps={props.steps} />
+        ) : variant === "in-flight" ? (
           <Loader size={40} color="var(--success)" />
         ) : variant === "completed" ? (
           <IconCheckCircleFilled size={48} className={trackingStyles.successIcon} aria-hidden />

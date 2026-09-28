@@ -43,6 +43,25 @@ const DEPOSIT_LAST_STATES = [
 
 export type DepositLastState = (typeof DEPOSIT_LAST_STATES)[number]
 
+// In-flight stages in the order a transfer passes them. A reload reads from the start again, and
+// that earlier stage must not overwrite a later one already recorded.
+const IN_FLIGHT_ORDER: DepositLastState[] = [
+  "source_pending",
+  "source_replaced",
+  "bridge_not_found",
+  "bridge_pending",
+  "deposit_pending",
+  "deposit_indexed",
+  "waiting",
+  "processing",
+]
+
+export function isStageRegression(current?: DepositLastState, next?: DepositLastState): boolean {
+  const from = current ? IN_FLIGHT_ORDER.indexOf(current) : -1
+  const to = next ? IN_FLIGHT_ORDER.indexOf(next) : -1
+  return from >= 0 && to >= 0 && to < from
+}
+
 export interface DepositSessionTransaction {
   chainId: string
   to: string
@@ -297,7 +316,9 @@ export function mergeDepositSession(
     depositId: next.depositId ?? current.depositId,
     lastState: reopened
       ? next.lastState
-      : current.phase === "terminal" || staleNotSent
+      : current.phase === "terminal" ||
+          staleNotSent ||
+          isStageRegression(current.lastState, next.lastState)
         ? current.lastState
         : (next.lastState ?? current.lastState),
   })

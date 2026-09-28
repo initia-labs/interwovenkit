@@ -1,0 +1,319 @@
+/* Swaps between states morph in: scale from 0.25 with a 4px blur over 300ms. */
+.progress {
+  --morph: 300ms cubic-bezier(0.2, 0, 0, 1);
+  --pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  position: relative;
+
+  display: grid;
+
+  min-height: 56px;
+  place-items: center;
+}
+
+.steps {
+  display: flex;
+  align-items: center;
+
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  transition:
+    opacity 400ms ease,
+    filter 400ms ease,
+    transform 400ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+}
+
+.connector {
+  display: flex;
+  gap: 4px;
+
+  margin: 0 10px;
+}
+
+.connector span {
+  width: 3px;
+  height: 3px;
+
+  background-color: var(--gray-5);
+  border-radius: 50%;
+}
+
+/* A pulse of lit dots runs from the finished step to the next one. */
+.arrived .connector span {
+  animation: flow 560ms ease-in-out calc(var(--dot) * 55ms) both;
+}
+
+.circle {
+  position: relative;
+
+  display: grid;
+
+  width: 40px;
+  height: 40px;
+
+  place-items: center;
+}
+
+.arrived .circle {
+  animation: arrive 520ms var(--pop) 380ms both;
+}
+
+.ring {
+  position: absolute;
+  inset: 0;
+
+  width: 100%;
+  height: 100%;
+
+  overflow: visible;
+}
+
+.track,
+.arc {
+  fill: none;
+  stroke-width: 3;
+}
+
+.track {
+  stroke: var(--gray-6);
+  transition: stroke var(--morph);
+}
+
+/* Always turning, only shown while active, so it fades out mid-turn instead of snapping back. */
+.arc {
+  animation: spin 1s linear infinite;
+  opacity: 0;
+  stroke: var(--gray-1);
+  stroke-dasharray: 18 82;
+  stroke-linecap: round;
+  transform-origin: 20px 20px;
+  transition: opacity var(--morph);
+}
+
+.active .arc {
+  opacity: 1;
+}
+
+.arrived.active .arc {
+  transition-delay: 520ms;
+}
+
+.done .track {
+  stroke: var(--success);
+}
+
+.failed .track {
+  stroke: var(--error);
+}
+
+.number,
+.mark {
+  transition:
+    opacity var(--morph),
+    filter var(--morph),
+    transform var(--morph);
+}
+
+.number {
+  color: var(--gray-2);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.active .number,
+.stopped .number {
+  color: var(--gray-1);
+}
+
+.done .number,
+.failed .number {
+  filter: blur(4px);
+  opacity: 0;
+  transform: scale(0.25);
+}
+
+.mark {
+  position: absolute;
+
+  width: 22px;
+  height: 22px;
+
+  fill: none;
+  filter: blur(4px);
+  opacity: 0;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.75;
+  transform: scale(0.25);
+}
+
+.done .mark,
+.failed .mark {
+  filter: none;
+  opacity: 1;
+  transform: none;
+}
+
+.done .mark {
+  stroke: var(--success);
+}
+
+.failed .mark {
+  stroke: var(--error);
+}
+
+/* Once every step is done, the row folds into one filled check. */
+.badge {
+  position: absolute;
+
+  display: grid;
+
+  width: 48px;
+  height: 48px;
+
+  background-color: var(--success);
+  border-radius: 50%;
+  box-shadow: 0 0 0 7px color-mix(in srgb, var(--success) 12%, transparent);
+  color: var(--gray-9);
+  filter: blur(4px);
+  opacity: 0;
+  place-items: center;
+  transform: scale(0.25);
+  transition:
+    opacity 400ms ease,
+    filter 400ms ease,
+    transform 520ms var(--pop);
+}
+
+.badge svg {
+  width: 26px;
+  height: 26px;
+
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.25;
+}
+
+.complete .steps {
+  filter: blur(6px);
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.85);
+}
+
+.complete .badge {
+  filter: none;
+  opacity: 1;
+  transform: none;
+}
+
+/* Live, the last check lands before the row folds. */
+.justCompleted .steps {
+  transition-delay: 650ms;
+}
+
+.justCompleted .badge {
+  transition-delay: 900ms;
+}
+
+.justCompleted::before {
+  position: absolute;
+
+  width: 160px;
+  height: 160px;
+
+  animation: glow 1800ms ease 900ms both;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--success) 22%, transparent),
+    transparent 70%
+  );
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+}
+
+.status {
+  position: absolute;
+
+  width: 1px;
+  height: 1px;
+
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes flow {
+  0%,
+  100% {
+    background-color: var(--gray-5);
+    transform: scale(1);
+  }
+
+  35% {
+    background-color: var(--success);
+    transform: scale(1.4);
+  }
+}
+
+@keyframes arrive {
+  0% {
+    transform: scale(1);
+  }
+
+  35% {
+    transform: scale(0.88);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes glow {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+
+  40% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arc,
+  .arrived .connector span,
+  .arrived .circle,
+  .justCompleted::before {
+    animation: none;
+  }
+
+  .steps,
+  .badge,
+  .number,
+  .mark {
+    transition-duration: 150ms;
+  }
+}
