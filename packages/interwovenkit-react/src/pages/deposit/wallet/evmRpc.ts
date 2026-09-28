@@ -76,6 +76,10 @@ export function encodeErc20Approve(spender: string, amount: string): string {
 }
 
 const APPROVAL_POLL_MS = 2_000
+// Once the approval is mined and a node has its nonce, the allowance catches up within a few blocks.
+const APPROVAL_SETTLE_MS = 10_000
+export const SHORT_APPROVAL_MESSAGE =
+  "The approved amount is less than this deposit. Approve again without lowering the amount."
 
 interface PendingApproval {
   hash: string
@@ -101,6 +105,7 @@ export async function waitForApproval(
   timeoutMs: number,
 ): Promise<ConfirmedApproval> {
   const deadline = Date.now() + timeoutMs
+  let settledAt: number | undefined
   do {
     // A failed read is only "not yet"; the deadline bounds the wait.
     const [receipt, allowance, latest, pending] = await Promise.all([
@@ -118,6 +123,11 @@ export async function waitForApproval(
       latest > nonce
     ) {
       return { allowance, nonces: { latest, pending: Math.max(latest, pending) } }
+    }
+    // A wallet that let the user lower the spending cap mined a smaller approval than needed.
+    if (receipt && latest !== undefined && latest > nonce) {
+      settledAt ??= Date.now()
+      if (Date.now() - settledAt >= APPROVAL_SETTLE_MS) throw new Error(SHORT_APPROVAL_MESSAGE)
     }
     await new Promise((resolve) => setTimeout(resolve, APPROVAL_POLL_MS))
   } while (Date.now() < deadline)

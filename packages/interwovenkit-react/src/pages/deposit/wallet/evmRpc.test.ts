@@ -7,6 +7,7 @@ import {
   getPinnedProvider,
   readErc20Uint,
   readSourceBalances,
+  SHORT_APPROVAL_MESSAGE,
   waitForApproval,
 } from "./evmRpc"
 import { buildDepositSession, SENDER } from "./testing"
@@ -209,6 +210,15 @@ describe("waitForApproval", () => {
       })
     },
   )
+
+  it("says the approval was short once a mined approval leaves the allowance below the amount", async () => {
+    vi.useFakeTimers()
+    const provider = approvalProvider({ status: 1 }, [500n], [8])
+    const result = waitForApproval(provider, APPROVAL, 120_000)
+    const settled = expect(result).rejects.toThrow(SHORT_APPROVAL_MESSAGE)
+    await vi.advanceTimersByTimeAsync(12_000)
+    await settled
+  })
 
   it("resolves once a replacement raised the allowance, with no receipt for the original", async () => {
     const provider = approvalProvider(null, [1000n], [8])
