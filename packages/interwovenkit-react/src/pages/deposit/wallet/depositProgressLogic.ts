@@ -431,7 +431,7 @@ function bridgeStage(inputs: DepositProgressInputs): DepositProgressView {
   }
 
   return inFlight({
-    heading: error && !state ? "Checking bridge status" : copy.heading,
+    heading: copy.heading,
     message: copy.message,
     isRetrying: !!error,
     isBridging: state !== "deposit_pending" && state !== "deposit_indexed",

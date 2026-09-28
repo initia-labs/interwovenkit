@@ -472,9 +472,9 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
       { variant: "in-flight", isRetrying: true, persist: { lastState: "bridge_pending" } },
     ],
     [
-      "an error before any state shows a neutral status check",
+      "an error before any state keeps the generic copy and shows the retry notice",
       { error: new Error("network") },
-      { variant: "in-flight", isRetrying: true, heading: "Checking bridge status" },
+      { variant: "in-flight", isRetrying: true, heading: undefined },
     ],
   ])("%s", (_, bridge, expected) => {
     expect(bridgeView(bridge)).toMatchObject(expected)
