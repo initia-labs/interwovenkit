@@ -12,25 +12,39 @@ const params = {
 
 describe("formatCompletedAmount", () => {
   it("prefers the router-quoted amount with the destination symbol", () => {
-    expect(formatCompletedAmount(params)).toBe("1.000000 iUSD")
+    expect(formatCompletedAmount(params)).toBe("1 iUSD")
+  })
+
+  it.each([
+    ["1500000", "1.5 iUSD"],
+    ["1234567891", "1,234.567891 iUSD"],
+  ])("drops padding zeros from %s", (amountOut, expected) => {
+    expect(formatCompletedAmount({ ...params, amountOut })).toBe(expected)
+  })
+
+  it("rounds a longer sent amount down to 6 decimals", () => {
+    const sentAmount = "1234567890123456789"
+    expect(formatCompletedAmount({ ...params, amountOut: undefined, sentAmount })).toBe(
+      "1.234567 ETH",
+    )
   })
 
   it("falls back to the sent amount with the SOURCE symbol when amount_out is absent", () => {
-    expect(formatCompletedAmount({ ...params, amountOut: undefined })).toBe("2.000000 ETH")
+    expect(formatCompletedAmount({ ...params, amountOut: undefined })).toBe("2 ETH")
   })
 
   // A zero or corrupt quote must never render "0 … was delivered": on a
   // successful delivery that reads as lost funds.
   it("falls back to the sent amount when amount_out is zero", () => {
-    expect(formatCompletedAmount({ ...params, amountOut: "0" })).toBe("2.000000 ETH")
+    expect(formatCompletedAmount({ ...params, amountOut: "0" })).toBe("2 ETH")
   })
 
   it("falls back to the sent amount when amount_out is unparseable", () => {
-    expect(formatCompletedAmount({ ...params, amountOut: "not-a-number" })).toBe("2.000000 ETH")
+    expect(formatCompletedAmount({ ...params, amountOut: "not-a-number" })).toBe("2 ETH")
   })
 
   it("falls back to the quoted amount path only with destination decimals", () => {
-    expect(formatCompletedAmount({ ...params, dstDecimals: undefined })).toBe("2.000000 ETH")
+    expect(formatCompletedAmount({ ...params, dstDecimals: undefined })).toBe("2 ETH")
   })
 
   it("uses the amount-less sentence when the route is gone from config/assets", () => {

@@ -1,5 +1,5 @@
 import BigNumber from "bignumber.js"
-import { formatNumber, fromBaseUnit } from "@initia/utils"
+import { fromBaseUnit } from "@initia/utils"
 
 export interface CompletedAmountParams {
   /** Router-quoted destination base units (`Deposit.amount_out`); an estimate, not a measured receipt. */
@@ -30,6 +30,10 @@ export interface CompletedAmountParams {
  * 3. "Your {receiveSymbol}" — when neither amount can be formatted (route gone
  *    from the Deposit API's `config/assets`, so no decimals to format with).
  */
+// A sentence amount: at most 6 decimals, rounded down, with no padding zeros.
+const formatSentenceAmount = (value: string) =>
+  BigNumber(value).decimalPlaces(6, BigNumber.ROUND_DOWN).toFormat()
+
 export function formatCompletedAmount(params: CompletedAmountParams): string {
   const { amountOut, sentAmount, dstDecimals, srcDecimals, receiveSymbol, sentSymbol } = params
 
@@ -38,7 +42,7 @@ export function formatCompletedAmount(params: CompletedAmountParams): string {
   const delivered =
     amountOut && dstDecimals !== undefined ? fromBaseUnit(amountOut, { decimals: dstDecimals }) : ""
   if (delivered && BigNumber(delivered).gt(0)) {
-    return `${formatNumber(delivered, { dp: 6 })} ${receiveSymbol}`
+    return `${formatSentenceAmount(delivered)} ${receiveSymbol}`
   }
 
   const sent =
@@ -46,7 +50,7 @@ export function formatCompletedAmount(params: CompletedAmountParams): string {
       ? fromBaseUnit(sentAmount, { decimals: srcDecimals })
       : ""
   if (sent && BigNumber(sent).gt(0)) {
-    return `${formatNumber(sent, { dp: 6 })} ${sentSymbol}`
+    return `${formatSentenceAmount(sent)} ${sentSymbol}`
   }
 
   return `Your ${receiveSymbol}`
