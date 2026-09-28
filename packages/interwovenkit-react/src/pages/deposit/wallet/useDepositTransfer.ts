@@ -1,3 +1,4 @@
+import type { BrowserProvider } from "ethers"
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -440,16 +441,22 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const getSigner = async (chainId: string, sender = hexAddress) => {
     const chain = findChain(chainId)
     if (!chain) throw new Error(`Chain not found: ${chainId}`)
-    const provider = await getProvider()
-    const signer = await provider.getSigner()
     // Balances, allowance and nonce were read for this account; the watch assumes it sent.
-    if (!eqAddress(signer.address, sender)) {
-      throw new Error("Your wallet switched accounts. Try again.")
+    const signerFor = async (provider: BrowserProvider) => {
+      const signer = await provider.getSigner()
+      if (!eqAddress(signer.address, sender)) {
+        throw new Error("Your wallet switched accounts. Try again.")
+      }
+      return signer
     }
+    const provider = await getProvider()
+    const signer = await signerFor(provider)
     // Asked of the wallet itself: a stale cached chain would make ethers refuse the send.
     const walletChainId = Number(await provider.send("eth_chainId", []))
-    if (walletChainId !== Number(chainId)) await switchEthereumChain(provider, chain)
-    return signer
+    if (walletChainId === Number(chainId)) return signer
+    await switchEthereumChain(provider, chain)
+    // A provider that already detected the old chain can refuse to send on the new one.
+    return signerFor(await getProvider())
   }
 
   const approveMutation = useMutation({
