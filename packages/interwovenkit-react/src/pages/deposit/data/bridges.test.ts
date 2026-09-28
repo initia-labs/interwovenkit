@@ -8,6 +8,7 @@ import {
   createBridgeOptionsQueryOptions,
   createBridgeQuoteQueryOptions,
   createBridgeStatusQueryOptions,
+  isBridgeQuoteMateriallyChanged,
   parseBridgeOptions,
   parseBridgeQuote,
   parseBridgeStatus,
@@ -610,6 +611,45 @@ describe("bridgeQuoteSignature", () => {
         depositAddress: OTHER_ADDRESS,
       }),
     ).not.toBe(reviewed)
+  })
+})
+
+describe("isBridgeQuoteMateriallyChanged", () => {
+  const payload = (overrides: Record<string, unknown> = {}, transaction = {}) =>
+    quotePayload({
+      transaction: { ...quotePayload().transaction, value: "1000000", ...transaction },
+      ...overrides,
+    })
+  const parse = (quote: ReturnType<typeof quotePayload>) => parseBridgeQuote(quote, QUOTE_REQUEST)
+  const reviewed = parse(payload())
+
+  it.each([
+    ["re-encoded calldata", payload({}, { data: "0xcafe" })],
+    ["a higher amount", payload({ amount_out: "4990000", min_received: "4960000" })],
+    ["a guaranteed amount 0.1% lower", payload({ min_received: "4945050" })],
+    ["a native fee up to 1% higher", payload({}, { value: "1010000" })],
+    ["a lower native fee", payload({}, { value: "900000" })],
+  ])("signs %s without another review", (_name, fresh) => {
+    expect(isBridgeQuoteMateriallyChanged(reviewed, parse(fresh))).toBe(false)
+  })
+
+  it.each([
+    ["a guaranteed amount more than 0.1% lower", parse(payload({ min_received: "4945049" }))],
+    ["a native fee more than 1% higher", parse(payload({}, { value: "1010001" }))],
+    ["another contract", parse(payload({}, { to: OTHER_ADDRESS }))],
+    [
+      "another approval spender",
+      parse(payload({ approval: { ...quotePayload().approval, spender_address: OTHER_ADDRESS } })),
+    ],
+    ["another bridge", { ...reviewed, tool: "stargate" }],
+    ["another deposit address", { ...reviewed, deposit_address: OTHER_ADDRESS }],
+  ])("asks for review on %s", (_name, fresh) => {
+    expect(isBridgeQuoteMateriallyChanged(reviewed, fresh)).toBe(true)
+  })
+
+  it("asks for review on a drop just over 0.1% that rounding would let through", () => {
+    const base = { ...reviewed, min_received: "100000001" }
+    expect(isBridgeQuoteMateriallyChanged(base, { ...base, min_received: "99900000" })).toBe(true)
   })
 })
 

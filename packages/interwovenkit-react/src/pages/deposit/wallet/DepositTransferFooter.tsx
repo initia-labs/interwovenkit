@@ -53,13 +53,12 @@ const DepositTransferActions = ({ resolution }: { resolution: DepositTransportSe
       ? readiness.message
       : undefined
 
-  // Wallets like Rabby flag a recipient that isn't the connected account.
+  // Wallets like Rabby flag a recipient that isn't the connected account, so the note stays up
+  // through the approval and the wallet prompt, where that warning appears.
   const addressNotice =
     model.transport === "lifi" &&
     model.depositAddress &&
-    readiness.status === "ready" &&
-    !isSending &&
-    !needsApproval &&
+    (readiness.status === "ready" || isSending || approval.isApproving) &&
     !model.submitError &&
     !approval.error &&
     !quoteUpdated

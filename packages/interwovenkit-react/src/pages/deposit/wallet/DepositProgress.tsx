@@ -247,7 +247,6 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     },
     deposit: {
       bucket,
-      advanceStatus: deposit?.advance_status,
       delivery: deposit?.delivery,
       isError: depositQuery.isError,
       minLabel,

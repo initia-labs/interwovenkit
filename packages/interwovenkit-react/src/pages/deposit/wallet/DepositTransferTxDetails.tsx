@@ -1,3 +1,4 @@
+import clsx from "clsx"
 import { Fragment } from "react"
 import { IconCheck, IconChevronRight, IconCopy, IconExternalLink } from "@initia/icons-react"
 import { formatAmount, truncate } from "@initia/utils"
@@ -10,6 +11,7 @@ import { useConfig } from "@/data/config"
 import { useConnectedWalletIcon } from "@/hooks/useConnectedWalletIcon"
 import { formatDuration } from "@/pages/bridge/data/format"
 import onrampStyles from "../onramp/OnrampFields.module.css"
+import providerStyles from "../onramp/SelectProvider.module.css"
 import { getBridgeToolDisplay } from "./depositSources"
 import { formatNetworkFee } from "./depositTransferLogic"
 import type { DepositTransferModel } from "./useDepositTransfer"
@@ -42,6 +44,11 @@ const DepositTransferTxDetails = ({ model }: { model: DepositTransferModel }) =>
               <>
                 <Image src={tool.logoUrl} width={16} height={16} logo />
                 {tool.name}
+                {model.isBestRoute && (
+                  <span className={clsx(providerStyles.badge, providerStyles["badge-success"])}>
+                    Best
+                  </span>
+                )}
               </>
             ) : (
               "—"

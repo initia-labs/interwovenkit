@@ -18,6 +18,7 @@ const REPLACEMENT_HASH = `0x${"b".repeat(64)}`
 const MISMATCH =
   "The tracking details don't match this deposit. Your submitted transaction is still saved."
 const MINUTE = 60_000
+const PROCESSING = "Processing your deposit."
 
 /** A broadcast transfer: the state every stage below starts from. */
 const session = (overrides: Partial<DepositSession> = {}): DepositSession =>
@@ -104,14 +105,15 @@ describe("selectResumableSessions", () => {
 
 describe("resumeStageLabel", () => {
   it.each<[string, Partial<DepositSession>, string]>([
-    ["a recorded state's label", { lastState: "bridge_pending" }, "Bridging to Ethereum"],
+    ["an in-flight state", { lastState: "bridge_pending" }, "In progress"],
+    ["a problem state", { lastState: "tracking_conflict" }, "Couldn't verify transfer"],
     ["an open prompt", { phase: "send_prompt" }, "Checking your transaction"],
     [
       "an ambiguous send whose state has no label",
       { phase: "submission_unknown", lastState: "source_reverted" },
       "Checking your transaction",
     ],
-    ["a sent transfer with no state", { phase: "source_sent" }, "Source transaction pending"],
+    ["a sent transfer with no state", { phase: "source_sent" }, "In progress"],
   ])("labels %s", (_, overrides, label) => {
     expect(resumeStageLabel(session(overrides))).toBe(label)
   })
@@ -305,20 +307,23 @@ describe("deriveDepositProgress: source stage", () => {
   it.each([
     ["no receipt yet", undefined],
     ["a pending receipt", { status: "pending" as const }],
-  ])("keeps waiting on %s with the source chain named", (_, outcome) => {
+  ])("keeps waiting on %s", (_, outcome) => {
     const view = deriveDepositProgress(session(), inputs({ source: { isError: false, outcome } }))
     expect(view).toMatchObject({
       variant: "in-flight",
-      message: "Confirming on Base.",
+      title: "Deposit in progress",
+      message: PROCESSING,
+      isRetrying: false,
       persist: { lastState: "source_pending" },
     })
     expect(view.note).toBeUndefined()
   })
 
-  it("an RPC read failure keeps the pending copy and says so", () => {
+  it("an RPC read failure keeps the stage and shows the retry notice", () => {
     expect(deriveDepositProgress(session(), inputs({ source: { isError: true } }))).toMatchObject({
       variant: "in-flight",
-      note: "Still checking…",
+      message: PROCESSING,
+      isRetrying: true,
     })
   })
 
@@ -343,7 +348,7 @@ describe("deriveDepositProgress: source stage", () => {
   ])("tracks the replacement from %s", (_, tracked, source) => {
     expect(deriveDepositProgress(tracked, inputs({ source }))).toMatchObject({
       variant: "in-flight",
-      note: "Your wallet replaced the transaction. Tracking the new one.",
+      message: PROCESSING,
       persist: { lastState: "source_replaced" },
     })
   })
@@ -499,26 +504,17 @@ describe("deriveDepositProgress: direct Ethereum correlation", () => {
 })
 
 describe("deriveDepositProgress: deposit id stage", () => {
-  it("the deposit id supersedes the source stage and confirms on Ethereum", () => {
-    expect(depositView({ bucket: "waiting" })).toMatchObject({
-      variant: "in-flight",
-      title: "Confirming your deposit…",
-      message: "Confirming on Ethereum.",
-      persist: { lastState: "waiting" },
-    })
-  })
-
-  it.each([
-    ["completed", "Delivering to Initia."],
-    ["pending", "Fast delivery to Initia in progress."],
-  ])("processing with advance_status %s stays in flight", (advanceStatus, message) => {
-    expect(depositView({ bucket: "processing", advanceStatus })).toMatchObject({
-      variant: "in-flight",
-      title: "Transferring…",
-      message,
-      persist: { lastState: "processing" },
-    })
-  })
+  it.each(["waiting", "processing"] as const)(
+    "the deposit id supersedes the source stage: %s stays in flight",
+    (bucket) => {
+      expect(depositView({ bucket })).toMatchObject({
+        variant: "in-flight",
+        title: "Deposit in progress",
+        message: PROCESSING,
+        persist: { lastState: bucket },
+      })
+    },
+  )
 
   it.each([
     [true, "5 iUSD delivered to your wallet on Initia."],
@@ -622,9 +618,9 @@ describe("deriveDepositProgress: delivery estimate", () => {
   ) => depositView({ bucket: "processing", ...deposit }, overrides, { now: NOW })
 
   it.each([
-    ["processing", 45, "Delivering to Initia. About 1m left."],
-    ["processing", 301, "Delivering to Initia. About 6m left."],
-    ["waiting", 120, "Confirming on Ethereum. About 2m left."],
+    ["processing", 45, `${PROCESSING} About 1m left.`],
+    ["processing", 301, `${PROCESSING} About 6m left.`],
+    ["waiting", 120, `${PROCESSING} About 2m left.`],
   ] as const)(
     "shows the time left while %s, rounded up to the minute",
     (bucket, seconds, message) => {
@@ -640,7 +636,7 @@ describe("deriveDepositProgress: delivery estimate", () => {
     ["malformed", "soon"],
   ])("hides the time left when the estimate is %s", (_, estimatedCompletionAt) => {
     const delivery = { method: "standard", estimated_completion_at: estimatedCompletionAt }
-    expect(estimate({ delivery }).message).toBe("Delivering to Initia.")
+    expect(estimate({ delivery }).message).toBe(PROCESSING)
   })
 
   it("hides the time left once the deposit is terminal", () => {

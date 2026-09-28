@@ -79,27 +79,46 @@ const APPROVAL_POLL_MS = 2_000
 
 interface PendingApproval {
   hash: string
+  /** The approval's own nonce: the deposit's baseline must come after it. */
+  nonce: number
   owner: string
   token: string
   spender: string
   amount: string
 }
 
-// A wallet speed-up gives the approval a new hash, so the raised allowance confirms it too.
+interface ConfirmedApproval {
+  allowance: string
+  nonces: SenderNonces
+}
+
+// Resolves once one read shows the allowance covering the amount and the approval's nonce mined:
+// a wallet speed-up gives the approval a new hash, and a node behind the receipt would still read
+// the old allowance and nonce.
 export async function waitForApproval(
   provider: JsonRpcProvider,
-  { hash, owner, token, spender, amount }: PendingApproval,
+  { hash, nonce, owner, token, spender, amount }: PendingApproval,
   timeoutMs: number,
-): Promise<void> {
+): Promise<ConfirmedApproval> {
   const deadline = Date.now() + timeoutMs
   do {
     // A failed read is only "not yet"; the deadline bounds the wait.
-    const [receipt, allowance] = await Promise.all([
+    const [receipt, allowance, latest, pending] = await Promise.all([
       provider.getTransactionReceipt(hash).catch(() => null),
       readErc20Uint(provider, token, "allowance", [owner, spender]).catch(() => "0"),
+      provider.getTransactionCount(owner, "latest").catch(() => undefined),
+      provider.getTransactionCount(owner, "pending").catch(() => undefined),
     ])
     if (receipt && receipt.status !== 1) break
-    if (receipt || BigInt(allowance) >= BigInt(amount)) return
+    // Both nonces become the deposit's baseline, so each must be a real read past the approval.
+    if (
+      BigInt(allowance) >= BigInt(amount) &&
+      latest !== undefined &&
+      pending !== undefined &&
+      latest > nonce
+    ) {
+      return { allowance, nonces: { latest, pending: Math.max(latest, pending) } }
+    }
     await new Promise((resolve) => setTimeout(resolve, APPROVAL_POLL_MS))
   } while (Date.now() < deadline)
   throw new Error("The USDC approval did not go through")

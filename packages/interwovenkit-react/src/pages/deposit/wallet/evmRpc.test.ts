@@ -151,41 +151,86 @@ describe("ERC-20 calldata", () => {
 })
 
 describe("waitForApproval", () => {
-  const APPROVAL = { hash: HASH, owner: SENDER, token: TOKEN, spender: BRIDGE, amount: "1000" }
-  const approvalProvider = (receipt: { status: number } | null, allowance: bigint) =>
-    createFakeProvider({
-      receipt: receipt ?? undefined,
-      call: answerTokenRead("allowance", [SENDER, BRIDGE], allowance),
-    })
+  const APPROVAL = {
+    hash: HASH,
+    nonce: 7,
+    owner: SENDER,
+    token: TOKEN,
+    spender: BRIDGE,
+    amount: "1000",
+  }
+  /** Each read answers the next value in its list, then keeps the last one; `null` fails. */
+  const approvalProvider = (
+    receipt: { status: number } | null,
+    allowances: bigint[],
+    latestNonces: (number | null)[],
+    pendingNonces: (number | null)[] = [8],
+  ) => {
+    const next = <T>(values: T[]) => {
+      let index = 0
+      return () => values[Math.min(index++, values.length - 1)]
+    }
+    const allowance = next(allowances)
+    const nonces = { latest: next(latestNonces), pending: next(pendingNonces) }
+    return {
+      getTransactionReceipt: async () => receipt,
+      call: async () => ERC20_READS.encodeFunctionResult("allowance", [allowance()]),
+      getTransactionCount: async (_: string, tag: "latest" | "pending") => {
+        const value = nonces[tag]()
+        if (value === null) throw new Error("timeout")
+        return value
+      },
+    } as unknown as JsonRpcProvider
+  }
 
   afterEach(() => {
     vi.useRealTimers()
   })
 
-  it("resolves on a successful receipt", async () => {
-    const provider = approvalProvider({ status: 1 }, 0n)
-    await expect(waitForApproval(provider, APPROVAL, 0)).resolves.toBeUndefined()
-  })
+  it.each<[string, bigint[], (number | null)[], (number | null)[]]>([
+    ["the allowance", [0n, 1000n], [8], [8]],
+    ["the approval's nonce", [1000n], [7, 8], [8]],
+    ["a mined nonce, after a failed read", [1000n], [null, 8], [8]],
+    ["a pending nonce, after a failed read", [1000n], [8], [null, 8]],
+  ])(
+    "waits past a successful receipt until a lagging node shows %s",
+    async (_, allowances, latest, pending) => {
+      vi.useFakeTimers()
+      const provider = approvalProvider({ status: 1 }, allowances, latest, pending)
+      const result = waitForApproval(provider, APPROVAL, 60_000)
+      await vi.advanceTimersByTimeAsync(2_000)
+      await expect(result).resolves.toEqual({
+        allowance: "1000",
+        nonces: { latest: 8, pending: 8 },
+      })
+    },
+  )
 
   it("resolves once a replacement raised the allowance, with no receipt for the original", async () => {
-    const provider = approvalProvider(null, 1000n)
-    await expect(waitForApproval(provider, APPROVAL, 0)).resolves.toBeUndefined()
+    const provider = approvalProvider(null, [1000n], [8])
+    await expect(waitForApproval(provider, APPROVAL, 0)).resolves.toMatchObject({
+      allowance: "1000",
+    })
   })
 
-  it("throws on a reverted receipt even if an older approval already covers the amount", async () => {
-    const provider = approvalProvider({ status: 0 }, 1000n)
+  it("throws on a reverted receipt even if another approval already covers the amount", async () => {
+    const provider = approvalProvider({ status: 0 }, [1000n], [8])
     await expect(waitForApproval(provider, APPROVAL, 60_000)).rejects.toThrow(/did not go through/)
   })
 
   it("keeps polling through failed reads and throws at the deadline", async () => {
     vi.useFakeTimers()
     const reads = vi.fn().mockRejectedValue(new Error("timeout"))
-    const provider = { getTransactionReceipt: reads, call: reads } as unknown as JsonRpcProvider
+    const provider = {
+      getTransactionReceipt: reads,
+      call: reads,
+      getTransactionCount: reads,
+    } as unknown as JsonRpcProvider
     const result = waitForApproval(provider, APPROVAL, 5_000)
     const settled = expect(result).rejects.toThrow(/did not go through/)
     await vi.advanceTimersByTimeAsync(6_000)
     await settled
-    expect(reads.mock.calls.length).toBeGreaterThan(2)
+    expect(reads.mock.calls.length).toBeGreaterThan(4)
   })
 })
 

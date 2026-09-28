@@ -52,7 +52,6 @@ export interface DepositProgressInputs {
   }
   deposit: {
     bucket: WalletDepositBucket
-    advanceStatus?: string
     delivery?: DepositDelivery
     isError: boolean
     minLabel?: string
@@ -75,7 +74,9 @@ const MISMATCH =
 
 const NO_REFUND = "Your funds remain at the deposit address with no automatic refund."
 
-const ARRIVED_ON_ETHEREUM = "USDC arrived on Ethereum. Waiting for the deposit to be detected."
+// Every in-flight stage reads the same: the user needs to know it's moving, not which leg it's on.
+const PROCESSING = "Processing your deposit."
+const IN_PROGRESS = "In progress"
 
 const FAST_DELIVERY_FELL_BACK =
   "Fast delivery wasn't available, so this deposit is using standard delivery."
@@ -89,14 +90,11 @@ interface LastStateCopy {
 // Bridge states render a whole screen, so their message is mandatory.
 const LAST_STATE: Partial<Record<DepositLastState, LastStateCopy>> &
   Record<BridgeStatusState, LastStateCopy & { message: string }> = {
-  source_pending: { label: "Source transaction pending" },
-  source_replaced: { label: "Source transaction replaced" },
+  source_pending: { label: IN_PROGRESS },
+  source_replaced: { label: IN_PROGRESS },
   source_conflict: { label: "Couldn't verify transfer" },
-  bridge_not_found: {
-    label: "Waiting for the bridge",
-    message: "Transaction broadcast. Waiting for the bridge to pick it up.",
-  },
-  bridge_pending: { label: "Bridging to Ethereum", message: "Bridging USDC to Ethereum." },
+  bridge_not_found: { label: IN_PROGRESS, message: PROCESSING },
+  bridge_pending: { label: IN_PROGRESS, message: PROCESSING },
   bridge_refunding: {
     label: "Refund in progress",
     heading: "Refund in progress",
@@ -122,10 +120,10 @@ const LAST_STATE: Partial<Record<DepositLastState, LastStateCopy>> &
     message:
       "The bridge could not complete this transfer. Check the details for the status of your funds.",
   },
-  deposit_pending: { label: "Waiting for deposit detection", message: ARRIVED_ON_ETHEREUM },
-  deposit_indexed: { label: "Delivering", message: "Deposit detected. Delivering now." },
-  waiting: { label: "Confirming your deposit" },
-  processing: { label: "Delivering" },
+  deposit_pending: { label: IN_PROGRESS, message: PROCESSING },
+  deposit_indexed: { label: IN_PROGRESS, message: PROCESSING },
+  waiting: { label: IN_PROGRESS },
+  processing: { label: IN_PROGRESS },
   unknown: { label: "Status unavailable" },
   tracking_conflict: { label: "Couldn't verify transfer" },
 }
@@ -178,7 +176,7 @@ export function resumeStageLabel(session: DepositSession): string {
   if (label) return label
   return session.phase === "send_prompt" || session.phase === "submission_unknown"
     ? "Checking your transaction"
-    : "Source transaction pending"
+    : IN_PROGRESS
 }
 
 // Replaces the heading, not the copy: "your funds are safe" is false while a bridge holds them.
@@ -311,7 +309,6 @@ const notSent = (lastState: DepositLastState) =>
 
 function sourceStage(session: DepositSession, inputs: DepositProgressInputs): DepositProgressView {
   const { outcome, isError } = inputs.source
-  const { chainName } = session.source
 
   if (outcome?.status === "reverted") return notSent("source_reverted")
   if (outcome?.status === "replaced" && outcome.reason === "cancelled") {
@@ -333,21 +330,11 @@ function sourceStage(session: DepositSession, inputs: DepositProgressInputs): De
     repriced ||
     (!!session.originalSourceHash && session.originalSourceHash !== session.currentSourceHash)
 
-  const base = inFlight({
-    message: `Confirming on ${chainName}.`,
+  return inFlight({
+    message: PROCESSING,
+    isRetrying: isError,
     persist: { lastState: hasReplacement ? "source_replaced" : "source_pending" },
   })
-
-  if (hasReplacement) {
-    return {
-      ...base,
-      note: "Your wallet replaced the transaction. Tracking the new one.",
-    }
-  }
-
-  if (isError) return { ...base, note: "Still checking…" }
-
-  return base
 }
 
 function bridgeStage(inputs: DepositProgressInputs): DepositProgressView {
@@ -401,7 +388,7 @@ function correlateStage(inputs: DepositProgressInputs): DepositProgressView {
 
   return inFlight({
     // A 404 here is an indexing delay: the receipt is already confirmed on Ethereum.
-    message: ARRIVED_ON_ETHEREUM,
+    message: PROCESSING,
     isRetrying: isError,
     persist: { lastState: "deposit_pending" },
   })
@@ -417,32 +404,25 @@ function timeLeft(session: DepositSession, inputs: DepositProgressInputs): strin
 }
 
 function depositStage(session: DepositSession, inputs: DepositProgressInputs): DepositProgressView {
-  const { bucket, advanceStatus, delivery, isError, minLabel, completedAmount, isSelfRecipient } =
-    inputs.deposit
+  const { bucket, delivery, isError, minLabel, completedAmount, isSelfRecipient } = inputs.deposit
   const destination = session.destination.chainName || "the destination"
   const eta = timeLeft(session, inputs)
   const fellBack = session.predictedDelivery === "advance" && delivery?.method === "standard"
-  const delivering = (message: string) => ({
-    message: eta ? `${message} ${eta}` : message,
+  const delivering = {
+    message: eta ? `${PROCESSING} ${eta}` : PROCESSING,
     note: fellBack ? FAST_DELIVERY_FELL_BACK : undefined,
-  })
+  }
 
   switch (bucket) {
     case "waiting":
       return inFlight({
-        title: "Confirming your deposit…",
-        ...delivering("Confirming on Ethereum."),
+        ...delivering,
         isRetrying: isError,
         persist: { lastState: "waiting" },
       })
     case "processing":
       return inFlight({
-        title: "Transferring…",
-        ...delivering(
-          advanceStatus === "pending"
-            ? `Fast delivery to ${destination} in progress.`
-            : `Delivering to ${destination}.`,
-        ),
+        ...delivering,
         isRetrying: isError,
         persist: { lastState: "processing" },
       })

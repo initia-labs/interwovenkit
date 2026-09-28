@@ -255,6 +255,34 @@ export function bridgeQuoteSignature(quote: BridgeQuoteResponse): string {
   ])
 }
 
+// In basis points, compared by cross-multiplication so rounding never lets a larger change through.
+const MIN_RECEIVED_FLOOR_BPS = 9_990n
+const NATIVE_FEE_CEILING_BPS = 10_100n
+
+// LI.FI re-quotes drift by a few base units, so a re-read only needs review when it takes another
+// route, lowers the guaranteed amount by more than 0.1%, or raises the native fee by more than 1%.
+export function isBridgeQuoteMateriallyChanged(
+  reviewed: BridgeQuoteResponse,
+  fresh: BridgeQuoteResponse,
+): boolean {
+  const route = ({ tool, transaction, approval, deposit_address }: BridgeQuoteResponse) =>
+    JSON.stringify([
+      tool.toLowerCase(),
+      transaction.chain_id,
+      transaction.to.toLowerCase(),
+      approval.token_address.toLowerCase(),
+      approval.spender_address.toLowerCase(),
+      approval.amount,
+      deposit_address.toLowerCase(),
+    ])
+  if (route(reviewed) !== route(fresh)) return true
+  return (
+    BigInt(fresh.min_received) * 10_000n < BigInt(reviewed.min_received) * MIN_RECEIVED_FLOOR_BPS ||
+    BigInt(fresh.transaction.value) * 10_000n >
+      BigInt(reviewed.transaction.value) * NATIVE_FEE_CEILING_BPS
+  )
+}
+
 const isBridgeStatusState = (value: unknown): value is BridgeStatusState =>
   typeof value === "string" && (BRIDGE_STATUS_STATES as readonly string[]).includes(value)
 

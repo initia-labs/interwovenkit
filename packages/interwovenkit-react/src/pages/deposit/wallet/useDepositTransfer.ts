@@ -14,6 +14,7 @@ import {
   bridgeQuoteSignature,
   createBridgeOptionsQueryOptions,
   createBridgeQuoteQueryOptions,
+  isBridgeQuoteMateriallyChanged,
   rankBridgeOptions,
 } from "../data/bridges"
 import { useDepositAddress } from "../data/depositAddress"
@@ -59,6 +60,7 @@ import {
   encodeErc20Approve,
   getPinnedProvider,
   readErc20Uint,
+  type SenderNonces,
   SOURCE_READ_REFRESH_MS,
   usePinnedSourceBalances,
   useSenderNonces,
@@ -189,7 +191,8 @@ class UnknownSendError extends Error {}
 
 interface AutoDeposit {
   inputs: string
-  quoteSignature: string
+  /** The quote the user saw when they clicked; every later re-read is checked against it. */
+  quote: BridgeQuoteResponse
   approved: boolean
 }
 
@@ -224,6 +227,8 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const [isRefreshingQuote, setIsRefreshingQuote] = useState(false)
   // Synchronous: a second click can land before React renders the mutation as pending.
   const busyRef = useRef(false)
+  // What the last approval's wait saw on chain, the floor for the next deposit's nonce baseline.
+  const approvalNoncesRef = useRef<{ chainId: string; sender: string; nonces: SenderNonces }>(null)
   // Held by this mount only, so a remount, reload, or another tab never sends it.
   const [autoDeposit, setAutoDeposit] = useState<AutoDeposit | null>(null)
   const mountedRef = useRef(true)
@@ -273,10 +278,12 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     transport === "direct" ? depositAddressQuery.data?.deposit_address : quote?.deposit_address
 
   // Below either minimum the USDC is stranded at the deposit address with no refund.
+  const clearsLifiMinimums = (minReceived: string | undefined) =>
+    gteInteger(minReceived, optionsData?.required_min_received ?? "") &&
+    gteInteger(minReceived, route.min_deposit_amount)
   const meetsMinimum =
     transport === "lifi"
-      ? gteInteger(quote?.min_received, optionsData?.required_min_received ?? "") &&
-        gteInteger(quote?.min_received, route.min_deposit_amount)
+      ? clearsLifiMinimums(quote?.min_received)
       : gteInteger(amount, route.min_deposit_amount)
   // LI.FI must clear both minimums, so the label names the higher one.
   const requiredMin = optionsData?.required_min_received ?? ""
@@ -407,6 +414,17 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     }
   }
   const draftTransaction = buildDraft(quote)?.transaction
+  const nativeCost = (transaction?: DepositSessionDraft["transaction"]) =>
+    requiredNativeAmount({
+      value: transaction?.value,
+      gasLimit: transaction?.gasLimit,
+      maxFeePerGas: headQuery.data?.maxFeePerGas,
+    })
+  const coversNativeCost = (transaction: DepositSessionDraft["transaction"]) => {
+    const required = nativeCost(transaction)
+    const native = balancesQuery.data?.native
+    return !required || (native !== undefined && BigInt(native) >= BigInt(required))
+  }
 
   const intent: DepositIntent = {
     apiUrl: depositApiUrl,
@@ -419,13 +437,13 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const inFlightSession =
     hexAddress && recipient ? findInFlightSession(sessions, intent) : undefined
 
-  const getSigner = async (chainId: string) => {
+  const getSigner = async (chainId: string, sender = hexAddress) => {
     const chain = findChain(chainId)
     if (!chain) throw new Error(`Chain not found: ${chainId}`)
     const provider = await getProvider()
     const signer = await provider.getSigner()
     // Balances, allowance and nonce were read for this account; the watch assumes it sent.
-    if (!eqAddress(signer.address, hexAddress)) {
+    if (!eqAddress(signer.address, sender)) {
       throw new Error("Your wallet switched accounts. Try again.")
     }
     // Asked of the wallet itself: a stale cached chain would make ethers refuse the send.
@@ -443,10 +461,11 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
           to: approval.token_address,
           data: encodeErc20Approve(approval.spender_address, approval.amount),
         })
-        await waitForApproval(
+        const confirmed = await waitForApproval(
           getPinnedProvider(source.chainId),
           {
             hash: response.hash,
+            nonce: response.nonce,
             owner: signer.address,
             token: approval.token_address,
             spender: approval.spender_address,
@@ -454,8 +473,14 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
           },
           APPROVAL_RECEIPT_TIMEOUT_MS,
         )
-        // The next prompt must record the nonce after the approval's and see the raised allowance.
-        await Promise.all([noncesQuery.refetch(), allowanceQuery.refetch()])
+        // A re-read could hit a node behind the one that saw the approval, so keep what it saw.
+        await queryClient.cancelQueries({ queryKey: allowanceKey })
+        queryClient.setQueryData(allowanceKey, confirmed.allowance)
+        approvalNoncesRef.current = {
+          chainId: source.chainId,
+          sender: signer.address,
+          nonces: confirmed.nonces,
+        }
       } catch (error) {
         throw await normalizeError(error)
       }
@@ -474,13 +499,27 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     }
   }
 
-  const sendDeposit = async (quote: BridgeQuoteResponse | undefined) => {
-    const draft = buildDraft(quote)
+  const sendDeposit = async (draft: DepositSessionDraft) => {
+    // The head and nonces below are read for the connected account and source chain.
+    if (!eqAddress(draft.source.sender, hexAddress) || draft.source.chainId !== source.chainId) {
+      throw new Error("Your wallet switched accounts. Try again.")
+    }
     const preSubmitBlock = headQuery.data?.block
-    const nonces = noncesQuery.data
-    if (!draft || preSubmitBlock === undefined || !nonces) {
+    const read = noncesQuery.data
+    if (preSubmitBlock === undefined || !read) {
       throw new Error("This deposit is not ready to send")
     }
+    // A node behind the approval's must not lower the baseline hashless recovery compares against.
+    const approved = approvalNoncesRef.current
+    const nonces =
+      approved &&
+      approved.chainId === draft.source.chainId &&
+      eqAddress(approved.sender, draft.source.sender)
+        ? {
+            latest: Math.max(read.latest, approved.nonces.latest),
+            pending: Math.max(read.pending, approved.nonces.pending),
+          }
+        : read
 
     const storedId = getValues("depositSessionId")
     const stored = storedId ? readDepositSession(localStorage, storedId) : null
@@ -511,10 +550,12 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     let response: { hash: string; nonce?: number }
     try {
       // Nothing is broadcast before the send itself.
-      const signer = await getSigner(prompted.transaction.chainId).catch((error: unknown) => {
-        rollbackDepositSessionPrompt(localStorage, prompted.id)
-        throw error
-      })
+      const signer = await getSigner(prompted.transaction.chainId, prompted.source.sender).catch(
+        (error: unknown) => {
+          rollbackDepositSessionPrompt(localStorage, prompted.id)
+          throw error
+        },
+      )
       const { transaction } = prompted
       response = await signer
         .sendTransaction({
@@ -550,9 +591,10 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   }
 
   const sendMutation = useMutation({
-    mutationFn: async (quote: BridgeQuoteResponse | undefined) => {
+    // The draft is built at the click, so a mutation that runs later can't pick up newer form state.
+    mutationFn: async (draft: DepositSessionDraft) => {
       try {
-        await sendDeposit(quote)
+        await sendDeposit(draft)
       } catch (error) {
         throw isLockingError(error) ? error : await normalizeError(error)
       }
@@ -577,11 +619,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     balancesError: !!balancesQuery.error,
     tokenBalance: balancesQuery.data?.token,
     nativeBalance: balancesQuery.data?.native,
-    requiredNative: requiredNativeAmount({
-      value: draftTransaction?.value,
-      gasLimit: draftTransaction?.gasLimit,
-      maxFeePerGas: headQuery.data?.maxFeePerGas,
-    }),
+    requiredNative: nativeCost(draftTransaction),
     sourceChainLoaded: headQuery.data !== undefined && noncesQuery.data !== undefined,
     optionsError: userErrorMessage(optionsQuery.error),
     hasOptions: !!optionsData && !optionsQuery.isPlaceholderData,
@@ -600,48 +638,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     preflightReason: preflight.reason,
   })
 
-  // Only an unchanged re-read may go on to the wallet in the same click.
-  const refreshQuote = async (): Promise<BridgeQuoteResponse | undefined> => {
-    setIsRefreshingQuote(true)
-    try {
-      const { data, isError } = await quoteQuery.refetch()
-      if (!mountedRef.current) return undefined
-      const verified = !isError ? data : undefined
-      const signature = verified ? bridgeQuoteSignature(verified) : ""
-      if (!signature || signature !== quoteSignature) {
-        setReviewRequiredSignature(signature)
-        return undefined
-      }
-      return verified
-    } finally {
-      setIsRefreshingQuote(false)
-    }
-  }
-
-  const submit = async () => {
-    if (busyRef.current || readiness.status !== "ready" || approvalRequired) return
-    busyRef.current = true
-    setAutoDeposit(null)
-    let locked = false
-    try {
-      let reviewed = quote
-      if (
-        transport === "lifi" &&
-        (isQuoteStale(quoteQuery.dataUpdatedAt, Date.now()) || quoteQuery.isFetching)
-      ) {
-        reviewed = await refreshQuote()
-        if (!reviewed) return
-      }
-      setReviewRequiredSignature("")
-      await sendMutation.mutateAsync(reviewed)
-    } catch (error) {
-      locked = isLockingError(error)
-    } finally {
-      busyRef.current = locked
-    }
-  }
-
-  const autoDepositInputs = [
+  const transferInputs = [
     source.chainId,
     source.denom,
     destination.chain_id,
@@ -652,11 +649,71 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     amount,
     selectedBridge?.bridge,
   ].join("|")
+  const inputsRef = useRef(transferInputs)
+  useEffect(() => {
+    inputsRef.current = transferInputs
+  }, [transferInputs])
+
+  // Only a re-read that isn't materially different from `reviewed` may go on to the wallet in the same click.
+  const refreshQuote = async (
+    reviewed: BridgeQuoteResponse,
+  ): Promise<BridgeQuoteResponse | undefined> => {
+    setIsRefreshingQuote(true)
+    try {
+      const { data, isError } = await quoteQuery.refetch()
+      if (!mountedRef.current) return undefined
+      const verified = !isError ? data : undefined
+      // The re-read's guarantee is signed without a render, so it must clear the minimums itself.
+      if (
+        !verified ||
+        isBridgeQuoteMateriallyChanged(reviewed, verified) ||
+        !clearsLifiMinimums(verified.min_received)
+      ) {
+        setReviewRequiredSignature(verified ? bridgeQuoteSignature(verified) : "")
+        return undefined
+      }
+      return verified
+    } finally {
+      setIsRefreshingQuote(false)
+    }
+  }
+
+  const send = async (reviewed: BridgeQuoteResponse | undefined) => {
+    if (busyRef.current || readiness.status !== "ready" || approvalRequired) return
+    busyRef.current = true
+    setAutoDeposit(null)
+    const inputs = transferInputs
+    let locked = false
+    try {
+      let signed = quote
+      const refresh =
+        transport === "lifi" &&
+        (isQuoteStale(quoteQuery.dataUpdatedAt, Date.now()) || quoteQuery.isFetching)
+      if (refresh) {
+        signed = reviewed && (await refreshQuote(reviewed))
+        // An edit while the quote was re-read cancels this send; the draft must match the form.
+        if (!signed || inputsRef.current !== inputs) return
+      }
+      const draft = buildDraft(signed)
+      if (!draft) return
+      // The button's balance check priced the displayed quote; the re-read's native cost can differ.
+      // Readiness shows the shortfall once the re-read renders.
+      if (refresh && !coversNativeCost(draft.transaction)) return
+      setReviewRequiredSignature("")
+      await sendMutation.mutateAsync(draft)
+    } catch (error) {
+      locked = isLockingError(error)
+    } finally {
+      busyRef.current = locked
+    }
+  }
 
   const approveAndDeposit = async () => {
-    if (busyRef.current || !approval) return
+    if (busyRef.current || !approval || !quote) return
     busyRef.current = true
-    const pending = { inputs: autoDepositInputs, quoteSignature, approved: false }
+    // Clicking is the review: a pending "Route updated" is settled by this click.
+    setReviewRequiredSignature("")
+    const pending = { inputs: transferInputs, quote, approved: false }
     setAutoDeposit(pending)
     try {
       await approveMutation.mutateAsync(approval)
@@ -673,19 +730,19 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     if (!autoDeposit) return
     const step = nextAutoDepositStep({
       approved: autoDeposit.approved,
-      inputsChanged: autoDeposit.inputs !== autoDepositInputs,
+      inputsChanged: autoDeposit.inputs !== transferInputs,
       readiness: readiness.status,
       approvalRequired,
-      quoteChanged: autoDeposit.quoteSignature !== quoteSignature,
+      quoteChanged: !quote || isBridgeQuoteMateriallyChanged(autoDeposit.quote, quote),
     })
     if (step === "wait") return
     setAutoDeposit(null)
     if (step === "review") setReviewRequiredSignature(quoteSignature)
-    if (step === "send") void submit()
+    if (step === "send") void send(autoDeposit.quote)
   })
   useEffect(() => {
     advanceAutoDeposit()
-  }, [autoDeposit, autoDepositInputs, readiness.status, approvalRequired, quoteSignature])
+  }, [autoDeposit, transferInputs, readiness.status, approvalRequired, quoteSignature])
 
   return {
     transport,
@@ -705,7 +762,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
       approve: approvalRequired ? approveAndDeposit : undefined,
     },
     readiness,
-    submit,
+    submit: () => send(quote),
     isSubmitting: sendMutation.isPending || isRefreshingQuote || !!autoDeposit?.approved,
     submitError,
     legs,
@@ -716,5 +773,9 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
       setValue("page", "deposit-progress")
     },
     openRouteSelection: transport === "lifi" ? () => setValue("page", "select-route") : undefined,
+    // The same pick the route picker marks "Best", whether it was chosen for the user or by them.
+    isBestRoute:
+      !!selectedBridge &&
+      selectedBridge.bridge === ranked.find((option) => option.eligible)?.bridge,
   }
 }
