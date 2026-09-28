@@ -110,13 +110,14 @@ export async function waitForApproval(
     // A failed read is only "not yet"; the deadline bounds the wait.
     const [receipt, allowance, latest, pending] = await Promise.all([
       provider.getTransactionReceipt(hash).catch(() => null),
-      readErc20Uint(provider, token, "allowance", [owner, spender]).catch(() => "0"),
+      readErc20Uint(provider, token, "allowance", [owner, spender]).catch(() => undefined),
       provider.getTransactionCount(owner, "latest").catch(() => undefined),
       provider.getTransactionCount(owner, "pending").catch(() => undefined),
     ])
     if (receipt && receipt.status !== 1) break
     // Both nonces become the deposit's baseline, so each must be a real read past the approval.
     if (
+      allowance !== undefined &&
       BigInt(allowance) >= BigInt(amount) &&
       latest !== undefined &&
       pending !== undefined &&
@@ -124,8 +125,9 @@ export async function waitForApproval(
     ) {
       return { allowance, nonces: { latest, pending: Math.max(latest, pending) } }
     }
-    // A wallet that let the user lower the spending cap mined a smaller approval than needed.
-    if (receipt && latest !== undefined && latest > nonce) {
+    // A wallet that let the user lower the spending cap mined a smaller approval than needed. Only a
+    // successful read that shows the shortfall counts; a failed one says nothing.
+    if (receipt && allowance !== undefined && latest !== undefined && latest > nonce) {
       settledAt ??= Date.now()
       if (Date.now() - settledAt >= APPROVAL_SETTLE_MS) throw new Error(SHORT_APPROVAL_MESSAGE)
     }

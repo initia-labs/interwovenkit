@@ -220,6 +220,17 @@ describe("waitForApproval", () => {
     await settled
   })
 
+  it("never calls a failing allowance read a short approval", async () => {
+    vi.useFakeTimers()
+    const provider = approvalProvider({ status: 1 }, [1000n], [8])
+    const call = vi.fn().mockRejectedValue(new Error("rate limited"))
+    Object.assign(provider, { call })
+    const result = waitForApproval(provider, APPROVAL, 30_000)
+    const settled = expect(result).rejects.toThrow(/did not go through/)
+    await vi.advanceTimersByTimeAsync(32_000)
+    await settled
+  })
+
   it("resolves once a replacement raised the allowance, with no receipt for the original", async () => {
     const provider = approvalProvider(null, [1000n], [8])
     await expect(waitForApproval(provider, APPROVAL, 0)).resolves.toMatchObject({
