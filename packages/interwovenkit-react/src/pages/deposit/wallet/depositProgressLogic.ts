@@ -241,12 +241,14 @@ export function deriveDepositProgress(
 
   // A reload loses the query cache. Keep the saved observation through the first
   // pending or failed read so its persistence effect cannot rewind a refund or delivery.
-  if (
+  const restoredBridgeState =
     session.transport === "lifi" &&
     inputs.bridge.state === undefined &&
     isBridgeStatusState(session.lastState)
-  ) {
-    inputs = { ...inputs, bridge: { ...inputs.bridge, state: session.lastState } }
+      ? session.lastState
+      : undefined
+  if (restoredBridgeState) {
+    inputs = { ...inputs, bridge: { ...inputs.bridge, state: restoredBridgeState } }
   }
 
   // The backend's observation is at least as strong as a pinned receipt.
@@ -254,7 +256,13 @@ export function deriveDepositProgress(
     (inputs.bridge.state !== undefined && inputs.bridge.state !== "bridge_not_found") ||
     inputs.direct.found === true
   if (inputs.source.outcome?.status !== "confirmed" && !backendSawSource) {
-    return sourceStage(session, inputs)
+    const view = sourceStage(session, inputs)
+    // NOT_FOUND does not prove source inclusion. Preserve it through an evidence
+    // gap, but still let a proven revert, cancellation, or replacement take precedence.
+    if (restoredBridgeState && view.persist?.lastState === "source_pending") {
+      return { ...view, persist: { ...view.persist, lastState: restoredBridgeState } }
+    }
+    return view
   }
 
   return session.transport === "lifi" ? bridgeStage(inputs) : correlateStage(inputs)

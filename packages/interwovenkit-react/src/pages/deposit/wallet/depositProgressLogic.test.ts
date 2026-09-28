@@ -511,6 +511,36 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
     expect(saved.currentSourceHash).toBe(SRC_TX_HASH)
   })
 
+  it.each([{}, { error: new TypeError("Failed to fetch") }])(
+    "retains saved bridge_not_found while source evidence is unavailable: %o",
+    (bridge) => {
+      const saved = session({ lastState: "bridge_not_found" })
+      const view = deriveDepositProgress(saved, inputs({ bridge }))
+      expect(view).toMatchObject({
+        variant: "in-flight",
+        persist: { lastState: "bridge_not_found" },
+      })
+      expect(view.persist?.phase).toBeUndefined()
+      expect(deriveDepositProgress(session(), inputs({ bridge })).persist?.lastState).toBe(
+        "source_pending",
+      )
+    },
+  )
+
+  it("does not let restored bridge_not_found hide a proven source revert", () => {
+    expect(
+      deriveDepositProgress(
+        session({ lastState: "bridge_not_found" }),
+        inputs({
+          source: { isError: false, outcome: { status: "reverted" } },
+        }),
+      ),
+    ).toMatchObject({
+      variant: "failed",
+      persist: { phase: "terminal", lastState: "source_reverted" },
+    })
+  })
+
   it("does not hide an identity conflict behind the saved bridge state", () => {
     expect(
       deriveDepositProgress(
