@@ -1,5 +1,7 @@
 import clsx from "clsx"
 import { type CSSProperties, useState } from "react"
+import { IconCheckCircleFilled, IconCloseCircleFilled } from "@initia/icons-react"
+import Loader from "@/components/Loader"
 import type { ProgressStepStatus } from "./depositProgressLogic"
 import styles from "./ProgressSteps.module.css"
 
@@ -12,8 +14,6 @@ const STATUS_LABEL: Record<ProgressStepStatus, string> = {
 }
 
 const CONNECTOR_DOTS = 7
-const CHECK_PATH = "M4 8.5l2.75 2.75L12 5.5"
-const CROSS_PATH = "M5 5l6 6m0-6l-6 6"
 
 // Only a change seen while mounted animates: a screen opened on a finished deposit shows its end state.
 function usePreviousSteps(steps: ProgressStepStatus[]): ProgressStepStatus[] {
@@ -29,6 +29,7 @@ function describe(steps: ProgressStepStatus[]): string {
   return `Step ${index + 1} of ${steps.length} ${STATUS_LABEL[steps[index]]}`
 }
 
+// The wallet's own status marks: its Loader while a step runs, the filled check and close icons after.
 const ProgressSteps = ({ steps }: { steps: ProgressStepStatus[] }) => {
   const previous = usePreviousSteps(steps)
   const isComplete = steps.every((status) => status === "done")
@@ -60,25 +61,19 @@ const ProgressSteps = ({ steps }: { steps: ProgressStepStatus[] }) => {
                 </span>
               )}
               <span className={styles.circle} aria-hidden>
-                <svg className={styles.ring} viewBox="0 0 40 40">
-                  <circle className={styles.track} cx="20" cy="20" r="18.5" />
-                  <circle className={styles.arc} cx="20" cy="20" r="18.5" pathLength={100} />
-                </svg>
+                <span className={styles.spinner}>
+                  <Loader size={40} border={3} color="var(--success)" />
+                </span>
                 <span className={styles.number}>{index + 1}</span>
-                <svg className={styles.mark} viewBox="0 0 16 16">
-                  <path d={status === "failed" ? CROSS_PATH : CHECK_PATH} />
-                </svg>
+                <IconCheckCircleFilled size={40} className={clsx(styles.mark, styles.check)} />
+                <IconCloseCircleFilled size={40} className={clsx(styles.mark, styles.cross)} />
               </span>
             </li>
           )
         })}
       </ol>
 
-      <span className={styles.badge} aria-hidden>
-        <svg viewBox="0 0 16 16">
-          <path d={CHECK_PATH} />
-        </svg>
-      </span>
+      <IconCheckCircleFilled size={48} className={styles.badge} aria-hidden />
 
       <span className={styles.status} role="status">
         {describe(steps)}

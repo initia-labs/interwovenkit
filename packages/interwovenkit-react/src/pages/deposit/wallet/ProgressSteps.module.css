@@ -61,56 +61,41 @@
   place-items: center;
 }
 
+/* The ring a step waits in; the Loader and the filled marks cover it. */
+.circle::before {
+  position: absolute;
+  inset: 0;
+
+  border: 3px solid var(--gray-6);
+  border-radius: 50%;
+  content: "";
+  transition: opacity var(--morph);
+}
+
+.done .circle::before,
+.failed .circle::before {
+  opacity: 0;
+}
+
 .arrived .circle {
   animation: arrive 520ms var(--pop) 380ms both;
 }
 
-.ring {
+.spinner {
   position: absolute;
   inset: 0;
 
-  width: 100%;
-  height: 100%;
-
-  overflow: visible;
-}
-
-.track,
-.arc {
-  fill: none;
-  stroke-width: 3;
-}
-
-.track {
-  stroke: var(--gray-6);
-  transition: stroke var(--morph);
-}
-
-/* Always turning, only shown while active, so it fades out mid-turn instead of snapping back. */
-.arc {
-  animation: spin 1s linear infinite;
   opacity: 0;
-  stroke: var(--gray-1);
-  stroke-dasharray: 18 82;
-  stroke-linecap: round;
-  transform-origin: 20px 20px;
+
   transition: opacity var(--morph);
 }
 
-.active .arc {
+.active .spinner {
   opacity: 1;
 }
 
-.arrived.active .arc {
+.arrived.active .spinner {
   transition-delay: 520ms;
-}
-
-.done .track {
-  stroke: var(--success);
-}
-
-.failed .track {
-  stroke: var(--error);
 }
 
 .number,
@@ -142,65 +127,38 @@
 .mark {
   position: absolute;
 
-  width: 22px;
-  height: 22px;
-
-  fill: none;
   filter: blur(4px);
   opacity: 0;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.75;
   transform: scale(0.25);
 }
 
-.done .mark,
-.failed .mark {
+.check {
+  color: var(--success);
+}
+
+.cross {
+  color: var(--error);
+}
+
+.done .check,
+.failed .cross {
   filter: none;
   opacity: 1;
   transform: none;
 }
 
-.done .mark {
-  stroke: var(--success);
-}
-
-.failed .mark {
-  stroke: var(--error);
-}
-
-/* Once every step is done, the row folds into one filled check. */
+/* Once every step is done, the row folds into the wallet's completed check. */
 .badge {
   position: absolute;
 
-  display: grid;
-
-  width: 48px;
-  height: 48px;
-
-  background-color: var(--success);
-  border-radius: 50%;
-  box-shadow: 0 0 0 7px color-mix(in srgb, var(--success) 12%, transparent);
-  color: var(--gray-9);
+  color: var(--success);
   filter: blur(4px);
   opacity: 0;
-  place-items: center;
   transform: scale(0.25);
   transition:
     opacity 400ms ease,
     filter 400ms ease,
     transform 520ms var(--pop);
-}
-
-.badge svg {
-  width: 26px;
-  height: 26px;
-
-  fill: none;
-  stroke: currentcolor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2.25;
 }
 
 .complete .steps {
@@ -253,12 +211,6 @@
   white-space: nowrap;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @keyframes flow {
   0%,
   100% {
@@ -303,7 +255,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .arc,
+  .spinner :global(*),
   .arrived .connector span,
   .arrived .circle,
   .justCompleted::before {
