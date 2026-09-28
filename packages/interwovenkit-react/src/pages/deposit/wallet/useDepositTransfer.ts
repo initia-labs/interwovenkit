@@ -621,6 +621,9 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     nativeBalance: balancesQuery.data?.native,
     requiredNative: nativeCost(draftTransaction),
     sourceChainLoaded: headQuery.data !== undefined && noncesQuery.data !== undefined,
+    sourceChainError:
+      (headQuery.isError && headQuery.data === undefined) ||
+      (noncesQuery.isError && noncesQuery.data === undefined),
     optionsError: userErrorMessage(optionsQuery.error),
     hasOptions: !!optionsData && !optionsQuery.isPlaceholderData,
     hasEligibleOption: !!selectedBridge,

@@ -292,6 +292,7 @@ describe("deriveDepositReadiness", () => {
     tokenBalance: "5000000",
     nativeBalance: "10000000000000000",
     sourceChainLoaded: true,
+    sourceChainError: false,
     hasOptions: true,
     hasEligibleOption: true,
     hasQuote: true,
@@ -335,6 +336,11 @@ describe("deriveDepositReadiness", () => {
       { status: "ready" },
     ],
     ["an unread head block or nonce", { sourceChainLoaded: false }, loading()],
+    [
+      "a failed head block or nonce read",
+      { sourceChainLoaded: false, sourceChainError: true },
+      blocked("Couldn't reach the network. Retrying..."),
+    ],
     ["a failed routes read", { optionsError: "Routes failed" }, blocked("Routes failed")],
     ["unread routes", { hasOptions: false }, loading("Finding routes...")],
     [

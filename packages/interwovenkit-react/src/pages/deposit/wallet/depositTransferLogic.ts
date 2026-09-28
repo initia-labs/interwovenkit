@@ -189,6 +189,8 @@ export interface DepositReadinessInput {
   requiredNative?: string
   /** The head block and sender nonce the send prompt records. */
   sourceChainLoaded: boolean
+  /** Either read failed with nothing read yet; both retry on their interval. */
+  sourceChainError: boolean
 
   optionsError?: string
   hasOptions: boolean
@@ -235,7 +237,9 @@ export function deriveDepositReadiness(input: DepositReadinessInput): DepositRea
       return blocked("Not enough ETH for this route's fee and gas")
     }
   }
-  if (!input.sourceChainLoaded) return loading()
+  if (!input.sourceChainLoaded) {
+    return input.sourceChainError ? blocked("Couldn't reach the network. Retrying...") : loading()
+  }
 
   if (input.transport === "lifi") {
     if (input.optionsError) return blocked(input.optionsError)
