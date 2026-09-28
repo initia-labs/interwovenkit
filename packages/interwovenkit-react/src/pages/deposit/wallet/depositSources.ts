@@ -147,6 +147,7 @@ const BRIDGE_TOOLS: Record<string, BridgeToolDisplay> = {
   mayanFastMCTP: { name: "Mayan CCTPv2", logoUrl: lifiIcon("bridges/mayan") },
   mayanMCTP: { name: "Mayan CCTP", logoUrl: lifiIcon("bridges/mayan") },
   mayanWH: { name: "Mayan Wormhole", logoUrl: lifiIcon("bridges/mayan") },
+  near: { name: "NEAR Intents", logoUrl: lifiIcon("bridges/near") },
   polymer: { name: "Polymer Fast", logoUrl: lifiIcon("bridges/polymer") },
   polymerStandard: { name: "Polymer Standard", logoUrl: lifiIcon("bridges/polymer") },
   relaydepository: { name: "Relay", logoUrl: lifiIcon("bridges/relay") },

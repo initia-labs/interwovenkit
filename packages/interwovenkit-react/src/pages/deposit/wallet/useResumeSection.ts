@@ -1,6 +1,7 @@
+import BigNumber from "bignumber.js"
 import { useMemo } from "react"
 import { IconWallet } from "@initia/icons-react"
-import { formatAmount } from "@initia/utils"
+import { fromBaseUnit } from "@initia/utils"
 import { useConfig } from "@/data/config"
 import { useLocationState } from "@/lib/router"
 import { useInitiaAddress } from "@/public/data/hooks"
@@ -51,5 +52,6 @@ export function useResumeSection(): DepositMethodSection<ResumeSelection> | unde
 
 function resumeRowTitle(session: DepositSession): string {
   const { amount, decimals, symbol, chainName } = session.source
-  return `${formatAmount(amount, { decimals })} ${symbol} from ${chainName}`
+  // The amount the user typed, without the padding decimals a balance column needs.
+  return `${BigNumber(fromBaseUnit(amount, { decimals })).toFormat()} ${symbol} from ${chainName}`
 }

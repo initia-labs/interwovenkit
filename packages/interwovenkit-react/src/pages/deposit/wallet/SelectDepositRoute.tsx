@@ -3,6 +3,7 @@ import { useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { formatAmount } from "@initia/utils"
 import Image from "@/components/Image"
+import Skeleton from "@/components/Skeleton"
 import { formatDuration } from "@/pages/bridge/data/format"
 import { useDepositApi } from "../data/api"
 import {
@@ -46,9 +47,9 @@ function describeRoute(option: BridgeOption, delivery: number | null | undefined
 // Not polled: the options refresh re-keys every row whose amount moved. The previous amount's
 // quote stays on screen while the new one loads, but is never compared as current.
 function useFinalQuote(amountIn: string, destination: DestinationNetwork | undefined) {
-  const { data, isPlaceholderData } = useDeliveryQuote(destination, amountIn, false)
+  const { data, isPlaceholderData, isFetching } = useDeliveryQuote(destination, amountIn, false)
   const quote = amountIn && data?.status === "quoted" ? data.quote : undefined
-  return { quote, isCurrent: !!quote && !isPlaceholderData }
+  return { quote, isCurrent: !!quote && !isPlaceholderData, isLoading: !quote && isFetching }
 }
 
 interface RouteRowProps {
@@ -65,10 +66,11 @@ interface RouteRowProps {
 const RouteRow = (props: RouteRowProps) => {
   const { option, destination, symbol, isActive, isBest, bestFinal, requiredMinimum } = props
   const { name, logoUrl } = getBridgeToolDisplay(option.bridge)
-  const { quote: finalQuote, isCurrent } = useFinalQuote(
-    option.eligible ? option.amount_out : "",
-    destination,
-  )
+  const {
+    quote: finalQuote,
+    isCurrent,
+    isLoading,
+  } = useFinalQuote(option.eligible ? option.amount_out : "", destination)
   const finalAmount = finalQuote?.amount_out
   const difference =
     option.eligible && !isBest && isCurrent ? percentDifference(finalAmount, bestFinal) : ""
@@ -96,9 +98,13 @@ const RouteRow = (props: RouteRowProps) => {
 
       <span className={providerStyles.right}>
         <span className={providerStyles.amount}>
-          {finalAmount
-            ? `${formatAmount(finalAmount, { decimals: destination.decimals })} ${symbol}`
-            : "—"}
+          {finalAmount ? (
+            `${formatAmount(finalAmount, { decimals: destination.decimals })} ${symbol}`
+          ) : isLoading ? (
+            <Skeleton width={96} height={16} />
+          ) : (
+            "—"
+          )}
         </span>
         {difference && (
           <span className={clsx(providerStyles.diff, difference.startsWith("+") && styles.gain)}>
@@ -170,7 +176,7 @@ const SelectDepositRoute = () => {
   return (
     <DepositSubpage title="Select route" onBack={() => setValue("page", "fields")}>
       <p className={styles.explainer}>
-        Best is the fastest route within 0.5% or $0.05 of the highest amount after fees.
+        The best route balances total cost, including gas and fees, with delivery time.
       </p>
       <div className={providerStyles.header}>
         <span>Route</span>
