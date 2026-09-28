@@ -282,8 +282,11 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     if (handoff && !current.depositId) {
       queryClient.setQueryData(depositQueryKeys.deposit(handoff.id).queryKey, handoff)
     }
+    const learnedNonce = sourceOutcome?.status === "pending" ? sourceOutcome.nonce : undefined
     const patch = {
       ...(replacementHash && { currentSourceHash: replacementHash }),
+      ...(learnedNonce !== undefined &&
+        current.sourceNonce === undefined && { sourceNonce: learnedNonce }),
       ...(handoff && { depositId: handoff.id }),
       ...view.persist,
     }
@@ -293,6 +296,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     persistProgress()
   }, [
     replacementHash,
+    sourceOutcome,
     handoff?.id,
     view.persist?.phase,
     view.persist?.lastState,

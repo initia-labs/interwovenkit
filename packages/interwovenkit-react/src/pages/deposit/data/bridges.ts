@@ -138,12 +138,15 @@ export function rankBridgeOptions(options: BridgeOption[]): BridgeOption[] {
     best.times(1 - COMPETITIVE_VALUE_TOLERANCE),
     best.minus(COMPETITIVE_VALUE_FLOOR),
   )
+  // With no priced route there's no value to be close to, so none of them trades output for speed.
   const tier = (option: BridgeOption) =>
-    !option.eligible ? 2 : netValue(option).gte(floor) ? 0 : 1
+    !option.eligible ? 2 : best.isFinite() && netValue(option).gte(floor) ? 0 : 1
 
   const byKey = (a: BridgeOption, b: BridgeOption) =>
     a.bridge < b.bridge ? -1 : a.bridge > b.bridge ? 1 : 0
   const byNet = (a: BridgeOption, b: BridgeOption) => netValue(b).comparedTo(netValue(a)) ?? 0
+  const byAmount = (a: BridgeOption, b: BridgeOption) =>
+    BigNumber(b.amount_out).comparedTo(a.amount_out) ?? 0
   const byDuration = (a: BridgeOption, b: BridgeOption) =>
     (a.execution_duration_seconds ?? Infinity) - (b.execution_duration_seconds ?? Infinity)
   const byCost = (a: BridgeOption, b: BridgeOption) =>
@@ -153,7 +156,7 @@ export function rankBridgeOptions(options: BridgeOption[]): BridgeOption[] {
     const byTier = tier(a) - tier(b)
     if (byTier !== 0) return byTier
     if (tier(a) === 0) return byDuration(a, b) || byCost(a, b) || byNet(a, b) || byKey(a, b)
-    return byNet(a, b) || byDuration(a, b) || byKey(a, b)
+    return byNet(a, b) || byAmount(a, b) || byDuration(a, b) || byKey(a, b)
   })
 }
 

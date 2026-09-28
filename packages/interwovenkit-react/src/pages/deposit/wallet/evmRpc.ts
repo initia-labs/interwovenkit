@@ -126,8 +126,11 @@ export async function waitForApproval(
 
 export type SourceTxOutcome =
   | { status: "confirmed" | "reverted" }
-  /** `nextBlock` is where the next check resumes a replacement scan. */
-  | { status: "pending"; nextBlock?: number }
+  /**
+   * `nextBlock` is where the next check resumes a replacement scan; `nonce` is the send's, when the
+   * session had none and the transaction itself supplied it.
+   */
+  | { status: "pending"; nextBlock?: number; nonce?: number }
   /** `hash` is the replacement's. */
   | { status: "replaced"; hash: string; reason: "repriced" | "cancelled" | "replaced" }
 
@@ -162,6 +165,19 @@ export async function checkSourceTransaction(
   send: WatchedSend,
   resumeBlock?: number,
 ): Promise<SourceTxOutcome> {
+  // A hash recovered from a failed send has no nonce; the transaction has it while a node knows it.
+  if (send.sourceNonce === undefined) {
+    const nonce = (await provider.getTransaction(hash).catch(() => null))?.nonce
+    if (nonce !== undefined) {
+      const outcome = await checkSourceTransaction(
+        provider,
+        hash,
+        { ...send, sourceNonce: nonce },
+        resumeBlock,
+      )
+      return outcome.status === "pending" ? { ...outcome, nonce } : outcome
+    }
+  }
   const { sourceNonce: nonce, preSubmitBlock: startBlock } = send
   const { sender } = send.source
   const [receipt, mined] = await Promise.all([

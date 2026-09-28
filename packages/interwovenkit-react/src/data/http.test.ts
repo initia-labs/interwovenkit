@@ -108,8 +108,10 @@ describe("normalizeErrorMessage", () => {
         reason: "pending",
       })
       const nested = new Error("send failed", { cause: pending })
+      const refusalWrapper = new Error("user rejected action", { cause: pending })
       expect(await normalizeErrorMessage(pending)).not.toBe(USER_REJECTED_MESSAGE)
       expect(await normalizeErrorMessage(nested)).not.toBe(USER_REJECTED_MESSAGE)
+      expect(await normalizeErrorMessage(refusalWrapper)).not.toBe(USER_REJECTED_MESSAGE)
     })
   })
 

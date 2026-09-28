@@ -291,6 +291,11 @@ interface DepositIdentity {
 
 export function asDepositRecord(value: unknown, context: string): Deposit {
   assertField(isRecord(value), `${context} is not an object`)
+  // Other responses send EVM chain ids as numbers; the record keeps the string form.
+  const { src_chain_id } = value
+  const record = Number.isSafeInteger(src_chain_id)
+    ? { ...value, src_chain_id: String(src_chain_id) }
+    : value
   for (const field of [
     "id",
     "src_chain_id",
@@ -303,9 +308,9 @@ export function asDepositRecord(value: unknown, context: string): Deposit {
     "dst_denom",
     "bucket",
   ]) {
-    expectField(value, field, isString, context)
+    expectField(record, field, isString, context)
   }
-  return value as unknown as Deposit
+  return record as unknown as Deposit
 }
 
 // A mismatch would track, and eventually complete, someone else's deposit at the reused address.

@@ -51,6 +51,8 @@ interface FakeProviderOptions {
   rpcError?: Error
   /** A block whose read fails, like a slow node timing out. */
   failedBlock?: number
+  /** The watched transaction's nonce, as a node that still has it would report. */
+  ownNonce?: number
   balance?: bigint
   call?: EthCall
 }
@@ -79,6 +81,8 @@ function createFakeProvider(options: FakeProviderOptions = {}): JsonRpcProvider 
         ? { status: 1, blockNumber: minedReceiptBlock }
         : null
     },
+    getTransaction: async (hash: string) =>
+      hash === HASH && options.ownNonce !== undefined ? { nonce: options.ownNonce } : null,
     getBlockNumber: async () => head,
     getTransactionCount: async () => (mined ? 8 : 7),
     getBlock: async (blockNumber: number) => {
@@ -342,6 +346,22 @@ describe("checkSourceTransaction", () => {
   ])("stays pending with %s instead of assuming cancellation", async (_, missing) => {
     const provider = createFakeProvider({ mined: { to: SENDER, data: "0x", value: 0n } })
     await expect(check(provider, { ...SEND, ...missing })).resolves.toEqual({ status: "pending" })
+  })
+
+  it("learns the nonce from the transaction when the session has none", async () => {
+    const unsent = { ...SEND, sourceNonce: undefined }
+    await expect(check(createFakeProvider({ ownNonce: 7 }), unsent)).resolves.toEqual({
+      status: "pending",
+      nonce: 7,
+    })
+    const cancelled = createFakeProvider({
+      ownNonce: 7,
+      mined: { to: SENDER, data: "0x", value: 0n },
+    })
+    await expect(check(cancelled, unsent)).resolves.toMatchObject({
+      status: "replaced",
+      reason: "cancelled",
+    })
   })
 
   it("stays pending when our own transaction took the nonce ahead of its receipt", async () => {

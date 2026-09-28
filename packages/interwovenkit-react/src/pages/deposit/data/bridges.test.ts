@@ -187,6 +187,26 @@ describe("rankBridgeOptions", () => {
     ).toEqual(["fast", "mid", "slow"])
   })
 
+  it("ranks by amount when no route has a known cost, never by speed alone", () => {
+    const unpriced = { fee_cost_usd: undefined }
+    expect(
+      keys([
+        option({
+          bridge: "fast",
+          amount_out: usdc("90"),
+          execution_duration_seconds: 60,
+          ...unpriced,
+        }),
+        option({
+          bridge: "rich",
+          amount_out: usdc("100"),
+          execution_duration_seconds: 300,
+          ...unpriced,
+        }),
+      ]),
+    ).toEqual(["rich", "fast"])
+  })
+
   it("keeps a route worth more than 0.5% more ahead of a faster one", () => {
     expect(
       keys([

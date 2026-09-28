@@ -236,6 +236,11 @@ describe("assertDirectDeposit", () => {
     }
   })
 
+  it("accepts a numeric source chain id as the same chain", () => {
+    const record = { ...deposit(), src_chain_id: 1 }
+    expect(assertDirectDeposit(record, DIRECT).src_chain_id).toBe("1")
+  })
+
   it.each<[Partial<Deposit>, RegExp]>([
     [{ src_tx_hash: DST_TX_HASH }, /src_tx_hash/],
     [{ amount: "4000000" }, /amount 4000000/],
