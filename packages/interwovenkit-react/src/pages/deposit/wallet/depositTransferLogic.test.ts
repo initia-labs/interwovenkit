@@ -320,6 +320,7 @@ describe("deriveDepositReadiness", () => {
     ["an invalid host recipient", { recipientError: "Bad recipient" }, blocked("Bad recipient")],
     ["no amount", { quantityEntered: false }, blocked("Enter amount", "info")],
     ["an unusable amount", { amount: "" }, blocked("Enter a valid amount", "info")],
+    ["an amount that floors to zero", { amount: "0" }, blocked("Enter a valid amount", "info")],
     ["an unsettled amount", { isAmountSettled: false }, loading("Updating amount...")],
     ["a failed balance read", { balancesError: true }, blocked("Failed to load balance")],
     ["an unread balance", { tokenBalance: undefined }, loading("Loading balance...")],
