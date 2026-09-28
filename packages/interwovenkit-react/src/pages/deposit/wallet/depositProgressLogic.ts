@@ -32,8 +32,6 @@ export interface DepositProgressView {
   /** A bridge normally takes minutes and reports no ETA, so this stage never reads as delayed. */
   isBridging?: boolean
   canMarkNotSent?: boolean
-  /** Nothing left the wallet, or it came back, so the same deposit can be started again. */
-  canRetry?: boolean
   /** Written back to the session so the persisted trail matches the rendered claim. */
   persist?: { phase?: DepositSessionPhase; lastState?: DepositLastState }
 }
@@ -292,7 +290,6 @@ const markedNotSent = () =>
     variant: "failed",
     heading: "Deposit not sent",
     message: "Your wallet didn't send this deposit, so it wasn't started.",
-    canRetry: true,
     persist: { phase: "terminal", lastState: "not_sent" },
   })
 
@@ -343,7 +340,6 @@ const notSent = (lastState: DepositLastState, chainName: string) =>
     variant: "failed",
     heading: "Deposit not sent",
     message: `Your transaction was cancelled or failed on ${chainName}, so the deposit wasn't started.`,
-    canRetry: true,
     persist: { phase: "terminal", lastState },
   })
 
@@ -398,7 +394,6 @@ function bridgeStage(session: DepositSession, inputs: DepositProgressInputs): De
         variant: "failed",
         heading: "Deposit refunded",
         message: `The bridge couldn't deliver this deposit and returned your USDC to your wallet on ${chainName}.`,
-        canRetry: true,
         persist: { phase: "terminal", lastState: state },
       })
     case "bridge_failed":

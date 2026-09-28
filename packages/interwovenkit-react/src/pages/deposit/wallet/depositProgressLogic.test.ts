@@ -385,7 +385,6 @@ describe("deriveDepositProgress: source stage", () => {
     expect(view.message).toBe(
       "Your transaction was cancelled or failed on Base, so the deposit wasn't started.",
     )
-    expect(view.canRetry).toBe(true)
   })
 
   it("a different payload on the same nonce is a conflict, never assumed cancellation", () => {
@@ -434,13 +433,12 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
     },
   )
 
-  it("a refund names where the USDC went and offers the same deposit again", () => {
+  it("a refund names where the USDC went", () => {
     expect(bridgeView({ state: "bridge_refunded" })).toMatchObject({
       variant: "failed",
       heading: "Deposit refunded",
       message:
         "The bridge couldn't deliver this deposit and returned your USDC to your wallet on Base.",
-      canRetry: true,
     })
     expect(bridgeView({ state: "bridge_refunding" })).toMatchObject({
       variant: "in-flight",
@@ -448,7 +446,6 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
       message:
         "The bridge is returning your USDC to your wallet on Base. This usually takes a few minutes.",
     })
-    expect(bridgeView({ state: "bridge_failed" }).canRetry).toBeUndefined()
   })
 
   it.each<BridgeStatusState>(["bridge_partial", "bridge_refund_required"])(

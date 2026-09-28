@@ -102,7 +102,6 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   const { depositApiUrl } = useConfig()
   const { closeModal } = useModal()
   const { openDrawer } = useDrawer()
-  const { setValue } = useTransferForm()
   const queryClient = useQueryClient()
   const { read, write, isVolatile } = useDepositSessionStore()
 
@@ -326,17 +325,6 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     }
   }
 
-  // The same deposit again: nothing left the wallet, or it came back.
-  const tryAgain = () => {
-    const { source } = session
-    setValue("srcChainId", source.chainId)
-    setValue("srcDenom", source.denom)
-    setValue("quantity", fromBaseUnit(source.amount, { decimals: source.decimals }))
-    setValue("selectedBridge", "")
-    setValue("depositSessionId", "")
-    setValue("page", "fields")
-  }
-
   const showClose = view.variant !== "in-flight"
   const showRefresh = view.variant === "problem" && !!sourceHash
   const footer =
@@ -350,11 +338,6 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
         {showRefresh && (
           <Button.White fullWidth onClick={refresh}>
             Refresh
-          </Button.White>
-        )}
-        {view.canRetry && (
-          <Button.White fullWidth onClick={tryAgain}>
-            Try again
           </Button.White>
         )}
         {showClose && (
