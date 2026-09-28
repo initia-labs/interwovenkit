@@ -286,7 +286,7 @@ export function isBridgeQuoteMateriallyChanged(
   )
 }
 
-const isBridgeStatusState = (value: unknown): value is BridgeStatusState =>
+export const isBridgeStatusState = (value: unknown): value is BridgeStatusState =>
   typeof value === "string" && (BRIDGE_STATUS_STATES as readonly string[]).includes(value)
 
 export function parseBridgeStatus(
@@ -301,6 +301,20 @@ export function parseBridgeStatus(
   })
   const state = expectField(response, "state", isBridgeStatusState, context)
   const dstTxHash = optionalField(response, "dst_tx_hash", isEvmTxHash, context)
+
+  assertField(
+    response.status_unavailable === undefined || typeof response.status_unavailable === "boolean",
+    `${context} has an invalid status_unavailable`,
+  )
+  if (response.status_unavailable === true) {
+    assertField(
+      state === "bridge_pending" && response.deposit === null && !dstTxHash,
+      `${context} has conflicting unavailable evidence`,
+    )
+    // An API fallback is not a new observation. Reject this poll so React Query
+    // retains the last validated state, receiving hash, and explorer links.
+    throw new BridgeStatusError("upstream_unavailable", "Bridge status is temporarily unavailable")
+  }
 
   return {
     state,
@@ -333,6 +347,13 @@ export async function classifyBridgeStatusError(error: unknown): Promise<never> 
     if (isRecord(body) && isNonEmptyString(body.error)) {
       const message = isNonEmptyString(body.message) ? body.message : body.error
       throw new BridgeStatusError(body.error, message)
+    }
+    if (error.response.status >= 500) {
+      // A gateway may return an HTML error page. Do not surface it as transfer data.
+      throw new BridgeStatusError(
+        "upstream_unavailable",
+        "Bridge status is temporarily unavailable",
+      )
     }
   }
   throw await normalizeError(error)
