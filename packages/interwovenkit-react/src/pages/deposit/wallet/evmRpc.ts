@@ -236,6 +236,7 @@ export function useSourceChainHead(chainId: string) {
       const maxFeePerGas = feeData?.maxFeePerGas ?? feeData?.gasPrice
       return { block, maxFeePerGas: maxFeePerGas?.toString() }
     },
+    enabled: !!depositApiRpcUrl(chainId),
     staleTime: SOURCE_READ_REFRESH_MS,
     refetchInterval: SOURCE_READ_REFRESH_MS,
   })
