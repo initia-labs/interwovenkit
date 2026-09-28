@@ -550,21 +550,26 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     let response: { hash: string; nonce?: number }
     try {
       // Nothing is broadcast before the send itself.
+      const rollback = (error: unknown): never => {
+        rollbackDepositSessionPrompt(localStorage, prompted.id)
+        throw error
+      }
       const signer = await getSigner(prompted.transaction.chainId, prompted.source.sender).catch(
-        (error: unknown) => {
-          rollbackDepositSessionPrompt(localStorage, prompted.id)
-          throw error
-        },
+        rollback,
       )
       const { transaction } = prompted
+      const request = {
+        chainId: Number(transaction.chainId),
+        to: transaction.to,
+        data: transaction.data,
+        value: BigInt(transaction.value),
+      }
+      // Estimated here rather than inside sendTransaction, so a failed estimate is provably not sent.
+      const gasLimit = transaction.gasLimit
+        ? BigInt(transaction.gasLimit)
+        : await signer.estimateGas(request).catch(rollback)
       response = await signer
-        .sendTransaction({
-          chainId: Number(transaction.chainId),
-          to: transaction.to,
-          data: transaction.data,
-          value: BigInt(transaction.value),
-          ...(transaction.gasLimit ? { gasLimit: BigInt(transaction.gasLimit) } : {}),
-        })
+        .sendTransaction({ ...request, gasLimit })
         .catch(async (error: unknown) => {
           // A hash proves the broadcast, whatever the error says.
           const hash = sendTransactionHashOf(error)
