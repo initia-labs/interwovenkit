@@ -210,7 +210,9 @@ export function deriveProgressSteps(
         (stage) => stage === "deposit_pending" || stage === "deposit_indexed",
       ))
   const total = isLifi ? 2 : 1
-  const done = view.variant === "completed" ? total : bridged ? 1 : 0
+  // A recorded completion counts before the record reloads, so reopening it never replays the finish.
+  const completed = view.variant === "completed" || session.lastState === "completed"
+  const done = completed ? total : bridged ? 1 : 0
   const current: ProgressStepStatus =
     view.variant === "in-flight" ? "active" : view.variant === "problem" ? "stopped" : "failed"
   return Array.from({ length: total }, (_, index) =>

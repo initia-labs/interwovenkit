@@ -748,6 +748,11 @@ describe("deriveProgressSteps", () => {
     expect(steps(target, extra)).toEqual(expected)
   })
 
+  it("shows a recorded completion before the deposit record reloads", () => {
+    const finished = session({ depositId: "d1", phase: "terminal", lastState: "completed" })
+    expect(steps(finished, withDeposit("waiting"))).toEqual(["done", "done"])
+  })
+
   it("keeps a finished bridge done while a reload reads the source chain again", () => {
     expect(steps(session({ lastState: "deposit_pending" }))).toEqual(["done", "active"])
   })

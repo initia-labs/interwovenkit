@@ -257,15 +257,25 @@
 @media (prefers-reduced-motion: reduce) {
   .spinner :global(*),
   .arrived .connector span,
-  .arrived .circle,
-  .justCompleted::before {
+  .arrived .circle {
     animation: none;
+  }
+
+  .justCompleted::before {
+    display: none;
   }
 
   .steps,
   .badge,
+  .spinner,
   .number,
   .mark {
     transition-duration: 150ms;
+  }
+
+  .justCompleted .steps,
+  .justCompleted .badge,
+  .arrived.active .spinner {
+    transition-delay: 0s;
   }
 }
