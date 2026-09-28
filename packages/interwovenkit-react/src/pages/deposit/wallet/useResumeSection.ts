@@ -1,15 +1,13 @@
-import BigNumber from "bignumber.js"
 import { useMemo } from "react"
 import { IconWallet } from "@initia/icons-react"
-import { fromBaseUnit } from "@initia/utils"
 import { useConfig } from "@/data/config"
 import { useLocationState } from "@/lib/router"
 import { useInitiaAddress } from "@/public/data/hooks"
 import type { DepositLocationState } from "../data/assetOptions"
 import { useDepositForm } from "../context"
 import type { DepositMethodSection } from "../DepositMethodList"
-import { resumeStageLabel, selectResumableSessions } from "./depositProgressLogic"
-import { type DepositSession, useDepositSessionStore } from "./depositSession"
+import { resumeRowTitle, resumeStageLabel, selectResumableSessions } from "./depositProgressLogic"
+import { useDepositSessionStore } from "./depositSession"
 import { resolveDepositRecipient } from "./depositTransferLogic"
 
 export type ResumeSelection = `resume:${string}`
@@ -48,10 +46,4 @@ export function useResumeSection(): DepositMethodSection<ResumeSelection> | unde
       chainIconUrl: session.source.chainLogoUrl,
     })),
   }
-}
-
-function resumeRowTitle(session: DepositSession): string {
-  const { amount, decimals, symbol, chainName } = session.source
-  // The amount the user typed, without the padding decimals a balance column needs.
-  return `${BigNumber(fromBaseUnit(amount, { decimals })).toFormat()} ${symbol} from ${chainName}`
 }

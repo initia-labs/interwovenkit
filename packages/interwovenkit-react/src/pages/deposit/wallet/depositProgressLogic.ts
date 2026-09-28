@@ -1,3 +1,5 @@
+import BigNumber from "bignumber.js"
+import { fromBaseUnit } from "@initia/utils"
 import { formatDuration } from "@/pages/bridge/data/format"
 import type { AssetOption } from "../data/assetOptions"
 import { BridgeStatusError } from "../data/bridges"
@@ -170,6 +172,15 @@ export function selectResumableSessions(
           matchesAssetOption(option, session.source.chainId, session.source.denom),
         )),
   )
+}
+
+export function resumeRowTitle(session: DepositSession): string {
+  const { amount, decimals, symbol, chainName } = session.source
+  // The amount the user typed, without the padding decimals a balance column needs. A record that
+  // can't be read still gets a row rather than breaking the hub.
+  const value = fromBaseUnit(amount, { decimals })
+  const shown = value ? `${BigNumber(value).toFormat()} ${symbol}` : symbol
+  return `${shown} from ${chainName}`
 }
 
 export function resumeStageLabel(session: DepositSession): string {

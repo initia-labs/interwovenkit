@@ -9,6 +9,7 @@ import {
   deriveProgressSteps,
   progressHeading,
   type ResumeMatch,
+  resumeRowTitle,
   resumeStageLabel,
   selectResumableSessions,
 } from "./depositProgressLogic"
@@ -101,6 +102,19 @@ describe("selectResumableSessions", () => {
     ],
   ])("matches %s", (_, overrides) => {
     expect(offered([session()], overrides)).toEqual(["session-1"])
+  })
+})
+
+describe("resumeRowTitle", () => {
+  const titled = (amount: string) =>
+    resumeRowTitle(session({ source: { ...session().source, amount } }))
+
+  it.each([
+    ["10000000", "10 USDC from Base"],
+    ["1234500000", "1,234.5 USDC from Base"],
+    ["not-a-number", "USDC from Base"],
+  ])("titles %s as %s", (amount, expected) => {
+    expect(titled(amount)).toBe(expected)
   })
 })
 
