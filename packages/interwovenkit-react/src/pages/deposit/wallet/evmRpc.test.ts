@@ -1,9 +1,10 @@
 import type { JsonRpcProvider } from "ethers"
-import { Interface } from "ethers"
+import { FetchRequest, Interface } from "ethers"
 import {
   checkSourceTransaction,
   encodeErc20Approve,
   encodeErc20Transfer,
+  FailoverRpcProvider,
   getPinnedProvider,
   readErc20Uint,
   readSourceBalances,
@@ -100,6 +101,69 @@ const SEND = buildDepositSession({
   transaction: { chainId: "8453", to: BRIDGE, data: "0xdeadbeef", value: "0" },
   preSubmitBlock: 100,
   sourceNonce: 7,
+})
+
+describe("FailoverRpcProvider", () => {
+  const URLS = ["https://primary.test", "https://second.test", "https://third.test"]
+  const bytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value))
+  let calls: string[]
+
+  /** Each URL answers with its HTTP status, or a JSON-RPC result or error for every request. */
+  const serve = (routes: Record<string, number | { error: string } | string>) => {
+    FetchRequest.registerGetUrl(async (request) => {
+      calls.push(request.url)
+      const route = routes[request.url]
+      if (typeof route === "number") {
+        const headers: Record<string, string> = {}
+        return { statusCode: route, statusMessage: "down", headers, body: bytes("down") }
+      }
+      const payloads = [
+        JSON.parse(new TextDecoder().decode(request.body ?? new Uint8Array())),
+      ].flat()
+      const answer = payloads.map(({ id }: { id: number }) =>
+        typeof route === "string"
+          ? { jsonrpc: "2.0", id, result: route }
+          : { jsonrpc: "2.0", id, error: { code: 3, message: route.error } },
+      )
+      return {
+        statusCode: 200,
+        statusMessage: "OK",
+        headers: { "content-type": "application/json" },
+        body: bytes(answer.length === 1 ? answer[0] : answer),
+      }
+    })
+  }
+
+  beforeEach(() => {
+    calls = []
+  })
+  afterEach(() => {
+    FetchRequest.registerGetUrl(FetchRequest.createGetUrlFunc())
+  })
+
+  it("falls over past failing nodes, then keeps using the one that answered", async () => {
+    serve({ [URLS[0]]: 502, [URLS[1]]: 429, [URLS[2]]: "0x10" })
+    const provider = new FailoverRpcProvider(URLS, 1)
+    await expect(provider.getBlockNumber()).resolves.toBe(16)
+    expect(calls).toEqual(URLS)
+
+    calls = []
+    await expect(provider.getTransactionCount(SENDER, "latest")).resolves.toBe(16)
+    expect(calls).toEqual([URLS[2]])
+  })
+
+  it("never fails over on a JSON-RPC error, which is a real answer", async () => {
+    serve({ [URLS[0]]: { error: "execution reverted" }, [URLS[1]]: "0x10", [URLS[2]]: "0x10" })
+    const provider = new FailoverRpcProvider(URLS, 1)
+    await expect(provider.getBlockNumber()).rejects.toThrow()
+    expect(calls).toEqual([URLS[0]])
+  })
+
+  it("fails when every node fails", async () => {
+    serve({ [URLS[0]]: 502, [URLS[1]]: 503, [URLS[2]]: 500 })
+    await expect(new FailoverRpcProvider(URLS, 1).getBlockNumber()).rejects.toThrow()
+    expect(calls).toEqual(URLS)
+  })
 })
 
 describe("getPinnedProvider", () => {

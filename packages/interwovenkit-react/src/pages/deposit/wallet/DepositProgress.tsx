@@ -48,7 +48,7 @@ import {
   type ProgressStepStatus,
 } from "./depositProgressLogic"
 import { type DepositSession, recoveryReference, useDepositSessionStore } from "./depositSession"
-import { depositApiRpcUrl, findEthereumUsdcRoute } from "./depositSources"
+import { depositApiRpcUrls, findEthereumUsdcRoute } from "./depositSources"
 import {
   checkSourceTransaction,
   getPinnedProvider,
@@ -134,7 +134,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
         previous?.status === "pending" ? previous.nextBlock : undefined,
       )
     },
-    enabled: !!depositApiRpcUrl(session.source.chainId) && !!sourceHash && !depositId,
+    enabled: !!depositApiRpcUrls(session.source.chainId) && !!sourceHash && !depositId,
     // The interval is the retry: an RPC error is an evidence gap, not a reason to give up.
     retry: false,
     staleTime: 0,

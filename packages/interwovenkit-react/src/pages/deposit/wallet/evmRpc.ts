@@ -1,10 +1,10 @@
-import type { TransactionResponse } from "ethers"
+import type { JsonRpcPayload, JsonRpcResult, TransactionResponse } from "ethers"
 import { FetchRequest, Interface, JsonRpcProvider } from "ethers"
 import { useQuery } from "@tanstack/react-query"
 import { depositQueryKeys } from "../data/api"
 import { eqAddress } from "../data/parse"
 import type { DepositSession } from "./depositSession"
-import { depositApiRpcUrl } from "./depositSources"
+import { depositApiRpcUrls } from "./depositSources"
 
 export const SOURCE_READ_REFRESH_MS = 15_000
 
@@ -12,15 +12,54 @@ export const SOURCE_READ_REFRESH_MS = 15_000
 const pinnedProviders = new Map<string, JsonRpcProvider>()
 const RPC_TIMEOUT_MS = 10_000
 
+function rpcRequest(url: string): FetchRequest {
+  const request = new FetchRequest(url)
+  // A hung or rate-limited public endpoint must fail over, not spin for ethers' five-minute
+  // default or its own backoff on a 429.
+  request.timeout = RPC_TIMEOUT_MS
+  request.setThrottleParams({ maxAttempts: 1 })
+  return request
+}
+
+// Tries each URL in order when a request times out or gets a non-OK response. A JSON-RPC error in
+// the body, such as a revert, is a real answer and never fails over. The node that answered last is
+// tried first, so a session stays on one node while it's healthy.
+export class FailoverRpcProvider extends JsonRpcProvider {
+  readonly #urls: readonly string[]
+  #active = 0
+
+  constructor(urls: readonly string[], chainId: number) {
+    super(rpcRequest(urls[0]), chainId, { staticNetwork: true })
+    this.#urls = urls
+  }
+
+  override async _send(payload: JsonRpcPayload | JsonRpcPayload[]): Promise<JsonRpcResult[]> {
+    let lastError: unknown
+    for (let offset = 0; offset < this.#urls.length; offset++) {
+      const index = (this.#active + offset) % this.#urls.length
+      const request = rpcRequest(this.#urls[index])
+      request.body = JSON.stringify(payload)
+      request.setHeader("content-type", "application/json")
+      try {
+        const response = await request.send()
+        response.assertOk()
+        const body = response.bodyJson
+        this.#active = index
+        return Array.isArray(body) ? body : [body]
+      } catch (error) {
+        lastError = error
+      }
+    }
+    throw lastError
+  }
+}
+
 export function getPinnedProvider(chainId: string): JsonRpcProvider {
   const existing = pinnedProviders.get(chainId)
   if (existing) return existing
-  const rpcUrl = depositApiRpcUrl(chainId)
-  if (!rpcUrl) throw new Error(`Chain ${chainId} has no pinned RPC`)
-  const request = new FetchRequest(rpcUrl)
-  // A hung public endpoint must fail and retry, not spin for ethers' five-minute default.
-  request.timeout = RPC_TIMEOUT_MS
-  const provider = new JsonRpcProvider(request, Number(chainId), { staticNetwork: true })
+  const rpcUrls = depositApiRpcUrls(chainId)
+  if (!rpcUrls?.length) throw new Error(`Chain ${chainId} has no pinned RPC`)
+  const provider = new FailoverRpcProvider(rpcUrls, Number(chainId))
   pinnedProviders.set(chainId, provider)
   return provider
 }
@@ -229,7 +268,7 @@ export function usePinnedSourceBalances(params: { chainId: string; owner: string
   return useQuery({
     queryKey: depositQueryKeys.sourceBalances(chainId, owner, token).queryKey,
     queryFn: () => readSourceBalances(getPinnedProvider(chainId), { owner, token }),
-    enabled: !!owner && !!depositApiRpcUrl(chainId),
+    enabled: !!owner && !!depositApiRpcUrls(chainId),
     staleTime: 10_000,
     refetchInterval: SOURCE_READ_REFRESH_MS,
   })
@@ -248,7 +287,7 @@ export function useSourceChainHead(chainId: string) {
       const maxFeePerGas = feeData?.maxFeePerGas ?? feeData?.gasPrice
       return { block, maxFeePerGas: maxFeePerGas?.toString() }
     },
-    enabled: !!depositApiRpcUrl(chainId),
+    enabled: !!depositApiRpcUrls(chainId),
     staleTime: SOURCE_READ_REFRESH_MS,
     refetchInterval: SOURCE_READ_REFRESH_MS,
   })
@@ -274,7 +313,7 @@ export function useSenderNonces(
       ])
       return { latest, pending }
     },
-    enabled: !!sender && !!depositApiRpcUrl(chainId),
+    enabled: !!sender && !!depositApiRpcUrls(chainId),
     staleTime: 0,
     retry: false,
     refetchInterval: (query) => refetchInterval(query.state.data),

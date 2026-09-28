@@ -15,7 +15,8 @@ export interface DepositApiSource {
   decimals: 6
   chainName: "Ethereum" | "Base" | "Arbitrum"
   transport: "direct" | "lifi"
-  rpcUrl: string
+  /** Keyless public RPCs in failover order: the widget ships to browsers, so no API keys. */
+  rpcUrls: readonly string[]
 }
 
 export const DEPOSIT_API_SOURCES: readonly DepositApiSource[] = [
@@ -26,7 +27,11 @@ export const DEPOSIT_API_SOURCES: readonly DepositApiSource[] = [
     decimals: 6,
     chainName: "Ethereum",
     transport: "direct",
-    rpcUrl: "https://ethereum-rpc.publicnode.com",
+    rpcUrls: [
+      "https://ethereum-rpc.publicnode.com",
+      "https://eth.blockrazor.xyz",
+      "https://mainnet.gateway.tenderly.co",
+    ],
   },
   {
     chainId: "8453",
@@ -35,7 +40,7 @@ export const DEPOSIT_API_SOURCES: readonly DepositApiSource[] = [
     decimals: 6,
     chainName: "Base",
     transport: "lifi",
-    rpcUrl: "https://mainnet.base.org",
+    rpcUrls: ["https://mainnet.base.org"],
   },
   {
     chainId: "42161",
@@ -44,7 +49,7 @@ export const DEPOSIT_API_SOURCES: readonly DepositApiSource[] = [
     decimals: 6,
     chainName: "Arbitrum",
     transport: "lifi",
-    rpcUrl: "https://arb1.arbitrum.io/rpc",
+    rpcUrls: ["https://arb1.arbitrum.io/rpc"],
   },
 ]
 
@@ -56,8 +61,8 @@ export function findDepositApiSource(chainId: string, denom: string): DepositApi
   return DEPOSIT_API_SOURCES.find((source) => matchesAssetOption(source, chainId, denom))
 }
 
-export function depositApiRpcUrl(chainId: string): string | undefined {
-  return DEPOSIT_API_SOURCES.find((source) => source.chainId === chainId)?.rpcUrl
+export function depositApiRpcUrls(chainId: string): readonly string[] | undefined {
+  return DEPOSIT_API_SOURCES.find((source) => source.chainId === chainId)?.rpcUrls
 }
 
 export function findEthereumUsdcRoute(catalog: Asset[] | undefined): Asset | undefined {
