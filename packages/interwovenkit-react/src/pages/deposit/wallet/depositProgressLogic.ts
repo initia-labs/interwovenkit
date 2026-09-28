@@ -54,6 +54,7 @@ export interface DepositProgressInputs {
     bucket: WalletDepositBucket
     delivery?: DepositDelivery
     isError: boolean
+    conflict?: boolean
     minLabel?: string
     completedAmount?: string
     isSelfRecipient: boolean
@@ -404,7 +405,9 @@ function timeLeft(session: DepositSession, inputs: DepositProgressInputs): strin
 }
 
 function depositStage(session: DepositSession, inputs: DepositProgressInputs): DepositProgressView {
-  const { bucket, delivery, isError, minLabel, completedAmount, isSelfRecipient } = inputs.deposit
+  const { bucket, delivery, isError, conflict, minLabel, completedAmount, isSelfRecipient } =
+    inputs.deposit
+  if (conflict) return conflictView(MISMATCH)
   const destination = session.destination.chainName || "the destination"
   const eta = timeLeft(session, inputs)
   const fellBack = session.predictedDelivery === "advance" && delivery?.method === "standard"

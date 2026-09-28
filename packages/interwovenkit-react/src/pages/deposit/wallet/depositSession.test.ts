@@ -2,6 +2,7 @@ import { omit } from "ramda"
 import { DEPOSIT_ADDRESS, RECIPIENT } from "../data/testing"
 import type { DepositSession, DepositSessionPhase, StorageLike } from "./depositSession"
 import {
+  DepositInFlightError,
   depositSessionStorageKey,
   DepositSessionWriteError,
   findInFlightSession,
@@ -12,6 +13,7 @@ import {
   pruneDepositSessions,
   readDepositSession,
   recoveryReference,
+  reserveDepositPrompt,
   reuseOrCreateDepositSession,
   rollbackDepositSessionPrompt,
   writeDepositSession,
@@ -418,5 +420,39 @@ describe("reuseOrCreateDepositSession", () => {
     const created = reuseOrCreateDepositSession(stored, next)
     expect(created.id).not.toBe("session-1")
     expect(created.phase).toBe("prepared")
+  })
+})
+
+describe("reserveDepositPrompt", () => {
+  let storage: StorageLike
+  beforeEach(() => {
+    storage = createMemoryStorage()
+    vi.stubGlobal("localStorage", storage)
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("records the prompt when nothing for the same transfer is in flight", async () => {
+    const session = buildDepositSession({ phase: "send_prompt" })
+    await expect(reserveDepositPrompt(session)).resolves.toMatchObject({ phase: "send_prompt" })
+    expect(readDepositSession(storage, session.id)?.phase).toBe("send_prompt")
+  })
+
+  it.each<DepositSessionPhase>(["send_prompt", "submission_unknown"])(
+    "refuses a second prompt while another mount or tab holds the same transfer in %s",
+    async (phase) => {
+      store(storage, buildDepositSession({ id: "other-tab", phase }))
+      const session = buildDepositSession({ phase: "send_prompt" })
+      await expect(reserveDepositPrompt(session)).rejects.toBeInstanceOf(DepositInFlightError)
+      expect(readDepositSession(storage, session.id)).toBeNull()
+    },
+  )
+
+  it("checks and records under the cross-tab lock", async () => {
+    const request = vi.fn((_name: string, reserve: () => unknown) => Promise.resolve(reserve()))
+    vi.stubGlobal("navigator", { locks: { request } })
+    await reserveDepositPrompt(buildDepositSession({ phase: "send_prompt" }))
+    expect(request).toHaveBeenCalledWith("interwovenkit:deposit-prompt", expect.any(Function))
   })
 })

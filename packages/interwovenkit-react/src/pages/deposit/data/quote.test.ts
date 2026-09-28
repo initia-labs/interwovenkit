@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { ParseError } from "./parse"
 import { createQuoteQueryOptions, parseQuoteDelivery } from "./quote"
 import { ETHEREUM_USDC_DENOM } from "./source"
 import { httpError, runQueryFn, stubApi } from "./testing"
@@ -39,6 +40,17 @@ describe("createQuoteQueryOptions", () => {
     await expect(
       runQueryFn(createQuoteQueryOptions(stubApi(failure).api, PARAMS, true)),
     ).resolves.toEqual({ status: "declined", reason: "route paused" })
+  })
+
+  // The preflight guards a send with no refund below the minimum: a 200 must still be a quote.
+  it.each([
+    ["a message instead of a quote", { message: "below minimum" }],
+    ["a zero amount", { amount_out: "0", min_received: "0" }],
+    ["no guaranteed amount", { amount_out: "9900000" }],
+  ])("rejects a 200 with %s as unverifiable", async (_name, body) => {
+    await expect(
+      runQueryFn(createQuoteQueryOptions(stubApi(body).api, PARAMS, true)),
+    ).rejects.toBeInstanceOf(ParseError)
   })
 
   it.each([

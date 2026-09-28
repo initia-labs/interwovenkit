@@ -36,10 +36,10 @@ import {
   findInFlightSession,
   pruneDepositSessions,
   readDepositSession,
+  reserveDepositPrompt,
   reuseOrCreateDepositSession,
   rollbackDepositSessionPrompt,
   useDepositSessionStore,
-  writeDepositSession,
 } from "./depositSession"
 import { type DepositTransportResolution, resolveDepositTransport } from "./depositSources"
 import {
@@ -189,6 +189,15 @@ export function useDeliveryQuote(
 }
 
 class UnknownSendError extends Error {}
+
+const ATTEMPT_CHANGED_MESSAGE =
+  "The deposit changed before your wallet opened. Review and try again."
+
+/** The draft is bound at the click, with the inputs it was built from. */
+interface DepositAttempt {
+  draft: DepositSessionDraft
+  inputs: string
+}
 
 interface AutoDeposit {
   inputs: string
@@ -460,9 +469,12 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   }
 
   const approveMutation = useMutation({
+    networkMode: "always",
     mutationFn: async (approval: BridgeQuoteApproval) => {
       try {
         const signer = await getSigner(source.chainId)
+        // A chain switch can outlast the form; a closed form never opens the approval prompt.
+        if (!mountedRef.current) throw new Error(ATTEMPT_CHANGED_MESSAGE)
         const response = await signer.sendTransaction({
           chainId: Number(source.chainId),
           to: approval.token_address,
@@ -506,7 +518,11 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     }
   }
 
-  const sendDeposit = async (draft: DepositSessionDraft) => {
+  // The click that started this send still owns it: same inputs, and the form still open.
+  const isCurrentAttempt = (inputs: string) => mountedRef.current && inputsRef.current === inputs
+
+  const sendDeposit = async ({ draft, inputs }: DepositAttempt) => {
+    if (!isCurrentAttempt(inputs)) throw new Error(ATTEMPT_CHANGED_MESSAGE)
     // The head and nonces below are read for the connected account and source chain.
     if (!eqAddress(draft.source.sender, hexAddress) || draft.source.chainId !== source.chainId) {
       throw new Error("Your wallet switched accounts. Try again.")
@@ -532,7 +548,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     const stored = storedId ? readDepositSession(localStorage, storedId) : null
     pruneDepositSessions(localStorage, Date.now())
     // Written and read back before any wallet prompt, the chain switch included.
-    const prompted = writeDepositSession(localStorage, {
+    const prompted = await reserveDepositPrompt({
       ...reuseOrCreateDepositSession(stored, draft),
       ...draft,
       phase: "send_prompt",
@@ -542,6 +558,11 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
       promptPendingNonce: nonces.pending,
       updatedAt: Date.now(),
     })
+    // The lock can wait on another tab; the click may no longer own this send by the time it's held.
+    if (!isCurrentAttempt(inputs)) {
+      rollbackDepositSessionPrompt(localStorage, prompted.id)
+      throw new Error(ATTEMPT_CHANGED_MESSAGE)
+    }
     setValue("depositSessionId", prompted.id)
 
     // While this tab holds the prompt open, other tabs must not read it as abandoned.
@@ -575,6 +596,8 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
       const gasLimit = transaction.gasLimit
         ? BigInt(transaction.gasLimit)
         : await signer.estimateGas(request).catch(rollback)
+      // The chain switch and estimate can take a while; an edit or a closed form cancels the send.
+      if (!isCurrentAttempt(inputs)) rollback(new Error(ATTEMPT_CHANGED_MESSAGE))
       response = await signer
         .sendTransaction({ ...request, gasLimit })
         .catch(async (error: unknown) => {
@@ -602,11 +625,13 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     })
   }
 
+  // Never paused and resumed later: a deferred wallet prompt would outlive the click that asked for it.
   const sendMutation = useMutation({
+    networkMode: "always",
     // The draft is built at the click, so a mutation that runs later can't pick up newer form state.
-    mutationFn: async (draft: DepositSessionDraft) => {
+    mutationFn: async (attempt: DepositAttempt) => {
       try {
-        await sendDeposit(draft)
+        await sendDeposit(attempt)
       } catch (error) {
         throw isLockingError(error) ? error : await normalizeError(error)
       }
@@ -715,7 +740,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
       // Readiness shows the shortfall once the re-read renders.
       if (refresh && !coversNativeCost(draft.transaction)) return
       setReviewRequiredSignature("")
-      await sendMutation.mutateAsync(draft)
+      await sendMutation.mutateAsync({ draft, inputs })
     } catch (error) {
       locked = isLockingError(error)
     } finally {

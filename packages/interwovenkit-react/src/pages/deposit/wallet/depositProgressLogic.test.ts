@@ -553,6 +553,13 @@ describe("deriveDepositProgress: deposit id stage", () => {
     expect(view.message).toContain("no automatic refund")
   })
 
+  it("a detail read for another deposit is a conflict, never its outcome", () => {
+    expect(depositView({ bucket: "completed", conflict: true })).toMatchObject({
+      variant: "problem",
+      persist: { lastState: "tracking_conflict" },
+    })
+  })
+
   it("an unknown bucket is a contract problem, never a financial outcome", () => {
     expect(depositView({ bucket: "unknown" })).toMatchObject({
       variant: "problem",

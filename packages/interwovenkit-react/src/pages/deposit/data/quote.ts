@@ -3,7 +3,7 @@ import { HTTPError } from "ky"
 import { keepPreviousData, queryOptions } from "@tanstack/react-query"
 import { normalizeError, normalizeErrorMessage, STALE_TIMES } from "@/data/http"
 import { depositQueryKeys } from "./api"
-import { isRecord } from "./parse"
+import { assertField, expectField, isPositiveIntegerString, isRecord } from "./parse"
 import type { QuoteDelivery, QuoteResponse } from "./types"
 
 export const QUOTE_STALE_TIME = STALE_TIMES.SECOND * 30
@@ -40,6 +40,16 @@ export function parseQuoteDelivery(delivery: unknown): QuoteDelivery | undefined
   }
 }
 
+// The preflight gates a send with no refund below the minimum, so an unreadable 200 isn't a quote.
+export function parseQuoteResponse(response: unknown): QuoteResponse {
+  assertField(isRecord(response), "Quote response is not an object")
+  return {
+    amount_out: expectField(response, "amount_out", isPositiveIntegerString, "Quote response"),
+    min_received: expectField(response, "min_received", isPositiveIntegerString, "Quote response"),
+    delivery: parseQuoteDelivery(response.delivery),
+  }
+}
+
 // Placeholder data is the previous amount's result, never a verdict for the current one. ky's GET
 // retries are the only retry layer.
 export function createQuoteQueryOptions(api: KyInstance, params: QuoteParams, enabled: boolean) {
@@ -48,8 +58,9 @@ export function createQuoteQueryOptions(api: KyInstance, params: QuoteParams, en
     queryKey: depositQueryKeys.minReceived(srcChainId, srcDenom, dstChainId, dstDenom, amountIn)
       .queryKey,
     queryFn: async (): Promise<QuoteResult> => {
+      let response: unknown
       try {
-        const quote = await api
+        response = await api
           .get("v1/quote", {
             searchParams: {
               src_chain_id: srcChainId,
@@ -59,14 +70,11 @@ export function createQuoteQueryOptions(api: KyInstance, params: QuoteParams, en
               amount_in: amountIn,
             },
           })
-          .json<QuoteResponse>()
-        return {
-          status: "quoted",
-          quote: { ...quote, delivery: parseQuoteDelivery(quote.delivery) },
-        }
+          .json()
       } catch (error) {
         return await classifyQuoteFailure(error)
       }
+      return { status: "quoted", quote: parseQuoteResponse(response) }
     },
     enabled,
     staleTime: QUOTE_STALE_TIME,

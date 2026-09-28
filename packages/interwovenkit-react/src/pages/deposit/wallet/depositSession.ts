@@ -102,6 +102,12 @@ export type DepositSessionDraft = Omit<
 
 export class DepositSessionWriteError extends Error {}
 
+export class DepositInFlightError extends Error {
+  constructor() {
+    super("This deposit is already in progress. Check its progress before sending again.")
+  }
+}
+
 export function depositSessionStorageKey(id: string): string {
   return `${LocalStorageKey.DEPOSIT_SESSION_PREFIX}${id}`
 }
@@ -471,6 +477,27 @@ function writeStoredOrVolatile(session: DepositSession): DepositSession {
   } finally {
     notifyDepositSessions()
   }
+}
+
+const PROMPT_LOCK = "interwovenkit:deposit-prompt"
+
+// The in-flight check and the prompt record are one step under a cross-tab lock, so two clicks for
+// the same transfer, in any mount or tab, can't both reach the wallet.
+export async function reserveDepositPrompt(session: DepositSession): Promise<DepositSession> {
+  const reserve = () => {
+    if (findInFlightSession(listStoredAndVolatile(session.apiUrl), session)) {
+      throw new DepositInFlightError()
+    }
+    try {
+      return writeDepositSession(localStorage, session)
+    } finally {
+      notifyDepositSessions()
+    }
+  }
+  return typeof navigator !== "undefined" && navigator.locks
+    ? // Async, so a refusal rejects the request instead of throwing inside the lock's callback.
+      navigator.locks.request(PROMPT_LOCK, async () => reserve())
+    : reserve()
 }
 
 function listStoredAndVolatile(apiUrl: string): DepositSession[] {

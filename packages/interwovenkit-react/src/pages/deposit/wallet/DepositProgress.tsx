@@ -22,7 +22,7 @@ import {
   createDepositBySourceTxQueryOptions,
   useDeposit,
 } from "../data/deposits"
-import { eqAddress } from "../data/parse"
+import { eqAddress, ParseError } from "../data/parse"
 import { findDestinationNetwork, formatSourceMin } from "../data/source"
 import type { BridgeStatusResponse, Deposit } from "../data/types"
 import { formatCompletedAmount } from "../completedAmount"
@@ -192,7 +192,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
 
   const handoff = lifiHandoff?.deposit ?? directHandoff?.deposit
 
-  const depositQuery = useDeposit(depositId)
+  const depositQuery = useDeposit(depositId, identity)
   const deposit = depositQuery.data ?? null
   const bucket = classifyWalletBucket(deposit)
   const estimatedCompletionAt = deposit?.delivery?.estimated_completion_at
@@ -249,6 +249,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
       bucket,
       delivery: deposit?.delivery,
       isError: depositQuery.isError,
+      conflict: depositQuery.error instanceof ParseError,
       minLabel,
       completedAmount,
       isSelfRecipient: !!initiaAddress && eqAddress(session.destination.recipient, initiaAddress),

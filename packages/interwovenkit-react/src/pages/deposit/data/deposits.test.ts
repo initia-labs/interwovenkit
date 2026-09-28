@@ -3,6 +3,7 @@ import {
   assertDepositsAtAddress,
   assertDirectDeposit,
   assertLifiDeposit,
+  assertTrackedDeposit,
   bySourceTxPollInterval,
   classifyWalletBucket,
   createDepositBySourceTxQueryOptions,
@@ -283,4 +284,19 @@ describe("assertLifiDeposit", () => {
   it.each(IDENTITY_MISMATCHES)("rejects %o", (overrides, message) => {
     expect(() => assertLifiDeposit(lifiDeposit(overrides), IDENTITY)).toThrow(message)
   })
+})
+
+describe("assertTrackedDeposit", () => {
+  const TRACKED = { ...IDENTITY, id: "d1" }
+
+  it("accepts the session's own deposit on every read", () => {
+    expect(assertTrackedDeposit(deposit(), TRACKED)).toEqual(deposit())
+  })
+
+  it.each<[Partial<Deposit>, RegExp]>([[{ id: "d2" }, /id d2 is not d1/], ...IDENTITY_MISMATCHES])(
+    "rejects %o",
+    (overrides, message) => {
+      expect(() => assertTrackedDeposit(deposit(overrides), TRACKED)).toThrow(message)
+    },
+  )
 })

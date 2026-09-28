@@ -73,7 +73,7 @@ export const pollUntilTerminal = (deposit: Deposit | null | undefined, elapsedMs
  * The id came from the backend itself, so a 404 is a contract violation and
  * throws instead of silently polling a null forever.
  */
-export function useDeposit(id: string) {
+export function useDeposit(id: string, identity?: DepositIdentity) {
   const { depositApiUrl } = useConfig()
   const api = useDepositApi()
   const mountedAt = useMountedAt()
@@ -86,6 +86,8 @@ export function useDeposit(id: string) {
         throw await normalizeError(error)
       }
     },
+    // Checked per observer, so a record another caller cached is held to this session's identity too.
+    select: identity ? (record) => assertTrackedDeposit(record, { ...identity, id }) : undefined,
     enabled: !!depositApiUrl && !!id,
     refetchInterval: (query) => pollUntilTerminal(query.state.data, Date.now() - mountedAt),
   })
@@ -338,6 +340,15 @@ export function assertDirectDeposit(
   return assertDepositIdentity(asDepositRecord(record, "Deposit record"), identity, {
     src_tx_hash: [identity.srcTxHash, caseInsensitive],
     amount: identity.amount,
+  })
+}
+
+export function assertTrackedDeposit(
+  record: unknown,
+  identity: DepositIdentity & { id: string },
+): Deposit {
+  return assertDepositIdentity(asDepositRecord(record, "Deposit record"), identity, {
+    id: identity.id,
   })
 }
 
