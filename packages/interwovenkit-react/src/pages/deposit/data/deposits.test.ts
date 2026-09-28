@@ -82,6 +82,10 @@ describe("pollUntilTerminal", () => {
   // A null/undefined deposit covers both the not-yet-fetched frame and a query
   // error before data exists. Neither is terminal: stopping would freeze the
   // screen and make the UI's automatic-recovery message false.
+  it("keeps polling an unrecognized bucket, which a later read can still complete", () => {
+    expect(pollUntilTerminal(deposit({ bucket: "rebalancing" }), 0)).not.toBe(false)
+  })
+
   it("keeps polling without data so transient errors can recover", () => {
     expect(pollUntilTerminal(null, 0)).not.toBe(false)
     expect(pollUntilTerminal(undefined, 0)).not.toBe(false)

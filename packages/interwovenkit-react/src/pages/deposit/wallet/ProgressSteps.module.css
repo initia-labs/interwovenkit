@@ -73,7 +73,8 @@
 }
 
 .done .circle::before,
-.failed .circle::before {
+.failed .circle::before,
+.stopped .circle::before {
   opacity: 0;
 }
 
@@ -112,13 +113,13 @@
   font-weight: 600;
 }
 
-.active .number,
-.stopped .number {
+.active .number {
   color: var(--gray-1);
 }
 
 .done .number,
-.failed .number {
+.failed .number,
+.stopped .number {
   filter: blur(4px);
   opacity: 0;
   transform: scale(0.25);
@@ -140,8 +141,13 @@
   color: var(--error);
 }
 
+.warn {
+  color: var(--warning);
+}
+
 .done .check,
-.failed .cross {
+.failed .cross,
+.stopped .warn {
   filter: none;
   opacity: 1;
   transform: none;

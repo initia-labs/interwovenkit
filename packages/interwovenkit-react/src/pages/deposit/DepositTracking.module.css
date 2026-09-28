@@ -43,6 +43,10 @@ p.note {
   color: var(--error);
 }
 
+.warningIcon {
+  color: var(--warning);
+}
+
 .confirming {
   display: inline-flex;
   align-items: center;

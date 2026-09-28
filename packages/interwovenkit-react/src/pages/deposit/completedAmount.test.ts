@@ -22,6 +22,11 @@ describe("formatCompletedAmount", () => {
     expect(formatCompletedAmount({ ...params, amountOut })).toBe(expected)
   })
 
+  it("skips a delivered amount that rounds to zero instead of reading as nothing delivered", () => {
+    const dust = { ...params, amountOut: "1", dstDecimals: 18 }
+    expect(formatCompletedAmount(dust)).toBe("2 ETH")
+  })
+
   it("rounds a longer sent amount down to 6 decimals", () => {
     const sentAmount = "1234567890123456789"
     expect(formatCompletedAmount({ ...params, amountOut: undefined, sentAmount })).toBe(

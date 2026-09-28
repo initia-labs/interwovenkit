@@ -1,6 +1,10 @@
 import clsx from "clsx"
 import { type CSSProperties, useState } from "react"
-import { IconCheckCircleFilled, IconCloseCircleFilled } from "@initia/icons-react"
+import {
+  IconCheckCircleFilled,
+  IconCloseCircleFilled,
+  IconWarningFilled,
+} from "@initia/icons-react"
 import Loader from "@/components/Loader"
 import type { ProgressStepStatus } from "./depositProgressLogic"
 import styles from "./ProgressSteps.module.css"
@@ -29,7 +33,8 @@ function describe(steps: ProgressStepStatus[]): string {
   return `Step ${index + 1} of ${steps.length} ${STATUS_LABEL[steps[index]]}`
 }
 
-// The wallet's own status marks: its Loader while a step runs, the filled check and close icons after.
+// The wallet's own status marks: its Loader while a step runs, then its filled check, close, or
+// warning icon.
 const ProgressSteps = ({ steps }: { steps: ProgressStepStatus[] }) => {
   const previous = usePreviousSteps(steps)
   const isComplete = steps.every((status) => status === "done")
@@ -67,6 +72,7 @@ const ProgressSteps = ({ steps }: { steps: ProgressStepStatus[] }) => {
                 <span className={styles.number}>{index + 1}</span>
                 <IconCheckCircleFilled size={40} className={clsx(styles.mark, styles.check)} />
                 <IconCloseCircleFilled size={40} className={clsx(styles.mark, styles.cross)} />
+                <IconWarningFilled size={40} className={clsx(styles.mark, styles.warn)} />
               </span>
             </li>
           )

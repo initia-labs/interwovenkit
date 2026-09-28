@@ -17,7 +17,7 @@ import {
 } from "./parse"
 import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM } from "./source"
 import type { Deposit, DepositBucket, ListDepositsResponse } from "./types"
-import { ACTIVE_DEPOSIT_BUCKETS, DEPOSIT_BUCKETS } from "./types"
+import { ACTIVE_DEPOSIT_BUCKETS, DEPOSIT_BUCKETS, TERMINAL_DEPOSIT_BUCKETS } from "./types"
 
 // Deliberately the negation of the active set: an unknown bucket must count
 // as terminal so polling stops, matching the server's own fail-closed mapping
@@ -63,10 +63,12 @@ function useMountedAt() {
   return mountedAt
 }
 
-/** Stop polling once the deposit is terminal. A null/undefined deposit keeps
- * polling — not-yet-fetched is not a terminal answer. */
+/** Stop polling once the deposit reaches a known final bucket. A null/undefined deposit or an
+ * unrecognized bucket keeps polling: neither is a final answer, and a later read can still complete. */
 export const pollUntilTerminal = (deposit: Deposit | null | undefined, elapsedMs: number) =>
-  deposit && isTerminalBucket(deposit.bucket) ? false : pollInterval(elapsedMs)
+  deposit && (TERMINAL_DEPOSIT_BUCKETS as readonly string[]).includes(deposit.bucket)
+    ? false
+    : pollInterval(elapsedMs)
 
 /**
  * GET /v1/deposits/{id}. Authoritative single-deposit lifecycle polling.

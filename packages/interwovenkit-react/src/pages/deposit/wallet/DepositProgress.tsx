@@ -3,7 +3,11 @@ import xss from "xss"
 import { useEffect, useEffectEvent, useMemo, useState } from "react"
 import { useInterval } from "usehooks-ts"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { IconCheckCircleFilled, IconCloseCircleFilled } from "@initia/icons-react"
+import {
+  IconCheckCircleFilled,
+  IconCloseCircleFilled,
+  IconWarningFilled,
+} from "@initia/icons-react"
 import Button from "@/components/Button"
 import CopyButton from "@/components/CopyButton"
 import { sanitizeLink } from "@/components/explorer"
@@ -450,7 +454,8 @@ interface ProgressScreenProps {
 
 const ProgressScreen = (props: ProgressScreenProps) => {
   const { title, variant, heading, message, chips, explorerUrl, onHistoryClick, footer } = props
-  const isError = variant !== "in-flight" && variant !== "completed"
+  // A problem needs attention but isn't a verdict on the funds; only a failure reads as one.
+  const isError = variant === "failed" || variant === "below-minimum"
 
   return (
     <DepositSubpage title={title}>
@@ -461,6 +466,8 @@ const ProgressScreen = (props: ProgressScreenProps) => {
           <Loader size={40} color="var(--success)" />
         ) : variant === "completed" ? (
           <IconCheckCircleFilled size={48} className={trackingStyles.successIcon} aria-hidden />
+        ) : variant === "problem" ? (
+          <IconWarningFilled size={48} className={trackingStyles.warningIcon} aria-hidden />
         ) : (
           <IconCloseCircleFilled size={48} className={trackingStyles.failIcon} aria-hidden />
         )}
