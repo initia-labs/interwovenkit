@@ -8,6 +8,7 @@ import {
   IconCloseCircleFilled,
   IconWarningFilled,
 } from "@initia/icons-react"
+import { fromBaseUnit } from "@initia/utils"
 import Button from "@/components/Button"
 import CopyButton from "@/components/CopyButton"
 import { sanitizeLink } from "@/components/explorer"
@@ -15,7 +16,6 @@ import Footer from "@/components/Footer"
 import Loader from "@/components/Loader"
 import { useConfig } from "@/data/config"
 import { useDrawer, useModal } from "@/data/ui"
-import { useInitiaAddress } from "@/public/data/hooks"
 import { depositQueryKeys, useDepositApi } from "../data/api"
 import { createDepositAssetsQueryOptions } from "../data/assets"
 import { createBridgeStatusQueryOptions } from "../data/bridges"
@@ -26,10 +26,10 @@ import {
   createDepositBySourceTxQueryOptions,
   useDeposit,
 } from "../data/deposits"
-import { eqAddress, ParseError } from "../data/parse"
+import { ParseError } from "../data/parse"
 import { findDestinationNetwork, formatSourceMin } from "../data/source"
 import type { BridgeStatusResponse, Deposit } from "../data/types"
-import { formatCompletedAmount } from "../completedAmount"
+import { formatCompletedAmount, formatSentenceAmount } from "../completedAmount"
 import DepositStatus from "../DepositStatus"
 import DepositSubpage from "../DepositSubpage"
 import { TAKING_LONGER_DELAY } from "../DepositTracking"
@@ -38,6 +38,8 @@ import ExplorerLinks from "../ExplorerLinks"
 import FlowChips from "../FlowChips"
 import {
   checkHashlessSend,
+  DELAYED_HEADING,
+  DELAYED_NOTE,
   type DepositProgressInputs,
   type DepositProgressVariant,
   deriveDepositProgress,
@@ -100,7 +102,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   const { depositApiUrl } = useConfig()
   const { closeModal } = useModal()
   const { openDrawer } = useDrawer()
-  const initiaAddress = useInitiaAddress()
+  const { setValue } = useTransferForm()
   const queryClient = useQueryClient()
   const { read, write, isVolatile } = useDepositSessionStore()
 
@@ -232,6 +234,10 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     receiveSymbol: session.destination.symbol,
     sentSymbol: "USDC",
   })
+  const held =
+    deposit && ethereumRoute
+      ? formatSentenceAmount(fromBaseUnit(deposit.amount, { decimals: ethereumRoute.src_decimals }))
+      : undefined
 
   const inputs: DepositProgressInputs = {
     // The record's own fetch time keeps the first reading fresh before the interval ticks.
@@ -259,7 +265,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
       conflict: depositQuery.error instanceof ParseError,
       minLabel,
       completedAmount,
-      isSelfRecipient: !!initiaAddress && eqAddress(session.destination.recipient, initiaAddress),
+      heldAmount: held && `${held} USDC`,
     },
   }
 
@@ -320,6 +326,17 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     }
   }
 
+  // The same deposit again: nothing left the wallet, or it came back.
+  const tryAgain = () => {
+    const { source } = session
+    setValue("srcChainId", source.chainId)
+    setValue("srcDenom", source.denom)
+    setValue("quantity", fromBaseUnit(source.amount, { decimals: source.decimals }))
+    setValue("selectedBridge", "")
+    setValue("depositSessionId", "")
+    setValue("page", "fields")
+  }
+
   const showClose = view.variant !== "in-flight"
   const showRefresh = view.variant === "problem" && !!sourceHash
   const footer =
@@ -335,6 +352,11 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
             Refresh
           </Button.White>
         )}
+        {view.canRetry && (
+          <Button.White fullWidth onClick={tryAgain}>
+            Try again
+          </Button.White>
+        )}
         {showClose && (
           <Button.Outline fullWidth onClick={closeModal}>
             Close
@@ -343,11 +365,13 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
       </Footer>
     ) : null
 
-  const message = view.note ? (
+  // Past the usual time, reassure that closing doesn't stop the deposit.
+  const note = view.note ?? (heading === DELAYED_HEADING ? DELAYED_NOTE : undefined)
+  const message = note ? (
     <>
       {view.message}
       <br />
-      {view.note}
+      {note}
     </>
   ) : (
     view.message

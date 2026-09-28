@@ -32,6 +32,8 @@ export interface DepositProgressView {
   /** A bridge normally takes minutes and reports no ETA, so this stage never reads as delayed. */
   isBridging?: boolean
   canMarkNotSent?: boolean
+  /** Nothing left the wallet, or it came back, so the same deposit can be started again. */
+  canRetry?: boolean
   /** Written back to the session so the persisted trail matches the rendered claim. */
   persist?: { phase?: DepositSessionPhase; lastState?: DepositLastState }
 }
@@ -59,7 +61,8 @@ export interface DepositProgressInputs {
     conflict?: boolean
     minLabel?: string
     completedAmount?: string
-    isSelfRecipient: boolean
+    /** The USDC at the deposit address, e.g. "10 USDC", for copy about funds held there. */
+    heldAmount?: string
   }
   nonces: {
     data?: SenderNonces
@@ -72,10 +75,17 @@ export interface DepositProgressInputs {
 const IN_FLIGHT_TITLE = "Deposit in progress"
 const NEUTRAL_TITLE = "Deposit status"
 
-const MISMATCH =
-  "The tracking details don't match this deposit. Your submitted transaction is still saved."
+const INITIA_TEAM = "Reach out to the Initia team with the transaction link for support."
 
-const NO_REFUND = "Your funds remain at the deposit address with no automatic refund."
+const MISMATCH =
+  "We couldn't match the bridge's status to this deposit, so we've stopped updating it. It may still arrive. If it doesn't, reach out to the Initia team with the transaction link for support."
+
+const HELD = (amount: string) =>
+  `Your ${amount} is held at your deposit address and won't be refunded automatically. ${INITIA_TEAM}`
+
+export const DELAYED_HEADING = "Taking longer than usual"
+export const DELAYED_NOTE =
+  "You can close this. Your deposit keeps going and stays under Continue deposit."
 
 // Every in-flight stage reads the same: the user needs to know it's moving, not which leg it's on.
 const PROCESSING = "Processing your deposit."
@@ -84,51 +94,22 @@ const IN_PROGRESS = "In progress"
 const FAST_DELIVERY_FELL_BACK =
   "Fast delivery wasn't available, so this deposit is using standard delivery."
 
-interface LastStateCopy {
-  label?: string
-  heading?: string
-  message?: string
-}
-
-// Bridge states render a whole screen, so their message is mandatory.
-const LAST_STATE: Partial<Record<DepositLastState, LastStateCopy>> &
-  Record<BridgeStatusState, LastStateCopy & { message: string }> = {
-  source_pending: { label: IN_PROGRESS },
-  source_replaced: { label: IN_PROGRESS },
-  source_conflict: { label: "Couldn't verify transfer" },
-  bridge_not_found: { label: IN_PROGRESS, message: PROCESSING },
-  bridge_pending: { label: IN_PROGRESS, message: PROCESSING },
-  bridge_refunding: {
-    label: "Refund in progress",
-    heading: "Refund in progress",
-    message: "The bridge is returning your funds. Checking until the refund confirms.",
-  },
-  bridge_refunded: {
-    heading: "Refund confirmed",
-    message: "The bridge refunded this transfer. See the transaction for details.",
-  },
-  bridge_partial: {
-    label: "Partially delivered",
-    heading: "Deposit needs attention",
-    message:
-      "The bridge delivered only part of this transfer. Check the details or contact support.",
-  },
-  bridge_refund_required: {
-    label: "Refund needs your action",
-    heading: "Refund needs attention",
-    message: "This refund needs your action. Check the details to complete it.",
-  },
-  bridge_failed: {
-    heading: "Bridge failed",
-    message:
-      "The bridge could not complete this transfer. Check the details for the status of your funds.",
-  },
-  deposit_pending: { label: IN_PROGRESS, message: PROCESSING },
-  deposit_indexed: { label: IN_PROGRESS, message: PROCESSING },
-  waiting: { label: IN_PROGRESS },
-  processing: { label: IN_PROGRESS },
-  unknown: { label: "Status unavailable" },
-  tracking_conflict: { label: "Couldn't verify transfer" },
+// The hub's resume row: open sessions only, so terminal states need no label.
+const RESUME_LABEL: Partial<Record<DepositLastState, string>> = {
+  source_pending: IN_PROGRESS,
+  source_replaced: IN_PROGRESS,
+  source_conflict: "Different transaction sent",
+  bridge_not_found: IN_PROGRESS,
+  bridge_pending: IN_PROGRESS,
+  bridge_refunding: "Refund in progress",
+  bridge_partial: "Partly delivered",
+  bridge_refund_required: "Refund needed",
+  deposit_pending: IN_PROGRESS,
+  deposit_indexed: IN_PROGRESS,
+  waiting: IN_PROGRESS,
+  processing: IN_PROGRESS,
+  unknown: "Status unavailable",
+  tracking_conflict: "Can't confirm deposit",
 }
 
 type ViewParts = Partial<DepositProgressView>
@@ -184,10 +165,10 @@ export function resumeRowTitle(session: DepositSession): string {
 }
 
 export function resumeStageLabel(session: DepositSession): string {
-  const label = session.lastState && LAST_STATE[session.lastState]?.label
+  const label = session.lastState && RESUME_LABEL[session.lastState]
   if (label) return label
   return session.phase === "send_prompt" || session.phase === "submission_unknown"
-    ? "Checking your transaction"
+    ? "Confirming your transaction"
     : IN_PROGRESS
 }
 
@@ -199,7 +180,7 @@ export function progressHeading(
   isDelayed: boolean,
 ): string | undefined {
   const canDelay = view.variant === "in-flight" && !view.isBridging && !timeLeft(session, inputs)
-  return isDelayed && canDelay ? "Taking longer than usual" : view.heading
+  return isDelayed && canDelay ? DELAYED_HEADING : view.heading
 }
 
 export type ProgressStepStatus = "done" | "active" | "stopped" | "failed" | "pending"
@@ -265,7 +246,7 @@ export function deriveDepositProgress(
     return view
   }
 
-  return session.transport === "lifi" ? bridgeStage(inputs) : correlateStage(inputs)
+  return session.transport === "lifi" ? bridgeStage(session, inputs) : correlateStage(inputs)
 }
 
 const RELEASE_AFTER_MS = 2 * 60_000
@@ -310,7 +291,8 @@ const markedNotSent = () =>
   terminal({
     variant: "failed",
     heading: "Deposit not sent",
-    message: "This deposit wasn't sent from your wallet. You can start a new one.",
+    message: "Your wallet didn't send this deposit, so it wasn't started.",
+    canRetry: true,
     persist: { phase: "terminal", lastState: "not_sent" },
   })
 
@@ -335,51 +317,51 @@ function withoutHash(session: DepositSession, inputs: DepositProgressInputs): De
     return problem({
       ...unconfirmed,
       heading: "Check your wallet",
-      message: `Your account has a newer transaction on ${chainName}. It may be this deposit, which can still arrive.`,
-      note: "Check your wallet activity before you send again.",
+      message: `Your account sent a transaction on ${chainName} that may be this deposit. If it is, it will still arrive. Check your wallet activity before trying again.`,
     })
   }
 
   if (session.promptNonce === undefined) {
     return problem({
       ...unconfirmed,
-      heading: "Transfer status unknown",
-      message: "Your wallet didn't confirm whether this transfer was sent.",
-      note: "Check your wallet activity for a transfer from this account. Don't send again until you know.",
+      heading: "Check your wallet",
+      message:
+        "Your wallet didn't confirm whether it sent this deposit. Check your wallet activity before trying again.",
     })
   }
 
   return problem({
     ...unconfirmed,
-    heading: "Checking your transaction",
-    message: `Your wallet didn't confirm whether this transfer was sent. Checking ${chainName} for it before you can send again.`,
-    note: "This takes about two minutes. Don't send again in the meantime.",
+    heading: "Confirming your transaction",
+    message: `Your wallet didn't confirm whether it sent this deposit. We're checking ${chainName}, which takes about 2 minutes.`,
+    note: "Don't send it again to avoid paying excess fees.",
   })
 }
 
-const notSent = (lastState: DepositLastState) =>
+const notSent = (lastState: DepositLastState, chainName: string) =>
   terminal({
     variant: "failed",
     heading: "Deposit not sent",
-    message: "The source transaction was cancelled or reverted.",
-    note: "Network fees were still spent, and any token approval you granted remains.",
+    message: `Your transaction was cancelled or failed on ${chainName}, so the deposit wasn't started.`,
+    canRetry: true,
     persist: { phase: "terminal", lastState },
   })
 
 function sourceStage(session: DepositSession, inputs: DepositProgressInputs): DepositProgressView {
   const { outcome, isError } = inputs.source
 
-  if (outcome?.status === "reverted") return notSent("source_reverted")
+  const { chainName } = session.source
+  if (outcome?.status === "reverted") return notSent("source_reverted", chainName)
   if (outcome?.status === "replaced" && outcome.reason === "cancelled") {
-    return notSent("source_cancelled")
+    return notSent("source_cancelled", chainName)
   }
 
   if (outcome?.status === "replaced" && outcome.reason === "replaced") {
     // Same nonce, different payload: not this transfer, and not a proven cancellation.
     return problem({
-      heading: "Couldn't verify this transfer",
-      message: MISMATCH,
-      note: "A different transaction replaced yours. Check the transaction details before sending anything new.",
+      heading: "Different transaction sent",
+      message:
+        "Your wallet replaced this deposit with a different transaction, so it may not have been sent. Check your wallet activity before trying again.",
       persist: { lastState: "source_conflict" },
     })
   }
@@ -396,43 +378,60 @@ function sourceStage(session: DepositSession, inputs: DepositProgressInputs): De
   })
 }
 
-function bridgeStage(inputs: DepositProgressInputs): DepositProgressView {
+function bridgeStage(session: DepositSession, inputs: DepositProgressInputs): DepositProgressView {
   const { state, error, conflict } = inputs.bridge
+  const { chainName } = session.source
 
-  if (error instanceof BridgeStatusError && error.code === "upstream_conflict") {
-    return conflictView(MISMATCH)
+  // A rejected request, a conflict, or a response that fails its checks can't be fixed by polling.
+  if (
+    (error instanceof BridgeStatusError &&
+      (error.code === "upstream_conflict" || error.code === "invalid_request")) ||
+    conflict ||
+    error instanceof ParseError
+  ) {
+    return conflictView()
   }
-  if (error instanceof BridgeStatusError && error.code === "invalid_request") {
-    return conflictView("The tracking request was rejected. Your transaction details are saved.")
-  }
-
-  // A response that fails its checks can't be fixed by polling again.
-  if (conflict || error instanceof ParseError) return conflictView(MISMATCH)
-
-  const copy = LAST_STATE[state ?? "bridge_not_found"]
 
   switch (state) {
     case "bridge_refunded":
+      return terminal({
+        variant: "failed",
+        heading: "Deposit refunded",
+        message: `The bridge couldn't deliver this deposit and returned your USDC to your wallet on ${chainName}.`,
+        canRetry: true,
+        persist: { phase: "terminal", lastState: state },
+      })
     case "bridge_failed":
       return terminal({
         variant: "failed",
-        heading: copy.heading,
-        message: copy.message,
+        heading: "Bridge failed",
+        message: `The bridge couldn't complete this transfer. Check the transaction to see where your USDC is. If it isn't back in your wallet, reach out to the Initia team with the transaction link for support.`,
         persist: { phase: "terminal", lastState: state },
       })
     case "bridge_partial":
+      return problem({
+        heading: "Deposit partly delivered",
+        message: `The bridge delivered only part of this deposit. Don't send it again. ${INITIA_TEAM}`,
+        persist: { lastState: state },
+      })
     case "bridge_refund_required":
       return problem({
-        heading: copy.heading,
-        message: copy.message,
-        note: "Keep the transaction details for support. Don't send a replacement deposit.",
+        heading: "Refund needed",
+        message: `The bridge couldn't deliver this deposit, and its refund has to be claimed. ${INITIA_TEAM}`,
+        persist: { lastState: state },
+      })
+    case "bridge_refunding":
+      return inFlight({
+        heading: "Refund in progress",
+        message: `The bridge is returning your USDC to your wallet on ${chainName}. This usually takes a few minutes.`,
+        isRetrying: !!error,
+        isBridging: true,
         persist: { lastState: state },
       })
   }
 
   return inFlight({
-    heading: copy.heading,
-    message: copy.message,
+    message: PROCESSING,
     isRetrying: !!error,
     isBridging: state !== "deposit_pending" && state !== "deposit_indexed",
     persist: state ? { lastState: state } : undefined,
@@ -442,7 +441,7 @@ function bridgeStage(inputs: DepositProgressInputs): DepositProgressView {
 function correlateStage(inputs: DepositProgressInputs): DepositProgressView {
   const { isError, conflict } = inputs.direct
 
-  if (conflict) return conflictView(MISMATCH)
+  if (conflict) return conflictView()
 
   return inFlight({
     // A 404 here is an indexing delay: the receipt is already confirmed on Ethereum.
@@ -462,10 +461,9 @@ function timeLeft(session: DepositSession, inputs: DepositProgressInputs): strin
 }
 
 function depositStage(session: DepositSession, inputs: DepositProgressInputs): DepositProgressView {
-  const { bucket, delivery, isError, conflict, minLabel, completedAmount, isSelfRecipient } =
+  const { bucket, delivery, isError, conflict, minLabel, completedAmount, heldAmount } =
     inputs.deposit
-  if (conflict) return conflictView(MISMATCH)
-  const destination = session.destination.chainName || "the destination"
+  if (conflict) return conflictView()
   const eta = timeLeft(session, inputs)
   const fellBack = session.predictedDelivery === "advance" && delivery?.method === "standard"
   const delivering = {
@@ -488,42 +486,39 @@ function depositStage(session: DepositSession, inputs: DepositProgressInputs): D
       })
     case "completed":
       return terminal({
-        title: "Transfer complete",
+        title: "Deposit complete",
         variant: "completed",
-        message: isSelfRecipient
-          ? `${completedAmount} delivered to your wallet on ${destination}.`
-          : `${completedAmount} delivered to the recipient on ${destination}.`,
+        message: `${completedAmount} deposited.`,
         persist: { phase: "terminal", lastState: "completed" },
       })
     case "below_minimum":
       return terminal({
         variant: "below-minimum",
         heading: "Amount below minimum",
-        message: `${minLabel ? `Deposits below ${minLabel} can't be processed. ` : ""}${NO_REFUND}`,
+        message: `${minLabel ? `Deposits under ${minLabel}` : "Deposits this small"} can't be processed. ${HELD(heldAmount ?? "USDC")}`,
         persist: { phase: "terminal", lastState: "below_minimum" },
       })
     case "failed":
       return terminal({
         variant: "failed",
         heading: "Deposit failed",
-        message: `This deposit could not be completed. ${NO_REFUND}`,
+        message: `This deposit couldn't be completed. ${HELD(heldAmount ?? "USDC")}`,
         persist: { phase: "terminal", lastState: "failed" },
       })
     case "unknown":
       // A contract problem, not a financial outcome: the session stays open.
       return problem({
         heading: "Status unavailable",
-        message: "Couldn't read the latest deposit status. Your transfer details are saved.",
+        message: "We can't load this deposit's status right now.",
         persist: { lastState: "unknown" },
       })
   }
 }
 
-function conflictView(message: string): DepositProgressView {
+function conflictView(): DepositProgressView {
   return problem({
-    heading: "Couldn't verify this transfer",
-    message,
-    note: "We've stopped automatic tracking so nothing is inferred from mismatched evidence. Your transaction details are saved.",
+    heading: "Can't confirm this deposit",
+    message: MISMATCH,
     persist: { lastState: "tracking_conflict" },
   })
 }

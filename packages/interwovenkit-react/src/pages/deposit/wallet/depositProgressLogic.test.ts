@@ -18,7 +18,7 @@ import { buildDepositSession } from "./testing"
 
 const REPLACEMENT_HASH = `0x${"b".repeat(64)}`
 const MISMATCH =
-  "The tracking details don't match this deposit. Your submitted transaction is still saved."
+  "We couldn't match the bridge's status to this deposit, so we've stopped updating it. It may still arrive. If it doesn't, reach out to the Initia team with the transaction link for support."
 const MINUTE = 60_000
 const PROCESSING = "Processing your deposit."
 
@@ -30,7 +30,7 @@ const inputs = (overrides: Partial<DepositProgressInputs> = {}): DepositProgress
   source: { isError: false },
   bridge: {},
   direct: { isError: false },
-  deposit: { bucket: "waiting", isError: false, isSelfRecipient: true },
+  deposit: { bucket: "waiting", isError: false },
   nonces: { readAt: 0, isError: false },
   now: 0,
   ...overrides,
@@ -52,7 +52,7 @@ const depositView = (
     session({ depositId: "deposit-1", ...overrides }),
     inputs({
       ...extra,
-      deposit: { bucket: "waiting", isError: false, isSelfRecipient: true, ...deposit },
+      deposit: { bucket: "waiting", isError: false, ...deposit },
     }),
   )
 
@@ -121,12 +121,12 @@ describe("resumeRowTitle", () => {
 describe("resumeStageLabel", () => {
   it.each<[string, Partial<DepositSession>, string]>([
     ["an in-flight state", { lastState: "bridge_pending" }, "In progress"],
-    ["a problem state", { lastState: "tracking_conflict" }, "Couldn't verify transfer"],
-    ["an open prompt", { phase: "send_prompt" }, "Checking your transaction"],
+    ["a problem state", { lastState: "tracking_conflict" }, "Can't confirm deposit"],
+    ["an open prompt", { phase: "send_prompt" }, "Confirming your transaction"],
     [
       "an ambiguous send whose state has no label",
       { phase: "submission_unknown", lastState: "source_reverted" },
-      "Checking your transaction",
+      "Confirming your transaction",
     ],
     ["a sent transfer with no state", { phase: "source_sent" }, "In progress"],
   ])("labels %s", (_, overrides, label) => {
@@ -229,11 +229,11 @@ describe("deriveDepositProgress: no source hash", () => {
       "an open prompt",
       { phase: "send_prompt", promptNonce: 7 },
       {},
-      "Checking your transaction",
+      "Confirming your transaction",
       false,
     ],
-    ["an ambiguous send", { promptNonce: 7 }, {}, "Checking your transaction", false],
-    ["an ambiguous send without a prompt nonce", {}, {}, "Transfer status unknown", false],
+    ["an ambiguous send", { promptNonce: 7 }, {}, "Confirming your transaction", false],
+    ["an ambiguous send without a prompt nonce", {}, {}, "Check your wallet", false],
     [
       "an ambiguous send whose nonce moved",
       { promptNonce: 7 },
@@ -382,7 +382,10 @@ describe("deriveDepositProgress: source stage", () => {
       heading: "Deposit not sent",
       persist: { phase: "terminal", lastState },
     })
-    expect(view.note).toContain("Network fees were still spent")
+    expect(view.message).toBe(
+      "Your transaction was cancelled or failed on Base, so the deposit wasn't started.",
+    )
+    expect(view.canRetry).toBe(true)
   })
 
   it("a different payload on the same nonce is a conflict, never assumed cancellation", () => {
@@ -431,12 +434,29 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
     },
   )
 
+  it("a refund names where the USDC went and offers the same deposit again", () => {
+    expect(bridgeView({ state: "bridge_refunded" })).toMatchObject({
+      variant: "failed",
+      heading: "Deposit refunded",
+      message:
+        "The bridge couldn't deliver this deposit and returned your USDC to your wallet on Base.",
+      canRetry: true,
+    })
+    expect(bridgeView({ state: "bridge_refunding" })).toMatchObject({
+      variant: "in-flight",
+      heading: "Refund in progress",
+      message:
+        "The bridge is returning your USDC to your wallet on Base. This usually takes a few minutes.",
+    })
+    expect(bridgeView({ state: "bridge_failed" }).canRetry).toBeUndefined()
+  })
+
   it.each<BridgeStatusState>(["bridge_partial", "bridge_refund_required"])(
     "%s preserves ambiguity and offers refresh",
     (state) => {
       const view = bridgeView({ state })
       expect(view).toMatchObject({ variant: "problem", persist: { lastState: state } })
-      expect(view.note).toContain("Don't send a replacement deposit")
+      expect(view.message).toContain("Reach out to the Initia team with the transaction link")
     },
   )
 
@@ -474,7 +494,7 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
     [
       "an error before any state keeps the generic copy and shows the retry notice",
       { error: new Error("network") },
-      { variant: "in-flight", isRetrying: true, heading: undefined },
+      { variant: "in-flight", isRetrying: true, message: PROCESSING },
     ],
   ])("%s", (_, bridge, expected) => {
     expect(bridgeView(bridge)).toMatchObject(expected)
@@ -595,33 +615,31 @@ describe("deriveDepositProgress: deposit id stage", () => {
     },
   )
 
-  it.each([
-    [true, "5 iUSD delivered to your wallet on Initia."],
-    [false, "5 iUSD delivered to the recipient on Initia."],
-  ])("completed (self recipient: %s) names who received the funds", (isSelfRecipient, message) => {
-    expect(
-      depositView({ bucket: "completed", completedAmount: "5 iUSD", isSelfRecipient }),
-    ).toMatchObject({
+  it("completed says what was deposited", () => {
+    expect(depositView({ bucket: "completed", completedAmount: "5 iUSD" })).toMatchObject({
       variant: "completed",
-      title: "Transfer complete",
-      message,
+      title: "Deposit complete",
+      message: "5 iUSD deposited.",
       persist: { phase: "terminal", lastState: "completed" },
     })
   })
 
+  const HELD =
+    "is held at your deposit address and won't be refunded automatically. Reach out to the Initia team with the transaction link for support."
+
   it.each([
-    [
-      "3 USDC",
-      "Deposits below 3 USDC can't be processed. Your funds remain at the deposit address with no automatic refund.",
-    ],
-    ["", "Your funds remain at the deposit address with no automatic refund."],
-  ])("below_minimum with minimum %j makes no refund promise", (minLabel, message) => {
-    expect(depositView({ bucket: "below_minimum", minLabel })).toMatchObject({
-      variant: "below-minimum",
-      message,
-      persist: { phase: "terminal", lastState: "below_minimum" },
-    })
-  })
+    ["3 USDC", "2 USDC", `Deposits under 3 USDC can't be processed. Your 2 USDC ${HELD}`],
+    ["", undefined, `Deposits this small can't be processed. Your USDC ${HELD}`],
+  ])(
+    "below_minimum with minimum %j says where the funds are and who helps",
+    (minLabel, heldAmount, message) => {
+      expect(depositView({ bucket: "below_minimum", minLabel, heldAmount })).toMatchObject({
+        variant: "below-minimum",
+        message,
+        persist: { phase: "terminal", lastState: "below_minimum" },
+      })
+    },
+  )
 
   it("failed keeps the existing terminal copy", () => {
     const view = depositView({ bucket: "failed" })
@@ -629,7 +647,7 @@ describe("deriveDepositProgress: deposit id stage", () => {
       variant: "failed",
       persist: { phase: "terminal", lastState: "failed" },
     })
-    expect(view.message).toContain("no automatic refund")
+    expect(view.message).toBe(`This deposit couldn't be completed. Your USDC ${HELD}`)
   })
 
   it("a detail read for another deposit is a conflict, never its outcome", () => {
@@ -684,7 +702,7 @@ describe("progressHeading", () => {
 
   it("never applies to a settled screen or before the stage stalls", () => {
     const failed = session({ depositId: "deposit-1" })
-    const stage = inputs({ deposit: { bucket: "failed", isError: false, isSelfRecipient: true } })
+    const stage = inputs({ deposit: { bucket: "failed", isError: false } })
     expect(progressHeading(deriveDepositProgress(failed, stage), failed, stage, true)).toBe(
       "Deposit failed",
     )
@@ -737,7 +755,7 @@ describe("deriveDepositProgress: delivery estimate", () => {
       const delivery = { method: "standard", estimated_completion_at: at(seconds) }
       const stage = inputs({
         now: NOW,
-        deposit: { bucket: "processing", isError: false, isSelfRecipient: true, delivery },
+        deposit: { bucket: "processing", isError: false, delivery },
       })
       return progressHeading(deriveDepositProgress(target, stage), target, stage, true)
     }
@@ -773,7 +791,7 @@ describe("deriveProgressSteps", () => {
     return deriveProgressSteps(target, stage, deriveDepositProgress(target, stage))
   }
   const withDeposit = (bucket: DepositProgressInputs["deposit"]["bucket"]) => ({
-    deposit: { bucket, isError: false, isSelfRecipient: true, completedAmount: "5 iUSD" },
+    deposit: { bucket, isError: false, completedAmount: "5 iUSD" },
   })
 
   it.each<[string, DepositSession, Partial<DepositProgressInputs>, string[]]>([
@@ -819,7 +837,7 @@ describe("deriveProgressSteps", () => {
     [
       "a delivery read that no longer matches",
       session({ depositId: "d1" }),
-      { deposit: { bucket: "processing", isError: false, isSelfRecipient: true, conflict: true } },
+      { deposit: { bucket: "processing", isError: false, conflict: true } },
       ["done", "stopped"],
     ],
   ])("marks %s", (_, target, extra, expected) => {

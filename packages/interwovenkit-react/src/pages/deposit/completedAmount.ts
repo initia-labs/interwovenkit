@@ -32,7 +32,7 @@ export interface CompletedAmountParams {
  */
 // A sentence amount: at most 6 decimals, rounded down, no padding zeros. Nothing below one unit of
 // the 6th decimal, so dust never reads as "0 … delivered".
-function formatSentenceAmount(value: string): string | undefined {
+export function formatSentenceAmount(value: string): string | undefined {
   const rounded = value ? BigNumber(value).decimalPlaces(6, BigNumber.ROUND_DOWN) : undefined
   return rounded?.gt(0) ? rounded.toFormat() : undefined
 }
