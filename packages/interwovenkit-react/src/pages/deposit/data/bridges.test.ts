@@ -1,5 +1,7 @@
 import BigNumber from "bignumber.js"
+import ky from "ky"
 import { describe, expect, it } from "vitest"
+import { QueryClient } from "@tanstack/react-query"
 import {
   bridgeQuoteSignature,
   BridgeStatusError,
@@ -685,6 +687,25 @@ const statusPayload = (overrides: Record<string, unknown> = {}) => ({
 })
 
 describe("parseBridgeStatus", () => {
+  it("treats an unavailable fallback as a failed read, not a pending observation", () => {
+    expect(() => parseBridgeStatus(statusPayload({ status_unavailable: true }), EXPECTED)).toThrow(
+      BridgeStatusError,
+    )
+    expect(parseBridgeStatus(statusPayload({ status_unavailable: false }), EXPECTED).state).toBe(
+      "bridge_pending",
+    )
+  })
+
+  it.each([
+    { status_unavailable: "true" },
+    { status_unavailable: null },
+    { status_unavailable: true, src_tx_hash: DST_TX_HASH },
+    { status_unavailable: true, state: "bridge_refunded" },
+    { status_unavailable: true, deposit: deposit() },
+    { status_unavailable: true, dst_tx_hash: DST_TX_HASH },
+  ])("rejects malformed or conflicting fallback evidence: %o", (overrides) => {
+    expect(() => parseBridgeStatus(statusPayload(overrides), EXPECTED)).toThrow(ParseError)
+  })
   it.each([
     ["a numeric chain id", statusPayload({ src_chain_id: 8453 })],
     ["a string chain id", statusPayload({ src_chain_id: "8453" })],
@@ -758,12 +779,13 @@ describe("classifyBridgeStatusError", () => {
     expect(error).toMatchObject({ code: body.error, message })
   })
 
-  it("normalizes an uncoded, unparseable or non-HTTP failure", async () => {
+  it("sanitizes gateway failures and normalizes non-HTTP failures", async () => {
     const uncoded = await classifyBridgeStatusError(httpError(500, { message: "boom" })).catch(
       (e: unknown) => e,
     )
-    expect(uncoded).not.toBeInstanceOf(BridgeStatusError)
-    expect(uncoded).toMatchObject({ message: "boom" })
+    expect(uncoded).toBeInstanceOf(BridgeStatusError)
+    expect(uncoded).toMatchObject({ code: "upstream_unavailable" })
+    expect((uncoded as Error).message).not.toContain("boom")
     await expect(classifyBridgeStatusError(httpError(503))).rejects.toThrow()
     await expect(classifyBridgeStatusError(new Error("offline"))).rejects.toThrow("offline")
   })
@@ -888,6 +910,52 @@ describe("createBridgeStatusQueryOptions", () => {
     srcTxHash: SRC_TX_HASH,
     depositAddress: DEPOSIT_ADDRESS,
   }
+
+  it.each(["cors", "gateway", "api fallback"])(
+    "retains the last observation through %s and recovers on the next poll",
+    async (failure) => {
+      let calls = 0
+      const api = ky.create({
+        prefixUrl: "https://deposit.test/",
+        fetch: async () => {
+          calls++
+          if (calls === 2) {
+            if (failure === "cors") throw new TypeError("Failed to fetch")
+            if (failure === "gateway") {
+              return new Response("<html>Cloudflare 502 private details</html>", {
+                status: 502,
+                headers: { "content-type": "text/html" },
+              })
+            }
+            return Response.json(statusPayload({ status_unavailable: true }))
+          }
+          return Response.json(
+            statusPayload({
+              state: calls === 1 ? "bridge_refunding" : "bridge_refunded",
+              dst_tx_hash: DST_TX_HASH,
+              dst_tx_link: "https://etherscan.io/tx/" + DST_TX_HASH,
+            }),
+          )
+        },
+      })
+      const client = new QueryClient()
+      const options = createBridgeStatusQueryOptions(api, PARAMS, true, Date.now())
+      try {
+        const previous = await client.fetchQuery(options)
+        await expect(client.fetchQuery(options)).rejects.toThrow()
+        expect(calls).toBe(2) // Neither ky nor React Query retries inside this poll.
+        expect(client.getQueryData(options.queryKey)).toEqual(previous)
+        const error = client.getQueryState(options.queryKey)?.error ?? null
+        expect(error?.message).not.toContain("<html>")
+        expect(bridgeStatusPollInterval(previous.state, error, 0)).toBe(3000)
+        expect(bridgeStatusPollInterval(previous.state, error, 26 * 60_000)).toBe(15_000)
+        expect((await client.fetchQuery(options)).state).toBe("bridge_refunded")
+        expect(client.getQueryState(options.queryKey)?.error).toBeNull()
+      } finally {
+        client.clear()
+      }
+    },
+  )
 
   // A hinted tool answers 502 upstream_conflict even for not-found results.
   it("polls by source transaction without the bridge hint", async () => {

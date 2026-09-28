@@ -2,7 +2,7 @@ import BigNumber from "bignumber.js"
 import { fromBaseUnit } from "@initia/utils"
 import { formatDuration } from "@/pages/bridge/data/format"
 import type { AssetOption } from "../data/assetOptions"
-import { BridgeStatusError } from "../data/bridges"
+import { BridgeStatusError, isBridgeStatusState } from "../data/bridges"
 import type { WalletDepositBucket } from "../data/deposits"
 import { eqAddress, ParseError } from "../data/parse"
 import type { BridgeStatusState, DepositDelivery } from "../data/types"
@@ -239,6 +239,16 @@ export function deriveDepositProgress(
 
   if (session.depositId) return depositStage(session, inputs)
 
+  // A reload loses the query cache. Keep the saved observation through the first
+  // pending or failed read so its persistence effect cannot rewind a refund or delivery.
+  if (
+    session.transport === "lifi" &&
+    inputs.bridge.state === undefined &&
+    isBridgeStatusState(session.lastState)
+  ) {
+    inputs = { ...inputs, bridge: { ...inputs.bridge, state: session.lastState } }
+  }
+
   // The backend's observation is at least as strong as a pinned receipt.
   const backendSawSource =
     (inputs.bridge.state !== undefined && inputs.bridge.state !== "bridge_not_found") ||
@@ -413,10 +423,9 @@ function bridgeStage(inputs: DepositProgressInputs): DepositProgressView {
   }
 
   return inFlight({
-    heading: copy.heading,
+    heading: error && !state ? "Checking bridge status" : copy.heading,
     message: copy.message,
-    // Before any state is known, a failed read is indistinguishable from "not picked up yet".
-    isRetrying: !!error && !!state,
+    isRetrying: !!error,
     isBridging: state !== "deposit_pending" && state !== "deposit_indexed",
     persist: state ? { lastState: state } : undefined,
   })

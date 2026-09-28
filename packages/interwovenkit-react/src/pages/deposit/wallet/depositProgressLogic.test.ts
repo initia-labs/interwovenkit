@@ -472,9 +472,9 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
       { variant: "in-flight", isRetrying: true, persist: { lastState: "bridge_pending" } },
     ],
     [
-      "an error before any state reads as not picked up yet",
+      "an error before any state shows a neutral status check",
       { error: new Error("network") },
-      { variant: "in-flight", isRetrying: false },
+      { variant: "in-flight", isRetrying: true, heading: "Checking bridge status" },
     ],
   ])("%s", (_, bridge, expected) => {
     expect(bridgeView(bridge)).toMatchObject(expected)
@@ -486,6 +486,40 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
       message: MISMATCH,
       persist: { lastState: "tracking_conflict" },
     })
+  })
+
+  it.each<BridgeStatusState>([
+    "bridge_pending",
+    "bridge_refunding",
+    "deposit_pending",
+    "bridge_failed",
+    "bridge_refunded",
+    "bridge_partial",
+    "bridge_refund_required",
+  ])("retains saved %s when reloading during a CORS outage", (lastState) => {
+    const saved = session({ lastState })
+    expect(deriveDepositProgress(saved, inputs()).persist?.lastState).toBe(lastState)
+    const view = deriveDepositProgress(
+      saved,
+      inputs({ bridge: { error: new TypeError("Failed to fetch") } }),
+    )
+    const known = bridgeView({ state: lastState })
+    expect(view.variant).toBe(known.variant)
+    expect(view.message).toBe(known.message)
+    expect(view.persist?.lastState).toBe(lastState)
+    expect(view.canMarkNotSent).toBeUndefined()
+    expect(saved.currentSourceHash).toBe(SRC_TX_HASH)
+  })
+
+  it("does not hide an identity conflict behind the saved bridge state", () => {
+    expect(
+      deriveDepositProgress(
+        session({ lastState: "bridge_refunding" }),
+        inputs({
+          bridge: { error: new BridgeStatusError("upstream_conflict", "mismatch") },
+        }),
+      ),
+    ).toMatchObject({ variant: "problem", persist: { lastState: "tracking_conflict" } })
   })
 })
 

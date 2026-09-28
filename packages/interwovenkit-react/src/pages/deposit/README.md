@@ -48,6 +48,8 @@ The backend repository is the source of truth for the HTTP contract. Wire status
 - **Chain reads** (`evmRpc.ts`) use a pinned JSON-RPC provider per source chain, never the wallet's. Base and Arbitrum are pinned to endpoints that serve receipts. The source watch reads the receipt and the sender nonce each poll, and scans blocks from the pre-send head only once another transaction has taken the nonce.
 - **Buckets:** an unknown wallet-flow bucket is a tracking problem, not a failure. Only `bucket=completed` completes a flow.
 
+Bridge status outages are failed reads, not failed transfers. Cloudflare HTML 5xx responses and browser network/CORS failures keep the last validated query data, including receiving transaction links. The API's `200 bridge_pending` response with `status_unavailable: true` is also treated as a failed read, so it cannot overwrite a known refund or delivery state. After a reload, an unavailable read preserves the session's saved bridge state. Before the first observation, a confirmed source transfer shows "Checking bridge status" with the normal in-flight screen. Polling continues every 3 seconds, relaxing to 15 seconds after five minutes; neither ky nor React Query adds retries inside each poll. A fresh valid response resumes normal tracking. Identity conflicts and malformed responses still stop tracking, and these read retries never sign or resend a transaction. This handles the UI impact of missing edge CORS headers; it does not modify Cloudflare configuration.
+
 ## Onramper boundary
 
 Onramper buys a supported source asset and sends it to the deposit address. From that point, the normal Deposit API flow takes over.
