@@ -179,7 +179,8 @@ export async function waitForApproval(
     }
     // A wallet that let the user lower the spending cap mined a smaller approval than needed. Only a
     // successful read that shows the shortfall counts; a failed one says nothing.
-    if (receipt && allowance !== undefined && latest !== undefined && latest > nonce) {
+    const isShort = allowance !== undefined && BigInt(allowance) < BigInt(amount)
+    if (receipt && isShort && latest !== undefined && latest > nonce) {
       settledAt ??= Date.now()
       if (Date.now() - settledAt >= APPROVAL_SETTLE_MS) throw new Error(SHORT_APPROVAL_MESSAGE)
     }

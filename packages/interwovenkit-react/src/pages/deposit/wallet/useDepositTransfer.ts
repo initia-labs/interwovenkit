@@ -490,9 +490,10 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
         const signer = await getSigner(source.chainId)
         // A chain switch can outlast the form; a closed form never opens the approval prompt.
         if (!mountedRef.current) throw new Error(ATTEMPT_CHANGED_MESSAGE)
-        // Read before the prompt, so the approval takes this nonce or a later one. The wallet's hash is
-        // enough: sendTransaction would also wait on the wallet's node, which may never return it.
-        const nonceFloor = noncesQuery.data?.pending
+        // Mined before the prompt, so the approval takes this nonce or a later one, even when it replaces
+        // an earlier pending transaction. The wallet's hash is enough: sendTransaction would also wait on
+        // the wallet's node, which may never return it.
+        const nonceFloor = noncesQuery.data?.latest
         if (nonceFloor === undefined) throw new Error("This deposit is not ready to send")
         const hash = await signer.sendUncheckedTransaction({
           chainId: Number(source.chainId),

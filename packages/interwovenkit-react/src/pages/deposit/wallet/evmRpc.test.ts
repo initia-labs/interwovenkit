@@ -302,6 +302,15 @@ describe("waitForApproval", () => {
     await settled
   })
 
+  it("never calls a covering allowance short while the pending read keeps failing", async () => {
+    vi.useFakeTimers()
+    const provider = approvalProvider({ status: 1 }, [1000n], [8], [null])
+    const result = waitForApproval(provider, APPROVAL, 30_000)
+    const settled = expect(result).rejects.toThrow(/did not go through/)
+    await vi.advanceTimersByTimeAsync(32_000)
+    await settled
+  })
+
   it("never calls a failing allowance read a short approval", async () => {
     vi.useFakeTimers()
     const provider = approvalProvider({ status: 1 }, [1000n], [8])
