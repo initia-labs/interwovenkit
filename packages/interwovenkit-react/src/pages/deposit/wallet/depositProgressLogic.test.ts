@@ -891,3 +891,29 @@ describe("deriveProgressSteps", () => {
     expect(steps(session({ currentSourceHash: undefined, phase: "send_prompt" }))).toBeUndefined()
   })
 })
+
+describe("deriveDepositProgress: a finished session reopened after a reload", () => {
+  const finished = (lastState: DepositSession["lastState"], extra: Partial<DepositSession> = {}) =>
+    session({ phase: "terminal", lastState, ...extra })
+
+  it.each<[DepositSession["lastState"], Partial<DepositSession>, object]>([
+    ["completed", { depositId: "d1" }, { variant: "completed", title: "Deposit complete" }],
+    ["failed", { depositId: "d1" }, { variant: "failed", heading: "Deposit failed" }],
+    ["below_minimum", { depositId: "d1" }, { variant: "below-minimum" }],
+    ["bridge_refunded", {}, { heading: "Deposit refunded" }],
+    ["bridge_failed", {}, { heading: "Bridge failed" }],
+    ["source_reverted", {}, { variant: "failed", heading: "Deposit not sent" }],
+  ])("shows a recorded %s before any read answers", (lastState, extra, expected) => {
+    const view = deriveDepositProgress(finished(lastState, extra), inputs())
+    expect(view).toMatchObject(expected)
+    expect(view.message).not.toBe(PROCESSING)
+  })
+
+  it("prefers a live final read, with its amounts", () => {
+    const view = deriveDepositProgress(
+      finished("completed", { depositId: "d1" }),
+      inputs({ deposit: { bucket: "completed", isError: false, completedAmount: "5 iUSD" } }),
+    )
+    expect(view.message).toBe("5 iUSD deposited.")
+  })
+})

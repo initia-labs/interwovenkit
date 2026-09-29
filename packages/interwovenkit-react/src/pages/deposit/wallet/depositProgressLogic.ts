@@ -218,7 +218,40 @@ export function deriveProgressSteps(
   )
 }
 
+// A finished session opens on its recorded outcome: a reload starts with no reads, and a read that
+// never answers must not turn a completed or refunded transfer back into "Processing".
 export function deriveDepositProgress(
+  session: DepositSession,
+  inputs: DepositProgressInputs,
+): DepositProgressView {
+  const view = deriveLiveProgress(session, inputs)
+  if (session.phase !== "terminal" || view.persist?.phase === "terminal") return view
+  return recordedOutcome(session, inputs) ?? view
+}
+
+function recordedOutcome(
+  session: DepositSession,
+  inputs: DepositProgressInputs,
+): DepositProgressView | undefined {
+  const { lastState } = session
+  const { chainName } = session.source
+  switch (lastState) {
+    case "completed":
+    case "failed":
+    case "below_minimum":
+      return depositStage(session, { ...inputs, deposit: { ...inputs.deposit, bucket: lastState } })
+    case "bridge_failed":
+    case "bridge_refunded":
+      return bridgeStage(session, { ...inputs, bridge: { ...inputs.bridge, state: lastState } })
+    case "source_reverted":
+    case "source_cancelled":
+      return notSent(lastState, chainName)
+    case "not_sent":
+      return markedNotSent()
+  }
+}
+
+function deriveLiveProgress(
   session: DepositSession,
   inputs: DepositProgressInputs,
 ): DepositProgressView {
