@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query"
 import { useConfig } from "@/data/config"
 import { IUSD_SYMBOL } from "@/data/constants"
 import { useLocationState } from "@/lib/router"
@@ -9,10 +10,17 @@ import {
   useGetIsInitiaChain,
   useSkipChains,
 } from "@/pages/bridge/data/chains"
+import { useDepositApi } from "../data/api"
 import { type AssetOption, type DepositLocationState, normalizeDenom } from "../data/assetOptions"
+import { createDepositAssetsQueryOptions, routeFeedsDestination } from "../data/assets"
 import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM } from "../data/source"
 import { type Balance, useAllBalancesQuery } from "./balances"
-import { DEPOSIT_API_SOURCES, intersectHostSources, matchesAssetOption } from "./depositSources"
+import {
+  DEPOSIT_API_SOURCES,
+  findEthereumUsdcRoute,
+  intersectHostSources,
+  matchesAssetOption,
+} from "./depositSources"
 import { useTransferFlow, useTransferForm, useTransferMode } from "./transferFlowConfig"
 
 const ETHEREUM_AUSD_DENOM = "0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a"
@@ -117,6 +125,11 @@ export function useExternalTransferAsset() {
 export function useExternalAssetOptions(): ExternalAssetOptionsResult {
   const { mode } = useTransferFlow()
   const { depositApiUrl } = useConfig()
+  const api = useDepositApi()
+  const { data: catalog } = useQuery({
+    ...createDepositAssetsQueryOptions(api),
+    enabled: !!depositApiUrl && mode === "deposit",
+  })
   const skipAssets = useAllSkipAssets()
   const skipChains = useSkipChains()
   const findChain = useFindSkipChain()
@@ -136,6 +149,10 @@ export function useExternalAssetOptions(): ExternalAssetOptionsResult {
     depositApiUrl && sourceOverride && mode === "deposit"
       ? intersectHostSources(DEPOSIT_API_SOURCES, remoteOptions)
       : []
+  // Until the catalog says otherwise, the Deposit API carries these sources to this destination.
+  const route = findEthereumUsdcRoute(catalog)
+  const depositApiFeedsLocal =
+    !catalog || (!!route && routeFeedsDestination(route, localAsset.chain_id, localAsset.denom))
   const extraExternalOptions = [
     ...(sourceOverride?.extraExternalOptions ?? []),
     ...depositApiOptions,
@@ -177,11 +194,15 @@ export function useExternalAssetOptions(): ExternalAssetOptionsResult {
     .filter((item): item is NonNullable<typeof item> => item !== null)
 
   // A Deposit API source's balance is the pinned read, so an unknown Skip balance does not hide it.
+  // A source that falls back to the Router needs a Skip balance like any other.
   const data = supportedAssets.filter(
     ({ asset, chain, balance }) =>
       mode !== "deposit" ||
       (!!balance && Number(balance.amount) > 0) ||
-      depositApiOptions.some((option) => matchesAssetOption(option, chain.chain_id, asset.denom)),
+      (depositApiFeedsLocal &&
+        depositApiOptions.some((option) =>
+          matchesAssetOption(option, chain.chain_id, asset.denom),
+        )),
   )
 
   const supportedExternalChainMap = new Map<string, RouterChainJson>()
