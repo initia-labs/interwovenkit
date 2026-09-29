@@ -15,7 +15,8 @@ export interface DepositApiSource {
   decimals: 6
   chainName: "Ethereum" | "Base" | "Arbitrum"
   transport: "direct" | "lifi"
-  /** Keyless public RPCs in failover order: the widget ships to browsers, so no API keys. */
+  /** Keyless public RPCs that serve receipts, in failover order: the widget ships to browsers, so no
+   * API keys. publicnode refuses Base and Arbitrum receipts without a token. */
   rpcUrls: readonly string[]
 }
 
@@ -42,7 +43,7 @@ export const DEPOSIT_API_SOURCES: readonly DepositApiSource[] = [
     transport: "lifi",
     rpcUrls: [
       "https://mainnet.base.org",
-      "https://base-rpc.publicnode.com",
+      "https://base.gateway.tenderly.co",
       "https://base.drpc.org",
     ],
   },
@@ -55,7 +56,7 @@ export const DEPOSIT_API_SOURCES: readonly DepositApiSource[] = [
     transport: "lifi",
     rpcUrls: [
       "https://arb1.arbitrum.io/rpc",
-      "https://arbitrum-one-rpc.publicnode.com",
+      "https://arbitrum.gateway.tenderly.co",
       "https://arbitrum.drpc.org",
     ],
   },

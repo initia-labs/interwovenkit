@@ -37,7 +37,8 @@ export class FailoverRpcProvider extends JsonRpcProvider {
   #active = 0
 
   constructor(urls: readonly string[], chainId: number) {
-    super(rpcRequest(urls[0]), chainId, { staticNetwork: true })
+    // Unbatched: free public tiers refuse larger batches, and one refusal would fail every call in it.
+    super(rpcRequest(urls[0]), chainId, { staticNetwork: true, batchMaxCount: 1 })
     this.#urls = urls
   }
 
