@@ -1,7 +1,7 @@
 import BigNumber from "bignumber.js"
 import { path } from "ramda"
 import { InitiaAddress, toBaseUnit } from "@initia/utils"
-import { POPUP_BLOCKED_MESSAGE, USER_REJECTED_MESSAGE } from "@/data/http"
+import { isUserRejection, POPUP_BLOCKED_MESSAGE } from "@/data/http"
 import { BRIDGE_QUOTE_MAX_AGE } from "../data/bridges"
 import { gteInteger, isDecimalString, isEvmTxHash, isIntegerString } from "../data/parse"
 import { QUOTE_STALE_TIME, type QuoteResult } from "../data/quote"
@@ -128,10 +128,10 @@ export function sendTransactionHashOf(error: unknown): string | undefined {
 }
 
 /** A rejected or blocked prompt, or a node refusal before the mempool; anything else without a hash stays ambiguous. */
-export function isProvablyNotSent(message: string): boolean {
+export function isProvablyNotSent(error: unknown, message: string): boolean {
   const text = message.toLowerCase()
   return (
-    message === USER_REJECTED_MESSAGE ||
+    isUserRejection(error) ||
     message === POPUP_BLOCKED_MESSAGE ||
     text.includes("insufficient funds") ||
     text.includes("intrinsic gas too low")

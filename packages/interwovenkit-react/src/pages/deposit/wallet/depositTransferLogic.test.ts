@@ -228,7 +228,6 @@ describe("sendTransactionHashOf", () => {
 
 describe("isProvablyNotSent", () => {
   it.each([
-    [USER_REJECTED_MESSAGE, true],
     [POPUP_BLOCKED_MESSAGE, true],
     ["Insufficient funds for gas * price + value", true],
     ["intrinsic gas too low", true],
@@ -236,7 +235,17 @@ describe("isProvablyNotSent", () => {
     ["nonce too low", false],
     ["replacement underpriced", false],
   ])("%s → %s", (message, expected) => {
-    expect(isProvablyNotSent(message)).toBe(expected)
+    expect(isProvablyNotSent(new Error(message), message)).toBe(expected)
+  })
+
+  it("reads a refusal from the error, not its display text", () => {
+    const refusal = Object.assign(new Error("denied"), { code: 4001 })
+    const pending = Object.assign(new Error(USER_REJECTED_MESSAGE), {
+      code: "ACTION_REJECTED",
+      reason: "pending",
+    })
+    expect(isProvablyNotSent(refusal, USER_REJECTED_MESSAGE)).toBe(true)
+    expect(isProvablyNotSent(pending, USER_REJECTED_MESSAGE)).toBe(false)
   })
 })
 

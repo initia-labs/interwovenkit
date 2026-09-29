@@ -7,7 +7,7 @@ export const STALE_TIMES = {
   INFINITY: /* HOUR, just in case */ 1000 * 60 * 60,
 } as const
 
-/** Callers that treat a refusal as provably not sent compare against this exact string. */
+/** Display text only: classify a refusal with `isUserRejection`, since a wallet can word anything this way. */
 export const USER_REJECTED_MESSAGE = "User rejected"
 
 // 5000 is WalletConnect's rejection code.
@@ -28,7 +28,7 @@ const NESTED_ERROR_PATHS = [
 ]
 
 // The whole chain is read first: a refusal anywhere loses to a request still open anywhere.
-function isUserRejection(error: unknown): boolean {
+export function isUserRejection(error: unknown): boolean {
   const seen = new WeakSet<object>()
   const queue: unknown[] = [error]
   let rejected = false

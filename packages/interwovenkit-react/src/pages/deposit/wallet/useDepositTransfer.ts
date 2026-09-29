@@ -606,7 +606,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
           const hash = sendTransactionHashOf(error)
           if (hash) return { hash }
           const message = await normalizeErrorMessage(error)
-          if (isProvablyNotSent(message)) {
+          if (isProvablyNotSent(error, message)) {
             rollbackDepositSessionPrompt(localStorage, prompted.id)
             throw error
           }

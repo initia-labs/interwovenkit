@@ -1,5 +1,10 @@
 import { makeError } from "ethers"
-import { normalizeErrorMessage, POPUP_BLOCKED_MESSAGE, USER_REJECTED_MESSAGE } from "./http"
+import {
+  isUserRejection,
+  normalizeErrorMessage,
+  POPUP_BLOCKED_MESSAGE,
+  USER_REJECTED_MESSAGE,
+} from "./http"
 
 describe("normalizeErrorMessage", () => {
   it("explains a blocked wallet popup instead of passing Privy's message through", async () => {
@@ -112,6 +117,16 @@ describe("normalizeErrorMessage", () => {
       expect(await normalizeErrorMessage(pending)).not.toBe(USER_REJECTED_MESSAGE)
       expect(await normalizeErrorMessage(nested)).not.toBe(USER_REJECTED_MESSAGE)
       expect(await normalizeErrorMessage(refusalWrapper)).not.toBe(USER_REJECTED_MESSAGE)
+    })
+
+    // The display text can still read as a refusal, so callers classify the error itself.
+    it("never classifies a pending request as a refusal, whatever its wording", () => {
+      const pending = makeError(USER_REJECTED_MESSAGE, "ACTION_REJECTED", {
+        action: "sendTransaction",
+        reason: "pending",
+      })
+      expect(isUserRejection(pending)).toBe(false)
+      expect(isUserRejection(new Error("send failed", { cause: pending }))).toBe(false)
     })
   })
 
