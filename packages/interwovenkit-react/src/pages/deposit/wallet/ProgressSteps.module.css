@@ -190,6 +190,25 @@
   transform: none;
 }
 
+.checkStroke {
+  fill: none;
+  stroke: black;
+  stroke-dasharray: 1 2;
+  stroke-dashoffset: 0;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.46;
+}
+
+/* Drawn in once the badge is solid: the short stroke, then the long one. */
+.justCompleted .checkStroke {
+  animation: draw 320ms cubic-bezier(0.5, 0, 0.2, 1) 1000ms both;
+}
+
+.justCompleted.merging .checkStroke {
+  animation-delay: 1150ms;
+}
+
 /* Live, the last check lands before the row folds. */
 .justCompleted .steps {
   transition-delay: 650ms;
@@ -237,16 +256,41 @@
   transition: opacity 80ms linear 650ms;
 }
 
-/* The badge resolves out of the fused disc: no blur, and it starts near the disc's size. */
+/* The badge takes over from the fused disc in place: same size, no blur, just its check. */
 .merging:not(.complete) .badge {
   filter: none;
-  transform: scale(0.6);
+  transform: none;
 }
 
 .justCompleted.merging .badge {
+  transition: opacity 80ms ease 1040ms;
+}
+
+/* One step is already the finished mark: the badge takes its place and swells from the step's 35px
+   disc to its own 42px, with no second check to draw. */
+.single:not(.complete) .badge {
+  filter: none;
+  transform: scale(0.83);
+}
+
+.justCompleted.single .steps {
+  filter: none;
+  transform: none;
+  transition: opacity 0ms linear 650ms;
+}
+
+.justCompleted.single .badge {
   transition:
-    opacity 150ms ease 1060ms,
-    transform 420ms var(--pop) 1060ms;
+    opacity 0ms linear 650ms,
+    transform 420ms var(--pop) 650ms;
+}
+
+.justCompleted.single .checkStroke {
+  animation: none;
+}
+
+.justCompleted.single::before {
+  animation-delay: 650ms;
 }
 
 .defs {
@@ -272,7 +316,7 @@
 }
 
 .justCompleted.merging::before {
-  animation-delay: 1060ms;
+  animation-delay: 1040ms;
 }
 
 .status {
@@ -313,7 +357,7 @@
   }
 }
 
-/* Slide together, swell to the badge's size, and stay solid until the badge is opaque: fading through
+/* Slide together, swell to the badge's 42px disc (14 of its 16 units), and stay solid until the badge is opaque: fading through
    the goo threshold would shrink the blob, and the badge's check is cut out of it. */
 @keyframes merge {
   0% {
@@ -329,19 +373,30 @@
 
   55% {
     animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
-    transform: translateX(calc(var(--travel) * var(--direction))) scale(1.12);
+    transform: translateX(calc(var(--travel) * var(--direction))) scale(1.03);
+  }
+
+  58%,
+  61% {
+    opacity: 1;
+    transform: translateX(calc(var(--travel) * var(--direction))) scale(1.05);
   }
 
   62%,
-  70% {
-    opacity: 1;
-    transform: translateX(calc(var(--travel) * var(--direction))) scale(1.2);
-  }
-
-  75%,
   100% {
     opacity: 0;
-    transform: translateX(calc(var(--travel) * var(--direction))) scale(1.2);
+    transform: translateX(calc(var(--travel) * var(--direction))) scale(1.05);
+  }
+}
+
+/* Starts past the path's start: a round cap on an empty dash would still show as a dot. */
+@keyframes draw {
+  from {
+    stroke-dashoffset: 1.2;
+  }
+
+  to {
+    stroke-dashoffset: 0;
   }
 }
 
@@ -373,6 +428,10 @@
     display: none;
   }
 
+  .justCompleted .checkStroke {
+    animation: none;
+  }
+
   .steps,
   .badge,
   .spinner,
@@ -385,6 +444,8 @@
   .justCompleted .badge,
   .justCompleted.merging .steps,
   .justCompleted.merging .badge,
+  .justCompleted.single .steps,
+  .justCompleted.single .badge,
   .arrived.active .spinner {
     transition-delay: 0s;
   }

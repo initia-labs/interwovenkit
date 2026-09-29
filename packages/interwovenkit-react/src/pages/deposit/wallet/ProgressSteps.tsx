@@ -47,7 +47,7 @@ const ProgressSteps = ({ steps }: { steps: ProgressStepStatus[] }) => {
         styles.progress,
         isComplete && styles.complete,
         justCompleted && styles.justCompleted,
-        steps.length > 1 && styles.merging,
+        steps.length > 1 ? styles.merging : styles.single,
       )}
     >
       <ol className={styles.steps} aria-label="Deposit steps">
@@ -97,7 +97,14 @@ const ProgressSteps = ({ steps }: { steps: ProgressStepStatus[] }) => {
         </filter>
       </svg>
 
-      <IconCheckCircleFilled size={48} className={styles.badge} aria-hidden />
+      {/* The kit's filled check, with the check cut through a mask so it can draw itself in. */}
+      <svg className={styles.badge} width={48} height={48} viewBox="0 0 16 16" aria-hidden>
+        <mask id={`${gooId}-check`}>
+          <rect width="16" height="16" fill="white" />
+          <path className={styles.checkStroke} d="M5.25 8.16 6.98 9.89 10.75 6.12" pathLength={1} />
+        </mask>
+        <circle cx="8" cy="8" r="7" fill="currentColor" mask={`url(#${gooId}-check)`} />
+      </svg>
 
       <span className={styles.status} role="status">
         {describe(steps)}
