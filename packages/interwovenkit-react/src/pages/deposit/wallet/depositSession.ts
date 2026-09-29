@@ -66,8 +66,10 @@ const PROVEN_AT: Partial<Record<DepositLastState, DepositLastState>> = {
 
 function stageRank(state?: DepositLastState): number {
   if (!state) return -1
-  // A record that stopped matching this transfer holds against every in-flight read.
+  // A record that stopped matching this transfer holds against every in-flight read, and a final
+  // bridge outcome against everything: nothing after a refund or a failure can take it back.
   if (state === "tracking_conflict") return IN_FLIGHT_ORDER.length
+  if (state === "bridge_refunded" || state === "bridge_failed") return IN_FLIGHT_ORDER.length + 1
   const anchor = PROVEN_AT[state]
   return anchor ? IN_FLIGHT_ORDER.indexOf(anchor) + 0.5 : IN_FLIGHT_ORDER.indexOf(state)
 }

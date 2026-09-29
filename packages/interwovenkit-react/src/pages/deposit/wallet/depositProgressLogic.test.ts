@@ -558,6 +558,18 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
     },
   )
 
+  it.each<BridgeStatusState>(["bridge_refunded", "bridge_failed"])(
+    "keeps a saved %s over a lagging bridge read",
+    (lastState) => {
+      const view = deriveDepositProgress(
+        session({ lastState }),
+        inputs({ bridge: { state: "bridge_pending" } }),
+      )
+      expect(view.persist?.lastState).toBe(lastState)
+      expect(view.message).toBe(bridgeView({ state: lastState }).message)
+    },
+  )
+
   it("keeps a saved problem over a lagging bridge read", () => {
     const view = deriveDepositProgress(
       session({ lastState: "bridge_refund_required" }),
