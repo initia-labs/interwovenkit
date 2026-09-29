@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { InitiaAddress } from "@initia/utils"
 import { POPUP_BLOCKED_MESSAGE, USER_REJECTED_MESSAGE } from "@/data/http"
-import type { QuoteResult } from "../data/quote"
+import { QUOTE_STALE_TIME, type QuoteResult } from "../data/quote"
 import { DEPOSIT_ADDRESS } from "../data/testing"
 import type {
   BridgeOption,
@@ -257,6 +257,7 @@ describe("derivePreflight", () => {
     hasError: false,
     result: quoted,
     isPlaceholderData: false,
+    failedAfter: 0,
   }
 
   it.each<[string, Partial<typeof settled>, ReturnType<typeof derivePreflight>]>([
@@ -266,7 +267,22 @@ describe("derivePreflight", () => {
       { amountIn: "", hasError: true },
       { status: "idle" },
     ],
-    ["error on a failed read", { hasError: true }, { status: "error" }],
+    ["error on a failed first read", { hasError: true, result: undefined }, { status: "error" }],
+    [
+      "quoted through one missed refresh",
+      { hasError: true, failedAfter: QUOTE_STALE_TIME },
+      { status: "quoted" },
+    ],
+    [
+      "error once a second refresh fails",
+      { hasError: true, failedAfter: 2 * QUOTE_STALE_TIME },
+      { status: "error" },
+    ],
+    [
+      "error when the new amount's read fails behind a held verdict",
+      { hasError: true, isPlaceholderData: true },
+      { status: "error" },
+    ],
     ["loading before any verdict", { result: undefined }, { status: "loading" }],
     [
       "loading while the previous amount's verdict is held",

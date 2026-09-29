@@ -317,6 +317,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     hasError: !!preflightQuery.error,
     result: preflightQuery.data,
     isPlaceholderData: preflightQuery.isPlaceholderData,
+    failedAfter: preflightQuery.errorUpdatedAt - preflightQuery.dataUpdatedAt,
   })
   const displaySource = needsDisplayQuote ? displayQuery : preflightQuery
   const displayResult =

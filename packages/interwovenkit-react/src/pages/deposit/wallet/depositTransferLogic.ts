@@ -4,7 +4,7 @@ import { InitiaAddress, toBaseUnit } from "@initia/utils"
 import { POPUP_BLOCKED_MESSAGE, USER_REJECTED_MESSAGE } from "@/data/http"
 import { BRIDGE_QUOTE_MAX_AGE } from "../data/bridges"
 import { gteInteger, isDecimalString, isEvmTxHash, isIntegerString } from "../data/parse"
-import type { QuoteResult } from "../data/quote"
+import { QUOTE_STALE_TIME, type QuoteResult } from "../data/quote"
 import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM } from "../data/source"
 import type {
   BridgeOption,
@@ -149,16 +149,20 @@ export const STORAGE_BLOCKED_MESSAGE =
 
 type PreflightStatus = "idle" | "loading" | "quoted" | "declined" | "error"
 
-// A placeholder result is the previous amount's verdict and must not speak for this one.
+// A placeholder result is the previous amount's verdict and must not speak for this one. One missed
+// refresh keeps this amount's last verdict; a second blocks the send.
 export function derivePreflight(params: {
   amountIn: string
   hasError: boolean
   result?: QuoteResult
   isPlaceholderData: boolean
+  /** From the last good read to the failed one. */
+  failedAfter: number
 }): { status: PreflightStatus; reason?: string } {
-  const { amountIn, hasError, result, isPlaceholderData } = params
+  const { amountIn, hasError, result, isPlaceholderData, failedAfter } = params
   if (!amountIn) return { status: "idle" }
-  if (hasError) return { status: "error" }
+  const hasResult = !!result && !isPlaceholderData
+  if (hasError && !(hasResult && failedAfter < 2 * QUOTE_STALE_TIME)) return { status: "error" }
   if (!result || isPlaceholderData) return { status: "loading" }
   if (result.status === "declined") return { status: "declined", reason: result.reason }
   return { status: "quoted" }
