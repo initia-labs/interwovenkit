@@ -1,0 +1,12 @@
+/* The kit's status colors for the 48px outcome marks both tracking screens share. */
+.successIcon {
+  color: var(--success);
+}
+
+.failIcon {
+  color: var(--error);
+}
+
+.warningIcon {
+  color: var(--warning);
+}

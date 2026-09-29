@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query"
 import { formatAmount } from "@initia/utils"
 import Image from "@/components/Image"
 import Skeleton from "@/components/Skeleton"
-import { formatDuration } from "@/pages/bridge/data/format"
 import { useDepositApi } from "../data/api"
 import {
   createBridgeOptionsQueryOptions,
@@ -23,6 +22,7 @@ import { getBridgeToolDisplay } from "./depositSources"
 import {
   combineEstimatedSeconds,
   deliverySeconds,
+  formatEstimate,
   formatNetworkFee,
   selectBridgeOption,
 } from "./depositTransferLogic"
@@ -41,14 +41,16 @@ function describeRoute(option: BridgeOption, delivery: number | null | undefined
   const cost = routeCostUsd(option)
   const fees = cost ? `Fees ${formatNetworkFee(cost.toString())}` : undefined
   const seconds = combineEstimatedSeconds([option.execution_duration_seconds, delivery])
-  const duration = seconds ? formatDuration(seconds) : undefined
+  const duration = seconds ? formatEstimate(seconds) : undefined
   return [fees, duration].filter((part): part is string => !!part).join(" · ")
 }
 
 // Not polled: the options refresh re-keys every row whose amount moved. The previous amount's
 // quote stays on screen while the new one loads, but is never compared as current.
 function useFinalQuote(amountIn: string, destination: DestinationNetwork | undefined) {
-  const { data, isPlaceholderData, isFetching } = useDeliveryQuote(destination, amountIn, false)
+  const { data, isPlaceholderData, isFetching } = useDeliveryQuote(destination, amountIn, {
+    poll: false,
+  })
   const quote = amountIn && data?.status === "quoted" ? data.quote : undefined
   return { quote, isCurrent: !!quote && !isPlaceholderData, isLoading: !quote && isFetching }
 }

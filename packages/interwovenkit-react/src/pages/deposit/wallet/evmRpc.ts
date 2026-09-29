@@ -21,9 +21,17 @@ function rpcRequest(url: string): FetchRequest {
   return request
 }
 
-// Tries each URL in order when a request times out or gets a non-OK response. A JSON-RPC error in
-// the body, such as a revert, is a real answer and never fails over. The node that answered last is
-// tried first, so a session stays on one node while it's healthy.
+// JSON-RPC codes public nodes return, with HTTP 200, when they're over capacity or rate limiting.
+const CAPACITY_ERROR_CODES = new Set([-32005, -32016])
+
+const isOverCapacity = (body: unknown) =>
+  (Array.isArray(body) ? body : [body]).some((entry) =>
+    CAPACITY_ERROR_CODES.has(entry?.error?.code),
+  )
+
+// Tries each URL in order when a request times out, gets a non-OK response, or the node says it's over
+// capacity. Any other JSON-RPC error in the body, such as a revert, is a real answer and never fails
+// over. The node that answered last is tried first, so a session stays on one node while it's healthy.
 export class FailoverRpcProvider extends JsonRpcProvider {
   readonly #urls: readonly string[]
   #active = 0
@@ -44,6 +52,7 @@ export class FailoverRpcProvider extends JsonRpcProvider {
         const response = await request.send()
         response.assertOk()
         const body = response.bodyJson
+        if (isOverCapacity(body)) throw new Error(`${this.#urls[index]} is over capacity`)
         this.#active = index
         return Array.isArray(body) ? body : [body]
       } catch (error) {

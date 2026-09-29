@@ -1,4 +1,4 @@
-import type { BrowserProvider } from "ethers"
+import type { BrowserProvider, JsonRpcSigner } from "ethers"
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -19,7 +19,7 @@ import {
   rankBridgeOptions,
 } from "../data/bridges"
 import { useDepositAddress } from "../data/depositAddress"
-import { eqAddress, gteInteger, userErrorMessage } from "../data/parse"
+import { eqAddress, gteInteger, isEvmTxHash, userErrorMessage } from "../data/parse"
 import { createQuoteQueryOptions } from "../data/quote"
 import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM, formatSourceMin } from "../data/source"
 import type {
@@ -29,6 +29,7 @@ import type {
   DestinationNetwork,
 } from "../data/types"
 import {
+  DepositInFlightError,
   type DepositIntent,
   type DepositSession,
   type DepositSessionDraft,
@@ -54,8 +55,8 @@ import {
   requiredNativeAmount,
   resolveDepositRecipient,
   selectBridgeOption,
-  sendTransactionHashOf,
   toBaseUnitString,
+  UNKNOWN_SEND_MESSAGE,
 } from "./depositTransferLogic"
 import {
   encodeErc20Approve,
@@ -77,6 +78,8 @@ export type DepositTransportSelection = Extract<
 >
 
 const PROMPT_HEARTBEAT_MS = 15_000
+// Two Ethereum blocks: a transfer at the wallet's suggested fee usually lands within them.
+const ETHEREUM_CONFIRMATION_SECONDS = 24
 
 const APPROVAL_RECEIPT_TIMEOUT_MS = 120_000
 
@@ -172,7 +175,7 @@ export function useDepositRequest(resolution: DepositTransportResolution): Depos
 export function useDeliveryQuote(
   destination: DestinationNetwork | undefined,
   amountIn: string,
-  refetchInterval?: false,
+  { poll = true }: { poll?: boolean } = {},
 ) {
   const api = useDepositApi()
   const params = {
@@ -184,7 +187,7 @@ export function useDeliveryQuote(
   }
   return useQuery({
     ...createQuoteQueryOptions(api, params, !!destination && !!amountIn),
-    ...(refetchInterval === false && { refetchInterval }),
+    ...(!poll && { refetchInterval: false as const }),
   })
 }
 
@@ -329,8 +332,11 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
       : undefined
   const deliveryQuote = displayQuote ?? preflightQuote
   const delivery = deliverySeconds(deliveryQuote, destination)
+  // LI.FI's estimate runs from the source transaction; Initia's delivery starts once it's confirmed.
   const estimatedSeconds = combineEstimatedSeconds(
-    transport === "lifi" ? [quote?.estimate.execution_duration_seconds, delivery] : [delivery],
+    transport === "lifi"
+      ? [quote?.estimate.execution_duration_seconds, delivery]
+      : [ETHEREUM_CONFIRMATION_SECONDS, delivery],
   )
   const typedAmount = toBaseUnitString(quantity, source.decimals)
   const isAmountSettled = typedAmount === amount
@@ -576,16 +582,15 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
       writeAfterPrompt({ ...current, promptSeenAt: Date.now(), updatedAt: Date.now() })
     }, PROMPT_HEARTBEAT_MS)
 
-    let response: { hash: string; nonce?: number }
+    let hash: string
+    let signer: JsonRpcSigner
     try {
       // Nothing is broadcast before the send itself.
       const rollback = (error: unknown): never => {
         rollbackDepositSessionPrompt(localStorage, prompted.id)
         throw error
       }
-      const signer = await getSigner(prompted.transaction.chainId, prompted.source.sender).catch(
-        rollback,
-      )
+      signer = await getSigner(prompted.transaction.chainId, prompted.source.sender).catch(rollback)
       const { transaction } = prompted
       const request = {
         chainId: Number(transaction.chainId),
@@ -599,12 +604,12 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
         : await signer.estimateGas(request).catch(rollback)
       // The chain switch and estimate can take a while; an edit or a closed form cancels the send.
       if (!isCurrentAttempt(inputs)) rollback(new Error(ATTEMPT_CHANGED_MESSAGE))
-      response = await signer
-        .sendTransaction({ ...request, gasLimit })
+      // Recorded the moment the wallet answers. sendTransaction would first wait for the wallet's own
+      // node to return the transaction, which a private mempool or lost response can stretch forever.
+      // The tracker learns the nonce from the pinned node.
+      hash = await signer
+        .sendUncheckedTransaction({ ...request, gasLimit })
         .catch(async (error: unknown) => {
-          // A hash proves the broadcast, whatever the error says.
-          const hash = sendTransactionHashOf(error)
-          if (hash) return { hash }
           const message = await normalizeErrorMessage(error)
           if (isProvablyNotSent(error, message)) {
             rollbackDepositSessionPrompt(localStorage, prompted.id)
@@ -613,6 +618,10 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
           writeAfterPrompt({ ...prompted, phase: "submission_unknown" })
           throw new UnknownSendError(message)
         })
+      if (!isEvmTxHash(hash)) {
+        writeAfterPrompt({ ...prompted, phase: "submission_unknown" })
+        throw new UnknownSendError(UNKNOWN_SEND_MESSAGE)
+      }
     } finally {
       clearInterval(heartbeat)
     }
@@ -620,10 +629,20 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     writeAfterPrompt({
       ...prompted,
       phase: "source_sent",
-      sourceNonce: response.nonce,
-      currentSourceHash: response.hash,
-      originalSourceHash: response.hash,
+      currentSourceHash: hash,
+      originalSourceHash: hash,
     })
+    // The pinned node may never see a privately sent transfer, and without its nonce a replacement
+    // can't be found. The wallet's own node knows it; a miss leaves the tracker to learn it.
+    void signer.provider
+      .getTransaction(hash)
+      .then((sent) => {
+        const current = readDepositSession(localStorage, prompted.id)
+        if (sent && current && current.sourceNonce === undefined) {
+          writeAfterPrompt({ ...current, sourceNonce: sent.nonce })
+        }
+      })
+      .catch(() => {})
   }
 
   // Never paused and resumed later: a deferred wallet prompt would outlive the click that asked for it.
@@ -643,7 +662,10 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const sendError = sendMutation.error
   const unknownSend = sendError instanceof UnknownSendError
   const storageBlocked = sendError instanceof DepositSessionWriteError
-  const submitError = sendError && !isLockingError(sendError) ? sendError.message : undefined
+  // Once another tab's reservation reaches this one, readiness already says the transfer is in flight.
+  const duplicatesInFlight = sendError instanceof DepositInFlightError && !!inFlightSession
+  const submitError =
+    sendError && !isLockingError(sendError) && !duplicatesInFlight ? sendError.message : undefined
 
   const readiness = deriveDepositReadiness({
     transport,
@@ -699,8 +721,15 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     selectedBridge?.bridge,
   ].join("|")
   const inputsRef = useRef(transferInputs)
+  // An edit starts a new attempt, so the last one's error no longer applies. An ambiguous send keeps
+  // its lock, and a request still in flight keeps its state.
+  const clearSettledErrors = useEffectEvent(() => {
+    if (sendMutation.isError && !isLockingError(sendMutation.error)) sendMutation.reset()
+    if (approveMutation.isError) approveMutation.reset()
+  })
   useEffect(() => {
     inputsRef.current = transferInputs
+    clearSettledErrors()
   }, [transferInputs])
 
   // Only a re-read that isn't materially different from `reviewed` may go on to the wallet in the same click.

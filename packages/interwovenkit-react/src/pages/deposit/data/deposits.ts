@@ -38,6 +38,9 @@ const POLL_INTERVAL = 3000
 const IDLE_POLL_INTERVAL = 15_000
 const IDLE_BACKOFF_DELAY = 5 * 60_000
 
+// Per-status stall budget before the "taking a little longer" copy.
+export const TAKING_LONGER_DELAY = 60 * 1000
+
 /** Poll interval by screen age: POLL_INTERVAL while fresh, IDLE_POLL_INTERVAL once idle. */
 export const pollInterval = (elapsedMs: number) =>
   elapsedMs < IDLE_BACKOFF_DELAY ? POLL_INTERVAL : IDLE_POLL_INTERVAL

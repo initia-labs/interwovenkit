@@ -214,6 +214,20 @@ describe("mergeDepositSession", () => {
     expect(merge("bridge_refunding", "bridge_refund_required")).toBe("bridge_refund_required")
   })
 
+  it("holds a tracking conflict against in-flight reads, never over a proven problem", () => {
+    const merge = (current: DepositLastState, next: DepositLastState) =>
+      mergeDepositSession(
+        buildDepositSession({ phase: "source_sent", lastState: current }),
+        buildDepositSession({ phase: "source_sent", lastState: next }),
+      ).lastState
+    expect(merge("tracking_conflict", "processing")).toBe("tracking_conflict")
+    expect(merge("processing", "tracking_conflict")).toBe("tracking_conflict")
+    expect(merge("bridge_partial", "tracking_conflict")).toBe("bridge_partial")
+    expect(merge("bridge_refund_required", "unknown")).toBe("bridge_refund_required")
+    expect(merge("tracking_conflict", "unknown")).toBe("tracking_conflict")
+    expect(merge("processing", "unknown")).toBe("unknown")
+  })
+
   it("adopts a replacement hash", () => {
     const current = buildDepositSession({ phase: "source_sent", currentSourceHash: "0xaaa" })
     const replaced = buildDepositSession({ phase: "source_sent", currentSourceHash: "0xbbb" })

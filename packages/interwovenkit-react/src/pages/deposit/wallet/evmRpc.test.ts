@@ -109,7 +109,7 @@ describe("FailoverRpcProvider", () => {
   let calls: string[]
 
   /** Each URL answers with its HTTP status, or a JSON-RPC result or error for every request. */
-  const serve = (routes: Record<string, number | { error: string } | string>) => {
+  const serve = (routes: Record<string, number | { error: string; code?: number } | string>) => {
     FetchRequest.registerGetUrl(async (request) => {
       calls.push(request.url)
       const route = routes[request.url]
@@ -123,7 +123,7 @@ describe("FailoverRpcProvider", () => {
       const answer = payloads.map(({ id }: { id: number }) =>
         typeof route === "string"
           ? { jsonrpc: "2.0", id, result: route }
-          : { jsonrpc: "2.0", id, error: { code: 3, message: route.error } },
+          : { jsonrpc: "2.0", id, error: { code: route.code ?? 3, message: route.error } },
       )
       return {
         statusCode: 200,
@@ -157,6 +157,16 @@ describe("FailoverRpcProvider", () => {
     const provider = new FailoverRpcProvider(URLS, 1)
     await expect(provider.getBlockNumber()).rejects.toThrow()
     expect(calls).toEqual([URLS[0]])
+  })
+
+  it("fails over when a node answers that it is over capacity", async () => {
+    serve({
+      [URLS[0]]: { error: "limit exceeded", code: -32005 },
+      [URLS[1]]: { error: "over rate limit", code: -32016 },
+      [URLS[2]]: "0x10",
+    })
+    await expect(new FailoverRpcProvider(URLS, 1).getBlockNumber()).resolves.toBe(16)
+    expect(calls).toEqual(URLS)
   })
 
   it("fails when every node fails", async () => {

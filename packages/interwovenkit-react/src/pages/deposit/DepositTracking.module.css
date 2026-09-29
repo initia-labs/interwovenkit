@@ -35,18 +35,6 @@ p.note {
   padding: 0;
 }
 
-.successIcon {
-  color: var(--success);
-}
-
-.failIcon {
-  color: var(--error);
-}
-
-.warningIcon {
-  color: var(--warning);
-}
-
 .confirming {
   display: inline-flex;
   align-items: center;

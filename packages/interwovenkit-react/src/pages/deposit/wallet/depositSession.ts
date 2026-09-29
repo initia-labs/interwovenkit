@@ -66,12 +66,19 @@ const PROVEN_AT: Partial<Record<DepositLastState, DepositLastState>> = {
 
 function stageRank(state?: DepositLastState): number {
   if (!state) return -1
+  // A record that stopped matching this transfer holds against every in-flight read.
+  if (state === "tracking_conflict") return IN_FLIGHT_ORDER.length
   const anchor = PROVEN_AT[state]
   return anchor ? IN_FLIGHT_ORDER.indexOf(anchor) + 0.5 : IN_FLIGHT_ORDER.indexOf(state)
 }
 
 export function isStageRegression(current?: DepositLastState, next?: DepositLastState): boolean {
   const from = stageRank(current)
+  // Neither an unreadable status nor a later conflict may hide a proven problem, and an unreadable
+  // status doesn't clear a conflict.
+  const isProblem = !!current && (!!PROVEN_AT[current] || current === "tracking_conflict")
+  if (next === "unknown") return isProblem
+  if (next === "tracking_conflict" && current && PROVEN_AT[current]) return true
   const to = stageRank(next)
   return from >= 0 && to >= 0 && to < from
 }
@@ -435,6 +442,7 @@ export function pruneDepositSessions(storage: StorageLike, now: number): void {
     }
   }
 
+  // Finished sessions: the newest few always stay, and older ones go once they're a month old.
   const terminal = sessions
     .filter((session) => session.phase === "terminal")
     .sort((a, b) => b.updatedAt - a.updatedAt)

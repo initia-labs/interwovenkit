@@ -19,6 +19,7 @@ import {
   classifyBucket,
   DepositAddressMismatchError,
   isTerminalBucket,
+  TAKING_LONGER_DELAY,
   useTrackedDeposit,
 } from "./data/deposits"
 import { fallbackChainName, findDestinationNetwork, formatSourceMin } from "./data/source"
@@ -30,9 +31,7 @@ import DepositSubpage from "./DepositSubpage"
 import ExplorerLinks from "./ExplorerLinks"
 import FlowChips from "./FlowChips"
 import styles from "./DepositTracking.module.css"
-
-// Per-status stall budget before the "taking a little longer" copy.
-export const TAKING_LONGER_DELAY = 60 * 1000
+import statusIcons from "./StatusIcons.module.css"
 
 /**
  * Deposit tracking screen shared by the address transfer and onramp purchase
@@ -237,7 +236,7 @@ const DepositTracking = () => {
     if (isHardError) {
       return (
         <>
-          <IconCloseCircleFilled size={48} className={styles.failIcon} aria-hidden="true" />
+          <IconCloseCircleFilled size={48} className={statusIcons.failIcon} aria-hidden="true" />
           <p className={styles.heading}>Couldn&apos;t track your deposit</p>
           <DepositStatus error className={styles.message}>
             {(addressError ?? trackingError)?.message ??
@@ -251,7 +250,11 @@ const DepositTracking = () => {
       case "completed":
         return (
           <>
-            <IconCheckCircleFilled size={48} className={styles.successIcon} aria-hidden="true" />
+            <IconCheckCircleFilled
+              size={48}
+              className={statusIcons.successIcon}
+              aria-hidden="true"
+            />
             <DepositStatus className={styles.message}>
               {completedAmount} was delivered to your wallet on {receiveAsset.chainName}.
             </DepositStatus>
@@ -264,7 +267,7 @@ const DepositTracking = () => {
       case "failed":
         return (
           <>
-            <IconCloseCircleFilled size={48} className={styles.failIcon} aria-hidden="true" />
+            <IconCloseCircleFilled size={48} className={statusIcons.failIcon} aria-hidden="true" />
             <p className={styles.heading}>Deposit failed</p>
             {/* No support channel exists in the widget or config, so the copy
                 must not point at one. */}
@@ -278,7 +281,7 @@ const DepositTracking = () => {
       case "below_minimum":
         return (
           <>
-            <IconCloseCircleFilled size={48} className={styles.failIcon} aria-hidden="true" />
+            <IconCloseCircleFilled size={48} className={statusIcons.failIcon} aria-hidden="true" />
             <p className={styles.heading}>Amount below minimum</p>
             <DepositStatus error className={styles.message}>
               {minLabel ? `Deposits below ${minLabel} can't be processed. ` : ""}
@@ -290,7 +293,7 @@ const DepositTracking = () => {
         // Not a financial outcome: polling continues and a later read can still complete.
         return (
           <>
-            <IconWarningFilled size={48} className={styles.warningIcon} aria-hidden="true" />
+            <IconWarningFilled size={48} className={statusIcons.warningIcon} aria-hidden="true" />
             <p className={styles.heading}>Status unavailable</p>
             <DepositStatus className={styles.message}>
               We can&apos;t load this deposit&apos;s status right now.

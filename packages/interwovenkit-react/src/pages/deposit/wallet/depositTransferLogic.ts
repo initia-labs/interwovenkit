@@ -1,9 +1,9 @@
 import BigNumber from "bignumber.js"
-import { path } from "ramda"
 import { InitiaAddress, toBaseUnit } from "@initia/utils"
 import { isUserRejection, POPUP_BLOCKED_MESSAGE } from "@/data/http"
+import { formatDuration } from "@/pages/bridge/data/format"
 import { BRIDGE_QUOTE_MAX_AGE } from "../data/bridges"
-import { gteInteger, isDecimalString, isEvmTxHash, isIntegerString } from "../data/parse"
+import { gteInteger, isDecimalString, isIntegerString } from "../data/parse"
 import { QUOTE_STALE_TIME, type QuoteResult } from "../data/quote"
 import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM } from "../data/source"
 import type {
@@ -61,6 +61,19 @@ export function formatNetworkFee(gasCostUsd: string | undefined): string {
   if (!isDecimalString(gasCostUsd)) return "Shown in wallet"
   const value = BigNumber(gasCostUsd)
   return `$${value.toFixed(value.lt(0.01) && value.gt(0) ? 4 : 2)}`
+}
+
+// Six decimals would print a fee under a millionth of an ETH as zero.
+export function formatProtocolFee(wei: string): string {
+  const value = BigNumber(wei).shiftedBy(-18)
+  return value.lt(0.000001)
+    ? "< 0.000001 ETH"
+    : `${value.decimalPlaces(6, BigNumber.ROUND_UP).toFixed()} ETH`
+}
+
+// Past a minute an estimate reads in whole minutes, rounded up: seconds would claim precision it lacks.
+export function formatEstimate(seconds: number) {
+  return formatDuration(seconds < 60 ? seconds : Math.ceil(seconds / 60) * 60)
 }
 
 /** Every leg must be known: a partial sum would promise a time that leaves out a leg. */
@@ -122,11 +135,6 @@ export function requiredNativeAmount(params: {
 }
 
 // ethers attaches the hash when eth_sendTransaction succeeded but the follow-up read failed: the transfer is on chain.
-export function sendTransactionHashOf(error: unknown): string | undefined {
-  const hash = path(["info", "sendTransactionHash"], error)
-  return isEvmTxHash(hash) ? hash : undefined
-}
-
 /** A rejected or blocked prompt, or a node refusal before the mempool; anything else without a hash stays ambiguous. */
 export function isProvablyNotSent(error: unknown, message: string): boolean {
   const text = message.toLowerCase()

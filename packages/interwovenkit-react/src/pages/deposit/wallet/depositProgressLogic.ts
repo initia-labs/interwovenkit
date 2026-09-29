@@ -3,14 +3,16 @@ import { fromBaseUnit } from "@initia/utils"
 import { formatDuration } from "@/pages/bridge/data/format"
 import type { AssetOption } from "../data/assetOptions"
 import { BridgeStatusError, isBridgeStatusState } from "../data/bridges"
-import type { ClassifiedBucket } from "../data/deposits"
+import { type ClassifiedBucket, TAKING_LONGER_DELAY } from "../data/deposits"
 import { eqAddress, ParseError } from "../data/parse"
+import { ETHEREUM_CHAIN_ID } from "../data/source"
 import type { BridgeStatusState, DepositDelivery } from "../data/types"
 import {
   type DepositLastState,
   type DepositSession,
   type DepositSessionPhase,
   isPhaseAdvance,
+  isStageRegression,
 } from "./depositSession"
 import { matchesAssetOption } from "./depositSources"
 import type { SenderNonces, SourceTxOutcome } from "./evmRpc"
@@ -73,13 +75,12 @@ export interface DepositProgressInputs {
 const IN_FLIGHT_TITLE = "Deposit in progress"
 const NEUTRAL_TITLE = "Deposit status"
 
-const INITIA_TEAM = "Reach out to the Initia team with the transaction link for support."
-
+// No support channel exists in the widget or config, so the copy must not point at one.
 const MISMATCH =
-  "We couldn't match the bridge's status to this deposit, so we've stopped updating it. It may still arrive. If it doesn't, reach out to the Initia team with the transaction link for support."
+  "We couldn't match the bridge's status to this deposit, so we've stopped updating it. It may still arrive."
 
 const HELD = (amount: string) =>
-  `Your ${amount} is held at your deposit address and won't be refunded automatically. ${INITIA_TEAM}`
+  `Your ${amount} is held at your deposit address and won't be refunded automatically.`
 
 export const DELAYED_HEADING = "Taking longer than usual"
 export const DELAYED_NOTE =
@@ -170,6 +171,14 @@ export function resumeStageLabel(session: DepositSession): string {
     : IN_PROGRESS
 }
 
+// An Ethereum block can take a minute to include a low-tip transfer; every other stage gets the default.
+export function takingLongerDelay(session: DepositSession, lastState?: DepositLastState): number {
+  const onSource = lastState === "source_pending" || lastState === "source_replaced"
+  return onSource && session.source.chainId === ETHEREUM_CHAIN_ID
+    ? 2 * TAKING_LONGER_DELAY
+    : TAKING_LONGER_DELAY
+}
+
 // Replaces the heading, not the copy: "your funds are safe" is false while a bridge holds them.
 export function progressHeading(
   view: DepositProgressView,
@@ -218,12 +227,12 @@ export function deriveDepositProgress(
 
   if (session.depositId) return depositStage(session, inputs)
 
-  // A reload loses the query cache. Keep the saved observation through the first
-  // pending or failed read so its persistence effect cannot rewind a refund or delivery.
+  // A reload loses the query cache. Keep the saved observation through the first pending or failed
+  // read, or a lagging one, so neither the screen nor its persistence rewinds a refund or delivery.
   const restoredBridgeState =
     session.transport === "lifi" &&
-    inputs.bridge.state === undefined &&
-    isBridgeStatusState(session.lastState)
+    isBridgeStatusState(session.lastState) &&
+    (inputs.bridge.state === undefined || isStageRegression(session.lastState, inputs.bridge.state))
       ? session.lastState
       : undefined
   if (restoredBridgeState) {
@@ -247,8 +256,11 @@ export function deriveDepositProgress(
   return session.transport === "lifi" ? bridgeStage(session, inputs) : correlateStage(inputs)
 }
 
-const RELEASE_AFTER_MS = 2 * 60_000
+// Past WalletConnect's five-minute request expiry: a prompt still open on a phone can still be approved.
+const RELEASE_AFTER_MS = 6 * 60_000
 const MARK_NOT_SENT_AFTER_MS = 10 * 60_000
+// A tab holding the prompt heartbeats every 15 seconds; a minute without one means none is left.
+const PROMPT_HELD_MS = 60_000
 
 interface HashlessSendCheck {
   release: boolean
@@ -281,7 +293,8 @@ export function checkHashlessSend(
       promptPendingNonce !== undefined &&
       !!read &&
       (read.latest > promptNonce || read.pending > promptPendingNonce),
-    canMarkNotSent: now - promptedAt >= MARK_NOT_SENT_AFTER_MS,
+    canMarkNotSent:
+      now - promptedAt >= MARK_NOT_SENT_AFTER_MS && now - lastSeenAt >= PROMPT_HELD_MS,
   }
 }
 
@@ -330,7 +343,7 @@ function withoutHash(session: DepositSession, inputs: DepositProgressInputs): De
   return problem({
     ...unconfirmed,
     heading: "Confirming your transaction",
-    message: `Your wallet didn't confirm whether it sent this deposit. We're checking ${chainName}, which takes about 2 minutes.`,
+    message: `Your wallet didn't confirm whether it sent this deposit. We're checking ${chainName}, which takes about 6 minutes.`,
     note: "Don't send it again to avoid paying excess fees.",
   })
 }
@@ -405,19 +418,20 @@ function bridgeStage(session: DepositSession, inputs: DepositProgressInputs): De
       return terminal({
         variant: "failed",
         heading: "Bridge failed",
-        message: `The bridge couldn't complete this transfer. Check the transaction to see where your USDC is. If it isn't back in your wallet, reach out to the Initia team with the transaction link for support.`,
+        message:
+          "The bridge couldn't complete this transfer. Check the transaction to see where your USDC is.",
         persist: { phase: "terminal", lastState: state },
       })
     case "bridge_partial":
       return problem({
         heading: "Deposit partly delivered",
-        message: `The bridge delivered only part of this deposit. Don't send it again. ${INITIA_TEAM}`,
+        message: "The bridge delivered only part of this deposit. Don't send it again.",
         persist: { lastState: state },
       })
     case "bridge_refund_required":
       return problem({
         heading: "Refund needed",
-        message: `The bridge couldn't deliver this deposit, and its refund has to be claimed. ${INITIA_TEAM}`,
+        message: "The bridge couldn't deliver this deposit, and its refund has to be claimed.",
         persist: { lastState: state },
       })
     case "bridge_refunding":

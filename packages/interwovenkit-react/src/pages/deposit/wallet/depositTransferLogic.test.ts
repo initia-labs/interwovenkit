@@ -17,14 +17,15 @@ import {
   type DepositReadinessInput,
   deriveDepositReadiness,
   derivePreflight,
+  formatEstimate,
   formatNetworkFee,
+  formatProtocolFee,
   isProvablyNotSent,
   isQuoteStale,
   nextAutoDepositStep,
   requiredNativeAmount,
   resolveDepositRecipient,
   selectBridgeOption,
-  sendTransactionHashOf,
   SESSION_IN_FLIGHT_MESSAGE,
   STORAGE_BLOCKED_MESSAGE,
   toBaseUnitString,
@@ -123,6 +124,28 @@ describe("toBaseUnitString", () => {
   })
 })
 
+describe("formatEstimate", () => {
+  it.each([
+    [54, "54s"],
+    [60, "1m"],
+    [84, "2m"],
+    [324, "6m"],
+  ])("%s seconds → %s", (seconds, expected) => {
+    expect(formatEstimate(seconds)).toBe(expected)
+  })
+})
+
+describe("formatProtocolFee", () => {
+  it.each([
+    ["100000000000", "< 0.000001 ETH"],
+    ["1000000000000", "0.000001 ETH"],
+    ["1500000000001", "0.000002 ETH"],
+    ["500000000000000", "0.0005 ETH"],
+  ])("%s wei → %s", (wei, expected) => {
+    expect(formatProtocolFee(wei)).toBe(expected)
+  })
+})
+
 describe("formatNetworkFee", () => {
   it.each([
     [undefined, "Shown in wallet"],
@@ -211,18 +234,6 @@ describe("buildDepositTransaction", () => {
         "00000000000000000000000000000000000000000000000000000000000f4240",
     })
     expect(BigInt(tx.gasLimit ?? 0)).toBeGreaterThanOrEqual(65_000n)
-  })
-})
-
-describe("sendTransactionHashOf", () => {
-  const hash = "0x" + "ab".repeat(32)
-  it("adopts the hash ethers attaches to a failed post-send read", () => {
-    expect(sendTransactionHashOf({ info: { sendTransactionHash: hash } })).toBe(hash)
-  })
-  it("ignores errors without a valid hash", () => {
-    expect(sendTransactionHashOf(new Error("timeout"))).toBeUndefined()
-    expect(sendTransactionHashOf({ info: { sendTransactionHash: "0x12" } })).toBeUndefined()
-    expect(sendTransactionHashOf(null)).toBeUndefined()
   })
 })
 

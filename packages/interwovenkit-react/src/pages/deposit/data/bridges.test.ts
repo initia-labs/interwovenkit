@@ -3,6 +3,7 @@ import ky from "ky"
 import { describe, expect, it } from "vitest"
 import { QueryClient } from "@tanstack/react-query"
 import {
+  bridgeQuoteRefetchInterval,
   bridgeQuoteSignature,
   BridgeStatusError,
   bridgeStatusPollInterval,
@@ -806,14 +807,16 @@ describe("createBridgeQuoteQueryOptions", () => {
   })
 
   it("refetches a failed quote on its own but never polls a good one", () => {
-    const { refetchInterval } = createBridgeQuoteQueryOptions(
-      stubApi(null).api,
-      QUOTE_REQUEST,
-      true,
-    )
-    expect(refetchInterval({ state: { status: "error" } })).toBe(10_000)
-    expect(refetchInterval({ state: { status: "success" } })).toBe(false)
-    expect(refetchInterval({ state: { status: "pending" } })).toBe(false)
+    const options = createBridgeQuoteQueryOptions(stubApi(null).api, QUOTE_REQUEST, true)
+    expect(options.refetchInterval).toBe(bridgeQuoteRefetchInterval)
+    expect(bridgeQuoteRefetchInterval({ state: { status: "error" } })).toBe(10_000)
+    expect(bridgeQuoteRefetchInterval({ state: { status: "success" } })).toBe(false)
+    expect(bridgeQuoteRefetchInterval({ state: { status: "pending" } })).toBe(false)
+  })
+
+  it("fails a quote read fast offline instead of pausing it", () => {
+    const options = createBridgeQuoteQueryOptions(stubApi(null).api, QUOTE_REQUEST, true)
+    expect(options.networkMode).toBe("always")
   })
 
   it("rejects a mismatched response through the boundary parser", async () => {

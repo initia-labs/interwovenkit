@@ -9,11 +9,10 @@ import Image from "@/components/Image"
 import Skeleton from "@/components/Skeleton"
 import { useConfig } from "@/data/config"
 import { useConnectedWalletIcon } from "@/hooks/useConnectedWalletIcon"
-import { formatDuration } from "@/pages/bridge/data/format"
 import onrampStyles from "../onramp/OnrampFields.module.css"
 import providerStyles from "../onramp/SelectProvider.module.css"
 import { getBridgeToolDisplay } from "./depositSources"
-import { formatNetworkFee } from "./depositTransferLogic"
+import { formatEstimate, formatNetworkFee, formatProtocolFee } from "./depositTransferLogic"
 import type { DepositTransferModel } from "./useDepositTransfer"
 import styles from "./TransferTxDetails.module.css"
 
@@ -69,9 +68,7 @@ const DepositTransferTxDetails = ({ model }: { model: DepositTransferModel }) =>
         <DetailRow label="Network fee">{formatNetworkFee(quote?.estimate.gas_cost_usd)}</DetailRow>
         {/* Paid in the native token, outside the quoted output. */}
         {quote && BigInt(quote.transaction.value) > 0n && (
-          <DetailRow label="Protocol fee">
-            {formatAmount(quote.transaction.value, { decimals: 18 })} ETH
-          </DetailRow>
+          <DetailRow label="Protocol fee">{formatProtocolFee(quote.transaction.value)}</DetailRow>
         )}
         <DetailRow label={isHostRecipient ? "Recipient (set by app)" : "Receiving address"}>
           {!isHostRecipient && walletIcon && (
@@ -113,7 +110,7 @@ const DepositTransferTxDetails = ({ model }: { model: DepositTransferModel }) =>
 
       <DetailRow label="Estimated time">
         {model.estimatedSeconds ? (
-          formatDuration(model.estimatedSeconds)
+          formatEstimate(model.estimatedSeconds)
         ) : isEstimating ? (
           <Skeleton width={48} height={16} />
         ) : (

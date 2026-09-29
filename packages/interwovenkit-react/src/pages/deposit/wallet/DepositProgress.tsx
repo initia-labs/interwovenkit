@@ -32,10 +32,9 @@ import type { BridgeStatusResponse, Deposit } from "../data/types"
 import { formatCompletedAmount, formatSentenceAmount } from "../completedAmount"
 import DepositStatus from "../DepositStatus"
 import DepositSubpage from "../DepositSubpage"
-import { TAKING_LONGER_DELAY } from "../DepositTracking"
-import trackingStyles from "../DepositTracking.module.css"
 import ExplorerLinks from "../ExplorerLinks"
 import FlowChips from "../FlowChips"
+import statusIcons from "../StatusIcons.module.css"
 import {
   checkHashlessSend,
   DELAYED_HEADING,
@@ -46,6 +45,7 @@ import {
   deriveProgressSteps,
   progressHeading,
   type ProgressStepStatus,
+  takingLongerDelay,
 } from "./depositProgressLogic"
 import { type DepositSession, recoveryReference, useDepositSessionStore } from "./depositSession"
 import { depositApiRpcUrls, findEthereumUsdcRoute } from "./depositSources"
@@ -280,11 +280,12 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
 
   const view = deriveDepositProgress(session, inputs)
   const stageKey = `${view.variant}:${view.persist?.lastState ?? ""}`
+  const delay = takingLongerDelay(session, view.persist?.lastState)
   const [delayedStage, setDelayedStage] = useState<string | null>(null)
   useEffect(() => {
-    const timer = setTimeout(() => setDelayedStage(stageKey), TAKING_LONGER_DELAY)
+    const timer = setTimeout(() => setDelayedStage(stageKey), delay)
     return () => clearTimeout(timer)
-  }, [stageKey])
+  }, [stageKey, delay])
   const heading = progressHeading(view, session, inputs, delayedStage === stageKey)
 
   // Re-checked against the stored record: another tab may have recorded a hash or a heartbeat since.
@@ -489,11 +490,11 @@ const ProgressScreen = (props: ProgressScreenProps) => {
           ) : variant === "in-flight" ? (
             <Loader size={40} color="var(--success)" />
           ) : variant === "completed" ? (
-            <IconCheckCircleFilled size={48} className={trackingStyles.successIcon} aria-hidden />
+            <IconCheckCircleFilled size={48} className={statusIcons.successIcon} aria-hidden />
           ) : variant === "problem" ? (
-            <IconWarningFilled size={48} className={trackingStyles.warningIcon} aria-hidden />
+            <IconWarningFilled size={48} className={statusIcons.warningIcon} aria-hidden />
           ) : (
-            <IconCloseCircleFilled size={48} className={trackingStyles.failIcon} aria-hidden />
+            <IconCloseCircleFilled size={48} className={statusIcons.failIcon} aria-hidden />
           )}
         </div>
 

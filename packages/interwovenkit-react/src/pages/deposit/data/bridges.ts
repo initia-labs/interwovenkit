@@ -424,6 +424,9 @@ function createBridgeQueryOptions<T>(config: {
   parse: (response: unknown) => T
   enabled: boolean
   keepPrevious?: boolean
+  refetchInterval?: (query: { state: { status: string } }) => number | false
+  /** A read awaited by a click must fail fast offline instead of pausing until the network returns. */
+  failOffline?: boolean
 }) {
   const { api, path, queryKey, request, parse, enabled, keepPrevious } = config
   return queryOptions({
@@ -442,6 +445,8 @@ function createBridgeQueryOptions<T>(config: {
     refetchOnWindowFocus: false,
     retry: (failureCount, error) => !(error instanceof ParseError) && failureCount < 3,
     ...(keepPrevious ? { placeholderData: keepPreviousData } : {}),
+    ...(config.refetchInterval ? { refetchInterval: config.refetchInterval } : {}),
+    ...(config.failOffline ? { networkMode: "always" as const } : {}),
   })
 }
 
@@ -462,7 +467,7 @@ export function createBridgeOptionsQueryOptions(
 }
 
 // Only a failed quote is refetched on a timer: a changed successful quote would demand a re-review.
-const bridgeQuoteRefetchInterval = (query: { state: { status: string } }) =>
+export const bridgeQuoteRefetchInterval = (query: { state: { status: string } }) =>
   query.state.status === "error" ? BRIDGE_QUOTE_MAX_AGE : false
 
 // No `keepPreviousData`: a held quote from the previous identity would read as executable.
@@ -472,18 +477,18 @@ export function createBridgeQuoteQueryOptions(
   enabled: boolean,
 ) {
   const { bridge, depositAddress = "", ...identity } = request
-  return {
-    ...createBridgeQueryOptions({
-      api,
-      path: "v1/bridges/quote",
-      queryKey: depositQueryKeys.bridgeQuote(identity, bridge, depositAddress).queryKey,
-      request,
-      parse: (response): BridgeQuoteResponse =>
-        parseBridgeQuote(response, { ...request, depositAddress }),
-      enabled,
-    }),
+  return createBridgeQueryOptions({
+    api,
+    path: "v1/bridges/quote",
+    queryKey: depositQueryKeys.bridgeQuote(identity, bridge, depositAddress).queryKey,
+    request,
+    parse: (response): BridgeQuoteResponse =>
+      parseBridgeQuote(response, { ...request, depositAddress }),
+    enabled,
     refetchInterval: bridgeQuoteRefetchInterval,
-  }
+    // The Deposit click re-reads the quote; a paused read would open the wallet whenever it resumes.
+    failOffline: true,
+  })
 }
 
 interface BridgeStatusParams {

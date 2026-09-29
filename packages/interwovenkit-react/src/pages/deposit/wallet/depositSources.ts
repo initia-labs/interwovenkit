@@ -40,7 +40,11 @@ export const DEPOSIT_API_SOURCES: readonly DepositApiSource[] = [
     decimals: 6,
     chainName: "Base",
     transport: "lifi",
-    rpcUrls: ["https://mainnet.base.org"],
+    rpcUrls: [
+      "https://mainnet.base.org",
+      "https://base-rpc.publicnode.com",
+      "https://base.drpc.org",
+    ],
   },
   {
     chainId: "42161",
@@ -49,7 +53,11 @@ export const DEPOSIT_API_SOURCES: readonly DepositApiSource[] = [
     decimals: 6,
     chainName: "Arbitrum",
     transport: "lifi",
-    rpcUrls: ["https://arb1.arbitrum.io/rpc"],
+    rpcUrls: [
+      "https://arb1.arbitrum.io/rpc",
+      "https://arbitrum-one-rpc.publicnode.com",
+      "https://arbitrum.drpc.org",
+    ],
   },
 ]
 

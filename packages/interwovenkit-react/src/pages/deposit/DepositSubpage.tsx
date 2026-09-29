@@ -87,6 +87,7 @@ const DepositSubpageRow = ({
       className={clsx(styles.row, isActive && styles.activeRow)}
       onClick={onClick}
       disabled={disabled}
+      aria-pressed={isActive}
     >
       {children}
     </button>

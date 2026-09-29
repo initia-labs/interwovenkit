@@ -18,7 +18,7 @@ import { buildDepositSession } from "./testing"
 
 const REPLACEMENT_HASH = `0x${"b".repeat(64)}`
 const MISMATCH =
-  "We couldn't match the bridge's status to this deposit, so we've stopped updating it. It may still arrive. If it doesn't, reach out to the Initia team with the transaction link for support."
+  "We couldn't match the bridge's status to this deposit, so we've stopped updating it. It may still arrive."
 const MINUTE = 60_000
 const PROCESSING = "Processing your deposit."
 
@@ -143,9 +143,9 @@ describe("checkHashlessSend", () => {
     isError,
   })
 
-  it("releases only once an unchanged nonce is read two minutes after the prompt", () => {
-    expect(checkHashlessSend(prompted, read(7, 7, 2 * MINUTE - 1), 2 * MINUTE).release).toBe(false)
-    expect(checkHashlessSend(prompted, read(7, 7, 2 * MINUTE), 2 * MINUTE)).toEqual({
+  it("releases only once an unchanged nonce is read six minutes after the prompt", () => {
+    expect(checkHashlessSend(prompted, read(7, 7, 6 * MINUTE - 1), 6 * MINUTE).release).toBe(false)
+    expect(checkHashlessSend(prompted, read(7, 7, 6 * MINUTE), 6 * MINUTE)).toEqual({
       release: true,
       nonceMoved: false,
       canMarkNotSent: false,
@@ -153,16 +153,16 @@ describe("checkHashlessSend", () => {
   })
 
   it("releases past a transaction that was already pending at the prompt", () => {
-    expect(checkHashlessSend(queued, read(7, 8, 2 * MINUTE), 2 * MINUTE)).toMatchObject({
+    expect(checkHashlessSend(queued, read(7, 8, 6 * MINUTE), 6 * MINUTE)).toMatchObject({
       release: true,
       nonceMoved: false,
     })
   })
 
-  it("waits two minutes after the last heartbeat from a tab holding the prompt", () => {
+  it("waits six minutes after the last heartbeat from a tab holding the prompt", () => {
     const held = { ...prompted, promptSeenAt: 3 * MINUTE }
-    expect(checkHashlessSend(held, read(7, 7, 4 * MINUTE), 4 * MINUTE).release).toBe(false)
-    expect(checkHashlessSend(held, read(7, 7, 5 * MINUTE), 5 * MINUTE).release).toBe(true)
+    expect(checkHashlessSend(held, read(7, 7, 9 * MINUTE - 1), 9 * MINUTE).release).toBe(false)
+    expect(checkHashlessSend(held, read(7, 7, 9 * MINUTE), 9 * MINUTE).release).toBe(true)
   })
 
   it.each([
@@ -192,8 +192,14 @@ describe("checkHashlessSend", () => {
     ["at ten minutes", prompted, 10 * MINUTE, true],
     [
       "at ten minutes while a tab still holds the prompt",
-      { ...prompted, promptSeenAt: 10 * MINUTE },
+      { ...prompted, promptSeenAt: 10 * MINUTE - 1 },
       10 * MINUTE,
+      false,
+    ],
+    [
+      "a minute after the last heartbeat",
+      { ...prompted, promptSeenAt: 10 * MINUTE },
+      11 * MINUTE,
       true,
     ],
     [
@@ -221,7 +227,7 @@ describe("deriveDepositProgress: no source hash", () => {
       promptedAt: 0,
       ...overrides,
     })
-  const unchanged = { data: { latest: 7, pending: 7 }, readAt: 2 * MINUTE, isError: false }
+  const unchanged = { data: { latest: 7, pending: 7 }, readAt: 6 * MINUTE, isError: false }
   const moved = { data: { latest: 8, pending: 8 }, readAt: 10 * MINUTE, isError: false }
 
   it.each<[string, Partial<DepositSession>, Partial<DepositProgressInputs>, string, boolean]>([
@@ -461,7 +467,7 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
     (state) => {
       const view = bridgeView({ state })
       expect(view).toMatchObject({ variant: "problem", persist: { lastState: state } })
-      expect(view.message).toContain("Reach out to the Initia team with the transaction link")
+      expect(view.message).not.toMatch(/support|Initia team/)
     },
   )
 
@@ -552,6 +558,17 @@ describe("deriveDepositProgress: LI.FI bridge stage", () => {
     },
   )
 
+  it("keeps a saved problem over a lagging bridge read", () => {
+    const view = deriveDepositProgress(
+      session({ lastState: "bridge_refund_required" }),
+      inputs({ bridge: { state: "bridge_pending" } }),
+    )
+    expect(view).toMatchObject({
+      heading: "Refund needed",
+      persist: { lastState: "bridge_refund_required" },
+    })
+  })
+
   it("does not let restored bridge_not_found hide a proven source revert", () => {
     expect(
       deriveDepositProgress(
@@ -633,22 +650,18 @@ describe("deriveDepositProgress: deposit id stage", () => {
     expect(depositView({ bucket: "completed" }).message).toMatch(/^Your \S+ deposited\.$/)
   })
 
-  const HELD =
-    "is held at your deposit address and won't be refunded automatically. Reach out to the Initia team with the transaction link for support."
+  const HELD = "is held at your deposit address and won't be refunded automatically."
 
   it.each([
     ["3 USDC", "2 USDC", `Deposits under 3 USDC can't be processed. Your 2 USDC ${HELD}`],
     ["", undefined, `Deposits this small can't be processed. Your USDC ${HELD}`],
-  ])(
-    "below_minimum with minimum %j says where the funds are and who helps",
-    (minLabel, heldAmount, message) => {
-      expect(depositView({ bucket: "below_minimum", minLabel, heldAmount })).toMatchObject({
-        variant: "below-minimum",
-        message,
-        persist: { phase: "terminal", lastState: "below_minimum" },
-      })
-    },
-  )
+  ])("below_minimum with minimum %j says where the funds are", (minLabel, heldAmount, message) => {
+    expect(depositView({ bucket: "below_minimum", minLabel, heldAmount })).toMatchObject({
+      variant: "below-minimum",
+      message,
+      persist: { phase: "terminal", lastState: "below_minimum" },
+    })
+  })
 
   it("failed keeps the existing terminal copy", () => {
     const view = depositView({ bucket: "failed" })
