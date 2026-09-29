@@ -108,7 +108,7 @@ export interface DepositDelivery {
 // maps every wire status (including ones added after this client shipped) onto
 // this stable set, so the client keys terminal judgment and screen selection on
 // `bucket` and treats `status` as opaque. The type is derived from the arrays
-// so the runtime checks (isTerminalBucket, displayBucket) can't drift from it.
+// so the runtime checks (isTerminalBucket, classifyBucket) can't drift from it.
 // Terminal mirrors the API's `active=false` filter.
 export const ACTIVE_DEPOSIT_BUCKETS = ["waiting", "processing"] as const
 export const TERMINAL_DEPOSIT_BUCKETS = ["completed", "failed", "below_minimum"] as const
@@ -152,8 +152,8 @@ export interface Deposit {
    * selection and terminal judgment. Typed `string`, not `DepositBucket`: the
    * wire can carry values outside the stable set, and a narrower claim would
    * invite exhaustive `switch`es that defeat the fail-closed handling.
-   * `displayBucket` is the single parse point (unknown → "failed"), and
-   * `isTerminalBucket` counts an unknown value as terminal.
+   * `classifyBucket` is the single parse point (unknown → "unknown", still
+   * polled).
    */
   bucket: string
   /** "below_minimum" or empty string only. */

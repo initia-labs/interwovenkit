@@ -3,7 +3,7 @@ import { fromBaseUnit } from "@initia/utils"
 import { formatDuration } from "@/pages/bridge/data/format"
 import type { AssetOption } from "../data/assetOptions"
 import { BridgeStatusError, isBridgeStatusState } from "../data/bridges"
-import type { WalletDepositBucket } from "../data/deposits"
+import type { ClassifiedBucket } from "../data/deposits"
 import { eqAddress, ParseError } from "../data/parse"
 import type { BridgeStatusState, DepositDelivery } from "../data/types"
 import {
@@ -53,7 +53,7 @@ export interface DepositProgressInputs {
     conflict?: boolean
   }
   deposit: {
-    bucket: WalletDepositBucket
+    bucket: ClassifiedBucket
     delivery?: DepositDelivery
     isError: boolean
     conflict?: boolean

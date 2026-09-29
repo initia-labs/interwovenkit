@@ -1,6 +1,10 @@
 import xss from "xss"
 import { useEffect, useState } from "react"
-import { IconCheckCircleFilled, IconCloseCircleFilled } from "@initia/icons-react"
+import {
+  IconCheckCircleFilled,
+  IconCloseCircleFilled,
+  IconWarningFilled,
+} from "@initia/icons-react"
 import Button from "@/components/Button"
 import { sanitizeLink } from "@/components/explorer"
 import Footer from "@/components/Footer"
@@ -12,8 +16,8 @@ import { useInitiaAddress } from "@/public/data/hooks"
 import { useReceiveAsset, useSourceRoute } from "./data/assets"
 import { useDepositAddress } from "./data/depositAddress"
 import {
+  classifyBucket,
   DepositAddressMismatchError,
-  displayBucket,
   isTerminalBucket,
   useTrackedDeposit,
 } from "./data/deposits"
@@ -90,10 +94,8 @@ const DepositTracking = () => {
   // arrives.
   const isHardError = isMismatchError || (isAddressError && !deposit)
 
-  // displayBucket is the one render point where the wire can betray the type
-  // claim: an unknown bucket normalizes to the failed screen (fail-closed).
-  const bucket = displayBucket(deposit)
-  const isFinal = isTerminalBucket(bucket)
+  const bucket = classifyBucket(deposit)
+  const isFinal = bucket !== "unknown" && isTerminalBucket(bucket)
 
   // "Taking a little longer": armed per status so each pipeline step gets its
   // own delay budget. The flag stores which status stalled, so a transition
@@ -167,6 +169,7 @@ const DepositTracking = () => {
       // recovery copy.
       case "failed":
       case "below_minimum":
+      case "unknown":
         return "Deposit status"
     }
   }
@@ -281,6 +284,18 @@ const DepositTracking = () => {
               {minLabel ? `Deposits below ${minLabel} can't be processed. ` : ""}
               Your funds remain at the deposit address with no automatic refund.
             </DepositStatus>
+          </>
+        )
+      case "unknown":
+        // Not a financial outcome: polling continues and a later read can still complete.
+        return (
+          <>
+            <IconWarningFilled size={48} className={styles.warningIcon} aria-hidden="true" />
+            <p className={styles.heading}>Status unavailable</p>
+            <DepositStatus className={styles.message}>
+              We can&apos;t load this deposit&apos;s status right now.
+            </DepositStatus>
+            {chips}
           </>
         )
       case "waiting":

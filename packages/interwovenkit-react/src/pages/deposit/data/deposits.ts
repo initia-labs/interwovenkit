@@ -29,17 +29,6 @@ export const isTerminalBucket = (bucket: string): boolean =>
 const isDepositBucket = (value: string): value is DepositBucket =>
   (DEPOSIT_BUCKETS as readonly string[]).includes(value)
 
-/**
- * The bucket to render. The single parse point from the wire string to the
- * `DepositBucket` union: an unknown value renders as the failed screen
- * (fail-closed, consistent with isTerminalBucket). Null is the transient
- * re-discovery frame, rendered as waiting.
- */
-export function displayBucket(deposit: Deposit | null): DepositBucket {
-  if (!deposit) return "waiting"
-  return isDepositBucket(deposit.bucket) ? deposit.bucket : "failed"
-}
-
 // Recommended client polling is 3s (server scan loop is 5s). Deposit screens
 // can stay open for hours (a QR left open, an onramp KYC), so after
 // IDLE_BACKOFF_DELAY of screen age the interval relaxes: detection still
@@ -246,10 +235,11 @@ export function useTrackedDeposit({
   return resolveTrackedDeposit(detail.data, depositAddress, detail.error ?? null)
 }
 
-// Unlike displayBucket, an unknown bucket isn't "failed": the user just signed a real transfer.
-export type WalletDepositBucket = DepositBucket | "unknown"
+// The single parse point from the wire string. An unknown bucket is neither failed nor final: polling
+// continues, and a later read can still complete. Null is the transient re-discovery frame.
+export type ClassifiedBucket = DepositBucket | "unknown"
 
-export function classifyWalletBucket(deposit: Deposit | null): WalletDepositBucket {
+export function classifyBucket(deposit: Deposit | null): ClassifiedBucket {
   if (!deposit) return "waiting"
   return isDepositBucket(deposit.bucket) ? deposit.bucket : "unknown"
 }

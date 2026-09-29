@@ -5,15 +5,14 @@ import {
   assertLifiDeposit,
   assertTrackedDeposit,
   bySourceTxPollInterval,
-  classifyWalletBucket,
+  type ClassifiedBucket,
+  classifyBucket,
   createDepositBySourceTxQueryOptions,
   DepositAddressMismatchError,
-  displayBucket,
   isTerminalBucket,
   pollInterval,
   pollUntilTerminal,
   resolveTrackedDeposit,
-  type WalletDepositBucket,
 } from "./deposits"
 import { ETHEREUM_USDC_DENOM } from "./source"
 import {
@@ -109,26 +108,6 @@ describe("resolveTrackedDeposit", () => {
   })
 })
 
-describe("displayBucket", () => {
-  it("renders the transient null frame as waiting", () => {
-    expect(displayBucket(null)).toBe("waiting")
-  })
-
-  it("passes every known bucket through unchanged", () => {
-    for (const bucket of DEPOSIT_BUCKETS) {
-      expect(displayBucket(deposit({ bucket }))).toBe(bucket)
-    }
-  })
-
-  // Direction-pinning test: an unknown (or missing) bucket renders as the
-  // failed screen — safe, actionable copy — never as an in-flight screen that
-  // would pair with stopped polling.
-  it("renders an unknown bucket as failed (fail-closed)", () => {
-    expect(displayBucket(deposit({ bucket: "refunding" }))).toBe("failed")
-    expect(displayBucket(deposit({ bucket: undefined as unknown as string }))).toBe("failed")
-  })
-})
-
 describe("assertDepositsAtAddress", () => {
   it("passes deposits through when every address matches", () => {
     const deposits = [deposit({ id: "1" }), deposit({ id: "2" })]
@@ -161,15 +140,16 @@ describe("assertDepositsAtAddress", () => {
   })
 })
 
-describe("classifyWalletBucket", () => {
-  // Unlike displayBucket, an unknown bucket is not failed: the user has just signed a real transfer.
-  it.each<[string | null, WalletDepositBucket]>([
+describe("classifyBucket", () => {
+  // An unknown bucket is not failed: polling continues and a later read can still complete.
+  it.each<[string | null, ClassifiedBucket]>([
     ["processing", "processing"],
+    ["completed", "completed"],
     [null, "waiting"],
     ["refunding", "unknown"],
     ["", "unknown"],
   ])("classifies the bucket %o as %s", (bucket, expected) => {
-    expect(classifyWalletBucket(bucket === null ? null : deposit({ bucket }))).toBe(expected)
+    expect(classifyBucket(bucket === null ? null : deposit({ bucket }))).toBe(expected)
   })
 })
 

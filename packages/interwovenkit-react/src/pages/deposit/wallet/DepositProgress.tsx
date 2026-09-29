@@ -22,7 +22,7 @@ import { createBridgeStatusQueryOptions } from "../data/bridges"
 import {
   assertDirectDeposit,
   assertLifiDeposit,
-  classifyWalletBucket,
+  classifyBucket,
   createDepositBySourceTxQueryOptions,
   useDeposit,
 } from "../data/deposits"
@@ -208,7 +208,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
 
   const depositQuery = useDeposit(depositId, identity)
   const deposit = depositQuery.data ?? null
-  const bucket = classifyWalletBucket(deposit)
+  const bucket = classifyBucket(deposit)
   const estimatedCompletionAt = deposit?.delivery?.estimated_completion_at
 
   const [now, setNow] = useState(Date.now)
