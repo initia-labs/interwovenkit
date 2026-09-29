@@ -117,6 +117,11 @@
   color: var(--gray-1);
 }
 
+/* A 1's stem carries its weight right of its box; this centers the stem, not the box. */
+.number[data-digit="1"] {
+  translate: -0.75px 0;
+}
+
 .done .number,
 .failed .number,
 .stopped .number {

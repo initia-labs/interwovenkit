@@ -37,7 +37,7 @@
   align-items: center;
   gap: 16px;
 
-  padding: 4px 0 8px;
+  padding-top: 4px;
   text-align: center;
 }
 
@@ -80,7 +80,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
 
   width: 100%;
 
@@ -90,4 +90,10 @@
 /* The chips and links carry their own top margins elsewhere; here the gap sets the spacing. */
 .summary > div {
   margin-top: 0;
+}
+
+/* When a text link ends the screen, its line box adds leading below the baseline; pulling it in
+   keeps the space under the link level with the space above it. A footer keeps the full gap. */
+.screen:last-child .summary > div:last-child:not(:first-child) {
+  margin-bottom: -6px;
 }

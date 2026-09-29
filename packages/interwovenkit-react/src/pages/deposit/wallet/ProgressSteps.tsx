@@ -69,7 +69,9 @@ const ProgressSteps = ({ steps }: { steps: ProgressStepStatus[] }) => {
                 <span className={styles.spinner}>
                   <Loader size={40} border={3} color="var(--success)" />
                 </span>
-                <span className={styles.number}>{index + 1}</span>
+                <span className={styles.number} data-digit={index + 1}>
+                  {index + 1}
+                </span>
                 <IconCheckCircleFilled size={40} className={clsx(styles.mark, styles.check)} />
                 <IconCloseCircleFilled size={40} className={clsx(styles.mark, styles.cross)} />
                 <IconWarningFilled size={40} className={clsx(styles.mark, styles.warn)} />
