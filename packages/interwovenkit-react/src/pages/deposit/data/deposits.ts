@@ -13,6 +13,7 @@ import {
   expectField,
   isRecord,
   isString,
+  sameAccount,
   sameDenom,
 } from "./parse"
 import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM } from "./source"
@@ -324,6 +325,8 @@ function assertDepositIdentity(
     dst_chain_id: identity.dstChainId,
     dst_denom: [identity.dstDenom, sameDenom],
     wallet_address: [identity.recipient, caseInsensitive],
+    // The credited address, once the record carries one, must be the recipient's account.
+    ...(deposit.dst_address ? { dst_address: [identity.recipient, sameAccount] } : {}),
   })
   return deposit
 }

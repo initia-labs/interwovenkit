@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { InitiaAddress } from "@initia/utils"
 import {
   assertDepositsAtAddress,
   assertDirectDeposit,
@@ -203,6 +204,7 @@ const IDENTITY_MISMATCHES: [Partial<Deposit>, RegExp][] = [
   [{ dst_chain_id: "yominet-1" }, /dst_chain_id/],
   [{ dst_denom: "uinit" }, /dst_denom/],
   [{ wallet_address: "init1someoneelse" }, /wallet_address/],
+  [{ dst_address: "init1someoneelse" }, /dst_address/],
 ]
 
 describe("assertDirectDeposit", () => {
@@ -219,6 +221,16 @@ describe("assertDirectDeposit", () => {
     ]) {
       expect(assertDirectDeposit(record, DIRECT)).toBe(record)
     }
+  })
+
+  it("accepts the credited address in hex, or a record that has none yet", () => {
+    const recipient = "init1cwrqy02m2rggulkq5s6nlmmxdaaf4n2hrwslcp"
+    const identity = { ...DIRECT, recipient }
+    const hex = InitiaAddress(recipient).hex
+    const record = deposit({ wallet_address: recipient, dst_address: hex })
+    expect(assertDirectDeposit(record, identity)).toBe(record)
+    const pending = deposit({ wallet_address: recipient, dst_address: "" })
+    expect(assertDirectDeposit(pending, identity)).toBe(pending)
   })
 
   it("accepts a numeric source chain id as the same chain", () => {

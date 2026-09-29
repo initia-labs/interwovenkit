@@ -1,4 +1,5 @@
 import { isHexString } from "ethers"
+import { InitiaAddress } from "@initia/utils"
 import { normalizeDenom } from "./assetOptions"
 
 /** Thrown by assertField: a response that failed its boundary check, which no retry can change. */
@@ -97,6 +98,16 @@ export const caseInsensitive: Same = (actual, expected) =>
   typeof actual === "string" && eqAddress(actual, expected)
 export const sameDenom: Same = (actual, expected) =>
   typeof actual === "string" && normalizeDenom(actual) === normalizeDenom(expected)
+// A rollup may report an account in bech32 or hex; both name the same bytes.
+export const sameAccount: Same = (actual, expected) => {
+  if (typeof actual !== "string") return false
+  if (eqAddress(actual, expected)) return true
+  try {
+    return eqAddress(InitiaAddress(actual).hex, InitiaAddress(expected).hex)
+  } catch {
+    return false
+  }
+}
 // Some endpoints send EVM chain ids as numbers.
 export const sameChainId: Same = (actual, expected) => String(actual) === expected
 
