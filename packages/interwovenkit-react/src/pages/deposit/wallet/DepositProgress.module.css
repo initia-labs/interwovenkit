@@ -29,3 +29,65 @@
   white-space: pre-wrap;
   word-break: break-all;
 }
+
+/* Progress screen rhythm: 16px between the mark and the copy, 24px before what was moved. */
+.screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+
+  padding: 4px 0 8px;
+  text-align: center;
+}
+
+.mark {
+  display: grid;
+
+  min-height: 56px;
+  place-items: center;
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+
+  max-width: 320px;
+}
+
+.heading {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* Scoped to outrank DepositStatus's own size, weight, and contrast color. */
+.copy p.message {
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 0;
+}
+
+.copy p.note {
+  color: var(--gray-3);
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 0;
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+
+  width: 100%;
+
+  margin-top: 8px;
+}
+
+/* The chips and links carry their own top margins elsewhere; here the gap sets the spacing. */
+.summary > div {
+  margin-top: 0;
+}

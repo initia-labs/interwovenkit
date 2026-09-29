@@ -62,6 +62,7 @@ import styles from "./DepositProgress.module.css"
 import type { ReactNode } from "react"
 
 const POLL_INTERVAL = 5_000
+const RETRY_NOTICE_DELAY = 20_000
 
 const DepositProgress = () => {
   const { watch } = useTransferForm()
@@ -350,15 +351,17 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
 
   // Past the usual time, reassure that closing doesn't stop the deposit.
   const note = view.note ?? (heading === DELAYED_HEADING ? DELAYED_NOTE : undefined)
-  const message = note ? (
-    <>
-      {view.message}
-      <br />
-      {note}
-    </>
-  ) : (
-    view.message
-  )
+
+  // A read that fails briefly and recovers isn't worth a notice; one that keeps failing is.
+  const [retryOverdue, setRetryOverdue] = useState(false)
+  useEffect(() => {
+    if (!view.isRetrying) return
+    const timer = setTimeout(() => setRetryOverdue(true), RETRY_NOTICE_DELAY)
+    return () => {
+      clearTimeout(timer)
+      setRetryOverdue(false)
+    }
+  }, [view.isRetrying])
 
   // Storage could not hold this transfer, so the reference is the user's only durable copy.
   const showRecovery = isVolatile(session.id)
@@ -370,7 +373,8 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
       title={view.title}
       variant={view.variant}
       heading={heading}
-      message={message}
+      message={view.message}
+      note={note}
       chips={
         <>
           {showChips && <ProgressChips session={session} />}
@@ -380,7 +384,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
       explorerUrl={explorerUrl}
       onHistoryClick={view.variant === "completed" ? () => openDrawer("/activity") : undefined}
       footer={footer}
-      isRetrying={view.isRetrying}
+      isRetrying={!!view.isRetrying && retryOverdue}
       steps={deriveProgressSteps(session, inputs, view)}
     />
   )
@@ -451,6 +455,7 @@ interface ProgressScreenProps {
   variant: DepositProgressVariant
   heading?: string
   message?: ReactNode
+  note?: ReactNode
   chips?: ReactNode
   explorerUrl?: string
   onHistoryClick?: () => void
@@ -459,48 +464,46 @@ interface ProgressScreenProps {
   steps?: ProgressStepStatus[]
 }
 
+// Mark, then what happened, then what was moved: one spacing rhythm for every state.
 const ProgressScreen = (props: ProgressScreenProps) => {
-  const { title, variant, heading, message, chips, explorerUrl, onHistoryClick, footer } = props
+  const { title, variant, heading, message, note, chips, explorerUrl, onHistoryClick, footer } =
+    props
   // A problem needs attention but isn't a verdict on the funds; only a failure reads as one.
   const isError = variant === "failed" || variant === "below-minimum"
 
   return (
     <DepositSubpage title={title}>
-      <div className={trackingStyles.body}>
-        {props.steps ? (
-          <ProgressSteps steps={props.steps} />
-        ) : variant === "in-flight" ? (
-          <Loader size={40} color="var(--success)" />
-        ) : variant === "completed" ? (
-          <IconCheckCircleFilled size={48} className={trackingStyles.successIcon} aria-hidden />
-        ) : variant === "problem" ? (
-          <IconWarningFilled size={48} className={trackingStyles.warningIcon} aria-hidden />
-        ) : (
-          <IconCloseCircleFilled size={48} className={trackingStyles.failIcon} aria-hidden />
-        )}
+      <div className={styles.screen}>
+        <div className={styles.mark}>
+          {props.steps ? (
+            <ProgressSteps steps={props.steps} />
+          ) : variant === "in-flight" ? (
+            <Loader size={40} color="var(--success)" />
+          ) : variant === "completed" ? (
+            <IconCheckCircleFilled size={48} className={trackingStyles.successIcon} aria-hidden />
+          ) : variant === "problem" ? (
+            <IconWarningFilled size={48} className={trackingStyles.warningIcon} aria-hidden />
+          ) : (
+            <IconCloseCircleFilled size={48} className={trackingStyles.failIcon} aria-hidden />
+          )}
+        </div>
 
-        {heading && (
-          <p
-            className={
-              variant === "in-flight" ? trackingStyles.delayHeading : trackingStyles.heading
-            }
-          >
-            {heading}
-          </p>
-        )}
+        <div className={styles.copy}>
+          {heading && <p className={styles.heading}>{heading}</p>}
+          {message && (
+            <DepositStatus error={isError} className={styles.message}>
+              {message}
+            </DepositStatus>
+          )}
+          {note && <DepositStatus className={styles.note}>{note}</DepositStatus>}
+          {props.isRetrying && <DepositStatus className={styles.note}>Reconnecting…</DepositStatus>}
+        </div>
 
-        {message && (
-          <DepositStatus error={isError} className={trackingStyles.message}>
-            {message}
-          </DepositStatus>
-        )}
-
-        {chips}
-
-        <ExplorerLinks explorerUrl={explorerUrl} onHistoryClick={onHistoryClick} />
-
-        {props.isRetrying && (
-          <DepositStatus className={trackingStyles.note}>Reconnecting…</DepositStatus>
+        {(chips || explorerUrl || onHistoryClick) && (
+          <div className={styles.summary}>
+            {chips}
+            <ExplorerLinks explorerUrl={explorerUrl} onHistoryClick={onHistoryClick} />
+          </div>
         )}
       </div>
 
