@@ -26,3 +26,8 @@
 .gain {
   color: var(--success);
 }
+
+.tag {
+  background-color: var(--gray-7);
+  color: var(--gray-2);
+}

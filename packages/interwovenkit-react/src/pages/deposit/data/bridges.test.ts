@@ -16,6 +16,7 @@ import {
   parseBridgeStatus,
   percentDifference,
   rankBridgeOptions,
+  tagBridgeOptions,
 } from "./bridges"
 import { ParseError } from "./parse"
 import {
@@ -179,81 +180,45 @@ describe("rankBridgeOptions", () => {
     ).toEqual(["b", "a"])
   })
 
-  it("prefers the fastest route within 0.5% of the best net value", () => {
-    expect(
-      keys([
-        option({ bridge: "slow", amount_out: usdc("100"), execution_duration_seconds: 1200 }),
-        option({ bridge: "fast", amount_out: usdc("99.6"), execution_duration_seconds: 4 }),
-        option({ bridge: "mid", amount_out: usdc("99.8"), execution_duration_seconds: 60 }),
-      ]),
-    ).toEqual(["fast", "mid", "slow"])
-  })
-
-  it("ranks by amount when no route has a known cost, never by speed alone", () => {
-    const unpriced = { fee_cost_usd: undefined }
+  // Staging, 10 USDC from Arbitrum, 2026-09-29.
+  it("picks the 10 s route over an 18 min one that delivers 10 cents more", () => {
     expect(
       keys([
         option({
-          bridge: "fast",
-          amount_out: usdc("90"),
-          execution_duration_seconds: 60,
-          ...unpriced,
+          bridge: "polymerStandard",
+          amount_out: "9975000",
+          execution_duration_seconds: 1080,
         }),
-        option({
-          bridge: "rich",
-          amount_out: usdc("100"),
-          execution_duration_seconds: 300,
-          ...unpriced,
-        }),
+        option({ bridge: "polymer", amount_out: "9873853", execution_duration_seconds: 10 }),
+        option({ bridge: "across", amount_out: "9748551", execution_duration_seconds: 10 }),
+        option({ bridge: "relaydepository", amount_out: "9626499", execution_duration_seconds: 4 }),
       ]),
-    ).toEqual(["rich", "fast"])
+    ).toEqual(["polymer", "across", "relaydepository", "polymerStandard"])
   })
 
-  it("keeps a route worth more than 0.5% more ahead of a faster one", () => {
+  // Staging, about 1,000 USDC: bridge times within seconds of each other.
+  it("never trades a dollar for a second", () => {
     expect(
       keys([
-        option({ bridge: "fast", amount_out: usdc("99.4"), execution_duration_seconds: 4 }),
-        option({ bridge: "rich", amount_out: usdc("100"), execution_duration_seconds: 1200 }),
+        option({ bridge: "mayan", amount_out: usdc("996.021343"), execution_duration_seconds: 3 }),
+        option({ bridge: "relay", amount_out: usdc("997.194067"), execution_duration_seconds: 4 }),
+        option({ bridge: "polymer", amount_out: usdc("997.1991"), execution_duration_seconds: 10 }),
       ]),
-    ).toEqual(["rich", "fast"])
+    ).toEqual(["polymer", "relay", "mayan"])
   })
 
-  it("treats a gap under five cents as competitive even when it exceeds 0.5% of a small deposit", () => {
-    expect(
-      keys([
-        option({ bridge: "slow", amount_out: usdc("0.5"), execution_duration_seconds: 628 }),
-        option({ bridge: "fast", amount_out: usdc("0.47"), execution_duration_seconds: 106 }),
-        option({ bridge: "far", amount_out: usdc("0.44"), execution_duration_seconds: 3 }),
-      ]),
-    ).toEqual(["fast", "slow", "far"])
+  it.each([
+    ["twenty minutes saved beats ten cents", 1210, usdc("99.9"), "fast"],
+    ["a dollar beats two minutes saved", 130, usdc("99"), "slow"],
+  ])("%s", (_, slowSeconds, fastAmount, first) => {
+    const [top] = keys([
+      option({ bridge: "slow", amount_out: usdc("100"), execution_duration_seconds: slowSeconds }),
+      option({ bridge: "fast", amount_out: fastAmount, execution_duration_seconds: 10 }),
+    ])
+    expect(top).toBe(first)
   })
 
-  it("ranks Stargate Fast first at 1 USDC despite its higher gas", () => {
-    expect(
-      keys([
-        option({
-          bridge: "stargateV2Bus",
-          amount_out: usdc("1"),
-          execution_duration_seconds: 606,
-          gas_cost_usd: "0.022",
-        }),
-        option({
-          bridge: "glacis",
-          amount_out: usdc("1"),
-          execution_duration_seconds: 1200,
-          gas_cost_usd: "0.03",
-        }),
-        option({
-          bridge: "stargateV2",
-          amount_out: usdc("1"),
-          execution_duration_seconds: 61,
-          gas_cost_usd: "0.045",
-        }),
-      ]),
-    ).toEqual(["stargateV2", "stargateV2Bus", "glacis"])
-  })
-
-  it("nets the quoted gas out of the output before comparing", () => {
+  it("nets gas and on-top fees out of the output before comparing", () => {
     expect(
       keys([
         option({
@@ -262,130 +227,85 @@ describe("rankBridgeOptions", () => {
           execution_duration_seconds: 10,
           gas_cost_usd: "2",
         }),
-        option({ bridge: "lean", amount_out: usdc("99"), execution_duration_seconds: 600 }),
+        option({
+          bridge: "feed",
+          amount_out: usdc("100"),
+          execution_duration_seconds: 10,
+          fee_cost_usd: "1.5",
+        }),
+        option({ bridge: "lean", amount_out: usdc("99"), execution_duration_seconds: 10 }),
       ]),
-    ).toEqual(["lean", "gassy"])
+    ).toEqual(["lean", "feed", "gassy"])
   })
 
-  it("never lets an ineligible route set the best value", () => {
-    expect(
-      keys([
-        option({ bridge: "ineligible", amount_out: usdc("200"), eligible: false }),
-        option({ bridge: "slow", amount_out: usdc("100"), execution_duration_seconds: 600 }),
-        option({ bridge: "fast", amount_out: usdc("99.8"), execution_duration_seconds: 10 }),
-      ]),
-    ).toEqual(["fast", "slow", "ineligible"])
-  })
-
-  it("orders routes outside the tolerance by net value, not speed", () => {
+  it("ranks a route of unknown cost after every priced one, and by amount and time among itself", () => {
+    const unpriced = { fee_cost_usd: undefined }
     expect(
       keys([
         option({
-          bridge: "a",
+          bridge: "unpricedRich",
+          amount_out: usdc("200"),
+          execution_duration_seconds: 10,
+          ...unpriced,
+        }),
+        option({ bridge: "priced", amount_out: usdc("100"), execution_duration_seconds: 10 }),
+        option({
+          bridge: "unpricedPoor",
+          amount_out: usdc("150"),
+          execution_duration_seconds: 10,
+          ...unpriced,
+        }),
+      ]),
+    ).toEqual(["priced", "unpricedRich", "unpricedPoor"])
+  })
+
+  it("counts an unknown time as the slowest known one", () => {
+    expect(
+      keys([
+        option({ bridge: "unknown", amount_out: usdc("100.1") }),
+        option({ bridge: "slow", amount_out: usdc("100"), execution_duration_seconds: 1200 }),
+        option({ bridge: "fast", amount_out: usdc("99.9"), execution_duration_seconds: 10 }),
+      ]),
+    ).toEqual(["fast", "unknown", "slow"])
+  })
+})
+
+describe("tagBridgeOptions", () => {
+  const tags = (options: BridgeOption[]) => tagBridgeOptions(rankBridgeOptions(options))
+
+  it("marks the fastest and the cheapest when neither is Best", () => {
+    expect(
+      tags([
+        option({ bridge: "cheap", amount_out: usdc("100.5"), execution_duration_seconds: 1200 }),
+        option({ bridge: "balanced", amount_out: usdc("100.4"), execution_duration_seconds: 90 }),
+        option({ bridge: "quick", amount_out: usdc("99"), execution_duration_seconds: 3 }),
+        option({
+          bridge: "richer",
+          amount_out: usdc("900"),
           eligible: false,
-          amount_out: usdc("80"),
-          execution_duration_seconds: 5,
+          execution_duration_seconds: 1,
         }),
-        option({ bridge: "b", amount_out: usdc("90"), execution_duration_seconds: 10 }),
-        option({
-          bridge: "c",
-          eligible: false,
-          amount_out: usdc("85"),
-          execution_duration_seconds: 900,
-        }),
-        option({ bridge: "d", amount_out: usdc("95"), execution_duration_seconds: 600 }),
-        option({ bridge: "e", amount_out: usdc("100"), execution_duration_seconds: 1200 }),
       ]),
-    ).toEqual(["e", "d", "b", "c", "a"])
+    ).toEqual({ best: "balanced", fastest: "quick", cheapest: "cheap" })
   })
 
-  // The live 3 USDC Arbitrum case: Stargate's messaging fee is paid on top as native value.
-  it("counts fees paid on top, so a route charging one can't win as if it were free", () => {
-    const routes = [
-      option({
-        bridge: "stargate",
-        amount_out: "2977239",
-        execution_duration_seconds: 5,
-        gas_cost_usd: "0.031",
-        fee_cost_usd: "1.6466",
-      }),
-      option({
-        bridge: "polymer",
-        amount_out: "2962156",
-        execution_duration_seconds: 10,
-        gas_cost_usd: "0.0182",
-      }),
-    ]
-    expect(keys(routes)).toEqual(["polymer", "stargate"])
+  it("tags Fastest only when it saves at least a minute over Best", () => {
+    const withQuick = (seconds: number) =>
+      tags([
+        option({ bridge: "balanced", amount_out: usdc("100"), execution_duration_seconds: 70 }),
+        option({ bridge: "quick", amount_out: usdc("90"), execution_duration_seconds: seconds }),
+      ]).fastest
+    expect(withQuick(10)).toBe("quick")
+    expect(withQuick(11)).toBeUndefined()
   })
 
-  it("never ranks a route whose fees are unknown ahead of one whose fees are known", () => {
+  it("leaves a tag off when the Best route already wins it", () => {
     expect(
-      keys([
-        option({ bridge: "unknown", amount_out: usdc("1"), fee_cost_usd: undefined }),
-        option({ bridge: "known", amount_out: usdc("0.99"), execution_duration_seconds: 600 }),
+      tags([
+        option({ bridge: "both", amount_out: usdc("100"), execution_duration_seconds: 5 }),
+        option({ bridge: "other", amount_out: usdc("99"), execution_duration_seconds: 60 }),
       ]),
-    ).toEqual(["known", "unknown"])
-  })
-
-  it("never ranks a route without a gas estimate ahead of one with a known estimate", () => {
-    expect(
-      keys([
-        option({
-          bridge: "unpriced",
-          amount_out: usdc("1"),
-          execution_duration_seconds: 4,
-          gas_cost_usd: undefined,
-        }),
-        option({
-          bridge: "priced",
-          amount_out: usdc("0.99"),
-          execution_duration_seconds: 600,
-          gas_cost_usd: "0.02",
-        }),
-      ]),
-    ).toEqual(["priced", "unpriced"])
-  })
-
-  it("sorts an unknown duration after every known one among competitive routes", () => {
-    expect(
-      keys([
-        option({ bridge: "across" }),
-        option({ bridge: "relay", execution_duration_seconds: 3000 }),
-      ]),
-    ).toEqual(["relay", "across"])
-  })
-
-  it("breaks a duration and net value tie by the lower gas cost", () => {
-    expect(
-      keys([
-        option({
-          bridge: "alpha",
-          amount_out: "1001200",
-          execution_duration_seconds: 30,
-          gas_cost_usd: "0.0012",
-        }),
-        option({
-          bridge: "zeta",
-          amount_out: "1000900",
-          execution_duration_seconds: 30,
-          gas_cost_usd: "0.0009",
-        }),
-      ]),
-    ).toEqual(["zeta", "alpha"])
-  })
-
-  it("falls back to the bridge key so the order is deterministic", () => {
-    expect(keys([option({ bridge: "relay" }), option({ bridge: "across" })])).toEqual([
-      "across",
-      "relay",
-    ])
-  })
-
-  it("does not mutate its input", () => {
-    const input = [option({ bridge: "b" }), option({ bridge: "a" })]
-    rankBridgeOptions(input)
-    expect(input.map(({ bridge }) => bridge)).toEqual(["b", "a"])
+    ).toEqual({ best: "both", fastest: undefined, cheapest: undefined })
   })
 })
 

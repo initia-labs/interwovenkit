@@ -11,6 +11,7 @@ import {
   percentDifference,
   rankBridgeOptions,
   routeCostUsd,
+  tagBridgeOptions,
 } from "../data/bridges"
 import { userErrorMessage } from "../data/parse"
 import { formatSourceMin } from "../data/source"
@@ -52,19 +53,22 @@ function useFinalQuote(amountIn: string, destination: DestinationNetwork | undef
   return { quote, isCurrent: !!quote && !isPlaceholderData, isLoading: !quote && isFetching }
 }
 
+type RouteTag = "Best" | "Fastest" | "Cheapest"
+
 interface RouteRowProps {
   option: BridgeOption
   destination: DestinationNetwork
   symbol: string
   isActive: boolean
-  isBest: boolean
+  tag?: RouteTag
   bestFinal?: string
   requiredMinimum: string
   onSelect: () => void
 }
 
 const RouteRow = (props: RouteRowProps) => {
-  const { option, destination, symbol, isActive, isBest, bestFinal, requiredMinimum } = props
+  const { option, destination, symbol, isActive, tag, bestFinal, requiredMinimum } = props
+  const isBest = tag === "Best"
   const { name, logoUrl } = getBridgeToolDisplay(option.bridge)
   const {
     quote: finalQuote,
@@ -82,9 +86,14 @@ const RouteRow = (props: RouteRowProps) => {
         <span className={styles.text}>
           <span className={providerStyles.left}>
             <span className={clsx(providerStyles.name, styles.name)}>{name}</span>
-            {isBest && (
-              <span className={clsx(providerStyles.badge, providerStyles["badge-success"])}>
-                Best
+            {tag && (
+              <span
+                className={clsx(
+                  providerStyles.badge,
+                  isBest ? providerStyles["badge-success"] : styles.tag,
+                )}
+              >
+                {tag}
               </span>
             )}
           </span>
@@ -136,6 +145,15 @@ const SelectDepositRoute = () => {
   const ranked = rankBridgeOptions(data?.options ?? [])
   const { option: activeOption } = selectBridgeOption(ranked, selectedBridge)
   const best = ranked.find((option) => option.eligible)
+  const tags = tagBridgeOptions(ranked)
+  const tagOf = (bridge: string): RouteTag | undefined =>
+    bridge === tags.best
+      ? "Best"
+      : bridge === tags.fastest
+        ? "Fastest"
+        : bridge === tags.cheapest
+          ? "Cheapest"
+          : undefined
   const bestQuote = useFinalQuote(
     best?.amount_out ?? "",
     isLifi ? resolution.destination : undefined,
@@ -165,7 +183,7 @@ const SelectDepositRoute = () => {
         destination={resolution.destination}
         symbol={resolution.route.dst_symbol}
         isActive={option.bridge === activeOption?.bridge}
-        isBest={option.bridge === best?.bridge}
+        tag={tagOf(option.bridge)}
         bestFinal={bestFinal}
         requiredMinimum={requiredMinimum}
         onSelect={() => selectRoute(option)}

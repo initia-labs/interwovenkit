@@ -121,43 +121,74 @@ export function routeCostUsd(option: BridgeOption): BigNumber | undefined {
   return BigNumber(option.gas_cost_usd).plus(option.fee_cost_usd)
 }
 
+// A minute of bridging is worth $0.02, about $1.20 an hour: a route minutes faster beats one a few
+// cents better, but seconds never outweigh a real difference in what arrives.
+const MINUTE_VALUE = BigNumber(0.02).shiftedBy(USDC_DECIMALS)
+
+const byKey = (a: BridgeOption, b: BridgeOption) =>
+  a.bridge < b.bridge ? -1 : a.bridge > b.bridge ? 1 : 0
+
 // Every source is USDC, so USD costs net out in USDC base units.
-const netValue = (option: BridgeOption) => {
-  const cost = routeCostUsd(option)
-  return cost
-    ? BigNumber(option.amount_out).minus(cost.shiftedBy(USDC_DECIMALS))
-    : BigNumber(-Infinity)
+const netValue = (option: BridgeOption, cost: BigNumber) =>
+  BigNumber(option.amount_out).minus(cost.shiftedBy(USDC_DECIMALS))
+
+// Scores each route by what arrives after fees, less its bridge time. A route with no known cost is
+// scored on its amount and ranked after every priced one; an unknown time counts as the slowest
+// known one.
+export function rankBridgeOptions(options: BridgeOption[]): BridgeOption[] {
+  const eligible = options.filter((option) => option.eligible)
+  const slowest = Math.max(0, ...eligible.map((option) => option.execution_duration_seconds ?? 0))
+  const seconds = (option: BridgeOption) => option.execution_duration_seconds ?? slowest
+  const score = (option: BridgeOption) => {
+    const cost = routeCostUsd(option)
+    const value = cost ? netValue(option, cost) : BigNumber(option.amount_out)
+    return value.minus(MINUTE_VALUE.times(seconds(option)).div(60))
+  }
+  const tier = (option: BridgeOption) => (!option.eligible ? 2 : routeCostUsd(option) ? 0 : 1)
+
+  return [...options].sort(
+    (a, b) =>
+      tier(a) - tier(b) ||
+      (score(b).comparedTo(score(a)) ?? 0) ||
+      seconds(a) - seconds(b) ||
+      byKey(a, b),
+  )
 }
 
-const COMPETITIVE_VALUE_TOLERANCE = 0.005
-const COMPETITIVE_VALUE_FLOOR = BigNumber(0.05).shiftedBy(USDC_DECIMALS)
+export interface RouteTags {
+  best?: string
+  fastest?: string
+  cheapest?: string
+}
 
-export function rankBridgeOptions(options: BridgeOption[]): BridgeOption[] {
-  const best = BigNumber.max(-Infinity, ...options.filter((o) => o.eligible).map(netValue))
-  const floor = BigNumber.min(
-    best.times(1 - COMPETITIVE_VALUE_TOLERANCE),
-    best.minus(COMPETITIVE_VALUE_FLOOR),
-  )
-  // With no priced route there's no value to be close to, so none of them trades output for speed.
-  const tier = (option: BridgeOption) =>
-    !option.eligible ? 2 : best.isFinite() && netValue(option).gte(floor) ? 0 : 1
+// A route has to save this much time over Best to be worth tagging Fastest.
+const FASTEST_MARGIN_SECONDS = 60
 
-  const byKey = (a: BridgeOption, b: BridgeOption) =>
-    a.bridge < b.bridge ? -1 : a.bridge > b.bridge ? 1 : 0
-  const byNet = (a: BridgeOption, b: BridgeOption) => netValue(b).comparedTo(netValue(a)) ?? 0
-  const byAmount = (a: BridgeOption, b: BridgeOption) =>
-    BigNumber(b.amount_out).comparedTo(a.amount_out) ?? 0
-  const byDuration = (a: BridgeOption, b: BridgeOption) =>
-    (a.execution_duration_seconds ?? Infinity) - (b.execution_duration_seconds ?? Infinity)
-  const byCost = (a: BridgeOption, b: BridgeOption) =>
-    (routeCostUsd(a) ?? BigNumber(Infinity)).comparedTo(routeCostUsd(b) ?? Infinity) ?? 0
-
-  return [...options].sort((a, b) => {
-    const byTier = tier(a) - tier(b)
-    if (byTier !== 0) return byTier
-    if (tier(a) === 0) return byDuration(a, b) || byCost(a, b) || byNet(a, b) || byKey(a, b)
-    return byNet(a, b) || byAmount(a, b) || byDuration(a, b) || byKey(a, b)
-  })
+// Best is the top-ranked route. Fastest and Cheapest mark other routes that win on one side alone,
+// so the trade-off stays one tap away.
+export function tagBridgeOptions(ranked: BridgeOption[]): RouteTags {
+  const eligible = ranked.filter((option) => option.eligible)
+  const best = eligible[0]?.bridge
+  let fastest: BridgeOption | undefined
+  let cheapest: { bridge: string; value: BigNumber } | undefined
+  for (const option of eligible) {
+    const time = option.execution_duration_seconds
+    if (time !== undefined && time < (fastest?.execution_duration_seconds ?? Infinity)) {
+      fastest = option
+    }
+    const cost = routeCostUsd(option)
+    const value = cost && netValue(option, cost)
+    if (value && (!cheapest || value.gt(cheapest.value)))
+      cheapest = { bridge: option.bridge, value }
+  }
+  // A route both fastest and cheapest outscores every other, so it is already Best.
+  const bestSeconds = eligible[0]?.execution_duration_seconds ?? Infinity
+  const fastestSeconds = fastest?.execution_duration_seconds ?? Infinity
+  return {
+    best,
+    fastest: fastestSeconds <= bestSeconds - FASTEST_MARGIN_SECONDS ? fastest?.bridge : undefined,
+    cheapest: cheapest?.bridge !== best ? cheapest?.bridge : undefined,
+  }
 }
 
 export function percentDifference(value: string | undefined, best: string | undefined): string {
