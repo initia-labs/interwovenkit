@@ -134,7 +134,8 @@ export const SHORT_APPROVAL_MESSAGE =
 
 interface PendingApproval {
   hash: string
-  /** The approval's own nonce: the deposit's baseline must come after it. */
+  /** At or below the approval's own nonce: the deposit's baseline must come after it. The allowance,
+   * not the nonce, decides that the approval landed. */
   nonce: number
   owner: string
   token: string
