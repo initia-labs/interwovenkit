@@ -654,7 +654,8 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     quantityEntered: !!quantity,
     isAmountSettled,
     amount,
-    balancesError: !!balancesQuery.error,
+    // A failed refresh keeps the last balance; estimateGas refuses a send it no longer covers.
+    balancesError: !!balancesQuery.error && balancesQuery.data === undefined,
     tokenBalance: balancesQuery.data?.token,
     nativeBalance: balancesQuery.data?.native,
     requiredNative: nativeCost(draftTransaction),
@@ -665,7 +666,14 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     optionsError: userErrorMessage(optionsQuery.error),
     hasOptions: !!optionsData && !optionsQuery.isPlaceholderData,
     hasEligibleOption: !!selectedBridge,
-    quoteError: userErrorMessage(quoteQuery.error),
+    // A failed refresh keeps a fresh quote for these inputs; the send re-reads one that aged out.
+    quoteError: userErrorMessage(
+      quoteQuery.data === undefined ||
+        quoteQuery.isPlaceholderData ||
+        isQuoteStale(quoteQuery.dataUpdatedAt, quoteQuery.errorUpdatedAt)
+        ? quoteQuery.error
+        : null,
+    ),
     hasQuote: !!quote,
     meetsMinimum,
     minimumLabel,
