@@ -629,6 +629,10 @@ describe("deriveDepositProgress: deposit id stage", () => {
     })
   })
 
+  it("completed without a readable amount names the asset instead", () => {
+    expect(depositView({ bucket: "completed" }).message).toMatch(/^Your \S+ deposited\.$/)
+  })
+
   const HELD =
     "is held at your deposit address and won't be refunded automatically. Reach out to the Initia team with the transaction link for support."
 

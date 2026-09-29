@@ -488,7 +488,7 @@ function depositStage(session: DepositSession, inputs: DepositProgressInputs): D
       return terminal({
         title: "Deposit complete",
         variant: "completed",
-        message: `${completedAmount} deposited.`,
+        message: `${completedAmount ?? `Your ${session.destination.symbol}`} deposited.`,
         persist: { phase: "terminal", lastState: "completed" },
       })
     case "below_minimum":
