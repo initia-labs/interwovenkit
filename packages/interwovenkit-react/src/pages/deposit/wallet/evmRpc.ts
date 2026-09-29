@@ -71,6 +71,9 @@ const ERC20 = new Interface([
   "function approve(address spender, uint256 amount) returns (bool)",
 ])
 
+// Lowercase skips ethers' checksum validation, which rejects a mixed-case address with a bad checksum.
+const addressArg = (address: string) => address.toLowerCase()
+
 // An empty response means no contract at that address; decoding it would read as zero.
 export async function readErc20Uint(
   provider: JsonRpcProvider,
@@ -78,7 +81,8 @@ export async function readErc20Uint(
   fragment: "balanceOf" | "allowance",
   args: string[],
 ): Promise<string> {
-  const result = await provider.call({ to: token, data: ERC20.encodeFunctionData(fragment, args) })
+  const data = ERC20.encodeFunctionData(fragment, args.map(addressArg))
+  const result = await provider.call({ to: token, data })
   if (!result || result === "0x") {
     throw new Error(`ERC-20 ${fragment} returned no data for ${token}`)
   }
@@ -104,8 +108,6 @@ export async function readSourceBalances(
 }
 
 // ethers rejects a mixed-case address with a bad EIP-55 checksum; the API checks shape only.
-const addressArg = (address: string) => address.toLowerCase()
-
 export function encodeErc20Transfer(to: string, amount: string): string {
   return ERC20.encodeFunctionData("transfer", [addressArg(to), BigInt(amount)])
 }

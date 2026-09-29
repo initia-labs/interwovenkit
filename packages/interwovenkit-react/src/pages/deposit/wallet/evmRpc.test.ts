@@ -204,6 +204,14 @@ describe("readErc20Uint", () => {
     })
     await expect(readErc20Uint(provider, TOKEN, "allowance", [SENDER, BRIDGE])).resolves.toBe("7")
   })
+
+  it("accepts a spender with a wrong EIP-55 checksum", async () => {
+    const spender = "0x9f1B4b1F2C3d4E5f60718293A4B5c6D7E8F90123"
+    const provider = createFakeProvider({
+      call: answerTokenRead("allowance", [SENDER, spender.toLowerCase()], 7n),
+    })
+    await expect(readErc20Uint(provider, TOKEN, "allowance", [SENDER, spender])).resolves.toBe("7")
+  })
 })
 
 describe("ERC-20 calldata", () => {
