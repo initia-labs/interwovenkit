@@ -1,5 +1,6 @@
 import xss from "xss"
 import { useEffect, useState } from "react"
+import { useInterval } from "usehooks-ts"
 import {
   IconCheckCircleFilled,
   IconCloseCircleFilled,
@@ -17,6 +18,8 @@ import { useReceiveAsset, useSourceRoute } from "./data/assets"
 import { useDepositAddress } from "./data/depositAddress"
 import {
   classifyBucket,
+  deliveryExplorerUrl,
+  deliveryTimeLeft,
   DepositAddressMismatchError,
   isTerminalBucket,
   TAKING_LONGER_DELAY,
@@ -121,9 +124,14 @@ const DepositTracking = () => {
     ? (srcChain?.pretty_name ?? fallbackChainName(deposit.src_chain_id))
     : ""
 
-  const explorerUrl = deposit?.bot_tx_explorer_url
-    ? xss(sanitizeLink(deposit.bot_tx_explorer_url))
-    : ""
+  const deliveryHref = deliveryExplorerUrl(deposit)
+  const explorerUrl = deliveryHref ? xss(sanitizeLink(deliveryHref)) : ""
+
+  // Counts down once the record has an estimate; a fast delivery shortens it.
+  const [now, setNow] = useState(Date.now)
+  const hasEstimate = !!deposit?.delivery?.estimated_completion_at && !isFinal
+  useInterval(() => setNow(Date.now()), hasEstimate ? 10_000 : null)
+  const timeLeft = hasEstimate ? deliveryTimeLeft(deposit?.delivery, now) : undefined
 
   // `src_decimals` comes from the deposit's route in the Deposit API's
   // `config/assets`; when the route has since been removed, the minimum cannot
@@ -227,7 +235,7 @@ const DepositTracking = () => {
     }
     return (
       <DepositStatus className={styles.message}>
-        We&apos;re moving your funds to the destination chain now.
+        We&apos;re moving your funds to the destination chain now.{timeLeft && ` ${timeLeft}`}
       </DepositStatus>
     )
   }

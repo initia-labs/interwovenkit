@@ -24,6 +24,7 @@ import {
   assertLifiDeposit,
   classifyBucket,
   createDepositBySourceTxQueryOptions,
+  deliveryExplorerUrl,
   useDeposit,
 } from "../data/deposits"
 import { ParseError } from "../data/parse"
@@ -414,10 +415,7 @@ function resolveExplorerUrl(
   bridgeStatus: BridgeStatusResponse | undefined,
 ): string | undefined {
   const href =
-    deposit?.advance_tx_explorer_url ||
-    deposit?.bot_tx_explorer_url ||
-    bridgeStatus?.dst_tx_link ||
-    bridgeStatus?.src_tx_link
+    deliveryExplorerUrl(deposit) || bridgeStatus?.dst_tx_link || bridgeStatus?.src_tx_link
   return href ? xss(sanitizeLink(href)) : undefined
 }
 

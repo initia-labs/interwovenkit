@@ -9,6 +9,8 @@ import {
   type ClassifiedBucket,
   classifyBucket,
   createDepositBySourceTxQueryOptions,
+  deliveryExplorerUrl,
+  deliveryTimeLeft,
   DepositAddressMismatchError,
   isTerminalBucket,
   pollInterval,
@@ -295,4 +297,30 @@ describe("assertTrackedDeposit", () => {
       expect(() => assertTrackedDeposit(deposit(overrides), TRACKED)).toThrow(message)
     },
   )
+})
+
+describe("deliveryExplorerUrl", () => {
+  it("links the fast-delivery payout ahead of the bot's delivery", () => {
+    const advance = "https://scan.initia.xyz/interwoven-1/txs/ADVANCE"
+    const bot = "https://scan.initia.xyz/interwoven-1/txs/BOT"
+    expect(
+      deliveryExplorerUrl(deposit({ advance_tx_explorer_url: advance, bot_tx_explorer_url: bot })),
+    ).toBe(advance)
+    expect(deliveryExplorerUrl(deposit({ bot_tx_explorer_url: bot }))).toBe(bot)
+    expect(deliveryExplorerUrl(null)).toBe("")
+  })
+})
+
+describe("deliveryTimeLeft", () => {
+  const now = Date.parse("2026-09-29T12:00:00Z")
+  const at = (iso: string | null) => ({ method: "advance", estimated_completion_at: iso })
+
+  it.each([
+    ["rounds a remaining estimate up to the minute", at("2026-09-29T12:01:10Z"), "About 2m left."],
+    ["says nothing once the estimate has passed", at("2026-09-29T11:59:00Z"), undefined],
+    ["says nothing without an estimate", at(null), undefined],
+    ["says nothing without a delivery", undefined, undefined],
+  ])("%s", (_, delivery, expected) => {
+    expect(deliveryTimeLeft(delivery, now)).toBe(expected)
+  })
 })

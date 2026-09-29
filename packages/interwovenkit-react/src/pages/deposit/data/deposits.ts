@@ -4,6 +4,7 @@ import { useState } from "react"
 import { queryOptions, useQuery } from "@tanstack/react-query"
 import { useConfig } from "@/data/config"
 import { normalizeError } from "@/data/http"
+import { formatDuration } from "@/pages/bridge/data/format"
 import { depositQueryKeys, useDepositApi } from "./api"
 import {
   assertEchoes,
@@ -17,7 +18,7 @@ import {
   sameDenom,
 } from "./parse"
 import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM } from "./source"
-import type { Deposit, DepositBucket, ListDepositsResponse } from "./types"
+import type { Deposit, DepositBucket, DepositDelivery, ListDepositsResponse } from "./types"
 import { ACTIVE_DEPOSIT_BUCKETS, DEPOSIT_BUCKETS, TERMINAL_DEPOSIT_BUCKETS } from "./types"
 
 // Deliberately the negation of the active set: an unknown bucket must count
@@ -38,6 +39,17 @@ const isDepositBucket = (value: string): value is DepositBucket =>
 const POLL_INTERVAL = 3000
 const IDLE_POLL_INTERVAL = 15_000
 const IDLE_BACKOFF_DELAY = 5 * 60_000
+
+// The transaction that credited the recipient: a fast-delivery payout outranks the bot's delivery.
+export const deliveryExplorerUrl = (deposit: Deposit | null | undefined) =>
+  deposit?.advance_tx_explorer_url || deposit?.bot_tx_explorer_url || ""
+
+/** "About 3m left." while the record's estimated completion is still ahead. */
+export function deliveryTimeLeft(delivery: DepositDelivery | undefined, now: number) {
+  const remaining = Date.parse(delivery?.estimated_completion_at ?? "") - now
+  if (!(remaining > 0)) return undefined
+  return `About ${formatDuration(Math.ceil(remaining / 60_000) * 60)} left.`
+}
 
 // Per-status stall budget before the "taking a little longer" copy.
 export const TAKING_LONGER_DELAY = 60 * 1000

@@ -1,9 +1,8 @@
 import BigNumber from "bignumber.js"
 import { fromBaseUnit } from "@initia/utils"
-import { formatDuration } from "@/pages/bridge/data/format"
 import type { AssetOption } from "../data/assetOptions"
 import { BridgeStatusError, isBridgeStatusState } from "../data/bridges"
-import { type ClassifiedBucket, TAKING_LONGER_DELAY } from "../data/deposits"
+import { type ClassifiedBucket, deliveryTimeLeft, TAKING_LONGER_DELAY } from "../data/deposits"
 import { eqAddress, ParseError } from "../data/parse"
 import { ETHEREUM_CHAIN_ID } from "../data/source"
 import type { BridgeStatusState, DepositDelivery } from "../data/types"
@@ -469,9 +468,7 @@ function correlateStage(inputs: DepositProgressInputs): DepositProgressView {
 function timeLeft(session: DepositSession, inputs: DepositProgressInputs): string | undefined {
   const { bucket, delivery } = inputs.deposit
   if (!session.depositId || (bucket !== "waiting" && bucket !== "processing")) return undefined
-  const remaining = Date.parse(delivery?.estimated_completion_at ?? "") - inputs.now
-  if (!(remaining > 0)) return undefined
-  return `About ${formatDuration(Math.ceil(remaining / 60_000) * 60)} left.`
+  return deliveryTimeLeft(delivery, inputs.now)
 }
 
 function depositStage(session: DepositSession, inputs: DepositProgressInputs): DepositProgressView {
