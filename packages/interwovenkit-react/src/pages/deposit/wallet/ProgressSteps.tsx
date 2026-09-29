@@ -1,5 +1,5 @@
 import clsx from "clsx"
-import { type CSSProperties, useState } from "react"
+import { type CSSProperties, useId, useState } from "react"
 import {
   IconCheckCircleFilled,
   IconCloseCircleFilled,
@@ -36,6 +36,7 @@ function describe(steps: ProgressStepStatus[]): string {
 // The wallet's own status marks: its Loader while a step runs, then its filled check, close, or
 // warning icon.
 const ProgressSteps = ({ steps }: { steps: ProgressStepStatus[] }) => {
+  const gooId = `goo${useId().replace(/[^\w-]/g, "")}`
   const previous = usePreviousSteps(steps)
   const isComplete = steps.every((status) => status === "done")
   const justCompleted = isComplete && !previous.every((status) => status === "done")
@@ -46,6 +47,7 @@ const ProgressSteps = ({ steps }: { steps: ProgressStepStatus[] }) => {
         styles.progress,
         isComplete && styles.complete,
         justCompleted && styles.justCompleted,
+        steps.length > 1 && styles.merging,
       )}
     >
       <ol className={styles.steps} aria-label="Deposit steps">
@@ -80,6 +82,20 @@ const ProgressSteps = ({ steps }: { steps: ProgressStepStatus[] }) => {
           )
         })}
       </ol>
+
+      {/* On completion two discs replace the marks, travel together, and fuse through the goo filter. */}
+      {steps.length > 1 && (
+        <span className={styles.merge} style={{ filter: `url(#${gooId})` }} aria-hidden>
+          <span className={styles.drop} />
+          <span className={styles.drop} />
+        </span>
+      )}
+      <svg className={styles.defs} aria-hidden>
+        <filter id={gooId}>
+          <feGaussianBlur in="SourceGraphic" stdDeviation="6" />
+          <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -9" />
+        </filter>
+      </svg>
 
       <IconCheckCircleFilled size={48} className={styles.badge} aria-hidden />
 
