@@ -64,6 +64,11 @@ import type { ReactNode } from "react"
 const POLL_INTERVAL = 5_000
 const RETRY_NOTICE_DELAY = 20_000
 
+// A query whose first read failed drops back to pending on each refetch; the timestamps hold the
+// failure until a read succeeds.
+const lastReadFailed = (query: { errorUpdatedAt: number; dataUpdatedAt: number }) =>
+  query.errorUpdatedAt > query.dataUpdatedAt
+
 const DepositProgress = () => {
   const { watch } = useTransferForm()
   const sessionId = watch("depositSessionId")
@@ -245,9 +250,9 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     nonces: {
       data: noncesQuery.data,
       readAt: noncesQuery.dataUpdatedAt,
-      isError: noncesQuery.isError,
+      isError: lastReadFailed(noncesQuery),
     },
-    source: { outcome: sourceOutcome, isError: sourceQuery.isError },
+    source: { outcome: sourceOutcome, isError: lastReadFailed(sourceQuery) },
     bridge: {
       state: bridgeStatus?.state,
       error: bridgeQuery.error,
@@ -255,13 +260,13 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     },
     direct: {
       found: directQuery.isFetched ? !!directRecord : undefined,
-      isError: directQuery.isError,
+      isError: lastReadFailed(directQuery),
       conflict: directHandoff?.conflict,
     },
     deposit: {
       bucket,
       delivery: deposit?.delivery,
-      isError: depositQuery.isError,
+      isError: lastReadFailed(depositQuery),
       conflict: depositQuery.error instanceof ParseError,
       minLabel,
       completedAmount,
