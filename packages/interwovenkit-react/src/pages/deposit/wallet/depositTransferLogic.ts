@@ -9,6 +9,7 @@ import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM } from "../data/source"
 import type {
   BridgeOption,
   BridgeQuoteResponse,
+  BridgeRequestIdentity,
   DestinationNetwork,
   QuoteResponse,
 } from "../data/types"
@@ -35,6 +36,16 @@ export function resolveDepositRecipient(
       : { error: "Could not resolve the receiving address" }
   }
 }
+
+// A pick holds only for the transfer it was made for: another amount or asset re-ranks the routes.
+export const bridgeSelectionContext = (identity: BridgeRequestIdentity) =>
+  [
+    identity.srcChainId,
+    identity.srcDenom,
+    identity.dstChainId,
+    identity.dstDenom,
+    identity.amount,
+  ].join("|")
 
 export function selectBridgeOption(
   ranked: BridgeOption[],

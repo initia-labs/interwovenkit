@@ -18,6 +18,8 @@ export interface TransferFormValues {
   dstDenom: string
   dstChainId: string
   selectedBridge: string
+  /** The transfer `selectedBridge` was picked for; any other one falls back to the best route. */
+  selectedBridgeFor: string
   depositSessionId: string
   // TX completion data
   result?: BridgeTxResult

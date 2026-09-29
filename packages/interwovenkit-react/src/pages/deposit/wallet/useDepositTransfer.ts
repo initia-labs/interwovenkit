@@ -44,6 +44,7 @@ import {
 } from "./depositSession"
 import { type DepositTransportResolution, resolveDepositTransport } from "./depositSources"
 import {
+  bridgeSelectionContext,
   buildDepositTransaction,
   combineEstimatedSeconds,
   deliverySeconds,
@@ -230,7 +231,11 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     }
   }
   const { setValue, getValues, watch } = useTransferForm()
-  const [selectedBridgeKey, quantity] = watch(["selectedBridge", "quantity"])
+  const [pickedBridge, pickedFor, quantity] = watch([
+    "selectedBridge",
+    "selectedBridgeFor",
+    "quantity",
+  ])
   const hexAddress = useHexAddress()
   const request = useDepositRequest(resolution)
   const { identity, recipient, recipientError, amount } = request
@@ -264,11 +269,14 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const optionsQuery = useQuery(createBridgeOptionsQueryOptions(api, identity, optionsEnabled))
   const optionsData = optionsEnabled ? optionsQuery.data : undefined
   const ranked = rankBridgeOptions(optionsData?.options ?? [])
+  const isStalePick = !!pickedBridge && pickedFor !== bridgeSelectionContext(identity)
+  const selectedBridgeKey = isStalePick ? "" : pickedBridge
   const { option: selectedBridge, clearSelection } = selectBridgeOption(ranked, selectedBridgeKey)
 
+  // Cleared, not just ignored, so returning to the earlier amount doesn't bring the old pick back.
   useEffect(() => {
-    if (clearSelection) setValue("selectedBridge", "")
-  }, [clearSelection, setValue])
+    if (clearSelection || isStalePick) setValue("selectedBridge", "")
+  }, [clearSelection, isStalePick, setValue])
 
   const quoteQueryOptions = createBridgeQuoteQueryOptions(
     api,

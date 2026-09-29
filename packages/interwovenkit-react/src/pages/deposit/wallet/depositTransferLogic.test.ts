@@ -10,6 +10,7 @@ import type {
   QuoteResponse,
 } from "../data/types"
 import {
+  bridgeSelectionContext,
   buildDepositTransaction,
   combineEstimatedSeconds,
   deliverySeconds,
@@ -121,6 +122,25 @@ describe("toBaseUnitString", () => {
     ["abc", ""],
   ])("%s → %j", (quantity, expected) => {
     expect(toBaseUnitString(quantity, 6)).toBe(expected)
+  })
+})
+
+describe("bridgeSelectionContext", () => {
+  const identity = {
+    srcChainId: "8453",
+    srcDenom: "0xusdc",
+    dstChainId: "interwoven-1",
+    dstDenom: "uusdc",
+    amount: "1000000",
+    fromAddress: "0xsender",
+    walletAddress: "init1recipient",
+  }
+
+  it("changes with the amount or the asset, not with the addresses", () => {
+    const context = bridgeSelectionContext(identity)
+    expect(bridgeSelectionContext({ ...identity, amount: "2000000" })).not.toBe(context)
+    expect(bridgeSelectionContext({ ...identity, srcChainId: "42161" })).not.toBe(context)
+    expect(bridgeSelectionContext({ ...identity, fromAddress: "0xother" })).toBe(context)
   })
 })
 

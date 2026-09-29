@@ -33,6 +33,7 @@ export function buildTransferDefaultValues({
     dstDenom: "",
     dstChainId: "",
     selectedBridge: "",
+    selectedBridgeFor: "",
     depositSessionId: "",
   }
 

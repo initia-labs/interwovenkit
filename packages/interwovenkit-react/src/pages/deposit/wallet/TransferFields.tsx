@@ -330,7 +330,11 @@ const TransferFields = () => {
       <button
         className={styles.asset}
         disabled={hasSingleExternalAssetOption}
-        onClick={() => setValue("page", "select-external")}
+        onClick={() => {
+          // Coming back from the asset list starts from the best route again.
+          setValue("selectedBridge", "")
+          setValue("page", "select-external")
+        }}
       >
         <div className={styles.assetIcon}>
           {externalAsset ? (

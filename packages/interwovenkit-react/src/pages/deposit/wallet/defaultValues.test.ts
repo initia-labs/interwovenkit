@@ -12,6 +12,7 @@ const EMPTY: TransferFormValues = {
   dstDenom: "",
   dstChainId: "",
   selectedBridge: "",
+  selectedBridgeFor: "",
   depositSessionId: "",
 }
 const DEPOSIT_INIT = { dstDenom: INIT.denom, dstChainId: INIT.chainId }

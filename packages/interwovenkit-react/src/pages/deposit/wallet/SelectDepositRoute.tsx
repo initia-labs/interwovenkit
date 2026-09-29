@@ -20,6 +20,7 @@ import DepositStatus from "../DepositStatus"
 import DepositSubpage from "../DepositSubpage"
 import { getBridgeToolDisplay } from "./depositSources"
 import {
+  bridgeSelectionContext,
   combineEstimatedSeconds,
   deliverySeconds,
   formatEstimate,
@@ -129,7 +130,7 @@ const RouteRow = (props: RouteRowProps) => {
 
 const SelectDepositRoute = () => {
   const { setValue, watch } = useTransferForm()
-  const selectedBridge = watch("selectedBridge")
+  const [pickedBridge, pickedFor] = watch(["selectedBridge", "selectedBridgeFor"])
   const api = useDepositApi()
   const { resolution } = useDepositTransportResolution()
   const request = useDepositRequest(resolution)
@@ -145,7 +146,11 @@ const SelectDepositRoute = () => {
   }, [isLifi, setValue])
 
   const ranked = rankBridgeOptions(data?.options ?? [])
-  const { option: activeOption } = selectBridgeOption(ranked, selectedBridge)
+  const selectionContext = bridgeSelectionContext(request.identity)
+  const { option: activeOption } = selectBridgeOption(
+    ranked,
+    pickedFor === selectionContext ? pickedBridge : "",
+  )
   const best = ranked.find((option) => option.eligible)
   const tags = tagBridgeOptions(ranked)
   const tagOf = (bridge: string): RouteTag | undefined =>
@@ -168,6 +173,7 @@ const SelectDepositRoute = () => {
 
   const selectRoute = (option: BridgeOption) => {
     setValue("selectedBridge", option.bridge)
+    setValue("selectedBridgeFor", selectionContext)
     setValue("page", "fields")
   }
 
