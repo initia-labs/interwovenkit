@@ -392,7 +392,9 @@ export function rollbackDepositSessionPrompt(
   id: string,
 ): DepositSession | null {
   const current = readDepositSession(storage, id)
-  if (!current || current.phase !== "send_prompt" || current.currentSourceHash) return current
+  // A hash this tab could only keep in memory still proves the send.
+  const known = preferVolatile(current, id)
+  if (!current || current.phase !== "send_prompt" || known?.currentSourceHash) return known
 
   const reverted = canonicalize({
     ...current,
@@ -557,15 +559,17 @@ function listStoredAndVolatile(apiUrl: string): DepositSession[] {
   return [...byId.values()].sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
+export const depositSessionStore = {
+  read: readStoredOrVolatile,
+  write: writeStoredOrVolatile,
+  isVolatile: (id: string) => volatileSessions.has(id),
+  list: listStoredAndVolatile,
+}
+
 export function useDepositSessionStore() {
   const revision = useSyncExternalStore(subscribeDepositSessions, getRevision, getRevision)
   return useMemo(
-    () => ({
-      read: readStoredOrVolatile,
-      write: writeStoredOrVolatile,
-      isVolatile: (id: string) => volatileSessions.has(id),
-      list: listStoredAndVolatile,
-    }),
+    () => ({ ...depositSessionStore }),
     // A new object per revision is what invalidates every memo built on the sessions it returns.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [revision],

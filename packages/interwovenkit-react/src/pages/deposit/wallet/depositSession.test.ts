@@ -9,6 +9,7 @@ import type {
 import {
   DepositInFlightError,
   depositSessionStorageKey,
+  depositSessionStore,
   DepositSessionWriteError,
   findInFlightSession,
   isPhaseAdvance,
@@ -309,6 +310,31 @@ describe("rollbackDepositSessionPrompt", () => {
     const storage = createMemoryStorage()
     store(storage, buildDepositSession(overrides))
     expect(rollbackDepositSessionPrompt(storage, "session-1")?.phase).toBe(overrides.phase)
+  })
+
+  it("never rolls back a prompt whose hash this tab could only keep in memory", () => {
+    const storage = createMemoryStorage()
+    vi.stubGlobal("localStorage", storage)
+    const prompted = buildDepositSession({ phase: "send_prompt" })
+    store(storage, prompted)
+    const setItem = storage.setItem
+    storage.setItem = () => {
+      throw new Error("QuotaExceededError")
+    }
+    const sent = { ...prompted, phase: "source_sent" as const, currentSourceHash: "0xaaa" }
+    depositSessionStore.write(sent)
+    try {
+      expect(depositSessionStore.isVolatile(prompted.id)).toBe(true)
+      expect(rollbackDepositSessionPrompt(storage, prompted.id)).toMatchObject({
+        phase: "source_sent",
+        currentSourceHash: "0xaaa",
+      })
+      expect(depositSessionStore.isVolatile(prompted.id)).toBe(true)
+    } finally {
+      storage.setItem = setItem
+      depositSessionStore.write(sent)
+      vi.unstubAllGlobals()
+    }
   })
 
   it("reports nothing to roll back when the record is gone", () => {
