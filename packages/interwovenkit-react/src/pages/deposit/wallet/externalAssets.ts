@@ -12,7 +12,7 @@ import {
 } from "@/pages/bridge/data/chains"
 import { useDepositApi } from "../data/api"
 import { type AssetOption, type DepositLocationState, normalizeDenom } from "../data/assetOptions"
-import { createDepositAssetsQueryOptions, routeFeedsDestination } from "../data/assets"
+import { createDepositAssetsQueryOptions } from "../data/assets"
 import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM } from "../data/source"
 import { type Balance, useAllBalancesQuery } from "./balances"
 import {
@@ -150,9 +150,8 @@ export function useExternalAssetOptions(): ExternalAssetOptionsResult {
       ? intersectHostSources(DEPOSIT_API_SOURCES, remoteOptions)
       : []
   // Until the catalog says otherwise, the Deposit API carries these sources to this destination.
-  const route = findEthereumUsdcRoute(catalog)
   const depositApiFeedsLocal =
-    !catalog || (!!route && routeFeedsDestination(route, localAsset.chain_id, localAsset.denom))
+    !catalog || !!findEthereumUsdcRoute(catalog, localAsset.chain_id, localAsset.denom)
   const extraExternalOptions = [
     ...(sourceOverride?.extraExternalOptions ?? []),
     ...depositApiOptions,

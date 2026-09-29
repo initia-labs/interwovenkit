@@ -73,6 +73,17 @@ describe("resolveDepositTransport", () => {
     })
   })
 
+  it("picks the Ethereum USDC row that feeds the destination, not the first one listed", () => {
+    const otherToken = ethereumRoute({
+      dst_symbol: "USDC",
+      dst_networks: [buildDestinationNetwork({ denom: "uother" })],
+    })
+    expect(resolveDepositTransport({ ...params, catalog: [otherToken, route] })).toMatchObject({
+      transport: "lifi",
+      route,
+    })
+  })
+
   it.each([
     ["withdraw", { mode: "withdraw" as const }],
     [

@@ -65,13 +65,19 @@ export function depositApiRpcUrls(chainId: string): readonly string[] | undefine
   return DEPOSIT_API_SOURCES.find((source) => source.chainId === chainId)?.rpcUrls
 }
 
-export function findEthereumUsdcRoute(catalog: Asset[] | undefined): Asset | undefined {
-  return catalog?.find((asset) =>
-    matchesAssetOption(
-      { chainId: ETHEREUM_CHAIN_ID, denom: ETHEREUM_USDC_DENOM },
-      asset.src_chain_id,
-      asset.src_denom,
-    ),
+// The catalog lists one row per destination token, so several rows can share Ethereum USDC.
+export function findEthereumUsdcRoute(
+  catalog: Asset[] | undefined,
+  dstChainId: string,
+  dstDenom: string,
+): Asset | undefined {
+  return catalog?.find(
+    (asset) =>
+      matchesAssetOption(
+        { chainId: ETHEREUM_CHAIN_ID, denom: ETHEREUM_USDC_DENOM },
+        asset.src_chain_id,
+        asset.src_denom,
+      ) && routeFeedsDestination(asset, dstChainId, dstDenom),
   )
 }
 
@@ -112,8 +118,8 @@ export function resolveDepositTransport(
     return { transport: "unavailable", source, reason: catalogError ? "error" : "loading" }
   }
 
-  const route = findEthereumUsdcRoute(catalog)
-  if (!route || !routeFeedsDestination(route, dstChainId, dstDenom)) return { transport: "router" }
+  const route = findEthereumUsdcRoute(catalog, dstChainId, dstDenom)
+  if (!route) return { transport: "router" }
 
   const destination = findDestinationNetwork(route, dstChainId, dstDenom)
   if (!destination) return { transport: "router" }

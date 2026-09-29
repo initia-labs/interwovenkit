@@ -221,7 +221,11 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     ...createDepositAssetsQueryOptions(api),
     enabled: !!depositApiUrl,
   })
-  const ethereumRoute = findEthereumUsdcRoute(assetsQuery.data)
+  const ethereumRoute = findEthereumUsdcRoute(
+    assetsQuery.data,
+    session.destination.chainId,
+    session.destination.denom,
+  )
   const minLabel =
     deposit?.required_min_amount && ethereumRoute
       ? formatSourceMin(deposit.required_min_amount, ethereumRoute.src_decimals, "USDC")
