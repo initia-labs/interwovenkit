@@ -62,7 +62,7 @@ const DepositTransferActions = ({ resolution }: { resolution: DepositTransportSe
     !model.submitError &&
     !approval.error &&
     !quoteUpdated
-      ? `This deposit uses ${truncate(model.depositAddress, [8, 6])}, your generated deposit address. Your wallet may warn that it's not your current address.`
+      ? `This deposit uses ${truncate(model.depositAddress, [8, 6])}, your Initia deposit address. Your wallet may warn that it's not your current address.`
       : undefined
 
   const loadingText = isSending
