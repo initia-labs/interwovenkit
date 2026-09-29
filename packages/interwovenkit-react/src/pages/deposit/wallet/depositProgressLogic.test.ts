@@ -399,6 +399,14 @@ describe("deriveDepositProgress: source stage", () => {
     )
     expect(view).toMatchObject({ variant: "problem", persist: { lastState: "source_conflict" } })
   })
+
+  it("keeps a recorded conflict while a reload's scan catches up", () => {
+    const view = deriveDepositProgress(
+      session({ lastState: "source_conflict" }),
+      inputs({ source: { isError: false, outcome: { status: "pending" } } }),
+    )
+    expect(view).toMatchObject({ variant: "problem", persist: { lastState: "source_conflict" } })
+  })
 })
 
 describe("deriveDepositProgress: LI.FI bridge stage", () => {

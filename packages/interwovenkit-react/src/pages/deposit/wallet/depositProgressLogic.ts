@@ -352,7 +352,12 @@ function sourceStage(session: DepositSession, inputs: DepositProgressInputs): De
     return notSent("source_cancelled", chainName)
   }
 
-  if (outcome?.status === "replaced" && outcome.reason === "replaced") {
+  // A reload rescans from the send, so a recorded conflict holds until the scan finds the block again.
+  const isConflict =
+    outcome?.status === "replaced"
+      ? outcome.reason === "replaced"
+      : session.lastState === "source_conflict"
+  if (isConflict) {
     // Same nonce, different payload: not this transfer, and not a proven cancellation.
     return problem({
       heading: "Different transaction sent",

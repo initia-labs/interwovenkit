@@ -1,6 +1,11 @@
 import { omit } from "ramda"
 import { DEPOSIT_ADDRESS, RECIPIENT } from "../data/testing"
-import type { DepositSession, DepositSessionPhase, StorageLike } from "./depositSession"
+import type {
+  DepositLastState,
+  DepositSession,
+  DepositSessionPhase,
+  StorageLike,
+} from "./depositSession"
 import {
   DepositInFlightError,
   depositSessionStorageKey,
@@ -194,6 +199,19 @@ describe("mergeDepositSession", () => {
     expect(mergeDepositSession(bridged, reread).lastState).toBe("deposit_pending")
     const conflict = buildDepositSession({ phase: "source_sent", lastState: "tracking_conflict" })
     expect(mergeDepositSession(bridged, conflict).lastState).toBe("tracking_conflict")
+  })
+
+  it("keeps a proven problem when a reload reads an earlier stage, and lets later progress through", () => {
+    const merge = (current: DepositLastState, next: DepositLastState) =>
+      mergeDepositSession(
+        buildDepositSession({ phase: "source_sent", lastState: current }),
+        buildDepositSession({ phase: "source_sent", lastState: next }),
+      ).lastState
+    expect(merge("source_conflict", "source_pending")).toBe("source_conflict")
+    expect(merge("bridge_refunding", "source_pending")).toBe("bridge_refunding")
+    expect(merge("bridge_partial", "bridge_pending")).toBe("bridge_partial")
+    expect(merge("bridge_partial", "processing")).toBe("processing")
+    expect(merge("bridge_refunding", "bridge_refund_required")).toBe("bridge_refund_required")
   })
 
   it("adopts a replacement hash", () => {

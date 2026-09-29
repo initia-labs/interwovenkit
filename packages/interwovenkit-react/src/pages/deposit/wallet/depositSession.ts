@@ -56,9 +56,23 @@ const IN_FLIGHT_ORDER: DepositLastState[] = [
   "processing",
 ]
 
+// A problem sits just after the stage that proved it: no earlier read may clear it, later progress may.
+const PROVEN_AT: Partial<Record<DepositLastState, DepositLastState>> = {
+  source_conflict: "source_replaced",
+  bridge_partial: "bridge_pending",
+  bridge_refund_required: "bridge_pending",
+  bridge_refunding: "bridge_pending",
+}
+
+function stageRank(state?: DepositLastState): number {
+  if (!state) return -1
+  const anchor = PROVEN_AT[state]
+  return anchor ? IN_FLIGHT_ORDER.indexOf(anchor) + 0.5 : IN_FLIGHT_ORDER.indexOf(state)
+}
+
 export function isStageRegression(current?: DepositLastState, next?: DepositLastState): boolean {
-  const from = current ? IN_FLIGHT_ORDER.indexOf(current) : -1
-  const to = next ? IN_FLIGHT_ORDER.indexOf(next) : -1
+  const from = stageRank(current)
+  const to = stageRank(next)
   return from >= 0 && to >= 0 && to < from
 }
 
