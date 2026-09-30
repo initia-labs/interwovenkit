@@ -1,3 +1,4 @@
+import { IconExternalLink } from "@initia/icons-react"
 import styles from "./ExplorerLinks.module.css"
 
 interface Props {
@@ -9,12 +10,6 @@ interface Props {
   onHistoryClick?: () => void
 }
 
-/**
- * "View transaction | Go to history" link row on the transfer/deposit status
- * screens — shown while pending (to track the transaction) and after
- * completion alike. Either side is optional; nothing renders when both are
- * absent.
- */
 const ExplorerLinks = ({
   explorerUrl,
   sourceExplorerUrl,
@@ -32,13 +27,28 @@ const ExplorerLinks = ({
         </a>
       )}
       {sourceExplorerUrl && (
-        <a href={sourceExplorerUrl} target="_blank" rel="noopener noreferrer">
-          View source transaction
+        <a
+          href={sourceExplorerUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="View source transaction"
+        >
+          Source <IconExternalLink size={12} aria-hidden="true" />
         </a>
       )}
+      {sourceExplorerUrl && deliveryExplorerUrl && (
+        <span className={styles.divider} aria-hidden="true">
+          |
+        </span>
+      )}
       {deliveryExplorerUrl && (
-        <a href={deliveryExplorerUrl} target="_blank" rel="noopener noreferrer">
-          View delivery
+        <a
+          href={deliveryExplorerUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="View delivery"
+        >
+          Delivery <IconExternalLink size={12} aria-hidden="true" />
         </a>
       )}
       {hasExplorer && onHistoryClick && (

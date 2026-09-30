@@ -1,14 +1,32 @@
 .links {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   align-items: center;
   gap: 8px;
 
   font-size: 13px;
   font-weight: 500;
+  row-gap: 4px;
 
   a {
     text-decoration: none;
+  }
+
+  a,
+  .link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+
+    min-height: 24px;
+
+    white-space: nowrap;
+
+    &:focus-visible {
+      outline: 2px solid var(--info);
+      outline-offset: 2px;
+    }
   }
 }
 
