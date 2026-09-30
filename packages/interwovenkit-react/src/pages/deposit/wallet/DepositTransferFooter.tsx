@@ -105,7 +105,7 @@ const DepositTransferActions = ({ resolution }: { resolution: DepositTransportSe
             {isPrompt
               ? readiness.message
               : needsApproval
-                ? "Approve and deposit"
+                ? "Approve tokens"
                 : getBridgeConfirmLabel("Deposit", quoteUpdated)}
           </Button.White>
         )}

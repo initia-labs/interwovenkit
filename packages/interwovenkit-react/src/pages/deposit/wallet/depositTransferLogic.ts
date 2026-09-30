@@ -327,17 +327,3 @@ export function deriveDepositReadiness(input: DepositReadinessInput): DepositRea
 
   return { status: "ready" }
 }
-
-// The deposit an approval click queued may only go out on the inputs and quote that click saw.
-export function nextAutoDepositStep(params: {
-  approved: boolean
-  inputsChanged: boolean
-  readiness: DepositReadiness["status"]
-  approvalRequired: boolean
-  quoteChanged: boolean
-}): "wait" | "cancel" | "review" | "send" {
-  if (params.inputsChanged) return "cancel"
-  if (!params.approved || params.readiness === "loading") return "wait"
-  if (params.readiness !== "ready" || params.approvalRequired) return "cancel"
-  return params.quoteChanged ? "review" : "send"
-}

@@ -52,7 +52,6 @@ import {
   derivePreflight,
   isProvablyNotSent,
   isQuoteStale,
-  nextAutoDepositStep,
   requiredNativeAmount,
   resolveDepositRecipient,
   selectBridgeOption,
@@ -203,13 +202,6 @@ interface DepositAttempt {
   inputs: string
 }
 
-interface AutoDeposit {
-  inputs: string
-  /** The quote the user saw when they clicked; every later re-read is checked against it. */
-  quote: BridgeQuoteResponse
-  approved: boolean
-}
-
 // Locks the form for the life of this mount: nothing may reach the wallet again from it.
 const isLockingError = (error: unknown): boolean =>
   error instanceof UnknownSendError || error instanceof DepositSessionWriteError
@@ -247,8 +239,6 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const busyRef = useRef(false)
   // What the last approval's wait saw on chain, the floor for the next deposit's nonce baseline.
   const approvalNoncesRef = useRef<{ chainId: string; sender: string; nonces: SenderNonces }>(null)
-  // Held by this mount only, so a remount, reload, or another tab never sends it.
-  const [autoDeposit, setAutoDeposit] = useState<AutoDeposit | null>(null)
   const mountedRef = useRef(true)
   useEffect(() => {
     mountedRef.current = true
@@ -775,7 +765,6 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const send = async (reviewed: BridgeQuoteResponse | undefined) => {
     if (busyRef.current || readiness.status !== "ready" || approvalRequired) return
     busyRef.current = true
-    setAutoDeposit(null)
     const inputs = transferInputs
     let locked = false
     try {
@@ -802,41 +791,19 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     }
   }
 
-  const approveAndDeposit = async () => {
+  const approve = async () => {
     if (busyRef.current || !approval || !quote) return
     busyRef.current = true
     // Clicking is the review: a pending "Route updated" is settled by this click.
     setReviewRequiredSignature("")
-    const pending = { inputs: transferInputs, quote, approved: false }
-    setAutoDeposit(pending)
     try {
       await approveMutation.mutateAsync(approval)
-      setAutoDeposit((current) => (current === pending ? { ...pending, approved: true } : current))
     } catch {
-      setAutoDeposit((current) => (current === pending ? null : current))
+      // Shown through the mutation's error.
     } finally {
       busyRef.current = false
     }
   }
-
-  // An effect event, so the send reads the committed render's readiness, quote, and draft.
-  const advanceAutoDeposit = useEffectEvent(() => {
-    if (!autoDeposit) return
-    const step = nextAutoDepositStep({
-      approved: autoDeposit.approved,
-      inputsChanged: autoDeposit.inputs !== transferInputs,
-      readiness: readiness.status,
-      approvalRequired,
-      quoteChanged: !quote || isBridgeQuoteMateriallyChanged(autoDeposit.quote, quote),
-    })
-    if (step === "wait") return
-    setAutoDeposit(null)
-    if (step === "review") setReviewRequiredSignature(quoteSignature)
-    if (step === "send") void send(autoDeposit.quote)
-  })
-  useEffect(() => {
-    advanceAutoDeposit()
-  }, [autoDeposit, transferInputs, readiness.status, approvalRequired, quoteSignature])
 
   return {
     transport,
@@ -853,11 +820,11 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     approval: {
       isApproving: approveMutation.isPending,
       error: approveMutation.error?.message,
-      approve: approvalRequired ? approveAndDeposit : undefined,
+      approve: approvalRequired ? approve : undefined,
     },
     readiness,
     submit: () => send(quote),
-    isSubmitting: sendMutation.isPending || isRefreshingQuote || !!autoDeposit?.approved,
+    isSubmitting: sendMutation.isPending || isRefreshingQuote,
     submitError,
     legs,
     quoteUpdated,

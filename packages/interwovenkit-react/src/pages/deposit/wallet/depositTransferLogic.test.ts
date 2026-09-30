@@ -24,7 +24,6 @@ import {
   formatQuoteFees,
   isProvablyNotSent,
   isQuoteStale,
-  nextAutoDepositStep,
   requiredNativeAmount,
   resolveDepositRecipient,
   selectBridgeOption,
@@ -532,35 +531,5 @@ describe("deriveDepositReadiness", () => {
     ],
   ])("%s", (_, overrides, expected) => {
     expect(deriveDepositReadiness({ ...ready, ...overrides })).toEqual(expected)
-  })
-})
-
-describe("nextAutoDepositStep", () => {
-  const settled = {
-    approved: true,
-    inputsChanged: false,
-    readiness: "ready",
-    approvalRequired: false,
-    quoteChanged: false,
-  } as const
-
-  it.each([
-    ["sends once approved on unchanged inputs and quote", {}, "send"],
-    ["waits for the approval", { approved: false }, "wait"],
-    [
-      "waits while readiness loads, before trusting a stale allowance",
-      { readiness: "loading", approvalRequired: true },
-      "wait",
-    ],
-    ["cancels when an input changed", { inputsChanged: true, approved: false }, "cancel"],
-    ["cancels when readiness is blocked", { readiness: "blocked" }, "cancel"],
-    [
-      "cancels rather than reviews when the allowance still falls short",
-      { approvalRequired: true, quoteChanged: true },
-      "cancel",
-    ],
-    ["asks for review when the quote changed", { quoteChanged: true }, "review"],
-  ] as const)("%s", (_, overrides, expected) => {
-    expect(nextAutoDepositStep({ ...settled, ...overrides })).toBe(expected)
   })
 })
