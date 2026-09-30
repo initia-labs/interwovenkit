@@ -1,5 +1,5 @@
 import { createConfig, http, WagmiProvider } from "wagmi"
-import { mainnet } from "wagmi/chains"
+import { arbitrum, base, mainnet } from "wagmi/chains"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import {
   createTestCosmosWallet,
@@ -34,8 +34,8 @@ const connectors = [
 ]
 const wagmiConfig = createConfig({
   connectors,
-  chains: [mainnet],
-  transports: { [mainnet.id]: http() },
+  chains: [mainnet, base, arbitrum],
+  transports: { [mainnet.id]: http(), [base.id]: http(), [arbitrum.id]: http() },
 })
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
