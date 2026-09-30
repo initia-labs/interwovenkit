@@ -166,6 +166,7 @@ describe("getBridgeToolDisplay", () => {
   it.each([
     ["across", "Across"],
     ["Across", "Across"],
+    ["eco", "Eco"],
     ["GASZIPBRIDGE", "GasZip"],
   ])("finds %s in any case", (key, name) => {
     expect(getBridgeToolDisplay(key)).toEqual({ name, logoUrl: expect.stringMatching(/\.svg$/) })

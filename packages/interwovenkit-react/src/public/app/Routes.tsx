@@ -1,13 +1,14 @@
 import { useEffect } from "react"
 import { useAnalyticsTrack } from "@/data/analytics"
 import { useDrawer } from "@/data/ui"
-import { useNavigate, usePath } from "@/lib/router"
+import { useLocationState, useNavigate, usePath } from "@/lib/router"
 import EnableAutoSign from "@/pages/autosign/EnableAutoSign"
 import BridgeForm from "@/pages/bridge/BridgeForm"
 import BridgeHistory from "@/pages/bridge/BridgeHistory"
 import BridgePreview from "@/pages/bridge/BridgePreview"
 import Withdrawals from "@/pages/bridge/op/Withdrawals"
 import Connect from "@/pages/connect/Connect"
+import type { DepositLocationState } from "@/pages/deposit/data/assetOptions"
 import Deposit from "@/pages/deposit/Deposit"
 import Withdraw from "@/pages/deposit/Withdraw"
 import Receive from "@/pages/receive/Receive"
@@ -25,6 +26,7 @@ const Routes = () => {
   const navigate = useNavigate()
   const path = usePath()
   const address = useAddress()
+  const { resumeSessionId } = useLocationState<DepositLocationState>()
   const { closeDrawer } = useDrawer()
   const { closeModal } = useModal()
 
@@ -93,7 +95,7 @@ const Routes = () => {
     case "/settings/autosign":
       return <ManageAutoSign />
     case "/deposit":
-      return <Deposit />
+      return <Deposit key={resumeSessionId ?? "deposit"} />
     case "/withdraw":
       return <Withdraw />
   }

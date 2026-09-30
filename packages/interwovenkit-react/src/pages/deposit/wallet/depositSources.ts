@@ -159,6 +159,7 @@ const BRIDGE_TOOLS: Record<string, BridgeToolDisplay> = {
   cctp: { name: "Circle CCTP", logoUrl: lifiIcon("bridges/circle") },
   celercircle: { name: "Celer CCTP", logoUrl: lifiIcon("bridges/circle") },
   celercirclefast: { name: "Celer CCTP Fast", logoUrl: lifiIcon("bridges/circle") },
+  eco: { name: "Eco", logoUrl: lifiIcon("bridges/eco") },
   gasZipBridge: { name: "GasZip", logoUrl: lifiIcon("bridges/gaszip") },
   glacis: { name: "Glacis", logoUrl: lifiIcon("bridges/glacis") },
   layerswap: { name: "Layerswap", logoUrl: lifiIcon("bridges/layerswap") },

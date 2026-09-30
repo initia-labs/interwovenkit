@@ -219,7 +219,7 @@ export type DepositTransferModel = ReturnType<typeof useDepositTransfer>
 export function useDepositTransfer(resolution: DepositTransportSelection) {
   const { transport, source, route, destination } = resolution
   const api = useDepositApi()
-  const { depositApiUrl = "" } = useConfig()
+  const { depositApiUrl = "", registryUrl } = useConfig()
   const queryClient = useQueryClient()
   const getProvider = useGetProvider()
   const findSkipChain = useFindSkipChain()
@@ -424,14 +424,17 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
         symbol: source.symbol,
         chainName: sourceLeg.name,
         chainLogoUrl: sourceLeg.logoUrl,
+        assetLogoUrl: `${registryUrl}/images/${source.symbol}.png`,
       },
       destination: {
         chainId: destination.chain_id,
         denom: destination.denom,
         recipient,
+        decimals: destination.decimals,
         symbol: route.dst_symbol,
         chainName: destinationLeg.name,
         chainLogoUrl: destinationLeg.logoUrl,
+        assetLogoUrl: `${registryUrl}/images/${route.dst_symbol}.png`,
       },
       depositAddress,
       transaction,

@@ -74,6 +74,36 @@ export function formatNetworkFee(gasCostUsd: string | undefined): string {
   return `$${value.toFixed(value.lt(0.01) && value.gt(0) ? 4 : 2)}`
 }
 
+type FeeQuote = {
+  estimate: Pick<BridgeQuoteResponse["estimate"], "gas_cost_usd">
+  transaction: Pick<BridgeQuoteResponse["transaction"], "value">
+}
+
+export function formatQuoteFees(
+  quote: FeeQuote | undefined,
+  ethPriceUsd: number | undefined,
+): string {
+  if (!quote) return "Shown in wallet"
+  const gas = quote?.estimate.gas_cost_usd
+  const formattedGas = isDecimalString(gas) ? formatNetworkFee(gas) : undefined
+  const value = quote.transaction.value
+  if (!isIntegerString(value)) {
+    return formattedGas ? `${formattedGas} gas + protocol in wallet` : "Shown in wallet"
+  }
+  if (BigInt(value) === 0n) return formattedGas ?? "Gas shown in wallet"
+
+  const validPrice = ethPriceUsd !== undefined && Number.isFinite(ethPriceUsd) && ethPriceUsd > 0
+  if (!validPrice) {
+    const protocol = `${formatProtocolFee(value)} protocol`
+    return formattedGas ? `${formattedGas} gas + ${protocol}` : `${protocol} + gas in wallet`
+  }
+
+  const protocolUsd = BigNumber(value).shiftedBy(-18).times(ethPriceUsd)
+  if (!isDecimalString(gas))
+    return `${formatNetworkFee(protocolUsd.toFixed())} protocol + gas in wallet`
+  return formatNetworkFee(BigNumber(gas).plus(protocolUsd).toFixed())
+}
+
 // Six decimals would print a fee under a millionth of an ETH as zero.
 export function formatProtocolFee(wei: string): string {
   const value = BigNumber(wei).shiftedBy(-18)

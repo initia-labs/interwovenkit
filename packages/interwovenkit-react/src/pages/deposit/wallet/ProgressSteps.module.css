@@ -137,8 +137,11 @@
 
 .mark {
   position: absolute;
+  inset: 0;
 
   filter: blur(4px);
+
+  margin: auto;
   opacity: 0;
   transform: scale(0.25);
 }
@@ -166,9 +169,12 @@
 /* Once every step is done, the row folds into the wallet's completed check. */
 .badge {
   position: absolute;
+  inset: 0;
 
   color: var(--success);
   filter: blur(4px);
+
+  margin: auto;
   opacity: 0;
   transform: scale(0.25);
   transition:
@@ -222,9 +228,15 @@
    full distance to the middle, and fuse through the goo filter before the badge resolves. */
 .merge {
   position: absolute;
+  inset: 0;
 
   display: flex;
   gap: var(--link);
+
+  width: calc(var(--step) + var(--step) + var(--link));
+  height: var(--step);
+
+  margin: auto;
 
   pointer-events: none;
 }

@@ -3,6 +3,8 @@ import styles from "./ExplorerLinks.module.css"
 interface Props {
   /** External explorer url for the transaction; empty renders no link. */
   explorerUrl?: string
+  sourceExplorerUrl?: string
+  deliveryExplorerUrl?: string
   /** In-widget history navigation; omitted renders no history link. */
   onHistoryClick?: () => void
 }
@@ -13,8 +15,14 @@ interface Props {
  * completion alike. Either side is optional; nothing renders when both are
  * absent.
  */
-const ExplorerLinks = ({ explorerUrl, onHistoryClick }: Props) => {
-  if (!explorerUrl && !onHistoryClick) return null
+const ExplorerLinks = ({
+  explorerUrl,
+  sourceExplorerUrl,
+  deliveryExplorerUrl,
+  onHistoryClick,
+}: Props) => {
+  const hasExplorer = !!explorerUrl || !!sourceExplorerUrl || !!deliveryExplorerUrl
+  if (!hasExplorer && !onHistoryClick) return null
 
   return (
     <div className={styles.links}>
@@ -23,7 +31,17 @@ const ExplorerLinks = ({ explorerUrl, onHistoryClick }: Props) => {
           View transaction
         </a>
       )}
-      {explorerUrl && onHistoryClick && (
+      {sourceExplorerUrl && (
+        <a href={sourceExplorerUrl} target="_blank" rel="noopener noreferrer">
+          View source transaction
+        </a>
+      )}
+      {deliveryExplorerUrl && (
+        <a href={deliveryExplorerUrl} target="_blank" rel="noopener noreferrer">
+          View delivery
+        </a>
+      )}
+      {hasExplorer && onHistoryClick && (
         <span className={styles.divider} aria-hidden="true">
           |
         </span>

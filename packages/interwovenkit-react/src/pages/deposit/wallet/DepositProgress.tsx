@@ -29,12 +29,13 @@ import {
 } from "../data/deposits"
 import { ParseError } from "../data/parse"
 import { findDestinationNetwork, formatSourceMin } from "../data/source"
-import type { BridgeStatusResponse, Deposit } from "../data/types"
+import type { Deposit } from "../data/types"
 import { formatCompletedAmount, formatSentenceAmount } from "../completedAmount"
 import DepositStatus from "../DepositStatus"
 import DepositSubpage from "../DepositSubpage"
 import ExplorerLinks from "../ExplorerLinks"
 import FlowChips from "../FlowChips"
+import { completedReceivedEvidence, sourceExplorerUrl } from "../history"
 import statusIcons from "../StatusIcons.module.css"
 import {
   checkHashlessSend,
@@ -102,9 +103,14 @@ const DepositProgress = () => {
 
 interface TrackerProps {
   session: DepositSession
+  observeOnly?: boolean
 }
 
-const DepositProgressTracker = ({ session }: TrackerProps) => {
+export const DepositProgressObserver = ({ session }: Pick<TrackerProps, "session">) => (
+  <DepositProgressTracker session={session} observeOnly />
+)
+
+const DepositProgressTracker = ({ session, observeOnly = false }: TrackerProps) => {
   const api = useDepositApi()
   const { depositApiUrl } = useConfig()
   const { closeModal } = useModal()
@@ -280,6 +286,7 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
   }
 
   const view = deriveDepositProgress(session, inputs)
+  const liveDeliveryUrl = resolveDeliveryExplorerUrl(deposit)
   const stageKey = `${view.variant}:${view.persist?.lastState ?? ""}`
   const delay = takingLongerDelay(session, view.persist?.lastState)
   const [delayedStage, setDelayedStage] = useState<string | null>(null)
@@ -308,11 +315,19 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
       queryClient.setQueryData(depositQueryKeys.deposit(handoff.id).queryKey, handoff)
     }
     const learnedNonce = sourceOutcome?.status === "pending" ? sourceOutcome.nonce : undefined
+    const received = completedReceivedEvidence(
+      bucket,
+      deposit?.amount_out,
+      dstNetwork?.decimals,
+      current.destination.decimals,
+    )
     const patch = {
       ...(replacementHash && { currentSourceHash: replacementHash }),
       ...(learnedNonce !== undefined &&
         current.sourceNonce === undefined && { sourceNonce: learnedNonce }),
       ...(handoff && { depositId: handoff.id }),
+      ...(received && { received }),
+      ...(liveDeliveryUrl && { deliveryExplorerUrl: liveDeliveryUrl }),
       ...view.persist,
     }
     if (!whereEq(patch, current)) write({ ...current, ...patch })
@@ -325,11 +340,18 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
     handoff?.id,
     view.persist?.phase,
     view.persist?.lastState,
+    bucket,
+    deposit?.amount_out,
+    dstNetwork?.decimals,
+    session.destination.decimals,
+    liveDeliveryUrl,
     // Each nonce read re-checks a pending "not sent" release.
     noncesQuery.dataUpdatedAt,
   ])
 
-  const explorerUrl = resolveExplorerUrl(deposit, bridgeStatus)
+  const deliveryUrl = session.deliveryExplorerUrl
+    ? xss(sanitizeLink(session.deliveryExplorerUrl))
+    : liveDeliveryUrl
 
   const refresh = () => {
     for (const query of [sourceQuery, bridgeQuery, directQuery, depositQuery]) {
@@ -379,6 +401,8 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
 
   const showChips = view.variant === "in-flight" || view.variant === "completed"
 
+  if (observeOnly) return null
+
   return (
     <ProgressScreen
       title={view.title}
@@ -392,8 +416,11 @@ const DepositProgressTracker = ({ session }: TrackerProps) => {
           {showRecovery && <RecoveryReference session={session} />}
         </>
       }
-      explorerUrl={explorerUrl}
-      onHistoryClick={view.variant === "completed" ? () => openDrawer("/activity") : undefined}
+      sourceExplorerUrl={sourceExplorerUrl(session.source.chainId, sourceHash)}
+      deliveryExplorerUrl={deliveryUrl}
+      onHistoryClick={
+        view.variant === "completed" ? () => openDrawer("/bridge/history") : undefined
+      }
       footer={footer}
       isRetrying={!!view.isRetrying && retryOverdue}
       steps={deriveProgressSteps(session, inputs, view)}
@@ -410,12 +437,8 @@ function checkHandoff(assert: () => Deposit): { deposit?: Deposit; conflict?: bo
   }
 }
 
-function resolveExplorerUrl(
-  deposit: Deposit | null,
-  bridgeStatus: BridgeStatusResponse | undefined,
-): string | undefined {
-  const href =
-    deliveryExplorerUrl(deposit) || bridgeStatus?.dst_tx_link || bridgeStatus?.src_tx_link
+function resolveDeliveryExplorerUrl(deposit: Deposit | null): string | undefined {
+  const href = deliveryExplorerUrl(deposit)
   return href ? xss(sanitizeLink(href)) : undefined
 }
 
@@ -465,7 +488,8 @@ interface ProgressScreenProps {
   message?: ReactNode
   note?: ReactNode
   chips?: ReactNode
-  explorerUrl?: string
+  sourceExplorerUrl?: string
+  deliveryExplorerUrl?: string
   onHistoryClick?: () => void
   footer?: ReactNode
   isRetrying?: boolean
@@ -474,8 +498,18 @@ interface ProgressScreenProps {
 
 // Mark, then what happened, then what was moved: one spacing rhythm for every state.
 const ProgressScreen = (props: ProgressScreenProps) => {
-  const { title, variant, heading, message, note, chips, explorerUrl, onHistoryClick, footer } =
-    props
+  const {
+    title,
+    variant,
+    heading,
+    message,
+    note,
+    chips,
+    sourceExplorerUrl,
+    deliveryExplorerUrl,
+    onHistoryClick,
+    footer,
+  } = props
   // A problem needs attention but isn't a verdict on the funds; only a failure reads as one.
   const isError = variant === "failed" || variant === "below-minimum"
 
@@ -507,10 +541,14 @@ const ProgressScreen = (props: ProgressScreenProps) => {
           {props.isRetrying && <DepositStatus className={styles.note}>Reconnecting…</DepositStatus>}
         </div>
 
-        {(chips || explorerUrl || onHistoryClick) && (
+        {(chips || sourceExplorerUrl || deliveryExplorerUrl || onHistoryClick) && (
           <div className={styles.summary}>
             {chips}
-            <ExplorerLinks explorerUrl={explorerUrl} onHistoryClick={onHistoryClick} />
+            <ExplorerLinks
+              sourceExplorerUrl={sourceExplorerUrl}
+              deliveryExplorerUrl={deliveryExplorerUrl}
+              onHistoryClick={onHistoryClick}
+            />
           </div>
         )}
       </div>

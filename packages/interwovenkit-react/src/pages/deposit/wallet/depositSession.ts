@@ -3,6 +3,7 @@ import { useMemo, useSyncExternalStore } from "react"
 import { DAY_IN_MS, LocalStorageKey } from "@/data/constants"
 import {
   isFiniteNumber,
+  isIntegerString,
   isNonEmptyString,
   isNonNegativeInteger,
   isRecord,
@@ -111,14 +112,17 @@ export interface DepositSession {
     symbol: string
     chainName: string
     chainLogoUrl?: string
+    assetLogoUrl?: string
   }
   destination: {
     chainId: string
     denom: string
     recipient: string
+    decimals?: number
     symbol: string
     chainName: string
     chainLogoUrl?: string
+    assetLogoUrl?: string
   }
   depositAddress: string
   transaction: DepositSessionTransaction
@@ -134,6 +138,11 @@ export interface DepositSession {
   currentSourceHash?: string
   originalSourceHash?: string
   depositId?: string
+  received?: {
+    amount: string
+    decimals: number
+  }
+  deliveryExplorerUrl?: string
   lastState?: DepositLastState
 }
 
@@ -208,6 +217,7 @@ const SESSION_FIELDS = {
   currentSourceHash: optional(isNonEmptyString),
   originalSourceHash: optional(isNonEmptyString),
   depositId: optional(isNonEmptyString),
+  deliveryExplorerUrl: optional(isNonEmptyString),
 }
 
 const SOURCE_FIELDS = {
@@ -219,15 +229,18 @@ const SOURCE_FIELDS = {
   symbol: required(isString),
   chainName: required(isString),
   chainLogoUrl: optional(isString),
+  assetLogoUrl: optional(isString),
 }
 
 const DESTINATION_FIELDS = {
   chainId: required(isNonEmptyString),
   denom: required(isNonEmptyString),
   recipient: required(isNonEmptyString),
+  decimals: optional(isNonNegativeInteger),
   symbol: required(isString),
   chainName: required(isString),
   chainLogoUrl: optional(isString),
+  assetLogoUrl: optional(isString),
 }
 
 const TRANSACTION_FIELDS = {
@@ -238,6 +251,11 @@ const TRANSACTION_FIELDS = {
   gasLimit: optional(isNonEmptyString),
 }
 
+const RECEIVED_FIELDS = {
+  amount: required(isIntegerString),
+  decimals: required(isNonNegativeInteger),
+}
+
 // Fails closed, and keeps only spec'd fields so a foreign key cannot ride along into a later write.
 export function parseDepositSession(raw: unknown): DepositSession | null {
   if (!isRecord(raw) || raw.version !== DEPOSIT_SESSION_VERSION) return null
@@ -246,7 +264,17 @@ export function parseDepositSession(raw: unknown): DepositSession | null {
   const source = parseFields(raw.source, SOURCE_FIELDS)
   const destination = parseFields(raw.destination, DESTINATION_FIELDS)
   const transaction = parseFields(raw.transaction, TRANSACTION_FIELDS)
-  if (!session || !source || !destination || !transaction) return null
+  const received =
+    raw.received === undefined ? undefined : parseFields(raw.received, RECEIVED_FIELDS)
+  if (
+    !session ||
+    !source ||
+    !destination ||
+    !transaction ||
+    (raw.received !== undefined && !received)
+  ) {
+    return null
+  }
 
   return canonicalize({
     version: DEPOSIT_SESSION_VERSION,
@@ -254,6 +282,7 @@ export function parseDepositSession(raw: unknown): DepositSession | null {
     source,
     destination,
     transaction,
+    received: received ?? undefined,
     // Display-only: an unknown label must not reject a record that may describe funds in flight.
     lastState: isLastState(raw.lastState) ? raw.lastState : undefined,
   })
@@ -337,6 +366,8 @@ export function mergeDepositSession(
       : (next.currentSourceHash ?? current.currentSourceHash),
     originalSourceHash: next.originalSourceHash ?? current.originalSourceHash,
     depositId: next.depositId ?? current.depositId,
+    received: next.received ?? current.received,
+    deliveryExplorerUrl: next.deliveryExplorerUrl ?? current.deliveryExplorerUrl,
     lastState: reopened
       ? next.lastState
       : current.phase === "terminal" ||

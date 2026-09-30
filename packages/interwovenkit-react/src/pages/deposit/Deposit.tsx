@@ -25,7 +25,12 @@ import SelectAsset from "./SelectAsset"
 import SelectDepositMethod from "./SelectDepositMethod"
 
 const Deposit = () => {
-  const { localOptions = [], onramp } = useLocationState<DepositLocationState>()
+  const {
+    localOptions = [],
+    onramp,
+    resumeSessionId,
+    resumeDestinationSymbol,
+  } = useLocationState<DepositLocationState>()
   const form = useForm<DepositFormValues>({
     mode: "onChange",
     defaultValues: buildDepositDefaultValues(
@@ -35,6 +40,8 @@ const Deposit = () => {
         fiatId: localStorage.getItem(LocalStorageKey.ONRAMP_FIAT_ID),
       },
       onramp,
+      resumeSessionId,
+      resumeDestinationSymbol,
     ),
   })
 

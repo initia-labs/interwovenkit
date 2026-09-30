@@ -8,18 +8,20 @@ import DetailRow from "@/components/DetailRow"
 import Image from "@/components/Image"
 import Skeleton from "@/components/Skeleton"
 import { useConfig } from "@/data/config"
+import { useMinityPrices } from "@/data/minity/hooks"
 import { useConnectedWalletIcon } from "@/hooks/useConnectedWalletIcon"
 import onrampStyles from "../onramp/OnrampFields.module.css"
 import providerStyles from "../onramp/SelectProvider.module.css"
 import { getBridgeToolDisplay } from "./depositSources"
-import { formatEstimate, formatNetworkFee, formatProtocolFee } from "./depositTransferLogic"
+import { formatEstimate, formatQuoteFees } from "./depositTransferLogic"
 import type { DepositTransferModel } from "./useDepositTransfer"
 import styles from "./TransferTxDetails.module.css"
 
-// No bridge fee row: the quoted `amount_out` is already net of it.
 const DepositTransferTxDetails = ({ model }: { model: DepositTransferModel }) => {
   const { registryUrl } = useConfig()
   const walletIcon = useConnectedWalletIcon()
+  const { data: prices } = useMinityPrices()
+  const ethPriceUsd = prices?.find(([symbol]) => symbol === "ETH")?.[1]
   const { quote, route, destination, estimatedAmountOut, recipient, isHostRecipient } = model
   const { depositAddress, isEstimating } = model
 
@@ -65,11 +67,7 @@ const DepositTransferTxDetails = ({ model }: { model: DepositTransferModel }) =>
       </DetailRow>
 
       <Collapsible title="Transaction details">
-        <DetailRow label="Network fee">{formatNetworkFee(quote?.estimate.gas_cost_usd)}</DetailRow>
-        {/* Paid in the native token, outside the quoted output. */}
-        {quote && BigInt(quote.transaction.value) > 0n && (
-          <DetailRow label="Protocol fee">{formatProtocolFee(quote.transaction.value)}</DetailRow>
-        )}
+        <DetailRow label="Estimated fees">{formatQuoteFees(quote, ethPriceUsd)}</DetailRow>
         <DetailRow label={isHostRecipient ? "Recipient (set by app)" : "Receiving address"}>
           {!isHostRecipient && walletIcon && (
             <img src={walletIcon} alt="Wallet" height={12} width={12} />

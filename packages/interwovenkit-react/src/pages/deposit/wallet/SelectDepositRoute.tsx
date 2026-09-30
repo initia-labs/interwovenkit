@@ -4,9 +4,11 @@ import { useQuery } from "@tanstack/react-query"
 import { formatAmount } from "@initia/utils"
 import Image from "@/components/Image"
 import Skeleton from "@/components/Skeleton"
+import { useMinityPrices } from "@/data/minity/hooks"
 import { useDepositApi } from "../data/api"
 import {
   createBridgeOptionsQueryOptions,
+  createBridgeQuoteQueryOptions,
   percentDifference,
   rankBridgeOptions,
   routeCostUsd,
@@ -14,7 +16,7 @@ import {
 } from "../data/bridges"
 import { userErrorMessage } from "../data/parse"
 import { formatSourceMin } from "../data/source"
-import type { BridgeOption, DestinationNetwork } from "../data/types"
+import type { BridgeOption, BridgeQuoteResponse, DestinationNetwork } from "../data/types"
 import providerStyles from "../onramp/SelectProvider.module.css"
 import DepositStatus from "../DepositStatus"
 import DepositSubpage from "../DepositSubpage"
@@ -25,6 +27,7 @@ import {
   deliverySeconds,
   formatEstimate,
   formatNetworkFee,
+  formatQuoteFees,
   selectBridgeOption,
 } from "./depositTransferLogic"
 import { useTransferForm } from "./transferFlowConfig"
@@ -37,10 +40,20 @@ import styles from "./SelectDepositRoute.module.css"
 
 const OPTIONS_REFRESH_MS = 20_000
 
-/** Unknown cost or time is dropped rather than shown as free or instant. */
-function describeRoute(option: BridgeOption, delivery: number | null | undefined): string {
-  const cost = routeCostUsd(option)
-  const fees = cost ? `Fees ${formatNetworkFee(cost.toString())}` : undefined
+function describeRoute(
+  option: BridgeOption,
+  delivery: number | null | undefined,
+  selectedQuote: BridgeQuoteResponse | undefined,
+  ethPriceUsd: number | undefined,
+  isActive: boolean,
+): string {
+  let fee = "—"
+  if (isActive && selectedQuote) fee = formatQuoteFees(selectedQuote, ethPriceUsd)
+  if (!isActive) {
+    const cost = routeCostUsd(option)
+    if (cost) fee = formatNetworkFee(cost.toFixed())
+  }
+  const fees = `Fees ${fee}`
   const seconds = combineEstimatedSeconds([option.execution_duration_seconds, delivery])
   const duration = seconds ? formatEstimate(seconds) : undefined
   return [fees, duration].filter((part): part is string => !!part).join(" · ")
@@ -66,6 +79,8 @@ interface RouteRowProps {
   tag?: RouteTag
   bestFinal?: string
   requiredMinimum: string
+  selectedQuote?: BridgeQuoteResponse
+  ethPriceUsd?: number
   onSelect: () => void
 }
 
@@ -102,7 +117,13 @@ const RouteRow = (props: RouteRowProps) => {
           </span>
           <span className={styles.meta}>
             {option.eligible
-              ? describeRoute(option, deliverySeconds(finalQuote, destination))
+              ? describeRoute(
+                  option,
+                  deliverySeconds(finalQuote, destination),
+                  props.selectedQuote,
+                  props.ethPriceUsd,
+                  isActive,
+                )
               : `Below the ${requiredMinimum} minimum`}
           </span>
         </span>
@@ -132,6 +153,8 @@ const SelectDepositRoute = () => {
   const { setValue, watch } = useTransferForm()
   const [pickedBridge, pickedFor] = watch(["selectedBridge", "selectedBridgeFor"])
   const api = useDepositApi()
+  const { data: prices } = useMinityPrices()
+  const ethPriceUsd = prices?.find(([symbol]) => symbol === "ETH")?.[1]
   const { resolution } = useDepositTransportResolution()
   const request = useDepositRequest(resolution)
 
@@ -150,6 +173,17 @@ const SelectDepositRoute = () => {
   const { option: activeOption } = selectBridgeOption(
     ranked,
     pickedFor === selectionContext ? pickedBridge : "",
+  )
+  const { data: selectedQuote } = useQuery(
+    createBridgeQuoteQueryOptions(
+      api,
+      {
+        ...request.identity,
+        bridge: activeOption?.bridge ?? "",
+        depositAddress: data?.deposit_address,
+      },
+      isLifi && request.isComplete && !!activeOption && !!data?.deposit_address,
+    ),
   )
   const best = ranked.find((option) => option.eligible)
   const tags = tagBridgeOptions(ranked)
@@ -194,6 +228,8 @@ const SelectDepositRoute = () => {
         tag={tagOf(option.bridge)}
         bestFinal={bestFinal}
         requiredMinimum={requiredMinimum}
+        selectedQuote={option.bridge === activeOption?.bridge ? selectedQuote : undefined}
+        ethPriceUsd={ethPriceUsd}
         onSelect={() => selectRoute(option)}
       />
     ))

@@ -36,8 +36,17 @@ describe("parseDepositSession", () => {
   const full: Required<DepositSession> = {
     ...base,
     phase: "source_sent",
-    source: { ...base.source, chainLogoUrl: "https://example.com/base.svg" },
-    destination: { ...base.destination, chainLogoUrl: "https://example.com/initia.svg" },
+    source: {
+      ...base.source,
+      chainLogoUrl: "https://example.com/base.svg",
+      assetLogoUrl: "https://example.com/usdc.svg",
+    },
+    destination: {
+      ...base.destination,
+      decimals: 6,
+      chainLogoUrl: "https://example.com/initia.svg",
+      assetLogoUrl: "https://example.com/iusd.svg",
+    },
     transaction: { ...base.transaction, gasLimit: "65000" },
     predictedDelivery: "advance",
     preSubmitBlock: 100,
@@ -49,6 +58,8 @@ describe("parseDepositSession", () => {
     currentSourceHash: "0xbbb",
     originalSourceHash: "0xaaa",
     depositId: "deposit-1",
+    received: { amount: "1490000", decimals: 6 },
+    deliveryExplorerUrl: "https://explorer.example/tx/0xdelivery",
     lastState: "bridge_pending",
   }
 
@@ -69,6 +80,9 @@ describe("parseDepositSession", () => {
     ["a null prompt nonce", { ...full, promptNonce: null }],
     ["a string pending prompt nonce", { ...full, promptPendingNonce: "8" }],
     ["a malformed predicted delivery", { ...full, predictedDelivery: 1 }],
+    ["a fractional received amount", { ...full, received: { amount: "1.5", decimals: 6 } }],
+    ["a malformed received record", { ...full, received: "1490000" }],
+    ["negative received decimals", { ...full, received: { amount: "1490000", decimals: -1 } }],
     ["another schema version", { ...full, version: 2 }],
     ["an unknown phase", { ...full, phase: "halfway" }],
     ["no intended transaction", omit(["transaction"], full)],

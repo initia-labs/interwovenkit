@@ -21,6 +21,7 @@ import {
   formatEstimate,
   formatNetworkFee,
   formatProtocolFee,
+  formatQuoteFees,
   isProvablyNotSent,
   isQuoteStale,
   nextAutoDepositStep,
@@ -175,6 +176,44 @@ describe("formatNetworkFee", () => {
     ["0.42", "$0.42"],
   ])("%s → %s", (gasCostUsd, expected) => {
     expect(formatNetworkFee(gasCostUsd)).toBe(expected)
+  })
+})
+
+describe("formatQuoteFees", () => {
+  const quote = (gasCostUsd: string | undefined, value = "1000000000000000") => ({
+    estimate: { gas_cost_usd: gasCostUsd },
+    transaction: { value },
+  })
+
+  it.each([
+    ["one executable quote snapshot", quote("0.42"), 2_000, "$2.42"],
+    ["zero gas and protocol fees", quote("0", "0"), undefined, "$0.00"],
+    ["an equivalent zero protocol fee", quote("0.42", "00"), undefined, "$0.42"],
+    ["a zero protocol fee without a price", quote("0.42", "0"), undefined, "$0.42"],
+    [
+      "an unknown ETH price without undercounting",
+      quote("0.42"),
+      undefined,
+      "$0.42 gas + 0.001 ETH protocol",
+    ],
+    [
+      "an invalid ETH price without undercounting",
+      quote("0.42"),
+      0,
+      "$0.42 gas + 0.001 ETH protocol",
+    ],
+    ["an unknown gas fee", quote(undefined), 2_000, "$2.00 protocol + gas in wallet"],
+    [
+      "an unknown gas fee and ETH price",
+      quote(undefined),
+      undefined,
+      "0.001 ETH protocol + gas in wallet",
+    ],
+    ["a malformed protocol fee", quote("0.42", "nope"), 2_000, "$0.42 gas + protocol in wallet"],
+    ["two unknown components", quote(undefined, "nope"), 2_000, "Shown in wallet"],
+    ["a tiny total without exponent notation", quote("0", "1"), 0.00000001, "$0.0000"],
+  ])("formats %s", (_, input, price, expected) => {
+    expect(formatQuoteFees(input, price)).toBe(expected)
   })
 })
 

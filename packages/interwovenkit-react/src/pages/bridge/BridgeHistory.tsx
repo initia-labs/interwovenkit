@@ -5,7 +5,11 @@ import CheckboxButton from "@/components/CheckboxButton"
 import LoadMoreButton from "@/components/LoadMoreButton"
 import Page from "@/components/Page"
 import Status from "@/components/Status"
+import { useConfig } from "@/data/config"
 import { groupByDate } from "@/data/date"
+import DepositHistoryItem from "@/pages/deposit/DepositHistoryItem"
+import { depositHistorySessions, matchesHistoryAccount } from "@/pages/deposit/history"
+import { useDepositSessionStore } from "@/pages/deposit/wallet/depositSession"
 import { useInterwovenKit } from "@/public/data/hooks"
 import {
   BRIDGE_HISTORY_LIMIT,
@@ -15,17 +19,60 @@ import {
 import BridgeHistoryItem from "./BridgeHistoryItem"
 import styles from "./BridgeHistory.module.css"
 
+type HistoryEntry =
+  | {
+      kind: "skip"
+      key: string
+      timestamp: number
+      sender: string
+      recipient: string
+      tx: { chainId: string; txHash: string }
+    }
+  | {
+      kind: "deposit"
+      key: string
+      timestamp: number
+      sender: string
+      recipient: string
+      session: ReturnType<typeof depositHistorySessions>[number]
+    }
+
 const BridgeHistory = () => {
   const { initiaAddress, hexAddress } = useInterwovenKit()
+  const { depositApiUrl } = useConfig()
+  const depositStore = useDepositSessionStore()
   const { history, getHistoryDetails } = useBridgeHistoryList()
-  const allHistory = history.filter((tx) => getHistoryDetails(tx))
-  const myHistory = allHistory.filter((tx) => {
+  const depositSessions = useMemo(
+    () => (depositApiUrl ? depositStore.list(depositApiUrl) : []),
+    [depositApiUrl, depositStore],
+  )
+  const skipHistory = history.flatMap<HistoryEntry>((tx) => {
     const details = getHistoryDetails(tx)
-    if (!details) return false
-    const { values } = details
-    const { sender, recipient } = values
-    return [sender, recipient].some((address) => [initiaAddress, hexAddress].includes(address))
+    return details
+      ? [
+          {
+            kind: "skip",
+            key: `skip:${tx.chainId}:${tx.txHash}`,
+            timestamp: details.timestamp,
+            sender: details.values.sender,
+            recipient: details.values.recipient,
+            tx,
+          },
+        ]
+      : []
   })
+  const depositHistory = depositHistorySessions(depositSessions).map<HistoryEntry>((session) => ({
+    kind: "deposit",
+    key: `deposit:${session.id}`,
+    timestamp: session.createdAt,
+    sender: session.source.sender,
+    recipient: session.destination.recipient,
+    session,
+  }))
+  const allHistory = [...skipHistory, ...depositHistory].sort((a, b) => b.timestamp - a.timestamp)
+  const myHistory = allHistory.filter((entry) =>
+    matchesHistoryAccount(entry.sender, entry.recipient, [initiaAddress, hexAddress]),
+  )
 
   const [page, setPage] = useState(1)
   const [showAll, toggleShowAll] = useToggle(!myHistory.length)
@@ -34,12 +81,8 @@ const BridgeHistory = () => {
 
   // Group history items by date
   const groupedHistory = useMemo(() => {
-    return groupByDate(paginatedHistory, (tx) => {
-      const details = getHistoryDetails(tx)
-      if (!details) return undefined
-      return new Date(details.timestamp)
-    })
-  }, [paginatedHistory, getHistoryDetails])
+    return groupByDate(paginatedHistory, (entry) => new Date(entry.timestamp))
+  }, [paginatedHistory])
 
   return (
     <Page title="Bridge/Swap activity">
@@ -63,9 +106,13 @@ const BridgeHistory = () => {
               <div className={styles.dateGroup} key={date}>
                 <div className={styles.dateHeader}>{date}</div>
                 <div className={styles.list}>
-                  {items.map((tx) => (
-                    <AsyncBoundary key={tx.txHash}>
-                      <BridgeHistoryItem tx={tx} />
+                  {items.map((entry) => (
+                    <AsyncBoundary key={entry.key}>
+                      {entry.kind === "skip" ? (
+                        <BridgeHistoryItem tx={entry.tx} />
+                      ) : (
+                        <DepositHistoryItem session={entry.session} />
+                      )}
                     </AsyncBoundary>
                   ))}
                 </div>
@@ -79,8 +126,8 @@ const BridgeHistory = () => {
         ) : (
           history.length >= BRIDGE_HISTORY_LIMIT && (
             <Status>
-              Only the latest {BRIDGE_HISTORY_LIMIT} items are stored. Older entries will be removed
-              automatically.
+              Only the latest {BRIDGE_HISTORY_LIMIT} Skip bridge/swap items are stored. Older Skip
+              entries will be removed automatically.
             </Status>
           )
         )}
