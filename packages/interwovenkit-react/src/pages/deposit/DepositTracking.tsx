@@ -18,6 +18,7 @@ import { useReceiveAsset, useSourceRoute } from "./data/assets"
 import { useDepositAddress } from "./data/depositAddress"
 import {
   classifyBucket,
+  deliveryExplorerChainName,
   deliveryExplorerUrl,
   deliveryTimeLeft,
   DepositAddressMismatchError,
@@ -126,6 +127,7 @@ const DepositTracking = () => {
 
   const deliveryHref = deliveryExplorerUrl(deposit)
   const explorerUrl = deliveryHref ? xss(sanitizeLink(deliveryHref)) : ""
+  const explorerChainName = deliveryExplorerChainName(deposit, receiveAsset.chainName)
 
   // Counts down once the record has an estimate; a fast delivery shortens it.
   const [now, setNow] = useState(Date.now)
@@ -268,6 +270,7 @@ const DepositTracking = () => {
             </DepositStatus>
             <ExplorerLinks
               explorerUrl={explorerUrl}
+              explorerChainName={explorerChainName}
               onHistoryClick={() => openDrawer("/activity")}
             />
           </>
@@ -283,7 +286,7 @@ const DepositTracking = () => {
               This deposit could not be completed. Your funds remain at the deposit address with no
               automatic refund.
             </DepositStatus>
-            <ExplorerLinks explorerUrl={explorerUrl} />
+            <ExplorerLinks explorerUrl={explorerUrl} explorerChainName={explorerChainName} />
           </>
         )
       case "below_minimum":

@@ -3,11 +3,10 @@
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  gap: 8px;
+  gap: 4px 12px;
 
   font-size: 13px;
   font-weight: 500;
-  row-gap: 4px;
 
   a {
     text-decoration: none;
@@ -38,8 +37,4 @@
   &:hover {
     color: var(--info-light);
   }
-}
-
-.divider {
-  color: var(--gray-6);
 }

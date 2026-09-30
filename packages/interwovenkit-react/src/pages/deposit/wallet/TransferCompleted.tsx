@@ -1,6 +1,7 @@
 import Button from "@/components/Button"
 import { useConfig } from "@/data/config"
 import { useDrawer, useModal } from "@/data/ui"
+import { useSkipChain } from "@/pages/bridge/data/chains"
 import { formatDuration } from "@/pages/bridge/data/format"
 import { useTrackTxQuery, useTxStatusQuery } from "@/pages/bridge/data/tx"
 import { useSourceAssetLookup } from "../data/sourceAssets"
@@ -50,6 +51,8 @@ export function TransferCompleted() {
   const { srcDenom, srcChainId, quantity } = values
   const sourceAssetLookup = useSourceAssetLookup()
   const sourceSymbol = sourceAssetLookup.symbol(srcChainId, srcDenom)
+  const sourceChain = useSkipChain(srcChainId)
+  const sourceChainName = sourceChain.pretty_name || sourceChain.chain_name
 
   const actionLabel = mode === "deposit" ? "Deposit" : "Withdraw"
 
@@ -99,6 +102,7 @@ export function TransferCompleted() {
   const renderExplorerLinks = () => (
     <ExplorerLinks
       explorerUrl={skipExplorerUrl.toString()}
+      explorerChainName={sourceChainName}
       onHistoryClick={() => {
         closeModal()
         openDrawer("/bridge/history")

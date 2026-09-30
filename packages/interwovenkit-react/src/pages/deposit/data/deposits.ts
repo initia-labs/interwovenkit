@@ -40,9 +40,17 @@ const POLL_INTERVAL = 3000
 const IDLE_POLL_INTERVAL = 15_000
 const IDLE_BACKOFF_DELAY = 5 * 60_000
 
-// The transaction that credited the recipient: a fast-delivery payout outranks the bot's delivery.
+// A fast-delivery payout outranks the operator's standard bridge transaction.
 export const deliveryExplorerUrl = (deposit: Deposit | null | undefined) =>
   deposit?.advance_tx_explorer_url || deposit?.bot_tx_explorer_url || ""
+
+export const deliveryExplorerChainName = (
+  deposit: Deposit | null | undefined,
+  destinationChainName: string,
+) => {
+  if (deposit?.advance_tx_explorer_url) return destinationChainName
+  return deposit?.bot_tx_explorer_url ? "Ethereum" : ""
+}
 
 /** "About 3m left." while the record's estimated completion is still ahead. */
 export function deliveryTimeLeft(delivery: DepositDelivery | undefined, now: number) {

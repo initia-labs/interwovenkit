@@ -24,6 +24,7 @@ import {
   assertLifiDeposit,
   classifyBucket,
   createDepositBySourceTxQueryOptions,
+  deliveryExplorerChainName,
   deliveryExplorerUrl,
   useDeposit,
 } from "../data/deposits"
@@ -35,7 +36,11 @@ import DepositStatus from "../DepositStatus"
 import DepositSubpage from "../DepositSubpage"
 import ExplorerLinks from "../ExplorerLinks"
 import FlowChips from "../FlowChips"
-import { completedReceivedEvidence, sourceExplorerUrl } from "../history"
+import {
+  completedReceivedEvidence,
+  savedDeliveryExplorerChainName,
+  sourceExplorerUrl,
+} from "../history"
 import statusIcons from "../StatusIcons.module.css"
 import {
   checkHashlessSend,
@@ -287,6 +292,7 @@ const DepositProgressTracker = ({ session, observeOnly = false }: TrackerProps) 
 
   const view = deriveDepositProgress(session, inputs)
   const liveDeliveryUrl = resolveDeliveryExplorerUrl(deposit)
+  const liveDeliveryChainName = deliveryExplorerChainName(deposit, session.destination.chainName)
   const stageKey = `${view.variant}:${view.persist?.lastState ?? ""}`
   const delay = takingLongerDelay(session, view.persist?.lastState)
   const [delayedStage, setDelayedStage] = useState<string | null>(null)
@@ -352,6 +358,9 @@ const DepositProgressTracker = ({ session, observeOnly = false }: TrackerProps) 
   const deliveryUrl = session.deliveryExplorerUrl
     ? xss(sanitizeLink(session.deliveryExplorerUrl))
     : liveDeliveryUrl
+  const deliveryChainName = session.deliveryExplorerUrl
+    ? savedDeliveryExplorerChainName(session.deliveryExplorerUrl, session.destination.chainName)
+    : liveDeliveryChainName || session.destination.chainName
 
   const refresh = () => {
     for (const query of [sourceQuery, bridgeQuery, directQuery, depositQuery]) {
@@ -417,7 +426,9 @@ const DepositProgressTracker = ({ session, observeOnly = false }: TrackerProps) 
         </>
       }
       sourceExplorerUrl={sourceExplorerUrl(session.source.chainId, sourceHash)}
+      sourceChainName={session.source.chainName}
       deliveryExplorerUrl={deliveryUrl}
+      deliveryChainName={deliveryChainName}
       onHistoryClick={
         view.variant === "completed" ? () => openDrawer("/bridge/history") : undefined
       }
@@ -489,7 +500,9 @@ interface ProgressScreenProps {
   note?: ReactNode
   chips?: ReactNode
   sourceExplorerUrl?: string
+  sourceChainName?: string
   deliveryExplorerUrl?: string
+  deliveryChainName?: string
   onHistoryClick?: () => void
   footer?: ReactNode
   isRetrying?: boolean
@@ -506,7 +519,9 @@ const ProgressScreen = (props: ProgressScreenProps) => {
     note,
     chips,
     sourceExplorerUrl,
+    sourceChainName,
     deliveryExplorerUrl,
+    deliveryChainName,
     onHistoryClick,
     footer,
   } = props
@@ -546,7 +561,9 @@ const ProgressScreen = (props: ProgressScreenProps) => {
             {chips}
             <ExplorerLinks
               sourceExplorerUrl={sourceExplorerUrl}
+              sourceChainName={sourceChainName}
               deliveryExplorerUrl={deliveryExplorerUrl}
+              deliveryChainName={deliveryChainName}
               onHistoryClick={onHistoryClick}
             />
           </div>

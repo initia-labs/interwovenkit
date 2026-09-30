@@ -82,6 +82,7 @@ const DepositTransferActions = ({ resolution }: { resolution: DepositTransportSe
             {errorMessage && <FormHelp level={readiness.level ?? "error"}>{errorMessage}</FormHelp>}
             {model.submitError && <FormHelp level="error">{model.submitError}</FormHelp>}
             {approval.error && <FormHelp level="error">{approval.error}</FormHelp>}
+            {model.preparationError && <FormHelp level="error">{model.preparationError}</FormHelp>}
             {quoteUpdated && (
               <FormHelp level="info">Route updated. Please review and confirm again.</FormHelp>
             )}
@@ -97,16 +98,25 @@ const DepositTransferActions = ({ resolution }: { resolution: DepositTransportSe
         ) : (
           <Button.White
             type="button"
-            onClick={needsApproval ? approval.approve : model.submit}
-            loading={loadingText}
-            disabled={readiness.status !== "ready"}
+            onClick={model.switchChain ?? (needsApproval ? approval.approve : model.submit)}
+            loading={
+              loadingText ||
+              (readiness.status === "ready" && model.isPreparing && "Preparing transaction...")
+            }
+            disabled={
+              readiness.status !== "ready" ||
+              (!model.switchChain && !model.isActionReady) ||
+              !!model.preparationError
+            }
             fullWidth
           >
             {isPrompt
               ? readiness.message
-              : needsApproval
-                ? "Approve tokens"
-                : getBridgeConfirmLabel("Deposit", quoteUpdated)}
+              : model.switchChain
+                ? `Switch to ${model.chainName}`
+                : needsApproval
+                  ? "Approve tokens"
+                  : getBridgeConfirmLabel("Deposit", quoteUpdated)}
           </Button.White>
         )}
       </Footer>

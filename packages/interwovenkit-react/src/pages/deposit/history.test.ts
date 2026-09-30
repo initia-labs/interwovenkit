@@ -4,6 +4,7 @@ import {
   depositHistorySessions,
   depositHistoryStatus,
   matchesHistoryAccount,
+  savedDeliveryExplorerChainName,
   sourceExplorerUrl,
 } from "./history"
 
@@ -40,6 +41,18 @@ describe("deposit history", () => {
     expect(sourceExplorerUrl("8453", hash)).toBe(`https://basescan.org/tx/${hash}`)
     expect(sourceExplorerUrl("8453", "0xunsafe/path")).toBeUndefined()
     expect(sourceExplorerUrl("unknown", hash)).toBeUndefined()
+  })
+
+  it("recovers the transaction chain from legacy saved explorer links", () => {
+    expect(savedDeliveryExplorerChainName("https://etherscan.io/tx/0xbot", "Initia")).toBe(
+      "Ethereum",
+    )
+    expect(
+      savedDeliveryExplorerChainName(
+        "https://scan.initia.xyz/interwoven-1/txs/0xadvance",
+        "Initia",
+      ),
+    ).toBe("Initia")
   })
 
   it("hydrates completed amounts from saved decimals before the catalog loads", () => {

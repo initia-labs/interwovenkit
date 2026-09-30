@@ -71,13 +71,13 @@ export async function normalizeErrorMessage(error: unknown): Promise<string> {
   }
 
   if (isUserRejection(error)) return USER_REJECTED_MESSAGE
+  if (isPrivyPopupBlocked(error)) return POPUP_BLOCKED_MESSAGE
 
   if (error instanceof Error) {
     const errorMessage = path<string>(["error", "message"], error)
     const causeMessage = path<string>(["cause", "message"], error)
     const shortMessage = path<string>(["shortMessage"], error)
     const message = errorMessage || causeMessage || shortMessage || error.message
-    if (message === PRIVY_POPUP_BLOCKED_MESSAGE) return POPUP_BLOCKED_MESSAGE
     return message
   }
 
@@ -88,8 +88,32 @@ export async function normalizeErrorMessage(error: unknown): Promise<string> {
 // browser blocked the wallet popup (popup blocker, or the click's user activation expired
 // before the request reached the wallet). The raw text gives users nothing to act on.
 const PRIVY_POPUP_BLOCKED_MESSAGE = "Failed to initialize request"
+const PRIVY_VIEM_POPUP_BLOCKED =
+  /^Failed to initialize request\n\nDetails: Failed to initialize request\nVersion: viem@[^\n]+$/
+
+function isPrivyPopupBlocked(error: unknown): boolean {
+  const seen = new WeakSet<object>()
+  const queue: unknown[] = [error]
+  while (queue.length > 0) {
+    const node = queue.shift()
+    if (
+      typeof node === "string" &&
+      (node === PRIVY_POPUP_BLOCKED_MESSAGE || PRIVY_VIEM_POPUP_BLOCKED.test(node))
+    ) {
+      return true
+    }
+    if (typeof node !== "object" || node === null || seen.has(node)) continue
+    seen.add(node)
+    queue.push(
+      path(["message"], node),
+      path(["shortMessage"], node),
+      ...NESTED_ERROR_PATHS.map((key) => path(key, node)),
+    )
+  }
+  return false
+}
 export const POPUP_BLOCKED_MESSAGE =
-  "The wallet popup was blocked by the browser. Allow pop-ups for this site and try again."
+  "The wallet window couldn't open. Try again. If it keeps happening, allow pop-ups for this site."
 
 export async function normalizeError(error: unknown): Promise<Error> {
   return new Error(await normalizeErrorMessage(error), { cause: error })

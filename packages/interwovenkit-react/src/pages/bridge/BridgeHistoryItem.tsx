@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react"
+import { useEffect } from "react"
 import { IconExternalLink } from "@initia/icons-react"
 import ExplorerLink from "@/components/ExplorerLink"
 import Loader from "@/components/Loader"
@@ -45,18 +45,12 @@ const BridgeHistoryItem = ({ tx }: { tx: TxIdentifier }) => {
 
   const srcChain = useSkipChain(srcChainId)
   const dstChain = useSkipChain(dstChainId)
+  const txChain = useSkipChain(chainId)
   const srcAsset = useSkipAsset(srcDenom, srcChainId)
   const dstAsset = useSkipAsset(dstDenom, dstChainId)
 
   const type = getBridgeType(route)
-  const linkLabel = useMemo(() => {
-    switch (type) {
-      case BridgeType.SKIP:
-        return "Skip Explorer"
-      case BridgeType.OP_WITHDRAW:
-        return "Initia Scan"
-    }
-  }, [type])
+  const txChainName = txChain.pretty_name || txChain.chain_name
 
   const searchParams = new URLSearchParams({ tx_hash: txHash, chain_id: chainId })
   const skipExplorerUrl = new URL(`?${searchParams.toString()}`, "https://explorer.skip.build")
@@ -70,7 +64,7 @@ const BridgeHistoryItem = ({ tx }: { tx: TxIdentifier }) => {
           <ExplorerLink
             chainId={chainId}
             txHash={txHash}
-            aria-label="View transaction on Initia Scan"
+            aria-label={`View transaction on ${txChainName} explorer`}
           >
             {""}
           </ExplorerLink>
@@ -79,13 +73,13 @@ const BridgeHistoryItem = ({ tx }: { tx: TxIdentifier }) => {
             href={skipExplorerUrl.toString()}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="View transaction on Skip Explorer"
+            aria-label={`View transaction on ${txChainName} explorer`}
           />
         )
       }
       explorer={
         <>
-          <span>{linkLabel}</span>
+          <span>View on {txChainName}</span>
           <IconExternalLink size={12} aria-hidden="true" />
         </>
       }

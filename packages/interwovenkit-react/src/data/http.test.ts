@@ -16,6 +16,19 @@ describe("normalizeErrorMessage", () => {
     expect(await normalizeErrorMessage(error)).toBe(POPUP_BLOCKED_MESSAGE)
   })
 
+  it("recognizes Privy's popup error after viem and ethers wrap it", async () => {
+    const error = Object.assign(new Error("could not coalesce error"), {
+      code: "UNKNOWN_ERROR",
+      shortMessage: "could not coalesce error",
+      error: {
+        code: -1,
+        message:
+          "Failed to initialize request\n\nDetails: Failed to initialize request\nVersion: viem@2.39.0",
+      },
+    })
+    expect(await normalizeErrorMessage(error)).toBe(POPUP_BLOCKED_MESSAGE)
+  })
+
   it("prefers the cause message over the outer message", async () => {
     const error = new Error("outer", { cause: new Error("inner") })
     expect(await normalizeErrorMessage(error)).toBe("inner")

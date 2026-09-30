@@ -559,23 +559,75 @@ function writeStoredOrVolatile(session: DepositSession): DepositSession {
 
 const PROMPT_LOCK = "interwovenkit:deposit-prompt"
 
+function reserveDepositPromptSynchronously(session: DepositSession): DepositSession {
+  if (findInFlightSession(listStoredAndVolatile(session.apiUrl), session)) {
+    throw new DepositInFlightError()
+  }
+  try {
+    return writeDepositSession(localStorage, session)
+  } finally {
+    notifyDepositSessions()
+  }
+}
+
+export interface DepositPromptReservation {
+  reserve(session: DepositSession): DepositSession
+  release(): void
+}
+
+export function acquireDepositPromptReservation(
+  signal: AbortSignal,
+): Promise<DepositPromptReservation> {
+  if (signal.aborted) return Promise.reject(signal.reason)
+  const create = (releaseLock: () => void): DepositPromptReservation => {
+    let available = true
+    const release = () => {
+      if (!available) return
+      available = false
+      signal.removeEventListener("abort", release)
+      releaseLock()
+    }
+    signal.addEventListener("abort", release, { once: true })
+    return {
+      reserve(session) {
+        if (!available) throw signal.reason ?? new DOMException("Aborted", "AbortError")
+        try {
+          return reserveDepositPromptSynchronously(session)
+        } finally {
+          release()
+        }
+      },
+      release,
+    }
+  }
+  if (typeof navigator === "undefined" || !navigator.locks) {
+    return Promise.resolve(create(() => undefined))
+  }
+  return new Promise((resolve, reject) => {
+    let acquired = false
+    void navigator.locks
+      .request(PROMPT_LOCK, { signal }, async () => {
+        let unlock: () => void = () => undefined
+        const held = new Promise<void>((done) => {
+          unlock = done
+        })
+        acquired = true
+        resolve(create(unlock))
+        await held
+      })
+      .catch((error) => {
+        if (!acquired) reject(error)
+      })
+  })
+}
+
 // The in-flight check and the prompt record are one step under a cross-tab lock, so two clicks for
 // the same transfer, in any mount or tab, can't both reach the wallet.
 export async function reserveDepositPrompt(session: DepositSession): Promise<DepositSession> {
-  const reserve = () => {
-    if (findInFlightSession(listStoredAndVolatile(session.apiUrl), session)) {
-      throw new DepositInFlightError()
-    }
-    try {
-      return writeDepositSession(localStorage, session)
-    } finally {
-      notifyDepositSessions()
-    }
-  }
   return typeof navigator !== "undefined" && navigator.locks
     ? // Async, so a refusal rejects the request instead of throwing inside the lock's callback.
-      navigator.locks.request(PROMPT_LOCK, async () => reserve())
-    : reserve()
+      navigator.locks.request(PROMPT_LOCK, async () => reserveDepositPromptSynchronously(session))
+    : reserveDepositPromptSynchronously(session)
 }
 
 function listStoredAndVolatile(apiUrl: string): DepositSession[] {

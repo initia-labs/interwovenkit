@@ -11,7 +11,7 @@ import { useModal } from "@/data/ui"
 import BridgeHistoryCard from "@/pages/bridge/BridgeHistoryCard"
 import { DepositProgressObserver } from "./wallet/DepositProgress"
 import type { DepositSession } from "./wallet/depositSession"
-import { depositHistoryStatus, sourceExplorerUrl } from "./history"
+import { depositHistoryStatus, savedDeliveryExplorerChainName, sourceExplorerUrl } from "./history"
 import statusIcons from "./StatusIcons.module.css"
 import styles from "@/pages/bridge/BridgeHistoryItem.module.css"
 
@@ -29,6 +29,15 @@ const DepositHistoryItem = ({ session }: { session: DepositSession }) => {
   const status = depositHistoryStatus(session)
   const received = session.received
   const sourceUrl = sourceExplorerUrl(session.source.chainId, session.currentSourceHash)
+  const deliveryChainName = session.deliveryExplorerUrl
+    ? savedDeliveryExplorerChainName(session.deliveryExplorerUrl, session.destination.chainName)
+    : ""
+  const isSameChain =
+    !!sourceUrl &&
+    !!deliveryChainName &&
+    session.source.chainName.localeCompare(deliveryChainName, undefined, {
+      sensitivity: "base",
+    }) === 0
   const openStatus = () =>
     openModal("/deposit", {
       localOptions: [{ denom: session.destination.denom, chainId: session.destination.chainId }],
@@ -76,9 +85,14 @@ const DepositHistoryItem = ({ session }: { session: DepositSession }) => {
                 href={sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label="View source transaction"
+                aria-label={
+                  isSameChain
+                    ? `View sent transaction on ${session.source.chainName} explorer`
+                    : `View transaction on ${session.source.chainName} explorer`
+                }
               >
-                Source <IconExternalLink size={12} aria-hidden="true" />
+                {isSameChain ? "View sent transaction" : `View on ${session.source.chainName}`}{" "}
+                <IconExternalLink size={12} aria-hidden="true" />
               </a>
             )}
             {session.deliveryExplorerUrl && (
@@ -88,9 +102,14 @@ const DepositHistoryItem = ({ session }: { session: DepositSession }) => {
                   href={xss(sanitizeLink(session.deliveryExplorerUrl))}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label="View delivery"
+                  aria-label={
+                    isSameChain
+                      ? `View bridge transaction on ${deliveryChainName} explorer`
+                      : `View transaction on ${deliveryChainName} explorer`
+                  }
                 >
-                  Delivery <IconExternalLink size={12} aria-hidden="true" />
+                  {isSameChain ? "View bridge transaction" : `View on ${deliveryChainName}`}{" "}
+                  <IconExternalLink size={12} aria-hidden="true" />
                 </a>
               </>
             )}

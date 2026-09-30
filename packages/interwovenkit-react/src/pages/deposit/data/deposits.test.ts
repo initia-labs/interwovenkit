@@ -9,6 +9,7 @@ import {
   type ClassifiedBucket,
   classifyBucket,
   createDepositBySourceTxQueryOptions,
+  deliveryExplorerChainName,
   deliveryExplorerUrl,
   deliveryTimeLeft,
   DepositAddressMismatchError,
@@ -302,12 +303,31 @@ describe("assertTrackedDeposit", () => {
 describe("deliveryExplorerUrl", () => {
   it("links the fast-delivery payout ahead of the bot's delivery", () => {
     const advance = "https://scan.initia.xyz/interwoven-1/txs/ADVANCE"
-    const bot = "https://scan.initia.xyz/interwoven-1/txs/BOT"
+    const bot = "https://etherscan.io/tx/BOT"
     expect(
       deliveryExplorerUrl(deposit({ advance_tx_explorer_url: advance, bot_tx_explorer_url: bot })),
     ).toBe(advance)
     expect(deliveryExplorerUrl(deposit({ bot_tx_explorer_url: bot }))).toBe(bot)
     expect(deliveryExplorerUrl(null)).toBe("")
+  })
+
+  it("identifies the chain that submitted the selected transaction", () => {
+    expect(
+      deliveryExplorerChainName(
+        deposit({
+          advance_tx_explorer_url: "https://scan.initia.xyz/interwoven-1/txs/ADVANCE",
+          bot_tx_explorer_url: "https://etherscan.io/tx/BOT",
+        }),
+        "Initia",
+      ),
+    ).toBe("Initia")
+    expect(
+      deliveryExplorerChainName(
+        deposit({ bot_tx_explorer_url: "https://etherscan.io/tx/BOT" }),
+        "Initia",
+      ),
+    ).toBe("Ethereum")
+    expect(deliveryExplorerChainName(null, "Initia")).toBe("")
   })
 })
 

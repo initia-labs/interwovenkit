@@ -7,6 +7,7 @@ import type {
   StorageLike,
 } from "./depositSession"
 import {
+  acquireDepositPromptReservation,
   DepositInFlightError,
   depositSessionStorageKey,
   depositSessionStore,
@@ -29,6 +30,56 @@ import { API_URL, buildDepositSession, createMemoryStorage } from "./testing"
 /** Seeds a record the way an earlier tab left it: straight to storage, bypassing the merge. */
 function store(storage: StorageLike, session: DepositSession) {
   storage.setItem(depositSessionStorageKey(session.id), JSON.stringify(session))
+}
+
+function createLockRequest() {
+  interface PendingLock {
+    callback: () => Promise<unknown> | unknown
+    reject: (error: unknown) => void
+    resolve: (value: unknown) => void
+    signal?: AbortSignal
+  }
+  let held = false
+  const queue: PendingLock[] = []
+  const pump = () => {
+    if (held) return
+    const pending = queue.shift()
+    if (!pending) return
+    if (pending.signal?.aborted) {
+      pending.reject(pending.signal.reason)
+      pump()
+      return
+    }
+    held = true
+    Promise.resolve(pending.callback())
+      .then(pending.resolve, pending.reject)
+      .finally(() => {
+        held = false
+        pump()
+      })
+  }
+  return vi.fn(
+    (
+      _name: string,
+      optionsOrCallback: { signal?: AbortSignal } | (() => Promise<unknown> | unknown),
+      callback?: () => Promise<unknown> | unknown,
+    ) => {
+      const options = typeof optionsOrCallback === "function" ? {} : optionsOrCallback
+      const run = typeof optionsOrCallback === "function" ? optionsOrCallback : callback!
+      return new Promise<unknown>((resolve, reject) => {
+        const pending = { callback: run, reject, resolve, signal: options.signal }
+        const abort = () => {
+          const index = queue.indexOf(pending)
+          if (index < 0) return
+          queue.splice(index, 1)
+          reject(options.signal?.reason)
+        }
+        options.signal?.addEventListener("abort", abort, { once: true })
+        queue.push(pending)
+        pump()
+      })
+    },
+  )
 }
 
 describe("parseDepositSession", () => {
@@ -534,5 +585,82 @@ describe("reserveDepositPrompt", () => {
     vi.stubGlobal("navigator", { locks: { request } })
     await reserveDepositPrompt(buildDepositSession({ phase: "send_prompt" }))
     expect(request).toHaveBeenCalledWith("interwovenkit:deposit-prompt", expect.any(Function))
+  })
+
+  it("lets a prepared click reserve synchronously only once", async () => {
+    const controller = new AbortController()
+    const reservation = await acquireDepositPromptReservation(controller.signal)
+    const session = buildDepositSession({ phase: "send_prompt" })
+    expect(reservation.reserve(session).phase).toBe("send_prompt")
+    expect(() => reservation.reserve(session)).toThrow(/Abort|aborted/i)
+  })
+
+  it("disables a prepared reservation when its owner aborts", async () => {
+    const controller = new AbortController()
+    const reservation = await acquireDepositPromptReservation(controller.signal)
+    controller.abort()
+    expect(() => reservation.reserve(buildDepositSession({ phase: "send_prompt" }))).toThrow(
+      /Abort|aborted/i,
+    )
+  })
+
+  it("holds the global lock until a prepared reservation is released", async () => {
+    const request = createLockRequest()
+    vi.stubGlobal("navigator", { locks: { request } })
+    const first = await acquireDepositPromptReservation(new AbortController().signal)
+    let acquired = false
+    const secondPromise = acquireDepositPromptReservation(new AbortController().signal).then(
+      (reservation) => {
+        acquired = true
+        return reservation
+      },
+    )
+    await Promise.resolve()
+    expect(acquired).toBe(false)
+    first.release()
+    const second = await secondPromise
+    expect(acquired).toBe(true)
+    second.release()
+  })
+
+  it("removes an aborted waiter without acquiring later", async () => {
+    const request = createLockRequest()
+    vi.stubGlobal("navigator", { locks: { request } })
+    const first = await acquireDepositPromptReservation(new AbortController().signal)
+    const waiting = new AbortController()
+    const second = acquireDepositPromptReservation(waiting.signal)
+    waiting.abort()
+    await expect(second).rejects.toBe(waiting.signal.reason)
+    first.release()
+    await Promise.resolve()
+    expect(request).toHaveBeenCalledTimes(2)
+  })
+
+  it("releases a held reservation when its owner aborts", async () => {
+    const request = createLockRequest()
+    vi.stubGlobal("navigator", { locks: { request } })
+    const owner = new AbortController()
+    await acquireDepositPromptReservation(owner.signal)
+    const next = acquireDepositPromptReservation(new AbortController().signal)
+    owner.abort()
+    const reservation = await next
+    reservation.release()
+  })
+
+  it("releases the lock after reserve fails so legacy callers observe the durable prompt", async () => {
+    const request = createLockRequest()
+    vi.stubGlobal("navigator", { locks: { request } })
+    const reservation = await acquireDepositPromptReservation(new AbortController().signal)
+    const session = buildDepositSession({ phase: "send_prompt" })
+    const legacy = reserveDepositPrompt(session)
+    expect(reservation.reserve(session)).toMatchObject({ phase: "send_prompt" })
+    await expect(legacy).rejects.toBeInstanceOf(DepositInFlightError)
+
+    const next = await acquireDepositPromptReservation(new AbortController().signal)
+    expect(() =>
+      next.reserve(buildDepositSession({ id: "another", phase: "send_prompt" })),
+    ).toThrow(DepositInFlightError)
+    const afterFailure = await acquireDepositPromptReservation(new AbortController().signal)
+    afterFailure.release()
   })
 })

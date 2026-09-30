@@ -1,10 +1,10 @@
-import type { BrowserProvider, JsonRpcSigner } from "ethers"
+import { BrowserProvider } from "ethers"
+import { useAccount } from "wagmi"
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 import { useDebounceValue } from "usehooks-ts"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useConfig } from "@/data/config"
 import { normalizeError, normalizeErrorMessage } from "@/data/http"
-import { useGetProvider } from "@/data/signer"
 import { useLocationState } from "@/lib/router"
 import { useFindSkipChain } from "@/pages/bridge/data/chains"
 import { switchEthereumChain } from "@/pages/bridge/data/evm"
@@ -15,7 +15,6 @@ import {
   bridgeQuoteSignature,
   createBridgeOptionsQueryOptions,
   createBridgeQuoteQueryOptions,
-  isBridgeQuoteMateriallyChanged,
   rankBridgeOptions,
 } from "../data/bridges"
 import { useDepositAddress } from "../data/depositAddress"
@@ -29,15 +28,16 @@ import type {
   DestinationNetwork,
 } from "../data/types"
 import {
+  acquireDepositPromptReservation,
   DepositInFlightError,
   type DepositIntent,
+  type DepositPromptReservation,
   type DepositSession,
   type DepositSessionDraft,
   DepositSessionWriteError,
   findInFlightSession,
   pruneDepositSessions,
   readDepositSession,
-  reserveDepositPrompt,
   reuseOrCreateDepositSession,
   rollbackDepositSessionPrompt,
   useDepositSessionStore,
@@ -58,6 +58,13 @@ import {
   toBaseUnitString,
   UNKNOWN_SEND_MESSAGE,
 } from "./depositTransferLogic"
+import {
+  type DepositWalletProvider,
+  parseDepositWalletProvider,
+  type PreparedWalletRequest,
+  prepareWalletRequest,
+  sendPreparedWalletRequest,
+} from "./depositWalletRequest"
 import {
   encodeErc20Approve,
   getPinnedProvider,
@@ -193,14 +200,27 @@ export function useDeliveryQuote(
 
 class UnknownSendError extends Error {}
 
-const ATTEMPT_CHANGED_MESSAGE =
-  "The deposit changed before your wallet opened. Review and try again."
-
-/** The draft is bound at the click, with the inputs it was built from. */
-interface DepositAttempt {
-  draft: DepositSessionDraft
-  inputs: string
-}
+type PreparedAction =
+  | { status: "idle" | "preparing" }
+  | { status: "wrong_chain"; provider: DepositWalletProvider }
+  | { status: "error"; message: string }
+  | {
+      status: "ready"
+      kind: "approval"
+      key: string
+      signal: AbortSignal
+      request: Extract<PreparedWalletRequest, { status: "ready" }>
+      approval: BridgeQuoteApproval
+    }
+  | {
+      status: "ready"
+      kind: "deposit"
+      key: string
+      signal: AbortSignal
+      request: Extract<PreparedWalletRequest, { status: "ready" }>
+      draft: DepositSessionDraft
+      reservation: DepositPromptReservation
+    }
 
 // Locks the form for the life of this mount: nothing may reach the wallet again from it.
 const isLockingError = (error: unknown): boolean =>
@@ -213,7 +233,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const api = useDepositApi()
   const { depositApiUrl = "", registryUrl } = useConfig()
   const queryClient = useQueryClient()
-  const getProvider = useGetProvider()
+  const { connector } = useAccount()
   const findSkipChain = useFindSkipChain()
   const findChain = (chainId: string) => {
     try {
@@ -235,6 +255,12 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
 
   const [reviewRequiredSignature, setReviewRequiredSignature] = useState("")
   const [isRefreshingQuote, setIsRefreshingQuote] = useState(false)
+  const [preparedAction, setPreparedAction] = useState<PreparedAction>({ status: "idle" })
+  const reservationRef = useRef<DepositPromptReservation | null>(null)
+  const preparationControllerRef = useRef<AbortController | null>(null)
+  const [visibilityRevision, setVisibilityRevision] = useState(0)
+  const [preparationRevision, setPreparationRevision] = useState(0)
+  const [startError, setStartError] = useState<Error | null>(null)
   // Synchronous: a second click can land before React renders the mutation as pending.
   const busyRef = useRef(false)
   // What the last approval's wait saw on chain, the floor for the next deposit's nonce baseline.
@@ -438,12 +464,6 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
       gasLimit: transaction?.gasLimit,
       maxFeePerGas: headQuery.data?.maxFeePerGas,
     })
-  const coversNativeCost = (transaction: DepositSessionDraft["transaction"]) => {
-    const required = nativeCost(transaction)
-    const native = balancesQuery.data?.native
-    return !required || (native !== undefined && BigInt(native) >= BigInt(required))
-  }
-
   const intent: DepositIntent = {
     apiUrl: depositApiUrl,
     transport,
@@ -455,50 +475,25 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const inFlightSession =
     hexAddress && recipient ? findInFlightSession(sessions, intent) : undefined
 
-  const getSigner = async (chainId: string, sender = hexAddress) => {
-    const chain = findChain(chainId)
-    if (!chain) throw new Error(`Chain not found: ${chainId}`)
-    // Balances, allowance and nonce were read for this account; the watch assumes it sent.
-    const signerFor = async (provider: BrowserProvider) => {
-      const signer = await provider.getSigner()
-      if (!eqAddress(signer.address, sender)) {
-        throw new Error("Your wallet switched accounts. Try again.")
-      }
-      return signer
-    }
-    const provider = await getProvider()
-    const signer = await signerFor(provider)
-    // Asked of the wallet itself: a stale cached chain would make ethers refuse the send.
-    const walletChainId = Number(await provider.send("eth_chainId", []))
-    if (walletChainId === Number(chainId)) return signer
-    await switchEthereumChain(provider, chain)
-    // A provider that already detected the old chain can refuse to send on the new one.
-    return signerFor(await getProvider())
+  interface StartedApproval {
+    approval: BridgeQuoteApproval
+    promise: Promise<unknown>
+    nonceFloor: number
   }
-
   const approveMutation = useMutation({
     networkMode: "always",
-    mutationFn: async (approval: BridgeQuoteApproval) => {
+    mutationFn: async ({ approval, promise, nonceFloor }: StartedApproval) => {
       try {
-        const signer = await getSigner(source.chainId)
-        // A chain switch can outlast the form; a closed form never opens the approval prompt.
-        if (!mountedRef.current) throw new Error(ATTEMPT_CHANGED_MESSAGE)
-        // Mined before the prompt, so the approval takes this nonce or a later one, even when it replaces
-        // an earlier pending transaction. The wallet's hash is enough: sendTransaction would also wait on
-        // the wallet's node, which may never return it.
-        const nonceFloor = noncesQuery.data?.latest
-        if (nonceFloor === undefined) throw new Error("This deposit is not ready to send")
-        const hash = await signer.sendUncheckedTransaction({
-          chainId: Number(source.chainId),
-          to: approval.token_address,
-          data: encodeErc20Approve(approval.spender_address, approval.amount),
-        })
+        const result = await promise
+        if (!isEvmTxHash(result))
+          throw new Error("Your wallet returned an invalid transaction hash")
+        const hash = result
         const confirmed = await waitForApproval(
           getPinnedProvider(source.chainId),
           {
             hash,
             nonce: nonceFloor,
-            owner: signer.address,
+            owner: hexAddress,
             token: approval.token_address,
             spender: approval.spender_address,
             amount: approval.amount,
@@ -510,7 +505,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
         queryClient.setQueryData(allowanceKey, confirmed.allowance)
         approvalNoncesRef.current = {
           chainId: source.chainId,
-          sender: signer.address,
+          sender: hexAddress,
           nonces: confirmed.nonces,
         }
       } catch (error) {
@@ -520,6 +515,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: quoteQueryOptions.queryKey })
     },
+    onError: () => setPreparationRevision((value) => value + 1),
   })
 
   // The prompt already happened, so a lost write must not turn into a reported failure.
@@ -531,51 +527,13 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     }
   }
 
-  // The click that started this send still owns it: same inputs, and the form still open.
-  const isCurrentAttempt = (inputs: string) => mountedRef.current && inputsRef.current === inputs
+  interface StartedDeposit {
+    prompted: DepositSession
+    provider: DepositWalletProvider
+    promise: Promise<unknown>
+  }
 
-  const sendDeposit = async ({ draft, inputs }: DepositAttempt) => {
-    if (!isCurrentAttempt(inputs)) throw new Error(ATTEMPT_CHANGED_MESSAGE)
-    // The head and nonces below are read for the connected account and source chain.
-    if (!eqAddress(draft.source.sender, hexAddress) || draft.source.chainId !== source.chainId) {
-      throw new Error("Your wallet switched accounts. Try again.")
-    }
-    const preSubmitBlock = headQuery.data?.block
-    const read = noncesQuery.data
-    if (preSubmitBlock === undefined || !read) {
-      throw new Error("This deposit is not ready to send")
-    }
-    // A node behind the approval's must not lower the baseline hashless recovery compares against.
-    const approved = approvalNoncesRef.current
-    const nonces =
-      approved &&
-      approved.chainId === draft.source.chainId &&
-      eqAddress(approved.sender, draft.source.sender)
-        ? {
-            latest: Math.max(read.latest, approved.nonces.latest),
-            pending: Math.max(read.pending, approved.nonces.pending),
-          }
-        : read
-
-    const storedId = getValues("depositSessionId")
-    const stored = storedId ? readDepositSession(localStorage, storedId) : null
-    pruneDepositSessions(localStorage, Date.now())
-    // Written and read back before any wallet prompt, the chain switch included.
-    const prompted = await reserveDepositPrompt({
-      ...reuseOrCreateDepositSession(stored, draft),
-      ...draft,
-      phase: "send_prompt",
-      preSubmitBlock,
-      promptedAt: Date.now(),
-      promptNonce: nonces.latest,
-      promptPendingNonce: nonces.pending,
-      updatedAt: Date.now(),
-    })
-    // The lock can wait on another tab; the click may no longer own this send by the time it's held.
-    if (!isCurrentAttempt(inputs)) {
-      rollbackDepositSessionPrompt(localStorage, prompted.id)
-      throw new Error(ATTEMPT_CHANGED_MESSAGE)
-    }
+  const sendDeposit = async ({ prompted, provider, promise }: StartedDeposit) => {
     setValue("depositSessionId", prompted.id)
 
     // While this tab holds the prompt open, other tabs must not read it as abandoned.
@@ -589,32 +547,12 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     }, PROMPT_HEARTBEAT_MS)
 
     let hash: string
-    let signer: JsonRpcSigner
     try {
-      // Nothing is broadcast before the send itself.
-      const rollback = (error: unknown): never => {
-        rollbackDepositSessionPrompt(localStorage, prompted.id)
-        throw error
-      }
-      signer = await getSigner(prompted.transaction.chainId, prompted.source.sender).catch(rollback)
-      const { transaction } = prompted
-      const request = {
-        chainId: Number(transaction.chainId),
-        to: transaction.to,
-        data: transaction.data,
-        value: BigInt(transaction.value),
-      }
-      // Estimated here rather than inside sendTransaction, so a failed estimate is provably not sent.
-      const gasLimit = transaction.gasLimit
-        ? BigInt(transaction.gasLimit)
-        : await signer.estimateGas(request).catch(rollback)
-      // The chain switch and estimate can take a while; an edit or a closed form cancels the send.
-      if (!isCurrentAttempt(inputs)) rollback(new Error(ATTEMPT_CHANGED_MESSAGE))
-      // Recorded the moment the wallet answers. sendTransaction would first wait for the wallet's own
-      // node to return the transaction, which a private mempool or lost response can stretch forever.
-      // The tracker learns the nonce from the pinned node.
-      hash = await signer
-        .sendUncheckedTransaction({ ...request, gasLimit })
+      hash = await promise
+        .then((result) => {
+          if (!isEvmTxHash(result)) throw new UnknownSendError(UNKNOWN_SEND_MESSAGE)
+          return result
+        })
         .catch(async (error: unknown) => {
           const message = await normalizeErrorMessage(error)
           if (isProvablyNotSent(error, message)) {
@@ -624,10 +562,6 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
           writeAfterPrompt({ ...prompted, phase: "submission_unknown" })
           throw new UnknownSendError(message)
         })
-      if (!isEvmTxHash(hash)) {
-        writeAfterPrompt({ ...prompted, phase: "submission_unknown" })
-        throw new UnknownSendError(UNKNOWN_SEND_MESSAGE)
-      }
     } finally {
       clearInterval(heartbeat)
     }
@@ -640,7 +574,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     })
     // The pinned node may never see a privately sent transfer, and without its nonce a replacement
     // can't be found. The wallet's own node knows it; a miss leaves the tracker to learn it.
-    void signer.provider
+    void new BrowserProvider(provider)
       .getTransaction(hash)
       .then((sent) => {
         const current = readDepositSession(localStorage, prompted.id)
@@ -655,7 +589,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const sendMutation = useMutation({
     networkMode: "always",
     // The draft is built at the click, so a mutation that runs later can't pick up newer form state.
-    mutationFn: async (attempt: DepositAttempt) => {
+    mutationFn: async (attempt: StartedDeposit) => {
       try {
         await sendDeposit(attempt)
       } catch (error) {
@@ -663,9 +597,12 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
       }
     },
     onSuccess: () => setValue("page", "deposit-progress"),
+    onError: (error) => {
+      if (!isLockingError(error)) setPreparationRevision((value) => value + 1)
+    },
   })
 
-  const sendError = sendMutation.error
+  const sendError = sendMutation.error ?? startError
   const unknownSend = sendError instanceof UnknownSendError
   const storageBlocked = sendError instanceof DepositSessionWriteError
   // Once another tab's reservation reaches this one, readiness already says the transfer is in flight.
@@ -738,72 +675,284 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     clearSettledErrors()
   }, [transferInputs])
 
-  // Only a re-read that isn't materially different from `reviewed` may go on to the wallet in the same click.
-  const refreshQuote = async (
-    reviewed: BridgeQuoteResponse,
-  ): Promise<BridgeQuoteResponse | undefined> => {
+  useEffect(() => {
+    const update = () => {
+      preparationControllerRef.current?.abort()
+      reservationRef.current?.release()
+      reservationRef.current = null
+      setVisibilityRevision((value) => value + 1)
+    }
+    document.addEventListener("visibilitychange", update)
+    window.addEventListener("focus", update)
+    window.addEventListener("blur", update)
+    return () => {
+      document.removeEventListener("visibilitychange", update)
+      window.removeEventListener("focus", update)
+      window.removeEventListener("blur", update)
+    }
+  }, [])
+
+  const actionKind = approvalRequired ? "approval" : "deposit"
+  const actionKey = [
+    actionKind,
+    transferInputs,
+    quoteSignature,
+    quoteQuery.dataUpdatedAt,
+    approval?.token_address,
+    approval?.spender_address,
+    approval?.amount,
+    draftTransaction?.to,
+    draftTransaction?.data,
+    draftTransaction?.value,
+    draftTransaction?.gasLimit,
+    balancesQuery.data?.native,
+    headQuery.data?.maxFeePerGas,
+    headQuery.data?.block,
+    noncesQuery.data?.latest,
+    noncesQuery.data?.pending,
+  ].join("|")
+
+  useEffect(() => {
+    reservationRef.current?.release()
+    reservationRef.current = null
+    if (document.hidden || !document.hasFocus() || readiness.status !== "ready" || !connector) {
+      setPreparedAction({ status: "idle" })
+      return
+    }
+    const draft = buildDraft(quote)
+    if ((actionKind === "approval" && !approval) || (actionKind === "deposit" && !draft)) {
+      setPreparedAction({ status: "idle" })
+      return
+    }
+
+    const controller = new AbortController()
+    preparationControllerRef.current = controller
+    let provider: DepositWalletProvider | undefined
+    const invalidate = () => {
+      controller.abort()
+      reservationRef.current?.release()
+      reservationRef.current = null
+      setPreparedAction({ status: "idle" })
+      setPreparationRevision((value) => value + 1)
+    }
+    setPreparedAction({ status: "preparing" })
+    void connector
+      .getProvider()
+      .then((value) => {
+        if (controller.signal.aborted) throw controller.signal.reason
+        provider = parseDepositWalletProvider(value)
+        provider.on?.("accountsChanged", invalidate)
+        provider.on?.("chainChanged", invalidate)
+        provider.on?.("disconnect", invalidate)
+        return actionKind === "approval" && approval
+          ? prepareWalletRequest({
+              provider,
+              sender: hexAddress,
+              chainId: source.chainId,
+              to: approval.token_address,
+              data: encodeErc20Approve(approval.spender_address, approval.amount),
+              value: "0",
+            })
+          : prepareWalletRequest({
+              provider,
+              sender: hexAddress,
+              chainId: source.chainId,
+              to: draft!.transaction.to,
+              data: draft!.transaction.data,
+              value: draft!.transaction.value,
+              gasLimit: draft!.transaction.gasLimit,
+            })
+      })
+      .then(async (request) => {
+        if (controller.signal.aborted || document.hidden || !document.hasFocus()) return
+        if (request.status === "wrong_chain") {
+          setPreparedAction(request)
+          return
+        }
+        const native = balancesQuery.data?.native
+        const fee = headQuery.data?.maxFeePerGas
+        if (
+          native !== undefined &&
+          fee !== undefined &&
+          BigInt(native) <
+            BigInt(request.transaction.value) + BigInt(request.transaction.gas!) * BigInt(fee)
+        ) {
+          setPreparedAction({
+            status: "error",
+            message: "Not enough ETH for this route's fee and gas",
+          })
+          return
+        }
+        if (actionKind === "approval" && approval) {
+          setPreparedAction({
+            status: "ready",
+            kind: "approval",
+            key: actionKey,
+            signal: controller.signal,
+            request,
+            approval,
+          })
+          return
+        }
+        const reservation = await acquireDepositPromptReservation(controller.signal)
+        if (controller.signal.aborted || document.hidden || !document.hasFocus()) {
+          reservation.release()
+          return
+        }
+        reservationRef.current = reservation
+        setPreparedAction({
+          status: "ready",
+          kind: "deposit",
+          key: actionKey,
+          signal: controller.signal,
+          request,
+          draft: draft!,
+          reservation,
+        })
+      })
+      .catch(async (error: unknown) => {
+        if (controller.signal.aborted) return
+        const message = await normalizeErrorMessage(error)
+        if (!controller.signal.aborted) setPreparedAction({ status: "error", message })
+      })
+
+    return () => {
+      controller.abort()
+      if (preparationControllerRef.current === controller) preparationControllerRef.current = null
+      reservationRef.current?.release()
+      reservationRef.current = null
+      if (provider) {
+        provider.removeListener?.("accountsChanged", invalidate)
+        provider.removeListener?.("chainChanged", invalidate)
+        provider.removeListener?.("disconnect", invalidate)
+      }
+    }
+    // actionKey binds every prepared field and source read used by the click.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connector, actionKey, readiness.status, visibilityRevision, preparationRevision])
+
+  const refreshQuote = async (): Promise<void> => {
     setIsRefreshingQuote(true)
     try {
       const { data, isError } = await quoteQuery.refetch()
       if (!mountedRef.current) return undefined
       const verified = !isError ? data : undefined
-      // The re-read's guarantee is signed without a render, so it must clear the minimums itself.
-      if (
-        !verified ||
-        isBridgeQuoteMateriallyChanged(reviewed, verified) ||
-        !clearsLifiMinimums(verified.min_received)
-      ) {
-        setReviewRequiredSignature(verified ? bridgeQuoteSignature(verified) : "")
-        return undefined
-      }
-      return verified
+      setReviewRequiredSignature(
+        verified && clearsLifiMinimums(verified.min_received) ? bridgeQuoteSignature(verified) : "",
+      )
     } finally {
       setIsRefreshingQuote(false)
     }
   }
 
-  const send = async (reviewed: BridgeQuoteResponse | undefined) => {
-    if (busyRef.current || readiness.status !== "ready" || approvalRequired) return
-    busyRef.current = true
-    const inputs = transferInputs
-    let locked = false
-    try {
-      let signed = quote
-      const refresh =
-        transport === "lifi" &&
-        (isQuoteStale(quoteQuery.dataUpdatedAt, Date.now()) || quoteQuery.isFetching)
-      if (refresh) {
-        signed = reviewed && (await refreshQuote(reviewed))
-        // An edit while the quote was re-read cancels this send; the draft must match the form.
-        if (!signed || inputsRef.current !== inputs) return
-      }
-      const draft = buildDraft(signed)
-      if (!draft) return
-      // The button's balance check priced the displayed quote; the re-read's native cost can differ.
-      // Readiness shows the shortfall once the re-read renders.
-      if (refresh && !coversNativeCost(draft.transaction)) return
-      setReviewRequiredSignature("")
-      await sendMutation.mutateAsync({ draft, inputs })
-    } catch (error) {
-      locked = isLockingError(error)
-    } finally {
-      busyRef.current = locked
+  const send = () => {
+    if (
+      busyRef.current ||
+      readiness.status !== "ready" ||
+      approvalRequired ||
+      preparedAction.status !== "ready" ||
+      preparedAction.kind !== "deposit" ||
+      preparedAction.key !== actionKey ||
+      preparedAction.signal.aborted ||
+      !mountedRef.current ||
+      document.hidden ||
+      !document.hasFocus()
+    )
+      return
+    if (
+      transport === "lifi" &&
+      (isQuoteStale(quoteQuery.dataUpdatedAt, Date.now()) || quoteQuery.isFetching)
+    ) {
+      void refreshQuote()
+      return
     }
+    const preSubmitBlock = headQuery.data?.block
+    const read = noncesQuery.data
+    if (preSubmitBlock === undefined || !read) return
+    const approved = approvalNoncesRef.current
+    const nonces =
+      approved && approved.chainId === source.chainId && eqAddress(approved.sender, hexAddress)
+        ? {
+            latest: Math.max(read.latest, approved.nonces.latest),
+            pending: Math.max(read.pending, approved.nonces.pending),
+          }
+        : read
+    let prompted: DepositSession
+    try {
+      const storedId = getValues("depositSessionId")
+      const stored = storedId ? readDepositSession(localStorage, storedId) : null
+      pruneDepositSessions(localStorage, Date.now())
+      prompted = preparedAction.reservation.reserve({
+        ...reuseOrCreateDepositSession(stored, preparedAction.draft),
+        ...preparedAction.draft,
+        phase: "send_prompt",
+        preSubmitBlock,
+        promptedAt: Date.now(),
+        promptNonce: nonces.latest,
+        promptPendingNonce: nonces.pending,
+        updatedAt: Date.now(),
+      })
+    } catch (error) {
+      setStartError(error instanceof Error ? error : new Error(String(error)))
+      return
+    }
+    setStartError(null)
+    reservationRef.current = null
+    busyRef.current = true
+    setReviewRequiredSignature("")
+    const promise = sendPreparedWalletRequest(preparedAction.request)
+    let locked = false
+    void sendMutation
+      .mutateAsync({ prompted, provider: preparedAction.request.provider, promise })
+      .catch((error) => {
+        locked = isLockingError(error)
+      })
+      .finally(() => {
+        busyRef.current = locked
+      })
   }
 
-  const approve = async () => {
-    if (busyRef.current || !approval || !quote) return
+  const approve = () => {
+    if (
+      busyRef.current ||
+      preparedAction.status !== "ready" ||
+      preparedAction.kind !== "approval" ||
+      preparedAction.key !== actionKey ||
+      preparedAction.signal.aborted ||
+      !mountedRef.current ||
+      document.hidden ||
+      !document.hasFocus()
+    )
+      return
+    const nonceFloor = noncesQuery.data?.latest
+    if (nonceFloor === undefined) return
     busyRef.current = true
-    // Clicking is the review: a pending "Route updated" is settled by this click.
     setReviewRequiredSignature("")
-    try {
-      await approveMutation.mutateAsync(approval)
-    } catch {
-      // Shown through the mutation's error.
-    } finally {
-      busyRef.current = false
-    }
+    const promise = sendPreparedWalletRequest(preparedAction.request)
+    void approveMutation
+      .mutateAsync({
+        approval: preparedAction.approval,
+        promise,
+        nonceFloor,
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        busyRef.current = false
+      })
   }
+
+  const switchChain =
+    preparedAction.status === "wrong_chain"
+      ? () => {
+          const chain = findChain(source.chainId)
+          if (!chain) return
+          void switchEthereumChain(new BrowserProvider(preparedAction.provider), chain)
+            .catch(async (error: unknown) => {
+              setPreparedAction({ status: "error", message: await normalizeErrorMessage(error) })
+            })
+            .finally(() => setPreparationRevision((value) => value + 1))
+        }
+      : undefined
 
   return {
     transport,
@@ -823,7 +972,12 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
       approve: approvalRequired ? approve : undefined,
     },
     readiness,
-    submit: () => send(quote),
+    submit: send,
+    switchChain,
+    chainName: source.chainName,
+    isPreparing: preparedAction.status === "preparing" || preparedAction.status === "idle",
+    isActionReady: preparedAction.status === "ready" && preparedAction.key === actionKey,
+    preparationError: preparedAction.status === "error" ? preparedAction.message : undefined,
     isSubmitting: sendMutation.isPending || isRefreshingQuote,
     submitError,
     legs,

@@ -42,17 +42,22 @@ export function depositHistorySessions(sessions: DepositSession[]): DepositSessi
   return [...byId.values()]
 }
 
-const SOURCE_EXPLORERS: Record<string, string> = {
-  "1": "https://etherscan.io/tx/",
-  "42161": "https://arbiscan.io/tx/",
-  "8453": "https://basescan.org/tx/",
+const SOURCE_EXPLORERS: Record<string, { baseUrl: string; chainName: string }> = {
+  "1": { baseUrl: "https://etherscan.io/tx/", chainName: "Ethereum" },
+  "42161": { baseUrl: "https://arbiscan.io/tx/", chainName: "Arbitrum" },
+  "8453": { baseUrl: "https://basescan.org/tx/", chainName: "Base" },
 }
 
 export function sourceExplorerUrl(chainId: string, txHash?: string): string | undefined {
   const explorer = SOURCE_EXPLORERS[chainId]
   return explorer && txHash && /^(?:0x)?[0-9a-f]{64}$/i.test(txHash)
-    ? `${explorer}${txHash}`
+    ? `${explorer.baseUrl}${txHash}`
     : undefined
+}
+
+export function savedDeliveryExplorerChainName(url: string, destinationChainName: string): string {
+  const explorer = Object.values(SOURCE_EXPLORERS).find(({ baseUrl }) => url.startsWith(baseUrl))
+  return explorer?.chainName ?? destinationChainName
 }
 
 export function matchesHistoryAccount(
