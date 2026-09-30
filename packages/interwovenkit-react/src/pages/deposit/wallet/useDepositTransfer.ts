@@ -223,7 +223,15 @@ type PreparedAction =
       reservation: DepositPromptReservation
     }
 
-// Locks the form for the life of this mount: nothing may reach the wallet again from it.
+function getPreparedGasBudgetError(action: PreparedAction, native?: string, fee?: string) {
+  if (action.status !== "ready" || native === undefined || fee === undefined) return undefined
+  const { value, gas } = action.request.transaction
+  return BigInt(native) < BigInt(value) + BigInt(gas!) * BigInt(fee)
+    ? "Not enough ETH for this route's fee and gas"
+    : undefined
+}
+
+// An ambiguous send stays locked; a failed session write blocks the current attempt.
 const isLockingError = (error: unknown): boolean =>
   error instanceof UnknownSendError || error instanceof DepositSessionWriteError
 
@@ -815,16 +823,11 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connector, actionKey, readiness.status, visibilityRevision, preparationRevision])
 
-  const preparedGasBudgetError = (() => {
-    if (preparedAction.status !== "ready") return undefined
-    const native = balancesQuery.data?.native
-    const fee = headQuery.data?.maxFeePerGas
-    if (native === undefined || fee === undefined) return undefined
-    const { value, gas } = preparedAction.request.transaction
-    return BigInt(native) < BigInt(value) + BigInt(gas!) * BigInt(fee)
-      ? "Not enough ETH for this route's fee and gas"
-      : undefined
-  })()
+  const preparedGasBudgetError = getPreparedGasBudgetError(
+    preparedAction,
+    balancesQuery.data?.native,
+    headQuery.data?.maxFeePerGas,
+  )
 
   const refreshQuote = async (): Promise<void> => {
     setIsRefreshingQuote(true)
