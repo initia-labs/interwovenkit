@@ -65,13 +65,15 @@ const DepositTransferActions = ({ resolution }: { resolution: DepositTransportSe
       ? `This deposit uses ${truncate(model.depositAddress, [8, 6])}, your Initia deposit address. Your wallet may warn that it's not your current address.`
       : undefined
 
-  const loadingText = isSending
-    ? "Signing transaction..."
-    : approval.isApproving
-      ? "Approving tokens..."
-      : readiness.status === "loading"
-        ? readiness.message || "Loading..."
-        : false
+  const loadingText = model.isRefreshingQuote
+    ? "Refreshing quote..."
+    : isSending
+      ? "Signing transaction..."
+      : approval.isApproving
+        ? "Approving tokens..."
+        : readiness.status === "loading"
+          ? readiness.message || "Loading..."
+          : false
 
   return (
     <>

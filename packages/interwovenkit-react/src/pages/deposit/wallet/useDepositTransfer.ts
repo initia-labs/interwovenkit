@@ -15,6 +15,7 @@ import {
   bridgeQuoteSignature,
   createBridgeOptionsQueryOptions,
   createBridgeQuoteQueryOptions,
+  isBridgeQuoteMateriallyChanged,
   rankBridgeOptions,
 } from "../data/bridges"
 import { useDepositAddress } from "../data/depositAddress"
@@ -667,6 +668,8 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   // An edit starts a new attempt, so the last one's error no longer applies. An ambiguous send keeps
   // its lock, and a request still in flight keeps its state.
   const clearSettledErrors = useEffectEvent(() => {
+    setStartError(null)
+    setReviewRequiredSignature("")
     if (sendMutation.isError && !isLockingError(sendMutation.error)) sendMutation.reset()
     if (approveMutation.isError) approveMutation.reset()
   })
@@ -838,7 +841,12 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
       if (!mountedRef.current) return undefined
       const verified = !isError ? data : undefined
       setReviewRequiredSignature(
-        verified && clearsLifiMinimums(verified.min_received) ? bridgeQuoteSignature(verified) : "",
+        verified &&
+          quote &&
+          clearsLifiMinimums(verified.min_received) &&
+          isBridgeQuoteMateriallyChanged(quote, verified)
+          ? bridgeQuoteSignature(verified)
+          : "",
       )
     } finally {
       setIsRefreshingQuote(false)
@@ -979,6 +987,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     isActionReady: preparedAction.status === "ready" && preparedAction.key === actionKey,
     preparationError: preparedAction.status === "error" ? preparedAction.message : undefined,
     isSubmitting: sendMutation.isPending || isRefreshingQuote,
+    isRefreshingQuote,
     submitError,
     legs,
     quoteUpdated,
