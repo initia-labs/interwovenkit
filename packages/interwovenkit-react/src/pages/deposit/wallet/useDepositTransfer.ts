@@ -708,11 +708,6 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     draftTransaction?.data,
     draftTransaction?.value,
     draftTransaction?.gasLimit,
-    balancesQuery.data?.native,
-    headQuery.data?.maxFeePerGas,
-    headQuery.data?.block,
-    noncesQuery.data?.latest,
-    noncesQuery.data?.pending,
   ].join("|")
 
   useEffect(() => {
@@ -772,20 +767,6 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
           setPreparedAction(request)
           return
         }
-        const native = balancesQuery.data?.native
-        const fee = headQuery.data?.maxFeePerGas
-        if (
-          native !== undefined &&
-          fee !== undefined &&
-          BigInt(native) <
-            BigInt(request.transaction.value) + BigInt(request.transaction.gas!) * BigInt(fee)
-        ) {
-          setPreparedAction({
-            status: "error",
-            message: "Not enough ETH for this route's fee and gas",
-          })
-          return
-        }
         if (actionKind === "approval" && approval) {
           setPreparedAction({
             status: "ready",
@@ -830,9 +811,20 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
         provider.removeListener?.("disconnect", invalidate)
       }
     }
-    // actionKey binds every prepared field and source read used by the click.
+    // actionKey binds every field in the prepared wallet request.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connector, actionKey, readiness.status, visibilityRevision, preparationRevision])
+
+  const preparedGasBudgetError = (() => {
+    if (preparedAction.status !== "ready") return undefined
+    const native = balancesQuery.data?.native
+    const fee = headQuery.data?.maxFeePerGas
+    if (native === undefined || fee === undefined) return undefined
+    const { value, gas } = preparedAction.request.transaction
+    return BigInt(native) < BigInt(value) + BigInt(gas!) * BigInt(fee)
+      ? "Not enough ETH for this route's fee and gas"
+      : undefined
+  })()
 
   const refreshQuote = async (): Promise<void> => {
     setIsRefreshingQuote(true)
@@ -861,6 +853,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
       preparedAction.status !== "ready" ||
       preparedAction.kind !== "deposit" ||
       preparedAction.key !== actionKey ||
+      preparedGasBudgetError ||
       preparedAction.signal.aborted ||
       !mountedRef.current ||
       document.hidden ||
@@ -926,6 +919,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
       preparedAction.status !== "ready" ||
       preparedAction.kind !== "approval" ||
       preparedAction.key !== actionKey ||
+      preparedGasBudgetError ||
       preparedAction.signal.aborted ||
       !mountedRef.current ||
       document.hidden ||
@@ -984,8 +978,13 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     switchChain,
     chainName: source.chainName,
     isPreparing: preparedAction.status === "preparing" || preparedAction.status === "idle",
-    isActionReady: preparedAction.status === "ready" && preparedAction.key === actionKey,
-    preparationError: preparedAction.status === "error" ? preparedAction.message : undefined,
+    isActionReady:
+      preparedAction.status === "ready" &&
+      preparedAction.key === actionKey &&
+      !preparedGasBudgetError,
+    preparationError:
+      preparedGasBudgetError ??
+      (preparedAction.status === "error" ? preparedAction.message : undefined),
     isSubmitting: sendMutation.isPending || isRefreshingQuote,
     isRefreshingQuote,
     submitError,
