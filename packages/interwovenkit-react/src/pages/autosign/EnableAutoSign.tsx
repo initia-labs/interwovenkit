@@ -14,10 +14,10 @@ import { useFindChain, useInitiaRegistry } from "@/data/chains"
 import { useConfig } from "@/data/config"
 import { useDrawer } from "@/data/ui"
 import { useInterwovenKit } from "@/public/data/hooks"
-import { useEnableAutoSign } from "./data/actions"
+import { useEnableAutoSign, useEnableAutoSignNeedsSignature } from "./data/actions"
 import { DURATION_OPTIONS } from "./data/constants"
 import { pendingAutoSignRequestAtom } from "./data/store"
-import { useAutoSignPreference } from "./data/wallet"
+import { useAutoSignPreference, useDeriveWallet } from "./data/wallet"
 import { isVerifiedWebsiteHost } from "./data/website"
 import styles from "./EnableAutoSign.module.css"
 
@@ -53,6 +53,7 @@ const EnableAutoSignComponent = () => {
   const chains = useInitiaRegistry()
   const { address, initiaAddress, username } = useInterwovenKit()
   const { mutate, isPending } = useEnableAutoSign()
+  const { getWallet, signDerivationMessage } = useDeriveWallet()
   const { closeDrawer } = useDrawer()
   const { stayConnected, isLoadingPreference, isStorageUnavailable } = useAutoSignPreference(
     pendingRequest?.chainId ?? "",
@@ -65,6 +66,11 @@ const EnableAutoSignComponent = () => {
     : ""
 
   if (!pendingRequest) throw new Error("Pending request not found")
+
+  const { data: needsSignature, isLoading: isPreparingSigner } = useEnableAutoSignNeedsSignature(
+    pendingRequest.chainId,
+    effectiveStayConnected,
+  )
 
   const { logoUrl, name, restUrl } = findChain(pendingRequest.chainId)
   const {
@@ -93,7 +99,14 @@ const EnableAutoSignComponent = () => {
 
   const handleEnable = () => {
     if (ownerMismatch) return
-    mutate({ durationInMs: pendingRequest.defaultDuration, stayConnected: effectiveStayConnected })
+    // A wallet already in memory is used as is, without a signature.
+    const signature =
+      needsSignature && !getWallet(pendingRequest.chainId) ? signDerivationMessage() : undefined
+    mutate({
+      durationInMs: pendingRequest.defaultDuration,
+      stayConnected: effectiveStayConnected,
+      signature,
+    })
   }
 
   const handleCancel = () => {
@@ -113,6 +126,7 @@ const EnableAutoSignComponent = () => {
     isAccountQueryError ||
     isAccountCreated === false ||
     isLoadingPreference ||
+    isPreparingSigner ||
     !!preferenceError ||
     ownerMismatch
 

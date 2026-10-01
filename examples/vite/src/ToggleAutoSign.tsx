@@ -7,7 +7,13 @@ const ToggleAutoSign = () => {
   const { autoSign, address } = useInterwovenKit()
 
   const enable = useMutation({
-    mutationFn: () => autoSign.enable(chainId),
+    mutationFn: () =>
+      autoSign.enable(chainId, {
+        // `?tabOnly` keeps the signer in this tab, which derives it from a wallet signature.
+        stayConnected: new URLSearchParams(window.location.search).has("tabOnly")
+          ? false
+          : undefined,
+      }),
     onError: (error) => window.alert(error),
   })
 

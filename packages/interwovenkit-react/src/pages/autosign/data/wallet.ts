@@ -596,9 +596,17 @@ export function useDeriveWallet() {
     return preference.stayConnected ? "persistent" : "session"
   }
 
+  /** Starts the derivation signature. Call it first in a click handler: popup wallets (Privy)
+   * are blocked once real async work has used up the click's user activation. */
+  const signDerivationMessage = (): Promise<Hex> => {
+    const signature = signMessageAsync({ message: getAutoSignMessage(window.location.origin) })
+    signature.catch(() => undefined)
+    return signature
+  }
+
   const deriveWallet = async (
     chainId: string,
-    options?: { stayConnected?: boolean },
+    options?: { stayConnected?: boolean; signature?: Promise<Hex> },
   ): Promise<DerivedWalletPublic> => {
     if (!userAddress) {
       throw new Error("User address not available")
@@ -677,7 +685,7 @@ export function useDeriveWallet() {
       try {
         const origin = window.location.origin
         const message = getAutoSignMessage(origin)
-        const signature = await signMessageAsync({ message })
+        const signature = await (options?.signature ?? signMessageAsync({ message }))
 
         // The derivation signature also reveals the user's own public key. Caching it here
         // lets the grant transaction that follows (gas simulation and signing) proceed
@@ -1178,6 +1186,7 @@ export function useDeriveWallet() {
   }
 
   return {
+    signDerivationMessage,
     deriveWallet,
     getWallet,
     getWalletPrivateKey,

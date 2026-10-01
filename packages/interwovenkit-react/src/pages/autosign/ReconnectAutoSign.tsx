@@ -15,6 +15,7 @@ import { useRenewAutoSign } from "./data/actions"
 import { DURATION_OPTIONS } from "./data/constants"
 import type { AutoSignPublicIdentity } from "./data/storage"
 import {
+  getExpectedAddress,
   shouldRememberRandomReplacement,
   useAutoSignPreference,
   useDeriveWallet,
@@ -101,13 +102,23 @@ const ReconnectAutoSign = () => {
     }
   }, [chainId, identityScope, owner])
 
+  // Mirrors the signer choice in useRenewAutoSign.
+  const needsSignature =
+    !hasWallet &&
+    (recoveryIdentity
+      ? recoveryIdentity.provenance === "legacy-derived"
+      : !!owner && !!getExpectedAddress(owner, chainId))
+
   const handleReconnect = async () => {
     setError("")
+    const signature =
+      needsSignature && !wallet.getWallet(chainId) ? wallet.signDerivationMessage() : undefined
     try {
       await renew.mutateAsync({
         chainId,
         durationInMs,
         stayConnected: needsRememberedReplacement ? true : stayConnected,
+        signature,
       })
       closeDrawer()
     } catch (renewError) {

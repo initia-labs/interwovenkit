@@ -142,7 +142,7 @@ Run: `pnpm test`
 
 ### Browser test
 
-`pnpm --filter vite test:e2e` runs Playwright (Chromium) against the example app. It checks that the wallet request on Approve stays inside the click's task (no network wait in between), which is the condition Safari imposes on wallet popups. Needs `INITIA_TEST_MNEMONIC` for a funded account in `examples/vite/.env`, a built package (`pnpm build`), and it broadcasts a 1 uinit self-transfer.
+`pnpm --filter vite test:e2e` runs Playwright (Chromium) against the example app. It checks that wallet requests on Approve and on enabling autosign stay inside the click's task (no network wait in between), which is the condition Safari imposes on wallet popups. Needs `INITIA_TEST_MNEMONIC` for a funded account in `examples/vite/.env`, a built package (`pnpm build`), and it broadcasts a 1 uinit self-transfer plus an autosign grant and its revoke.
 
 ## Playwright MCP Testing
 

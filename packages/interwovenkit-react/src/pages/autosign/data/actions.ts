@@ -1,6 +1,7 @@
 import { addMilliseconds } from "date-fns"
+import type { Hex } from "viem"
 import { useAtom, useStore } from "jotai"
-import { type QueryClient, useMutation, useQueryClient } from "@tanstack/react-query"
+import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { MsgRevoke } from "@initia/initia.proto/cosmos/authz/v1beta1/tx"
 import { MsgRevokeAllowance } from "@initia/initia.proto/cosmos/feegrant/v1beta1/tx"
 import { useConfig } from "@/data/config"
@@ -33,6 +34,7 @@ export type EnableAutoSignInput =
   | {
       durationInMs: number
       stayConnected?: boolean
+      signature?: Promise<Hex>
     }
 
 function resolveEnableAutoSignInput(input: EnableAutoSignInput) {
@@ -43,6 +45,7 @@ export interface RenewAutoSignInput {
   chainId: string
   durationInMs: number
   stayConnected?: boolean
+  signature?: Promise<Hex>
 }
 
 export const AUTO_SIGN_GRANT_REVALIDATION_DELAY_MS = 2_000
@@ -276,6 +279,45 @@ function useFetchRevokeMessages() {
   }
 }
 
+/** Whether enabling will ask the wallet for the derivation signature. Mirrors the signer
+ * choice in useEnableAutoSign, resolved ahead of the click so the click can request the
+ * signature before any async work. */
+export function useEnableAutoSignNeedsSignature(chainId: string, stayConnected: boolean) {
+  const initiaAddress = useInitiaAddress()
+  const { autoSignStorage } = useConfig()
+  const { getWalletIdentities, restoreWallet } = useDeriveWallet()
+
+  return useQuery({
+    queryKey: [
+      "interwovenkit:autosign:enable-signature",
+      initiaAddress,
+      chainId,
+      stayConnected,
+      autoSignStorage,
+    ],
+    queryFn: async () => {
+      const identities = await getWalletIdentities(chainId)
+      const activeIdentity = identities.find((identity) => identity.state === "active")
+      const createRandomCandidate = shouldCreateRandomAutoSignCandidate({
+        expectedGrantee: getExpectedAddress(initiaAddress, chainId),
+        hasActiveIdentity: !!activeIdentity,
+        stayConnected,
+        autoSignStorage,
+      })
+      if (createRandomCandidate) return false
+      if (!activeIdentity) return true
+      if (await restoreWallet(chainId)) return false
+      return activeIdentity.provenance === "legacy-derived"
+    },
+    enabled: !!initiaAddress,
+    gcTime: 0,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: false,
+  })
+}
+
 /* Enable AutoSign by deriving wallet from signature and granting permissions */
 export function useEnableAutoSign() {
   const initiaAddress = useInitiaAddress()
@@ -305,7 +347,7 @@ export function useEnableAutoSign() {
 
   return useMutation({
     mutationFn: async (input: EnableAutoSignInput) => {
-      const { durationInMs, stayConnected } = resolveEnableAutoSignInput(input)
+      const { durationInMs, stayConnected, signature } = resolveEnableAutoSignInput(input)
       if (!pendingRequest) {
         throw new Error("No pending request")
       }
@@ -325,6 +367,8 @@ export function useEnableAutoSign() {
       let chainConfirmed = false
       let transactionHash: string | undefined
 
+      // Lock and storage work waits until the wallet popup has been answered.
+      await signature
       try {
         return await withAutoSignOperation(initiaAddress, async () => {
           if (!isOwnerFenceCurrent(store, initiaAddress, ownerGeneration)) {
@@ -384,7 +428,7 @@ export function useEnableAutoSign() {
               // A legacy identity is reproducible. If no encrypted copy can
               // be restored, ask for the derivation signature and verify it
               // against the active public identity.
-              derivedWallet = await deriveWallet(chainId)
+              derivedWallet = await deriveWallet(chainId, { signature })
             } else if (activeIdentity.provenance === "random") {
               throw new Error(
                 "This tab no longer has the random signing key. Choose Remember on this browser in Settings to replace it.",
@@ -395,7 +439,7 @@ export function useEnableAutoSign() {
           } else {
             // A new signer has no saved mode to defer, so derive it directly in
             // the requested mode. A tab-only key must never reach durable storage.
-            derivedWallet = await deriveWallet(chainId, { stayConnected })
+            derivedWallet = await deriveWallet(chainId, { stayConnected, signature })
             if (!effectiveStayConnected && config.autoSignStorage !== "memory") {
               newTabOnlyKeyId = getWalletRevision(chainId)?.keyId
             }
@@ -572,7 +616,7 @@ export function useRenewAutoSign() {
   } = useDeriveWallet()
 
   return useMutation({
-    mutationFn: async ({ chainId, durationInMs, stayConnected }: RenewAutoSignInput) => {
+    mutationFn: async ({ chainId, durationInMs, stayConnected, signature }: RenewAutoSignInput) => {
       if (!initiaAddress) throw new Error("Wallet not connected")
       const owner = initiaAddress
       const ownerGeneration = store.get(walletGenerationAtom)
@@ -584,6 +628,8 @@ export function useRenewAutoSign() {
       let chainConfirmed = false
       let transactionHash: string | undefined
 
+      // Lock and storage work waits until the wallet popup has been answered.
+      await signature
       try {
         return await withAutoSignOperation(owner, async () => {
           if (!isOwnerFenceCurrent(store, owner, ownerGeneration)) {
@@ -614,7 +660,7 @@ export function useRenewAutoSign() {
             pendingCandidateKeyId = getWalletRevision(chainId)?.keyId
             if (!pendingCandidateKeyId) throw new AutoSignCancelledError()
           } else if (!wallet && activeIdentity?.provenance === "legacy-derived") {
-            wallet = await deriveWallet(chainId)
+            wallet = await deriveWallet(chainId, { signature })
           } else if (!wallet && activeIdentity?.provenance === "random") {
             throw new Error(
               "This tab no longer has the random signing key. Choose Remember on this browser in Settings to replace it.",
@@ -622,7 +668,7 @@ export function useRenewAutoSign() {
           } else if (!wallet && activeIdentity) {
             throw new Error("Autosign signer needs recovery before renewal")
           } else if (!wallet && expectedGrantee) {
-            wallet = await deriveWallet(chainId)
+            wallet = await deriveWallet(chainId, { signature })
           } else if (!wallet) {
             throw new Error("No known autosign signer available for renewal")
           }
