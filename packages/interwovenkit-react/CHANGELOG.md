@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.13.0](https://github.com/initia-labs/interwovenkit/compare/v2.12.1...v2.13.0) (2026-10-01)
+
+
+### Features
+
+* deposit USDC from Ethereum, Base, and Arbitrum through the Deposit API ([#262](https://github.com/initia-labs/interwovenkit/issues/262)) ([232be5f](https://github.com/initia-labs/interwovenkit/commit/232be5f60671f02f5f5f6fe55e8a72a56abed78b))
+* persist scoped auto-sign approvals ([#261](https://github.com/initia-labs/interwovenkit/issues/261)) ([8dbcd91](https://github.com/initia-labs/interwovenkit/commit/8dbcd912e9fe2de9720785bb2c52ce7d1c542ff2))
+
 ## [2.12.1](https://github.com/initia-labs/interwovenkit/compare/v2.12.0...v2.12.1) (2026-09-08)
 
 
