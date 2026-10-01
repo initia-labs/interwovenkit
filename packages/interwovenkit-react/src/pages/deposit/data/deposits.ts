@@ -1,10 +1,25 @@
+import type { KyInstance } from "ky"
+import { HTTPError } from "ky"
 import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { queryOptions, useQuery } from "@tanstack/react-query"
 import { useConfig } from "@/data/config"
 import { normalizeError } from "@/data/http"
+import { formatDuration } from "@/pages/bridge/data/format"
 import { depositQueryKeys, useDepositApi } from "./api"
-import type { Deposit, DepositBucket, ListDepositsResponse } from "./types"
-import { ACTIVE_DEPOSIT_BUCKETS, DEPOSIT_BUCKETS } from "./types"
+import {
+  assertEchoes,
+  assertField,
+  caseInsensitive,
+  type Echoes,
+  expectField,
+  isRecord,
+  isString,
+  sameAccount,
+  sameDenom,
+} from "./parse"
+import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM } from "./source"
+import type { Deposit, DepositBucket, DepositDelivery, ListDepositsResponse } from "./types"
+import { ACTIVE_DEPOSIT_BUCKETS, DEPOSIT_BUCKETS, TERMINAL_DEPOSIT_BUCKETS } from "./types"
 
 // Deliberately the negation of the active set: an unknown bucket must count
 // as terminal so polling stops, matching the server's own fail-closed mapping
@@ -16,17 +31,6 @@ export const isTerminalBucket = (bucket: string): boolean =>
 const isDepositBucket = (value: string): value is DepositBucket =>
   (DEPOSIT_BUCKETS as readonly string[]).includes(value)
 
-/**
- * The bucket to render. The single parse point from the wire string to the
- * `DepositBucket` union: an unknown value renders as the failed screen
- * (fail-closed, consistent with isTerminalBucket). Null is the transient
- * re-discovery frame, rendered as waiting.
- */
-export function displayBucket(deposit: Deposit | null): DepositBucket {
-  if (!deposit) return "waiting"
-  return isDepositBucket(deposit.bucket) ? deposit.bucket : "failed"
-}
-
 // Recommended client polling is 3s (server scan loop is 5s). Deposit screens
 // can stay open for hours (a QR left open, an onramp KYC), so after
 // IDLE_BACKOFF_DELAY of screen age the interval relaxes: detection still
@@ -35,6 +39,28 @@ export function displayBucket(deposit: Deposit | null): DepositBucket {
 const POLL_INTERVAL = 3000
 const IDLE_POLL_INTERVAL = 15_000
 const IDLE_BACKOFF_DELAY = 5 * 60_000
+
+// A fast-delivery payout outranks the operator's standard bridge transaction.
+export const deliveryExplorerUrl = (deposit: Deposit | null | undefined) =>
+  deposit?.advance_tx_explorer_url || deposit?.bot_tx_explorer_url || ""
+
+export const deliveryExplorerChainName = (
+  deposit: Deposit | null | undefined,
+  destinationChainName: string,
+) => {
+  if (deposit?.advance_tx_explorer_url) return destinationChainName
+  return deposit?.bot_tx_explorer_url ? "Ethereum" : ""
+}
+
+/** "About 3m left." while the record's estimated completion is still ahead. */
+export function deliveryTimeLeft(delivery: DepositDelivery | undefined, now: number) {
+  const remaining = Date.parse(delivery?.estimated_completion_at ?? "") - now
+  if (!(remaining > 0)) return undefined
+  return `About ${formatDuration(Math.ceil(remaining / 60_000) * 60)} left.`
+}
+
+// Per-status stall budget before the "taking a little longer" copy.
+export const TAKING_LONGER_DELAY = 60 * 1000
 
 /** Poll interval by screen age: POLL_INTERVAL while fresh, IDLE_POLL_INTERVAL once idle. */
 export const pollInterval = (elapsedMs: number) =>
@@ -50,17 +76,19 @@ function useMountedAt() {
   return mountedAt
 }
 
-/** Stop polling once the deposit is terminal. A null/undefined deposit keeps
- * polling — not-yet-fetched is not a terminal answer. */
+/** Stop polling once the deposit reaches a known final bucket. A null/undefined deposit or an
+ * unrecognized bucket keeps polling: neither is a final answer, and a later read can still complete. */
 export const pollUntilTerminal = (deposit: Deposit | null | undefined, elapsedMs: number) =>
-  deposit && isTerminalBucket(deposit.bucket) ? false : pollInterval(elapsedMs)
+  deposit && (TERMINAL_DEPOSIT_BUCKETS as readonly string[]).includes(deposit.bucket)
+    ? false
+    : pollInterval(elapsedMs)
 
 /**
  * GET /v1/deposits/{id}. Authoritative single-deposit lifecycle polling.
  * The id came from the backend itself, so a 404 is a contract violation and
  * throws instead of silently polling a null forever.
  */
-export function useDeposit(id: string) {
+export function useDeposit(id: string, identity?: DepositIdentity) {
   const { depositApiUrl } = useConfig()
   const api = useDepositApi()
   const mountedAt = useMountedAt()
@@ -73,6 +101,8 @@ export function useDeposit(id: string) {
         throw await normalizeError(error)
       }
     },
+    // Checked per observer, so a record another caller cached is held to this session's identity too.
+    select: identity ? (record) => assertTrackedDeposit(record, { ...identity, id }) : undefined,
     enabled: !!depositApiUrl && !!id,
     refetchInterval: (query) => pollUntilTerminal(query.state.data, Date.now() - mountedAt),
   })
@@ -227,4 +257,127 @@ export function useTrackedDeposit({
 }: TrackedDepositParams): TrackedDeposit {
   const detail = useDeposit(depositId)
   return resolveTrackedDeposit(detail.data, depositAddress, detail.error ?? null)
+}
+
+// The single parse point from the wire string. An unknown bucket is neither failed nor final: polling
+// continues, and a later read can still complete. Null is the transient re-discovery frame.
+export type ClassifiedBucket = DepositBucket | "unknown"
+
+export function classifyBucket(deposit: Deposit | null): ClassifiedBucket {
+  if (!deposit) return "waiting"
+  return isDepositBucket(deposit.bucket) ? deposit.bucket : "unknown"
+}
+
+export const bySourceTxPollInterval = (deposit: Deposit | null | undefined, elapsedMs: number) =>
+  deposit ? false : pollInterval(elapsedMs)
+
+export function createDepositBySourceTxQueryOptions(
+  api: KyInstance,
+  srcTxHash: string,
+  enabled: boolean,
+  startedAt: number,
+) {
+  return queryOptions({
+    queryKey: depositQueryKeys.depositBySourceTx(ETHEREUM_CHAIN_ID, srcTxHash).queryKey,
+    queryFn: async (): Promise<Deposit | null> => {
+      try {
+        return await api
+          .get(`v1/deposits/by-source-tx/${srcTxHash}`, {
+            searchParams: { src_chain_id: ETHEREUM_CHAIN_ID },
+            retry: 0,
+          })
+          .json<Deposit>()
+      } catch (error) {
+        if (error instanceof HTTPError && error.response.status === 404) return null
+        throw await normalizeError(error)
+      }
+    },
+    enabled,
+    staleTime: 0,
+    retry: false,
+    refetchInterval: (query) => bySourceTxPollInterval(query.state.data, Date.now() - startedAt),
+  })
+}
+
+interface DepositIdentity {
+  depositAddress: string
+  dstChainId: string
+  dstDenom: string
+  /** Final credited wallet, init bech32 lowercase. */
+  recipient: string
+}
+
+export function asDepositRecord(value: unknown, context: string): Deposit {
+  assertField(isRecord(value), `${context} is not an object`)
+  // Other responses send EVM chain ids as numbers; the record keeps the string form.
+  const { src_chain_id } = value
+  const record = Number.isSafeInteger(src_chain_id)
+    ? { ...value, src_chain_id: String(src_chain_id) }
+    : value
+  for (const field of [
+    "id",
+    "src_chain_id",
+    "src_tx_hash",
+    "src_denom",
+    "amount",
+    "deposit_address",
+    "wallet_address",
+    "dst_chain_id",
+    "dst_denom",
+    "bucket",
+  ]) {
+    expectField(record, field, isString, context)
+  }
+  return record as unknown as Deposit
+}
+
+// A mismatch would track, and eventually complete, someone else's deposit at the reused address.
+function assertDepositIdentity(
+  deposit: Deposit,
+  identity: DepositIdentity,
+  echoes: Echoes<Deposit>,
+): Deposit {
+  assertEchoes(deposit, "Deposit record", {
+    ...echoes,
+    src_chain_id: ETHEREUM_CHAIN_ID,
+    src_denom: [ETHEREUM_USDC_DENOM, sameDenom],
+    deposit_address: [identity.depositAddress, caseInsensitive],
+    dst_chain_id: identity.dstChainId,
+    dst_denom: [identity.dstDenom, sameDenom],
+    wallet_address: [identity.recipient, caseInsensitive],
+    // The credited address, once the record carries one, must be the recipient's account.
+    ...(deposit.dst_address ? { dst_address: [identity.recipient, sameAccount] } : {}),
+  })
+  return deposit
+}
+
+export function assertDirectDeposit(
+  record: unknown,
+  identity: DepositIdentity & { srcTxHash: string; amount: string },
+): Deposit {
+  return assertDepositIdentity(asDepositRecord(record, "Deposit record"), identity, {
+    src_tx_hash: [identity.srcTxHash, caseInsensitive],
+    amount: identity.amount,
+  })
+}
+
+export function assertTrackedDeposit(
+  record: unknown,
+  identity: DepositIdentity & { id: string },
+): Deposit {
+  return assertDepositIdentity(asDepositRecord(record, "Deposit record"), identity, {
+    id: identity.id,
+  })
+}
+
+// The Ethereum leg after slippage: bound to the receiving hash when known, never the amount.
+export function assertLifiDeposit(
+  deposit: Deposit,
+  identity: DepositIdentity & { dstTxHash?: string },
+): Deposit {
+  return assertDepositIdentity(
+    deposit,
+    identity,
+    identity.dstTxHash ? { src_tx_hash: [identity.dstTxHash, caseInsensitive] } : {},
+  )
 }

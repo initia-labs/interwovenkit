@@ -75,4 +75,15 @@ describe("buildDepositDefaultValues", () => {
     expect(values.fiatAmount).toBe("40")
     expect(values.fiatId).toBe("usd")
   })
+
+  test("resume seeds the saved destination without requiring current catalog metadata", () => {
+    const values = buildDepositDefaultValues([USDC], {}, undefined, "session-1", "iUSD")
+    expect(values).toMatchObject({
+      page: "wallet",
+      resumeSessionId: "session-1",
+      receiveDenom: USDC.denom,
+      receiveChainId: USDC.chainId,
+      receiveSymbol: "iUSD",
+    })
+  })
 })

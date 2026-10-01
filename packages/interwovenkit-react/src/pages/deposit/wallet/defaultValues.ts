@@ -15,10 +15,12 @@ import {
 export function buildTransferDefaultValues({
   mode,
   initialAsset,
+  initialSessionId,
   localOptions,
 }: {
   mode: TransferMode
   initialAsset?: AssetOption
+  initialSessionId?: string
   localOptions: AssetOption[]
 }): TransferFormValues {
   const { local } = getTransferModeConfig(mode)
@@ -30,6 +32,9 @@ export function buildTransferDefaultValues({
     srcChainId: "",
     dstDenom: "",
     dstChainId: "",
+    selectedBridge: "",
+    selectedBridgeFor: "",
+    depositSessionId: "",
   }
 
   const preset = initialAsset ?? (localOptions.length === 1 ? localOptions[0] : undefined)
@@ -37,6 +42,11 @@ export function buildTransferDefaultValues({
     defaultValues[local.denomKey] = preset.denom
     defaultValues[local.chainIdKey] = preset.chainId
     defaultValues.page = mode === "deposit" ? "select-external" : "fields"
+  }
+
+  if (mode === "deposit" && initialSessionId) {
+    defaultValues.depositSessionId = initialSessionId
+    defaultValues.page = "deposit-progress"
   }
 
   return defaultValues

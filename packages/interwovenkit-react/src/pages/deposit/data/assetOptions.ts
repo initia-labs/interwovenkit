@@ -33,6 +33,10 @@ export interface DepositLocationState {
   recipientAddress?: string
   /** Host-provided initial values for the onramp form. */
   onramp?: OnrampPreset
+  /** Saved wallet deposit selected from unified bridge history. */
+  resumeSessionId?: string
+  /** Saved destination label, so resume never depends on the current asset catalog. */
+  resumeDestinationSymbol?: string
 }
 
 /**

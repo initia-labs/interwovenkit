@@ -3,6 +3,10 @@ import { fromBaseUnit } from "@initia/utils"
 import { normalizeDenom } from "./assetOptions"
 import type { Asset, DestinationNetwork } from "./types"
 
+export const ETHEREUM_CHAIN_ID = "1"
+/** Canonical Ethereum USDC: the only asset the Deposit API's Ethereum route accepts. */
+export const ETHEREUM_USDC_DENOM = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+
 // Pure helpers for the deposit QR screen's source Asset/Chain selectors.
 //
 // `config/assets` identifies a source route by `src_chain_id`/`src_denom`,

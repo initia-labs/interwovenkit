@@ -3,9 +3,35 @@ import { useAtom } from "jotai"
 import { useQueryClient } from "@tanstack/react-query"
 import ExplorerLink from "@/components/ExplorerLink"
 import { accountQueryKeys } from "@/data/account"
+import { useChain } from "@/data/chains"
 import { useRefreshPortfolio } from "@/data/minity/sse"
 import { txStatusAtom } from "@/data/tx"
 import { useNotification } from "./NotificationContext"
+
+const TransactionExplorerLink = ({
+  chainId,
+  txHash,
+  onClick,
+}: {
+  chainId: string
+  txHash: string
+  onClick: () => void
+}) => {
+  const chain = useChain(chainId)
+  const chainName = chain.pretty_name || chain.chain_name
+
+  return (
+    <ExplorerLink
+      txHash={txHash}
+      chainId={chainId}
+      onClick={onClick}
+      showIcon
+      aria-label={`View transaction on ${chainName} explorer`}
+    >
+      View on {chainName}
+    </ExplorerLink>
+  )
+}
 
 const TxWatcher = () => {
   const [txStatus, setTxStatus] = useAtom(txStatusAtom)
@@ -21,9 +47,7 @@ const TxWatcher = () => {
     const description = error ? (
       error.message
     ) : txHash ? (
-      <ExplorerLink txHash={txHash} chainId={chainId} onClick={hideNotification} showIcon>
-        View on Initia Scan
-      </ExplorerLink>
+      <TransactionExplorerLink txHash={txHash} chainId={chainId} onClick={hideNotification} />
     ) : null
 
     const settleTx = () => {

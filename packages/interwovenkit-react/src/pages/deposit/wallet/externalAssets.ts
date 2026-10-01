@@ -1,3 +1,5 @@
+import { useQuery } from "@tanstack/react-query"
+import { useConfig } from "@/data/config"
 import { IUSD_SYMBOL } from "@/data/constants"
 import { useLocationState } from "@/lib/router"
 import { type RouterAsset, useAllSkipAssets } from "@/pages/bridge/data/assets"
@@ -8,12 +10,19 @@ import {
   useGetIsInitiaChain,
   useSkipChains,
 } from "@/pages/bridge/data/chains"
+import { useDepositApi } from "../data/api"
 import { type AssetOption, type DepositLocationState, normalizeDenom } from "../data/assetOptions"
+import { createDepositAssetsQueryOptions } from "../data/assets"
+import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM } from "../data/source"
 import { type Balance, useAllBalancesQuery } from "./balances"
+import {
+  DEPOSIT_API_SOURCES,
+  findEthereumUsdcRoute,
+  intersectHostSources,
+  matchesAssetOption,
+} from "./depositSources"
 import { useTransferFlow, useTransferForm, useTransferMode } from "./transferFlowConfig"
 
-const ETHEREUM_CHAIN_ID = "1"
-const ETHEREUM_USDC_DENOM = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
 const ETHEREUM_AUSD_DENOM = "0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a"
 
 interface ExternalSourceOverride {
@@ -33,10 +42,6 @@ const EXTERNAL_SOURCE_OVERRIDES: Record<string, ExternalSourceOverride> = {
     extraInitiaSourceSymbols: ["USDC"],
     externalChainListSource: "extra-options",
   },
-}
-
-function matchesAssetOption(option: AssetOption, chainId: string, denom: string): boolean {
-  return option.chainId === chainId && normalizeDenom(option.denom) === normalizeDenom(denom)
 }
 
 function getExternalSourceOverride(localSymbol: string): ExternalSourceOverride | undefined {
@@ -119,6 +124,12 @@ export function useExternalTransferAsset() {
 
 export function useExternalAssetOptions(): ExternalAssetOptionsResult {
   const { mode } = useTransferFlow()
+  const { depositApiUrl } = useConfig()
+  const api = useDepositApi()
+  const { data: catalog } = useQuery({
+    ...createDepositAssetsQueryOptions(api),
+    enabled: !!depositApiUrl && mode === "deposit",
+  })
   const skipAssets = useAllSkipAssets()
   const skipChains = useSkipChains()
   const findChain = useFindSkipChain()
@@ -133,7 +144,18 @@ export function useExternalAssetOptions(): ExternalAssetOptionsResult {
   const sourceOverride = getExternalSourceOverride(localAsset.symbol)
   const externalSourceSymbols = sourceOverride?.externalSourceSymbols ?? [localAsset.symbol]
   const hasRemoteOptions = remoteOptions.length > 0
-  const extraExternalOptions = sourceOverride?.extraExternalOptions ?? []
+  // Only an override that already offers USDC as a source (iUSD) gains the Deposit API sources.
+  const depositApiOptions =
+    depositApiUrl && sourceOverride && mode === "deposit"
+      ? intersectHostSources(DEPOSIT_API_SOURCES, remoteOptions)
+      : []
+  // Until the catalog says otherwise, the Deposit API carries these sources to this destination.
+  const depositApiFeedsLocal =
+    !catalog || !!findEthereumUsdcRoute(catalog, localAsset.chain_id, localAsset.denom)
+  const extraExternalOptions = [
+    ...(sourceOverride?.extraExternalOptions ?? []),
+    ...depositApiOptions,
+  ]
   const extraInitiaSourceSymbols = sourceOverride?.extraInitiaSourceSymbols ?? []
   const externalChainListSource = sourceOverride?.externalChainListSource ?? "supported-assets"
   const skipChainMap = new Map(skipChains.map((chain) => [chain.chain_id, chain]))
@@ -170,8 +192,16 @@ export function useExternalAssetOptions(): ExternalAssetOptionsResult {
     })
     .filter((item): item is NonNullable<typeof item> => item !== null)
 
+  // A Deposit API source's balance is the pinned read, so an unknown Skip balance does not hide it.
+  // A source that falls back to the Router needs a Skip balance like any other.
   const data = supportedAssets.filter(
-    ({ balance }) => mode !== "deposit" || (!!balance && Number(balance.amount) > 0),
+    ({ asset, chain, balance }) =>
+      mode !== "deposit" ||
+      (!!balance && Number(balance.amount) > 0) ||
+      (depositApiFeedsLocal &&
+        depositApiOptions.some((option) =>
+          matchesAssetOption(option, chain.chain_id, asset.denom),
+        )),
   )
 
   const supportedExternalChainMap = new Map<string, RouterChainJson>()

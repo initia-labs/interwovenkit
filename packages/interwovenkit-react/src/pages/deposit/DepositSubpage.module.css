@@ -44,7 +44,12 @@
   border-bottom: 0;
 }
 
-.row:hover,
+.row:not(:disabled):hover,
 .activeRow {
   background-color: var(--gray-8);
+}
+
+.row:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }

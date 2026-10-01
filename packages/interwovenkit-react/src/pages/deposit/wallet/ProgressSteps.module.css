@@ -1,0 +1,464 @@
+/* Swaps between states morph in: scale from 0.25 with a 4px blur over 300ms. */
+.progress {
+  --morph: 300ms cubic-bezier(0.2, 0, 0, 1);
+  --pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --step: 40px;
+  /* The connector's margins plus seven 3px dots with 4px gaps: the space between two circles. */
+  --link: 65px;
+  /* Each disc covers half the distance between the two circle centers. */
+  --travel: calc((var(--step) + var(--link)) / 2);
+
+  position: relative;
+
+  display: grid;
+
+  min-height: 56px;
+  place-items: center;
+}
+
+.steps {
+  display: flex;
+  align-items: center;
+
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  transition:
+    opacity 400ms ease,
+    filter 400ms ease,
+    transform 400ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+}
+
+.connector {
+  display: flex;
+  gap: 4px;
+
+  margin: 0 10px;
+}
+
+.connector span {
+  width: 3px;
+  height: 3px;
+
+  background-color: var(--gray-5);
+  border-radius: 50%;
+}
+
+/* A pulse of lit dots runs from the finished step to the next one. */
+.arrived .connector span {
+  animation: flow 560ms ease-in-out calc(var(--dot) * 55ms) both;
+}
+
+.circle {
+  position: relative;
+
+  display: grid;
+
+  width: 40px;
+  height: 40px;
+
+  place-items: center;
+}
+
+/* The ring a step waits in; the Loader and the filled marks cover it. */
+.circle::before {
+  position: absolute;
+  inset: 0;
+
+  border: 3px solid var(--gray-6);
+  border-radius: 50%;
+  content: "";
+  transition: opacity var(--morph);
+}
+
+.done .circle::before,
+.failed .circle::before,
+.stopped .circle::before {
+  opacity: 0;
+}
+
+.arrived .circle {
+  animation: arrive 520ms var(--pop) 380ms both;
+}
+
+.spinner {
+  position: absolute;
+  inset: 0;
+
+  opacity: 0;
+
+  transition: opacity var(--morph);
+}
+
+.active .spinner {
+  opacity: 1;
+}
+
+.arrived.active .spinner {
+  transition-delay: 520ms;
+}
+
+.number,
+.mark {
+  transition:
+    opacity var(--morph),
+    filter var(--morph),
+    transform var(--morph);
+}
+
+.number {
+  color: var(--gray-2);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.active .number {
+  color: var(--gray-1);
+}
+
+/* A 1's stem carries its weight right of its box; this centers the stem, not the box. */
+.number[data-digit="1"] {
+  translate: -0.75px 0;
+}
+
+.done .number,
+.failed .number,
+.stopped .number {
+  filter: blur(4px);
+  opacity: 0;
+  transform: scale(0.25);
+}
+
+.mark {
+  position: absolute;
+  inset: 0;
+
+  filter: blur(4px);
+
+  margin: auto;
+  opacity: 0;
+  transform: scale(0.25);
+}
+
+.check {
+  color: var(--success);
+}
+
+.cross {
+  color: var(--error);
+}
+
+.warn {
+  color: var(--warning);
+}
+
+.done .check,
+.failed .cross,
+.stopped .warn {
+  filter: none;
+  opacity: 1;
+  transform: none;
+}
+
+/* Once every step is done, the row folds into the wallet's completed check. */
+.badge {
+  position: absolute;
+  inset: 0;
+
+  color: var(--success);
+  filter: blur(4px);
+
+  margin: auto;
+  opacity: 0;
+  transform: scale(0.25);
+  transition:
+    opacity 400ms ease,
+    filter 400ms ease,
+    transform 520ms var(--pop);
+}
+
+.complete .steps {
+  filter: blur(6px);
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.85);
+}
+
+.complete .badge {
+  filter: none;
+  opacity: 1;
+  transform: none;
+}
+
+.checkStroke {
+  fill: none;
+  stroke: black;
+  stroke-dasharray: 1 2;
+  stroke-dashoffset: 0;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.46;
+}
+
+/* Drawn in once the badge is solid: the short stroke, then the long one. */
+.justCompleted .checkStroke {
+  animation: draw 320ms cubic-bezier(0.5, 0, 0.2, 1) 1000ms both;
+}
+
+.justCompleted.merging .checkStroke {
+  animation-delay: 1150ms;
+}
+
+/* Live, the last check lands before the row folds. */
+.justCompleted .steps {
+  transition-delay: 650ms;
+}
+
+.justCompleted .badge {
+  transition-delay: 900ms;
+}
+
+/* Two steps meet instead of fading: discs take the circles' places the moment they land, slide the
+   full distance to the middle, and fuse through the goo filter before the badge resolves. */
+.merge {
+  position: absolute;
+  inset: 0;
+
+  display: flex;
+  gap: var(--link);
+
+  width: calc(var(--step) + var(--step) + var(--link));
+  height: var(--step);
+
+  margin: auto;
+
+  pointer-events: none;
+}
+
+.drop {
+  width: var(--step);
+  height: var(--step);
+
+  background-color: var(--success);
+  border-radius: 50%;
+  opacity: 0;
+}
+
+.drop:first-child {
+  --direction: 1;
+}
+
+.drop:last-child {
+  --direction: -1;
+}
+
+.justCompleted .drop {
+  animation: merge 800ms 650ms both;
+}
+
+.justCompleted.merging .steps {
+  filter: none;
+  transform: none;
+  transition: opacity 80ms linear 650ms;
+}
+
+/* The badge takes over from the fused disc in place: same size, no blur, just its check. */
+.merging:not(.complete) .badge {
+  filter: none;
+  transform: none;
+}
+
+.justCompleted.merging .badge {
+  transition: opacity 80ms ease 1040ms;
+}
+
+/* One step is already the finished mark: the badge takes its place and swells from the step's 35px
+   disc to its own 42px, with no second check to draw. */
+.single:not(.complete) .badge {
+  filter: none;
+  transform: scale(0.83);
+}
+
+.justCompleted.single .steps {
+  filter: none;
+  transform: none;
+  transition: opacity 0ms linear 650ms;
+}
+
+.justCompleted.single .badge {
+  transition:
+    opacity 0ms linear 650ms,
+    transform 420ms var(--pop) 650ms;
+}
+
+.justCompleted.single .checkStroke {
+  animation: none;
+}
+
+.justCompleted.single::before {
+  animation-delay: 650ms;
+}
+
+.defs {
+  position: absolute;
+
+  width: 0;
+  height: 0;
+}
+
+/* A blurred disc rather than a radial gradient: the gradient bands on dark backgrounds. */
+.justCompleted::before {
+  position: absolute;
+
+  width: 88px;
+  height: 88px;
+
+  animation: glow 1800ms ease 900ms both;
+  background-color: color-mix(in srgb, var(--success) 28%, transparent);
+  border-radius: 50%;
+  content: "";
+  filter: blur(22px);
+  pointer-events: none;
+}
+
+.justCompleted.merging::before {
+  animation-delay: 1040ms;
+}
+
+.status {
+  position: absolute;
+
+  width: 1px;
+  height: 1px;
+
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+@keyframes flow {
+  0%,
+  100% {
+    background-color: var(--gray-5);
+    transform: scale(1);
+  }
+
+  35% {
+    background-color: var(--success);
+    transform: scale(1.4);
+  }
+}
+
+@keyframes arrive {
+  0% {
+    transform: scale(1);
+  }
+
+  35% {
+    transform: scale(0.88);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Slide together, swell to the badge's 42px disc (14 of its 16 units), and stay solid until the badge is opaque: fading through
+   the goo threshold would shrink the blob, and the badge's check is cut out of it. */
+@keyframes merge {
+  0% {
+    opacity: 0;
+    transform: none;
+  }
+
+  1% {
+    animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+    opacity: 1;
+    transform: none;
+  }
+
+  55% {
+    animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+    transform: translateX(calc(var(--travel) * var(--direction))) scale(1.03);
+  }
+
+  58%,
+  61% {
+    opacity: 1;
+    transform: translateX(calc(var(--travel) * var(--direction))) scale(1.05);
+  }
+
+  62%,
+  100% {
+    opacity: 0;
+    transform: translateX(calc(var(--travel) * var(--direction))) scale(1.05);
+  }
+}
+
+/* Starts past the path's start: a round cap on an empty dash would still show as a dot. */
+@keyframes draw {
+  from {
+    stroke-dashoffset: 1.2;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes glow {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+
+  40% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner :global(*),
+  .arrived .connector span,
+  .arrived .circle {
+    animation: none;
+  }
+
+  .justCompleted::before,
+  .merge {
+    display: none;
+  }
+
+  .justCompleted .checkStroke {
+    animation: none;
+  }
+
+  .steps,
+  .badge,
+  .spinner,
+  .number,
+  .mark {
+    transition-duration: 150ms;
+  }
+
+  .justCompleted .steps,
+  .justCompleted .badge,
+  .justCompleted.merging .steps,
+  .justCompleted.merging .badge,
+  .justCompleted.single .steps,
+  .justCompleted.single .badge,
+  .arrived.active .spinner {
+    transition-delay: 0s;
+  }
+}

@@ -1,13 +1,34 @@
 import { describe, expect, it } from "vitest"
+import { InitiaAddress } from "@initia/utils"
 import {
   assertDepositsAtAddress,
+  assertDirectDeposit,
+  assertLifiDeposit,
+  assertTrackedDeposit,
+  bySourceTxPollInterval,
+  type ClassifiedBucket,
+  classifyBucket,
+  createDepositBySourceTxQueryOptions,
+  deliveryExplorerChainName,
+  deliveryExplorerUrl,
+  deliveryTimeLeft,
   DepositAddressMismatchError,
-  displayBucket,
   isTerminalBucket,
   pollInterval,
   pollUntilTerminal,
   resolveTrackedDeposit,
 } from "./deposits"
+import { ETHEREUM_USDC_DENOM } from "./source"
+import {
+  deposit,
+  DEPOSIT_ADDRESS,
+  DST_TX_HASH,
+  httpError,
+  RECIPIENT,
+  runQueryFn,
+  SRC_TX_HASH,
+  stubApi,
+} from "./testing"
 import type { Deposit } from "./types"
 import { ACTIVE_DEPOSIT_BUCKETS, DEPOSIT_BUCKETS, TERMINAL_DEPOSIT_BUCKETS } from "./types"
 
@@ -38,32 +59,6 @@ describe("isTerminalBucket", () => {
   })
 })
 
-const DEPOSIT_ADDRESS = "0xAbCd000000000000000000000000000000000001"
-
-const deposit = (overrides: Partial<Deposit>): Deposit => ({
-  id: "1",
-  src_chain_id: "1",
-  src_tx_hash: "0xhash",
-  src_log_index: 0,
-  src_denom: "ethereum-native",
-  amount: "1",
-  deposit_address: DEPOSIT_ADDRESS,
-  wallet_address: "init1wallet",
-  dst_chain_id: "interwoven-1",
-  dst_denom: "uusdc",
-  dst_address: "init1wallet",
-  observed_height: 1,
-  observed_at: "",
-  status: "detected",
-  bucket: "waiting",
-  status_updated_at: "",
-  created_at: "",
-  updated_at: "",
-  bot_tx_hash: "",
-  bot_tx_explorer_url: "",
-  ...overrides,
-})
-
 describe("pollInterval", () => {
   const FIVE_MINUTES = 5 * 60_000
 
@@ -90,6 +85,10 @@ describe("pollUntilTerminal", () => {
   // A null/undefined deposit covers both the not-yet-fetched frame and a query
   // error before data exists. Neither is terminal: stopping would freeze the
   // screen and make the UI's automatic-recovery message false.
+  it("keeps polling an unrecognized bucket, which a later read can still complete", () => {
+    expect(pollUntilTerminal(deposit({ bucket: "rebalancing" }), 0)).not.toBe(false)
+  })
+
   it("keeps polling without data so transient errors can recover", () => {
     expect(pollUntilTerminal(null, 0)).not.toBe(false)
     expect(pollUntilTerminal(undefined, 0)).not.toBe(false)
@@ -110,26 +109,6 @@ describe("resolveTrackedDeposit", () => {
     const result = resolveTrackedDeposit(foreign, DEPOSIT_ADDRESS, null)
     expect(result.deposit).toBeNull()
     expect(result.error).toBeInstanceOf(DepositAddressMismatchError)
-  })
-})
-
-describe("displayBucket", () => {
-  it("renders the transient null frame as waiting", () => {
-    expect(displayBucket(null)).toBe("waiting")
-  })
-
-  it("passes every known bucket through unchanged", () => {
-    for (const bucket of DEPOSIT_BUCKETS) {
-      expect(displayBucket(deposit({ bucket }))).toBe(bucket)
-    }
-  })
-
-  // Direction-pinning test: an unknown (or missing) bucket renders as the
-  // failed screen — safe, actionable copy — never as an in-flight screen that
-  // would pair with stopped polling.
-  it("renders an unknown bucket as failed (fail-closed)", () => {
-    expect(displayBucket(deposit({ bucket: "refunding" }))).toBe("failed")
-    expect(displayBucket(deposit({ bucket: undefined as unknown as string }))).toBe("failed")
   })
 })
 
@@ -157,10 +136,211 @@ describe("assertDepositsAtAddress", () => {
       id: "foreign",
       deposit_address: "0x0000000000000000000000000000000000000bad",
     })
-    const call = () => assertDepositsAtAddress([deposit({}), foreign], DEPOSIT_ADDRESS)
+    const call = () => assertDepositsAtAddress([deposit(), foreign], DEPOSIT_ADDRESS)
     expect(call).toThrow(/foreign/)
     // Typed so the tracking screen can route it to the hard-error path instead
     // of the transient "retrying" notice.
     expect(call).toThrow(DepositAddressMismatchError)
+  })
+})
+
+describe("classifyBucket", () => {
+  // An unknown bucket is not failed: polling continues and a later read can still complete.
+  it.each<[string | null, ClassifiedBucket]>([
+    ["processing", "processing"],
+    ["completed", "completed"],
+    [null, "waiting"],
+    ["refunding", "unknown"],
+    ["", "unknown"],
+  ])("classifies the bucket %o as %s", (bucket, expected) => {
+    expect(classifyBucket(bucket === null ? null : deposit({ bucket }))).toBe(expected)
+  })
+})
+
+describe("bySourceTxPollInterval", () => {
+  it("polls on the shared cadence until the record exists", () => {
+    expect(bySourceTxPollInterval(null, 0)).toBe(3000)
+    expect(bySourceTxPollInterval(undefined, 6 * 60_000)).toBe(15_000)
+    expect(bySourceTxPollInterval(deposit(), 0)).toBe(false)
+  })
+})
+
+describe("createDepositBySourceTxQueryOptions", () => {
+  const run = (result: unknown) => {
+    const { api, calls } = stubApi(result)
+    const promise = runQueryFn(
+      createDepositBySourceTxQueryOptions(api, SRC_TX_HASH, true, Date.now()),
+    )
+    return { promise, calls }
+  }
+
+  it("reads the record for the exact Ethereum source transaction", async () => {
+    const { promise, calls } = run(deposit())
+    await promise
+    expect(calls[0].url).toBe(`v1/deposits/by-source-tx/${SRC_TX_HASH}`)
+    expect(calls[0].options?.searchParams).toEqual({ src_chain_id: "1" })
+  })
+
+  it("treats a 404 as an indexing delay, not an error", async () => {
+    await expect(run(httpError(404, { message: "not found" })).promise).resolves.toBeNull()
+  })
+
+  it("surfaces every other failure normalized", async () => {
+    await expect(run(httpError(500, { message: "boom" })).promise).rejects.toThrow("boom")
+  })
+})
+
+const IDENTITY = {
+  depositAddress: DEPOSIT_ADDRESS,
+  dstChainId: "interwoven-1",
+  dstDenom: "uusdc",
+  recipient: RECIPIENT,
+}
+
+const OTHER_ADDRESS = "0x9999999999999999999999999999999999999999"
+
+// Shared by both transports: the record is always the Ethereum USDC leg at the issued address.
+const IDENTITY_MISMATCHES: [Partial<Deposit>, RegExp][] = [
+  [{ src_chain_id: "8453" }, /src_chain_id 8453 is not 1/],
+  [{ src_denom: "ethereum-native" }, /src_denom ethereum-native/],
+  [{ deposit_address: OTHER_ADDRESS }, /deposit_address/],
+  [{ dst_chain_id: "yominet-1" }, /dst_chain_id/],
+  [{ dst_denom: "uinit" }, /dst_denom/],
+  [{ wallet_address: "init1someoneelse" }, /wallet_address/],
+  [{ dst_address: "init1someoneelse" }, /dst_address/],
+]
+
+describe("assertDirectDeposit", () => {
+  const DIRECT = { ...IDENTITY, srcTxHash: SRC_TX_HASH, amount: "5000000" }
+
+  it("accepts the record the session sent, in any casing", () => {
+    for (const record of [
+      deposit(),
+      deposit({
+        src_tx_hash: `0x${SRC_TX_HASH.slice(2).toUpperCase()}`,
+        deposit_address: DEPOSIT_ADDRESS.toLowerCase(),
+        src_denom: ETHEREUM_USDC_DENOM.toLowerCase(),
+      }),
+    ]) {
+      expect(assertDirectDeposit(record, DIRECT)).toBe(record)
+    }
+  })
+
+  it("accepts the credited address in hex, or a record that has none yet", () => {
+    const recipient = "init1cwrqy02m2rggulkq5s6nlmmxdaaf4n2hrwslcp"
+    const identity = { ...DIRECT, recipient }
+    const hex = InitiaAddress(recipient).hex
+    const record = deposit({ wallet_address: recipient, dst_address: hex })
+    expect(assertDirectDeposit(record, identity)).toBe(record)
+    const pending = deposit({ wallet_address: recipient, dst_address: "" })
+    expect(assertDirectDeposit(pending, identity)).toBe(pending)
+  })
+
+  it("accepts a numeric source chain id as the same chain", () => {
+    const record = { ...deposit(), src_chain_id: 1 }
+    expect(assertDirectDeposit(record, DIRECT).src_chain_id).toBe("1")
+  })
+
+  it.each<[Partial<Deposit>, RegExp]>([
+    [{ src_tx_hash: DST_TX_HASH }, /src_tx_hash/],
+    [{ amount: "4000000" }, /amount 4000000/],
+    ...IDENTITY_MISMATCHES,
+  ])("rejects %o", (overrides, message) => {
+    expect(() => assertDirectDeposit(deposit(overrides), DIRECT)).toThrow(message)
+  })
+
+  it("rejects a malformed record with a shape error, not a TypeError", () => {
+    const missingHash = { ...deposit(), src_tx_hash: undefined }
+    expect(() => assertDirectDeposit(missingHash, DIRECT)).toThrow(
+      "Deposit record has an invalid src_tx_hash: undefined",
+    )
+    expect(() => assertDirectDeposit("nope", DIRECT)).toThrow("Deposit record is not an object")
+  })
+})
+
+describe("assertLifiDeposit", () => {
+  // The Ethereum leg's hash and post-slippage amount, never the source transfer's.
+  const lifiDeposit = (overrides: Partial<Deposit> = {}) =>
+    deposit({ src_tx_hash: DST_TX_HASH, amount: "4950000", ...overrides })
+
+  it("accepts an indexed record without comparing the amount or, when unreported, the hash", () => {
+    const record = lifiDeposit()
+    expect(assertLifiDeposit(record, IDENTITY)).toBe(record)
+    expect(
+      assertLifiDeposit(record, {
+        ...IDENTITY,
+        dstTxHash: `0x${DST_TX_HASH.slice(2).toUpperCase()}`,
+      }),
+    ).toBe(record)
+  })
+
+  it("rejects a record whose hash is not the reported Ethereum delivery", () => {
+    expect(() => assertLifiDeposit(lifiDeposit(), { ...IDENTITY, dstTxHash: SRC_TX_HASH })).toThrow(
+      /src_tx_hash 0xb+ is not 0xa+/,
+    )
+  })
+
+  it.each(IDENTITY_MISMATCHES)("rejects %o", (overrides, message) => {
+    expect(() => assertLifiDeposit(lifiDeposit(overrides), IDENTITY)).toThrow(message)
+  })
+})
+
+describe("assertTrackedDeposit", () => {
+  const TRACKED = { ...IDENTITY, id: "d1" }
+
+  it("accepts the session's own deposit on every read", () => {
+    expect(assertTrackedDeposit(deposit(), TRACKED)).toEqual(deposit())
+  })
+
+  it.each<[Partial<Deposit>, RegExp]>([[{ id: "d2" }, /id d2 is not d1/], ...IDENTITY_MISMATCHES])(
+    "rejects %o",
+    (overrides, message) => {
+      expect(() => assertTrackedDeposit(deposit(overrides), TRACKED)).toThrow(message)
+    },
+  )
+})
+
+describe("deliveryExplorerUrl", () => {
+  it("links the fast-delivery payout ahead of the bot's delivery", () => {
+    const advance = "https://scan.initia.xyz/interwoven-1/txs/ADVANCE"
+    const bot = "https://etherscan.io/tx/BOT"
+    expect(
+      deliveryExplorerUrl(deposit({ advance_tx_explorer_url: advance, bot_tx_explorer_url: bot })),
+    ).toBe(advance)
+    expect(deliveryExplorerUrl(deposit({ bot_tx_explorer_url: bot }))).toBe(bot)
+    expect(deliveryExplorerUrl(null)).toBe("")
+  })
+
+  it("identifies the chain that submitted the selected transaction", () => {
+    expect(
+      deliveryExplorerChainName(
+        deposit({
+          advance_tx_explorer_url: "https://scan.initia.xyz/interwoven-1/txs/ADVANCE",
+          bot_tx_explorer_url: "https://etherscan.io/tx/BOT",
+        }),
+        "Initia",
+      ),
+    ).toBe("Initia")
+    expect(
+      deliveryExplorerChainName(
+        deposit({ bot_tx_explorer_url: "https://etherscan.io/tx/BOT" }),
+        "Initia",
+      ),
+    ).toBe("Ethereum")
+    expect(deliveryExplorerChainName(null, "Initia")).toBe("")
+  })
+})
+
+describe("deliveryTimeLeft", () => {
+  const now = Date.parse("2026-09-29T12:00:00Z")
+  const at = (iso: string | null) => ({ method: "advance", estimated_completion_at: iso })
+
+  it.each([
+    ["rounds a remaining estimate up to the minute", at("2026-09-29T12:01:10Z"), "About 2m left."],
+    ["says nothing once the estimate has passed", at("2026-09-29T11:59:00Z"), undefined],
+    ["says nothing without an estimate", at(null), undefined],
+    ["says nothing without a delivery", undefined, undefined],
+  ])("%s", (_, delivery, expected) => {
+    expect(deliveryTimeLeft(delivery, now)).toBe(expected)
   })
 })

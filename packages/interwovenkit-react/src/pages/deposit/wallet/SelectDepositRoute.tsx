@@ -1,0 +1,253 @@
+import clsx from "clsx"
+import { useEffect } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { formatAmount } from "@initia/utils"
+import Image from "@/components/Image"
+import Skeleton from "@/components/Skeleton"
+import { useMinityPrices } from "@/data/minity/hooks"
+import { useDepositApi } from "../data/api"
+import {
+  createBridgeOptionsQueryOptions,
+  createBridgeQuoteQueryOptions,
+  percentDifference,
+  rankBridgeOptions,
+  routeCostUsd,
+  tagBridgeOptions,
+} from "../data/bridges"
+import { userErrorMessage } from "../data/parse"
+import { formatSourceMin } from "../data/source"
+import type { BridgeOption, BridgeQuoteResponse, DestinationNetwork } from "../data/types"
+import providerStyles from "../onramp/SelectProvider.module.css"
+import DepositStatus from "../DepositStatus"
+import DepositSubpage from "../DepositSubpage"
+import { getBridgeToolDisplay } from "./depositSources"
+import {
+  bridgeSelectionContext,
+  combineEstimatedSeconds,
+  deliverySeconds,
+  formatEstimate,
+  formatNetworkFee,
+  formatQuoteFees,
+  selectBridgeOption,
+} from "./depositTransferLogic"
+import { useTransferForm } from "./transferFlowConfig"
+import {
+  useDeliveryQuote,
+  useDepositRequest,
+  useDepositTransportResolution,
+} from "./useDepositTransfer"
+import styles from "./SelectDepositRoute.module.css"
+
+const OPTIONS_REFRESH_MS = 20_000
+
+function describeRoute(
+  option: BridgeOption,
+  delivery: number | null | undefined,
+  selectedQuote: BridgeQuoteResponse | undefined,
+  ethPriceUsd: number | undefined,
+  isActive: boolean,
+): string {
+  let fee = "—"
+  if (isActive && selectedQuote) fee = formatQuoteFees(selectedQuote, ethPriceUsd)
+  if (!isActive) {
+    const cost = routeCostUsd(option)
+    if (cost) fee = formatNetworkFee(cost.toFixed())
+  }
+  const fees = `Fees ${fee}`
+  const seconds = combineEstimatedSeconds([option.execution_duration_seconds, delivery])
+  const duration = seconds ? formatEstimate(seconds) : undefined
+  return [fees, duration].filter((part): part is string => !!part).join(" · ")
+}
+
+// Not polled: the options refresh re-keys every row whose amount moved. The previous amount's
+// quote stays on screen while the new one loads, but is never compared as current.
+function useFinalQuote(amountIn: string, destination: DestinationNetwork | undefined) {
+  const { data, isPlaceholderData, isFetching } = useDeliveryQuote(destination, amountIn, {
+    poll: false,
+  })
+  const quote = amountIn && data?.status === "quoted" ? data.quote : undefined
+  return { quote, isCurrent: !!quote && !isPlaceholderData, isLoading: !quote && isFetching }
+}
+
+type RouteTag = "Best" | "Fastest" | "Cheapest"
+
+interface RouteRowProps {
+  option: BridgeOption
+  destination: DestinationNetwork
+  symbol: string
+  isActive: boolean
+  tag?: RouteTag
+  bestFinal?: string
+  requiredMinimum: string
+  selectedQuote?: BridgeQuoteResponse
+  ethPriceUsd?: number
+  onSelect: () => void
+}
+
+const RouteRow = (props: RouteRowProps) => {
+  const { option, destination, symbol, isActive, tag, bestFinal, requiredMinimum } = props
+  const isBest = tag === "Best"
+  const { name, logoUrl } = getBridgeToolDisplay(option.bridge)
+  const {
+    quote: finalQuote,
+    isCurrent,
+    isLoading,
+  } = useFinalQuote(option.eligible ? option.amount_out : "", destination)
+  const finalAmount = finalQuote?.amount_out
+  const difference =
+    option.eligible && !isBest && isCurrent ? percentDifference(finalAmount, bestFinal) : ""
+
+  return (
+    <DepositSubpage.Row isActive={isActive} onClick={props.onSelect} disabled={!option.eligible}>
+      <span className={providerStyles.left}>
+        <Image src={logoUrl} width={28} height={28} logo />
+        <span className={styles.text}>
+          <span className={providerStyles.left}>
+            <span className={clsx(providerStyles.name, styles.name)}>{name}</span>
+            {tag && (
+              <span
+                className={clsx(
+                  providerStyles.badge,
+                  isBest ? providerStyles["badge-success"] : styles.tag,
+                )}
+              >
+                {tag}
+              </span>
+            )}
+          </span>
+          <span className={styles.meta}>
+            {option.eligible
+              ? describeRoute(
+                  option,
+                  deliverySeconds(finalQuote, destination),
+                  props.selectedQuote,
+                  props.ethPriceUsd,
+                  isActive,
+                )
+              : `Below the ${requiredMinimum} minimum`}
+          </span>
+        </span>
+      </span>
+
+      <span className={providerStyles.right}>
+        <span className={providerStyles.amount}>
+          {finalAmount ? (
+            `${formatAmount(finalAmount, { decimals: destination.decimals })} ${symbol}`
+          ) : isLoading ? (
+            <Skeleton width={96} height={16} />
+          ) : (
+            "—"
+          )}
+        </span>
+        {difference && (
+          <span className={clsx(providerStyles.diff, difference.startsWith("+") && styles.gain)}>
+            {difference}
+          </span>
+        )}
+      </span>
+    </DepositSubpage.Row>
+  )
+}
+
+const SelectDepositRoute = () => {
+  const { setValue, watch } = useTransferForm()
+  const [pickedBridge, pickedFor] = watch(["selectedBridge", "selectedBridgeFor"])
+  const api = useDepositApi()
+  const { data: prices } = useMinityPrices()
+  const ethPriceUsd = prices?.find(([symbol]) => symbol === "ETH")?.[1]
+  const { resolution } = useDepositTransportResolution()
+  const request = useDepositRequest(resolution)
+
+  const isLifi = resolution.transport === "lifi"
+  const { data, error, isLoading, isPlaceholderData } = useQuery({
+    ...createBridgeOptionsQueryOptions(api, request.identity, isLifi && request.isComplete),
+    refetchInterval: OPTIONS_REFRESH_MS,
+  })
+
+  useEffect(() => {
+    if (!isLifi) setValue("page", "fields")
+  }, [isLifi, setValue])
+
+  const ranked = rankBridgeOptions(data?.options ?? [])
+  const selectionContext = bridgeSelectionContext(request.identity)
+  const { option: activeOption } = selectBridgeOption(
+    ranked,
+    pickedFor === selectionContext ? pickedBridge : "",
+  )
+  const { data: selectedQuote } = useQuery(
+    createBridgeQuoteQueryOptions(
+      api,
+      {
+        ...request.identity,
+        bridge: activeOption?.bridge ?? "",
+        depositAddress: data?.deposit_address,
+      },
+      isLifi && request.isComplete && !!activeOption && !!data?.deposit_address,
+    ),
+  )
+  const best = ranked.find((option) => option.eligible)
+  const tags = tagBridgeOptions(ranked)
+  const tagOf = (bridge: string): RouteTag | undefined =>
+    bridge === tags.best
+      ? "Best"
+      : bridge === tags.fastest
+        ? "Fastest"
+        : bridge === tags.cheapest
+          ? "Cheapest"
+          : undefined
+  const bestQuote = useFinalQuote(
+    best?.amount_out ?? "",
+    isLifi ? resolution.destination : undefined,
+  )
+  const bestFinal = bestQuote.isCurrent ? bestQuote.quote?.amount_out : undefined
+  const requiredMinimum =
+    data && isLifi
+      ? formatSourceMin(data.required_min_received, resolution.route.src_decimals, "USDC")
+      : ""
+
+  const selectRoute = (option: BridgeOption) => {
+    setValue("selectedBridge", option.bridge)
+    setValue("selectedBridgeFor", selectionContext)
+    setValue("page", "fields")
+  }
+
+  const renderList = () => {
+    if (resolution.transport !== "lifi") return null
+    // A failed refresh keeps the last good list on screen.
+    if (error && !data) return <DepositStatus error>{userErrorMessage(error)}</DepositStatus>
+    if (isLoading || isPlaceholderData) return <DepositStatus>Finding routes...</DepositStatus>
+    if (!ranked.length) return <DepositStatus>No routes available for this amount</DepositStatus>
+
+    return ranked.map((option) => (
+      <RouteRow
+        key={option.bridge}
+        option={option}
+        destination={resolution.destination}
+        symbol={resolution.route.dst_symbol}
+        isActive={option.bridge === activeOption?.bridge}
+        tag={tagOf(option.bridge)}
+        bestFinal={bestFinal}
+        requiredMinimum={requiredMinimum}
+        selectedQuote={option.bridge === activeOption?.bridge ? selectedQuote : undefined}
+        ethPriceUsd={ethPriceUsd}
+        onSelect={() => selectRoute(option)}
+      />
+    ))
+  }
+
+  return (
+    <DepositSubpage title="Select route" onBack={() => setValue("page", "fields")}>
+      <p className={styles.explainer}>
+        The best route balances total cost, including gas and fees, with delivery time.
+      </p>
+      <div className={providerStyles.header}>
+        <span>Route</span>
+        <span>You receive</span>
+      </div>
+
+      <DepositSubpage.List>{renderList()}</DepositSubpage.List>
+    </DepositSubpage>
+  )
+}
+
+export default SelectDepositRoute

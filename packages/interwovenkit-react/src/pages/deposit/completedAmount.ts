@@ -1,5 +1,5 @@
 import BigNumber from "bignumber.js"
-import { formatNumber, fromBaseUnit } from "@initia/utils"
+import { fromBaseUnit } from "@initia/utils"
 
 export interface CompletedAmountParams {
   /** Router-quoted destination base units (`Deposit.amount_out`); an estimate, not a measured receipt. */
@@ -30,24 +30,30 @@ export interface CompletedAmountParams {
  * 3. "Your {receiveSymbol}" — when neither amount can be formatted (route gone
  *    from the Deposit API's `config/assets`, so no decimals to format with).
  */
+// A sentence amount: at most 6 decimals, rounded down, no padding zeros. Nothing below one unit of
+// the 6th decimal, so dust never reads as "0 … delivered".
+export function formatSentenceAmount(value: string): string | undefined {
+  const rounded = value ? BigNumber(value).decimalPlaces(6, BigNumber.ROUND_DOWN) : undefined
+  return rounded?.gt(0) ? rounded.toFormat() : undefined
+}
+
 export function formatCompletedAmount(params: CompletedAmountParams): string {
   const { amountOut, sentAmount, dstDecimals, srcDecimals, receiveSymbol, sentSymbol } = params
 
-  // fromBaseUnit returns "" on invalid input, so the truthiness check folds
-  // "absent" and "unparseable" into the same fallback.
-  const delivered =
-    amountOut && dstDecimals !== undefined ? fromBaseUnit(amountOut, { decimals: dstDecimals }) : ""
-  if (delivered && BigNumber(delivered).gt(0)) {
-    return `${formatNumber(delivered, { dp: 6 })} ${receiveSymbol}`
-  }
+  // fromBaseUnit returns "" on invalid input, so "absent" and "unparseable" share the fallback.
+  const delivered = formatSentenceAmount(
+    amountOut && dstDecimals !== undefined
+      ? fromBaseUnit(amountOut, { decimals: dstDecimals })
+      : "",
+  )
+  if (delivered) return `${delivered} ${receiveSymbol}`
 
-  const sent =
+  const sent = formatSentenceAmount(
     sentAmount && srcDecimals !== undefined
       ? fromBaseUnit(sentAmount, { decimals: srcDecimals })
-      : ""
-  if (sent && BigNumber(sent).gt(0)) {
-    return `${formatNumber(sent, { dp: 6 })} ${sentSymbol}`
-  }
+      : "",
+  )
+  if (sent) return `${sent} ${sentSymbol}`
 
   return `Your ${receiveSymbol}`
 }

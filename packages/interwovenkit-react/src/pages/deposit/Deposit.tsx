@@ -25,7 +25,12 @@ import SelectAsset from "./SelectAsset"
 import SelectDepositMethod from "./SelectDepositMethod"
 
 const Deposit = () => {
-  const { localOptions = [], onramp } = useLocationState<DepositLocationState>()
+  const {
+    localOptions = [],
+    onramp,
+    resumeSessionId,
+    resumeDestinationSymbol,
+  } = useLocationState<DepositLocationState>()
   const form = useForm<DepositFormValues>({
     mode: "onChange",
     defaultValues: buildDepositDefaultValues(
@@ -35,6 +40,8 @@ const Deposit = () => {
         fiatId: localStorage.getItem(LocalStorageKey.ONRAMP_FIAT_ID),
       },
       onramp,
+      resumeSessionId,
+      resumeDestinationSymbol,
     ),
   })
 
@@ -143,11 +150,14 @@ const WalletFlow = () => {
   const navigate = useDepositNavigate()
   const receiveDenom = watch("receiveDenom")
   const receiveChainId = watch("receiveChainId")
+  const resumeSessionId = watch("resumeSessionId")
 
   return (
     <TransferFlow
+      key={resumeSessionId}
       mode="deposit"
       initialAsset={{ denom: receiveDenom, chainId: receiveChainId }}
+      initialSessionId={resumeSessionId}
       onExit={() => navigate("select-method")}
     />
   )

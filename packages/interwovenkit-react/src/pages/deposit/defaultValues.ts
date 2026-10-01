@@ -26,6 +26,8 @@ export function buildDepositDefaultValues(
   localOptions: AssetOption[],
   persisted: PersistedOnrampDefaults = {},
   onramp?: OnrampPreset,
+  resumeSessionId?: string,
+  resumeDestinationSymbol?: string,
 ): DepositFormValues {
   const defaultValues: DepositFormValues = {
     page: "select-asset",
@@ -34,6 +36,7 @@ export function buildDepositDefaultValues(
     receiveChainId: "",
     method: "address",
     trackedDepositId: "",
+    resumeSessionId: "",
     fiatId: onramp?.currency || persisted.fiatId || DEFAULT_FIAT_ID,
     fiatAmount: onramp?.amount ?? "",
     paymentMethodId: persisted.paymentMethodId || DEFAULT_PAYMENT_TYPE_ID,
@@ -45,6 +48,12 @@ export function buildDepositDefaultValues(
     defaultValues.receiveDenom = denom
     defaultValues.receiveChainId = chainId
     defaultValues.page = "select-method"
+  }
+
+  if (resumeSessionId) {
+    defaultValues.page = "wallet"
+    defaultValues.resumeSessionId = resumeSessionId
+    defaultValues.receiveSymbol = resumeDestinationSymbol ?? ""
   }
 
   return defaultValues

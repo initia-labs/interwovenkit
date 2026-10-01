@@ -50,6 +50,8 @@ export interface DepositFormValues {
   method: DepositMethod
   // Exact record detected before entering the shared tracking screen.
   trackedDepositId: string
+  // Saved wallet session picked from the hub's "Continue deposit" section.
+  resumeSessionId: string
   // Onramp path (Onramper). `fiatId` holds the Onramper fiat id (lowercase, e.g.
   // "usd") — never the uppercase ISO code, which lives on `OnramperFiat.code`
   // and is looked up for display. `paymentMethodId` holds the paymentTypeId
