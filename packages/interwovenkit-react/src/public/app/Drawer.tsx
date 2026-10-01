@@ -1,7 +1,7 @@
 import clsx from "clsx"
 import { type PropsWithChildren, useCallback, useContext } from "react"
 import type { FallbackProps } from "react-error-boundary"
-import { useAtomValue } from "jotai"
+import { useAtomValue, useSetAtom } from "jotai"
 import { Dialog } from "@base-ui/react/dialog"
 import { useIsMutating, useQueryClient } from "@tanstack/react-query"
 import AsyncBoundary from "@/components/AsyncBoundary"
@@ -15,7 +15,9 @@ import { TX_APPROVAL_MUTATION_KEY, txRequestHandlerAtom } from "@/data/tx"
 import { useDrawer } from "@/data/ui"
 import { useIsMobile } from "@/hooks/useIsMobile"
 import { useNavigate, usePath } from "@/lib/router"
+import { AutoSignCancelledError } from "@/pages/autosign/data/lifecycle"
 import { pendingAutoSignRequestAtom } from "@/pages/autosign/data/store"
+import { pendingAutoSignUnlockAtom } from "@/pages/autosign/data/unlock-request"
 import { usePortalContainer } from "../portal"
 import { PortalContext } from "./PortalContext"
 import ScrollLock from "./ScrollLock"
@@ -42,7 +44,9 @@ const Drawer = ({ children }: PropsWithChildren) => {
   // Currently handled via drawer/modal close instead.
   // Would be nice to fix this properly later.
   const txRequest = useAtomValue(txRequestHandlerAtom)
+  const pendingUnlock = useAtomValue(pendingAutoSignUnlockAtom)
   const pendingAutoSignRequest = useAtomValue(pendingAutoSignRequestAtom)
+  const setPendingAutoSignRequest = useSetAtom(pendingAutoSignRequestAtom)
   const isPendingTransaction = useIsMutating({ mutationKey: [TX_APPROVAL_MUTATION_KEY] })
   const handleCloseDrawer = () => {
     const errorMessage = isPendingTransaction
@@ -53,6 +57,8 @@ const Drawer = ({ children }: PropsWithChildren) => {
     closeDrawer()
     txRequest?.reject(new Error(errorMessage))
     pendingAutoSignRequest?.reject(new Error("User rejected"))
+    setPendingAutoSignRequest((current) => (current === pendingAutoSignRequest ? null : current))
+    pendingUnlock?.reject(new AutoSignCancelledError("User rejected auto-signing unlock"))
   }
 
   // Error

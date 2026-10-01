@@ -10,7 +10,11 @@ import { useL1PositionsTotal } from "@/data/initia-positions-total"
 import { migrateLocalStorage } from "@/data/migration"
 import { usePortfolioSSE } from "@/data/minity"
 import { MemoryRouter } from "@/lib/router"
-import { useInitializeAutoSign } from "@/pages/autosign/data/validation"
+import { useAutoSignReconnect } from "@/pages/autosign/data/reconnect"
+import {
+  useInitializeAutoSign,
+  useReconcilePendingAutoSign,
+} from "@/pages/autosign/data/validation"
 import { useClearWalletsOnAddressChange } from "@/pages/autosign/data/wallet"
 import { usePrefetchBridgeData } from "@/pages/bridge/data/prefetch"
 import { MAINNET } from "../data/constants"
@@ -46,7 +50,9 @@ const Prefetch = () => {
 
   // autosign
   useClearWalletsOnAddressChange()
+  useReconcilePendingAutoSign()
   useInitializeAutoSign()
+  useAutoSignReconnect()
 
   // initia registry
   useInitiaRegistry()

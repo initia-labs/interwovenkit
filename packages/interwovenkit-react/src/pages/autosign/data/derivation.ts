@@ -1,4 +1,4 @@
-import { Bip39, Secp256k1, Slip10, Slip10Curve, stringToPath } from "@cosmjs/crypto"
+import { Bip39, Random, Secp256k1, Slip10, Slip10Curve, stringToPath } from "@cosmjs/crypto"
 import { toBech32 } from "@cosmjs/encoding"
 import { bytesToHex, type Hex, hexToBytes, keccak256 } from "viem"
 import type { DerivedWallet } from "./store"
@@ -60,6 +60,37 @@ export async function deriveWalletFromSignature(
     publicKey: publicKey,
     address: address,
   }
+}
+
+/** Rebuilds the exact ethsecp256k1 wallet identity from stored private key material. */
+export async function walletFromPrivateKey(
+  privateKey: Uint8Array,
+  bech32Prefix: string,
+): Promise<DerivedWallet> {
+  if (privateKey.length !== 32) {
+    throw new Error("Invalid autosign private key length")
+  }
+
+  const keypair = await Secp256k1.makeKeypair(privateKey)
+  const publicKey = Secp256k1.compressPubkey(keypair.pubkey)
+  const pubkeyWithoutPrefix = keypair.pubkey.slice(1)
+  const addressHash = keccak256(bytesToHex(pubkeyWithoutPrefix))
+  const address = toBech32(bech32Prefix, hexToBytes(addressHash).slice(-20))
+
+  return { privateKey, publicKey, address }
+}
+
+/** Uses CosmJS CSPRNG and secp256k1 validation for persistent, non-recoverable credentials. */
+export async function createRandomWallet(bech32Prefix: string): Promise<DerivedWallet> {
+  for (let attempt = 0; attempt < 16; attempt += 1) {
+    const privateKey = Random.getBytes(32)
+    try {
+      return await walletFromPrivateKey(privateKey, bech32Prefix)
+    } catch {
+      privateKey.fill(0)
+    }
+  }
+  throw new Error("Could not generate a valid autosign private key")
 }
 
 export function getDerivedWalletKey(userAddress: string, bech32Prefix: string): string {

@@ -6,6 +6,22 @@
   padding: 16px 20px;
 }
 
+.summary {
+  display: grid;
+  gap: 12px;
+
+  background-color: var(--gray-7);
+  border-bottom: 1px solid var(--gray-6);
+  font-size: 12px;
+  padding: 16px 20px;
+}
+
+.summaryTitle {
+  color: var(--gray-0);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .key {
   font-weight: 600;
   margin-bottom: 2px;

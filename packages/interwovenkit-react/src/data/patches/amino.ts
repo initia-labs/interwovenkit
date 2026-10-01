@@ -2,6 +2,7 @@ import type { AminoConverter, AminoConverters } from "@cosmjs/stargate"
 import { aminoConverters as baseAminoConverters } from "@initia/amino-converter"
 import { AllowedMsgAllowance } from "@initia/initia.proto/cosmos/feegrant/v1beta1/feegrant"
 import type { MsgGrantAllowance } from "@initia/initia.proto/cosmos/feegrant/v1beta1/tx"
+import { formatAminoExpiration, typedMsgGrantAminoConverter } from "./authz-amino"
 
 const MSG_GRANT_ALLOWANCE_TYPE_URL = "/cosmos.feegrant.v1beta1.MsgGrantAllowance"
 const ALLOWED_MSG_ALLOWANCE_TYPE_URL = "/cosmos.feegrant.v1beta1.AllowedMsgAllowance"
@@ -45,13 +46,17 @@ function toAminoAllowance(allowance: ProtoAllowance): AminoAllowance {
 
   // Reuse the upstream MsgGrantAllowance conversion for non-Allowed allowances
   // to avoid duplicating handling for Basic/Periodic/etc. allowance types.
-  return (
+  const converted = (
     baseMsgGrantAllowanceConverter.toAmino({
       granter: "",
       grantee: "",
       allowance,
     } as MsgGrantAllowance) as { allowance: AminoAllowance }
   ).allowance
+  if (typeof converted.value.expiration === "string") {
+    converted.value.expiration = formatAminoExpiration(converted.value.expiration)
+  }
+  return converted
 }
 
 function fromAminoAllowance(allowance: AminoAllowance): ProtoAllowance {
@@ -91,6 +96,7 @@ function fromAminoAllowance(allowance: AminoAllowance): ProtoAllowance {
 
 export const patchedAminoConverters: AminoConverters = {
   ...baseAminoConverters,
+  "/cosmos.authz.v1beta1.MsgGrant": typedMsgGrantAminoConverter,
   [MSG_GRANT_ALLOWANCE_TYPE_URL]: {
     ...baseMsgGrantAllowanceConverter,
     toAmino: (msg: MsgGrantAllowance) => {
