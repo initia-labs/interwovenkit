@@ -73,7 +73,7 @@ const BridgeHistoryItem = ({ tx }: { tx: TxIdentifier }) => {
             href={skipExplorerUrl.toString()}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label={`View transaction on ${txChainName} explorer`}
+            aria-label={`View ${txChainName} transaction on Skip Explorer`}
           />
         )
       }
