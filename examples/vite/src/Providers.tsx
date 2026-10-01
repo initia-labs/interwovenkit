@@ -27,10 +27,18 @@ const simulatePopup = searchParams.has("simulatePopup")
     ? { delayMs: popupDelayMs }
     : true
   : false
+// `?simulateExtension` makes chain switches wait on a confirmation, like an extension wallet's.
+// `&switchDelayMs=N` sets how long the confirmation takes.
+const switchDelayMs = Number(searchParams.get("switchDelayMs"))
+const simulateExtension = searchParams.has("simulateExtension")
+  ? switchDelayMs > 0
+    ? { delayMs: switchDelayMs }
+    : true
+  : false
 
 const connectors = [
   initiaPrivyWalletConnector,
-  ...(mnemonic ? [createTestWalletConnector({ mnemonic, simulatePopup })] : []),
+  ...(mnemonic ? [createTestWalletConnector({ mnemonic, simulatePopup, simulateExtension })] : []),
 ]
 const wagmiConfig = createConfig({
   connectors,

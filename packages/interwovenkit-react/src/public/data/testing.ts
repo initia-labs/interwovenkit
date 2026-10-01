@@ -79,13 +79,21 @@ export type CreateTestWalletConfig = CreateTestWalletOptions & {
   }
   /**
    * Open a blank window before every signing request and fail with the same error as
-   * popup-based wallets (Privy) when the browser blocks it. Lets browser tests check that
+   * popup-based wallets (Privy) when the browser blocks it. Like Privy, it then signs
+   * transactions on their own `chainId` instead of the wallet's current chain. Lets browser tests check that
    * signing is still inside the click's user activation when the wallet is asked.
    * `delayMs` waits that long before opening the window, which is useful as a negative
    * control since the activation expires during the wait.
    * @default false
    */
   simulatePopup?: boolean | { delayMs: number }
+  /**
+   * Confirm chain switches the way extension wallets do: the page loses focus to a wallet
+   * window for `delayMs` (500 by default) before the switch takes effect. Without it the switch
+   * is instant, like Privy's.
+   * @default false
+   */
+  simulateExtension?: boolean | { delayMs: number }
 }
 
 /**
@@ -156,7 +164,16 @@ export function createTestWalletConnector(options: CreateTestWalletConfig) {
     debug = false,
     sendTransactionOverrides,
     simulatePopup = false,
+    simulateExtension = false,
   } = options
+
+  async function confirmInSimulatedExtension() {
+    if (!simulateExtension) return
+    const delayMs = typeof simulateExtension === "object" ? simulateExtension.delayMs : 500
+    window.dispatchEvent(new Event("blur"))
+    await new Promise((resolve) => setTimeout(resolve, delayMs))
+    window.dispatchEvent(new Event("focus"))
+  }
 
   // Mirrors @privy-io/cross-app-connect, which opens the window first and throws this exact
   // message when `window.open()` returns null.
@@ -218,6 +235,17 @@ export function createTestWalletConnector(options: CreateTestWalletConfig) {
   // Extended dynamically via wallet_addEthereumChain
   const chains: Record<number, Chain> = { 1: mainnet }
 
+  // Auto-register a chain from rpcOverrides so that createWalletClient receives a valid chain object.
+  function registerFromRpcOverrides(numericId: number) {
+    if (chains[numericId] || !rpcOverrides[numericId]) return
+    chains[numericId] = {
+      id: numericId,
+      name: `Chain ${numericId}`,
+      nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
+      rpcUrls: { default: { http: [rpcOverrides[numericId]] } },
+    }
+  }
+
   function getRpcUrl(chainId: number): string {
     if (rpcOverrides[chainId]) return rpcOverrides[chainId]
     const chain = chains[chainId]
@@ -261,6 +289,9 @@ export function createTestWalletConnector(options: CreateTestWalletConfig) {
   }
 
   const provider = {
+    silentChainSwitch: !simulateExtension,
+    // Like Privy, a popup wallet signs on the transaction's chainId rather than its current chain.
+    signsOnRequestedChain: !!simulatePopup,
     request: async ({ method, params }: { method: string; params?: unknown[] }) => {
       if (debug) {
         // eslint-disable-next-line no-console
@@ -285,16 +316,8 @@ export function createTestWalletConnector(options: CreateTestWalletConfig) {
           if (!chains[numericId] && !rpcOverrides[numericId]) {
             throw new EIP1193ProviderRpcError(4902, "Unrecognized chain ID")
           }
-          // Auto-register chain from rpcOverrides so that
-          // createWalletClient receives a valid chain object.
-          if (!chains[numericId] && rpcOverrides[numericId]) {
-            chains[numericId] = {
-              id: numericId,
-              name: `Chain ${numericId}`,
-              nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-              rpcUrls: { default: { http: [rpcOverrides[numericId]] } },
-            }
-          }
+          registerFromRpcOverrides(numericId)
+          await confirmInSimulatedExtension()
           currentChainId = numericId
           emit("chainChanged", chainId)
           return null
@@ -348,23 +371,26 @@ export function createTestWalletConnector(options: CreateTestWalletConfig) {
 
         case "eth_sendTransaction": {
           const [txParams] = params as [Record<string, string>]
-          const chain = chains[currentChainId]
+          const txChainId =
+            simulatePopup && txParams.chainId ? Number(txParams.chainId) : currentChainId
+          registerFromRpcOverrides(txChainId)
+          const chain = chains[txChainId]
           if (!chain) {
             throw new Error(
-              `[${id}] No chain registered for chain ${currentChainId}. Call wallet_switchEthereumChain first.`,
+              `[${id}] No chain registered for chain ${txChainId}. Call wallet_switchEthereumChain first.`,
             )
           }
           const walletClient = createWalletClient({
             account,
             chain,
-            transport: http(getRpcUrl(currentChainId)),
+            transport: http(getRpcUrl(txChainId)),
           })
           return signThroughSimulatedPopup(() =>
             walletClient.sendTransaction({
               to: txParams.to as `0x${string}`,
               value: txParams.value ? BigInt(txParams.value) : undefined,
               data: txParams.data as `0x${string}` | undefined,
-              chainId: currentChainId,
+              chainId: txChainId,
               ...sendTransactionOverrides,
             }),
           )

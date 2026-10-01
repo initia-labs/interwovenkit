@@ -1,4 +1,8 @@
-import { prepareWalletRequest, sendPreparedWalletRequest } from "./depositWalletRequest"
+import {
+  getChainSwitchMode,
+  prepareWalletRequest,
+  sendPreparedWalletRequest,
+} from "./depositWalletRequest"
 
 const sender = "0x1111111111111111111111111111111111111111"
 const to = "0x2222222222222222222222222222222222222222"
@@ -54,6 +58,39 @@ describe("depositWalletRequest", () => {
     expect(provider.request).toHaveBeenCalledTimes(2)
   })
 
+  it("prepares on the source chain for a wallet that signs on the request's chain", async () => {
+    const provider = {
+      request: vi.fn(async ({ method }: { method: string }) => {
+        if (method === "eth_accounts") return [sender]
+        throw new Error(`unexpected ${method}`)
+      }),
+    }
+    const estimateGasOnSource = vi.fn(async () => 50_000n)
+    await expect(
+      prepareWalletRequest({
+        provider,
+        sender,
+        chainId: "42161",
+        to,
+        data: "0x",
+        value: "0",
+        estimateGasOnSource,
+      }),
+    ).resolves.toEqual({
+      status: "ready",
+      provider,
+      transaction: { chainId: "0xa4b1", from: sender, to, data: "0x", value: "0x0", gas: "0xc350" },
+    })
+    expect(estimateGasOnSource).toHaveBeenCalledWith({
+      chainId: "0xa4b1",
+      from: sender,
+      to,
+      data: "0x",
+      value: "0x0",
+    })
+    expect(provider.request).toHaveBeenCalledTimes(1)
+  })
+
   it("uses a supplied gas limit without estimating it", async () => {
     const provider = {
       request: vi.fn(async ({ method }: { method: string }) =>
@@ -88,5 +125,19 @@ describe("depositWalletRequest", () => {
       transaction: { chainId: "0xa4b1", from: sender, to, data: "0x", value: "0x0" },
     }
     await expect(sendPreparedWalletRequest(request)).rejects.toBe(error)
+  })
+
+  it("picks how each wallet gets to the source chain", () => {
+    const provider = { request: vi.fn() }
+    expect(getChainSwitchMode("privy", provider)).toBe("none")
+    expect(getChainSwitchMode("injected", { ...provider, signsOnRequestedChain: true })).toBe(
+      "none",
+    )
+    expect(getChainSwitchMode("injected", { ...provider, silentChainSwitch: true })).toBe("silent")
+    expect(getChainSwitchMode("injected", provider)).toBe("inline")
+    expect(getChainSwitchMode("metaMask", provider)).toBe("inline")
+    expect(getChainSwitchMode("coinbaseWallet", provider)).toBe("prompt")
+    expect(getChainSwitchMode("walletConnect", provider)).toBe("prompt")
+    expect(getChainSwitchMode("safe", provider)).toBe("prompt")
   })
 })

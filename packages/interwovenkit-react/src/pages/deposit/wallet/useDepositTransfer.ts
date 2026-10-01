@@ -60,11 +60,14 @@ import {
   UNKNOWN_SEND_MESSAGE,
 } from "./depositTransferLogic"
 import {
+  type ChainSwitchMode,
   type DepositWalletProvider,
+  getChainSwitchMode,
   parseDepositWalletProvider,
   type PreparedWalletRequest,
   prepareWalletRequest,
   sendPreparedWalletRequest,
+  type WalletTransaction,
 } from "./depositWalletRequest"
 import {
   encodeErc20Approve,
@@ -90,6 +93,8 @@ const PROMPT_HEARTBEAT_MS = 15_000
 const ETHEREUM_CONFIRMATION_SECONDS = 24
 
 const APPROVAL_RECEIPT_TIMEOUT_MS = 120_000
+// A click that switched the chain continues only this long, so a slow switch can't prompt later.
+const SWITCH_CONTINUE_MS = 90_000
 
 const isFirstFetch = (query: { isLoading: boolean; isPlaceholderData: boolean }) =>
   query.isLoading || query.isPlaceholderData
@@ -203,7 +208,7 @@ class UnknownSendError extends Error {}
 
 type PreparedAction =
   | { status: "idle" | "preparing" }
-  | { status: "wrong_chain"; provider: DepositWalletProvider }
+  | { status: "wrong_chain"; provider: DepositWalletProvider; mode: ChainSwitchMode }
   | { status: "error"; message: string }
   | {
       status: "ready"
@@ -270,6 +275,12 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const [visibilityRevision, setVisibilityRevision] = useState(0)
   const [preparationRevision, setPreparationRevision] = useState(0)
   const [startError, setStartError] = useState<Error | null>(null)
+  const [isSwitchingChain, setIsSwitchingChain] = useState(false)
+  const [switchError, setSwitchError] = useState("")
+  // The inputs a silent switch was tried for, so a switch that doesn't take can't loop.
+  const silentSwitchRef = useRef("")
+  // When a Deposit or Approve click that first had to switch the chain stops being continued.
+  const switchClickExpiryRef = useRef<number | null>(null)
   // Synchronous: a second click can land before React renders the mutation as pending.
   const busyRef = useRef(false)
   // What the last approval's wait saw on chain, the floor for the next deposit's nonce baseline.
@@ -677,12 +688,14 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   // its lock, and a request still in flight keeps its state.
   const clearSettledErrors = useEffectEvent(() => {
     setStartError(null)
+    setSwitchError("")
     setReviewRequiredSignature("")
     if (sendMutation.isError && !isLockingError(sendMutation.error)) sendMutation.reset()
     if (approveMutation.isError) approveMutation.reset()
   })
   useEffect(() => {
     inputsRef.current = transferInputs
+    switchClickExpiryRef.current = null
     clearSettledErrors()
   }, [transferInputs])
 
@@ -750,6 +763,11 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
         provider.on?.("accountsChanged", invalidate)
         provider.on?.("chainChanged", invalidate)
         provider.on?.("disconnect", invalidate)
+        const estimateGasOnSource =
+          getChainSwitchMode(connector.type, provider) === "none"
+            ? (transaction: WalletTransaction) =>
+                getPinnedProvider(source.chainId).estimateGas(transaction)
+            : undefined
         return actionKind === "approval" && approval
           ? prepareWalletRequest({
               provider,
@@ -758,6 +776,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
               to: approval.token_address,
               data: encodeErc20Approve(approval.spender_address, approval.amount),
               value: "0",
+              estimateGasOnSource,
             })
           : prepareWalletRequest({
               provider,
@@ -767,14 +786,26 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
               data: draft!.transaction.data,
               value: draft!.transaction.value,
               gasLimit: draft!.transaction.gasLimit,
+              estimateGasOnSource,
             })
       })
       .then(async (request) => {
         if (controller.signal.aborted || document.hidden || !document.hasFocus()) return
         if (request.status === "wrong_chain") {
-          setPreparedAction(request)
+          const mode = getChainSwitchMode(connector.type, request.provider)
+          const chain = findChain(source.chainId)
+          if (mode !== "silent" || !chain || silentSwitchRef.current === transferInputs) {
+            const fallbackMode = mode === "silent" ? "prompt" : mode
+            setPreparedAction({ ...request, mode: fallbackMode })
+            return
+          }
+          silentSwitchRef.current = transferInputs
+          // The wallet's chainChanged restarts preparation on the new chain.
+          await switchEthereumChain(new BrowserProvider(request.provider), chain)
+          if (!controller.signal.aborted) setPreparationRevision((value) => value + 1)
           return
         }
+        silentSwitchRef.current = ""
         if (actionKind === "approval" && approval) {
           setPreparedAction({
             status: "ready",
@@ -947,17 +978,54 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   }
 
   const switchChain =
-    preparedAction.status === "wrong_chain"
+    preparedAction.status === "wrong_chain" && !isSwitchingChain
       ? () => {
           const chain = findChain(source.chainId)
           if (!chain) return
+          if (preparedAction.mode === "inline") {
+            switchClickExpiryRef.current = Date.now() + SWITCH_CONTINUE_MS
+          }
+          setSwitchError("")
+          setIsSwitchingChain(true)
           void switchEthereumChain(new BrowserProvider(preparedAction.provider), chain)
             .catch(async (error: unknown) => {
-              setPreparedAction({ status: "error", message: await normalizeErrorMessage(error) })
+              switchClickExpiryRef.current = null
+              setSwitchError(await normalizeErrorMessage(error))
             })
-            .finally(() => setPreparationRevision((value) => value + 1))
+            .finally(() => {
+              setIsSwitchingChain(false)
+              setPreparationRevision((value) => value + 1)
+            })
         }
       : undefined
+
+  // The wallet window takes focus while it asks to switch, so the click's own send can't wait for
+  // it. Preparation resumes on the new chain once the page has focus again, and this finishes it.
+  const continueSwitchClick = useEffectEvent(() => {
+    const expiresAt = switchClickExpiryRef.current
+    if (expiresAt === null || preparedAction.status !== "ready") return
+    if (Date.now() > expiresAt) {
+      switchClickExpiryRef.current = null
+      return
+    }
+    // A quote that aged out during the switch is refreshed first; its re-preparation lands here again.
+    if (
+      preparedAction.kind === "deposit" &&
+      transport === "lifi" &&
+      (isQuoteStale(quoteQuery.dataUpdatedAt, Date.now()) || quoteQuery.isFetching)
+    ) {
+      if (!quoteQuery.isFetching) void refreshQuote()
+      return
+    }
+    switchClickExpiryRef.current = null
+    // A route that changed during the switch needs a fresh confirmation.
+    if (quoteUpdated) return
+    if (preparedAction.kind === "approval") approve()
+    else send()
+  })
+  useEffect(() => {
+    continueSwitchClick()
+  }, [preparedAction])
 
   return {
     transport,
@@ -979,6 +1047,8 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     readiness,
     submit: send,
     switchChain,
+    isSwitchingChain,
+    isSwitchStep: preparedAction.status === "wrong_chain" && preparedAction.mode === "prompt",
     chainName: source.chainName,
     isPreparing: preparedAction.status === "preparing" || preparedAction.status === "idle",
     isActionReady:
@@ -987,7 +1057,8 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
       !preparedGasBudgetError,
     preparationError:
       preparedGasBudgetError ??
-      (preparedAction.status === "error" ? preparedAction.message : undefined),
+      (preparedAction.status === "error" ? preparedAction.message : undefined) ??
+      (preparedAction.status === "wrong_chain" && switchError ? switchError : undefined),
     isSubmitting: sendMutation.isPending || isRefreshingQuote,
     isRefreshingQuote,
     submitError,
