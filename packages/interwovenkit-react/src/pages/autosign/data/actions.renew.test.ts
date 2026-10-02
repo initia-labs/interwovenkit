@@ -130,7 +130,11 @@ vi.mock("./wallet", () => ({
 import { useDisableAutoSign, useEnableAutoSign, useRenewAutoSign } from "./actions"
 
 interface EnableMutation {
-  mutationFn: (input: { durationInMs: number; stayConnected?: boolean }) => Promise<unknown>
+  mutationFn: (input: {
+    durationInMs: number
+    stayConnected?: boolean
+    signature?: Promise<`0x${string}`>
+  }) => Promise<unknown>
   onSuccess: (result: unknown) => Promise<void>
   onMutate: () => { request: typeof mocks.pendingRequest }
   onError: (
@@ -145,6 +149,7 @@ interface RenewMutation {
     chainId: string
     durationInMs: number
     stayConnected?: boolean
+    signature?: Promise<`0x${string}`>
   }) => Promise<unknown>
   onSuccess: (result: unknown) => Promise<void>
 }
@@ -495,6 +500,57 @@ describe("useEnableAutoSign new tab-only signer", () => {
 
     expect(mocks.deriveWallet).toHaveBeenCalledWith("initiation-2", { stayConnected: true })
     expect(mocks.deleteWalletAfterConfirmedRevoke).not.toHaveBeenCalled()
+  })
+})
+
+describe("presigned derivation signature", () => {
+  beforeEach(() => {
+    mocks.getWalletIdentities.mockResolvedValue([])
+    mocks.deriveWallet.mockResolvedValue({ address: "init1legacy", publicKey: new Uint8Array() })
+    mocks.getWalletProvenance.mockReturnValue("legacy-derived")
+    mocks.requestTxBlock.mockResolvedValue({ transactionHash: "HASH", code: 0, rawLog: "" })
+  })
+
+  it("hands the click's signature to the derivation on enable", async () => {
+    const signature = Promise.resolve("0xsigned" as const)
+
+    await useEnableMutationForTest().mutationFn({
+      durationInMs: 60_000,
+      stayConnected: false,
+      signature,
+    })
+
+    expect(mocks.deriveWallet).toHaveBeenCalledWith("initiation-2", {
+      stayConnected: false,
+      signature,
+    })
+  })
+
+  it("stops before reading autosign storage when the signature is rejected", async () => {
+    const rejection = Object.assign(new Error("User rejected"), { code: 4001 })
+
+    await expect(
+      useEnableMutationForTest().mutationFn({
+        durationInMs: 60_000,
+        stayConnected: false,
+        signature: Promise.reject(rejection),
+      }),
+    ).rejects.toBe(rejection)
+
+    expect(mocks.getWalletIdentities).not.toHaveBeenCalled()
+    expect(mocks.deriveWallet).not.toHaveBeenCalled()
+  })
+
+  it("hands the click's signature to the derivation on renew", async () => {
+    mocks.getExpectedAddress.mockReturnValue("init1legacy")
+    mocks.getWalletIdentities.mockResolvedValue([
+      { address: "init1legacy", provenance: "legacy-derived", state: "active" },
+    ])
+    const signature = Promise.resolve("0xsigned" as const)
+
+    await useRenewMutationForTest().mutationFn({ ...input, signature })
+
+    expect(mocks.deriveWallet).toHaveBeenCalledWith("initiation-2", { signature })
   })
 })
 
