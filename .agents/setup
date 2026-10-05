@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+started_at=$SECONDS
+echo "[setup] Checking Node.js"
+node -e '
+  const [major, minor] = process.versions.node.split(".").map(Number)
+  if (!((major === 22 && minor >= 13) || major > 22)) {
+    console.error(`Node.js ${process.versions.node} is unsupported; this repository requires Node.js 22.13 or newer.`)
+    process.exit(1)
+  }
+'
+
+export PATH="$HOME/.local/bin:$PATH"
+pnpm_version="$(node -p 'require("./package.json").packageManager.split("@").at(-1)')"
+if [[ "$(pnpm --version 2>/dev/null || true)" != "$pnpm_version" ]]; then
+  echo "[setup] Installing pnpm $pnpm_version"
+  npm install --global --prefix "$HOME/.local" --no-audit --no-fund "pnpm@$pnpm_version"
+  hash -r
+else
+  echo "[setup] pnpm $pnpm_version is already available"
+fi
+
+echo "[setup] Installing workspace dependencies"
+pnpm install --frozen-lockfile
+
+echo "[setup] Building the library"
+pnpm build
+
+if [[ ! -f examples/vite/.env.local ]]; then
+  echo "[setup] Creating examples/vite/.env.local from the example configuration"
+  cp -- examples/vite/.env.example examples/vite/.env.local
+fi
+
+echo "[setup] Complete in $((SECONDS - started_at))s"
