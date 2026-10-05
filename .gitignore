@@ -9,3 +9,6 @@ dist
 # Playwright
 examples/vite/test-results
 examples/vite/playwright-report
+
+# Amp
+.amp/portals/*
