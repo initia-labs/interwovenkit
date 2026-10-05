@@ -382,9 +382,13 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const isAmountSettled = typedAmount === amount
   const isEstimating =
     !isAmountSettled ||
-    (transport === "lifi" && (isFirstFetch(optionsQuery) || quoteQuery.isLoading)) ||
-    isFirstFetch(preflightQuery) ||
-    (needsDisplayQuote && isFirstFetch(displayQuery))
+    (transport === "lifi"
+      ? optionsEnabled &&
+        (isFirstFetch(optionsQuery) ||
+          quoteQuery.isLoading ||
+          isFirstFetch(preflightQuery) ||
+          (needsDisplayQuote && isFirstFetch(displayQuery)))
+      : isFirstFetch(preflightQuery) || (needsDisplayQuote && isFirstFetch(displayQuery)))
 
   const approval = quote?.approval
   const spender = approval?.spender_address ?? ""
