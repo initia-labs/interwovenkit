@@ -8,8 +8,8 @@ started_at=$SECONDS
 echo "[setup] Checking Node.js"
 node -e '
   const [major, minor] = process.versions.node.split(".").map(Number)
-  if (!((major === 20 && minor >= 19) || (major === 22 && minor >= 12) || major > 22)) {
-    console.error(`Node.js ${process.versions.node} is unsupported; Vite requires Node.js 20.19+, 22.12+, or newer.`)
+  if (!((major === 22 && minor >= 13) || major > 22)) {
+    console.error(`Node.js ${process.versions.node} is unsupported; this repository requires Node.js 22.13 or newer.`)
     process.exit(1)
   }
 '
