@@ -27,6 +27,9 @@ fi
 echo "[setup] Installing workspace dependencies"
 pnpm install --frozen-lockfile
 
+echo "[setup] Building the library"
+pnpm build
+
 if [[ ! -f examples/vite/.env.local ]]; then
   echo "[setup] Creating examples/vite/.env.local from the example configuration"
   cp -- examples/vite/.env.example examples/vite/.env.local
