@@ -28,6 +28,7 @@ import {
   formatEstimate,
   formatNetworkFee,
   formatQuoteFees,
+  meetsDepositInputMinimum,
   selectBridgeOption,
 } from "./depositTransferLogic"
 import { useTransferForm } from "./transferFlowConfig"
@@ -159,8 +160,12 @@ const SelectDepositRoute = () => {
   const request = useDepositRequest(resolution)
 
   const isLifi = resolution.transport === "lifi"
+  const routesEnabled =
+    resolution.transport === "lifi" &&
+    request.isComplete &&
+    meetsDepositInputMinimum(request.identity.amount, resolution.route, "lifi")
   const { data, error, isLoading, isPlaceholderData } = useQuery({
-    ...createBridgeOptionsQueryOptions(api, request.identity, isLifi && request.isComplete),
+    ...createBridgeOptionsQueryOptions(api, request.identity, routesEnabled),
     refetchInterval: OPTIONS_REFRESH_MS,
   })
 
@@ -182,7 +187,7 @@ const SelectDepositRoute = () => {
         bridge: activeOption?.bridge ?? "",
         depositAddress: data?.deposit_address,
       },
-      isLifi && request.isComplete && !!activeOption && !!data?.deposit_address,
+      routesEnabled && !!activeOption && !!data?.deposit_address,
     ),
   )
   const best = ranked.find((option) => option.eligible)

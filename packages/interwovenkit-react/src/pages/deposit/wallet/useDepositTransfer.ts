@@ -54,6 +54,7 @@ import {
   derivePreflight,
   isProvablyNotSent,
   isQuoteStale,
+  meetsDepositInputMinimum,
   requiredNativeAmount,
   resolveDepositRecipient,
   selectBridgeOption,
@@ -303,7 +304,7 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const noncesQuery = useSenderNonces(source.chainId, hexAddress, () => SOURCE_READ_REFRESH_MS)
 
   const inputMinimum = depositInputMinimum(route, transport)
-  const meetsInputMinimum = gteInteger(amount, inputMinimum)
+  const meetsInputMinimum = meetsDepositInputMinimum(amount, route, transport)
   const optionsEnabled = transport === "lifi" && request.isComplete && meetsInputMinimum
   const optionsQuery = useQuery(createBridgeOptionsQueryOptions(api, identity, optionsEnabled))
   const optionsData = optionsEnabled ? optionsQuery.data : undefined
@@ -1068,7 +1069,10 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
       if (inFlightSession) setValue("depositSessionId", inFlightSession.id)
       setValue("page", "deposit-progress")
     },
-    openRouteSelection: transport === "lifi" ? () => setValue("page", "select-route") : undefined,
+    openRouteSelection:
+      transport === "lifi" && meetsInputMinimum
+        ? () => setValue("page", "select-route")
+        : undefined,
     // The same pick the route picker marks "Best", whether it was chosen for the user or by them.
     isBestRoute:
       !!selectedBridge &&

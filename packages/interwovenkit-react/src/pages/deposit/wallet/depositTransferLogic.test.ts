@@ -25,6 +25,7 @@ import {
   formatQuoteFees,
   isProvablyNotSent,
   isQuoteStale,
+  meetsDepositInputMinimum,
   requiredNativeAmount,
   resolveDepositRecipient,
   selectBridgeOption,
@@ -135,6 +136,12 @@ describe("depositInputMinimum", () => {
 
   it("keeps the deposit minimum for direct Ethereum deposits", () => {
     expect(depositInputMinimum(route, "direct")).toBe("100000")
+  })
+
+  it("checks each transport at its own input boundary", () => {
+    expect(meetsDepositInputMinimum("100000", route, "direct")).toBe(true)
+    expect(meetsDepositInputMinimum("100000", route, "lifi")).toBe(false)
+    expect(meetsDepositInputMinimum("110000", route, "lifi")).toBe(true)
   })
 })
 

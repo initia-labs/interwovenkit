@@ -29,6 +29,14 @@ export function depositInputMinimum(
   return transport === "lifi" ? route.bridge_min_input_amount : route.min_deposit_amount
 }
 
+export function meetsDepositInputMinimum(
+  amount: string,
+  route: Pick<Asset, "min_deposit_amount" | "bridge_min_input_amount">,
+  transport: "direct" | "lifi",
+): boolean {
+  return gteInteger(amount, depositInputMinimum(route, transport))
+}
+
 // A malformed host recipient is an error, never a fallback to the connected wallet.
 export function resolveDepositRecipient(
   recipientAddress: string | undefined,
