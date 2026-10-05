@@ -301,7 +301,10 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const headQuery = useSourceChainHead(source.chainId)
   const noncesQuery = useSenderNonces(source.chainId, hexAddress, () => SOURCE_READ_REFRESH_MS)
 
-  const optionsEnabled = transport === "lifi" && request.isComplete
+  const bridgeMinInputAmount = route.bridge_min_input_amount
+  const meetsBridgeInputMinimum =
+    bridgeMinInputAmount === undefined || gteInteger(amount, bridgeMinInputAmount)
+  const optionsEnabled = transport === "lifi" && request.isComplete && meetsBridgeInputMinimum
   const optionsQuery = useQuery(createBridgeOptionsQueryOptions(api, identity, optionsEnabled))
   const optionsData = optionsEnabled ? optionsQuery.data : undefined
   const ranked = rankBridgeOptions(optionsData?.options ?? [])
@@ -662,6 +665,13 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     hasQuote: !!quote,
     meetsMinimum,
     minimumLabel,
+    bridgeInputMinimum:
+      bridgeMinInputAmount === undefined
+        ? undefined
+        : {
+            amount: bridgeMinInputAmount,
+            label: formatSourceMin(bridgeMinInputAmount, source.decimals, source.symbol),
+          },
     approvalChecking,
     approvalError: allowanceError,
     depositAddressError: depositAddressQuery.error

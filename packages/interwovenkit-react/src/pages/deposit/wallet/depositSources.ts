@@ -95,7 +95,7 @@ export type DepositTransportResolution =
   | {
       transport: "direct" | "lifi"
       source: DepositApiSource
-      /** The Ethereum USDC catalog route, whose minimum applies to every transport. */
+      /** Ethereum receive policy plus the optional gross LI.FI input minimum. */
       route: Asset
       destination: DestinationNetwork
     }

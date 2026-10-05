@@ -252,6 +252,8 @@ export interface DepositReadinessInput {
   hasQuote: boolean
   meetsMinimum: boolean
   minimumLabel: string
+  /** Gross source input policy, independent of the Ethereum receive minimum. */
+  bridgeInputMinimum?: { amount: string; label: string }
   approvalChecking: boolean
   approvalError?: string
 
@@ -280,6 +282,13 @@ export function deriveDepositReadiness(input: DepositReadinessInput): DepositRea
   // Zero, or dust that floors to zero base units, is never quoted.
   if (!gteInteger(input.amount, "1")) return blocked("Enter a valid amount", "info")
   if (!input.isAmountSettled) return loading("Updating amount...")
+  if (
+    input.transport === "lifi" &&
+    input.bridgeInputMinimum !== undefined &&
+    !gteInteger(input.amount, input.bridgeInputMinimum.amount)
+  ) {
+    return blocked(`Enter at least ${input.bridgeInputMinimum.label} before bridge fees`, "info")
+  }
 
   if (input.balancesError) return blocked("Failed to load balance")
   if (input.tokenBalance === undefined) return loading("Loading balance...")

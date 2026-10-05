@@ -48,6 +48,9 @@ export interface Asset {
   /** Minimum deposit in the source denom base unit (not destination). A backend
    * route setting that can change; always read it from here, never hardcode. */
   min_deposit_amount: string
+  /** Optional minimum entered before LI.FI fees, in the matching source token's base units.
+   * The separate min_deposit_amount still applies to the amount received on Ethereum. */
+  bridge_min_input_amount?: string
   /**
    * Backend route-policy slippage tolerance as a percent string (e.g. "0.5";
    * "0.0" on swapless routes). Read-only display: slippage is not a user

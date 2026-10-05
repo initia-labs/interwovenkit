@@ -27,6 +27,32 @@ const stubApi = (payload: unknown): KyInstance =>
   ({ get: () => ({ json: () => Promise.resolve(payload) }) }) as unknown as KyInstance
 
 describe("parseAssets", () => {
+  it("keeps gross bridge input and net deposit minimums separate", () => {
+    const asset = { ...route("100000"), bridge_min_input_amount: "5000000" }
+    expect(parseAssets([asset])).toEqual([asset])
+    expect(parseAssets([route("100000")])[0].bridge_min_input_amount).toBeUndefined()
+  })
+
+  it.each(["", "0", "-1", "1.5", "1e6", " 5000000 ", "9".repeat(79)])(
+    "rejects malformed gross input minimum %s",
+    (bridge_min_input_amount) => {
+      expect(() => parseAssets([{ ...route("100000"), bridge_min_input_amount }])).toThrow(
+        /Invalid bridge_min_input_amount/,
+      )
+    },
+  )
+
+  it.each([null, 5000000, false])("rejects non-string bridge minimum %s", (value) => {
+    expect(() =>
+      parseAssets([
+        {
+          ...route("100000"),
+          bridge_min_input_amount: value as unknown as string,
+        },
+      ]),
+    ).toThrow(/Invalid bridge_min_input_amount/)
+  })
+
   it("passes routes with a valid integer minimum through unchanged", () => {
     const assets = [route("5000000000000000000"), route("0")]
     expect(parseAssets(assets)).toBe(assets)

@@ -38,6 +38,17 @@ export function parseAssets(assets: Asset[]): Asset[] {
         `Invalid min_deposit_amount "${asset.min_deposit_amount}" for route ${asset.src_chain_id}:${asset.src_denom}`,
       )
     }
+    const bridgeMinimum = asset.bridge_min_input_amount
+    if (
+      bridgeMinimum !== undefined &&
+      (typeof bridgeMinimum !== "string" ||
+        !/^\d{1,78}$/.test(bridgeMinimum) ||
+        BigInt(bridgeMinimum) <= 0n)
+    ) {
+      throw new Error(
+        `Invalid bridge_min_input_amount "${bridgeMinimum}" for route ${asset.src_chain_id}:${asset.src_denom}`,
+      )
+    }
     if (!Number.isInteger(asset.src_decimals) || asset.src_decimals < 0) {
       throw new Error(
         `Invalid src_decimals "${asset.src_decimals}" for route ${asset.src_chain_id}:${asset.src_denom}`,

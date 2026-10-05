@@ -48,6 +48,17 @@ The backend repository is the source of truth for the HTTP contract. Wire status
 - **Chain reads** (`evmRpc.ts`) use a pinned JSON-RPC provider per source chain, never the wallet's, failing over across keyless public endpoints on a timeout, a non-OK response, or a capacity error. Widget code never uses an RPC that needs an API key. The source watch reads the receipt and the sender nonce each poll, and scans blocks from the pre-send head only once another transaction has taken the nonce.
 - **Buckets:** an unknown bucket shows "Status unavailable" on both tracking screens and keeps polling; it is never a failure. Only `bucket=completed` completes a flow.
 
+For LI.FI inputs, the optional asset field `bridge_min_input_amount` is the inclusive
+minimum entered before fees. `min_deposit_amount` and options' `required_min_received`
+remain the Ethereum receive floors. For example, input `5000000` (5 USDC) and a
+`4715799` minimum receive can pass when `bridge_min_input_amount` is `5000000` and
+both receive floors are `100000` (0.1 USDC). The widget never compares the net
+amount with the gross input floor. Missing input policy preserves older API
+behavior; malformed policy fails asset parsing. Direct Ethereum transfers use
+the processing floor. Deploy the backend input validation before the widget,
+and keep API and processing-service receive configuration aligned. No quote or
+UI check guarantees a route will always be available at a fixed input amount.
+
 Bridge status outages are failed reads, not failed transfers. Gateway HTML 5xx responses, browser network/CORS failures, and the API's `200 bridge_pending` fallback with `status_unavailable: true` keep the last validated observation, including receiving transaction links, so an outage cannot overwrite a known refund or delivery state. After a reload, the session's saved bridge state stands in until a fresh read succeeds. The poll interval is the only retry cadence; neither ky nor React Query retries inside a poll. Identity conflicts and malformed responses still stop tracking, and read retries never sign or resend a transaction.
 
 ## Onramper boundary

@@ -116,6 +116,7 @@ describe("isQuoteStale", () => {
 
 describe("toBaseUnitString", () => {
   it.each([
+    ["5", "5000000"],
     ["1.234567", "1234567"],
     ["1.2345678", "1234567"],
     ["-1", ""],
@@ -404,6 +405,58 @@ describe("deriveDepositReadiness", () => {
   const loading = (message?: string) => ({ status: "loading" as const, message })
   const ROUTE_MINIMUM =
     "This route would deliver less than 1 USDC to Ethereum. Try a larger amount or another route."
+
+  it("accepts exactly five entered with a separate lower receive floor", () => {
+    expect(
+      deriveDepositReadiness({
+        ...ready,
+        amount: "5000000",
+        bridgeInputMinimum: { amount: "5000000", label: "5 USDC" },
+        minimumLabel: "0.1 USDC",
+        meetsMinimum: true,
+      }),
+    ).toEqual({ status: "ready" })
+  })
+
+  it("rejects input below five before looking for bridge options", () => {
+    expect(
+      deriveDepositReadiness({
+        ...ready,
+        amount: "4999999",
+        bridgeInputMinimum: { amount: "5000000", label: "5 USDC" },
+        minimumLabel: "0.1 USDC",
+        hasOptions: false,
+      }),
+    ).toEqual(blocked("Enter at least 5 USDC before bridge fees", "info"))
+  })
+
+  it("does not let qualifying gross input bypass the net receive floor", () => {
+    expect(
+      deriveDepositReadiness({
+        ...ready,
+        amount: "5000000",
+        bridgeInputMinimum: { amount: "5000000", label: "5 USDC" },
+        minimumLabel: "0.1 USDC",
+        meetsMinimum: false,
+      }),
+    ).toEqual(
+      blocked(
+        "This route would deliver less than 0.1 USDC to Ethereum. Try a larger amount or another route.",
+      ),
+    )
+  })
+
+  it("does not apply the bridge input minimum to direct Ethereum transfers", () => {
+    expect(
+      deriveDepositReadiness({
+        ...ready,
+        transport: "direct",
+        amount: "100000",
+        bridgeInputMinimum: { amount: "5000000", label: "5 USDC" },
+        minimumLabel: "0.1 USDC",
+      }),
+    ).toEqual({ status: "ready" })
+  })
   const PREFLIGHT_ERROR = "Could not verify the destination estimate"
 
   it.each<[string, Partial<DepositReadinessInput>, DepositReadiness]>([
