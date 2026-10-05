@@ -49,6 +49,7 @@ import {
   buildDepositTransaction,
   combineEstimatedSeconds,
   deliverySeconds,
+  depositInputMinimum,
   deriveDepositReadiness,
   derivePreflight,
   isProvablyNotSent,
@@ -301,7 +302,9 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const headQuery = useSourceChainHead(source.chainId)
   const noncesQuery = useSenderNonces(source.chainId, hexAddress, () => SOURCE_READ_REFRESH_MS)
 
-  const optionsEnabled = transport === "lifi" && request.isComplete
+  const inputMinimum = depositInputMinimum(route, transport)
+  const meetsInputMinimum = gteInteger(amount, inputMinimum)
+  const optionsEnabled = transport === "lifi" && request.isComplete && meetsInputMinimum
   const optionsQuery = useQuery(createBridgeOptionsQueryOptions(api, identity, optionsEnabled))
   const optionsData = optionsEnabled ? optionsQuery.data : undefined
   const ranked = rankBridgeOptions(optionsData?.options ?? [])
@@ -334,20 +337,14 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const depositAddress =
     transport === "direct" ? depositAddressQuery.data?.deposit_address : quote?.deposit_address
 
-  // Below either minimum the USDC is stranded at the deposit address with no refund.
+  // The guaranteed LI.FI output must clear the route minimum after fees.
   const clearsLifiMinimums = (minReceived: string | undefined) =>
-    gteInteger(minReceived, optionsData?.required_min_received ?? "") &&
-    gteInteger(minReceived, route.min_deposit_amount)
+    meetsInputMinimum && gteInteger(minReceived, optionsData?.required_min_received ?? "")
   const meetsMinimum =
-    transport === "lifi"
-      ? clearsLifiMinimums(quote?.min_received)
-      : gteInteger(amount, route.min_deposit_amount)
-  // LI.FI must clear both minimums, so the label names the higher one.
-  const requiredMin = optionsData?.required_min_received ?? ""
+    transport === "lifi" ? clearsLifiMinimums(quote?.min_received) : meetsInputMinimum
+  const inputMinimumLabel = formatSourceMin(inputMinimum, route.src_decimals, "USDC")
   const minimumLabel = formatSourceMin(
-    transport === "lifi" && gteInteger(requiredMin, route.min_deposit_amount)
-      ? requiredMin
-      : route.min_deposit_amount,
+    optionsData?.required_min_received ?? route.min_deposit_amount,
     route.src_decimals,
     "USDC",
   )
@@ -639,6 +636,8 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     quantityEntered: !!quantity,
     isAmountSettled,
     amount,
+    meetsInputMinimum,
+    inputMinimumLabel,
     // A failed refresh keeps the last balance; estimateGas refuses a send it no longer covers.
     balancesError: !!balancesQuery.error && balancesQuery.data === undefined,
     tokenBalance: balancesQuery.data?.token,

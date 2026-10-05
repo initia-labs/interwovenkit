@@ -8,6 +8,7 @@ const route = (min_deposit_amount: string): Asset => ({
   src_denom: "ethereum-native",
   src_decimals: 18,
   min_deposit_amount,
+  bridge_min_input_amount: "6000000000000000000",
   max_slippage_percent: "0.5",
   dst_symbol: "iUSD",
   dst_networks: [],
@@ -42,6 +43,15 @@ describe("parseAssets", () => {
   it("throws on a non-integer minimum", () => {
     expect(() => parseAssets([route("1.5")])).toThrow(/Invalid min_deposit_amount/)
     expect(() => parseAssets([route("abc")])).toThrow(/Invalid min_deposit_amount/)
+  })
+
+  it("throws on a missing or malformed bridged-input minimum", () => {
+    expect(() =>
+      parseAssets([{ ...route("1"), bridge_min_input_amount: undefined as unknown as string }]),
+    ).toThrow(/Invalid bridge_min_input_amount/)
+    expect(() => parseAssets([{ ...route("1"), bridge_min_input_amount: "1.5" }])).toThrow(
+      /Invalid bridge_min_input_amount/,
+    )
   })
 
   it("names the offending route in the error", () => {

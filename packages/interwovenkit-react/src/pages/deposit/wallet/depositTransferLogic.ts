@@ -7,6 +7,7 @@ import { gteInteger, isDecimalString, isIntegerString } from "../data/parse"
 import { QUOTE_STALE_TIME, type QuoteResult } from "../data/quote"
 import { ETHEREUM_CHAIN_ID, ETHEREUM_USDC_DENOM } from "../data/source"
 import type {
+  Asset,
   BridgeOption,
   BridgeQuoteResponse,
   BridgeRequestIdentity,
@@ -19,6 +20,13 @@ import { encodeErc20Transfer } from "./evmRpc"
 export function toBaseUnitString(quantity: string, decimals: number): string {
   const amount = toBaseUnit(quantity, { decimals })
   return isIntegerString(amount) ? amount : ""
+}
+
+export function depositInputMinimum(
+  route: Pick<Asset, "min_deposit_amount" | "bridge_min_input_amount">,
+  transport: "direct" | "lifi",
+): string {
+  return transport === "lifi" ? route.bridge_min_input_amount : route.min_deposit_amount
 }
 
 // A malformed host recipient is an error, never a fallback to the connected wallet.
@@ -235,6 +243,8 @@ export interface DepositReadinessInput {
   quantityEntered: boolean
   amount: string
   isAmountSettled: boolean
+  meetsInputMinimum: boolean
+  inputMinimumLabel: string
 
   balancesError: boolean
   tokenBalance?: string
@@ -280,6 +290,7 @@ export function deriveDepositReadiness(input: DepositReadinessInput): DepositRea
   // Zero, or dust that floors to zero base units, is never quoted.
   if (!gteInteger(input.amount, "1")) return blocked("Enter a valid amount", "info")
   if (!input.isAmountSettled) return loading("Updating amount...")
+  if (!input.meetsInputMinimum) return blocked(`Enter at least ${input.inputMinimumLabel}`, "info")
 
   if (input.balancesError) return blocked("Failed to load balance")
   if (input.tokenBalance === undefined) return loading("Loading balance...")
@@ -311,7 +322,6 @@ export function deriveDepositReadiness(input: DepositReadinessInput): DepositRea
       )
     }
   } else {
-    if (!input.meetsMinimum) return blocked(`Enter at least ${input.minimumLabel}`, "info")
     if (input.depositAddressError) return blocked(input.depositAddressError)
     if (!input.hasDepositAddress) return loading("Preparing deposit address...")
   }

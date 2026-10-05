@@ -14,6 +14,7 @@ import {
   buildDepositTransaction,
   combineEstimatedSeconds,
   deliverySeconds,
+  depositInputMinimum,
   type DepositReadiness,
   type DepositReadinessInput,
   deriveDepositReadiness,
@@ -122,6 +123,18 @@ describe("toBaseUnitString", () => {
     ["abc", ""],
   ])("%s → %j", (quantity, expected) => {
     expect(toBaseUnitString(quantity, 6)).toBe(expected)
+  })
+})
+
+describe("depositInputMinimum", () => {
+  const route = { min_deposit_amount: "100000", bridge_min_input_amount: "110000" }
+
+  it("uses the pre-fee bridge minimum for LI.FI deposits", () => {
+    expect(depositInputMinimum(route, "lifi")).toBe("110000")
+  })
+
+  it("keeps the deposit minimum for direct Ethereum deposits", () => {
+    expect(depositInputMinimum(route, "direct")).toBe("100000")
   })
 })
 
@@ -382,6 +395,8 @@ describe("deriveDepositReadiness", () => {
     quantityEntered: true,
     amount: "1000000",
     isAmountSettled: true,
+    meetsInputMinimum: true,
+    inputMinimumLabel: "1 USDC",
     balancesError: false,
     tokenBalance: "5000000",
     nativeBalance: "10000000000000000",
@@ -448,7 +463,12 @@ describe("deriveDepositReadiness", () => {
     ["a route below the minimum", { meetsMinimum: false }, blocked(ROUTE_MINIMUM)],
     [
       "a direct amount below the minimum",
-      { transport: "direct", meetsMinimum: false },
+      { transport: "direct", meetsInputMinimum: false },
+      blocked("Enter at least 1 USDC", "info"),
+    ],
+    [
+      "a bridged input below the pre-fee minimum",
+      { meetsInputMinimum: false, hasOptions: false, hasQuote: false },
       blocked("Enter at least 1 USDC", "info"),
     ],
     [

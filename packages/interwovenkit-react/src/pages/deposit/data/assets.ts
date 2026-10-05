@@ -23,11 +23,11 @@ function hasMissingProcessingTime(assets: Asset[]): boolean {
 }
 
 // Boundary guard for the `.json<ListAssetsResponse>()` cast, scoped to the
-// values protecting funds: `min_deposit_amount` (a payout below it strands the
-// deposit with no refund) and `src_decimals` (both the displayed minimum and
-// the gate's payout conversion run through it). The gates built on them
-// (isBelowRouteMinimum, formatSourceMin) silently disarm or mis-render on a
-// malformed value (`BigNumber.lt("")`/`lt(0)` never trips; missing decimals
+// values protecting funds: the direct and bridged minimums (a payout below the
+// applicable one strands the deposit with no refund) and `src_decimals` (both
+// the displayed minimum and the gate's payout conversion run through it). The
+// gates built on them (isBelowRouteMinimum, formatSourceMin) silently disarm or
+// mis-render on a malformed value (`BigNumber.lt("")`/`lt(0)` never trips; missing decimals
 // render base units as whole tokens), and backend schema drift is a realistic
 // source of both — so fail loudly here instead, surfaced through the method
 // hub's local boundary (Retry), degrading only the address/onramp methods.
@@ -36,6 +36,11 @@ export function parseAssets(assets: Asset[]): Asset[] {
     if (!/^\d+$/.test(asset.min_deposit_amount)) {
       throw new Error(
         `Invalid min_deposit_amount "${asset.min_deposit_amount}" for route ${asset.src_chain_id}:${asset.src_denom}`,
+      )
+    }
+    if (!/^\d+$/.test(asset.bridge_min_input_amount)) {
+      throw new Error(
+        `Invalid bridge_min_input_amount "${asset.bridge_min_input_amount}" for route ${asset.src_chain_id}:${asset.src_denom}`,
       )
     }
     if (!Number.isInteger(asset.src_decimals) || asset.src_decimals < 0) {
