@@ -25,6 +25,7 @@ import {
   formatQuoteFees,
   isProvablyNotSent,
   isQuoteStale,
+  lifiOutputMinimum,
   meetsDepositInputMinimum,
   requiredNativeAmount,
   resolveDepositRecipient,
@@ -142,6 +143,18 @@ describe("depositInputMinimum", () => {
     expect(meetsDepositInputMinimum("100000", route, "direct")).toBe(true)
     expect(meetsDepositInputMinimum("100000", route, "lifi")).toBe(false)
     expect(meetsDepositInputMinimum("110000", route, "lifi")).toBe(true)
+  })
+})
+
+describe("lifiOutputMinimum", () => {
+  const route = { min_deposit_amount: "100000" }
+
+  it("keeps the route minimum when the bridge requirement is lower", () => {
+    expect(lifiOutputMinimum(route, "90000")).toBe("100000")
+  })
+
+  it("uses the bridge requirement when it is higher", () => {
+    expect(lifiOutputMinimum(route, "110000")).toBe("110000")
   })
 })
 

@@ -37,6 +37,15 @@ export function meetsDepositInputMinimum(
   return gteInteger(amount, depositInputMinimum(route, transport))
 }
 
+export function lifiOutputMinimum(
+  route: Pick<Asset, "min_deposit_amount">,
+  requiredMinReceived: string | undefined,
+): string {
+  return requiredMinReceived && gteInteger(requiredMinReceived, route.min_deposit_amount)
+    ? requiredMinReceived
+    : route.min_deposit_amount
+}
+
 // A malformed host recipient is an error, never a fallback to the connected wallet.
 export function resolveDepositRecipient(
   recipientAddress: string | undefined,

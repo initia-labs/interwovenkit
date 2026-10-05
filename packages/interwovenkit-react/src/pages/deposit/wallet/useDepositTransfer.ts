@@ -54,6 +54,7 @@ import {
   derivePreflight,
   isProvablyNotSent,
   isQuoteStale,
+  lifiOutputMinimum,
   meetsDepositInputMinimum,
   requiredNativeAmount,
   resolveDepositRecipient,
@@ -338,17 +339,14 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const depositAddress =
     transport === "direct" ? depositAddressQuery.data?.deposit_address : quote?.deposit_address
 
-  // The guaranteed LI.FI output must clear the route minimum after fees.
+  // The guaranteed LI.FI output must clear both post-fee minimums.
+  const outputMinimum = lifiOutputMinimum(route, optionsData?.required_min_received)
   const clearsLifiMinimums = (minReceived: string | undefined) =>
-    meetsInputMinimum && gteInteger(minReceived, optionsData?.required_min_received ?? "")
+    meetsInputMinimum && gteInteger(minReceived, outputMinimum)
   const meetsMinimum =
     transport === "lifi" ? clearsLifiMinimums(quote?.min_received) : meetsInputMinimum
   const inputMinimumLabel = formatSourceMin(inputMinimum, route.src_decimals, "USDC")
-  const minimumLabel = formatSourceMin(
-    optionsData?.required_min_received ?? route.min_deposit_amount,
-    route.src_decimals,
-    "USDC",
-  )
+  const minimumLabel = formatSourceMin(outputMinimum, route.src_decimals, "USDC")
 
   // The guaranteed amount, not the expected one, must clear the destination.
   const preflightAmount = transport === "lifi" ? (quote?.min_received ?? "") : amount
