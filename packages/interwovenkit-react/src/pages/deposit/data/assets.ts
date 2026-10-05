@@ -38,7 +38,8 @@ export function parseAssets(assets: Asset[]): Asset[] {
     }
     if (
       asset.bridge_min_input_amount !== undefined &&
-      !/^\d+$/.test(asset.bridge_min_input_amount)
+      (typeof asset.bridge_min_input_amount !== "string" ||
+        !/^\d+$/.test(asset.bridge_min_input_amount))
     ) {
       throw new Error(
         `Invalid bridge_min_input_amount "${asset.bridge_min_input_amount}" for route ${asset.src_chain_id}:${asset.src_denom}`,

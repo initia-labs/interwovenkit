@@ -54,6 +54,9 @@ describe("parseAssets", () => {
     expect(() => parseAssets([{ ...route("1"), bridge_min_input_amount: "1.5" }])).toThrow(
       /Invalid bridge_min_input_amount/,
     )
+    expect(() =>
+      parseAssets([{ ...route("1"), bridge_min_input_amount: 1 as unknown as string }]),
+    ).toThrow(/Invalid bridge_min_input_amount/)
   })
 
   it("names the offending route in the error", () => {
