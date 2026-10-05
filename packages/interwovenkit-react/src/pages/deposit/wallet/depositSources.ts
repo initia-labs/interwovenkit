@@ -99,7 +99,11 @@ export type DepositTransportResolution =
       route: Asset
       destination: DestinationNetwork
     }
-  | { transport: "unavailable"; source: DepositApiSource; reason: "loading" | "error" }
+  | {
+      transport: "unavailable"
+      source: DepositApiSource
+      reason: "loading" | "error" | "bridge_config"
+    }
 
 interface ResolveDepositTransportParams {
   mode: "deposit" | "withdraw"
@@ -132,6 +136,13 @@ export function resolveDepositTransport(
 
   const destination = findDestinationNetwork(route, dstChainId, dstDenom)
   if (!destination) return { transport: "router" }
+
+  // Production and staging may roll out this bridge-only field at different
+  // times. Keep direct Ethereum deposits available, but never query or sign a
+  // bridged deposit without the server-provided pre-fee minimum.
+  if (source.transport === "lifi" && route.bridge_min_input_amount === undefined) {
+    return { transport: "unavailable", source, reason: "bridge_config" }
+  }
 
   return { transport: source.transport, source, route, destination }
 }

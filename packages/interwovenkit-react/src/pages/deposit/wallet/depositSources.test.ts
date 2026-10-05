@@ -85,6 +85,19 @@ describe("resolveDepositTransport", () => {
     })
   })
 
+  it("keeps direct deposits available while holding back bridges without their minimum", () => {
+    const catalog = [ethereumRoute({ bridge_min_input_amount: undefined })]
+    expect(resolveDepositTransport({ ...params, catalog })).toMatchObject({
+      transport: "unavailable",
+      reason: "bridge_config",
+      source: { chainName: "Base" },
+    })
+    expect(resolveDepositTransport({ ...params, ...ethereum, catalog })).toMatchObject({
+      transport: "direct",
+      route: catalog[0],
+    })
+  })
+
   it.each([
     ["withdraw", { mode: "withdraw" as const }],
     [

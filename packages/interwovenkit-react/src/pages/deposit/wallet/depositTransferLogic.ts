@@ -26,7 +26,7 @@ export function depositInputMinimum(
   route: Pick<Asset, "min_deposit_amount" | "bridge_min_input_amount">,
   transport: "direct" | "lifi",
 ): string {
-  return transport === "lifi" ? route.bridge_min_input_amount : route.min_deposit_amount
+  return transport === "lifi" ? (route.bridge_min_input_amount ?? "") : route.min_deposit_amount
 }
 
 export function meetsDepositInputMinimum(

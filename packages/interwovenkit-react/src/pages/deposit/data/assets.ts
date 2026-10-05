@@ -26,11 +26,9 @@ function hasMissingProcessingTime(assets: Asset[]): boolean {
 // values protecting funds: the direct and bridged minimums (a payout below the
 // applicable one strands the deposit with no refund) and `src_decimals` (both
 // the displayed minimum and the gate's payout conversion run through it). The
-// gates built on them (isBelowRouteMinimum, formatSourceMin) silently disarm or
-// mis-render on a malformed value (`BigNumber.lt("")`/`lt(0)` never trips; missing decimals
-// render base units as whole tokens), and backend schema drift is a realistic
-// source of both — so fail loudly here instead, surfaced through the method
-// hub's local boundary (Retry), degrading only the address/onramp methods.
+// bridged minimum is optional while the backend rolls it out, but a present
+// malformed value still fails loudly. Bridged transports fail closed when it is
+// absent, without taking direct deposits down with the catalog.
 export function parseAssets(assets: Asset[]): Asset[] {
   for (const asset of assets) {
     if (!/^\d+$/.test(asset.min_deposit_amount)) {
@@ -38,7 +36,10 @@ export function parseAssets(assets: Asset[]): Asset[] {
         `Invalid min_deposit_amount "${asset.min_deposit_amount}" for route ${asset.src_chain_id}:${asset.src_denom}`,
       )
     }
-    if (!/^\d+$/.test(asset.bridge_min_input_amount)) {
+    if (
+      asset.bridge_min_input_amount !== undefined &&
+      !/^\d+$/.test(asset.bridge_min_input_amount)
+    ) {
       throw new Error(
         `Invalid bridge_min_input_amount "${asset.bridge_min_input_amount}" for route ${asset.src_chain_id}:${asset.src_denom}`,
       )

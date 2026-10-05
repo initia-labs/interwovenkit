@@ -45,10 +45,12 @@ describe("parseAssets", () => {
     expect(() => parseAssets([route("abc")])).toThrow(/Invalid min_deposit_amount/)
   })
 
-  it("throws on a missing or malformed bridged-input minimum", () => {
-    expect(() =>
-      parseAssets([{ ...route("1"), bridge_min_input_amount: undefined as unknown as string }]),
-    ).toThrow(/Invalid bridge_min_input_amount/)
+  it("allows a missing bridged-input minimum during rollout", () => {
+    const assets = [{ ...route("1"), bridge_min_input_amount: undefined }]
+    expect(parseAssets(assets)).toBe(assets)
+  })
+
+  it("throws on a malformed bridged-input minimum", () => {
     expect(() => parseAssets([{ ...route("1"), bridge_min_input_amount: "1.5" }])).toThrow(
       /Invalid bridge_min_input_amount/,
     )

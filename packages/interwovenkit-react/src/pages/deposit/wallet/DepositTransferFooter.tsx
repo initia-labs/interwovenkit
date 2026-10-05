@@ -26,6 +26,18 @@ const DepositTransferFooter = () => {
     )
   }
 
+  if (resolution.reason === "bridge_config") {
+    return (
+      <Footer
+        extra={<FormHelp level="error">Bridged deposits are temporarily unavailable</FormHelp>}
+      >
+        <Button.White disabled fullWidth>
+          Unavailable
+        </Button.White>
+      </Footer>
+    )
+  }
+
   return (
     <Footer extra={<FormHelp level="error">Couldn&apos;t load deposit routes</FormHelp>}>
       <Button.White

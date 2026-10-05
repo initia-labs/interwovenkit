@@ -144,6 +144,12 @@ describe("depositInputMinimum", () => {
     expect(meetsDepositInputMinimum("100000", route, "lifi")).toBe(false)
     expect(meetsDepositInputMinimum("110000", route, "lifi")).toBe(true)
   })
+
+  it("fails closed when the bridge minimum has not rolled out", () => {
+    const withoutBridgeMinimum = { min_deposit_amount: "100000" }
+    expect(meetsDepositInputMinimum("100000", withoutBridgeMinimum, "direct")).toBe(true)
+    expect(meetsDepositInputMinimum("100000", withoutBridgeMinimum, "lifi")).toBe(false)
+  })
 })
 
 describe("lifiOutputMinimum", () => {
