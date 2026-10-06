@@ -19,6 +19,7 @@ const route = (
   src_denom,
   src_decimals,
   min_deposit_amount,
+  bridge_min_input_amount: min_deposit_amount,
   max_slippage_percent: "0.5",
   dst_symbol: "iUSD",
   dst_networks: [],

@@ -19,6 +19,7 @@ const ethereumRoute = (overrides: Partial<Asset> = {}): Asset => ({
   src_denom: ETHEREUM_USDC_DENOM,
   src_decimals: 6,
   min_deposit_amount: "10000000",
+  bridge_min_input_amount: "11000000",
   max_slippage_percent: "0.5",
   dst_symbol: "iUSD",
   dst_networks: [buildDestinationNetwork()],
@@ -81,6 +82,19 @@ describe("resolveDepositTransport", () => {
     expect(resolveDepositTransport({ ...params, catalog: [otherToken, route] })).toMatchObject({
       transport: "lifi",
       route,
+    })
+  })
+
+  it("keeps direct deposits available while holding back bridges without their minimum", () => {
+    const catalog = [ethereumRoute({ bridge_min_input_amount: undefined })]
+    expect(resolveDepositTransport({ ...params, catalog })).toMatchObject({
+      transport: "unavailable",
+      reason: "bridge_config",
+      source: { chainName: "Base" },
+    })
+    expect(resolveDepositTransport({ ...params, ...ethereum, catalog })).toMatchObject({
+      transport: "direct",
+      route: catalog[0],
     })
   })
 

@@ -11,6 +11,7 @@ const USDC_ROUTE: Asset = {
   src_denom: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
   src_decimals: 6,
   min_deposit_amount: "10000000",
+  bridge_min_input_amount: "11000000",
   max_slippage_percent: "0.5",
   dst_symbol: "iUSD",
   dst_networks: [],

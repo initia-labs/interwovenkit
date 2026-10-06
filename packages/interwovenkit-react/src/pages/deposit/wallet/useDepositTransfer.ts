@@ -49,10 +49,13 @@ import {
   buildDepositTransaction,
   combineEstimatedSeconds,
   deliverySeconds,
+  depositInputMinimum,
   deriveDepositReadiness,
   derivePreflight,
   isProvablyNotSent,
   isQuoteStale,
+  lifiOutputMinimum,
+  meetsDepositInputMinimum,
   requiredNativeAmount,
   resolveDepositRecipient,
   selectBridgeOption,
@@ -301,7 +304,9 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const headQuery = useSourceChainHead(source.chainId)
   const noncesQuery = useSenderNonces(source.chainId, hexAddress, () => SOURCE_READ_REFRESH_MS)
 
-  const optionsEnabled = transport === "lifi" && request.isComplete
+  const inputMinimum = depositInputMinimum(route, transport)
+  const meetsInputMinimum = meetsDepositInputMinimum(amount, route, transport)
+  const optionsEnabled = transport === "lifi" && request.isComplete && meetsInputMinimum
   const optionsQuery = useQuery(createBridgeOptionsQueryOptions(api, identity, optionsEnabled))
   const optionsData = optionsEnabled ? optionsQuery.data : undefined
   const ranked = rankBridgeOptions(optionsData?.options ?? [])
@@ -334,23 +339,14 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const depositAddress =
     transport === "direct" ? depositAddressQuery.data?.deposit_address : quote?.deposit_address
 
-  // Below either minimum the USDC is stranded at the deposit address with no refund.
+  // The guaranteed LI.FI output must clear both post-fee minimums.
+  const outputMinimum = lifiOutputMinimum(route, optionsData?.required_min_received)
   const clearsLifiMinimums = (minReceived: string | undefined) =>
-    gteInteger(minReceived, optionsData?.required_min_received ?? "") &&
-    gteInteger(minReceived, route.min_deposit_amount)
+    meetsInputMinimum && gteInteger(minReceived, outputMinimum)
   const meetsMinimum =
-    transport === "lifi"
-      ? clearsLifiMinimums(quote?.min_received)
-      : gteInteger(amount, route.min_deposit_amount)
-  // LI.FI must clear both minimums, so the label names the higher one.
-  const requiredMin = optionsData?.required_min_received ?? ""
-  const minimumLabel = formatSourceMin(
-    transport === "lifi" && gteInteger(requiredMin, route.min_deposit_amount)
-      ? requiredMin
-      : route.min_deposit_amount,
-    route.src_decimals,
-    "USDC",
-  )
+    transport === "lifi" ? clearsLifiMinimums(quote?.min_received) : meetsInputMinimum
+  const inputMinimumLabel = formatSourceMin(inputMinimum, route.src_decimals, "USDC")
+  const minimumLabel = formatSourceMin(outputMinimum, route.src_decimals, "USDC")
 
   // The guaranteed amount, not the expected one, must clear the destination.
   const preflightAmount = transport === "lifi" ? (quote?.min_received ?? "") : amount
@@ -386,9 +382,13 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
   const isAmountSettled = typedAmount === amount
   const isEstimating =
     !isAmountSettled ||
-    (transport === "lifi" && (isFirstFetch(optionsQuery) || quoteQuery.isLoading)) ||
-    isFirstFetch(preflightQuery) ||
-    (needsDisplayQuote && isFirstFetch(displayQuery))
+    (transport === "lifi"
+      ? optionsEnabled &&
+        (isFirstFetch(optionsQuery) ||
+          quoteQuery.isLoading ||
+          isFirstFetch(preflightQuery) ||
+          (needsDisplayQuote && isFirstFetch(displayQuery)))
+      : isFirstFetch(preflightQuery) || (needsDisplayQuote && isFirstFetch(displayQuery)))
 
   const approval = quote?.approval
   const spender = approval?.spender_address ?? ""
@@ -639,6 +639,8 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
     quantityEntered: !!quantity,
     isAmountSettled,
     amount,
+    meetsInputMinimum,
+    inputMinimumLabel,
     // A failed refresh keeps the last balance; estimateGas refuses a send it no longer covers.
     balancesError: !!balancesQuery.error && balancesQuery.data === undefined,
     tokenBalance: balancesQuery.data?.token,
@@ -1069,7 +1071,10 @@ export function useDepositTransfer(resolution: DepositTransportSelection) {
       if (inFlightSession) setValue("depositSessionId", inFlightSession.id)
       setValue("page", "deposit-progress")
     },
-    openRouteSelection: transport === "lifi" ? () => setValue("page", "select-route") : undefined,
+    openRouteSelection:
+      transport === "lifi" && meetsInputMinimum
+        ? () => setValue("page", "select-route")
+        : undefined,
     // The same pick the route picker marks "Best", whether it was chosen for the user or by them.
     isBestRoute:
       !!selectedBridge &&

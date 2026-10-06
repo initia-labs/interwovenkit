@@ -48,6 +48,9 @@ export interface Asset {
   /** Minimum deposit in the source denom base unit (not destination). A backend
    * route setting that can change; always read it from here, never hardcode. */
   min_deposit_amount: string
+  /** Minimum bridged input before bridge fees, in source denom base units.
+   * Optional during the backend rollout; bridged routes fail closed when absent. */
+  bridge_min_input_amount?: string
   /**
    * Backend route-policy slippage tolerance as a percent string (e.g. "0.5";
    * "0.0" on swapless routes). Read-only display: slippage is not a user
