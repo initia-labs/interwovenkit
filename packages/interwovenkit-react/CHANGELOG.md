@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.13.2](https://github.com/initia-labs/interwovenkit/compare/v2.13.1...v2.13.2) (2026-10-06)
+
+
+### Bug Fixes
+
+* **deposit:** validate bridged input before LI.FI fees ([#271](https://github.com/initia-labs/interwovenkit/issues/271)) ([4afbb93](https://github.com/initia-labs/interwovenkit/commit/4afbb931c2559fde53b8bbd50e8d9df61eb592b7))
+
 ## [2.13.1](https://github.com/initia-labs/interwovenkit/compare/v2.13.0...v2.13.1) (2026-10-02)
 
 
