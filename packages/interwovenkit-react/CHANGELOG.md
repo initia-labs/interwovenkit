@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.13.4](https://github.com/initia-labs/interwovenkit/compare/v2.13.3...v2.13.4) (2026-11-02)
+
+
+### Bug Fixes
+
+* **bridge:** show CCTP v2 operations in route preview ([#275](https://github.com/initia-labs/interwovenkit/issues/275)) ([b56ab28](https://github.com/initia-labs/interwovenkit/commit/b56ab281236c5d4002f000a48718bd62b4a490c9))
+
 ## [2.13.3](https://github.com/initia-labs/interwovenkit/compare/v2.13.2...v2.13.3) (2026-11-02)
 
 
