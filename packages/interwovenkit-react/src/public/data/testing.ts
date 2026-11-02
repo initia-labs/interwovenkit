@@ -435,8 +435,6 @@ const COSMOS_PREFIX_MAP: Record<string, string> = {
   celestia: "celestia",
   "neutron-1": "neutron",
   "osmosis-1": "osmo",
-  "injective-1": "inj",
-  "injective-888": "inj",
 }
 
 // Chains with Ethereum keys (Injective) derive the key on `m/44'/60'/0'/0/0`, use the
@@ -543,6 +541,8 @@ export function createTestCosmosWallet(config: CreateTestCosmosWalletConfig): Co
   function resolvePrefix(chainId: string): string {
     if (chains?.[chainId]) return chains[chainId].prefix
     if (COSMOS_PREFIX_MAP[chainId]) return COSMOS_PREFIX_MAP[chainId]
+    // Every Injective network (mainnet, testnet, devnet) uses the same prefix.
+    if (isEthKeyChain(chainId)) return "inj"
     // Default: strip trailing version suffix (e.g. "noble-1" → "noble")
     return chainId.replace(/-\d+$/, "")
   }

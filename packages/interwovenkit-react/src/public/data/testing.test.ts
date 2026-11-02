@@ -110,6 +110,11 @@ describe("createTestCosmosWallet", () => {
     expect(account.address).toBe(INJECTIVE_ADDRESS)
   })
 
+  it("uses the inj prefix on every Injective chain", async () => {
+    const [account] = await getSigner("injective-777").getAccounts()
+    expect(account.address).toBe(INJECTIVE_ADDRESS)
+  })
+
   it("signs the keccak256 hash of the amino sign doc on Injective", async () => {
     const { signature } = await getSigner("injective-1").signAmino(INJECTIVE_ADDRESS, signDoc)
     const pubkey = fromBase64(signature.pub_key.value)
