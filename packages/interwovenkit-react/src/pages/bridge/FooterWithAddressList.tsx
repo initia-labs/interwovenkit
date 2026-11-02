@@ -1,5 +1,5 @@
 import { fromBech32 } from "@cosmjs/encoding"
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useEffectEvent, useState } from "react"
 import { InitiaAddress } from "@initia/utils"
 import Button from "@/components/Button"
 import Footer from "@/components/Footer"
@@ -26,7 +26,7 @@ const FooterWithAddressList = ({ children }: Props) => {
 
   const { initiaAddress, hexAddress } = useInterwovenKit()
   const initiaSigner = useOfflineSigner()
-  const { list: cosmosWallets } = useCosmosWallets()
+  const { find: findCosmosWallet } = useCosmosWallets()
 
   const findSkipChain = useFindSkipChain()
   const findChainType = useFindChainType()
@@ -40,13 +40,14 @@ const FooterWithAddressList = ({ children }: Props) => {
     .filter((chainId) => findChainType(findSkipChain(chainId)) === "cosmos")
   const pubkeyRequired = isPubkeyRequired(intermediateCosmosChainIds, sourceEthKey)
 
-  // Memoized because a configured wallet's `getProvider()` may return a new object on
-  // every call, which would refetch the public key on every render.
-  const sourceSigner = useMemo(() => {
+  // Resolved inside the effect instead of memoized: the wallet list can be rebuilt every
+  // render (default or inline `cosmosWallets`), and Keplr returns a new signer per call, so
+  // a signer object as an effect dependency would refetch the public key on every render.
+  const getSourceSigner = useEffectEvent(() => {
     if (!isCosmosSource) return initiaSigner
-    const wallet = cosmosWallets.find(({ name }) => name === cosmosWalletName)
-    return wallet?.getProvider()?.getOfflineSignerOnlyAmino(srcChainId)
-  }, [isCosmosSource, initiaSigner, cosmosWallets, cosmosWalletName, srcChainId])
+    const provider = findCosmosWallet(cosmosWalletName)?.getProvider()
+    return provider?.getOfflineSignerOnlyAmino(srcChainId)
+  })
 
   const [pubkey, setPubkey] = useState<Uint8Array | undefined>(undefined)
   const [loading, setLoading] = useState(false)
@@ -60,6 +61,7 @@ const FooterWithAddressList = ({ children }: Props) => {
         setPubkey(undefined)
         setError(null)
         if (!pubkeyRequired) return
+        const sourceSigner = getSourceSigner()
         if (!sourceSigner) throw new Error("Wallet not connected")
         setLoading(true)
         const [{ pubkey }] = await sourceSigner.getAccounts()
@@ -78,7 +80,7 @@ const FooterWithAddressList = ({ children }: Props) => {
     return () => {
       cancelled = true
     }
-  }, [pubkeyRequired, sourceSigner])
+  }, [pubkeyRequired, isCosmosSource, cosmosWalletName, srcChainId, initiaSigner])
 
   if (error) {
     return <FooterWithError error={error} />
