@@ -1,5 +1,7 @@
 import type { OfflineAminoSigner } from "@cosmjs/amino"
-import { Secp256k1HdWallet } from "@cosmjs/amino"
+import { encodeSecp256k1Signature, Secp256k1HdWallet, serializeSignDoc } from "@cosmjs/amino"
+import { keccak256, Secp256k1 } from "@cosmjs/crypto"
+import { toBech32 } from "@cosmjs/encoding"
 import {
   type Chain,
   createWalletClient,
@@ -11,6 +13,7 @@ import { mnemonicToAccount, privateKeyToAccount } from "viem/accounts"
 import { mainnet } from "viem/chains"
 import { injected } from "wagmi/connectors"
 import type { CosmosWallet, CosmosWalletProvider } from "@/data/config"
+import { ethAddressFromPubkey, isEthKeyChain } from "@/pages/bridge/data/eth-key"
 
 // Browser-safe default RPCs. viem's built-in defaults (e.g. eth.merkle.io)
 // reject cross-origin requests, breaking browser-based test wallets.
@@ -434,6 +437,28 @@ const COSMOS_PREFIX_MAP: Record<string, string> = {
   "osmosis-1": "osmo",
 }
 
+// Chains with Ethereum keys (Injective) derive the key on `m/44'/60'/0'/0/0`, use the
+// keccak256 address, and verify amino signatures over the keccak256 hash of the sign doc,
+// as Keplr does for them. The address bytes match the Initia account of the same mnemonic.
+async function createEthKeySigner(mnemonic: string, prefix: string): Promise<OfflineAminoSigner> {
+  const { privateKey, publicKey } = mnemonicToAccount(mnemonic).getHdKey()
+  if (!privateKey || !publicKey) throw new Error("Failed to derive key from mnemonic")
+  const address = toBech32(prefix, ethAddressFromPubkey(publicKey))
+
+  return {
+    async getAccounts() {
+      return [{ address, algo: "secp256k1", pubkey: publicKey }]
+    },
+    async signAmino(signerAddress, signDoc) {
+      if (signerAddress !== address) throw new Error(`Address ${signerAddress} not found in wallet`)
+      const hash = keccak256(serializeSignDoc(signDoc))
+      const signature = await Secp256k1.createSignature(hash, privateKey)
+      const fixedLength = new Uint8Array([...signature.r(32), ...signature.s(32)])
+      return { signed: signDoc, signature: encodeSecp256k1Signature(publicKey, fixedLength) }
+    },
+  }
+}
+
 export interface CreateTestCosmosWalletConfig {
   /**
    * BIP-39 mnemonic phrase used to derive Cosmos accounts.
@@ -474,7 +499,9 @@ export interface CreateTestCosmosWalletConfig {
  * Creates a Cosmos wallet for the Bridge wallet selection list,
  * backed by a mnemonic-derived `Secp256k1HdWallet` (standard Cosmos
  * secp256k1 signing). Designed for automated testing and local
- * development against chains like Noble and Neutron.
+ * development against chains like Noble and Neutron. Injective uses an
+ * Ethereum key instead, so its address matches the Initia account
+ * derived from the same mnemonic.
  *
  * Pass the returned wallet via the `cosmosWallets` config prop
  * on `InterwovenKitProvider`. It will appear in the Bridge's
@@ -507,20 +534,24 @@ export function createTestCosmosWallet(config: CreateTestCosmosWalletConfig): Co
     throw new Error("mnemonic is required")
   }
 
-  // Cache wallet instances per bech32 prefix. Stores the Promise itself
-  // so concurrent calls for the same prefix share a single derivation.
-  const walletCache = new Map<string, Promise<Secp256k1HdWallet>>()
+  // Cache signers per key type and bech32 prefix. Stores the Promise itself
+  // so concurrent calls for the same chain share a single derivation.
+  const signerCache = new Map<string, Promise<OfflineAminoSigner>>()
 
   function resolvePrefix(chainId: string): string {
     if (chains?.[chainId]) return chains[chainId].prefix
     if (COSMOS_PREFIX_MAP[chainId]) return COSMOS_PREFIX_MAP[chainId]
+    // Every Injective network (mainnet, testnet, devnet) uses the same prefix.
+    if (isEthKeyChain(chainId)) return "inj"
     // Default: strip trailing version suffix (e.g. "noble-1" → "noble")
     return chainId.replace(/-\d+$/, "")
   }
 
-  function getOrCreateWallet(chainId: string): Promise<Secp256k1HdWallet> {
+  function getOrCreateSigner(chainId: string): Promise<OfflineAminoSigner> {
     const prefix = resolvePrefix(chainId)
-    const cached = walletCache.get(prefix)
+    const ethKey = isEthKeyChain(chainId)
+    const cacheKey = `${ethKey ? "eth" : "cosmos"}:${prefix}`
+    const cached = signerCache.get(cacheKey)
     if (cached) return cached
 
     if (debug) {
@@ -528,13 +559,15 @@ export function createTestCosmosWallet(config: CreateTestCosmosWalletConfig): Co
       console.log(`[${name}] Creating wallet for chain ${chainId} (prefix: ${prefix})`)
     }
 
-    const promise = Secp256k1HdWallet.fromMnemonic(mnemonic, { prefix })
+    const promise = ethKey
+      ? createEthKeySigner(mnemonic, prefix)
+      : Secp256k1HdWallet.fromMnemonic(mnemonic, { prefix })
     promise.catch((error) => {
-      walletCache.delete(prefix)
+      signerCache.delete(cacheKey)
       // eslint-disable-next-line no-console
       console.error(`[${name}] Failed to create wallet for prefix "${prefix}":`, error)
     })
-    walletCache.set(prefix, promise)
+    signerCache.set(cacheKey, promise)
     return promise
   }
 
@@ -543,12 +576,12 @@ export function createTestCosmosWallet(config: CreateTestCosmosWalletConfig): Co
   function createLazySigner(chainId: string): OfflineAminoSigner {
     return {
       async getAccounts() {
-        const wallet = await getOrCreateWallet(chainId)
-        return wallet.getAccounts()
+        const signer = await getOrCreateSigner(chainId)
+        return signer.getAccounts()
       },
       async signAmino(signerAddress, signDoc) {
-        const wallet = await getOrCreateWallet(chainId)
-        return wallet.signAmino(signerAddress, signDoc)
+        const signer = await getOrCreateSigner(chainId)
+        return signer.signAmino(signerAddress, signDoc)
       },
     }
   }

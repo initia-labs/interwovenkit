@@ -2,7 +2,7 @@ import { toBase64 } from "@cosmjs/encoding"
 import { calculateFee, GasPrice, SigningStargateClient, type StdFee } from "@cosmjs/stargate"
 import type { StatusResponseJson, TrackResponseJson, TxJson } from "@skip-go/client"
 import BigNumber from "bignumber.js"
-import { AuthInfo, Tx, TxBody } from "cosmjs-types/cosmos/tx/v1beta1/tx"
+import { AuthInfo, Tx, TxBody, TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import { has, head } from "ramda"
 import { createElement, Fragment } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -13,6 +13,7 @@ import { useConfig } from "@/data/config"
 import { LocalStorageKey } from "@/data/constants"
 import { formatMoveError } from "@/data/errors"
 import { normalizeError, STALE_TIMES } from "@/data/http"
+import { parseAccount } from "@/data/patches/accounts"
 import {
   useAminoConverters,
   useAminoTypes,
@@ -33,6 +34,7 @@ import { useFindSkipAsset } from "./assets"
 import { decodeCosmosAminoMessages } from "./bridgeTxUtils"
 import { useChainType, useFindSkipChain, useSkipChain } from "./chains"
 import { useCosmosWallets } from "./cosmos"
+import { isEthKeyChain, withInjectivePubkey } from "./eth-key"
 import { switchEthereumChain } from "./evm"
 import type { FormValues } from "./form"
 import type { HistoryDetails } from "./history"
@@ -144,7 +146,7 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
           const client = await SigningStargateClient.connectWithSigner(
             srcChain.rpc,
             offlineSigner,
-            { registry, aminoTypes },
+            { registry, aminoTypes, accountParser: parseAccount },
           )
           const balances = await client.getAllBalances(sender)
           const availableFeeAsset = srcChain.fee_assets.find((asset) =>
@@ -166,7 +168,9 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
           const gas = await client.simulate(sender, messages, "")
           const gasPrice = GasPrice.fromString(gas_price.average + denom)
           const fee = calculateFee(Math.ceil(gas * DEFAULT_GAS_ADJUSTMENT), gasPrice)
-          const txHash = await client.signAndBroadcastSync(sender, messages, fee)
+          const signed = await client.sign(sender, messages, fee, "")
+          const txRaw = isEthKeyChain(srcChainId) ? withInjectivePubkey(signed) : signed
+          const txHash = await client.broadcastTxSync(TxRaw.encode(txRaw).finish())
           const wait = waitForTxConfirmationWithClient({ txHash, client })
           return { txHash, wait }
         }
