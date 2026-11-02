@@ -1,4 +1,11 @@
-import { createTestWalletConnector, type CreateTestWalletOptions } from "./testing"
+import { serializeSignDoc, type StdSignDoc } from "@cosmjs/amino"
+import { keccak256, Secp256k1, Secp256k1Signature, sha256 } from "@cosmjs/crypto"
+import { fromBase64 } from "@cosmjs/encoding"
+import {
+  createTestCosmosWallet,
+  createTestWalletConnector,
+  type CreateTestWalletOptions,
+} from "./testing"
 
 vi.mock("wagmi/connectors", () => ({
   injected: ({ target }: { target: () => unknown }) => target(),
@@ -76,5 +83,51 @@ describe("createTestWalletConnector", () => {
         addressIndex: 1,
       } as unknown as Parameters<typeof createTestWalletConnector>[0]),
     ).toThrow("addressIndex requires mnemonic")
+  })
+})
+
+describe("createTestCosmosWallet", () => {
+  // Hardhat account 0 (0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266) in bech32.
+  const INJECTIVE_ADDRESS = "inj17w0adeg64ky0daxwd2ugyuneellmjgnxf5vkec"
+
+  const signDoc: StdSignDoc = {
+    chain_id: "injective-1",
+    account_number: "1",
+    sequence: "0",
+    fee: { amount: [{ denom: "inj", amount: "1" }], gas: "200000" },
+    msgs: [],
+    memo: "",
+  }
+
+  function getSigner(chainId: string) {
+    const provider = createTestCosmosWallet({ mnemonic: TEST_MNEMONIC }).getProvider()
+    if (!provider) throw new Error("Provider not found")
+    return provider.getOfflineSignerOnlyAmino(chainId)
+  }
+
+  it("derives the Ethereum key address with the inj prefix on Injective", async () => {
+    const [account] = await getSigner("injective-1").getAccounts()
+    expect(account.address).toBe(INJECTIVE_ADDRESS)
+  })
+
+  it("signs the keccak256 hash of the amino sign doc on Injective", async () => {
+    const { signature } = await getSigner("injective-1").signAmino(INJECTIVE_ADDRESS, signDoc)
+    const pubkey = fromBase64(signature.pub_key.value)
+    const sig = Secp256k1Signature.fromFixedLength(fromBase64(signature.signature))
+    const bytes = serializeSignDoc(signDoc)
+    await expect(Secp256k1.verifySignature(sig, keccak256(bytes), pubkey)).resolves.toBe(true)
+    await expect(Secp256k1.verifySignature(sig, sha256(bytes), pubkey)).resolves.toBe(false)
+  })
+
+  it("rejects signing for another address", async () => {
+    await expect(
+      getSigner("injective-1").signAmino("inj1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq", signDoc),
+    ).rejects.toThrow("not found in wallet")
+  })
+
+  it("keeps the Cosmos key address on other chains", async () => {
+    const [account] = await getSigner("noble-1").getAccounts()
+    expect(account.address).toMatch(/^noble1/)
+    expect(account.address.slice(6, 38)).not.toBe(INJECTIVE_ADDRESS.slice(4, 36))
   })
 })

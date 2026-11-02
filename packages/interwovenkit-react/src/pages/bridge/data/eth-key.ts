@@ -16,7 +16,7 @@ export interface SourceAccount {
   pubkey?: Uint8Array
 }
 
-function ethAddressFromPubkey(pubkey: Uint8Array) {
+export function ethAddressFromPubkey(pubkey: Uint8Array) {
   return keccak256(Secp256k1.uncompressPubkey(pubkey).slice(1)).slice(-20)
 }
 
