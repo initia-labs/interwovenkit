@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.13.3](https://github.com/initia-labs/interwovenkit/compare/v2.13.2...v2.13.3) (2026-11-02)
+
+
+### Bug Fixes
+
+* **bridge:** support Injective as a Cosmos source ([#273](https://github.com/initia-labs/interwovenkit/issues/273)) ([cbe1550](https://github.com/initia-labs/interwovenkit/commit/cbe1550bae3ce8b170e4e551280b6453717a8b91))
+
 ## [2.13.2](https://github.com/initia-labs/interwovenkit/compare/v2.13.1...v2.13.2) (2026-10-06)
 
 
