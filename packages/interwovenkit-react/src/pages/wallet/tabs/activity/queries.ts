@@ -2,7 +2,7 @@ import type { StdFee } from "@cosmjs/amino"
 import type { Event } from "@cosmjs/stargate/build/events"
 import ky from "ky"
 import { descend, prop, sortWith } from "ramda"
-import { queryOptions, useQueries, useSuspenseQuery } from "@tanstack/react-query"
+import { queryOptions, useQueries, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { accountQueryKeys } from "@/data/account"
 import { type NormalizedChain, useInitiaRegistry } from "@/data/chains"
 import { STALE_TIMES } from "@/data/http"
@@ -46,20 +46,28 @@ export interface ChainActivity extends TxItem {
 
 export function useCreateTxsQuery() {
   const address = useInitiaAddress()
+  const queryClient = useQueryClient()
   return (chain: NormalizedChain, options: { enabled: boolean }) => {
+    const { queryKey } = accountQueryKeys.txs(chain.indexerUrl, address)
     return queryOptions({
-      queryKey: accountQueryKeys.txs(chain.indexerUrl, address).queryKey,
+      queryKey,
       queryFn: async () => {
         if (!options.enabled) return []
         const searchParams = {
           "pagination.reverse": true,
           "pagination.limit": ACTIVITY_PAGINATION_LIMIT,
         }
-        const { txs } = await ky
-          .create({ prefixUrl: chain.indexerUrl })
-          .get(`indexer/tx/v1/txs/by_account/${address}`, { searchParams })
-          .json<Paginated<"txs", TxItem>>()
-        return txs
+        // Fee selection suspends on this query, so unavailable history must
+        // not block transaction approval. Keep the last good list on failure.
+        try {
+          const { txs } = await ky
+            .create({ prefixUrl: chain.indexerUrl })
+            .get(`indexer/tx/v1/txs/by_account/${address}`, { searchParams })
+            .json<Paginated<"txs", TxItem>>()
+          return txs
+        } catch {
+          return queryClient.getQueryData<TxItem[]>(queryKey) ?? []
+        }
       },
       staleTime: STALE_TIMES.SECOND,
     })
