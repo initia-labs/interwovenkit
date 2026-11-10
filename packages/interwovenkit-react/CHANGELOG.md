@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.13.5](https://github.com/initia-labs/interwovenkit/compare/v2.13.4...v2.13.5) (2026-11-10)
+
+
+### Bug Fixes
+
+* **fee:** keep signing working when the tx indexer is down ([#278](https://github.com/initia-labs/interwovenkit/issues/278)) ([4d9e7fa](https://github.com/initia-labs/interwovenkit/commit/4d9e7faf46f1d0b60af9045eae098a7f4e01ad5a))
+
 ## [2.13.4](https://github.com/initia-labs/interwovenkit/compare/v2.13.3...v2.13.4) (2026-11-02)
 
 
