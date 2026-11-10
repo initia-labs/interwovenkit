@@ -1,7 +1,7 @@
 import type { StdFee } from "@cosmjs/amino"
 import type { Event } from "@cosmjs/stargate/build/events"
 import ky from "ky"
-import { descend, prop, sortWith } from "ramda"
+import { descend, sortWith } from "ramda"
 import { queryOptions, useQueries, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { accountQueryKeys } from "@/data/account"
 import { type NormalizedChain, useInitiaRegistry } from "@/data/chains"
@@ -44,6 +44,11 @@ export interface ChainActivity extends TxItem {
   chain: NormalizedChain
 }
 
+export interface TxHistory {
+  txs: TxItem[]
+  unavailable: boolean
+}
+
 export function useCreateTxsQuery() {
   const address = useInitiaAddress()
   const queryClient = useQueryClient()
@@ -51,8 +56,8 @@ export function useCreateTxsQuery() {
     const { queryKey } = accountQueryKeys.txs(chain.indexerUrl, address)
     return queryOptions({
       queryKey,
-      queryFn: async () => {
-        if (!options.enabled) return []
+      queryFn: async (): Promise<TxHistory> => {
+        if (!options.enabled) return { txs: [], unavailable: false }
         const searchParams = {
           "pagination.reverse": true,
           "pagination.limit": ACTIVITY_PAGINATION_LIMIT,
@@ -61,12 +66,13 @@ export function useCreateTxsQuery() {
         // not block transaction approval. Keep the last good list on failure.
         try {
           const { txs } = await ky
-            .create({ prefixUrl: chain.indexerUrl })
+            .create({ prefixUrl: chain.indexerUrl, timeout: 5000 })
             .get(`indexer/tx/v1/txs/by_account/${address}`, { searchParams })
             .json<Paginated<"txs", TxItem>>()
-          return txs
+          return { txs, unavailable: false }
         } catch {
-          return queryClient.getQueryData<TxItem[]>(queryKey) ?? []
+          const cached = queryClient.getQueryData<TxHistory>(queryKey)
+          return { txs: cached?.txs ?? [], unavailable: true }
         }
       },
       staleTime: STALE_TIMES.SECOND,
@@ -74,9 +80,11 @@ export function useCreateTxsQuery() {
   }
 }
 
+const selectTxs = (history: TxHistory) => history.txs
+
 export function useTxs(chain: NormalizedChain, options: { enabled: boolean }) {
   const createTxsQuery = useCreateTxsQuery()
-  return useSuspenseQuery(createTxsQuery(chain, options))
+  return useSuspenseQuery({ ...createTxsQuery(chain, options), select: selectTxs })
 }
 
 /**
@@ -117,8 +125,12 @@ export const useAllActivities = () => {
     // here lets React Query structurally share the aggregate until query data
     // changes, keeping Activity's downstream memoization effective.
     combine: (results) => ({
-      activities: aggregateActivities(chains, results.map(prop("data"))),
+      activities: aggregateActivities(
+        chains,
+        results.map(({ data }) => data?.txs),
+      ),
       isLoading: results.some((query) => query.isLoading),
+      isUnavailable: results.some(({ data }) => data?.unavailable),
     }),
   })
 }

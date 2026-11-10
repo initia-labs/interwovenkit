@@ -1,5 +1,6 @@
 import { useMemo } from "react"
 import { useAtom } from "jotai"
+import FormHelp from "@/components/form/FormHelp"
 import Status from "@/components/Status"
 import { useLayer1 } from "@/data/chains"
 import ChainSelect from "../../components/ChainSelect"
@@ -9,7 +10,7 @@ import ActivityList from "./ActivityList"
 import { useAllActivities } from "./queries"
 
 const Activity = () => {
-  const { activities, isLoading } = useAllActivities()
+  const { activities, isLoading, isUnavailable } = useAllActivities()
   const [selectedChain, setSelectedChain] = useAtom(activityChainAtom)
   const layer1 = useLayer1()
 
@@ -26,6 +27,10 @@ const Activity = () => {
 
   if (isLoading && activities.length === 0) {
     return <Status>Loading activities...</Status>
+  }
+
+  if (!activities.length && isUnavailable) {
+    return <Status>History temporarily unavailable</Status>
   }
 
   if (!activities.length && !isLoading) {
@@ -46,6 +51,8 @@ const Activity = () => {
           fullWidth
         />
       </HomeContainer.Controls>
+
+      {isUnavailable && <FormHelp level="info">Some history is temporarily unavailable</FormHelp>}
 
       <ActivityList list={filteredActivities} chainId={selectedChain || layer1.chainId} />
     </HomeContainer.Root>
