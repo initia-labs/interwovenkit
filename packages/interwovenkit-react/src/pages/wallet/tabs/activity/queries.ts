@@ -57,7 +57,9 @@ export function useCreateTxsQuery() {
     return queryOptions({
       queryKey,
       queryFn: async (): Promise<TxHistory> => {
-        if (!options.enabled) return { txs: [], unavailable: false }
+        if (!options.enabled) {
+          return queryClient.getQueryData<TxHistory>(queryKey) ?? { txs: [], unavailable: false }
+        }
         const searchParams = {
           "pagination.reverse": true,
           "pagination.limit": ACTIVITY_PAGINATION_LIMIT,
