@@ -132,7 +132,7 @@ export const useAllActivities = () => {
         results.map(({ data }) => data?.txs),
       ),
       isLoading: results.some((query) => query.isLoading),
-      isUnavailable: results.some(({ data }) => data?.unavailable),
+      unavailableChains: chains.filter((_, index) => results[index].data?.unavailable),
     }),
   })
 }
