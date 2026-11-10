@@ -1,15 +1,22 @@
 import { useMemo } from "react"
 import { useAtom } from "jotai"
+import FormHelp from "@/components/form/FormHelp"
 import Status from "@/components/Status"
-import { useLayer1 } from "@/data/chains"
+import { type NormalizedChain, useLayer1 } from "@/data/chains"
 import ChainSelect from "../../components/ChainSelect"
 import HomeContainer from "../../components/HomeContainer"
 import { activityChainAtom } from "../state"
 import ActivityList from "./ActivityList"
 import { useAllActivities } from "./queries"
 
+function formatUnavailable(chains: NormalizedChain[]) {
+  if (chains.length > 3) return "Some history is temporarily unavailable"
+  const names = new Intl.ListFormat("en").format(chains.map((chain) => chain.name))
+  return `${names} history is temporarily unavailable`
+}
+
 const Activity = () => {
-  const { activities, isLoading } = useAllActivities()
+  const { activities, isLoading, unavailableChains } = useAllActivities()
   const [selectedChain, setSelectedChain] = useAtom(activityChainAtom)
   const layer1 = useLayer1()
 
@@ -26,6 +33,10 @@ const Activity = () => {
 
   if (isLoading && activities.length === 0) {
     return <Status>Loading activities...</Status>
+  }
+
+  if (!activities.length && unavailableChains.length) {
+    return <Status>History temporarily unavailable</Status>
   }
 
   if (!activities.length && !isLoading) {
@@ -46,6 +57,10 @@ const Activity = () => {
           fullWidth
         />
       </HomeContainer.Controls>
+
+      {unavailableChains.length > 0 && (
+        <FormHelp level="info">{formatUnavailable(unavailableChains)}</FormHelp>
+      )}
 
       <ActivityList list={filteredActivities} chainId={selectedChain || layer1.chainId} />
     </HomeContainer.Root>

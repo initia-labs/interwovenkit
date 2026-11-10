@@ -1,8 +1,8 @@
 import type { StdFee } from "@cosmjs/amino"
 import type { Event } from "@cosmjs/stargate/build/events"
 import ky from "ky"
-import { descend, prop, sortWith } from "ramda"
-import { queryOptions, useQueries, useSuspenseQuery } from "@tanstack/react-query"
+import { descend, sortWith } from "ramda"
+import { queryOptions, useQueries, useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
 import { accountQueryKeys } from "@/data/account"
 import { type NormalizedChain, useInitiaRegistry } from "@/data/chains"
 import { STALE_TIMES } from "@/data/http"
@@ -44,31 +44,49 @@ export interface ChainActivity extends TxItem {
   chain: NormalizedChain
 }
 
+export interface TxHistory {
+  txs: TxItem[]
+  unavailable: boolean
+}
+
 export function useCreateTxsQuery() {
   const address = useInitiaAddress()
+  const queryClient = useQueryClient()
   return (chain: NormalizedChain, options: { enabled: boolean }) => {
+    const { queryKey } = accountQueryKeys.txs(chain.indexerUrl, address)
     return queryOptions({
-      queryKey: accountQueryKeys.txs(chain.indexerUrl, address).queryKey,
-      queryFn: async () => {
-        if (!options.enabled) return []
+      queryKey,
+      queryFn: async (): Promise<TxHistory> => {
+        if (!options.enabled) {
+          return queryClient.getQueryData<TxHistory>(queryKey) ?? { txs: [], unavailable: false }
+        }
         const searchParams = {
           "pagination.reverse": true,
           "pagination.limit": ACTIVITY_PAGINATION_LIMIT,
         }
-        const { txs } = await ky
-          .create({ prefixUrl: chain.indexerUrl })
-          .get(`indexer/tx/v1/txs/by_account/${address}`, { searchParams })
-          .json<Paginated<"txs", TxItem>>()
-        return txs
+        // Fee selection suspends on this query, so unavailable history must
+        // not block transaction approval. Keep the last good list on failure.
+        try {
+          const { txs } = await ky
+            .create({ prefixUrl: chain.indexerUrl, timeout: 5000 })
+            .get(`indexer/tx/v1/txs/by_account/${address}`, { searchParams })
+            .json<Paginated<"txs", TxItem>>()
+          return { txs, unavailable: false }
+        } catch {
+          const cached = queryClient.getQueryData<TxHistory>(queryKey)
+          return { txs: cached?.txs ?? [], unavailable: true }
+        }
       },
       staleTime: STALE_TIMES.SECOND,
     })
   }
 }
 
+const selectTxs = (history: TxHistory) => history.txs
+
 export function useTxs(chain: NormalizedChain, options: { enabled: boolean }) {
   const createTxsQuery = useCreateTxsQuery()
-  return useSuspenseQuery(createTxsQuery(chain, options))
+  return useSuspenseQuery({ ...createTxsQuery(chain, options), select: selectTxs })
 }
 
 /**
@@ -109,8 +127,12 @@ export const useAllActivities = () => {
     // here lets React Query structurally share the aggregate until query data
     // changes, keeping Activity's downstream memoization effective.
     combine: (results) => ({
-      activities: aggregateActivities(chains, results.map(prop("data"))),
+      activities: aggregateActivities(
+        chains,
+        results.map(({ data }) => data?.txs),
+      ),
       isLoading: results.some((query) => query.isLoading),
+      unavailableChains: chains.filter((_, index) => results[index].data?.unavailable),
     }),
   })
 }
