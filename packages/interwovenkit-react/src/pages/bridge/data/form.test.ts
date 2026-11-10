@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { normalizePersistedSlippage } from "./form"
+import { createPersistedRecipient, getPersistedRecipient, normalizePersistedSlippage } from "./form"
 
 describe("normalizePersistedSlippage", () => {
   it("returns null when nothing was persisted", () => {
@@ -39,5 +39,41 @@ describe("normalizePersistedSlippage", () => {
 
   it("preserves an unusual but valid value", () => {
     expect(normalizePersistedSlippage("2.75")).toBe("2.75")
+  })
+})
+
+describe("getPersistedRecipient", () => {
+  it("restores a recipient for the same connected address", () => {
+    const persisted = createPersistedRecipient("init1sender", "init1recipient")
+
+    expect(getPersistedRecipient(persisted, "init1sender")).toBe("init1recipient")
+  })
+
+  it("ignores a recipient from a different connected address", () => {
+    const persisted = createPersistedRecipient("init1sender", "init1recipient")
+
+    expect(getPersistedRecipient(persisted, "init1other")).toBeNull()
+  })
+
+  it("ignores a recipient when no connected address is available", () => {
+    const persisted = createPersistedRecipient("init1sender", "init1recipient")
+
+    expect(getPersistedRecipient(persisted)).toBeNull()
+  })
+
+  it("compares addresses case-insensitively", () => {
+    const persisted = createPersistedRecipient("0xABCDEF", "0xrecipient")
+
+    expect(getPersistedRecipient(persisted, "0xabcdef")).toBe("0xrecipient")
+  })
+
+  it("ignores legacy recipient-only storage", () => {
+    expect(getPersistedRecipient("init1recipient", "init1sender")).toBeNull()
+  })
+
+  it("ignores malformed recipient records", () => {
+    expect(
+      getPersistedRecipient(JSON.stringify({ address: "init1sender" }), "init1sender"),
+    ).toBeNull()
   })
 })
