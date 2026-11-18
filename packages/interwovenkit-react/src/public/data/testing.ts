@@ -13,7 +13,7 @@ import { mnemonicToAccount, privateKeyToAccount } from "viem/accounts"
 import { mainnet } from "viem/chains"
 import { injected } from "wagmi/connectors"
 import type { CosmosWallet, CosmosWalletProvider } from "@/data/config"
-import { ethAddressFromPubkey, isEthKeyChain } from "@/pages/bridge/data/eth-key"
+import { ethAddressFromPubkey, isEthKeyChain, isInjectiveChain } from "@/pages/bridge/data/eth-key"
 
 // Browser-safe default RPCs. viem's built-in defaults (e.g. eth.merkle.io)
 // reject cross-origin requests, breaking browser-based test wallets.
@@ -542,7 +542,7 @@ export function createTestCosmosWallet(config: CreateTestCosmosWalletConfig): Co
     if (chains?.[chainId]) return chains[chainId].prefix
     if (COSMOS_PREFIX_MAP[chainId]) return COSMOS_PREFIX_MAP[chainId]
     // Every Injective network (mainnet, testnet, devnet) uses the same prefix.
-    if (isEthKeyChain(chainId)) return "inj"
+    if (isInjectiveChain(chainId)) return "inj"
     // Default: strip trailing version suffix (e.g. "noble-1" → "noble")
     return chainId.replace(/-\d+$/, "")
   }

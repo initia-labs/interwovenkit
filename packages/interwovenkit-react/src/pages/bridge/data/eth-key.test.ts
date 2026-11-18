@@ -4,6 +4,7 @@ import { AuthInfo, TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import {
   deriveCosmosAddress,
   isEthKeyChain,
+  isInjectiveChain,
   isPubkeyRequired,
   withInjectivePubkey,
 } from "./eth-key"
@@ -17,6 +18,7 @@ const SECP256K1_ADDRESS = "751e76e8199196d454941c45d1b3a323f1433bd6"
 
 const noble = { chain_id: "noble-1", bech32_prefix: "noble" }
 const injective = { chain_id: "injective-1", bech32_prefix: "inj" }
+const dymension = { chain_id: "dymension_1100-1", bech32_prefix: "dym" }
 
 function decode(address: string) {
   const { prefix, data } = fromBech32(address)
@@ -29,9 +31,37 @@ describe("isEthKeyChain", () => {
     expect(isEthKeyChain("injective-888")).toBe(true)
   })
 
+  it("matches other ethsecp256k1 chains", () => {
+    for (const chainId of [
+      "canto_7700-1",
+      "cronosmainnet_25-1",
+      "dimension_37-1",
+      "dymension_1100-1",
+      "haqq_11235-1",
+      "mantra-1",
+      "planq_7070-2",
+      "shido_9008-1",
+      "xrplevm_1440000-1",
+    ]) {
+      expect(isEthKeyChain(chainId)).toBe(true)
+    }
+  })
+
   it("rejects secp256k1 chains", () => {
     expect(isEthKeyChain("noble-1")).toBe(false)
     expect(isEthKeyChain("interwoven-1")).toBe(false)
+    // Ethermint-style chain IDs whose Cosmos accounts still use secp256k1
+    expect(isEthKeyChain("kava_2222-10")).toBe(false)
+    expect(isEthKeyChain("althea_258432-1")).toBe(false)
+  })
+})
+
+describe("isInjectiveChain", () => {
+  it("matches Injective networks only", () => {
+    expect(isInjectiveChain("injective-1")).toBe(true)
+    expect(isInjectiveChain("injective-888")).toBe(true)
+    expect(isInjectiveChain("dymension_1100-1")).toBe(false)
+    expect(isInjectiveChain("noble-1")).toBe(false)
   })
 })
 
@@ -68,6 +98,22 @@ describe("deriveCosmosAddress", () => {
     })
   })
 
+  it("derives an eth address on an ethsecp256k1 chain other than Injective", () => {
+    const source = { ethKey: false, address: fromHex(SECP256K1_ADDRESS), pubkey: PUBKEY }
+    expect(decode(deriveCosmosAddress(dymension, source))).toEqual({
+      prefix: "dym",
+      data: ETH_ADDRESS,
+    })
+  })
+
+  it("reuses address bytes from Injective to another ethsecp256k1 chain", () => {
+    const source = { ethKey: true, address: fromHex(ETH_ADDRESS) }
+    expect(decode(deriveCosmosAddress(dymension, source))).toEqual({
+      prefix: "dym",
+      data: ETH_ADDRESS,
+    })
+  })
+
   it("matches an injective-1 account derived from its stored public key", () => {
     // From /cosmos/auth/v1beta1/accounts/inj1cml96vmptgw99syqrrz8az79xer2pcgp0a885r
     const pubkey = fromBase64("AtXCpR7zQkJ2tZ3oiKA3V9ugfBEkUUmw6dC1bQAX8f3v")
@@ -98,6 +144,7 @@ describe("isPubkeyRequired", () => {
   it("does not require a public key when every chain uses the source key type", () => {
     expect(isPubkeyRequired(["noble-1", "osmosis-1"], false)).toBe(false)
     expect(isPubkeyRequired(["injective-888"], true)).toBe(false)
+    expect(isPubkeyRequired(["dymension_1100-1"], true)).toBe(false)
     expect(isPubkeyRequired([], true)).toBe(false)
   })
 })

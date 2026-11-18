@@ -34,7 +34,7 @@ import { useFindSkipAsset } from "./assets"
 import { decodeCosmosAminoMessages } from "./bridgeTxUtils"
 import { useChainType, useFindSkipChain, useSkipChain } from "./chains"
 import { useCosmosWallets } from "./cosmos"
-import { isEthKeyChain, withInjectivePubkey } from "./eth-key"
+import { isInjectiveChain, withInjectivePubkey } from "./eth-key"
 import { switchEthereumChain } from "./evm"
 import type { FormValues } from "./form"
 import type { HistoryDetails } from "./history"
@@ -169,7 +169,7 @@ export function useBridgeTx(tx: TxJson, options?: UseBridgeTxOptions) {
           const gasPrice = GasPrice.fromString(gas_price.average + denom)
           const fee = calculateFee(Math.ceil(gas * DEFAULT_GAS_ADJUSTMENT), gasPrice)
           const signed = await client.sign(sender, messages, fee, "")
-          const txRaw = isEthKeyChain(srcChainId) ? withInjectivePubkey(signed) : signed
+          const txRaw = isInjectiveChain(srcChainId) ? withInjectivePubkey(signed) : signed
           const txHash = await client.broadcastTxSync(TxRaw.encode(txRaw).finish())
           const wait = waitForTxConfirmationWithClient({ txHash, client })
           return { txHash, wait }

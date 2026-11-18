@@ -6,8 +6,27 @@ import { AuthInfo, type TxRaw } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 
 // The router chain info has no key algorithm field, so chains whose accounts use an
 // Ethereum key (keccak256 address, ethsecp256k1 public key) are identified by chain ID.
-export function isEthKeyChain(chainId: string) {
+// Besides Injective, these are the router's Cosmos chains that cosmos/chain-registry lists
+// with slip44 60 and an ethsecp256k1 key (Canto omits `key_algos` but is an Ethermint chain).
+// An Ethermint-style chain ID alone is not enough: Kava and Althea accounts use secp256k1.
+const ETH_KEY_CHAIN_IDS = new Set([
+  "canto_7700-1",
+  "cronosmainnet_25-1",
+  "dimension_37-1",
+  "dymension_1100-1",
+  "haqq_11235-1",
+  "mantra-1",
+  "planq_7070-2",
+  "shido_9008-1",
+  "xrplevm_1440000-1",
+])
+
+export function isInjectiveChain(chainId: string) {
   return chainId.startsWith("injective-")
+}
+
+export function isEthKeyChain(chainId: string) {
+  return isInjectiveChain(chainId) || ETH_KEY_CHAIN_IDS.has(chainId)
 }
 
 export interface SourceAccount {
